@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
@@ -50,8 +50,8 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   private String prettyPrint(SkyFunctionName skyFunctionName, Object arg) {
     if (arg instanceof OwnedArtifact) {
       return "file: " + ((OwnedArtifact) arg).getArtifact().getRootRelativePathString();
-    } else if (arg instanceof Action) {
-      return "action: " + ((Action) arg).getMnemonic();
+    } else if (arg instanceof ActionLookupData) {
+      return "action from: " + arg;
     } else if (arg instanceof TargetCompletionKey
         && skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
       return "configured target: " + ((TargetCompletionKey) arg).labelAndConfiguration().getLabel();
@@ -68,8 +68,8 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
     Object arg = key.argument();
     if (arg instanceof OwnedArtifact) {
       return ((OwnedArtifact) arg).getArtifact().getOwner();
-    } else if (arg instanceof Action) {
-      return ((Action) arg).getOwner().getLabel();
+    } else if (arg instanceof ActionLookupData) {
+      return ((ActionLookupData) arg).getLabelForErrors();
     } else if (arg instanceof TargetCompletionKey
         && key.functionName().equals(SkyFunctions.TARGET_COMPLETION)) {
       return ((TargetCompletionKey) arg).labelAndConfiguration().getLabel();

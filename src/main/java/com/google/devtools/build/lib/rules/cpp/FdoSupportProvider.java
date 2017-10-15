@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * A {@link TransitiveInfoProvider} so that {@code cc_toolchain} can pass {@link FdoSupport} to the
@@ -23,12 +26,23 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 @Immutable
 public class FdoSupportProvider implements TransitiveInfoProvider {
   private final FdoSupport fdoSupport;
+  private final Artifact profileArtifact;
+  private final ImmutableMap<PathFragment, Artifact> gcdaArtifacts;
 
-  public FdoSupportProvider(FdoSupport fdoSupport) {
+  public FdoSupportProvider(FdoSupport fdoSupport, Artifact profileArtifact,
+      ImmutableMap<PathFragment, Artifact> gcdaArtifacts) {
     this.fdoSupport = fdoSupport;
+    this.profileArtifact = profileArtifact;
+    this.gcdaArtifacts = gcdaArtifacts;
   }
 
   public FdoSupport getFdoSupport() {
     return fdoSupport;
+  }
+  public Artifact getProfileArtifact() {
+    return profileArtifact;
+  }
+  public ImmutableMap<PathFragment, Artifact> getGcdaArtifacts() {
+    return gcdaArtifacts;
   }
 }

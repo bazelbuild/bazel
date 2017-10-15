@@ -45,7 +45,7 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
 
   @Override
   public Map<SkyKey, ? extends NodeEntry> getBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     try {
       return super.getBatch(requestor, reason, keys);
     } catch (InterruptedException e) {
@@ -66,5 +66,10 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   @Override
   public Map<SkyKey, ? extends NodeEntry> getAllValues() {
     return ((InMemoryGraph) delegate).getAllValues();
+  }
+
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+    return ((InMemoryGraph) delegate).getAllValuesMutable();
   }
 }

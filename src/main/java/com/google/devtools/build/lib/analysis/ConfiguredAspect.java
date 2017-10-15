@@ -19,15 +19,18 @@ import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtr
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
+import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
@@ -39,25 +42,24 @@ import javax.annotation.Nullable;
  * Extra information about a configured target computed on request of a dependent.
  *
  * <p>Analogous to {@link ConfiguredTarget}: contains a bunch of transitive info providers, which
- * are merged with the providers of the associated configured target before they are passed to
- * the configured target factories that depend on the configured target to which this aspect is
- * added.
+ * are merged with the providers of the associated configured target before they are passed to the
+ * configured target factories that depend on the configured target to which this aspect is added.
  *
  * <p>Aspects are created alongside configured targets on request from dependents.
  *
- * <p>For more information about aspects, see
- * {@link com.google.devtools.build.lib.packages.AspectClass}.
+ * <p>For more information about aspects, see {@link
+ * com.google.devtools.build.lib.packages.AspectClass}.
  *
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see com.google.devtools.build.lib.packages.AspectClass
  */
 @Immutable
-public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> {
-  private final String name;
+public final class ConfiguredAspect {
   private final TransitiveInfoProviderMap providers;
+  private final AspectDescriptor descriptor;
 
-  private ConfiguredAspect(String name, TransitiveInfoProviderMap providers) {
-    this.name = name;
+  private ConfiguredAspect(AspectDescriptor descriptor, TransitiveInfoProviderMap providers) {
+    this.descriptor = descriptor;
     this.providers = providers;
   }
 
@@ -65,7 +67,14 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
    * Returns the aspect name.
    */
   public String getName() {
-    return name;
+    return descriptor.getAspectClass().getName();
+  }
+
+  /**
+   *  The aspect descriptor originating this ConfiguredAspect.
+   */
+  public AspectDescriptor getDescriptor() {
+    return descriptor;
   }
 
   /** Returns the providers created by the aspect. */
@@ -76,31 +85,61 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
   @Nullable
   @VisibleForTesting
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
+    AnalysisUtils.checkProvider(providerClass);
     return providers.getProvider(providerClass);
   }
 
-  @Override
-  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
-    return providers.values().iterator();
+  public Object getProvider(SkylarkProviderIdentifier id) {
+    if (id.isLegacy()) {
+      return get(id.getLegacyId());
+    } else {
+      return get(id.getKey());
+    }
+  }
+
+  public Info get(Provider.Key key) {
+    return providers.getProvider(key);
+  }
+
+  public Object get(String legacyKey) {
+    if (OutputGroupProvider.SKYLARK_NAME.equals(legacyKey)) {
+      return get(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey());
+    }
+    return providers.getProvider(legacyKey);
   }
 
   public static ConfiguredAspect forAlias(ConfiguredAspect real) {
-    return new ConfiguredAspect(real.getName(), real.getProviders());
+    return new ConfiguredAspect(real.descriptor, real.getProviders());
+  }
+
+  public static ConfiguredAspect forNonapplicableTarget(AspectDescriptor descriptor) {
+    return new ConfiguredAspect(descriptor, new TransitiveInfoProviderMapBuilder().add().build());
+  }
+
+  public static Builder builder(
+      AspectClass aspectClass, AspectParameters parameters, RuleContext ruleContext) {
+    return new Builder(aspectClass, parameters, ruleContext);
   }
 
   /**
    * Builder for {@link ConfiguredAspect}.
    */
   public static class Builder {
-    private final TransitiveInfoProviderMap.Builder providers = TransitiveInfoProviderMap.builder();
+    private final TransitiveInfoProviderMapBuilder providers =
+        new TransitiveInfoProviderMapBuilder();
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
-    private final ImmutableMap.Builder<String, Object> skylarkProviderBuilder =
-        ImmutableMap.builder();
-    private final String name;
     private final RuleContext ruleContext;
+    private final AspectDescriptor descriptor;
 
-    public Builder(String name, RuleContext ruleContext) {
-      this.name = name;
+    public Builder(
+        AspectClass aspectClass,
+        AspectParameters parameters,
+        RuleContext context) {
+      this(new AspectDescriptor(aspectClass, parameters), context);
+    }
+
+    public Builder(AspectDescriptor descriptor, RuleContext ruleContext) {
+      this.descriptor = descriptor;
       this.ruleContext = ruleContext;
     }
 
@@ -115,23 +154,17 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     /** Adds a provider to the aspect. */
     public Builder addProvider(TransitiveInfoProvider provider) {
       Preconditions.checkNotNull(provider);
-      addProvider(TransitiveInfoProviderMap.getEffectiveProviderClass(provider), provider);
+      addProvider(TransitiveInfoProviderEffectiveClassHelper.get(provider), provider);
       return this;
     }
 
     private void checkProviderClass(Class<? extends TransitiveInfoProvider> providerClass) {
       Preconditions.checkNotNull(providerClass);
-      Preconditions.checkArgument(
-          !SkylarkProviders.class.equals(providerClass),
-          "Do not provide SkylarkProviders directly");
     }
 
     /** Adds providers to the aspect. */
     public Builder addProviders(TransitiveInfoProviderMap providers) {
-      for (Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> entry :
-          providers.entrySet()) {
-        addProvider(entry.getKey(), entry.getKey().cast(entry.getValue()));
-      }
+      this.providers.addAll(providers);
       return this;
     }
 
@@ -161,12 +194,39 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
       return this;
     }
 
-    public Builder addSkylarkTransitiveInfo(String name, Object value, Location loc)
-        throws EvalException {
-      SkylarkProviderValidationUtil.validateAndThrowEvalException(name, value, loc);
-      skylarkProviderBuilder.put(name, value);
+    public Builder addSkylarkTransitiveInfo(String name, Object value) {
+      providers.put(name, value);
       return this;
     }
+
+    public Builder addSkylarkTransitiveInfo(String name, Object value, Location loc)
+        throws EvalException {
+      providers.put(name, value);
+      return this;
+    }
+
+    public Builder addSkylarkDeclaredProvider(Info declaredProvider, Location loc)
+        throws EvalException {
+      Provider constructor = declaredProvider.getProvider();
+      if (!constructor.isExported()) {
+        throw new EvalException(
+            constructor.getLocation(), "All providers must be top level values");
+      }
+      addDeclaredProvider(declaredProvider);
+      return this;
+    }
+
+    private void addDeclaredProvider(Info declaredProvider) {
+      providers.put(declaredProvider);
+    }
+
+    public Builder addNativeDeclaredProvider(Info declaredProvider) {
+      Provider constructor = declaredProvider.getProvider();
+      Preconditions.checkState(constructor.isExported());
+      addDeclaredProvider(declaredProvider);
+      return this;
+    }
+
 
     public ConfiguredAspect build() {
       if (!outputGroupBuilders.isEmpty()) {
@@ -175,17 +235,11 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
           outputGroups.put(entry.getKey(), entry.getValue().build());
         }
 
-        if (providers.contains(OutputGroupProvider.class)) {
+        if (providers.contains(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey())) {
           throw new IllegalStateException(
               "OutputGroupProvider was provided explicitly; do not use addOutputGroup");
         }
-        addProvider(new OutputGroupProvider(outputGroups.build()));
-      }
-
-      ImmutableMap<String, Object> skylarkProvidersMap = skylarkProviderBuilder.build();
-      if (!skylarkProvidersMap.isEmpty()) {
-        providers.add(
-            new SkylarkProviders(skylarkProvidersMap, ImmutableMap.<Key, SkylarkClassObject>of()));
+        addDeclaredProvider(new OutputGroupProvider(outputGroups.build()));
       }
 
       addProvider(
@@ -193,7 +247,7 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
               ImmutableSet.<ActionAnalysisMetadata>of() /* actionsWithoutExtraAction */,
               ruleContext));
 
-      return new ConfiguredAspect(name, providers.build());
+      return new ConfiguredAspect(descriptor, providers.build());
     }
   }
 }

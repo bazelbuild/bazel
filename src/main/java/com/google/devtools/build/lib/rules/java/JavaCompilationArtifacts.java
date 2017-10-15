@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -39,47 +40,20 @@ import javax.annotation.Nullable;
  * JavaCompilationArgsProvider}.
  */
 @Immutable
-public final class JavaCompilationArtifacts {
+@AutoValue
+public abstract class JavaCompilationArtifacts {
 
   public static final JavaCompilationArtifacts EMPTY = new Builder().build();
 
-  private final ImmutableList<Artifact> runtimeJars;
-  private final ImmutableList<Artifact> compileTimeJars;
-  private final ImmutableList<Artifact> instrumentationMetadata;
-  private final Artifact compileTimeDependencyArtifact;
-  private final Artifact instrumentedJar;
+  public abstract ImmutableList<Artifact> getRuntimeJars();
+  public abstract ImmutableList<Artifact> getCompileTimeJars();
+  public abstract ImmutableList<Artifact> getInstrumentationMetadata();
+  @Nullable public abstract Artifact getCompileTimeDependencyArtifact();
+  @Nullable public abstract Artifact getInstrumentedJar();
 
-  private JavaCompilationArtifacts(
-      ImmutableList<Artifact> runtimeJars,
-      ImmutableList<Artifact> compileTimeJars,
-      ImmutableList<Artifact> instrumentationMetadata,
-      Artifact compileTimeDependencyArtifact,
-      Artifact instrumentedJar) {
-    this.runtimeJars = runtimeJars;
-    this.compileTimeJars = compileTimeJars;
-    this.instrumentationMetadata = instrumentationMetadata;
-    this.compileTimeDependencyArtifact = compileTimeDependencyArtifact;
-    this.instrumentedJar = instrumentedJar;
-  }
-
-  public ImmutableList<Artifact> getRuntimeJars() {
-    return runtimeJars;
-  }
-
-  public ImmutableList<Artifact> getCompileTimeJars() {
-    return compileTimeJars;
-  }
-
-  public ImmutableList<Artifact> getInstrumentationMetadata() {
-    return instrumentationMetadata;
-  }
-
-  public Artifact getCompileTimeDependencyArtifact() {
-    return compileTimeDependencyArtifact;
-  }
-
-  public Artifact getInstrumentedJar() {
-    return instrumentedJar;
+  /** Returns a builder for a {@link JavaCompilationArtifacts}. */
+  public static Builder builder() {
+    return new Builder();
   }
 
   /**
@@ -93,7 +67,7 @@ public final class JavaCompilationArtifacts {
     private Artifact instrumentedJar;
 
     public JavaCompilationArtifacts build() {
-      return new JavaCompilationArtifacts(
+      return new AutoValue_JavaCompilationArtifacts(
           ImmutableList.copyOf(runtimeJars),
           ImmutableList.copyOf(compileTimeJars),
           ImmutableList.copyOf(instrumentationMetadata),

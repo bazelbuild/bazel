@@ -19,11 +19,15 @@
 
 OUT=$1
 STRIP_PREFIX=$2
-PREFIX=$3
 
-shift 3
+shift 2
 
-FILE="${PREFIX}$(echo "$*" | sed "s|^${STRIP_PREFIX}/||")"
+# We add the current workspace name as a prefix here, and we use the current
+# directory name for that. This might be a bit brittle.
+FILE="$(echo "$*" | \
+    sed "s|^${STRIP_PREFIX}/||" | \
+    sed "s|^third_party|${PWD##*/}/third_party|" \
+)"
 cat > "$OUT" <<EOF
 package com.google.devtools.build.java.bazel;
 public class JavaLangtoolsLocation {

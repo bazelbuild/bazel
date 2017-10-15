@@ -84,9 +84,8 @@ public class TreeParser {
             return maker.Literal(false);
         }
 
-        if (Character.isLetter(token.charAt(0))) {
+        if (Character.isLetter(token.charAt(0)))
             return maker.Ident(names.fromString(token));
-        }
 
         Object value = null;
         try {
@@ -113,9 +112,8 @@ public class TreeParser {
                 while (!")".equals(token)) {
                     JCExpression arg = parseExpression();
                     args.append(arg);
-                    if (",".equals(token)) {
+                    if (",".equals(token))
                         nextToken();
-                    }
                 }
                 // For now, handle empty args only
                 assert ")".equals(token);

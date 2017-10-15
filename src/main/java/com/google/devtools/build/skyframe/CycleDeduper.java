@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
 
 /**
@@ -27,7 +28,7 @@ import com.google.devtools.build.lib.util.Preconditions;
  */
 class CycleDeduper<T> {
 
-  private HashMultimap<ImmutableSet<T>, ImmutableList<T>> knownCyclesByMembers =
+  private SetMultimap<ImmutableSet<T>, ImmutableList<T>> knownCyclesByMembers =
       HashMultimap.create();
 
   /**

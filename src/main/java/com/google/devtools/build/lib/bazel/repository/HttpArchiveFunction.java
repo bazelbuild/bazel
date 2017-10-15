@@ -28,20 +28,18 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Map;
 
 /**
  * Downloads a file over HTTP.
  */
 public class HttpArchiveFunction extends RepositoryFunction {
 
-  protected final AtomicReference<HttpDownloader> httpDownloader;
+  protected final HttpDownloader downloader;
 
-  public HttpArchiveFunction(AtomicReference<HttpDownloader> httpDownloader) {
-    this.httpDownloader = httpDownloader;
+  public HttpArchiveFunction(HttpDownloader httpDownloader) {
+    this.downloader = httpDownloader;
   }
 
   @Override
@@ -59,9 +57,9 @@ public class HttpArchiveFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws RepositoryFunctionException, InterruptedException {
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
+      throws RepositoryFunctionException, InterruptedException {
     // The output directory is always under output_base/external (to stay out of the way of
     // artifacts from this repository) and uses the rule's name to avoid conflicts with other
     // remote repository rules. For example, suppose you had the following WORKSPACE file:
@@ -70,11 +68,11 @@ public class HttpArchiveFunction extends RepositoryFunction {
     //
     // This would download png.tar.gz to output_base/external/png/png.tar.gz.
     createDirectory(outputDirectory);
-    Path downloadedPath = httpDownloader.get().download(rule, outputDirectory,
+    Path downloadedPath = downloader.download(rule, outputDirectory,
         env.getListener(), clientEnvironment);
 
     DecompressorValue.decompress(getDescriptor(rule, downloadedPath, outputDirectory));
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 
   protected DecompressorDescriptor getDescriptor(Rule rule, Path downloadPath, Path outputDirectory)

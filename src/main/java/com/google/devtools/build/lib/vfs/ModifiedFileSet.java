@@ -54,6 +54,9 @@ public final class ModifiedFileSet {
 
   @Override
   public boolean equals(Object o) {
+    if (o == this) {
+      return true;
+    }
     if (!(o instanceof ModifiedFileSet)) {
       return false;
     }
@@ -68,9 +71,9 @@ public final class ModifiedFileSet {
 
   @Override
   public String toString() {
-    if (this == EVERYTHING_MODIFIED) {
+    if (this.equals(EVERYTHING_MODIFIED)) {
       return "EVERYTHING_MODIFIED";
-    } else if (this == NOTHING_MODIFIED) {
+    } else if (this.equals(NOTHING_MODIFIED)) {
       return "NOTHING_MODIFIED";
     } else {
       return modified.toString();

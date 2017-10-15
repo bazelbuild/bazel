@@ -13,16 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.testutil.TestData.TestRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,7 +36,9 @@ public class RuleDocumentationTest {
       TestRuleClassProvider.getRuleClassProvider();
 
   private static void assertContains(String base, String value) {
-    assertTrue(base + " is expected to contain " + value, base.contains(value));
+    assertWithMessage(base + " is expected to contain " + value)
+        .that(base.contains(value))
+        .isTrue();
   }
 
   private void checkAttributeForRule(RuleDocumentation rule, RuleDocumentationAttribute attr,
@@ -65,7 +65,7 @@ public class RuleDocumentationTest {
           "z"}),
         0, "", ImmutableSet.<String>of(), provider);
     ruleDoc.addDocVariable("VAR", "y");
-    assertEquals("x\ny\nz", ruleDoc.getHtmlDocumentation());
+    assertThat(ruleDoc.getHtmlDocumentation()).isEqualTo("x\ny\nz");
   }
 
   @Test
@@ -97,7 +97,7 @@ public class RuleDocumentationTest {
     RuleDocumentation ruleDoc = new RuleDocumentation(
         "rule", "OTHER", "FOO", "x", 0, "", ImmutableSet.<String>of("DEPRECATED"), provider);
     ruleDoc.addDocVariable("VAR", "y");
-    assertEquals("x", ruleDoc.getHtmlDocumentation());
+    assertThat(ruleDoc.getHtmlDocumentation()).isEqualTo("x");
   }
 
   @Test
@@ -113,7 +113,7 @@ public class RuleDocumentationTest {
     RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(TestRule.class,
         "srcs", "attribute doc", 0, "", NO_FLAGS);
     ruleDoc.addAttribute(attributeDoc);
-    assertEquals("\nx\ny\nz\n\n", ruleDoc.getCommandLineDocumentation());
+    assertThat(ruleDoc.getCommandLineDocumentation()).isEqualTo("\nx\ny\nz\n\n");
   }
 
   @Test
@@ -130,7 +130,7 @@ public class RuleDocumentationTest {
             "<!-- #BLAZE_RULE.END_EXAMPLE -->",
             "z"}),
         0, "", ImmutableSet.<String>of(), provider);
-    assertEquals(ImmutableSet.<String>of("a\n", "b\n"), ruleDoc.extractExamples());
+    assertThat(ruleDoc.extractExamples()).isEqualTo(ImmutableSet.<String>of("a\n", "b\n"));
   }
 
   @Test
@@ -138,34 +138,40 @@ public class RuleDocumentationTest {
     RuleDocumentation ruleDoc = new RuleDocumentation(
         "foo_binary", "OTHER", "FOO", "", 10, "foo.txt", NO_FLAGS, provider);
     BuildEncyclopediaDocException e = ruleDoc.createException("msg");
-    assertEquals("Error in foo.txt:10: msg", e.getMessage());
+    assertThat(e).hasMessageThat().isEqualTo("Error in foo.txt:10: msg");
   }
 
   @Test
   public void testEquals() throws BuildEncyclopediaDocException {
-    assertEquals(
-        new RuleDocumentation("rule", "OTHER", "FOO", "x", 0, "", NO_FLAGS, provider),
-        new RuleDocumentation("rule", "OTHER", "FOO", "y", 0, "", NO_FLAGS, provider));
+    assertThat(new RuleDocumentation("rule", "OTHER", "FOO", "y", 0, "", NO_FLAGS, provider))
+        .isEqualTo(new RuleDocumentation("rule", "OTHER", "FOO", "x", 0, "", NO_FLAGS, provider));
   }
 
   @Test
   public void testNotEquals() throws BuildEncyclopediaDocException {
-    assertFalse(
-        new RuleDocumentation("rule1", "OTHER", "FOO", "x", 0, "", NO_FLAGS, provider).equals(
-        new RuleDocumentation("rule2", "OTHER", "FOO", "y", 0, "", NO_FLAGS, provider)));
+    assertThat(
+            new RuleDocumentation("rule1", "OTHER", "FOO", "x", 0, "", NO_FLAGS, provider)
+                .equals(
+                    new RuleDocumentation("rule2", "OTHER", "FOO", "y", 0, "", NO_FLAGS, provider)))
+        .isFalse();
   }
 
   @Test
   public void testCompareTo() throws BuildEncyclopediaDocException {
-    assertEquals(-1,
-        new RuleDocumentation("rule1", "OTHER", "FOO", "x", 0, "", NO_FLAGS, provider).compareTo(
-        new RuleDocumentation("rule2", "OTHER", "FOO", "x", 0, "", NO_FLAGS, provider)));
+    assertThat(
+            new RuleDocumentation("rule1", "OTHER", "FOO", "x", 0, "", NO_FLAGS, provider)
+                .compareTo(
+                    new RuleDocumentation("rule2", "OTHER", "FOO", "x", 0, "", NO_FLAGS, provider)))
+        .isEqualTo(-1);
   }
 
   @Test
   public void testHashCode() throws BuildEncyclopediaDocException {
-    assertEquals(
-        new RuleDocumentation("rule", "OTHER", "FOO", "x", 0, "", NO_FLAGS, provider).hashCode(),
-        new RuleDocumentation("rule", "OTHER", "FOO", "y", 0, "", NO_FLAGS, provider).hashCode());
+    assertThat(
+            new RuleDocumentation("rule", "OTHER", "FOO", "y", 0, "", NO_FLAGS, provider)
+                .hashCode())
+        .isEqualTo(
+            new RuleDocumentation("rule", "OTHER", "FOO", "x", 0, "", NO_FLAGS, provider)
+                .hashCode());
   }
 }

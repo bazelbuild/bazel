@@ -19,6 +19,8 @@ package build_event_stream;
 option java_package = "com.google.devtools.build.lib.buildeventstream";
 option java_outer_classname = "BuildEventStreamProtos";
 
+import "src/main/protobuf/invocation_policy.proto";
+
 // Identifier for a build event. It is deliberately structured to also provide
 // information about which build target etc the event is related to.
 //
@@ -49,24 +51,128 @@ message BuildEventId {
   message BuildStartedId {
   }
 
+  // Identifier on an event indicating the original commandline received by
+  // the bazel server.
+  message CommandLineId {
+  }
+
+  // Identifier of an event indicating the workspace status.
+  message WorkspaceStatusId {
+  }
+
+  // Identifier on an event reporting on the options included in the command
+  // line, both explicitly and implicitly.
+  message OptionsParsedId {
+  }
+
+  // Identifier of an event reporting that an external resource was fetched
+  // from.
+  message FetchId {
+    // The external resource that was fetched from.
+    string url = 1;
+  }
+
   // Identifier of an event indicating that a target pattern has been expanded
   // further.
+  // Messages of this shape are also used to describe parts of a pattern that
+  // have been skipped for some reason, if the actual expasion was still carried
+  // out (e.g., if keep_going is set). In this case, the pattern_skipped choice
+  // in the id field is to be made.
   message PatternExpandedId {
     repeated string pattern = 1;
+  }
+
+  // Identifier of an event indicating that a target has been expanded by
+  // identifying for which configurations it should be build.
+  message TargetConfiguredId {
+    string label = 1;
+
+    // If not empty, the id refers to the expansion of the target for a given
+    // aspect.
+    string aspect = 2;
+  }
+
+  // Identifier of an event introducing a named set of files (usually artifacts)
+  // to be referred to in later messages.
+  message NamedSetOfFilesId {
+    // Identifier of the file set; this is an opaque string valid only for the
+    // particular instance of the event stream.
+    string id = 1;
+  }
+
+  // Identifier of an event introducing a configuration.
+  message ConfigurationId {
+    // Identifier of the configuraiton; users of the protocol should not make
+    // any assumptions about it having any structure, or equality of the
+    // identifier between different streams.
+    string id = 1;
   }
 
   // Identifier of an event indicating that a target was built completely; this
   // does not include running the test if the target is a test target.
   message TargetCompletedId {
     string label = 1;
+
+    // The configuration for wich the target was built.
+    ConfigurationId configuration = 3;
+
+    // If not empty, the id refers to the completion of the target for a given
+    // aspect.
+    string aspect = 2;
+  }
+
+  // Identifier of an event reporting that an action was completed (not all
+  // actions are reported, only the onces that can be considered important;
+  // this includes all failed actions).
+  message ActionCompletedId {
+    string primary_output = 1;
+    // Optional, the label of the owner of the action, for reference.
+    string label = 2;
+    // Optional, the id of the configuration of the action owner.
+    ConfigurationId configuration = 3;
+  }
+
+  // Identifier of an event reporting on an individual test run. The label
+  // identifies the test that is reported about, the remaining fields are
+  // in such a way as to uniquely identify the action within a build. In fact,
+  // attempts for the same test, run, shard tripple are counted sequentially,
+  // starting with 1.
+  message TestResultId {
+    string label = 1;
+    ConfigurationId configuration = 5;
+    int32 run = 2;
+    int32 shard = 3;
+    int32 attempt = 4;
+  }
+
+  // Identifier of an event reporting the summary of a test.
+  message TestSummaryId {
+    string label = 1;
+    ConfigurationId configuration = 2;
+  }
+
+  // Identifier of the BuildFinished event, indicating the end of a build.
+  message BuildFinishedId {
   }
 
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
     BuildStartedId started = 3;
+    CommandLineId command_line = 11;
+    WorkspaceStatusId workspace_status = 14;
+    OptionsParsedId options_parsed = 12;
+    FetchId fetch = 17;
+    ConfigurationId configuration = 15;
+    TargetConfiguredId target_configured = 16;
     PatternExpandedId pattern = 4;
+    PatternExpandedId pattern_skipped = 10;
+    NamedSetOfFilesId named_set = 13;
     TargetCompletedId target_completed = 5;
+    ActionCompletedId action_completed = 6;
+    TestResultId test_result = 8;
+    TestSummaryId test_summary = 7;
+    BuildFinishedId build_finished = 9;
   }
 }
 
@@ -74,6 +180,13 @@ message BuildEventId {
 // events are also used to be parents of events where the more logical parent
 // event cannot be posted yet as the needed information is not yet complete.
 message Progress {
+  // The next chunk of stdout that bazel produced since the last progress event
+  // or the beginning of the build.
+  string stdout = 1;
+
+  // The next chunk of stderr that bazel produced since the last progress event
+  // or the beginning of the build.
+  string stderr = 2;
 }
 
 // Payload of an event indicating that an expected event will not come, as
@@ -95,6 +208,15 @@ message Aborted {
     // Failure due to reasons entirely internal to the build tool, e.g.,
     // running out of memory.
     INTERNAL = 4;
+
+    // A Failure occurred in the loading phase of a target.
+    LOADING_FAILURE = 5;
+
+    // A Failure occurred in the analysis phase of a target.
+    ANALYSIS_FAILURE = 6;
+
+    // Target build was skipped (e.g. due to incompatible CPU constraints).
+    SKIPPED = 7;
   }
   AbortReason reason = 1;
 
@@ -112,7 +234,9 @@ message BuildStarted {
   string uuid = 1;
 
   // Start of the build in ms since the epoche.
-  int64 start_time_milis = 2;
+  // TODO(buchgr): Use google.protobuf.TimeStamp once bazel's protoc supports
+  // it.
+  int64 start_time_millis = 2;
 
   // Version of the build tool that is running.
   string build_tool_version = 3;
@@ -130,11 +254,267 @@ message BuildStarted {
   string workspace_directory = 7;
 }
 
+// Payload of an event reporting the command-line of the invocation as
+// originally received by the server. Note that this is not the command-line
+// given by the user, as the client adds information about the invocation,
+// like name and relevant entries of rc-files and client environment variables.
+// However, it does contain enough information to reproduce the build
+// invocation.
+message CommandLine {
+  repeated string args = 1;
+}
+
+// Payload of an event reporting on the parsed options, grouped in various ways.
+message OptionsParsed {
+  repeated string startup_options = 1;
+  repeated string explicit_startup_options = 2;
+  repeated string cmd_line = 3;
+  repeated string explicit_cmd_line = 4;
+  blaze.invocation_policy.InvocationPolicy invocation_policy = 5;
+  string tool_tag = 6;
+}
+
+// Payload of an event indicating that an external resource was fetched. This
+// event will only occur in streams where an actual fetch happened, not in ones
+// where a cached copy of the entity to be fetched was used.
+message Fetch {
+  bool success = 1;
+}
+
+// Payload of an event reporting the workspace status. Key-value pairs can be
+// provided by specifying the workspace_status_command to an executable that
+// returns one key-value pair per line of output (key and value separated by a
+// space).
+message WorkspaceStatus {
+  message Item {
+    string key = 1;
+    string value = 2;
+  }
+  repeated Item item = 1;
+}
+
+// Payload of an event reporting details of a given configuration.
+message Configuration {
+  string mnemonic = 1;
+  string platform_name = 2;
+  string cpu = 3;
+  map<string, string> make_variable = 4;
+}
+
 // Payload of the event indicating the expansion of a target pattern.
 // The main information is in the chaining part: the id will contain the
 // target pattern that was expanded and the children id will contain the
 // target or target pattern it was expanded to.
 message PatternExpanded {
+}
+
+// Enumeration type characterizing the size of a test, as specified by the
+// test rule.
+enum TestSize {
+  UNKNOWN = 0;
+  SMALL = 1;
+  MEDIUM = 2;
+  LARGE = 3;
+  ENORMOUS = 4;
+}
+
+// Payload of the event indicating that the configurations for a target have
+// been identified. As with pattern expansion the main information is in the
+// chaining part: the id will contain the target that was configured and the
+// children id will ctontain the configured targets it was configured to.
+message TargetConfigured {
+  // The kind of target (e.g.,  e.g. "cc_library rule", "source file",
+  // "generated file") where the completion is reported.
+  string target_kind = 1;
+
+  // The size of the test, if the target is a test target. Unset otherwise.
+  TestSize test_size = 2;
+
+  // List of all tags associated with this target (for all possible
+  // configurations).
+  repeated string tag = 3;
+}
+
+message File {
+  // identifier indicating the nature of the file (e.g., "stdout", "stderr")
+  string name = 1;
+
+  oneof file {
+    // A location where the contents of the file can be found. The string is
+    // encoded according to RFC2396.
+    string uri = 2;
+    // The contents of the file, if they are guaranteed to be short.
+    bytes contents = 3;
+  }
+}
+
+// Payload of a message to describe a set of files, usually build artifacts, to
+// be referred to later by their name. In this way, files that occur identically
+// as outputs of several targets have to be named only once.
+message NamedSetOfFiles {
+  // Files that belong to this named set of files.
+  repeated File files = 1;
+
+  // Other named sets whose members also belong to this set.
+  repeated BuildEventId.NamedSetOfFilesId file_sets = 2;
+}
+
+// Payload of the event indicating the completion of an action. The main purpose
+// of posting those events is to provide details on the root cause for a target
+// failing; however, consumers of the build-event protocol must not assume
+// that only failed actions are posted.
+message ActionExecuted {
+  bool success = 1;
+
+  // The exit code of the action, if it is available.
+  int32 exit_code = 2;
+
+  // Location where to find the standard output of the action
+  // (e.g., a file path).
+  File stdout = 3;
+
+  // Location where to find the standard error of the action
+  // (e.g., a file path).
+  File stderr = 4;
+
+  // Deprecated. This field is now present on ActionCompletedId.
+  string label = 5 [deprecated = true];
+
+  // Deprecated. This field is now present on ActionCompletedId.
+  BuildEventId.ConfigurationId configuration = 7 [deprecated = true];
+
+  // Primary output; only provided for successful actions.
+  File primary_output = 6;
+}
+
+// Collection of all output files belonging to that output group.
+message OutputGroup {
+  // Ids of fields that have been removed.
+  reserved 2;
+
+  // Name of the output group
+  string name = 1;
+
+  // List of file sets that belong to this output group as well.
+  repeated BuildEventId.NamedSetOfFilesId file_sets = 3;
+}
+
+// Payload of the event indicating the completion of a target. The target is
+// specified in the id. If the target failed the root causes are provided as
+// children events.
+message TargetComplete {
+  bool success = 1;
+
+  // The kind of target (e.g.,  e.g. "cc_library rule", "source file",
+  // "generated file") where the completion is reported.
+  // Deprecated: use the target_kind field in TargetConfigured instead.
+  string target_kind = 5 [deprecated = true];
+
+  // The size of the test, if the target is a test target. Unset otherwise.
+  // Deprecated: use the test_size field in TargetConfigured instead.
+  TestSize test_size = 6 [deprecated = true];
+
+  // The output files are arranged by their output group. If an output file
+  // is part of multiple output groups, it appears once in each output
+  // group.
+  repeated OutputGroup output_group = 2;
+
+  // Temporarily, also report the important outputs directly. This is only to
+  // allow existing clients help transition to the deduplicated representation;
+  // new clients should not use it.
+  repeated File important_output = 4 [deprecated = true];
+
+  // List of tags associated with this configured target.
+  repeated string tag = 3;
+}
+
+enum TestStatus {
+  NO_STATUS = 0;
+  PASSED = 1;
+  FLAKY = 2;
+  TIMEOUT = 3;
+  FAILED = 4;
+  INCOMPLETE = 5;
+  REMOTE_FAILURE = 6;
+  FAILED_TO_BUILD = 7;
+  TOOL_HALTED_BEFORE_TESTING = 8;
+};
+
+// Payload on events reporting about individual test action.
+message TestResult {
+  reserved 1;
+
+  // The status of this test.
+  TestStatus status = 5;
+
+  // True, if the reported attempt is taken from the tool's local cache.
+  bool cached_locally = 4;
+
+  // Time in milliseconds since the epoch at which the test attempt was started.
+  // Note: for cached test results, this is time can be before the start of the
+  // build.
+  int64 test_attempt_start_millis_epoch = 6;
+
+  // Time the test took to run. For locally chached results, this is the time
+  // the cached invocation took when it was invoked.
+  int64 test_attempt_duration_millis = 3;
+
+  // Files (logs, test.xml, undeclared outputs, etc) generated by that test
+  // action.
+  repeated File test_action_output = 2;
+
+  // Warnings generated by that test action.
+  repeated string warning = 7;
+}
+
+// Payload of the event summarizing a test.
+// TODO(aehlig): extend event with additional information as soon as we known
+// which additional information we need for test summaries.
+message TestSummary {
+  // Wrapper around BlazeTestStatus to support importing that enum to proto3.
+  // Overall status of test, accumulated over all runs, shards, and attempts.
+  TestStatus overall_status = 5;
+
+  // Total number of runs
+  int32 total_run_count = 1;
+
+  // Path to logs of passed runs.
+  repeated File passed = 3;
+
+  // Path to logs of failed runs;
+  repeated File failed = 4;
+
+  // Total number of cached test actions
+  int32 total_num_cached = 6;
+}
+
+// Event indicating the end of a build.
+message BuildFinished {
+  // Exit code of a build. The possible values correspond to the predefined
+  // codes in bazel's lib.ExitCode class, as well as any custom exit code a
+  // module might define. The predefined exit codes are subject to change (but
+  // rarely do) and are not part of the public API.
+  //
+  // A build was successfull iff ExitCode.code equals 0.
+  message ExitCode {
+    // The name of the exit code.
+    string name = 1;
+
+    // The exit code.
+    int32 code = 2;
+  }
+
+  // If the build succeeded or failed.
+  bool overall_success = 1 [deprecated = true];
+
+  // The overall status of the build. A build was successfull iff
+  // ExitCode.code equals 0.
+  ExitCode exit_code = 3;
+
+  // Time in milliseconds since the epoch.
+  // TODO(buchgr): Use google.protobuf.Timestamp once bazel's protoc supports
+  // it.
+  int64 finish_time_millis = 2;
 }
 
 // Message describing a build event. Events will have an identifier that
@@ -143,12 +523,26 @@ message PatternExpanded {
 // that is observed, is provided in the payload. More options for the payload
 // might be added in the future.
 message BuildEvent {
+  reserved 11, 19;
   BuildEventId id = 1;
   repeated BuildEventId children = 2;
+  bool last_message = 20;
   oneof payload {
     Progress progress = 3;
     Aborted aborted = 4;
     BuildStarted started = 5;
+    CommandLine command_line = 12;
+    OptionsParsed options_parsed = 13;
+    WorkspaceStatus workspace_status = 16;
+    Fetch fetch = 21;
+    Configuration configuration = 17;
     PatternExpanded expanded = 6;
+    TargetConfigured configured = 18;
+    ActionExecuted action = 7;
+    NamedSetOfFiles named_set_of_files = 15;
+    TargetComplete completed = 8;
+    TestResult test_result = 10;
+    TestSummary test_summary = 9;
+    BuildFinished finished = 14;
   };
 }

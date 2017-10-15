@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -85,7 +85,10 @@ public class ASTFileLookupFunction implements SkyFunction {
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
           FileSymlinkException.class, InconsistentFilesystemException.class);
-    } catch (IOException | FileSymlinkException e) {
+    } catch (IOException e) {
+      throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
+          Transience.PERSISTENT);
+    } catch (FileSymlinkException e) {
       throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
           Transience.PERSISTENT);
     } catch (InconsistentFilesystemException e) {
@@ -97,6 +100,10 @@ public class ASTFileLookupFunction implements SkyFunction {
     if (!fileValue.isFile()) {
       return ASTFileLookupValue.forBadFile(fileLabel);
     }
+    SkylarkSemanticsOptions skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return null;
+    }
 
     //
     // Both the package and the file exist; load the file and parse it as an AST.
@@ -106,18 +113,18 @@ public class ASTFileLookupFunction implements SkyFunction {
     try {
       long astFileSize = fileValue.getSize();
       try (Mutability mutability = Mutability.create("validate")) {
-          ValidationEnvironment validationEnv =
-              new ValidationEnvironment(
-                  ruleClassProvider
-                      .createSkylarkRuleClassEnvironment(
-                          fileLabel,
-                          mutability,
-                          env.getListener(),
-                          // the two below don't matter for extracting the ValidationEnvironment:
-                          /*astFileContentHashCode=*/ null,
-                          /*importMap=*/ null)
-                      .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)
-                      .setupDynamic(Runtime.REPOSITORY_NAME, Runtime.NONE));
+        com.google.devtools.build.lib.syntax.Environment validationEnv =
+            ruleClassProvider
+                .createSkylarkRuleClassEnvironment(
+                    fileLabel,
+                    mutability,
+                    skylarkSemantics,
+                    env.getListener(),
+                    // the two below don't matter for extracting the ValidationEnvironment:
+                    /*astFileContentHashCode=*/ null,
+                    /*importMap=*/ null)
+                .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)
+                .setupDynamic(Runtime.REPOSITORY_NAME, Runtime.NONE);
           ast = BuildFileAST.parseSkylarkFile(path, astFileSize, env.getListener());
           ast = ast.validate(validationEnv, env.getListener());
         }

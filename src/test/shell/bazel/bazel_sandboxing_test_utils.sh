@@ -23,7 +23,7 @@ function check_supported_platform {
 }
 
 function check_sandbox_allowed {
-  $linux_sandbox -C || {
+  $linux_sandbox -- /bin/true || {
     echo "Sandboxing disabled or not supported on this system, skipping..."
     return 1
   }

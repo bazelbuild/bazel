@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.singlejar;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -61,8 +59,8 @@ public final class MockSimpleFileSystem implements SimpleFileSystem {
 
   @Override
   public OutputStream getOutputStream(String filename) {
-    assertEquals(outputFileName, filename);
-    assertNull(out);
+    assertThat(filename).isEqualTo(outputFileName);
+    assertThat(out).isNull();
     out = new ByteArrayOutputStream();
     return out;
   }
@@ -89,14 +87,14 @@ public final class MockSimpleFileSystem implements SimpleFileSystem {
 
   @Override
   public boolean delete(String filename) {
-    assertEquals(outputFileName, filename);
-    assertNotNull(out);
+    assertThat(filename).isEqualTo(outputFileName);
+    assertThat(out).isNotNull();
     out = null;
     return true;
   }
 
   public byte[] toByteArray() {
-    assertNotNull(out);
+    assertThat(out).isNotNull();
     return out.toByteArray();
   }
 }

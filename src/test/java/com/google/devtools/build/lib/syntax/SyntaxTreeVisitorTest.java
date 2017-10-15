@@ -49,7 +49,7 @@ public class SyntaxTreeVisitorTest {
       }
 
       @Override
-      public void visit(Parameter<?, ?> node) {
+      public void visit(Parameter<Expression, Expression> node) {
         params.add(node.toString());
       }
     }
@@ -62,7 +62,7 @@ public class SyntaxTreeVisitorTest {
             "  return h + i.j()");
     IdentVisitor visitor = new IdentVisitor();
     ast.accept(visitor);
-    assertThat(idents).containsExactly("a", "b", "c", "d", "e", "f", "g", "h", "i", "j").inOrder();
+    assertThat(idents).containsExactly("b", "a", "c", "e", "d", "f", "g", "h", "i", "j").inOrder();
     assertThat(params).containsExactly("p1", "p2=4", "**p3").inOrder();
   }
 }

@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -32,6 +34,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 // TODO(bazel-team): This should really be named DerivedArtifacts as it contains methods for
 // final as well as intermediate artifacts.
 public final class IntermediateArtifacts {
+  private static final PathFragment OBJS = PathFragment.create("_objs");
+
   static final String LINKMAP_SUFFIX = ".linkmap";
 
   /**
@@ -45,22 +49,38 @@ public final class IntermediateArtifacts {
   private final BuildConfiguration buildConfiguration;
   private final String archiveFileNameSuffix;
   private final String outputPrefix;
+  private final UmbrellaHeaderStrategy umbrellaHeaderStrategy;
 
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix,
       String outputPrefix) {
-    this(ruleContext, archiveFileNameSuffix, outputPrefix, ruleContext.getConfiguration());
+    this(ruleContext, archiveFileNameSuffix, outputPrefix, ruleContext.getConfiguration(),
+        UmbrellaHeaderStrategy.DO_NOT_GENERATE);
   }
 
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix) {
-    this(ruleContext, archiveFileNameSuffix, "", ruleContext.getConfiguration());
+    this(ruleContext, archiveFileNameSuffix, "", ruleContext.getConfiguration(),
+        UmbrellaHeaderStrategy.DO_NOT_GENERATE);
   }
- 
+
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix,
-      String outputPrefix, BuildConfiguration buildConfiguration) {
+      UmbrellaHeaderStrategy umbrellaHeaderStrategy) {
+    this(ruleContext, archiveFileNameSuffix, "", ruleContext.getConfiguration(),
+        umbrellaHeaderStrategy);
+  }
+
+  IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix, String outputPrefix,
+      BuildConfiguration buildConfiguration) {
+    this(ruleContext, archiveFileNameSuffix, outputPrefix, buildConfiguration,
+        UmbrellaHeaderStrategy.DO_NOT_GENERATE);
+  }
+
+  IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix, String outputPrefix,
+      BuildConfiguration buildConfiguration, UmbrellaHeaderStrategy umbrellaHeaderStrategy) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
     this.outputPrefix = Preconditions.checkNotNull(outputPrefix);
+    this.umbrellaHeaderStrategy = umbrellaHeaderStrategy;
   }
 
   /**
@@ -77,6 +97,13 @@ public final class IntermediateArtifacts {
                 addOutputPrefix(entitlementsDirectory.getBaseName(), extension)),
             buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository()));
     return artifact;
+  }
+
+  /**
+   * Returns the archive file name suffix.
+   */
+  public String archiveFileNameSuffix() {
+    return archiveFileNameSuffix;
   }
 
   /**
@@ -109,17 +136,8 @@ public final class IntermediateArtifacts {
    * of the {@link PathFragment} corresponding to the owner {@link Label}.
    */
   private Artifact appendExtension(String extension) {
-    PathFragment name = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
     return scopedArtifact(name.replaceName(addOutputPrefix(name.getBaseName(), extension)));
-  }
-
-  /**
-   * A dummy .c file to be included in xcode projects. This is needed if the target does not have
-   * any source files but Xcode requires one.
-   */
-  public Artifact dummySource() {
-    return scopedArtifact(
-        ruleContext.getPrerequisiteArtifact("$dummy_source", Mode.TARGET).getRootRelativePath());
   }
 
   /**
@@ -127,7 +145,7 @@ public final class IntermediateArtifacts {
    * the end of the {@link PathFragment} corresponding to the owner {@link Label}.
    */
   private Artifact appendExtensionInGenfiles(String extension) {
-    PathFragment name = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
     return scopedArtifact(
         name.replaceName(addOutputPrefix(name.getBaseName(), extension)), /* inGenfiles = */ true);
   }
@@ -243,15 +261,14 @@ public final class IntermediateArtifacts {
    * The {@code .a} file which contains all the compiled sources for a rule.
    */
   public Artifact archive() {
-    // The path will be RULE_PACKAGE/libRULEBASENAME.a
-    String basename = new PathFragment(ruleContext.getLabel().getName()).getBaseName();
-    return scopedArtifact(new PathFragment(String.format(
+    // The path will be {RULE_PACKAGE}/lib{RULEBASENAME}{SUFFIX}.a
+    String basename = PathFragment.create(ruleContext.getLabel().getName()).getBaseName();
+    return scopedArtifact(PathFragment.create(String.format(
         "lib%s%s.a", basename, archiveFileNameSuffix)));
   }
 
   private Artifact inUniqueObjsDir(Artifact source, String extension) {
-    PathFragment uniqueDir =
-        new PathFragment("_objs").getRelative(ruleContext.getLabel().getName());
+    PathFragment uniqueDir = OBJS.getRelative(ruleContext.getLabel().getName());
     PathFragment sourceFile = uniqueDir.getRelative(source.getRootRelativePath());
     PathFragment scopeRelativePath = FileSystemUtils.replaceExtension(sourceFile, extension);
     return scopedArtifact(scopeRelativePath);
@@ -263,32 +280,15 @@ public final class IntermediateArtifacts {
    */
   public Artifact objFile(Artifact source) {
     if (source.isTreeArtifact()) {
-      PathFragment rootRelativePath = source.getRootRelativePath().replaceName("obj_files");
-      return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
+      return CppHelper.getCompileOutputTreeArtifact(ruleContext, source);
     } else {
       return inUniqueObjsDir(source, ".o");
     }
   }
 
-  /**
-   * The swift module produced by compiling the {@code source} artifact.
-   */
-  public Artifact swiftModuleFile(Artifact source) {
-    return inUniqueObjsDir(source, ".partial_swiftmodule");
-  }
-
-  /**
-   * Integrated swift module for this target.
-   */
-  public Artifact swiftModule() {
-    return appendExtension(".swiftmodule");
-  }
-
-  /**
-   * Integrated swift header for this target.
-   */
-  public Artifact swiftHeader() {
-    return appendExtension("-Swift.h");
+  /** The artifact for the .headers file output by the header thinning action for this source. */
+  public Artifact headersListFile(Artifact source) {
+    return inUniqueObjsDir(source, ".headers_list");
   }
 
   /**
@@ -297,14 +297,6 @@ public final class IntermediateArtifacts {
    */
   public Artifact gcnoFile(Artifact source) {
      return inUniqueObjsDir(source, ".gcno");
-  }
-
-  /**
-   * Returns the artifact corresponding to the pbxproj control file, which specifies the information
-   * required to generate the Xcode project file.
-   */
-  public Artifact pbxprojControlArtifact() {
-    return appendExtension(".xcodeproj-control");
   }
 
   /**
@@ -393,9 +385,12 @@ public final class IntermediateArtifacts {
             suffix));
   }
 
-  /**
-   * Representation for a specific architecture.
-   */
+  /** Bitcode symbol map generated for a linked binary, for a specific architecture. */
+  public Artifact bitcodeSymbolMap() {
+    return appendExtension(".bcsymbolmap");
+  }
+
+  /** Representation for a specific architecture. */
   private Artifact architectureRepresentation(String arch, String suffix) {
     return appendExtension(String.format("_%s%s", arch, suffix));
   }
@@ -435,11 +430,24 @@ public final class IntermediateArtifacts {
             .getLabel()
             .toString()
             .replace("//", "")
+            .replace("@", "")
             .replace("/", "_")
             .replace(":", "_");
-    // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
-    // parent directory in the module map search paths.
-    return new CppModuleMap(appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);
+ 
+    Optional<Artifact> customModuleMap = CompilationSupport.getCustomModuleMap(ruleContext);
+    if (customModuleMap.isPresent()) {
+      return new CppModuleMap(customModuleMap.get(), moduleName);
+    } else if (umbrellaHeaderStrategy == UmbrellaHeaderStrategy.GENERATE) {
+      // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
+      // parent directory in the module map search paths.
+      return new CppModuleMap(
+          appendExtensionInGenfiles(".modulemaps/module.modulemap"),
+          appendExtensionInGenfiles(".modulemaps/umbrella.h"),
+          moduleName);
+    } else {
+      return new CppModuleMap(
+          appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);
+    }
   }
 
   /**
@@ -452,7 +460,7 @@ public final class IntermediateArtifacts {
     return ruleContext.getUniqueDirectoryArtifact(
         "_j2objc_pruned",
         prunedSourceArtifactPath,
-        ruleContext.getBinOrGenfilesDirectory());
+        buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository()));
   }
 
   /**

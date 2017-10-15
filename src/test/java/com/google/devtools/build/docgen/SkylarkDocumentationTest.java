@@ -17,17 +17,22 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
-import com.google.devtools.build.lib.rules.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -37,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -75,7 +81,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   }
 
   @SuppressWarnings("unchecked")
-  private void checkSkylarkTopLevelEnvItemsAreDocumented(Environment env) {
+  private void checkSkylarkTopLevelEnvItemsAreDocumented(Environment env) throws Exception {
     Map<String, String> docMap = new HashMap<>();
     Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
     SkylarkModuleDoc topLevel =
@@ -161,6 +167,37 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     }
   }
 
+  /** MockClassWithContainerReturnValues */
+  @SkylarkModule(name = "MockClassWithContainerReturnValues",
+      doc = "MockClassWithContainerReturnValues")
+  private static class MockClassWithContainerReturnValues {
+
+    @SkylarkCallable(name = "depset", doc = "depset")
+    public NestedSet<Integer> getNestedSet() {
+      return null;
+    }
+
+    @SkylarkCallable(name = "tuple", doc = "tuple")
+    public Tuple<Integer> getTuple() {
+      return null;
+    }
+
+    @SkylarkCallable(name = "immutable", doc = "immutable")
+    public ImmutableList<Integer> getImmutableList() {
+      return null;
+    }
+
+    @SkylarkCallable(name = "mutable", doc = "mutable")
+    public MutableList<Integer> getMutableList() {
+      return null;
+    }
+
+    @SkylarkCallable(name = "skylark", doc = "skylark")
+    public SkylarkList<Integer> getSkylarkList() {
+      return null;
+    }
+  }
+
   @Test
   public void testSkylarkJavaInterfaceExplorerOnSimpleClass() throws Exception {
     Map<String, SkylarkModuleDoc> objects = collect(MockClassA.class);
@@ -190,11 +227,15 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     assertThat(objects).hasSize(1);
     assertThat(objects).containsKey("MockClassD");
     SkylarkModuleDoc moduleDoc = objects.get("MockClassD");
-    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassD.");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassD");
     assertThat(moduleDoc.getMethods()).hasSize(1);
     SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
-    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassD#test.");
-    assertThat(methodDoc.getSignature()).isEqualTo("int MockClassD.test(arg0:int, b, *, c, d=1)");
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassD#test");
+    assertThat(methodDoc.getSignature())
+        .isEqualTo(
+            "<a class=\"anchor\" href=\"int.html\">int</a> "
+                + "MockClassD.test(arg0:<a class=\"anchor\" href=\"int.html\">int</a>, "
+                + "b, *, c, d=1)");
     assertThat(methodDoc.getParams()).hasSize(3);
   }
 
@@ -204,11 +245,44 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     assertThat(objects).hasSize(1);
     assertThat(objects).containsKey("MockClassE");
     SkylarkModuleDoc moduleDoc = objects.get("MockClassE");
-    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassE.");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassE");
     assertThat(moduleDoc.getMethods()).hasSize(1);
     SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
-    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassA#get.");
-    assertThat(methodDoc.getSignature()).isEqualTo("int MockClassE.get()");
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassA#get");
+    assertThat(methodDoc.getSignature())
+        .isEqualTo("<a class=\"anchor\" href=\"int.html\">int</a> MockClassE.get()");
+  }
+
+  @Test
+  public void testSkylarkContainerReturnTypesWithoutAnnotations() throws Exception {
+    Map<String, SkylarkModuleDoc> objects = collect(MockClassWithContainerReturnValues.class);
+    assertThat(objects).containsKey("MockClassWithContainerReturnValues");
+    Collection<SkylarkMethodDoc> methods =
+        objects.get("MockClassWithContainerReturnValues").getMethods();
+
+    List<String> signatures =
+        methods.stream().map(m -> m.getSignature()).collect(Collectors.toList());
+    assertThat(signatures).hasSize(5);
+    assertThat(signatures)
+        .contains(
+            "<a class=\"anchor\" href=\"depset.html\">depset</a> "
+                + "MockClassWithContainerReturnValues.depset()");
+    assertThat(signatures)
+    .contains(
+        "<a class=\"anchor\" href=\"list.html\">tuple</a> "
+            + "MockClassWithContainerReturnValues.tuple()");
+    assertThat(signatures)
+        .contains(
+            "<a class=\"anchor\" href=\"list.html\">list</a> "
+                + "MockClassWithContainerReturnValues.immutable()");
+    assertThat(signatures)
+        .contains(
+            "<a class=\"anchor\" href=\"list.html\">list</a> "
+                + "MockClassWithContainerReturnValues.mutable()");
+    assertThat(signatures)
+        .contains(
+            "<a class=\"anchor\" href=\"list.html\">sequence</a> "
+                + "MockClassWithContainerReturnValues.skylark()");
   }
 
   private Iterable<Method> extractMethods(Collection<SkylarkJavaMethodDoc> methods) {

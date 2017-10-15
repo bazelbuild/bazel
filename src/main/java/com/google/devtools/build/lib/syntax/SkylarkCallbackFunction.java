@@ -33,22 +33,14 @@ public class SkylarkCallbackFunction {
   }
 
   public ImmutableList<String> getParameterNames() {
-    ImmutableList<String> names = callback.signature.getSignature().getNames();
-    // TODO(fwe): remove this hack once the depot is cleaned up and we no longer have to support
-    // the cfg parameter (also update GoogleSkylarkIntegrationTest).
-    int lastIndex = names.size() - 1;
-    if (lastIndex >= 0 && names.get(lastIndex).equals("cfg")) {
-      names = names.subList(0, lastIndex);
-    }
-
-    return names;
+    return callback.signature.getSignature().getNames();
   }
 
   public Object call(ClassObject ctx, Object... arguments)
       throws EvalException, InterruptedException {
     try (Mutability mutability = Mutability.create("callback %s", callback)) {
       Environment env = Environment.builder(mutability)
-          .setSkylark()
+          .setSemantics(funcallEnv.getSemantics())
           .setEventHandler(funcallEnv.getEventHandler())
           .setGlobals(funcallEnv.getGlobals())
           .build();
@@ -63,7 +55,7 @@ public class SkylarkCallbackFunction {
    * required from the specified context.
    */
   private ImmutableList<Object> buildArgumentList(ClassObject ctx, Object... arguments) {
-    Builder<Object> builder = ImmutableList.<Object>builder();
+    Builder<Object> builder = ImmutableList.builder();
     ImmutableList<String> names = getParameterNames();
     int requiredParameters = names.size() - arguments.length;
     for (int pos = 0; pos < requiredParameters; ++pos) {

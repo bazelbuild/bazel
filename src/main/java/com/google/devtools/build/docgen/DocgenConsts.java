@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -43,6 +42,8 @@ public class DocgenConsts {
       "com/google/devtools/build/docgen/templates/skylark-nav.vm";
   public static final String SKYLARK_MODULE_CATEGORY_TEMPLATE =
       "com/google/devtools/build/docgen/templates/skylark-category.vm";
+  public static final String SKYLARK_OVERVIEW_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/skylark-overview.vm";
 
   public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
 
@@ -154,7 +155,7 @@ public class DocgenConsts {
   /** e.g. "[DEPRECATED]" in &lt;!-- #BLAZE_RULE(...).ATTRIBUTE(...)[DEPRECATED] --&gt; */
   public static final Pattern BLAZE_RULE_FLAGS = Pattern.compile("^.*\\[(.*)\\].*$");
 
-  public static final Map<String, Integer> ATTRIBUTE_ORDERING = ImmutableMap
+  public static final ImmutableMap<String, Integer> ATTRIBUTE_ORDERING = ImmutableMap
       .<String, Integer>builder()
       .put("name", -99)
       .put("deps", -98)

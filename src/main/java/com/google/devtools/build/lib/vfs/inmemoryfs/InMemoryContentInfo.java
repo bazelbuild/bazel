@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 
 /**

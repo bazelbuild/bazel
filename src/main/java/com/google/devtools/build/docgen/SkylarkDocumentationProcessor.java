@@ -13,29 +13,35 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
+import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-
+import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.File;
 import java.io.IOException;
+import java.text.Collator;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
-/**
- * A class to assemble documentation for Skylark.
- */
+/** A class to assemble documentation for Skylark. */
 public final class SkylarkDocumentationProcessor {
+
+  private static final ImmutableList<SkylarkModuleCategory> GLOBAL_CATEGORIES =
+      ImmutableList.<SkylarkModuleCategory>of(
+          SkylarkModuleCategory.NONE, SkylarkModuleCategory.TOP_LEVEL_TYPE);
+
   private SkylarkDocumentationProcessor() {}
 
-  /**
-   * Generates the Skylark documentation to the given output directory.
-   */
-  public static void generateDocumentation(String outputDir, String... clazz) throws IOException,
-      BuildEncyclopediaDocException {
+  /** Generates the Skylark documentation to the given output directory. */
+  public static void generateDocumentation(String outputDir, String... clazz)
+      throws IOException, ClassPathException {
     Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules(clazz);
 
     // Generate the top level module first in the doc
@@ -56,10 +62,58 @@ public final class SkylarkDocumentationProcessor {
         modulesByCategory.get(module.getAnnotation().category()).add(module);
       }
     }
+    Collator us = Collator.getInstance(Locale.US);
+    for (List<SkylarkModuleDoc> module : modulesByCategory.values()) {
+      Collections.sort(module, (doc1, doc2) -> us.compare(doc1.getTitle(), doc2.getTitle()));
+    }
     writeCategoryPage(SkylarkModuleCategory.CONFIGURATION_FRAGMENT, outputDir, modulesByCategory);
     writeCategoryPage(SkylarkModuleCategory.BUILTIN, outputDir, modulesByCategory);
     writeCategoryPage(SkylarkModuleCategory.PROVIDER, outputDir, modulesByCategory);
     writeNavPage(outputDir, modulesByCategory.get(SkylarkModuleCategory.TOP_LEVEL_TYPE));
+
+    // In the code, there are two SkylarkModuleCategory instances that have no heading:
+    // TOP_LEVEL_TYPE and NONE.
+
+    // TOP_LEVEL_TYPE also contains the "global" module.
+    // We remove both categories and the "global" module from the map and display them manually:
+    // - Methods in the "global" module are displayed under "Global Methods and Constants".
+    // - Modules in both categories are displayed under "Global Modules" (except for the global
+    // module itself).
+    List<String> globalFunctions = new ArrayList<>();
+    SkylarkModuleDoc globalModule = findGlobalModule(modulesByCategory);
+    for (SkylarkMethodDoc method : globalModule.getMethods()) {
+      if (method.documented()) {
+        globalFunctions.add(method.getName());
+      }
+    }
+
+    List<String> globalModules = new ArrayList<>();
+    for (SkylarkModuleCategory globalCategory : GLOBAL_CATEGORIES) {
+      List<SkylarkModuleDoc> allGlobalModules = modulesByCategory.remove(globalCategory);
+      for (SkylarkModuleDoc module : allGlobalModules) {
+        if (!module.getName().equals(globalModule.getName())) {
+          globalModules.add(module.getName());
+        }
+      }
+    }
+
+    Collections.sort(globalModules, us);
+    writeOverviewPage(
+        outputDir, globalModule.getName(), globalFunctions, globalModules, modulesByCategory);
+  }
+
+  private static SkylarkModuleDoc findGlobalModule(
+      Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesByCategory) {
+    List<SkylarkModuleDoc> topLevelModules =
+        modulesByCategory.get(SkylarkModuleCategory.TOP_LEVEL_TYPE);
+    String globalModuleName = SkylarkDocumentationCollector.getTopLevelModule().name();
+    for (SkylarkModuleDoc module : topLevelModules) {
+      if (module.getName().equals(globalModuleName)) {
+        return module;
+      }
+    }
+
+    throw new IllegalStateException("No globals module in the top level category.");
   }
 
   private static void writePage(String outputDir, SkylarkModuleDoc module) throws IOException {
@@ -89,13 +143,29 @@ public final class SkylarkDocumentationProcessor {
     page.write(navFile);
   }
 
+  private static void writeOverviewPage(
+      String outputDir,
+      String globalModuleName,
+      List<String> globalFunctions,
+      List<String> globalModules,
+      Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesPerCategory)
+      throws IOException {
+    File skylarkDocPath = new File(outputDir + "/skylark-overview.html");
+    Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_OVERVIEW_TEMPLATE);
+    page.add("global_name", globalModuleName);
+    page.add("global_functions", globalFunctions);
+    page.add("global_modules", globalModules);
+    page.add("modules", modulesPerCategory);
+    page.write(skylarkDocPath);
+  }
+
   /**
    * Returns the API doc for the specified Skylark object in a command line printable format,
    * params[0] identifies either a module or a top-level object, the optional params[1] identifies a
    * method in the module.<br>
    * Returns null if no Skylark object is found.
    */
-  public static String getCommandLineAPIDoc(String[] params) {
+  public static String getCommandLineAPIDoc(String[] params) throws ClassPathException {
     Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
     SkylarkModuleDoc toplevelModuleDoc = modules.get(
         SkylarkDocumentationCollector.getTopLevelModule().name());

@@ -15,15 +15,16 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
+import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
@@ -31,27 +32,8 @@ import java.io.IOException;
  * This module provides the Sandbox spawn strategy.
  */
 public final class SandboxModule extends BlazeModule {
-  // Per-command state
-  private CommandEnvironment env;
-  private BuildRequest buildRequest;
-
-  @Override
-  public Iterable<ActionContextProvider> getActionContextProviders() {
-    Preconditions.checkNotNull(env);
-    Preconditions.checkNotNull(buildRequest);
-    try {
-      return ImmutableList.<ActionContextProvider>of(
-          SandboxActionContextProvider.create(env, buildRequest));
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
-  @Override
-  public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    Preconditions.checkNotNull(env);
-    return ImmutableList.<ActionContextConsumer>of(new SandboxActionContextConsumer(env));
-  }
+  private Path sandboxBase;
+  private boolean shouldCleanupSandboxBase;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -61,19 +43,47 @@ public final class SandboxModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(Command command, CommandEnvironment env) {
-    this.env = env;
-    env.getEventBus().register(this);
+  public void executorInit(
+      CommandEnvironment cmdEnv, BuildRequest request, ExecutorBuilder builder) {
+    BlazeDirectories blazeDirs = cmdEnv.getDirectories();
+    String productName = cmdEnv.getRuntime().getProductName();
+    SandboxOptions sandboxOptions = request.getOptions(SandboxOptions.class);
+    FileSystem fs = blazeDirs.getFileSystem();
+
+    if (sandboxOptions.sandboxBase.isEmpty()) {
+      sandboxBase = blazeDirs.getOutputBase().getRelative(productName + "-sandbox");
+    } else {
+      String dirName =
+          productName + "-sandbox." + Fingerprint.md5Digest(blazeDirs.getOutputBase().toString());
+      sandboxBase = fs.getPath(sandboxOptions.sandboxBase).getRelative(dirName);
+    }
+
+    // Do not remove the sandbox base when --sandbox_debug was specified so that people can check
+    // out the contents of the generated sandbox directories.
+    shouldCleanupSandboxBase = !sandboxOptions.sandboxDebug;
+
+    try {
+      FileSystemUtils.createDirectoryAndParents(sandboxBase);
+      builder.addActionContextProvider(SandboxActionContextProvider.create(cmdEnv, sandboxBase));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    builder.addActionContextConsumer(new SandboxActionContextConsumer(cmdEnv));
   }
 
   @Override
   public void afterCommand() {
-    env = null;
-    buildRequest = null;
-  }
+    super.afterCommand();
 
-  @Subscribe
-  public void buildStarting(BuildStartingEvent event) {
-    buildRequest = event.getRequest();
+    if (sandboxBase != null) {
+      if (shouldCleanupSandboxBase) {
+        try {
+          FileSystemUtils.deleteTree(sandboxBase);
+        } catch (IOException e) {
+          // Nothing we can do at this point.
+        }
+      }
+      sandboxBase = null;
+    }
   }
 }

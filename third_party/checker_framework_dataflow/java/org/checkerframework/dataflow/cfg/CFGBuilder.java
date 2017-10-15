@@ -4,6 +4,10 @@ package org.checkerframework.dataflow.cfg;
 import org.checkerframework.checker.nullness.qual.Nullable;
 */
 
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.processing.JavacProcessingEnvironment;
+import com.sun.tools.javac.util.Context;
 import org.checkerframework.dataflow.analysis.Store;
 import org.checkerframework.dataflow.cfg.CFGBuilder.ExtendedNode.ExtendedNodeType;
 import org.checkerframework.dataflow.cfg.UnderlyingAST.CFGMethod;
@@ -16,9 +20,78 @@ import org.checkerframework.dataflow.cfg.block.RegularBlockImpl;
 import org.checkerframework.dataflow.cfg.block.SingleSuccessorBlockImpl;
 import org.checkerframework.dataflow.cfg.block.SpecialBlock.SpecialBlockType;
 import org.checkerframework.dataflow.cfg.block.SpecialBlockImpl;
-import org.checkerframework.dataflow.cfg.node.*;
+import org.checkerframework.dataflow.cfg.node.ArrayAccessNode;
+import org.checkerframework.dataflow.cfg.node.ArrayCreationNode;
+import org.checkerframework.dataflow.cfg.node.ArrayTypeNode;
+import org.checkerframework.dataflow.cfg.node.AssertionErrorNode;
+import org.checkerframework.dataflow.cfg.node.AssignmentNode;
+import org.checkerframework.dataflow.cfg.node.BitwiseAndNode;
+import org.checkerframework.dataflow.cfg.node.BitwiseComplementNode;
+import org.checkerframework.dataflow.cfg.node.BitwiseOrNode;
+import org.checkerframework.dataflow.cfg.node.BitwiseXorNode;
+import org.checkerframework.dataflow.cfg.node.BooleanLiteralNode;
+import org.checkerframework.dataflow.cfg.node.CaseNode;
+import org.checkerframework.dataflow.cfg.node.CharacterLiteralNode;
+import org.checkerframework.dataflow.cfg.node.ClassNameNode;
+import org.checkerframework.dataflow.cfg.node.ConditionalAndNode;
+import org.checkerframework.dataflow.cfg.node.ConditionalNotNode;
+import org.checkerframework.dataflow.cfg.node.ConditionalOrNode;
+import org.checkerframework.dataflow.cfg.node.DoubleLiteralNode;
+import org.checkerframework.dataflow.cfg.node.EqualToNode;
+import org.checkerframework.dataflow.cfg.node.ExplicitThisLiteralNode;
+import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
+import org.checkerframework.dataflow.cfg.node.FloatLiteralNode;
+import org.checkerframework.dataflow.cfg.node.FloatingDivisionNode;
+import org.checkerframework.dataflow.cfg.node.FloatingRemainderNode;
+import org.checkerframework.dataflow.cfg.node.FunctionalInterfaceNode;
+import org.checkerframework.dataflow.cfg.node.GreaterThanNode;
+import org.checkerframework.dataflow.cfg.node.GreaterThanOrEqualNode;
+import org.checkerframework.dataflow.cfg.node.ImplicitThisLiteralNode;
+import org.checkerframework.dataflow.cfg.node.InstanceOfNode;
+import org.checkerframework.dataflow.cfg.node.IntegerDivisionNode;
+import org.checkerframework.dataflow.cfg.node.IntegerLiteralNode;
+import org.checkerframework.dataflow.cfg.node.IntegerRemainderNode;
+import org.checkerframework.dataflow.cfg.node.LeftShiftNode;
+import org.checkerframework.dataflow.cfg.node.LessThanNode;
+import org.checkerframework.dataflow.cfg.node.LessThanOrEqualNode;
+import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
+import org.checkerframework.dataflow.cfg.node.LongLiteralNode;
+import org.checkerframework.dataflow.cfg.node.MarkerNode;
+import org.checkerframework.dataflow.cfg.node.MethodAccessNode;
+import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.dataflow.cfg.node.NarrowingConversionNode;
+import org.checkerframework.dataflow.cfg.node.Node;
+import org.checkerframework.dataflow.cfg.node.NotEqualNode;
+import org.checkerframework.dataflow.cfg.node.NullChkNode;
+import org.checkerframework.dataflow.cfg.node.NullLiteralNode;
+import org.checkerframework.dataflow.cfg.node.NumericalAdditionNode;
+import org.checkerframework.dataflow.cfg.node.NumericalMinusNode;
+import org.checkerframework.dataflow.cfg.node.NumericalMultiplicationNode;
+import org.checkerframework.dataflow.cfg.node.NumericalPlusNode;
+import org.checkerframework.dataflow.cfg.node.NumericalSubtractionNode;
+import org.checkerframework.dataflow.cfg.node.ObjectCreationNode;
+import org.checkerframework.dataflow.cfg.node.PackageNameNode;
+import org.checkerframework.dataflow.cfg.node.ParameterizedTypeNode;
+import org.checkerframework.dataflow.cfg.node.PrimitiveTypeNode;
+import org.checkerframework.dataflow.cfg.node.ReturnNode;
+import org.checkerframework.dataflow.cfg.node.SignedRightShiftNode;
+import org.checkerframework.dataflow.cfg.node.StringConcatenateAssignmentNode;
+import org.checkerframework.dataflow.cfg.node.StringConcatenateNode;
+import org.checkerframework.dataflow.cfg.node.StringConversionNode;
+import org.checkerframework.dataflow.cfg.node.StringLiteralNode;
+import org.checkerframework.dataflow.cfg.node.SuperNode;
+import org.checkerframework.dataflow.cfg.node.SynchronizedNode;
+import org.checkerframework.dataflow.cfg.node.TernaryExpressionNode;
+import org.checkerframework.dataflow.cfg.node.ThisLiteralNode;
+import org.checkerframework.dataflow.cfg.node.ThrowNode;
+import org.checkerframework.dataflow.cfg.node.TypeCastNode;
+import org.checkerframework.dataflow.cfg.node.UnsignedRightShiftNode;
+import org.checkerframework.dataflow.cfg.node.ValueLiteralNode;
+import org.checkerframework.dataflow.cfg.node.VariableDeclarationNode;
+import org.checkerframework.dataflow.cfg.node.WideningConversionNode;
 import org.checkerframework.dataflow.qual.TerminatesExecution;
 import org.checkerframework.dataflow.util.MostlySingleton;
+
 import org.checkerframework.javacutil.AnnotationProvider;
 import org.checkerframework.javacutil.BasicAnnotationProvider;
 import org.checkerframework.javacutil.ElementUtils;
@@ -57,15 +130,64 @@ import javax.lang.model.type.UnionType;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
-import com.sun.source.tree.*;
+import com.sun.source.tree.AnnotatedTypeTree;
+import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.ArrayAccessTree;
+import com.sun.source.tree.ArrayTypeTree;
+import com.sun.source.tree.AssertTree;
+import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.BinaryTree;
+import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.BreakTree;
+import com.sun.source.tree.CaseTree;
+import com.sun.source.tree.CatchTree;
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.CompoundAssignmentTree;
+import com.sun.source.tree.ConditionalExpressionTree;
+import com.sun.source.tree.ContinueTree;
+import com.sun.source.tree.DoWhileLoopTree;
+import com.sun.source.tree.EmptyStatementTree;
+import com.sun.source.tree.EnhancedForLoopTree;
+import com.sun.source.tree.ErroneousTree;
+import com.sun.source.tree.ExpressionStatementTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.ForLoopTree;
+import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.IfTree;
+import com.sun.source.tree.ImportTree;
+import com.sun.source.tree.InstanceOfTree;
+import com.sun.source.tree.LabeledStatementTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MemberReferenceTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ModifiersTree;
+import com.sun.source.tree.NewArrayTree;
+import com.sun.source.tree.NewClassTree;
+import com.sun.source.tree.ParameterizedTypeTree;
+import com.sun.source.tree.ParenthesizedTree;
+import com.sun.source.tree.PrimitiveTypeTree;
+import com.sun.source.tree.ReturnTree;
+import com.sun.source.tree.StatementTree;
+import com.sun.source.tree.SwitchTree;
+import com.sun.source.tree.SynchronizedTree;
+import com.sun.source.tree.ThrowTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.tree.TryTree;
+import com.sun.source.tree.TypeCastTree;
+import com.sun.source.tree.TypeParameterTree;
+import com.sun.source.tree.UnaryTree;
+import com.sun.source.tree.UnionTypeTree;
+import com.sun.source.tree.VariableTree;
+import com.sun.source.tree.WhileLoopTree;
+import com.sun.source.tree.WildcardTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
-import com.sun.tools.javac.code.Symbol.MethodSymbol;
-import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.processing.JavacProcessingEnvironment;
-import com.sun.tools.javac.util.Context;
 
 /**
  * Builds the control flow graph of some Java code (either a method, or an
@@ -114,7 +236,7 @@ public class CFGBuilder {
      * Class declarations that have been encountered when building the
      * control-flow graph for a method.
      */
-    protected final List<ClassTree> declaredClasses = new LinkedList<>();
+    protected List<ClassTree> declaredClasses;
 
     public List<ClassTree> getDeclaredClasses() {
         return declaredClasses;
@@ -124,7 +246,7 @@ public class CFGBuilder {
      * Lambdas encountered when building the control-flow graph for
      * a method, variable initializer, or initializer.
      */
-    protected final List<LambdaExpressionTree> declaredLambdas = new LinkedList<>();
+    protected List<LambdaExpressionTree> declaredLambdas;
 
     public List<LambdaExpressionTree> getDeclaredLambdas() {
         return declaredLambdas;
@@ -182,8 +304,8 @@ public class CFGBuilder {
     public ControlFlowGraph run(
             CompilationUnitTree root, ProcessingEnvironment env,
             UnderlyingAST underlyingAST) {
-        declaredClasses.clear();
-        declaredLambdas.clear();
+        declaredClasses = new LinkedList<>();
+        declaredLambdas = new LinkedList<>();
 
         TreeBuilder builder = new TreeBuilder(env);
         AnnotationProvider annotationProvider = new BasicAnnotationProvider();
@@ -203,7 +325,7 @@ public class CFGBuilder {
     public ControlFlowGraph run(
             TreePath bodyPath, ProcessingEnvironment env,
             UnderlyingAST underlyingAST) {
-        declaredClasses.clear();
+        declaredClasses = new LinkedList<>();
         TreeBuilder builder = new TreeBuilder(env);
         AnnotationProvider annotationProvider = new BasicAnnotationProvider();
         PhaseOneResult phase1result = new CFGTranslationPhaseOne().process(
@@ -285,7 +407,7 @@ public class CFGBuilder {
         }
 
         /**
-         * @return the node contained in this extended node (only applicable if
+         * @return The node contained in this extended node (only applicable if
          *         the type is {@code NODE} or {@code EXCEPTION_NODE}).
          */
         public Node getNode() {
@@ -294,7 +416,7 @@ public class CFGBuilder {
         }
 
         /**
-         * @return the label associated with this extended node (only applicable
+         * @return The label associated with this extended node (only applicable
          *         if type is {@link ExtendedNodeType#CONDITIONAL_JUMP} or
          *         {@link ExtendedNodeType#UNCONDITIONAL_JUMP}).
          */
@@ -347,10 +469,8 @@ public class CFGBuilder {
     protected static class NodeWithExceptionsHolder extends ExtendedNode {
 
         protected Node node;
-        /**
-         * Map from exception type to labels of successors that may
-         * be reached as a result of that exception.
-         */
+        // Map from exception type to labels of successors that may
+        // be reached as a result of that exception.
         protected Map<TypeMirror, Set<Label>> exceptions;
 
         public NodeWithExceptionsHolder(Node node,
@@ -510,7 +630,7 @@ public class CFGBuilder {
     protected static class TryCatchFrame implements TryFrame {
         protected Types types;
 
-        /** An ordered list of pairs because catch blocks are ordered. */
+        // An ordered list of pairs because catch blocks are ordered.
         protected List<Pair<TypeMirror, Label>> catchLabels;
 
         public TryCatchFrame(Types types, List<Pair<TypeMirror, Label>> catchLabels) {
@@ -695,7 +815,7 @@ public class CFGBuilder {
          *            The control flow graph. Ownership is transfered to this
          *            method and the caller is not allowed to read or modify
          *            {@code cfg} after the call to {@code process} any more.
-         * @return the resulting control flow graph
+         * @return The resulting control flow graph.
          */
         public static ControlFlowGraph process(ControlFlowGraph cfg) {
             Set<Block> worklist = cfg.getAllBlocks();
@@ -795,7 +915,7 @@ public class CFGBuilder {
          * @param predecessors
          *            An empty set to be filled by this method with all
          *            predecessors.
-         * @return the single successor of the set of the empty basic blocks
+         * @return The single successor of the set of the empty basic blocks.
          */
         protected static BlockImpl computeNeighborhoodOfEmptyBlock(
                 RegularBlockImpl start, Set<RegularBlockImpl> empty,
@@ -955,7 +1075,7 @@ public class CFGBuilder {
         }
 
         /**
-         * @return a {@link PredecessorHolder} that sets the successor of a
+         * @return A {@link PredecessorHolder} that sets the successor of a
          *         single successor block {@code s}.
          */
         protected static PredecessorHolder singleSuccessorHolder(
@@ -1010,10 +1130,10 @@ public class CFGBuilder {
          *
          * @param in
          *            The result of phase one.
-         * @return a control flow graph that might still contain degenerate
+         * @return A control flow graph that might still contain degenerate
          *         basic block (such as empty regular basic blocks or
          *         conditional blocks with the same block as 'then' and 'else'
-         *         sucessor)
+         *         sucessor).
          */
         public ControlFlowGraph process(PhaseOneResult in) {
 
@@ -1129,9 +1249,8 @@ public class CFGBuilder {
                     // ensure linking between e and next block (normal edge)
                     // Note: do not link to the next block for throw statements
                     // (these throw exceptions for sure)
-                    if (!node.getTerminatesExecution()) {
+                    if (!node.getTerminatesExecution())
                         missingEdges.add(new Tuple<>(e, i + 1));
-                    }
 
                     // exceptional edges
                     for (Entry<TypeMirror, Set<Label>> entry : en.getExceptions()
@@ -1313,6 +1432,12 @@ public class CFGBuilder {
         protected Map<Name, Label> continueLabels;
 
         /**
+         * Node yielding the value for the lexically enclosing synchronized statement,
+         * or null if there is no such statement.
+         */
+        protected Node synchronizedExpr;
+
+        /**
          * Maps from AST {@link Tree}s to {@link Node}s.  Every Tree that produces
          * a value will have at least one corresponding Node.  Trees
          * that undergo conversions, such as boxing or unboxing, can map to two
@@ -1365,7 +1490,7 @@ public class CFGBuilder {
          *            builder for new AST nodes
          * @param annotationProvider
          *            extracts annotations from AST nodes
-         * @return the result of phase one
+         * @return The result of phase one.
          */
         public PhaseOneResult process(
                 TreePath bodyPath, ProcessingEnvironment env,
@@ -1483,7 +1608,7 @@ public class CFGBuilder {
          *
          * @param node
          *            The node to add.
-         * @return the same node (for convenience)
+         * @return The same node (for convenience).
          */
         protected <T extends Node> T extendWithNode(T node) {
             addToLookupMap(node);
@@ -1493,13 +1618,13 @@ public class CFGBuilder {
 
         /**
          * Extend the list of extended nodes with a node, where
-         * {@code node} might throw the exception {@code cause}.
+         * <code>node</code> might throw the exception <code>cause</code>.
          *
          * @param node
          *            The node to add.
          * @param cause
          *            An exception that the node might throw.
-         * @return the node holder
+         * @return The node holder.
          */
         protected NodeWithExceptionsHolder extendWithNodeWithException(Node node, TypeMirror cause) {
             addToLookupMap(node);
@@ -1508,14 +1633,14 @@ public class CFGBuilder {
 
         /**
          * Extend the list of extended nodes with a node, where
-         * {@code node} might throw any of the exception in
-         * {@code causes}.
+         * <code>node</code> might throw any of the exception in
+         * <code>causes</code>.
          *
          * @param node
          *            The node to add.
          * @param causes
          *            Set of exceptions that the node might throw.
-         * @return the node holder
+         * @return The node holder.
          */
         protected NodeWithExceptionsHolder extendWithNodeWithExceptions(Node node,
                 Set<TypeMirror> causes) {
@@ -1531,15 +1656,15 @@ public class CFGBuilder {
         }
 
         /**
-         * Insert {@code node} after {@code pred} in
+         * Insert <code>node</code> after <code>pred</code> in
          * the list of extended nodes, or append to the list if
-         * {@code pred} is not present.
+         * <code>pred</code> is not present.
          *
          * @param node
          *            The node to add.
          * @param pred
          *            The desired predecessor of node.
-         * @return the node holder
+         * @return The node holder.
          */
         protected <T extends Node> T insertNodeAfter(T node, Node pred) {
             addToLookupMap(node);
@@ -1548,9 +1673,9 @@ public class CFGBuilder {
         }
 
         /**
-         * Insert a {@code node} that might throw the exception
-         * {@code cause} after {@code pred} in the list of
-         * extended nodes, or append to the list if {@code pred}
+         * Insert a <code>node</code> that might throw the exception
+         * <code>cause</code> after <code>pred</code> in the list of
+         * extended nodes, or append to the list if <code>pred</code>
          * is not present.
          *
          * @param node
@@ -1559,7 +1684,7 @@ public class CFGBuilder {
          *            Set of exceptions that the node might throw.
          * @param pred
          *            The desired predecessor of node.
-         * @return the node holder
+         * @return The node holder.
          */
         protected NodeWithExceptionsHolder insertNodeWithExceptionsAfter(Node node,
                 Set<TypeMirror> causes, Node pred) {
@@ -1585,8 +1710,8 @@ public class CFGBuilder {
         }
 
         /**
-         * Insert {@code n} after the node {@code pred} in the
-         * list of extended nodes, or append {@code n} if {@code pred}
+         * Insert <code>n</code> after the node <code>pred</code> in the
+         * list of extended nodes, or append <code>n</code> if <code>pred</code>
          * is not present.
          *
          * @param n
@@ -1608,22 +1733,6 @@ public class CFGBuilder {
             }
             if (index != -1) {
                 nodeList.add(index + 1, n);
-                // update bindings
-                for (Entry<Label, Integer> e : bindings.entrySet()) {
-                    if (e.getValue() >= index+1) {
-                        bindings.put(e.getKey(), e.getValue() + 1);
-                    }
-                }
-                // update leaders
-                Set<Integer> newLeaders = new HashSet<>();
-                for (Integer l : leaders) {
-                    if (l >= index+1) {
-                        newLeaders.add(l+1);
-                    } else {
-                        newLeaders.add(l);
-                    }
-                }
-                leaders = newLeaders;
             } else {
                 nodeList.add(n);
             }
@@ -2374,18 +2483,17 @@ public class CFGBuilder {
 
             // see JLS 14.10
 
+            // If assertions are disabled, then nothing is executed.
+            if (assumeAssertionsDisabled) {
+                return null;
+            }
+
             // If assertions are enabled, then we can just translate the
             // assertion.
             if (assumeAssertionsEnabled || assumeAssertionsEnabledFor(tree)) {
                 translateAssertWithAssertionsEnabled(tree);
                 return null;
             }
-
-            // If assertions are disabled, then nothing is executed.
-            if (assumeAssertionsDisabled) {
-                return null;
-            }
-
 
             // Otherwise, we don't know if assertions are enabled, so we use a
             // variable "ea" and case-split on it. One branch does execute the
@@ -2560,7 +2668,7 @@ public class CFGBuilder {
         }
 
         /**
-         * Note 1: Requires {@code tree} to be a field or method access
+         * Note 1: Requires <code>tree</code> to be a field or method access
          * tree.
          * <p>
          * Note 2: Visits the receiver and adds all necessary blocks to the CFG.
@@ -2569,7 +2677,7 @@ public class CFGBuilder {
          *            the field access tree containing the receiver
          * @param classTree
          *            the ClassTree enclosing the field access
-         * @return the receiver of the field access
+         * @return The receiver of the field access.
          */
         private Node getReceiver(Tree tree, ClassTree classTree) {
             assert TreeUtils.isFieldAccess(tree)
@@ -3112,7 +3220,7 @@ public class CFGBuilder {
                 Label oldBreakTargetL = breakTargetL;
                 breakTargetL = new Label();
                 int cases = caseBodyLabels.length-1;
-                for (int i = 0; i < cases; ++i) {
+                for(int i=0; i<cases; ++i) {
                     caseBodyLabels[i] = new Label();
                 }
                 caseBodyLabels[cases] = breakTargetL;
@@ -3121,7 +3229,7 @@ public class CFGBuilder {
                 extendWithNode(new MarkerNode(switchTree, "start of switch statement", env.getTypeUtils()));
 
                 Integer defaultIndex = null;
-                for (int i = 0; i < cases; ++i) {
+                for(int i=0; i<cases; ++i) {
                     CaseTree caseTree = switchTree.getCases().get(i);
                     if (caseTree.getExpression() == null) {
                         defaultIndex = i;
@@ -3338,7 +3446,14 @@ public class CFGBuilder {
                   treeBuilder.buildMethodInvocation(iteratorSelect);
               handleArtificialTree(iteratorCall);
 
-              VariableTree iteratorVariable = createEnhancedForLoopIteratorVariable(iteratorCall, variableElement);
+              TypeMirror iteratorType = InternalUtils.typeOf(iteratorCall);
+
+              // Declare and initialize a new, unique iterator variable
+              VariableTree iteratorVariable =
+                  treeBuilder.buildVariableDecl(iteratorType, // annotatedIteratorTypeTree,
+                                                uniqueName("iter"),
+                                                variableElement.getEnclosingElement(),
+                                                iteratorCall);
               handleArtificialTree(iteratorVariable);
 
               VariableDeclarationNode iteratorVariableDecl =
@@ -3442,7 +3557,14 @@ public class CFGBuilder {
               // TODO: Shift any labels after the initialization of the
               // temporary array variable.
 
-              VariableTree arrayVariable = createEnhancedForLoopArrayVariable(expression, variableElement);
+              TypeMirror arrayType = InternalUtils.typeOf(expression);
+
+              // Declare and initialize a temporary array variable
+              VariableTree arrayVariable =
+                  treeBuilder.buildVariableDecl(arrayType,
+                                                uniqueName("array"),
+                                                variableElement.getEnclosingElement(),
+                                                expression);
               handleArtificialTree(arrayVariable);
 
               VariableDeclarationNode arrayVariableNode =
@@ -3590,30 +3712,6 @@ public class CFGBuilder {
           return null;
         }
 
-        protected VariableTree createEnhancedForLoopIteratorVariable(MethodInvocationTree iteratorCall, VariableElement variableElement) {
-            TypeMirror iteratorType = InternalUtils.typeOf(iteratorCall);
-
-            // Declare and initialize a new, unique iterator variable
-            VariableTree iteratorVariable =
-                treeBuilder.buildVariableDecl(iteratorType, // annotatedIteratorTypeTree,
-                                              uniqueName("iter"),
-                                              variableElement.getEnclosingElement(),
-                                              iteratorCall);
-            return iteratorVariable;
-        }
-
-        protected VariableTree createEnhancedForLoopArrayVariable(ExpressionTree expression, VariableElement variableElement) {
-            TypeMirror arrayType = InternalUtils.typeOf(expression);
-
-            // Declare and initialize a temporary array variable
-            VariableTree arrayVariable =
-                    treeBuilder.buildVariableDecl(arrayType,
-                            uniqueName("array"),
-                            variableElement.getEnclosingElement(),
-                            expression);
-            return arrayVariable;
-        }
-
         @Override
         public Node visitForLoop(ForLoopTree tree, Void p) {
             Name parentLabel = getLabel(getCurrentPath());
@@ -3693,11 +3791,10 @@ public class CFGBuilder {
                     break;
                 case FIELD:
                     // Note that "this"/"super" is a field, but not a field access.
-                    if (element.getSimpleName().contentEquals("this")) {
+                    if (element.getSimpleName().contentEquals("this"))
                         node = new ExplicitThisLiteralNode(tree);
-                    } else {
+                    else
                         node = new SuperNode(tree);
-                    }
                     break;
                 case EXCEPTION_PARAMETER:
                 case LOCAL_VARIABLE:
@@ -3904,14 +4001,14 @@ public class CFGBuilder {
         }
 
         /**
-         * Maps a {@code Tree} its directly enclosing {@code ParenthesizedTree} if one exists.
+         * Maps a <code>Tree</code> its directly enclosing <code>ParenthesizedTree</code> if one exists.
          *
          * This map is used by {@link CFGTranslationPhaseOne#addToLookupMap(Node)} to
-         * associate a {@code ParenthesizedTree} with the dataflow {@code Node} that was used
+         * associate a <code>ParenthesizedTree</code> with the dataflow <code>Node</code> that was used
          * during inference. This map is necessary because dataflow does
-         * not create a {@code Node} for a {@code ParenthesizedTree.}
+         * not create a <code>Node</code> for a <code>ParenthesizedTree.</code>
          */
-        private final Map<Tree, ParenthesizedTree> parenMapping = new HashMap<>();
+        private Map<Tree, ParenthesizedTree> parenMapping = new HashMap<>();
 
         @Override
         public Node visitParenthesized(ParenthesizedTree tree, Void p) {
@@ -3996,7 +4093,7 @@ public class CFGBuilder {
         public Node visitSynchronized(SynchronizedTree tree, Void p) {
             // see JLS 14.19
 
-            Node synchronizedExpr = scan(tree.getExpression(), p);
+            synchronizedExpr = scan(tree.getExpression(), p);
             SynchronizedNode synchronizedStartNode = new SynchronizedNode(tree, synchronizedExpr, true, env.getTypeUtils());
             extendWithNode(synchronizedStartNode);
             scan(tree.getBlock(), p);
@@ -4270,8 +4367,7 @@ public class CFGBuilder {
 
             // see JLS 14.4
 
-            boolean isField = getCurrentPath().getParentPath() != null
-                    && getCurrentPath().getParentPath().getLeaf().getKind() == Kind.CLASS;
+            boolean isField = TreeUtils.enclosingOfKind(getCurrentPath(), Kind.BLOCK) == null;
             Node node = null;
 
             ClassTree enclosingClass = TreeUtils
@@ -4446,3 +4542,4 @@ public class CFGBuilder {
         }
     }
 }
+

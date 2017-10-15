@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
@@ -24,9 +25,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import com.google.devtools.build.lib.util.io.DelegatingOutErr;
+import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import java.io.File;
-import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +47,7 @@ import java.util.Map;
           + " output stream content, the standard error stream content and the execution return"
           + " code."
 )
+@Immutable
 final class SkylarkExecutionResult {
   private final int returnCode;
   private final String stdout;
@@ -53,15 +57,6 @@ final class SkylarkExecutionResult {
     this.returnCode = returnCode;
     this.stdout = stdout;
     this.stderr = stderr;
-  }
-
-  private SkylarkExecutionResult(CommandResult result) {
-    // TODO(dmarting): if a lot of data is sent to stdout, this will use all the memory and
-    // Bazel will crash. Maybe we should use custom output streams that throw an appropriate
-    // exception when reaching a specific size.
-    this.stdout = new String(result.getStdout(), StandardCharsets.UTF_8);
-    this.stderr = new String(result.getStderr(), StandardCharsets.UTF_8);
-    this.returnCode = result.getTerminationStatus().getExitCode();
   }
 
   @SkylarkCallable(
@@ -112,6 +107,7 @@ final class SkylarkExecutionResult {
     private final Map<String, String> envBuilder = Maps.newLinkedHashMap();
     private long timeout = -1;
     private boolean executed = false;
+    private OutErr outErr;
 
     private Builder(Map<String, String> environment) {
       envBuilder.putAll(environment);
@@ -166,6 +162,11 @@ final class SkylarkExecutionResult {
       return this;
     }
 
+    Builder setOutErr(OutErr outErr) {
+      this.outErr = outErr;
+      return this;
+    }
+
     /**
      * Execute the command specified by {@link #addArguments(Iterable)}.
      */
@@ -176,16 +177,31 @@ final class SkylarkExecutionResult {
       Preconditions.checkNotNull(directory, "Directory must be set before calling execute().");
       executed = true;
 
+      DelegatingOutErr delegator = new DelegatingOutErr();
+      RecordingOutErr recorder = new RecordingOutErr();
+      // TODO(dmarting): if a lot of data is sent to stdout, this will use all the memory and
+      // Bazel will crash. Maybe we should use custom output streams that throw an appropriate
+      // exception when reaching a specific size.
+      delegator.addSink(recorder);
+      if (outErr != null) {
+        delegator.addSink(outErr);
+      }
       try {
         String[] argsArray = new String[args.size()];
         for (int i = 0; i < args.size(); i++) {
           argsArray[i] = args.get(i);
         }
-        Command command = new Command(argsArray, envBuilder, directory);
-        CommandResult result = command.execute(new byte[]{}, timeout, false);
-        return new SkylarkExecutionResult(result);
+        Command command = new Command(argsArray, envBuilder, directory, Duration.ofMillis(timeout));
+        CommandResult result =
+            command.execute(delegator.getOutputStream(), delegator.getErrorStream());
+        return new SkylarkExecutionResult(
+            result.getTerminationStatus().getExitCode(),
+            recorder.outAsLatin1(),
+            recorder.errAsLatin1());
       } catch (BadExitStatusException e) {
-        return new SkylarkExecutionResult(e.getResult());
+        return new SkylarkExecutionResult(
+            e.getResult().getTerminationStatus().getExitCode(), recorder.outAsLatin1(),
+            recorder.errAsLatin1());
       } catch (CommandException e) {
         // 256 is outside of the standard range for exit code on Unixes. We are not guaranteed that
         // on all system it would be outside of the standard range.

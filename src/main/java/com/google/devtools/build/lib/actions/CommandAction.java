@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.actions.ExecutionInfoSpecifier;
 import java.util.List;
 
 /**
@@ -25,11 +24,14 @@ import java.util.List;
 public interface CommandAction extends Action, ExecutionInfoSpecifier {
 
   /** Returns a list of command line arguments that implements this action. */
-  public List<String> getArguments();
+  List<String> getArguments() throws CommandLineExpansionException;
 
   /** 
    * Returns a map of command line variables to their values that constitute the environment
    * in which this action should be run.
    */
-  public ImmutableMap<String, String> getEnvironment();
+  ImmutableMap<String, String> getEnvironment();
+
+  /** Returns inputs to this action, including inputs that may be pruned. */
+  Iterable<Artifact> getPossibleInputsForTesting();
 }

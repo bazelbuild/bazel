@@ -31,7 +31,7 @@ def success_target(ctx, msg):
     with actions that always succeed at execution time.
   """
   exe = ctx.outputs.executable
-  dat = ctx.new_file(ctx.configuration.genfiles_dir, exe, ".dat")
+  dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
   ctx.file_action(
       output=dat,
       content=msg)
@@ -66,7 +66,7 @@ def failure_target(ctx, msg):
   """
   ### fail(msg) ### <--- This would fail at analysis time.
   exe = ctx.outputs.executable
-  dat = ctx.new_file(ctx.configuration.genfiles_dir, exe, ".dat")
+  dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
   ctx.file_action(
       output=dat,
       content=msg)
@@ -184,9 +184,26 @@ def _rule_test_impl(ctx):
   rule_name = str(rule_.label)
   exe = ctx.outputs.executable
   if ctx.attr.generates:
-    prefix = rule_.label.package + "/"
+    # Generate the proper prefix to remove from generated files.
+    prefix_parts = []
+
+    if rule_.label.workspace_root:
+      # Create a prefix that is correctly relative to the output of this rule.
+      prefix_parts = ["..", strip_prefix("external/", rule_.label.workspace_root)]
+
+    if rule_.label.package:
+      prefix_parts.append(rule_.label.package)
+
+    prefix = "/".join(prefix_parts)
+
+    if prefix:
+      # If the prefix isn't empty, it needs a trailing slash.
+      prefix = prefix + "/"
+
     # TODO(bazel-team): Use set() instead of sorted() once
     # set comparison is implemented.
+    # TODO(bazel-team): Use a better way to determine if two paths refer to
+    # the same file.
     generates = sorted(ctx.attr.generates)
     generated = sorted([strip_prefix(prefix, f.short_path)
                         for f in rule_.files])
@@ -204,7 +221,7 @@ def _rule_test_impl(ctx):
         fail(("rule %s doesn't provide attribute %s. "
               + "Its list of attributes is: %s")
              % (rule_name, k, dir(rule_)))
-      file_ = ctx.new_file(ctx.configuration.genfiles_dir, exe, "." + k)
+      file_ = ctx.new_file(ctx.genfiles_dir, exe, "." + k)
       files += [file_]
       regexp = provides[k]
       commands += [
@@ -240,7 +257,7 @@ def _file_test_impl(ctx):
   if content and matches != -1:
     fail("matches only makes sense with regexp")
   if content:
-    dat = ctx.new_file(ctx.configuration.genfiles_dir, exe, ".dat")
+    dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
     ctx.file_action(
         output=dat,
         content=content)

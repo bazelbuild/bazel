@@ -15,12 +15,14 @@ package com.google.devtools.common.options;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -29,6 +31,213 @@ import java.util.regex.PatternSyntaxException;
  * blaze.
  */
 public final class Converters {
+
+  /** Standard converter for booleans. Accepts common shorthands/synonyms. */
+  public static class BooleanConverter implements Converter<Boolean> {
+    @Override
+    public Boolean convert(String input) throws OptionsParsingException {
+      if (input == null) {
+        return false;
+      }
+      input = input.toLowerCase();
+      if (input.equals("true")
+          || input.equals("1")
+          || input.equals("yes")
+          || input.equals("t")
+          || input.equals("y")) {
+        return true;
+      }
+      if (input.equals("false")
+          || input.equals("0")
+          || input.equals("no")
+          || input.equals("f")
+          || input.equals("n")) {
+        return false;
+      }
+      throw new OptionsParsingException("'" + input + "' is not a boolean");
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a boolean";
+    }
+  }
+
+  /** Standard converter for Strings. */
+  public static class StringConverter implements Converter<String> {
+    @Override
+    public String convert(String input) {
+      return input;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a string";
+    }
+  }
+
+  /** Standard converter for integers. */
+  public static class IntegerConverter implements Converter<Integer> {
+    @Override
+    public Integer convert(String input) throws OptionsParsingException {
+      try {
+        return Integer.decode(input);
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' is not an int");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer";
+    }
+  }
+
+  /** Standard converter for longs. */
+  public static class LongConverter implements Converter<Long> {
+    @Override
+    public Long convert(String input) throws OptionsParsingException {
+      try {
+        return Long.decode(input);
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' is not a long");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a long integer";
+    }
+  }
+
+  /** Standard converter for doubles. */
+  public static class DoubleConverter implements Converter<Double> {
+    @Override
+    public Double convert(String input) throws OptionsParsingException {
+      try {
+        return Double.parseDouble(input);
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' is not a double");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a double";
+    }
+  }
+
+  /** Standard converter for TriState values. */
+  public static class TriStateConverter implements Converter<TriState> {
+    @Override
+    public TriState convert(String input) throws OptionsParsingException {
+      if (input == null) {
+        return TriState.AUTO;
+      }
+      input = input.toLowerCase();
+      if (input.equals("auto")) {
+        return TriState.AUTO;
+      }
+      if (input.equals("true")
+          || input.equals("1")
+          || input.equals("yes")
+          || input.equals("t")
+          || input.equals("y")) {
+        return TriState.YES;
+      }
+      if (input.equals("false")
+          || input.equals("0")
+          || input.equals("no")
+          || input.equals("f")
+          || input.equals("n")) {
+        return TriState.NO;
+      }
+      throw new OptionsParsingException("'" + input + "' is not a boolean");
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a tri-state (auto, yes, no)";
+    }
+  }
+
+  /**
+   * Standard "converter" for Void. Should not actually be invoked. For instance, expansion flags
+   * are usually Void-typed and do not invoke the converter.
+   */
+  public static class VoidConverter implements Converter<Void> {
+    @Override
+    public Void convert(String input) throws OptionsParsingException {
+      if (input == null || input.equals("null")) {
+        return null; // expected input, return is unused so null is fine.
+      }
+      throw new OptionsParsingException("'" + input + "' unexpected");
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "";
+    }
+  }
+
+  /**
+   * Standard converter for the {@link java.time.Duration} type.
+   */
+  public static class DurationConverter implements Converter<Duration> {
+    private final Pattern durationRegex = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
+
+    @Override
+    public Duration convert(String input) throws OptionsParsingException {
+      // To be compatible with the previous parser, '0' doesn't need a unit.
+      if ("0".equals(input)) {
+        return Duration.ZERO;
+      }
+      Matcher m = durationRegex.matcher(input);
+      if (!m.matches()) {
+        throw new OptionsParsingException("Illegal duration '" + input + "'.");
+      }
+      long duration = Long.parseLong(m.group(1));
+      String unit = m.group(2);
+      switch(unit) {
+        case "d":
+          return Duration.ofDays(duration);
+        case "h":
+          return Duration.ofHours(duration);
+        case "m":
+          return Duration.ofMinutes(duration);
+        case "s":
+          return Duration.ofSeconds(duration);
+        case "ms":
+          return Duration.ofMillis(duration);
+        default:
+          throw new IllegalStateException("This must not happen. Did you update the regex without "
+              + "the switch case?");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "An immutable length of time.";
+    }
+  }
+
+  // 1:1 correspondence with UsesOnlyCoreTypes.CORE_TYPES.
+  /**
+   * The converters that are available to the options parser by default. These are used if the
+   * {@code @Option} annotation does not specify its own {@code converter}, and its type is one of
+   * the following.
+   */
+  public static final ImmutableMap<Class<?>, Converter<?>> DEFAULT_CONVERTERS =
+      new ImmutableMap.Builder<Class<?>, Converter<?>>()
+          .put(String.class, new Converters.StringConverter())
+          .put(int.class, new Converters.IntegerConverter())
+          .put(long.class, new Converters.LongConverter())
+          .put(double.class, new Converters.DoubleConverter())
+          .put(boolean.class, new Converters.BooleanConverter())
+          .put(TriState.class, new Converters.TriStateConverter())
+          .put(Duration.class, new Converters.DurationConverter())
+          .put(Void.class, new Converters.VoidConverter())
+          .build();
 
   /**
    * Join a list of words as in English.  Examples:
@@ -66,9 +275,7 @@ public final class Converters {
 
     @Override
     public List<String> convert(String input) {
-      return input.equals("")
-          ? ImmutableList.<String>of()
-          : ImmutableList.copyOf(splitter.split(input));
+      return input.isEmpty() ? ImmutableList.of() : ImmutableList.copyOf(splitter.split(input));
     }
 
     @Override
@@ -92,7 +299,7 @@ public final class Converters {
 
   public static class LogLevelConverter implements Converter<Level> {
 
-    public static Level[] LEVELS = new Level[] {
+    public static final Level[] LEVELS = new Level[] {
       Level.OFF, Level.SEVERE, Level.WARNING, Level.INFO, Level.FINE,
       Level.FINER, Level.FINEST
     };
@@ -102,9 +309,7 @@ public final class Converters {
       try {
         int level = Integer.parseInt(input);
         return LEVELS[level];
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("Not a log level: " + input);
-      } catch (ArrayIndexOutOfBoundsException e) {
+      } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
         throw new OptionsParsingException("Not a log level: " + input);
       }
     }
@@ -296,30 +501,11 @@ public final class Converters {
   }
 
   /**
-   * A converter for boolean values. This is already one of the defaults, so clients
-   * should not typically need to add this.
+   * A converter to check whether an integer denoting a percentage is in a valid range: [0, 100].
    */
-  public static class BooleanConverter implements Converter<Boolean> {
-    @Override
-    public Boolean convert(String input) throws OptionsParsingException {
-      if (input == null) {
-        return false;
-      }
-      input = input.toLowerCase();
-      if (input.equals("true") || input.equals("1") || input.equals("yes") ||
-          input.equals("t") || input.equals("y")) {
-        return true;
-      }
-      if (input.equals("false") || input.equals("0") || input.equals("no") ||
-          input.equals("f") || input.equals("n")) {
-        return false;
-      }
-      throw new OptionsParsingException("'" + input + "' is not a boolean");
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a boolean";
+  public static class PercentageConverter extends RangeConverter {
+    public PercentageConverter() {
+      super(0, 100);
     }
   }
 

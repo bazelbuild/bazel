@@ -27,7 +27,7 @@ public interface SpecialBlock extends SingleSuccessorBlock {
     }
 
     /**
-     * @return the type of this special basic block
+     * @return The type of this special basic block.
      */
     SpecialBlockType getSpecialType();
 

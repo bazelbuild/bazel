@@ -1,10 +1,70 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@bazel_tools//tools/android:android_sdk_repository_template.bzl", "create_android_sdk_rules")
+load(
+    "@bazel_tools//tools/android:android_sdk_repository_template.bzl",
+    "create_android_sdk_rules",
+    "create_system_images_filegroups")
 
 create_android_sdk_rules(
     name = "%repository_name%",
     build_tools_version = "%build_tools_version%",
     build_tools_directory = "%build_tools_directory%",
-    api_level = %api_level%,
+    api_levels = %api_levels%,
+    default_api_level = %default_api_level%,
 )
+
+alias(
+    name = "adb",
+    actual = "platform-tools/adb",
+)
+
+alias(
+    name = "emulator_arm",
+    actual = "tools/emulator64-arm",
+)
+
+alias(
+    name = "emulator_x86",
+    actual = "tools/emulator64-x86",
+)
+
+filegroup(
+    name = "emulator_x86_bios",
+    srcs = glob(["tools/lib/pc-bios/*"]),
+)
+
+alias(
+    name = "mksd",
+    actual = "tools/mksdcard",
+)
+
+alias(
+    name = "empty_snapshot_fs",
+    actual = "tools/lib/emulator/snapshots.img",
+)
+
+filegroup(
+    name = "emulator_shared_libs",
+    srcs = glob(["tools/lib64/**"]),
+)
+
+filegroup(
+    name = "sdk_path",
+    srcs = ["."],
+)
+
+filegroup(
+    name = "qemu2_x86",
+    srcs = [
+        "tools/emulator",
+        "tools/qemu/linux-x86_64/qemu-system-i386",
+    ],
+)
+
+create_system_images_filegroups(
+    system_image_dirs = [
+%system_image_dirs%    ],
+)
+
+exports_files([
+%exported_files%] + glob(["system-images/**"]))

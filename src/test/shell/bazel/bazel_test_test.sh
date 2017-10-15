@@ -31,7 +31,7 @@ function set_up_jobcount() {
   mkdir -p dir
 
   cat <<EOF > dir/test.sh
-#!/bin/bash
+#!/bin/sh
 # hard link
 z=\$(mktemp -u ${tmp}/tmp.XXXXXXXX)
 ln ${tmp}/counter \${z}
@@ -41,7 +41,7 @@ sleep 1
 nlink=\$(ls -l ${tmp}/counter | awk '{print \$2}')
 
 # 4 links = 3 jobs + ${tmp}/counter
-if [[ "\$nlink" -gt 4 ]] ; then
+if [ "\$nlink" -gt 4 ] ; then
   echo found "\$nlink" hard links to file, want 4 max.
   exit 1
 fi
@@ -80,10 +80,11 @@ function test_3_local_jobs() {
     --runs_per_test=10 //dir:test
 }
 
-function test_tmpdir() {
+# TODO(#2228): Re-enable when the tmpdir creation is fixed.
+function DISABLED_test_tmpdir() {
   mkdir -p foo
   cat > foo/bar_test.sh <<'EOF'
-#!/bin/bash
+#!/bin/sh
 echo TEST_TMPDIR=$TEST_TMPDIR
 EOF
   chmod +x foo/bar_test.sh
@@ -122,7 +123,7 @@ workspace(name = "bar")
 EOF
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
-#!/bin/bash
+#!/bin/sh
 echo "pwd: $PWD"
 echo "src: $TEST_SRCDIR"
 echo "ws: $TEST_WORKSPACE"
@@ -191,14 +192,19 @@ echo "hello script!!!" "\$@"
 EOF
   chmod u+x scripts/hello
 
+  # We don't just use the local PATH, but use the test's PATH, which is more restrictive.
   PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
-    --test_output=all >& $TEST_log || fail "Expected success"
+    --test_output=all >& $TEST_log && fail "Expected failure"
+
+  # We need to forward the PATH to make it work.
+  PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
+    --test_env=PATH --test_output=all >& $TEST_log || fail "Expected success"
   expect_log 'hello script!!! testing/t1'
 
   # Make sure it still works if --run_under includes an arg.
   PATH=$PATH:$PWD/scripts bazel test //testing:t1 \
     -s --run_under='hello "some_arg   with"          space' \
-    --test_output=all >& $TEST_log || fail "Expected success"
+    --test_env=PATH --test_output=all >& $TEST_log || fail "Expected success"
   expect_log 'hello script!!! some_arg   with space testing/t1'
 
   # Make sure absolute path works also
@@ -230,7 +236,7 @@ EOF
 
   bazel test --test_timeout=2 //dir:test &> $TEST_log && fail "should have timed out"
   expect_log "TIMEOUT"
-  bazel test --test_timeout=20 //dir:test || fail "expected success"
+  bazel test --test_timeout=20 //dir:test &> $TEST_log || fail "expected success"
 }
 
 # Makes sure that runs_per_test_detects_flakes detects FLAKY if any of the 5
@@ -248,8 +254,8 @@ function test_runs_per_test_detects_flakes() {
     # This file holds the number of the next run
     echo 1 > "${COUNTER_DIR}/$i"
     cat <<EOF > test$i.sh
-#!/bin/bash
-i=\$(< "${COUNTER_DIR}/$i")
+#!/bin/sh
+i=\$(cat "${COUNTER_DIR}/$i")
 
 # increment the hidden state
 echo \$((i + 1)) > "${COUNTER_DIR}/$i"
@@ -292,6 +298,73 @@ EOF
 
   xml_log=bazel-testlogs/dir/test/test.xml
   [ -s $xml_log ] || fail "$xml_log was not present after test"
+}
+
+# Tests that the test.xml is here in case of timeout
+function test_xml_is_present_when_timingout() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+echo "bleh"
+# Invalid XML character
+perl -e 'print "\x1b"'
+# Invalid UTF-8 characters
+perl -e 'print "\xc0\x00\xa0\xa1"'
+# ]]> needs escaping
+echo "<!CDATA[]]>"
+sleep 10
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test -s --test_timeout=1 \
+     //dir:test &> $TEST_log && fail "should have failed" || true
+
+  xml_log=bazel-testlogs/dir/test/test.xml
+  [ -s "${xml_log}" ] || fail "${xml_log} was not present after test"
+  cat "${xml_log}" > $TEST_log
+  expect_log '"Timed out"'
+  expect_log '<system-out><!\[CDATA\[bleh
+\?\?\?\?\?<!CDATA\[\]\]>\]\]<!\[CDATA\[>\]\]></system-out>'
+}
+
+# Check that fallback xml output is correctly generated for sharded tests.
+function test_xml_fallback_for_sharded_test() {
+  mkdir -p dir
+
+  cat <<EOF > dir/test.sh
+#!/bin/sh
+exit \$((TEST_SHARD_INDEX == 1))
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<EOF > dir/BUILD
+sh_test(
+  name = "test",
+  srcs = [ "test.sh" ],
+  shard_count = 2,
+)
+EOF
+
+  bazel test //dir:test && fail "should have failed" || true
+
+  cp bazel-testlogs/dir/test/shard_1_of_2/test.xml $TEST_log
+  expect_log "errors=\"0\""
+  expect_log_once "testcase"
+  expect_log "name=\"dir/test_shard_1/2\""
+  cp bazel-testlogs/dir/test/shard_2_of_2/test.xml $TEST_log
+  expect_log "errors=\"1\""
+  expect_log_once "testcase"
+  expect_log "name=\"dir/test_shard_2/2\""
 }
 
 # Simple test that we actually enforce testonly, see #1923.
@@ -351,10 +424,12 @@ EOF
   cat bazel-testlogs/dir/success/test.xml >$TEST_log
   expect_log "errors=\"0\""
   expect_log_once "testcase"
+  expect_log_once "duration=\"[0-9]\+\""
   expect_log "name=\"dir/success\""
   cat bazel-testlogs/dir/fail/test.xml >$TEST_log
   expect_log "errors=\"1\""
   expect_log_once "testcase"
+  expect_log_once "duration=\"[0-9]\+\""
   expect_log "name=\"dir/fail\""
 }
 
@@ -373,4 +448,69 @@ EOF
   expect_log 'FAILED.*com\.example\.myproject\.Fail\.testFail'
 }
 
-run_suite "test tests"
+function test_flaky_test() {
+  cat >BUILD <<EOF
+sh_test(name = "flaky", flaky = True, srcs = ["flaky.sh"])
+sh_test(name = "pass", flaky = True, srcs = ["true.sh"])
+sh_test(name = "fail", flaky = True, srcs = ["false.sh"])
+EOF
+  FLAKE_FILE="${TEST_TMPDIR}/flake"
+  rm -f "${FLAKE_FILE}"
+  cat >flaky.sh <<EOF
+#!/bin/sh
+if ! [ -f "${FLAKE_FILE}" ]; then
+  echo 1 > "${FLAKE_FILE}"
+  echo "fail"
+  exit 1
+fi
+echo "pass"
+EOF
+  cat >true.sh <<EOF
+#!/bin/sh
+echo "pass"
+exit 0
+EOF
+  cat >false.sh <<EOF
+#!/bin/sh
+echo "fail"
+exit 1
+EOF
+  chmod +x true.sh flaky.sh false.sh
+
+  # We do not use sandboxing so we can trick to be deterministically flaky
+  bazel test --spawn_strategy=standalone //:flaky &> $TEST_log \
+      || fail "//:flaky should have passed with flaky support"
+  [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
+
+  expect_log_once "FAIL: //:flaky (.*/flaky/test_attempts/attempt_1.log)"
+  expect_log_once "PASS: //:flaky"
+  expect_log_once "FLAKY"
+  cat bazel-testlogs/flaky/test_attempts/attempt_1.log &> $TEST_log
+  assert_equals "fail" "$(tail -1 bazel-testlogs/flaky/test_attempts/attempt_1.log)"
+  assert_equals 1 $(ls bazel-testlogs/flaky/test_attempts/*.log | wc -l)
+  cat bazel-testlogs/flaky/test.log &> $TEST_log
+  assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
+
+  bazel test //:pass &> $TEST_log \
+      || fail "//:pass should have passed"
+  expect_log_once "PASS: //:pass"
+  expect_log_once PASSED
+  [ ! -d bazel-test_logs/pass/test_attempts ] \
+    || fail "Got test attempts while expected non for non-flaky tests"
+  cat bazel-testlogs/flaky/test.log &> $TEST_log
+  assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
+
+  bazel test //:fail &> $TEST_log \
+      && fail "//:fail should have failed" \
+      || true
+  expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
+  expect_log_once "FAIL: //:fail (.*/fail/test.log)"
+  expect_log_once "FAILED"
+  cat bazel-testlogs/fail/test_attempts/attempt_1.log &> $TEST_log
+  assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test_attempts/attempt_1.log)"
+  assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)
+  cat bazel-testlogs/fail/test.log &> $TEST_log
+  assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test.log)"
+}
+
+run_suite "bazel test tests"

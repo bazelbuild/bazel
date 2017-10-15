@@ -13,72 +13,63 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
-
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
-import com.google.devtools.build.lib.syntax.compiler.NewObject;
-import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.Removal;
-
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Syntax node for lists comprehension expressions.
- *
  */
 public final class ListComprehension extends AbstractComprehension {
   private final Expression outputExpression;
 
-  public ListComprehension(Expression outputExpression) {
-    super('[', ']', outputExpression);
+  public ListComprehension(List<Clause> clauses, Expression outputExpression) {
+    super(clauses, outputExpression);
     this.outputExpression = outputExpression;
   }
 
   @Override
-  String printExpressions() {
-    return outputExpression.toString();
+  protected char openingBracket() {
+    return '[';
+  }
+
+  @Override
+  protected char closingBracket() {
+    return ']';
+  }
+
+  public Expression getOutputExpression() {
+    return outputExpression;
+  }
+
+  @Override
+  protected void printExpressions(Appendable buffer) throws IOException {
+    outputExpression.prettyPrint(buffer);
+  }
+
+  /** Builder for {@link ListComprehension}. */
+  public static class Builder extends AbstractBuilder {
+
+    private Expression outputExpression;
+
+    public Builder setOutputExpression(Expression outputExpression) {
+      this.outputExpression = outputExpression;
+      return this;
+    }
+
+    @Override
+    public ListComprehension build() {
+      Preconditions.checkState(!clauses.isEmpty());
+      return new ListComprehension(clauses, Preconditions.checkNotNull(outputExpression));
+    }
   }
 
   @Override
   OutputCollector createCollector(Environment env) {
     return new ListOutputCollector();
-  }
-
-  @Override
-  InternalVariable compileInitialization(VariableScope scope, List<ByteCodeAppender> code) {
-    InternalVariable list = scope.freshVariable(ArrayList.class);
-    append(code, NewObject.fromConstructor(ArrayList.class).arguments());
-    code.add(list.store());
-    return list;
-  }
-
-  @Override
-  ByteCodeAppender compileCollector(
-      VariableScope scope,
-      InternalVariable collection,
-      DebugInfo debugInfo,
-      AstAccessors debugAccessors)
-      throws EvalException {
-    List<ByteCodeAppender> code = new ArrayList<>();
-    append(code, collection.load());
-    code.add(outputExpression.compile(scope, debugInfo));
-    append(code, ByteCodeMethodCalls.BCList.add, Removal.SINGLE);
-    return ByteCodeUtils.compoundAppender(code);
-  }
-
-  @Override
-  ByteCodeAppender compileBuilding(VariableScope scope, InternalVariable collection) {
-    return new ByteCodeAppender.Simple(
-        NewObject.fromConstructor(MutableList.class, Iterable.class, Environment.class)
-            .arguments(collection.load(), scope.loadEnvironment()));
   }
 
   /**
@@ -93,13 +84,23 @@ public final class ListComprehension extends AbstractComprehension {
     }
 
     @Override
+    public Location getLocation() {
+      return ListComprehension.this.getLocation();
+    }
+
+    @Override
+    public List<Clause> getClauses() {
+      return ListComprehension.this.getClauses();
+    }
+
+    @Override
     public void evaluateAndCollect(Environment env) throws EvalException, InterruptedException {
       result.add(outputExpression.eval(env));
     }
 
     @Override
     public Object getResult(Environment env) throws EvalException {
-      return new MutableList(result, env);
+      return new MutableList<>(result, env);
     }
   }
 }

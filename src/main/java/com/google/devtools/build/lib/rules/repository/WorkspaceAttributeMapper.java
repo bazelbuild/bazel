@@ -14,12 +14,16 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
+import javax.annotation.Nullable;
 
 /**
  * An attribute mapper for workspace rules. Similar to NonconfigurableAttributeWrapper, but throws
@@ -37,7 +41,12 @@ public class WorkspaceAttributeMapper {
     this.rule = rule;
   }
 
+  /**
+   * Returns typecasted value for attribute or {@code null} on no match.
+   */
+  @Nullable
   public <T> T get(String attributeName, Type<T> type) throws EvalException {
+    Preconditions.checkNotNull(type);
     Object value = getObject(attributeName);
     try {
       return type.cast(value);
@@ -48,10 +57,11 @@ public class WorkspaceAttributeMapper {
   }
 
   /**
-   * Returns the value for an attribute without casting it to any particular type.
+   * Returns value for attribute without casting it to any particular type, or null on no match.
    */
+  @Nullable
   public Object getObject(String attributeName) throws EvalException {
-    Object value = rule.getAttributeContainer().getAttr(attributeName);
+    Object value = rule.getAttributeContainer().getAttr(checkNotNull(attributeName));
     if (value instanceof SelectorList) {
       String message;
       if (rule.getLocation().getPath().getBaseName().equals(

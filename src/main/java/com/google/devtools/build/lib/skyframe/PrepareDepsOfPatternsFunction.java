@@ -18,9 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
-import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeyOrException;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeyException;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeyValue;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeysAndExceptions;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue.TargetPatternSequence;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -28,9 +30,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
-
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -39,21 +39,26 @@ import javax.annotation.Nullable;
  */
 public class PrepareDepsOfPatternsFunction implements SkyFunction {
 
-  public static ImmutableList<SkyKey> getSkyKeys(SkyKey skyKey, EventHandler eventHandler) {
+  public static ImmutableList<SkyKey> getSkyKeys(SkyKey skyKey, ExtendedEventHandler eventHandler) {
     TargetPatternSequence targetPatternSequence = (TargetPatternSequence) skyKey.argument();
-    Iterable<PrepareDepsOfPatternSkyKeyOrException> keysMaybe =
+    PrepareDepsOfPatternSkyKeysAndExceptions prepareDepsOfPatternSkyKeysAndExceptions =
         PrepareDepsOfPatternValue.keys(targetPatternSequence.getPatterns(),
             targetPatternSequence.getOffset());
 
     ImmutableList.Builder<SkyKey> skyKeyBuilder = ImmutableList.builder();
-    boolean handlerIsParseFailureListener = eventHandler instanceof ParseFailureListener;
-    for (PrepareDepsOfPatternSkyKeyOrException skyKeyOrException : keysMaybe) {
-      try {
-        skyKeyBuilder.add(skyKeyOrException.getSkyKey());
-      } catch (TargetParsingException e) {
-        handleTargetParsingException(eventHandler, handlerIsParseFailureListener,
-            skyKeyOrException.getOriginalPattern(), e);
-      }
+    for (PrepareDepsOfPatternSkyKeyValue skyKeyValue
+        : prepareDepsOfPatternSkyKeysAndExceptions.getValues()) {
+      skyKeyBuilder.add(skyKeyValue.getSkyKey());
+    }
+    for (PrepareDepsOfPatternSkyKeyException skyKeyException
+        : prepareDepsOfPatternSkyKeysAndExceptions.getExceptions()) {
+      TargetParsingException e = skyKeyException.getException();
+      // We post an event here rather than in handleTargetParsingException because the
+      // TargetPatternFunction already posts an event unless the pattern cannot be parsed, in
+      // which case the caller (i.e., us) needs to post an event.
+      eventHandler.post(
+          new ParsingFailedEvent(skyKeyException.getOriginalPattern(), e.getMessage()));
+      handleTargetParsingException(eventHandler, skyKeyException.getOriginalPattern(), e);
     }
 
     return skyKeyBuilder.build();
@@ -81,7 +86,7 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-    EventHandler eventHandler = env.getListener();
+    ExtendedEventHandler eventHandler = env.getListener();
     ImmutableList<SkyKey> skyKeys = getSkyKeys(skyKey, eventHandler);
 
     Map<SkyKey, ValueOrException<TargetParsingException>> tokensByKey =
@@ -90,7 +95,6 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
       return null;
     }
 
-    boolean handlerIsParseFailureListener = eventHandler instanceof ParseFailureListener;
     for (SkyKey key : skyKeys) {
       try {
         // The only exception type throwable by PrepareDepsOfPatternFunction is
@@ -99,28 +103,24 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
         Preconditions.checkNotNull(tokensByKey.get(key).get());
       } catch (TargetParsingException e) {
         // If a target pattern can't be evaluated, notify the user of the problem and keep going.
-        handleTargetParsingException(eventHandler, handlerIsParseFailureListener, key, e);
+        handleTargetParsingException(eventHandler, key, e);
       }
     }
 
     return new PrepareDepsOfPatternsValue(getTargetPatternKeys(skyKeys));
   }
 
-  private static void handleTargetParsingException(EventHandler eventHandler,
-      boolean handlerIsParseFailureListener, SkyKey key, TargetParsingException e) {
+  private static void handleTargetParsingException(
+      ExtendedEventHandler eventHandler, SkyKey key, TargetParsingException e) {
     TargetPatternKey patternKey = (TargetPatternKey) key.argument();
     String rawPattern = patternKey.getPattern();
-    handleTargetParsingException(eventHandler, handlerIsParseFailureListener, rawPattern, e);
+    handleTargetParsingException(eventHandler, rawPattern, e);
   }
 
-  private static void handleTargetParsingException(EventHandler eventHandler,
-      boolean handlerIsParseFailureListener, String rawPattern, TargetParsingException e) {
+  private static void handleTargetParsingException(
+      ExtendedEventHandler eventHandler, String rawPattern, TargetParsingException e) {
     String errorMessage = e.getMessage();
     eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
-    if (handlerIsParseFailureListener) {
-      ParseFailureListener parseListener = (ParseFailureListener) eventHandler;
-      parseListener.parsingError(rawPattern, errorMessage);
-    }
   }
 
   @Nullable

@@ -24,12 +24,11 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.java.WriteBuildInfoPropertiesAction.TimestampFormatter;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 /**
  * Java build info creation - generates properties file that contain the corresponding build-info
@@ -39,48 +38,54 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
   public static final BuildInfoKey KEY = new BuildInfoKey("Java");
 
   static final PathFragment BUILD_INFO_NONVOLATILE_PROPERTIES_NAME =
-      new PathFragment("build-info-nonvolatile.properties");
+      PathFragment.create("build-info-nonvolatile.properties");
   static final PathFragment BUILD_INFO_VOLATILE_PROPERTIES_NAME =
-      new PathFragment("build-info-volatile.properties");
+      PathFragment.create("build-info-volatile.properties");
   static final PathFragment BUILD_INFO_REDACTED_PROPERTIES_NAME =
-      new PathFragment("build-info-redacted.properties");
+      PathFragment.create("build-info-redacted.properties");
 
   private static final DateTimeFormatter DEFAULT_TIME_FORMAT =
-      DateTimeFormat.forPattern("EEE MMM d HH:mm:ss yyyy");
+      DateTimeFormatter.ofPattern("EEE MMM d HH:mm:ss yyyy");
 
   // A default formatter that returns a date in UTC format.
-  private static final TimestampFormatter DEFAULT_FORMATTER = new TimestampFormatter() {
-    @Override
-    public String format(long timestamp) {
-      return new DateTime(timestamp, DateTimeZone.UTC).toString(DEFAULT_TIME_FORMAT) + " ("
-          + timestamp / 1000 + ')';
-    }
-  };
+  private static final TimestampFormatter DEFAULT_FORMATTER =
+      new TimestampFormatter() {
+        @Override
+        public String format(long timestamp) {
+          return Instant.ofEpochMilli(timestamp).atZone(ZoneOffset.UTC).format(DEFAULT_TIME_FORMAT)
+              + " ("
+              + timestamp / 1000
+              + ')';
+        }
+      };
 
   @Override
   public final BuildInfoCollection create(BuildInfoContext context, BuildConfiguration config,
-      Artifact stableStatus, Artifact volatileStatus) {
+      Artifact stableStatus, Artifact volatileStatus, RepositoryName repositoryName) {
     WriteBuildInfoPropertiesAction redactedInfo = getHeader(context,
         config,
         BUILD_INFO_REDACTED_PROPERTIES_NAME,
         Artifact.NO_ARTIFACTS,
         createRedactedTranslator(),
         true,
-        true);
+        true,
+        repositoryName);
     WriteBuildInfoPropertiesAction nonvolatileInfo = getHeader(context,
         config,
         BUILD_INFO_NONVOLATILE_PROPERTIES_NAME,
         ImmutableList.of(stableStatus),
         createNonVolatileTranslator(),
         false,
-        true);
+        true,
+        repositoryName);
     WriteBuildInfoPropertiesAction volatileInfo = getHeader(context,
         config,
         BUILD_INFO_VOLATILE_PROPERTIES_NAME,
         ImmutableList.of(volatileStatus),
         createVolatileTranslator(),
         true,
-        false);
+        false,
+        repositoryName);
     List<Action> actions = new ArrayList<>(3);
     actions.add(redactedInfo);
     actions.add(nonvolatileInfo);
@@ -119,8 +124,9 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       ImmutableList<Artifact> inputs,
       BuildInfoPropertiesTranslator translator,
       boolean includeVolatile,
-      boolean includeNonVolatile) {
-    Root outputPath = config.getIncludeDirectory(RepositoryName.MAIN);
+      boolean includeNonVolatile,
+      RepositoryName repositoryName) {
+    Root outputPath = config.getIncludeDirectory(repositoryName);
     final Artifact output = context.getBuildInfoArtifact(propertyFileName, outputPath,
         includeVolatile && !inputs.isEmpty() ? BuildInfoType.NO_REBUILD
             : BuildInfoType.FORCE_REBUILD_IF_CHANGED);

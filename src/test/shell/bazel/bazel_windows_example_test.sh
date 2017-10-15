@@ -33,9 +33,16 @@ fi
 
 function set_up() {
   copy_examples
-  export PATH=/c/python_27_amd64/files:$PATH
-  EXTRA_BAZELRC="build --cpu=x64_windows_msvc"
   setup_bazelrc
+  cat >>"$TEST_TMPDIR/bazelrc" <<EOF
+# Workaround for https://github.com/bazelbuild/bazel/issues/2983
+startup --host_jvm_args=-Dbazel.windows_unix_root=C:/fake/msys
+
+startup --batch
+build --cpu=x64_windows_msvc
+EOF
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
 }
 
 # An assertion that execute a binary from a sub directory (to test runfiles)
@@ -55,9 +62,58 @@ function assert_binary_run_from_subdir() {
 function test_cpp() {
   local cpp_pkg=examples/cpp
   assert_build_output ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world
-  assert_bazel_run "//examples/cpp:hello-world foo" "Hello foo"
+  assert_build_output ./bazel-bin/${cpp_pkg}/hello-world.pdb ${cpp_pkg}:hello-world --output_groups=pdb_file
+  assert_build_output ./bazel-bin/${cpp_pkg}/hello-world.pdb -c dbg ${cpp_pkg}:hello-world --output_groups=pdb_file
+  assert_build -c opt ${cpp_pkg}:hello-world --output_groups=pdb_file
+  test -f ./bazel-bin/${cpp_pkg}/hello-world.pdb && fail "PDB file should not be generated in OPT mode"
+  assert_build ${cpp_pkg}:hello-world
+  ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
+    || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
+  expect_log "Hello foo"
   assert_test_ok "//examples/cpp:hello-success_test"
   assert_test_fails "//examples/cpp:hello-fail_test"
+}
+
+function test_cpp_alwayslink() {
+  mkdir -p cpp/main
+  cat >cpp/main/BUILD <<EOF
+cc_library(
+    name = "lib",
+    srcs = ["lib.cc"],
+    alwayslink = 1,
+)
+cc_library(
+    name = "main",
+    srcs = ["main.cc"],
+)
+cc_binary(
+    name = "bin",
+    deps = [":main", ":lib"],
+)
+EOF
+
+  cat >cpp/main/lib.cc <<EOF
+extern int global_variable;
+int init() {
+    ++global_variable;
+    return global_variable;
+}
+int x = init();
+int y = init();
+EOF
+
+  cat >cpp/main/main.cc <<EOF
+#include<stdio.h>
+int global_variable = 0;
+int main(void) {
+    printf("global : %d\n", global_variable);
+    return 0;
+}
+EOF
+  assert_build //cpp/main:bin
+  ./bazel-bin/cpp/main/bin >& $TEST_log \
+    || fail "//cpp/main:bin execution failed"
+  expect_log "global : 2"
 }
 
 function test_java() {
@@ -92,11 +148,69 @@ function test_native_python() {
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   # Using python <zipfile> to run the python package
-  python ./bazel-bin/examples/py_native/bin >& $TEST_log \
+  python ./bazel-bin/examples/py_native/bin.zip >& $TEST_log \
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   assert_test_ok //examples/py_native:test
   assert_test_fails //examples/py_native:fail
+}
+
+function test_native_python_with_python3() {
+  PYTHON3_PATH=${PYTHON3_PATH:-/c/Program Files/Anaconda3}
+  if [ ! -x "${PYTHON3_PATH}/python.exe" ]; then
+    warn "Python3 binary not found under $PYTHON3_PATH, please set PYTHON3_PATH correctly"
+  else
+    # Shutdown bazel to ensure python path get updated.
+    export BAZEL_PYTHON="${PYTHON3_PATH}/python.exe"
+    export PATH="${PYTHON3_PATH}:$PATH"
+    test_native_python
+  fi
+}
+
+function test_python_test_with_data() {
+  touch BUILD
+  touch WORKSPACE
+
+  mkdir data
+  cat >data/BUILD <<EOF
+filegroup(
+  name = "test_data",
+  srcs = ["data.txt"],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat >data/data.txt <<EOF
+hello world
+EOF
+
+  mkdir src
+  cat >src/BUILD <<EOF
+py_test(
+  name = "data_test",
+  srcs = ["data_test.py"],
+  data = ["//data:test_data"],
+)
+EOF
+
+  cat >src/data_test.py <<EOF
+import unittest
+import os
+
+class MyTest(unittest.TestCase):
+
+  def test_data(self):
+    with open("data/data.txt") as f:
+      line = f.readline().strip()
+      self.assertEqual(line, "hello world")
+
+if __name__ == '__main__':
+  print("CWD = " + os.getcwd())
+  unittest.main()
+EOF
+
+  bazel test --test_output=errors //src:data_test >& $TEST_log \
+    || fail "Test //src:test failed while expecting success"
 }
 
 run_suite "examples on Windows"

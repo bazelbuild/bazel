@@ -241,7 +241,7 @@ class RunfilesCreator {
 
     errno = 0;
     const std::string prefix = (path == "." ? "" : path + "/");
-    while ((entry = readdir(dh)) != NULL) {
+    while ((entry = readdir(dh)) != nullptr) {
       if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
 
       std::string entry_path = prefix + entry->d_name;
@@ -383,7 +383,7 @@ class RunfilesCreator {
       PDIE("opendir '%s'", path.c_str());
     }
     errno = 0;
-    while ((entry = readdir(dh)) != NULL) {
+    while ((entry = readdir(dh)) != nullptr) {
       if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
       const std::string entry_path = path + '/' + entry->d_name;
       FileType entry_file_type = DentryToFileType(entry_path, entry->d_type);
@@ -441,7 +441,7 @@ int main(int argc, char **argv) {
   std::string manifest_file = input_filename;
   if (input_filename[0] != '/') {
     char cwd_buf[PATH_MAX];
-    if (getcwd(cwd_buf, sizeof(cwd_buf)) == NULL) {
+    if (getcwd(cwd_buf, sizeof(cwd_buf)) == nullptr) {
       PDIE("getcwd failed");
     }
     manifest_file = std::string(cwd_buf) + '/' + manifest_file;

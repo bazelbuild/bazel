@@ -5,6 +5,7 @@
   <ul>
     <li><a href="#pkg_tar">pkg_tar</a></li>
     <li><a href="#pkg_deb">pkg_deb</a></li>
+    <li><a href="#pkg_rpm">pkg_rpm</a></li>
   </ul>
 </div>
 
@@ -26,7 +27,7 @@ pkg_tar(
     name = "bazel-bin",
     strip_prefix = "/src",
     package_dir = "/usr/bin",
-    files = ["//src:bazel"],
+    srcs = ["//src:bazel"],
     mode = "0755",
 )
 
@@ -34,7 +35,7 @@ pkg_tar(
     name = "bazel-tools",
     strip_prefix = "/",
     package_dir = "/usr/share/lib/bazel/tools",
-    files = ["//tools:package-srcs"],
+    srcs = ["//tools:package-srcs"],
     mode = "0644",
     modes = {"tools/build_defs/docker/build_test.sh": "0755"},
 )
@@ -58,7 +59,7 @@ pkg_deb(
         "unzip",
     ],
     description_file = "debian/description",
-    homepage = "http://bazel.io",
+    homepage = "http://bazel.build",
     maintainer = "The Bazel Authors <bazel-dev@googlegroups.com>",
     package = "bazel",
     version = "0.1.1",
@@ -88,7 +89,7 @@ Here, the Debian package is built from three `pkg_tar` targets:
 ## pkg_tar
 
 ```python
-pkg_tar(name, extension, strip_prefix, package_dir, files,
+pkg_tar(name, extension, strip_prefix, package_dir, srcs,
 mode, modes, deps, symlinks)
 ```
 
@@ -156,7 +157,7 @@ Creates a tar file from a list of inputs.
       </td>
     </tr>
     <tr>
-      <td><code>files</code></td>
+      <td><code>srcs</code></td>
       <td>
         <code>List of files, optional</code>
         <p>File to add to the layer.</p>
@@ -187,7 +188,71 @@ Creates a tar file from a list of inputs.
         <p>
           <code>
           modes = {
-           "tools/py/2to3.sh": "0755
+           "tools/py/2to3.sh": "0755",
+           ...
+          },
+          </code>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>owner</code></td>
+      <td>
+        <code>String, default to '0.0'</code>
+        <p>
+          <code>UID.GID</code> to set the default numeric owner for all files
+          provided in <code>files</code>.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>owners</code></td>
+      <td>
+        <code>Dictionary, default to '{}'</code>
+        <p>
+          A string dictionary to change default owner of specific files from
+          <code>files</code>. Each key should be a path to a file before
+          appending the prefix <code>package_dir</code> and the corresponding
+          value the <code>UID.GID</code> numeric string for the owner of the
+          file. When determining owner ids, this attribute is looked first then
+          <code>owner</code>.
+        </p>
+        <p>
+          <code>
+          owners = {
+           "tools/py/2to3.sh": "42.24",
+           ...
+          },
+          </code>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>ownername</code></td>
+      <td>
+        <code>String, optional</code>
+        <p>
+          <code>username.groupname</code> to set the default owner for all files
+          provided in <code>files</code> (by default there is no owner names).
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>ownernames</code></td>
+      <td>
+        <code>Dictionary, default to '{}'</code>
+        <p>
+          A string dictionary to change default owner of specific files from
+          <code>files</code>. Each key should be a path to a file before
+          appending the prefix <code>package_dir</code> and the corresponding
+          value the <code>username.groupname</code> string for the owner of the
+          file. When determining ownernames, this attribute is looked first then
+          <code>ownername</code>.
+        </p>
+        <p>
+          <code>
+          owners = {
+           "tools/py/2to3.sh": "leeroy.jenkins",
            ...
           },
           </code>
@@ -380,6 +445,75 @@ for more details on this.
         <p>The list of dependencies in the project.</p>
         <p>
           See <a href="http://www.debian.org/doc/debian-policy/ch-relationships.html#s-binarydeps">http://www.debian.org/doc/debian-policy/ch-relationships.html#s-binarydeps</a>.
+        </p>
+      </td>
+    </tr>
+  </tbody>
+  </tbody>
+</table>
+
+<a name="pkg_rpm"></a>
+### pkg_rpm
+
+```python
+pkg_rpm(name, spec_file, architecture, version, version_file, changelog, data)
+```
+
+Create an RPM package. See <a
+href="http://rpm.org/documentation.html">http://rpm.org/documentation.html</a>
+for more details on this.
+
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th colspan="2">Attributes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>name</code></td>
+      <td>
+        <code>Name, required</code>
+        <p>A unique name for this rule. Used to name the output package.</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>spec_file</code></td>
+      <td>
+        <code>File, required</code>
+        <p>The RPM specification file used to generate the package.</p>
+        <p>
+          See <a href="http://ftp.rpm.org/max-rpm/s1-rpm-build-creating-spec-file.html">http://ftp.rpm.org/max-rpm/s1-rpm-build-creating-spec-file.html</a>.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>architecture</code></td>
+      <td>
+        <code>String, default to 'all'</code>
+        <p>The architecture that this package target.</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>version</code>, <code>version_file</code></td>
+      <td>
+        <code>String or File, required</code>
+        <p>
+          The package version provided either inline (with <code>version</code>)
+          or from a file (with <code>version_file</code>).
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>data</code></td>
+      <td>
+        <code>Files, required</code>
+        <p>
+          Files to include in the generated package.
         </p>
       </td>
     </tr>

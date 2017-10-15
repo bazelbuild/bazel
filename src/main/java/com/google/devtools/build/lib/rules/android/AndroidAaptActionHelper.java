@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -25,16 +24,13 @@ import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
+import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -69,13 +65,10 @@ public final class AndroidAaptActionHelper {
     if (inputs.isEmpty()) {
       inputs.add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
       inputs.add(manifest);
-      Iterables.addAll(inputs, Iterables.concat(Iterables.transform(resourceContainers,
-          new Function<AndroidResourcesProvider.ResourceContainer, Iterable<Artifact>>() {
-        @Override
-        public Iterable<Artifact> apply(ResourceContainer container) {
-          return container.getArtifacts();
-        }
-      })));
+      Iterables.addAll(
+          inputs,
+          Iterables.concat(
+              Iterables.transform(resourceContainers, ResourceContainer::getArtifacts)));
     }
     return inputs;
   }
@@ -93,7 +86,7 @@ public final class AndroidAaptActionHelper {
   public void createGenerateResourceSymbolsAction(Artifact javaSourcesJar,
       Artifact rTxt, String javaPackage, boolean inlineConstants) {
     // java path from the provided package for the resources
-    PathFragment javaPath = new PathFragment(javaPackage.replace('.', '/'));
+    PathFragment javaPath = PathFragment.create(javaPackage.replace('.', '/'));
 
     PathFragment javaResourcesRoot = javaSourcesJar.getRoot().getExecPath().getRelative(
         ruleContext.getUniqueDirectory("_java_resources"));
@@ -108,16 +101,17 @@ public final class AndroidAaptActionHelper {
     args.addAll(createAaptCommand("javasrcs", javaSourcesJar, rTxt, inlineConstants,
         "-J", javaResources, "--custom-package", javaPackage, "--rename-manifest-package",
         javaPackage));
-    final Builder builder = new SpawnAction.Builder()
-        .addInputs(getInputs())
-        .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
-        .setExecutable(
-            ruleContext.getExecutablePrerequisite("$android_aapt_java_generator", Mode.HOST))
-        .addOutput(javaSourcesJar)
-        .setCommandLine(CommandLine.of(args, false))
-        .useParameterFile(ParameterFileType.UNQUOTED)
-        .setProgressMessage("Generating Java resources")
-        .setMnemonic("AndroidAapt");
+    final Builder builder =
+        new SpawnAction.Builder()
+            .addInputs(getInputs())
+            .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_aapt_java_generator", Mode.HOST))
+            .addOutput(javaSourcesJar)
+            .setCommandLine(CommandLine.of(args))
+            .useParameterFile(ParameterFileType.UNQUOTED)
+            .setProgressMessage("Generating Java resources")
+            .setMnemonic("AaptJavaGenerator");
     if (rTxt != null) {
       builder.addOutput(rTxt);
     }
@@ -148,17 +142,18 @@ public final class AndroidAaptActionHelper {
 
     args.addAll(aaptOpts);
 
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInputs(getInputs())
-        .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
-        .addOutput(apk)
-        .setExecutable(
-            ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
-        .setCommandLine(CommandLine.of(args, false))
-        .useParameterFile(ParameterFileType.UNQUOTED)
-        .setProgressMessage("Generating apk resources")
-        .setMnemonic("AndroidAapt")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInputs(getInputs())
+            .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
+            .addOutput(apk)
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
+            .setCommandLine(CommandLine.of(args))
+            .useParameterFile(ParameterFileType.UNQUOTED)
+            .setProgressMessage("Generating apk resources")
+            .setMnemonic("AaptResourceApk")
+            .build(ruleContext));
   }
 
   private List<String> createAaptCommand(String actionKind, Artifact output,
@@ -207,7 +202,7 @@ public final class AndroidAaptActionHelper {
     args.add(outputPath.getPathString());
     // First make sure path elements are unique
     Collection<String> paths = new LinkedHashSet<>();
-    for (AndroidResourcesProvider.ResourceContainer container : resourceContainers) {
+    for (ResourceContainer container : resourceContainers) {
       for (Artifact artifact : container.getArtifacts(resourceType)) {
         paths.add(artifact.getExecPathString());
       }
@@ -223,7 +218,7 @@ public final class AndroidAaptActionHelper {
     if (args.size() > 3) {
       return ImmutableList.copyOf(args);
     } else {
-      return ImmutableList.<String>of();
+      return ImmutableList.of();
     }
   }
 
@@ -238,7 +233,7 @@ public final class AndroidAaptActionHelper {
     List<String> dirArgs = new ArrayList<>();
     Collection<String> paths = new LinkedHashSet<>();
     // First make sure roots are unique
-    for (AndroidResourcesProvider.ResourceContainer container : resourceContainers) {
+    for (ResourceContainer container : resourceContainers) {
       for (PathFragment root : container.getRoots(resourceType)) {
         paths.add(outputPath.getRelative(root).getPathString());
       }
@@ -275,16 +270,17 @@ public final class AndroidAaptActionHelper {
 
     List<String> aaptCommand =
         createAaptCommand("proguard", outputSpec, null, true, aaptArgs.build());
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInputs(getInputs())
-        .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
-        .addOutputs(outputs.build())
-        .setExecutable(
-            ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
-        .setCommandLine(CommandLine.of(aaptCommand, false))
-        .useParameterFile(ParameterFileType.UNQUOTED)
-        .setProgressMessage("Generating Proguard configuration for resources")
-        .setMnemonic("AndroidAapt")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInputs(getInputs())
+            .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
+            .addOutputs(outputs.build())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
+            .setCommandLine(CommandLine.of(aaptCommand))
+            .useParameterFile(ParameterFileType.UNQUOTED)
+            .setProgressMessage("Generating Proguard configuration for resources")
+            .setMnemonic("AaptProguardConfiguration")
+            .build(ruleContext));
   }
 }

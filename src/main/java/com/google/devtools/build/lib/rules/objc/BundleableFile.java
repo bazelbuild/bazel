@@ -31,6 +31,7 @@ import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.Bundl
  * files.
  */
 public final class BundleableFile extends Value<BundleableFile> {
+
   static final int EXECUTABLE_EXTERNAL_FILE_ATTRIBUTE = 0100755 << 16;
   static final int DEFAULT_EXTERNAL_FILE_ATTRIBUTE = 0100644 << 16;
 
@@ -115,7 +116,8 @@ public final class BundleableFile extends Value<BundleableFile> {
   }
 
   private static String ownerBundlePath(Artifact file) {
-    PathFragment packageFragment = file.getArtifactOwner().getLabel().getPackageFragment();
+    PathFragment packageFragment =
+        file.getArtifactOwner().getLabel().getPackageIdentifier().getSourceRoot();
     return file.getRootRelativePath().relativeTo(packageFragment).toString();
   }
 

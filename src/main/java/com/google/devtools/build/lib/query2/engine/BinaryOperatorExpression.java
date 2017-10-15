@@ -13,9 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -52,50 +56,123 @@ public class BinaryOperatorExpression extends QueryExpression {
   }
 
   @Override
-  protected <T> void evalImpl(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
-          throws QueryException, InterruptedException {
-
-    if (operator == TokenKind.PLUS || operator == TokenKind.UNION) {
-      for (QueryExpression operand : operands) {
-        env.eval(operand, context, callback);
-      }
-      return;
+  public <T> QueryTaskFuture<Void> eval(
+      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+    switch (operator) {
+      case PLUS:
+      case UNION:
+        return evalPlus(operands, env, context, callback);
+      case MINUS:
+      case EXCEPT:
+        return evalMinus(operands, env, context, callback);
+      case INTERSECT:
+      case CARET:
+        return evalIntersect(env, context, callback);
+      default:
+        throw new IllegalStateException(operator.toString());
     }
+  }
 
-    // Once we have fully evaluated the left-hand side, we can stream-process the right-hand side
-    // for minus operations. Note that this is suboptimal if the left-hand side results are very
-    // large compared to the right-hand side. Which is the case is hard to know before evaluating.
-    // We could consider determining this dynamically, however, by evaluating both the left and
-    // right hand side partially until one side finishes sooner.
-    final Set<T> lhsValue = QueryUtil.evalAll(env, context, operands.get(0));
-    if (operator == TokenKind.EXCEPT || operator == TokenKind.MINUS) {
-      for (int i = 1; i < operands.size(); i++) {
-        env.eval(operands.get(i), context,
-            new Callback<T>() {
-              @Override
-              public void process(Iterable<T> partialResult)
-                  throws QueryException, InterruptedException {
-                for (T target : partialResult) {
-                  lhsValue.remove(target);
+  /**
+   * Evaluates an expression of the form "e1 + e2 + ... + eK" by evaluating all the subexpressions
+   * separately.
+   *
+   * <p>N.B. {@code operands.size()} may be {@code 1}.
+   */
+  private static <T> QueryTaskFuture<Void> evalPlus(
+      ImmutableList<QueryExpression> operands,
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      Callback<T> callback) {
+    ArrayList<QueryTaskFuture<Void>> queryTasks = new ArrayList<>(operands.size());
+    for (QueryExpression operand : operands) {
+      queryTasks.add(env.eval(operand, context, callback));
+    }
+    return env.whenAllSucceed(queryTasks);
+  }
+
+  /**
+   * Evaluates an expression of the form "e1 - e2 - ... - eK" by noting its equivalence to
+   * "e1 - (e2 + ... + eK)" and evaluating the subexpressions on the right-hand-side separately.
+   */
+  private static <T> QueryTaskFuture<Void> evalMinus(
+      final ImmutableList<QueryExpression> operands,
+      final QueryEnvironment<T> env,
+      final VariableContext<T> context,
+      final Callback<T> callback) {
+    QueryTaskFuture<ThreadSafeMutableSet<T>> lhsValueFuture =
+        QueryUtil.evalAll(env, context, operands.get(0));
+    Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> subtractAsyncFunction =
+        lhsValue -> {
+          final Set<T> threadSafeLhsValue = lhsValue;
+          Callback<T> subtractionCallback =
+              new Callback<T>() {
+                @Override
+                public void process(Iterable<T> partialResult) {
+                  for (T target : partialResult) {
+                    threadSafeLhsValue.remove(target);
+                  }
                 }
-              }
-            });
-      }
-      callback.process(lhsValue);
-      return;
-    }
+              };
+          QueryTaskFuture<Void> rhsEvaluatedFuture =
+              evalPlus(operands.subList(1, operands.size()), env, context, subtractionCallback);
+          return env.whenSucceedsCall(
+              rhsEvaluatedFuture,
+              new QueryTaskCallable<Void>() {
+                @Override
+                public Void call() throws QueryException, InterruptedException {
+                  callback.process(threadSafeLhsValue);
+                  return null;
+                }
+              });
+        };
+    return env.transformAsync(lhsValueFuture, subtractAsyncFunction);
+  }
 
-    // Intersection is not associative, so we are forced to pin both the left-hand and right-hand
-    // side of the operation at the same time.
+  private <T> QueryTaskFuture<Void> evalIntersect(
+      final QueryEnvironment<T> env,
+      final VariableContext<T> context,
+      final Callback<T> callback) {
+    // For each right-hand side operand, intersection cannot be performed in a streaming manner; the
+    // entire result of that operand is needed. So, in order to avoid pinning too much in memory at
+    // once, we process each right-hand side operand one at a time and throw away that operand's
+    // result.
     // TODO(bazel-team): Consider keeping just the name / label of the right-hand side results
-    // instead of the potentially heavy-weight instances of type T.
-    Preconditions.checkState(operator == TokenKind.INTERSECT || operator == TokenKind.CARET,
-        operator);
+    // instead of the potentially heavy-weight instances of type T. This would let us process all
+    // right-hand side operands in parallel without worrying about memory usage.
+    QueryTaskFuture<ThreadSafeMutableSet<T>> rollingResultFuture =
+        QueryUtil.evalAll(env, context, operands.get(0));
     for (int i = 1; i < operands.size(); i++) {
-      lhsValue.retainAll(QueryUtil.evalAll(env, context, operands.get(i)));
+      final int index = i;
+      Function<ThreadSafeMutableSet<T>, QueryTaskFuture<ThreadSafeMutableSet<T>>>
+          evalOperandAndIntersectAsyncFunction =
+              rollingResult -> {
+                final QueryTaskFuture<ThreadSafeMutableSet<T>> rhsOperandValueFuture =
+                    QueryUtil.evalAll(env, context, operands.get(index));
+                return env.whenSucceedsCall(
+                    rhsOperandValueFuture,
+                    new QueryTaskCallable<ThreadSafeMutableSet<T>>() {
+                      @Override
+                      public ThreadSafeMutableSet<T> call()
+                          throws QueryException, InterruptedException {
+                        rollingResult.retainAll(rhsOperandValueFuture.getIfSuccessful());
+                        return rollingResult;
+                      }
+                    });
+              };
+      rollingResultFuture =
+          env.transformAsync(rollingResultFuture, evalOperandAndIntersectAsyncFunction);
     }
-    callback.process(lhsValue);
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> resultFuture = rollingResultFuture;
+    return env.whenSucceedsCall(
+        resultFuture,
+        new QueryTaskCallable<Void>() {
+          @Override
+          public Void call() throws QueryException, InterruptedException {
+            callback.process(resultFuture.getIfSuccessful());
+            return null;
+          }
+        });
   }
 
   @Override
@@ -106,8 +183,8 @@ public class BinaryOperatorExpression extends QueryExpression {
   }
 
   @Override
-  public QueryExpression getMapped(QueryExpressionMapper mapper) {
-    return mapper.map(this);
+  public <T> T accept(QueryExpressionVisitor<T> visitor) {
+    return visitor.visit(this);
   }
 
   @Override

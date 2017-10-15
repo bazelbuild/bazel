@@ -29,9 +29,11 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
-import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.syntax.Type;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
@@ -61,9 +63,10 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public OutputFormatterCallback<Target> createStreamCallback(
+  public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-    return createPostFactoStreamCallback(out, options);
+    return new SynchronizedDelegatingOutputFormatterCallback<>(
+        createPostFactoStreamCallback(out, options));
   }
 
   @Override
@@ -98,14 +101,16 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       @Override
-      public void close() throws IOException {
-        try {
-          Transformer transformer = TransformerFactory.newInstance().newTransformer();
-          transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-          transformer.transform(new DOMSource(doc), new StreamResult(out));
-        } catch (TransformerFactoryConfigurationError | TransformerException e) {
-          // This shouldn't be possible: all the configuration is hard-coded.
-          throw new IllegalStateException("XML output failed", e);
+      public void close(boolean failFast) throws IOException {
+        if (!failFast) {
+          try {
+            Transformer transformer = TransformerFactory.newInstance().newTransformer();
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.transform(new DOMSource(doc), new StreamResult(out));
+          } catch (TransformerFactoryConfigurationError | TransformerException e) {
+            // This shouldn't be possible: all the configuration is hard-coded.
+            throw new IllegalStateException("XML output failed", e);
+          }
         }
       }
     };
@@ -131,10 +136,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr : rule.getAttributes()) {
-        Pair<Iterable<Object>, AttributeValueSource> values =
-            getPossibleAttributeValuesAndSources(rule, attr);
-        if (values.second == AttributeValueSource.RULE || options.xmlShowDefaultValues) {
-          Element attrElem = createValueElement(doc, attr.getType(), values.first);
+        PossibleAttributeValues values = getPossibleAttributeValues(rule, attr);
+        if (values.source == AttributeValueSource.RULE || options.xmlShowDefaultValues) {
+          Element attrElem = createValueElement(doc, attr.getType(), values);
           attrElem.setAttribute("name", attr.getName());
           elem.appendChild(attrElem);
         }
@@ -174,9 +178,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
           packageGroup.getIncludes());
       includes.setAttribute("name", "includes");
       elem.appendChild(includes);
-      Element packages = createValueElement(doc,
-          com.google.devtools.build.lib.syntax.Type.STRING_LIST,
-          packageGroup.getContainedPackages());
+      Element packages =
+          createValueElement(doc, Type.STRING_LIST, packageGroup.getContainedPackages());
       packages.setAttribute("name", "packages");
       elem.appendChild(packages);
     } else if (target instanceof OutputFile) {
@@ -286,20 +289,18 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
    * simply refrain to set a value and annotate the DOM element as configurable.
    *
    * <P>(The ungainly qualified class name is required to avoid ambiguity with
-   * OutputFormatter.Type.)
+   * OutputFormatter.OutputType.)
    */
-  private static Element createValueElement(Document doc,
-      com.google.devtools.build.lib.syntax.Type<?> type, Iterable<Object> values) {
+  private static Element createValueElement(Document doc, Type<?> type, Iterable<Object> values) {
     // "Import static" with method scope:
-    com.google.devtools.build.lib.syntax.Type<?>
-        FILESET_ENTRY = BuildType.FILESET_ENTRY,
-        LABEL_LIST    = BuildType.LABEL_LIST,
-        LICENSE       = BuildType.LICENSE,
-        STRING_LIST   = com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+    Type<?> FILESET_ENTRY = BuildType.FILESET_ENTRY;
+    Type<?> LABEL_LIST = BuildType.LABEL_LIST;
+    Type<?> LICENSE = BuildType.LICENSE;
+    Type<?> STRING_LIST = Type.STRING_LIST;
 
     final Element elem;
     final boolean hasMultipleValues = Iterables.size(values) > 1;
-    com.google.devtools.build.lib.syntax.Type<?> elemType = type.getListElementType();
+    Type<?> elemType = type.getListElementType();
     if (elemType != null) { // it's a list (includes "distribs")
       elem = doc.createElement("list");
       for (Object value : values) {
@@ -307,11 +308,10 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
           elem.appendChild(createValueElement(doc, elemType, elemValue));
         }
       }
-    } else if (type instanceof com.google.devtools.build.lib.syntax.Type.DictType) {
+    } else if (type instanceof Type.DictType) {
       Set<Object> visitedValues = new HashSet<>();
       elem = doc.createElement("dict");
-      com.google.devtools.build.lib.syntax.Type.DictType<?, ?> dictType =
-          (com.google.devtools.build.lib.syntax.Type.DictType<?, ?>) type;
+      Type.DictType<?, ?> dictType = (Type.DictType<?, ?>) type;
       for (Object value : values) {
         for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
           if (visitedValues.add(entry.getKey())) {
@@ -374,8 +374,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     return elem;
   }
 
-  private static Element createValueElement(Document doc,
-        com.google.devtools.build.lib.syntax.Type<?> type, Object value) {
+  private static Element createValueElement(Document doc, Type<?> type, Object value) {
     return createValueElement(doc, type, ImmutableList.of(value));
   }
 

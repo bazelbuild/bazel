@@ -75,4 +75,24 @@ EOF
   assert_contains "hello" bazel-genfiles/bar/loc
 }
 
+function test_location_trim() {
+  mkdir bar
+  cat > bar/BUILD <<EOF
+genrule(
+    name = "baz-rule",
+    outs = ["baz"],
+    cmd = "echo helloworld > \"\$@\"",
+)
+
+genrule(
+    name = "loc-rule",
+    srcs = [":baz-rule"],
+    outs = ["loc"],
+    cmd = "echo \$(location  :baz-rule ) > \"\$@\"",
+)
+EOF
+
+  bazel build //bar:loc || fail "Label was not trimmed before lookup"
+}
+
 run_suite "location tests"

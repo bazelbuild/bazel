@@ -17,9 +17,9 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.CompactStringIndexer;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -65,7 +65,8 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static final int VERSION = 12;
 
-  private static final Logger LOG = Logger.getLogger(CompactPersistentActionCache.class.getName());
+  private static final Logger logger =
+      Logger.getLogger(CompactPersistentActionCache.class.getName());
 
   private final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
@@ -98,7 +99,7 @@ public class CompactPersistentActionCache implements ActionCache {
     @Override
     protected void markAsDirty() {
       try (AutoProfiler p =
-          AutoProfiler.logged("slow write to journal", LOG, MIN_TIME_FOR_LOGGING_MILLIS)) {
+          AutoProfiler.logged("slow write to journal", logger, MIN_TIME_FOR_LOGGING_MILLIS)) {
         super.markAsDirty();
       }
     }
@@ -289,6 +290,12 @@ public class CompactPersistentActionCache implements ActionCache {
     long indexSize = indexer.save();
     long mapSize = map.save();
     return indexSize + mapSize;
+  }
+
+  @Override
+  public void clear() {
+    indexer.clear();
+    map.clear();
   }
 
   @Override

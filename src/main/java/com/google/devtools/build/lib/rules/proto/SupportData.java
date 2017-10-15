@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
-import javax.annotation.Nullable;
-
 /**
  * A helper class for the *Support classes containing some data from ProtoLibrary.
  */
@@ -33,11 +31,11 @@ public abstract class SupportData {
   public static SupportData create(
       Predicate<TransitiveInfoCollection> nonWeakDepsPredicate,
       ImmutableList<Artifact> protoSources,
+      NestedSet<Artifact> protosInDirectDeps,
       NestedSet<Artifact> transitiveImports,
-      Artifact usedDirectDeps,
       boolean hasProtoSources) {
     return new AutoValue_SupportData(
-        nonWeakDepsPredicate, protoSources, transitiveImports, usedDirectDeps, hasProtoSources);
+        nonWeakDepsPredicate, protoSources, transitiveImports, protosInDirectDeps, hasProtoSources);
   }
 
   public abstract Predicate<TransitiveInfoCollection> getNonWeakDepsPredicate();
@@ -46,8 +44,10 @@ public abstract class SupportData {
 
   public abstract NestedSet<Artifact> getTransitiveImports();
 
-  @Nullable
-  public abstract Artifact getUsedDirectDeps();
+  /**
+   * .proto files in the direct dependencies of this proto_library. Used for strict deps checking.
+   */
+  public abstract NestedSet<Artifact> getProtosInDirectDeps();
 
   public abstract boolean hasProtoSources();
 

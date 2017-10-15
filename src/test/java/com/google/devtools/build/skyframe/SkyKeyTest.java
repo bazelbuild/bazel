@@ -16,12 +16,10 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
-
+import java.io.Serializable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.Serializable;
 
 /**
  * Unit test for the SkyKey class, checking hash code transience logic.
@@ -36,7 +34,7 @@ public class SkyKeyTest {
     assertThat(hashCodeSpy.getNumberOfTimesHashCodeCalled()).isEqualTo(0);
 
     // When a SkyKey is constructed with that HashCodeSpy as its argument,
-    SkyKey originalKey = SkyKey.create(SkyFunctionName.create("TEMP"), hashCodeSpy);
+    SkyKey originalKey = LegacySkyKey.create(SkyFunctionName.create("TEMP"), hashCodeSpy);
 
     // Then the HashCodeSpy reports that its hashcode method was called once.
     assertThat(hashCodeSpy.getNumberOfTimesHashCodeCalled()).isEqualTo(1);

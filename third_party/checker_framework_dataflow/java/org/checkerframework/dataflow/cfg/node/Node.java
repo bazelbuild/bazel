@@ -24,14 +24,14 @@ import com.sun.source.tree.Tree;
  *
  * <pre>
  * block == null || block instanceof RegularBlock || block instanceof ExceptionBlock
- * block instanceof RegularBlock &rArr; block.getContents().contains(this)
- * block instanceof ExceptionBlock &rArr; block.getNode() == this
- * block == null &hArr; "This object represents a parameter of the method."
+ * block instanceof RegularBlock ==&gt; block.getContents().contains(this)
+ * block instanceof ExceptionBlock ==&gt; block.getNode() == this
+ * block == null &lt;==&gt; "This object represents a parameter of the method."
  * </pre>
  *
  * <pre>
  * type != null
- * tree != null &rArr; node.getType() == InternalUtils.typeOf(node.getTree())
+ * tree != null ==&gt; node.getType() == InternalUtils.typeOf(node.getTree())
  * </pre>
  *
  * @author Stefan Heule
@@ -74,7 +74,7 @@ public abstract class Node {
     }
 
     /**
-     * @return the basic block this node belongs to (or {@code null} if it
+     * @return The basic block this node belongs to (or {@code null} if it
      *         represents the parameter of a method).
      */
     public /*@Nullable*/ Block getBlock() {
@@ -88,10 +88,10 @@ public abstract class Node {
 
     /**
      * Returns the {@link Tree} in the abstract syntax tree, or
-     * {@code null} if no corresponding tree exists. For instance, this is
+     * <code>null</code> if no corresponding tree exists. For instance, this is
      * the case for an {@link ImplicitThisLiteralNode}.
      *
-     * @return the corresponding {@link Tree} or {@code null}.
+     * @return The corresponding {@link Tree} or <code>null</code>.
      */
     abstract public /*@Nullable*/ Tree getTree();
 
@@ -99,7 +99,7 @@ public abstract class Node {
      * Returns a {@link TypeMirror} representing the type of a {@link Node} A
      * {@link Node} will always have a type even when it has no {@link Tree}.
      *
-     * @return a {@link TypeMirror} representing the type of this {@link Node}.
+     * @return A {@link TypeMirror} representing the type of this {@link Node}.
      */
     public TypeMirror getType() {
         return type;
@@ -147,13 +147,13 @@ public abstract class Node {
     }
 
     /**
-     * @return a collection containing all of the operand {@link Node}s of this
+     * @return A collection containing all of the operand {@link Node}s of this
      *         {@link Node}.
      */
     public abstract Collection<Node> getOperands();
 
     /**
-     * @return a collection containing all of the operand {@link Node}s of this
+     * @return A collection containing all of the operand {@link Node}s of this
      *         {@link Node}, as well as (transitively) the operands of its
      *         operands.
      */

@@ -19,14 +19,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import com.google.protobuf.MessageLite;
-
 import java.util.Collection;
 import java.util.UUID;
 
@@ -65,20 +63,20 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
 
   @Override
   protected String computeKey() {
-    return new Fingerprint()
-        .addUUID(uuid)
-        .addBytes(info.toByteArray())
-        .hexDigestAndReset();
+    return new Fingerprint().addUUID(uuid).addBytes(getInfo().toByteArray()).hexDigestAndReset();
   }
 
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return ResourceSet.ZERO;
+  protected InfoType getInfo() {
+    return this.info;
   }
 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo() {
-    return super.getExtraActionInfo().setExtension(infoExtension, info);
+    try {
+      return super.getExtraActionInfo().setExtension(infoExtension, getInfo());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("PsedoAction command line expansion cannot fail");
+    }
   }
 
   public static Artifact getDummyOutput(RuleContext ruleContext) {

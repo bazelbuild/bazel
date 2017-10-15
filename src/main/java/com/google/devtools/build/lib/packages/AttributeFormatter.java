@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
@@ -29,7 +30,6 @@ import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
-import static com.google.devtools.build.lib.syntax.Type.STRING_DICT_UNARY;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
 
@@ -45,9 +45,9 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Sele
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.SelectorEntry.Builder;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Tristate;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelDictUnaryEntry;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelKeyedStringDictEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelListDictEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictEntry;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictUnaryEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringListDictEntry;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.Collection;
@@ -61,7 +61,15 @@ public class AttributeFormatter {
 
   private static final ImmutableSet<Type<?>> depTypes =
       ImmutableSet.<Type<?>>of(
-          STRING, LABEL, OUTPUT, STRING_LIST, LABEL_LIST, OUTPUT_LIST, DISTRIBUTIONS);
+          STRING,
+          LABEL,
+          OUTPUT,
+          STRING_LIST,
+          LABEL_LIST,
+          LABEL_DICT_UNARY,
+          LABEL_KEYED_STRING_DICT,
+          OUTPUT_LIST,
+          DISTRIBUTIONS);
 
   private static final ImmutableSet<Type<?>> noDepTypes =
       ImmutableSet.<Type<?>>of(NODEP_LABEL_LIST, NODEP_LABEL);
@@ -202,15 +210,6 @@ public class AttributeFormatter {
                 .setValue(keyValueList.getValue());
         builder.addStringDictValue(entry);
       }
-    } else if (type == STRING_DICT_UNARY) {
-      Map<String, String> dict = (Map<String, String>) value;
-      for (Map.Entry<String, String> dictEntry : dict.entrySet()) {
-        StringDictUnaryEntry.Builder entry =
-            StringDictUnaryEntry.newBuilder()
-                .setKey(dictEntry.getKey())
-                .setValue(dictEntry.getValue());
-        builder.addStringDictUnaryValue(entry);
-      }
     } else if (type == STRING_LIST_DICT) {
       Map<String, List<String>> dict = (Map<String, List<String>>) value;
       for (Map.Entry<String, List<String>> dictEntry : dict.entrySet()) {
@@ -229,6 +228,15 @@ public class AttributeFormatter {
                 .setKey(dictEntry.getKey())
                 .setValue(dictEntry.getValue().toString());
         builder.addLabelDictUnaryValue(entry);
+      }
+    } else if (type == LABEL_KEYED_STRING_DICT) {
+      Map<Label, String> dict = (Map<Label, String>) value;
+      for (Map.Entry<Label, String> dictEntry : dict.entrySet()) {
+        LabelKeyedStringDictEntry.Builder entry =
+            LabelKeyedStringDictEntry.newBuilder()
+                .setKey(dictEntry.getKey().toString())
+                .setValue(dictEntry.getValue());
+        builder.addLabelKeyedStringDictValue(entry);
       }
     } else if (type == FILESET_ENTRY_LIST) {
       List<FilesetEntry> filesetEntries = (List<FilesetEntry>) value;
@@ -302,11 +310,11 @@ public class AttributeFormatter {
 
     void addLabelDictUnaryValue(LabelDictUnaryEntry.Builder builder);
 
+    void addLabelKeyedStringDictValue(LabelKeyedStringDictEntry.Builder builder);
+
     void addLabelListDictValue(LabelListDictEntry.Builder builder);
 
     void addIntListValue(int i);
-
-    void addStringDictUnaryValue(StringDictUnaryEntry.Builder builder);
 
     void addStringDictValue(StringDictEntry.Builder builder);
 
@@ -362,6 +370,11 @@ public class AttributeFormatter {
     }
 
     @Override
+    public void addLabelKeyedStringDictValue(LabelKeyedStringDictEntry.Builder builder) {
+      attributeBuilder.addLabelKeyedStringDictValue(builder);
+    }
+
+    @Override
     public void addLabelListDictValue(LabelListDictEntry.Builder builder) {
       attributeBuilder.addLabelListDictValue(builder);
     }
@@ -369,11 +382,6 @@ public class AttributeFormatter {
     @Override
     public void addIntListValue(int i) {
       attributeBuilder.addIntListValue(i);
-    }
-
-    @Override
-    public void addStringDictUnaryValue(StringDictUnaryEntry.Builder builder) {
-      attributeBuilder.addStringDictUnaryValue(builder);
     }
 
     @Override
@@ -488,6 +496,11 @@ public class AttributeFormatter {
     }
 
     @Override
+    public void addLabelKeyedStringDictValue(LabelKeyedStringDictEntry.Builder builder) {
+      selectorEntryBuilder.addLabelKeyedStringDictValue(builder);
+    }
+
+    @Override
     public void addLabelListDictValue(LabelListDictEntry.Builder builder) {
       selectorEntryBuilder.addLabelListDictValue(builder);
     }
@@ -495,11 +508,6 @@ public class AttributeFormatter {
     @Override
     public void addIntListValue(int i) {
       selectorEntryBuilder.addIntListValue(i);
-    }
-
-    @Override
-    public void addStringDictUnaryValue(StringDictUnaryEntry.Builder builder) {
-      selectorEntryBuilder.addStringDictUnaryValue(builder);
     }
 
     @Override

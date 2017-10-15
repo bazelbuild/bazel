@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -55,7 +56,7 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(ImmutableList<String> patterns, String offset) {
-    return SkyKey.create(
+    return LegacySkyKey.create(
         SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new TargetPatternSequence(patterns, offset));
   }
 
@@ -93,6 +94,14 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
     @Override
     public int hashCode() {
       return Objects.hash(patterns, offset);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("patterns", patterns)
+          .add("offset", offset)
+          .toString();
     }
   }
 

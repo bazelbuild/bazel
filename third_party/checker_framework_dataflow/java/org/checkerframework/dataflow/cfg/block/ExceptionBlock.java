@@ -26,12 +26,12 @@ import org.checkerframework.dataflow.cfg.node.Node;
 public interface ExceptionBlock extends SingleSuccessorBlock {
 
     /**
-     * @return the node of this block
+     * @return The node of this block.
      */
     Node getNode();
 
     /**
-     * @return the list of exceptional successor blocks as an unmodifiable map
+     * @return The list of exceptional successor blocks as an unmodifiable map.
      */
     Map<TypeMirror, Set<Block>> getExceptionalSuccessors();
 

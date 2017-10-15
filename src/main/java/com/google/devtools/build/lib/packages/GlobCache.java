@@ -109,18 +109,19 @@ public class GlobCache {
     this.maxDirectoriesToEagerlyVisit = maxDirectoriesToEagerlyVisit;
 
     Preconditions.checkNotNull(locator);
-    childDirectoryPredicate = new Predicate<Path>() {
-      @Override
-      public boolean apply(Path directory) {
-        if (directory.equals(packageDirectory)) {
-          return true;
-        }
-        PackageIdentifier subPackageId = PackageIdentifier.create(
-            packageId.getRepository(),
-            packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory)));
-        return locator.getBuildFileForPackage(subPackageId) == null;
-      }
-    };
+    childDirectoryPredicate =
+        directory -> {
+          if (directory.equals(packageDirectory)) {
+            return true;
+          }
+          PackageIdentifier subPackageId =
+              PackageIdentifier.create(
+                  packageId.getRepository(),
+                  packageId
+                      .getPackageFragment()
+                      .getRelative(directory.relativeTo(packageDirectory)));
+          return locator.getBuildFileForPackage(subPackageId) == null;
+        };
   }
 
   /**
@@ -138,16 +139,8 @@ public class GlobCache {
     Future<List<Path>> cached = globCache.get(Pair.of(pattern, excludeDirs));
     if (cached == null) {
       if (maxDirectoriesToEagerlyVisit > -1
-          && !globalStarted.getAndSet(true)
-          && !pattern.startsWith("**")) {
-        UnixGlob.forPath(packageDirectory)
-            .setMaxDirectoriesToEagerlyVisit(maxDirectoriesToEagerlyVisit)
-            .addPattern("**")
-            .setExcludeDirectories(true)
-            .setDirectoryFilter(childDirectoryPredicate)
-            .setThreadPool(globExecutor)
-            .setFilesystemCalls(syscalls)
-            .globAsync(true);
+          && !globalStarted.getAndSet(true)) {
+        packageDirectory.prefetchPackageAsync(maxDirectoriesToEagerlyVisit);
       }
       cached = safeGlobUnsorted(pattern, excludeDirs);
       setGlobPaths(pattern, excludeDirs, cached);
@@ -246,7 +239,8 @@ public class GlobCache {
     // block on an individual pattern's results, but the other globs can
     // continue in the background.
     for (String pattern : Iterables.concat(includes, excludes)) {
-      getGlobUnsortedAsync(pattern, excludeDirs);
+      @SuppressWarnings("unused") 
+      Future<?> possiblyIgnoredError = getGlobUnsortedAsync(pattern, excludeDirs);
     }
 
     HashSet<String> results = new HashSet<>();

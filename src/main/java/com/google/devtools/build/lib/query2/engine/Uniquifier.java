@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 /** A helper for deduping values. */
+@ThreadSafe
 public interface Uniquifier<T> {
   /** Returns whether {@code newElement} has been seen before. */
   boolean unique(T newElement);

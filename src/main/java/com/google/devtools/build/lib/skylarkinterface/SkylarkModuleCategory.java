@@ -17,18 +17,18 @@ package com.google.devtools.build.lib.skylarkinterface;
 public enum SkylarkModuleCategory {
   CONFIGURATION_FRAGMENT("Configuration Fragments",
       "Configuration fragments give rules access to "
-      + "language-specific parts of <a href=\"/docs/skylark/lib/configuration.html\">"
+      + "language-specific parts of <a href=\"configuration.html\">"
       + "configuration</a>. "
       + "<p>Rule implementations can get them using "
-      + "<code><a href=\"/docs/skylark/lib/ctx.html\">ctx</a>."
-      + "fragments.<i>[fragment name]</i></code>"),
+      + "<code><a href=\"ctx.html#fragments\">ctx."
+      + "fragments</a>.<i>[fragment name]</i></code>"),
 
   PROVIDER("Providers",
       "<a href=\"../rules.md#providers\">Providers</a> give rules access "
       + " to information from their dependencies. "
       + " <p>This section lists providers available on built-in rules. Rule implementation "
       + " functions can access them via "
-      + "<code><a href=\"/docs/skylark/lib/ctx.html\">target</a>.<i>[provider name]</i></code>."
+      + "<code><a href=\"Target.html\">target</a>.<i>[provider name]</i></code>."
   ),
 
   BUILTIN("Built-in Types and Modules", ""),

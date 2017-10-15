@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
 import java.util.Map;
 import java.util.Set;
 
@@ -34,18 +35,24 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
 
   private final Label label;
   private final boolean matches;
-  private final Map<String, String> settingsMap;
+  private final Multimap<String, String> settingsMap;
+  private final Map<Label, String> flagSettingsMap;
 
   /**
    * @param label the build label corresponding to this matcher
    * @param settingsMap the condition settings that trigger this matcher
-   * @param matches whether or not this matcher matches the configuration associated with
-   *     its configured target
+   * @param flagSettingsMap the label-keyed settings that trigger this matcher
+   * @param matches whether or not this matcher matches the configuration associated with its
+   *     configured target
    */
-  public ConfigMatchingProvider(Label label, Map<String, String> settingsMap,
+  public ConfigMatchingProvider(
+      Label label,
+      Multimap<String, String> settingsMap,
+      Map<Label, String> flagSettingsMap,
       boolean matches) {
     this.label = label;
     this.settingsMap = settingsMap;
+    this.flagSettingsMap = flagSettingsMap;
     this.matches = matches;
   }
 
@@ -69,8 +76,32 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
    * conditions, i.e. if this matcher is a specialization of the other one.
    */
   public boolean refines(ConfigMatchingProvider other) {
-    Set<Map.Entry<String, String>> settings = settingsMap.entrySet();
-    Set<Map.Entry<String, String>> otherSettings = other.settingsMap.entrySet();
-    return settings.containsAll(otherSettings) && settings.size() > otherSettings.size();
+    Set<Map.Entry<String, String>> settings = ImmutableSet.copyOf(settingsMap.entries());
+    Set<Map.Entry<String, String>> otherSettings = ImmutableSet.copyOf(other.settingsMap.entries());
+    Set<Map.Entry<Label, String>> flagSettings = flagSettingsMap.entrySet();
+    Set<Map.Entry<Label, String>> otherFlagSettings = other.flagSettingsMap.entrySet();
+
+    if (!settings.containsAll(otherSettings)) {
+      // not a superset
+      return false;
+    }
+
+    if (!flagSettings.containsAll(otherFlagSettings)) {
+      // not a superset
+      return false;
+    }
+
+    if (!(settings.size() > otherSettings.size()
+        || flagSettings.size() > otherFlagSettings.size())) {
+      // not a proper superset
+      return false;
+    }
+
+    return true;
+  }
+
+  /** Format this provider as its label. */
+  public String toString() {
+    return label.toString();
   }
 }

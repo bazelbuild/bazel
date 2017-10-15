@@ -15,32 +15,35 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.repository.NewRepositoryBuildFileHandler;
+import com.google.devtools.build.lib.rules.repository.NewRepositoryFileHandler;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Map;
 
 /**
  * Clones a Git repository, creates a WORKSPACE file, and adds a BUILD file for it.
  */
 public class NewGitRepositoryFunction extends GitRepositoryFunction {
+  public NewGitRepositoryFunction(HttpDownloader httpDownloader) {
+    super(httpDownloader);
+  }
+
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
-    NewRepositoryBuildFileHandler buildFileHandler =
-        new NewRepositoryBuildFileHandler(directories.getWorkspace());
-    if (!buildFileHandler.prepareBuildFile(rule, env)) {
+    NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
+    if (!fileHandler.prepareFile(rule, env)) {
       return null;
     }
 
     createDirectory(outputDirectory, rule);
-    GitCloner.clone(rule, outputDirectory, env.getListener(), clientEnvironment);
-    createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
-    buildFileHandler.finishBuildFile(outputDirectory);
+    GitCloner.clone(rule, outputDirectory, env.getListener(), clientEnvironment, downloader);
+    fileHandler.finishFile(rule, outputDirectory, markerData);
 
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 }

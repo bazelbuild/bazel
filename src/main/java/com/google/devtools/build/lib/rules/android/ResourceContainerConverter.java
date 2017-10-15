@@ -20,15 +20,13 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
+import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import javax.annotation.Nullable;
 
 /**
@@ -59,9 +57,12 @@ public class ResourceContainerConverter {
     private boolean includeManifest;
     private boolean includeRTxt;
     private boolean includeSymbolsBin;
+    private boolean includeStaticLibrary;
+    private boolean includeAapt2RTxt;
     private SeparatorType separatorType;
     private Joiner argJoiner;
     private Function<String, String> escaper = Functions.identity();
+
 
     enum SeparatorType {
       COLON_COMMA,
@@ -69,6 +70,16 @@ public class ResourceContainerConverter {
     }
 
     Builder() {
+    }
+
+    Builder includeAapt2RTxt() {
+      includeAapt2RTxt = true;
+      return this;
+    }
+
+    Builder includeStaticLibrary() {
+      includeStaticLibrary = true;
+      return this;
     }
 
     Builder includeResourceRoots() {
@@ -109,12 +120,7 @@ public class ResourceContainerConverter {
           // arguments in a list of arguments. Those characters require escaping if used in a label
           // (part of the set of allowed characters in a label).
           if (includeLabel) {
-            escaper = new Function<String, String>() {
-              @Override
-              public String apply(String input) {
-                return input.replace(":", "\\:").replace(",", "\\,");
-              }
-            };
+            escaper = (String input) -> input.replace(":", "\\:").replace(",", "\\,");
           }
           break;
         case SEMICOLON_AMPERSAND:
@@ -143,11 +149,21 @@ public class ResourceContainerConverter {
             cmdPieces.add(
                 container.getRTxt() == null ? "" : container.getRTxt().getExecPathString());
           }
+          if (includeAapt2RTxt) {
+            cmdPieces.add(
+                container.getAapt2RTxt() == null
+                    ? ""
+                    : container.getAapt2RTxt().getExecPathString());
+          }
+          if (includeStaticLibrary) {
+            cmdPieces.add(
+                container.getStaticLibrary() == null
+                    ? ""
+                    : container.getStaticLibrary().getExecPathString());
+          }
           if (includeSymbolsBin) {
             cmdPieces.add(
-                container.getSymbolsTxt() == null
-                    ? ""
-                    : container.getSymbolsTxt().getExecPathString());
+                container.getSymbols() == null ? "" : container.getSymbols().getExecPathString());
           }
           return argJoiner.join(cmdPieces.build());
         }
@@ -182,7 +198,13 @@ public class ResourceContainerConverter {
             addIfNotNull(container.getRTxt(), artifacts);
           }
           if (includeSymbolsBin) {
-            addIfNotNull(container.getSymbolsTxt(), artifacts);
+            addIfNotNull(container.getSymbols(), artifacts);
+          }
+          if (includeAapt2RTxt) {
+            addIfNotNull(container.getAapt2RTxt(), artifacts);
+          }
+          if (includeStaticLibrary) {
+            addIfNotNull(container.getStaticLibrary(), artifacts);
           }
           return artifacts.build();
         }
@@ -217,25 +239,13 @@ public class ResourceContainerConverter {
       ToArtifacts toArtifacts) {
 
     if (dependencies != null) {
-      // TODO(bazel-team): Find an appropriately lazy method to deduplicate the dependencies between
-      // the direct and transitive data.
-      // Add transitive data inside an unmodifiableIterable to ensure it won't be expanded until
-      // iteration.
       if (!dependencies.getTransitiveResources().isEmpty()) {
-        cmdBuilder.addJoinStrings(
-            "--data",
-            toArg.listSeparator(),
-            Iterables.unmodifiableIterable(
-                Iterables.transform(dependencies.getTransitiveResources(), toArg)));
+        cmdBuilder.addJoined(
+            "--data", toArg.listSeparator(), dependencies.getTransitiveResources(), toArg);
       }
-      // Add direct data inside an unmodifiableIterable to ensure it won't be expanded until
-      // iteration.
       if (!dependencies.getDirectResources().isEmpty()) {
-        cmdBuilder.addJoinStrings(
-            "--directData",
-            toArg.listSeparator(),
-            Iterables.unmodifiableIterable(
-                Iterables.transform(dependencies.getDirectResources(), toArg)));
+        cmdBuilder.addJoined(
+            "--directData", toArg.listSeparator(), dependencies.getDirectResources(), toArg);
       }
       // This flattens the nested set. Since each ResourceContainer needs to be transformed into
       // Artifacts, and the NestedSetBuilder.wrap doesn't support lazy Iterator evaluation

@@ -23,7 +23,6 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -31,7 +30,11 @@ import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.IpaRule;
 
 /**
  * Rule definition for ios_application.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class IosApplicationRule implements RuleDefinition {
 
   @Override
@@ -42,12 +45,9 @@ public class IosApplicationRule implements RuleDefinition {
         <ul>
          <li><code><var>name</var>.ipa</code>: the application bundle as an <code>.ipa</code>
              file
-         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
-             can be used to develop or build on a Mac.
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+        .setImplicitOutputsFunction(ReleaseBundlingSupport.IPA)
         /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(binary) -->
         The binary target included in the final bundle.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -64,7 +64,7 @@ public class IosApplicationRule implements RuleDefinition {
         .add(
             attr("extensions", LABEL_LIST)
                 .allowedRuleClasses(
-                    "ios_extension", "apple_watch1_extension", "apple_watch2_extension")
+                    "ios_extension", "apple_watch1_extension")
                 .allowedFileTypes()
                 .direct_compile_time_input())
         .add(
@@ -86,7 +86,6 @@ public class IosApplicationRule implements RuleDefinition {
         .ancestors(
             BaseRuleClasses.BaseRule.class,
             ObjcRuleClasses.ReleaseBundlingRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
             ObjcRuleClasses.SimulatorRule.class,
             IpaRule.class)
         .build();
@@ -94,6 +93,10 @@ public class IosApplicationRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = ios_application, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule produces an application bundle for iOS.</p>
 <p>When running an iOS application using the <code>run</code> command, environment variables that

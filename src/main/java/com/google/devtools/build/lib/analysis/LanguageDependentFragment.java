@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
 import java.util.Set;
 
 /**
@@ -82,27 +81,35 @@ public final class LanguageDependentFragment implements TransitiveInfoProvider {
    * Routines for verifying that dependency provide the right output.
    */
   public static final class Checker {
-    /**
-     * Checks that given dep supports the given language.
-     */
+    /** Checks that given dep supports the given language. */
     public static boolean depSupportsLanguage(
-        RuleContext context, LanguageDependentFragment dep, LibraryLanguage language) {
+        RuleContext context,
+        LanguageDependentFragment dep,
+        LibraryLanguage language,
+        String attrName) {
       if (dep.getSupportedLanguages().contains(language)) {
         return true;
       } else {
         context.attributeError(
-            "deps", String.format("'%s' does not produce output for %s", dep.getLabel(), language));
+            attrName,
+            String.format("'%s' does not produce output for %s", dep.getLabel(), language));
         return false;
       }
     }
 
     /**
      * Checks that all LanguageDependentFragment support the given language.
+     *
+     * @param attrNames names of attributes whose contents should be checked for supported
+     *     languages, e.g., "deps".
      */
-    public static void depsSupportsLanguage(RuleContext context, LibraryLanguage language) {
-      for (LanguageDependentFragment dep :
-               context.getPrerequisites("deps", Mode.TARGET, LanguageDependentFragment.class)) {
-        depSupportsLanguage(context, dep, language);
+    public static void depsSupportsLanguage(
+        RuleContext context, LibraryLanguage language, Iterable<String> attrNames) {
+      for (String attrName : attrNames) {
+        for (LanguageDependentFragment dep :
+            context.getPrerequisites(attrName, Mode.TARGET, LanguageDependentFragment.class)) {
+          depSupportsLanguage(context, dep, language, attrName);
+        }
       }
     }
   }

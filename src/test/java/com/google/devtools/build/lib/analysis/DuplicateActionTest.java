@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static org.junit.Assert.assertFalse;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import org.junit.Test;
@@ -37,7 +37,7 @@ public class DuplicateActionTest extends AnalysisTestCase {
         "cc_binary(name = 'b', srcs = ['b.cc'], deps = [':c'], stamp = 1)",
         "cc_library(name = 'c', linkstamp = 'stamp.cc')");
     update("//a:a", "//a:b");
-    assertFalse(hasErrors(getConfiguredTarget("//a:a")));
-    assertFalse(hasErrors(getConfiguredTarget("//a:b")));
+    assertThat(hasErrors(getConfiguredTarget("//a:a"))).isFalse();
+    assertThat(hasErrors(getConfiguredTarget("//a:b"))).isFalse();
   }
 }

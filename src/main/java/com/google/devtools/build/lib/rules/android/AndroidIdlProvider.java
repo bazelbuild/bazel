@@ -33,14 +33,19 @@ public abstract class AndroidIdlProvider implements TransitiveInfoProvider {
       AndroidIdlProvider.create(
           NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   public static AndroidIdlProvider create(
       NestedSet<String> transitiveIdlImportRoots,
       NestedSet<Artifact> transitiveIdlImports,
-      NestedSet<Artifact> transitiveIdlJars) {
+      NestedSet<Artifact> transitiveIdlJars,
+      NestedSet<Artifact> transitiveIdlPreprocessed) {
     return new AutoValue_AndroidIdlProvider(
-        transitiveIdlImportRoots, transitiveIdlImports, transitiveIdlJars);
+        transitiveIdlImportRoots,
+        transitiveIdlImports,
+        transitiveIdlJars,
+        transitiveIdlPreprocessed);
   }
 
   /** The set of IDL import roots need for compiling the IDL sources in the transitive closure. */
@@ -51,6 +56,9 @@ public abstract class AndroidIdlProvider implements TransitiveInfoProvider {
 
   /** The IDL jars in the transitive closure, both class and source jars. */
   public abstract NestedSet<Artifact> getTransitiveIdlJars();
+
+  /** The preprocessed IDL files in the transitive closure. */
+  public abstract NestedSet<Artifact> getTransitiveIdlPreprocessed();
 
   AndroidIdlProvider() {}
 }

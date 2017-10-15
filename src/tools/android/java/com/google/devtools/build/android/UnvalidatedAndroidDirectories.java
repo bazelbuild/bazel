@@ -107,4 +107,7 @@ public class UnvalidatedAndroidDirectories {
         && Objects.equals(other.assetDirs, assetDirs);
   }
 
+  public UnvalidatedAndroidData toData(Path manifest) {
+    return new UnvalidatedAndroidData(resourceDirs, assetDirs, manifest);
+  }
 }

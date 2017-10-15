@@ -24,13 +24,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -89,7 +88,7 @@ public abstract class FileStateValue implements SkyValue {
     Path path = rootedPath.asPath();
     if (statNoFollow.isFile()) {
       return statNoFollow.isSpecialFile()
-          ? SpecialFileStateValue.fromStat(statNoFollow, tsgm)
+          ? SpecialFileStateValue.fromStat(path.asFragment(), statNoFollow, tsgm)
           : RegularFileStateValue.fromPath(path, statNoFollow, tsgm);
     } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
@@ -103,7 +102,7 @@ public abstract class FileStateValue implements SkyValue {
   @VisibleForTesting
   @ThreadSafe
   public static SkyKey key(RootedPath rootedPath) {
-    return SkyKey.create(SkyFunctions.FILE_STATE, rootedPath);
+    return LegacySkyKey.create(SkyFunctions.FILE_STATE, rootedPath);
   }
 
   public abstract Type getType();
@@ -172,10 +171,10 @@ public abstract class FileStateValue implements SkyValue {
           // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
           // method.
           if (tsgm != null) {
-            tsgm.notifyDependenceOnFileTime(mtime);
+            tsgm.notifyDependenceOnFileTime(path.asFragment(), mtime);
           }
           return new RegularFileStateValue(stat.getSize(), stat.getLastModifiedTime(), null,
-              FileContentsProxy.create(mtime, stat.getNodeId()));
+              FileContentsProxy.create(stat));
         } else {
           // We are careful here to avoid putting the value ID into FileMetadata if we already have
           // a digest. Arbitrary filesystems may do weird things with the value ID; a digest is more
@@ -261,15 +260,15 @@ public abstract class FileStateValue implements SkyValue {
       this.contentsProxy = contentsProxy;
     }
 
-    static SpecialFileStateValue fromStat(FileStatusWithDigest stat,
+    static SpecialFileStateValue fromStat(PathFragment path, FileStatusWithDigest stat,
         @Nullable TimestampGranularityMonitor tsgm) throws IOException {
       long mtime = stat.getLastModifiedTime();
       // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
       // method.
       if (tsgm != null) {
-        tsgm.notifyDependenceOnFileTime(mtime);
+        tsgm.notifyDependenceOnFileTime(path, mtime);
       }
-      return new SpecialFileStateValue(FileContentsProxy.create(mtime, stat.getNodeId()));
+      return new SpecialFileStateValue(FileContentsProxy.create(stat));
     }
 
     @Override

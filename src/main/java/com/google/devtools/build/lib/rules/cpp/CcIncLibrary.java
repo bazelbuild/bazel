@@ -21,13 +21,12 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.actions.CreateIncSymlinkAction;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -60,7 +59,10 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
-    FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
+    CcToolchainProvider ccToolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeatures(ruleContext, ccToolchain);
     PathFragment packageFragment = ruleContext.getPackageDirectory();
 
     // The rule needs a unique location for the include directory, which doesn't conflict with any
@@ -80,7 +82,7 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
     // versions. Previous Blaze versions created a directory symlink; the new version does not
     // detect that the output directory isn't a directory, and tries to put the symlinks into what
     // is actually a symlink into the source tree.
-    PathFragment includeDirectory = new PathFragment("_")
+    PathFragment includeDirectory = PathFragment.create("_")
         .getRelative(ruleContext.getTarget().getName());
     Root configIncludeDirectory =
         ruleContext.getConfiguration().getIncludeDirectory(ruleContext.getRule().getRepository());
@@ -125,9 +127,10 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
     ImmutableSortedMap<Artifact, Artifact> virtualArtifactMap = virtualArtifactMapBuilder.build();
     ruleContext.registerAction(
         new CreateIncSymlinkAction(ruleContext.getActionOwner(), virtualArtifactMap, includeRoot));
-
+    FdoSupportProvider fdoSupport =
+        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
     CcLibraryHelper.Info info =
-        new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
+        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
             .addIncludeDirs(Arrays.asList(includePath))
             .addPublicHeaders(virtualArtifactMap.keySet())
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))

@@ -1,0 +1,2 @@
+SingleJar is a tool used to combine multiple jar file into a single one. It is used by Bazel to
+build java binaries that are self-contained.

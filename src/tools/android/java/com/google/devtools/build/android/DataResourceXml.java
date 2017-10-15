@@ -17,12 +17,12 @@ import static com.android.resources.ResourceType.DECLARE_STYLEABLE;
 import static com.android.resources.ResourceType.ID;
 import static com.android.resources.ResourceType.PUBLIC;
 
-import com.android.SdkConstants;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
+import com.google.devtools.build.android.FullyQualifiedName.VirtualType;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
@@ -32,6 +32,7 @@ import com.google.devtools.build.android.xml.IdXmlResourceValue;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
 import com.google.devtools.build.android.xml.PublicXmlResourceValue;
+import com.google.devtools.build.android.xml.ResourcesAttribute;
 import com.google.devtools.build.android.xml.SimpleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
@@ -42,11 +43,13 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
 import java.util.Objects;
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 
 /**
@@ -86,7 +89,34 @@ public class DataResourceXml implements DataResource {
               StandardCharsets.UTF_8.toString());
     try {
       // TODO(corysmith): Make the xml parsing more readable.
-      while (XmlResourceValues.moveToResources(eventReader)) {
+      for (StartElement resources = XmlResourceValues.moveToResources(eventReader);
+          resources != null;
+          resources = XmlResourceValues.moveToResources(eventReader)) {
+        // Record attributes on the <resources> tag.
+        Iterator<Attribute> attributes = XmlResourceValues.iterateAttributesFrom(resources);
+        while (attributes.hasNext()) {
+          Attribute attribute = attributes.next();
+          Namespaces namespaces = Namespaces.from(attribute.getName());
+          String attributeName =
+              attribute.getName().getNamespaceURI().isEmpty()
+                  ? attribute.getName().getLocalPart()
+                  : attribute.getName().getPrefix() + ":" + attribute.getName().getLocalPart();
+          FullyQualifiedName fqn = fqnFactory.create(
+                VirtualType.RESOURCES_ATTRIBUTE,
+                attribute.getName().toString());
+          ResourcesAttribute resourceAttribute =
+              ResourcesAttribute.of(fqn, attributeName, attribute.getValue());
+          DataResourceXml resource = DataResourceXml.createWithNamespaces(
+                path,
+                resourceAttribute,
+                namespaces);
+          if (resourceAttribute.isCombining()) {
+            combiningConsumer.consume(fqn, resource);
+          } else {
+            overwritingConsumer.consume(fqn, resource);
+          }
+        }
+        // Process resource declarations.
         for (StartElement start = XmlResourceValues.findNextStart(eventReader);
             start != null;
             start = XmlResourceValues.findNextStart(eventReader)) {
@@ -134,7 +164,8 @@ public class DataResourceXml implements DataResource {
   }
 
   @SuppressWarnings("deprecation")
-  public static DataValue from(SerializeFormat.DataValue protoValue, Path source)
+  // TODO(corysmith): Update proto to use get<>Map
+  public static DataValue from(SerializeFormat.DataValue protoValue, DataSource source)
       throws InvalidProtocolBufferException {
     DataValueXml xmlValue = protoValue.getXmlValue();
     return createWithNamespaces(
@@ -163,6 +194,8 @@ public class DataResourceXml implements DataResource {
         return StyleXmlResourceValue.from(proto);
       case STYLEABLE:
         return StyleableXmlResourceValue.from(proto);
+      case RESOURCES_ATTRIBUTE:
+        return ResourcesAttribute.from(proto);
       default:
         throw new IllegalArgumentException();
     }
@@ -225,32 +258,42 @@ public class DataResourceXml implements DataResource {
     return ResourceType.getEnum(start.getName().getLocalPart());
   }
 
-  private final Path source;
+  private final DataSource source;
   private final XmlResourceValue xml;
   private final Namespaces namespaces;
 
-  private DataResourceXml(Path source, XmlResourceValue xmlValue, Namespaces namespaces) {
+  private DataResourceXml(DataSource source, XmlResourceValue xmlValue, Namespaces namespaces) {
     this.source = source;
     this.xml = xmlValue;
     this.namespaces = namespaces;
   }
 
-  public static DataResourceXml createWithNoNamespace(Path source, XmlResourceValue xml) {
-    return createWithNamespaces(source, xml, ImmutableMap.<String, String>of());
+  public static DataResourceXml createWithNoNamespace(Path sourcePath, XmlResourceValue xml) {
+    return createWithNamespaces(sourcePath, xml, ImmutableMap.<String, String>of());
   }
 
   public static DataResourceXml createWithNamespaces(
-      Path source, XmlResourceValue xml, ImmutableMap<String, String> prefixToUri) {
-    return createWithNamespaces(source, xml, Namespaces.from(prefixToUri));
+      Path sourcePath, XmlResourceValue xml, ImmutableMap<String, String> prefixToUri) {
+    return createWithNamespaces(sourcePath, xml, Namespaces.from(prefixToUri));
+  }
+  
+  public static DataResourceXml createWithNoNamespace(DataSource source, XmlResourceValue xml) {
+    return new DataResourceXml(source, xml, Namespaces.empty());
   }
 
+
   public static DataResourceXml createWithNamespaces(
-      Path source, XmlResourceValue xml, Namespaces namespaces) {
+      DataSource source, XmlResourceValue xml, Namespaces namespaces) {
     return new DataResourceXml(source, xml, namespaces);
   }
 
+  public static DataResourceXml createWithNamespaces(
+      Path sourcePath, XmlResourceValue xml, Namespaces namespaces) {
+    return createWithNamespaces(DataSource.of(sourcePath), xml, namespaces);
+  }
+
   @Override
-  public Path source() {
+  public DataSource source() {
     return source;
   }
 
@@ -286,10 +329,8 @@ public class DataResourceXml implements DataResource {
   }
 
   @Override
-  public void writeResourceToClass(
-      FullyQualifiedName key,
-      AndroidResourceClassWriter resourceClassWriter) {
-    xml.writeResourceToClass(key, resourceClassWriter);
+  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    xml.writeResourceToClass(key, sink);
   }
 
   @Override
@@ -302,32 +343,39 @@ public class DataResourceXml implements DataResource {
   @Override
   public DataResource combineWith(DataResource resource) {
     if (!(resource instanceof DataResourceXml)) {
-      throw new IllegalArgumentException(resource + " is not a combinable with " + this);
+      throw new IllegalArgumentException(resource + " is not combinable with " + this);
     }
     DataResourceXml xmlResource = (DataResourceXml) resource;
     return createWithNamespaces(
-        combineSources(xmlResource.source),
+        source.combine(xmlResource.source),
         xml.combineWith(xmlResource.xml),
         namespaces.union(xmlResource.namespaces));
   }
 
-  private Path combineSources(Path otherSource) {
-    // TODO(corysmith): Combine the sources so that we know both of the originating files.
-    // For now, prefer sources that have explicit definitions (values/ and not layout/), since the
-    // values are ultimately written out to a merged values.xml. Sources from layout/menu, etc.
-    // can come from "@+id" definitions.
-    boolean thisInValuesFolder = isInValuesFolder(source);
-    boolean otherInValuesFolder = isInValuesFolder(otherSource);
-    if (thisInValuesFolder && !otherInValuesFolder) {
-      return source;
+  @Override
+  public DataResource overwrite(DataResource resource) {
+    if (equals(resource)) {
+      return this;
     }
-    if (!thisInValuesFolder && otherInValuesFolder) {
-      return otherSource;
-    }
-    return source;
+    return createWithNamespaces(source.overwrite(resource.source()), xml, namespaces);
+  }
+  
+  @Override
+  public DataValue update(DataSource source) {
+    return createWithNamespaces(source, xml, namespaces);
   }
 
-  public static boolean isInValuesFolder(Path source) {
-    return source.getParent().getFileName().toString().startsWith(SdkConstants.FD_RES_VALUES);
+  @Override
+  public String asConflictString() {
+    return source.asConflictString();
+  }
+
+  @Override
+  public boolean valueEquals(DataValue value) {
+    if (!(value instanceof DataResourceXml)) {
+      return false;
+    }
+    DataResourceXml other = (DataResourceXml) value;
+    return Objects.equals(xml, other.xml);
   }
 }

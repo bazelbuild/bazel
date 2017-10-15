@@ -15,9 +15,8 @@ exports_files(
 py_library(
     name = "archive",
     srcs = ["archive.py"],
-    visibility = [
-        "//tools/build_defs/docker:__subpackages__",
-    ],
+    srcs_version = "PY2AND3",
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
@@ -32,6 +31,7 @@ py_test(
         "testenv.py",
     ],
     data = [":archive_testdata"],
+    srcs_version = "PY2AND3",
     deps = [":archive"],
 )
 
@@ -39,25 +39,46 @@ py_test(
     name = "path_test",
     srcs = ["path_test.py"],
     data = ["path.bzl"],
+    srcs_version = "PY2AND3",
 )
 
 py_binary(
     name = "build_tar",
     srcs = ["build_tar.py"],
+    srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
-        "@bazel_tools//third_party/py/gflags",
+        "//third_party/py/gflags",
     ],
 )
 
 py_binary(
     name = "make_deb",
     srcs = ["make_deb.py"],
+    srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
-        "@bazel_tools//third_party/py/gflags",
+        "//third_party/py/gflags",
+    ],
+)
+
+# Used by pkg_rpm in rpm.bzl.
+py_binary(
+    name = "make_rpm",
+    srcs = ["make_rpm.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//third_party/py/gflags",
+    ],
+)
+
+py_test(
+    name = "make_rpm_test",
+    srcs = ["make_rpm_test.py"],
+    deps = [
+        ":make_rpm",
     ],
 )
 
@@ -75,14 +96,18 @@ genrule(
 
 [pkg_tar(
     name = "test-tar-%s" % ext[1:],
-    build_tar = ":build_tar",
-    extension = "tar%s" % ext,
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
         ":usr/titi",
     ],
+    build_tar = ":build_tar",
+    extension = "tar%s" % ext,
     mode = "0644",
     modes = {"usr/titi": "0755"},
+    owner = "42.24",
+    ownername = "titi.tata",
+    ownernames = {"etc/nsswitch.conf": "tata.titi"},
+    owners = {"etc/nsswitch.conf": "24.42"},
     package_dir = "/",
     strip_prefix = ".",
     symlinks = {"usr/bin/java": "/path/to/bin/java"},
@@ -106,37 +131,45 @@ genrule(
 
 pkg_tar(
     name = "test-tar-strip_prefix-empty",
-    build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
+    build_tar = ":build_tar",
     strip_prefix = "",
 )
 
 pkg_tar(
     name = "test-tar-strip_prefix-none",
-    build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
+    build_tar = ":build_tar",
 )
 
 pkg_tar(
     name = "test-tar-strip_prefix-etc",
-    build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
+    build_tar = ":build_tar",
     strip_prefix = "etc",
 )
 
 pkg_tar(
     name = "test-tar-strip_prefix-dot",
-    build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
+    build_tar = ":build_tar",
     strip_prefix = ".",
+)
+
+pkg_tar(
+    name = "test-tar-files_dict",
+    build_tar = ":build_tar",
+    files = {
+        ":etc/nsswitch.conf": "not-etc/mapped-filename.conf",
+    },
 )
 
 pkg_deb(
@@ -170,6 +203,7 @@ sh_test(
         ":test-deb.deb",
         ":test-tar-.tar",
         ":test-tar-bz2.tar.bz2",
+        ":test-tar-files_dict.tar",
         ":test-tar-gz.tar.gz",
         ":test-tar-inclusion-.tar",
         ":test-tar-inclusion-bz2.tar",

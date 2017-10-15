@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import com.google.protobuf.UninitializedMessageException;
@@ -45,7 +46,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -220,7 +220,7 @@ public class CrosstoolConfigurationLoader {
       return null;
     }
 
-    return new CrosstoolProto(path.getMD5Digest(), "CROSSTOOL file " + path.getPathString()) {
+    return new CrosstoolProto(path.getDigest(), "CROSSTOOL file " + path.getPathString()) {
       @Override
       public String getContents() throws IOException {
         try (InputStream inputStream = path.getInputStream()) {
@@ -251,12 +251,9 @@ public class CrosstoolConfigurationLoader {
       String md5 = BaseEncoding.base16().lowerCase().encode(finalProto.getMd5());
       CrosstoolConfig.CrosstoolRelease release;
       try {
-        release = crosstoolReleaseCache.get(md5, new Callable<CrosstoolRelease>() {
-          @Override
-          public CrosstoolRelease call() throws Exception {
-            return toReleaseConfiguration(finalProto.getName(), finalProto.getContents());
-          }
-        });
+        release =
+            crosstoolReleaseCache.get(
+                md5, () -> toReleaseConfiguration(finalProto.getName(), finalProto.getContents()));
       } catch (ExecutionException e) {
         throw new InvalidConfigurationException(e);
       }
@@ -331,7 +328,13 @@ public class CrosstoolConfigurationLoader {
     // We use fake CPU values to allow cross-platform builds for other languages that use the
     // C++ toolchain. Translate to the actual target architecture.
     String desiredCpu = cpuTransformer.apply(config.getCpu());
+    CppOptions cppOptions = options.get(CppOptions.class);
+    boolean needsLipo =
+        cppOptions.getLipoMode() != LipoMode.OFF && !cppOptions.convertLipoToThinLto;
     for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
+      if (needsLipo && !selector.getSupportsLipo()) {
+        continue;
+      }
       if (selector.getCpu().equals(desiredCpu)) {
         selectedIdentifier = selector.getToolchainIdentifier();
         break;

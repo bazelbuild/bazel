@@ -76,19 +76,19 @@ EOF
 touch pkg/pybin.py
 touch pkg/pytest.py
 cat > pkg/sh_runs_javabin.sh << 'EOF'
-#!/bin/bash
+#!/bin/sh
 exec $0.runfiles/*/pkg/javabin
 EOF
 cat > pkg/sh_runs_javatest.sh << 'EOF'
-#!/bin/bash
+#!/bin/sh
 exec $TEST_SRCDIR/*/pkg/javatest
 EOF
 cat > pkg/sh_runs_pybin.sh << 'EOF'
-#!/bin/bash
+#!/bin/sh
 exec $0.runfiles/*/pkg/pybin
 EOF
 cat > pkg/sh_runs_pytest.sh << 'EOF'
-#!/bin/bash
+#!/bin/sh
 exec $TEST_SRCDIR/*/pkg/pytest
 EOF
 chmod +x pkg/*.sh

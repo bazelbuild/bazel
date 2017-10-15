@@ -53,7 +53,7 @@ public @interface SkylarkSignature {
 
   /**
    * General documentation block of the method. See the skylark documentation at
-   * http://www.bazel.io/docs/skylark/.
+   * http://www.bazel.build/docs/skylark/.
    */
   String doc() default "";
 
@@ -96,6 +96,13 @@ public @interface SkylarkSignature {
    * for a void function.
    */
   Class<?> returnType() default Object.class;
+
+  /**
+   * Fake return type of the function. Used by the documentation generator for documenting
+   * deprecated functions (documentation for this type is generated, even if it's not the real
+   * return type).
+   */
+  Class<?> documentationReturnType() default Object.class;
 
   // TODO(bazel-team): determine this way whether to accept mutable Lists
   // boolean mutableLists() default false;

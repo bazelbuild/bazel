@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertSame;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,6 +36,6 @@ public class StringCanonicalizerTest {
   public void twoSameStringsAreCanonicalized() {
     String stringA1 = StringCanonicalizer.intern(new String("A"));
     String stringA2 = StringCanonicalizer.intern(new String("A"));
-    assertSame(stringA1, stringA2);
+    assertThat(stringA2).isSameAs(stringA1);
   }
 }

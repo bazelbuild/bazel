@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -40,29 +40,36 @@ public abstract class PackageLookupValue implements SkyValue {
    * The file (BUILD, WORKSPACE, etc.) that defines this package, referred to as the "build file".
    */
   public enum BuildFileName {
+
     WORKSPACE("WORKSPACE") {
       @Override
       public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return new PathFragment(BuildFileName.WORKSPACE.getFilename());
+        return getFilenameFragment();
       }
     },
     BUILD("BUILD") {
       @Override
       public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return packageIdentifier.getPackageFragment().getChild(getFilename());
+        return packageIdentifier.getPackageFragment().getRelative(getFilenameFragment());
+      }
+    },
+    BUILD_DOT_BAZEL("BUILD.bazel") {
+      @Override
+      public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
+        return packageIdentifier.getPackageFragment().getRelative(getFilenameFragment());
       }
     };
 
     private static final BuildFileName[] VALUES = BuildFileName.values();
 
-    private final String filename;
+    private final PathFragment filenameFragment;
 
     private BuildFileName(String filename) {
-      this.filename = filename;
+      this.filenameFragment = PathFragment.create(filename);
     }
 
-    public String getFilename() {
-      return filename;
+    public PathFragment getFilenameFragment() {
+      return filenameFragment;
     }
 
     /**
@@ -82,16 +89,21 @@ public abstract class PackageLookupValue implements SkyValue {
       new NoBuildFilePackageLookupValue();
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
+  public static final NoRepositoryPackageLookupValue NO_SUCH_REPOSITORY_VALUE =
+      new NoRepositoryPackageLookupValue();
 
   enum ErrorReason {
-    // There is no BUILD file.
+    /** There is no BUILD file. */
     NO_BUILD_FILE,
 
-    // The package name is invalid.
+    /** The package name is invalid. */
     INVALID_PACKAGE_NAME,
 
-    // The package is considered deleted because of --deleted_packages.
-    DELETED_PACKAGE
+    /** The package is considered deleted because of --deleted_packages. */
+    DELETED_PACKAGE,
+
+    /** The repository was not found. */
+    REPOSITORY_NOT_FOUND
   }
 
   protected PackageLookupValue() {
@@ -103,6 +115,11 @@ public abstract class PackageLookupValue implements SkyValue {
 
   public static PackageLookupValue invalidPackageName(String errorMsg) {
     return new InvalidNamePackageLookupValue(errorMsg);
+  }
+
+  public static PackageLookupValue incorrectRepositoryReference(
+      PackageIdentifier invalidPackage, PackageIdentifier correctPackage) {
+    return new IncorrectRepositoryReferencePackageLookupValue(invalidPackage, correctPackage);
   }
 
   /**
@@ -138,14 +155,14 @@ public abstract class PackageLookupValue implements SkyValue {
    */
   public abstract String getErrorMsg();
 
-  static SkyKey key(PathFragment directory) {
+  public static SkyKey key(PathFragment directory) {
     Preconditions.checkArgument(!directory.isAbsolute(), directory);
     return key(PackageIdentifier.createInMainRepo(directory));
   }
 
   public static SkyKey key(PackageIdentifier pkgIdentifier) {
     Preconditions.checkArgument(!pkgIdentifier.getRepository().isDefault());
-    return SkyKey.create(SkyFunctions.PACKAGE_LOOKUP, pkgIdentifier);
+    return LegacySkyKey.create(SkyFunctions.PACKAGE_LOOKUP, pkgIdentifier);
   }
 
   /** Successful lookup value. */
@@ -268,6 +285,59 @@ public abstract class PackageLookupValue implements SkyValue {
     }
   }
 
+  /** Value indicating the package name was in error. */
+  public static class IncorrectRepositoryReferencePackageLookupValue
+      extends UnsuccessfulPackageLookupValue {
+
+    private final PackageIdentifier invalidPackageIdentifier;
+    private final PackageIdentifier correctedPackageIdentifier;
+
+    private IncorrectRepositoryReferencePackageLookupValue(
+        PackageIdentifier invalidPackageIdentifier, PackageIdentifier correctedPackageIdentifier) {
+      this.invalidPackageIdentifier = invalidPackageIdentifier;
+      this.correctedPackageIdentifier = correctedPackageIdentifier;
+    }
+
+    public PackageIdentifier getInvalidPackageIdentifier() {
+      return invalidPackageIdentifier;
+    }
+
+    public PackageIdentifier getCorrectedPackageIdentifier() {
+      return correctedPackageIdentifier;
+    }
+
+    @Override
+    ErrorReason getErrorReason() {
+      return ErrorReason.INVALID_PACKAGE_NAME;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      return String.format(
+          "Invalid package reference %s crosses into repository %s:"
+              + " did you mean to use %s instead?",
+          invalidPackageIdentifier,
+          correctedPackageIdentifier.getRepository(),
+          correctedPackageIdentifier);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof IncorrectRepositoryReferencePackageLookupValue)) {
+        return false;
+      }
+      IncorrectRepositoryReferencePackageLookupValue other =
+          (IncorrectRepositoryReferencePackageLookupValue) obj;
+      return Objects.equal(invalidPackageIdentifier, other.invalidPackageIdentifier)
+          && Objects.equal(correctedPackageIdentifier, other.correctedPackageIdentifier);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(invalidPackageIdentifier, correctedPackageIdentifier);
+    }
+  }
+
   /** Marker value for a deleted package. */
   public static class DeletedPackageLookupValue extends UnsuccessfulPackageLookupValue {
 
@@ -282,6 +352,25 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public String getErrorMsg() {
       return "Package is considered deleted due to --deleted_packages";
+    }
+  }
+
+  /**
+   * Marker value for repository we could not find. This can happen when looking for a label that
+   * specifies a non-existent repository.
+   */
+  public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
+
+    private NoRepositoryPackageLookupValue() {}
+
+    @Override
+    ErrorReason getErrorReason() {
+      return ErrorReason.REPOSITORY_NOT_FOUND;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      return "The repository could not be resolved";
     }
   }
 }

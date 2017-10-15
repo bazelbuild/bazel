@@ -309,14 +309,14 @@ public abstract class Location implements Serializable {
    *
    * <p>If such a location is not defined, this method returns an empty string.
    */
-  public static String printPathAndLine(Location location) {
-    return (location == null) ? "" : location.printPathAndLine();
+  public static String printLocation(Location location) {
+    return (location == null) ? "" : location.printLocation();
   }
 
   /**
    * Returns this location in the format "filename:line".
    */
-  public String printPathAndLine() {
+  public String printLocation() {
     StringBuilder builder = new StringBuilder();
     PathFragment path = getPath();
     if (path != null) {

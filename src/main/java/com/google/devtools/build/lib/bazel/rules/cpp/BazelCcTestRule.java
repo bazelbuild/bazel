@@ -39,6 +39,9 @@ public final class BazelCcTestRule implements RuleDefinition {
         .setImplicitOutputsFunction(CppRuleClasses.CC_BINARY_DEBUG_PACKAGE)
         .override(attr("linkstatic", BOOLEAN).value(false))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
+        // Oh weary adventurer, endeavour not to remove this attribute, enticing as that may be,
+        // given that no code referenceth it. Should ye be on the verge of yielding to the
+        // temptation, lay your eyes on the Javadoc of {@link FdoSupport} to find out why.
         .add(attr(":lipo_context", LABEL).value(BazelCppRuleClasses.LIPO_CONTEXT))
         .build();
   }

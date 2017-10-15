@@ -1,5 +1,11 @@
+package(
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
     visibility = ["//src:__pkg__"],
 )
@@ -21,11 +27,12 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:collect",
-        "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:guava-testlib",
@@ -43,11 +50,13 @@ java_test(
     test_class = "com.google.devtools.build.skyframe.AllTests",
     deps = [
         ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:collect",
-        "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:guava-testlib",

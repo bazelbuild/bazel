@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -72,7 +71,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   private static final class TrackingEvaluationProgressReceiver
-      implements EvaluationProgressReceiver {
+      extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
 
     public static final class InvalidatedKey {
       public final SkyKey skyKey;
@@ -160,9 +159,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
-
-    @Override
     public void evaluated(
         SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
       evaluated.add(new EvaluatedEntry(skyKey, skyValueSupplier.get(), state));
@@ -211,11 +207,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     protected String computeKey() {
       return getPrimaryOutput().getExecPathString() + executionCounter.get();
-    }
-
-    @Override
-    public ResourceSet estimateResourceConsumption(Executor executor) {
-      return ResourceSet.ZERO;
     }
   }
 
@@ -387,6 +378,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         null,
         null,
+        null,
         executor,
         null,
         false,
@@ -394,7 +386,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null);
 
     // Sanity check that our invalidation receiver is working correctly. We'll rely on it again.
-    SkyKey actionKey = ActionExecutionValue.key(action);
+    SkyKey actionKey = ActionExecutionValue.key(OWNER_KEY, 0);
     TrackingEvaluationProgressReceiver.EvaluatedEntry evaluatedAction =
         progressReceiver.getEvalutedEntry(actionKey);
     assertThat(evaluatedAction).isNotNull();
@@ -411,6 +403,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     builder.buildArtifacts(
         reporter,
         ImmutableSet.of(actionOutput),
+        null,
         null,
         null,
         null,
@@ -449,7 +442,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
   private RootedPath createSkyframeDepOfAction() throws Exception {
     scratch.file(rootDirectory.getRelative("action.dep").getPathString(), "blah");
-    return RootedPath.toRootedPath(rootDirectory, new PathFragment("action.dep"));
+    return RootedPath.toRootedPath(rootDirectory, PathFragment.create("action.dep"));
   }
 
   private void appendToFile(Path path) throws Exception {
@@ -659,11 +652,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     protected String computeKey() {
       return new Fingerprint().addInt(42).hexDigestAndReset();
     }
-
-    @Override
-    public ResourceSet estimateResourceConsumption(Executor executor) {
-      return ResourceSet.ZERO;
-    }
   }
 
   private abstract static class SingleOutputSkyframeAwareAction extends SingleOutputAction
@@ -791,6 +779,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     builder.buildArtifacts(
         reporter,
         ImmutableSet.of(genFile2),
+        null,
         null,
         null,
         null,

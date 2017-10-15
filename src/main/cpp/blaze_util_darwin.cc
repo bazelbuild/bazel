@@ -12,17 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/main/cpp/blaze_util_platform.h"
+
+#include <sys/types.h>
+#include <sys/resource.h>
+#include <sys/sysctl.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+
 #include <libproc.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
+
 #include <CoreFoundation/CoreFoundation.h>
+
+#include <cerrno>
 #include <cstdio>
+#include <cstring>
 
 #include "src/main/cpp/blaze_util.h"
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
@@ -123,16 +132,16 @@ string GetSelfPath() {
   return string(pathbuf, len);
 }
 
-uint64_t MonotonicClock() {
+uint64_t GetMillisecondsMonotonic() {
   struct timeval ts = {};
   if (gettimeofday(&ts, NULL) < 0) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "error calling gettimeofday");
   }
-  return ts.tv_sec * 1000000000LL + ts.tv_usec * 1000;
+  return ts.tv_sec * 1000LL + ts.tv_usec / 1000LL;
 }
 
-uint64_t ProcessClock() {
-  return clock() * (1000000000LL / CLOCKS_PER_SEC);
+uint64_t GetMillisecondsSinceProcessStart() {
+  return (clock() * 1000LL) / CLOCKS_PER_SEC;
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
@@ -153,9 +162,9 @@ bool IsSharedLibrary(const string &filename) {
 }
 
 string GetDefaultHostJavabase() {
-  const char *java_home = getenv("JAVA_HOME");
-  if (java_home) {
-    return std::string(java_home);
+  string java_home = GetEnv("JAVA_HOME");
+  if (!java_home.empty()) {
+    return java_home;
   }
 
   FILE *output = popen("/usr/libexec/java_home -v 1.7+", "r");
@@ -183,19 +192,15 @@ string GetDefaultHostJavabase() {
   return javabase.substr(0, javabase.length()-1);
 }
 
-void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
+void WriteSystemSpecificProcessIdentifier(
+    const string& server_dir, pid_t server_pid) {
 }
 
-bool VerifyServerProcess(
-    int pid, const string& output_base, const string& install_base) {
-  // TODO(lberki): This might accidentally kill an unrelated process if the
-  // server died and the PID got reused.
-  return true;
-}
-
-bool KillServerProcess(int pid) {
-  killpg(pid, SIGKILL);
-  return true;
+bool VerifyServerProcess(int pid, const string &output_base) {
+  // TODO(lberki): This only checks for the process's existence, not whether
+  // its start time matches. Therefore this might accidentally kill an
+  // unrelated process if the server died and the PID got reused.
+  return killpg(pid, 0) == 0;
 }
 
 // Sets a flag on path to exclude the path from Apple's automatic backup service
@@ -222,6 +227,35 @@ void ExcludePathFromBackup(const string &path) {
     fprintf(stderr, "\n");
     return;
   }
+}
+
+int32_t GetExplicitSystemLimit(const int resource) {
+  const char* sysctl_name;
+  switch (resource) {
+    case RLIMIT_NOFILE:
+      sysctl_name = "kern.maxfilesperproc";
+      break;
+    case RLIMIT_NPROC:
+      sysctl_name = "kern.maxprocperuid";
+      break;
+    default:
+      return 0;
+  }
+
+  int32_t limit;
+  size_t len = sizeof(limit);
+  if (sysctlbyname(sysctl_name, &limit, &len, nullptr, 0) == -1) {
+    fprintf(stderr, "Warning: failed to get value of sysctl %s: %s\n",
+            sysctl_name, std::strerror(errno));
+    return 0;
+  }
+  if (len != sizeof(limit)) {
+    fprintf(stderr, "Warning: failed to get value of sysctl %s: returned "
+            "data length %zd did not match expected size %zd\n",
+            sysctl_name, len, sizeof(limit));
+    return 0;
+  }
+  return limit;
 }
 
 }   // namespace blaze.

@@ -1,8 +1,3 @@
-DEFAULT_VISIBILITY = [
-    "//third_party/bazel/src/java_tools/junitrunner/java/com/google/testing/junit/runner:__subpackages__",
-    "//third_party/bazel/src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:__subpackages__",
-]
-
 package(default_visibility = ["//src:__subpackages__"])
 
 # JUnit4 test runner core code.
@@ -25,6 +20,5 @@ java_library(
 
 filegroup(
     name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
-    srcs = glob(["**"]),
+    srcs = glob(["**/*.java"]) + ["BUILD"],
 )

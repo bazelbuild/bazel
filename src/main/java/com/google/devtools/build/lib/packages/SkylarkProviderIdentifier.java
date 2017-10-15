@@ -19,21 +19,17 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * A wrapper around Skylark provider identifier,
- * representing either a declared provider ({@see SkylarkClassObjectConstructor})
- * or a "legacy" string identifier.
+ * A wrapper around Skylark provider identifier, representing either a declared provider ({@see
+ * SkylarkProvider}) or a "legacy" string identifier.
  */
 public final class SkylarkProviderIdentifier {
 
   @Nullable
   private final String legacyId;
-  @Nullable
-  private final SkylarkClassObjectConstructor.Key key;
+  @Nullable private final Provider.Key key;
 
-  /**
-   * Creates an id for a declared provider with a given key ({@see SkylarkClassObjectConstructor}).
-   */
-  public static SkylarkProviderIdentifier forKey(SkylarkClassObjectConstructor.Key key) {
+  /** Creates an id for a declared provider with a given key ({@see SkylarkProvider}). */
+  public static SkylarkProviderIdentifier forKey(Provider.Key key) {
     return new SkylarkProviderIdentifier(key);
   }
 
@@ -49,7 +45,7 @@ public final class SkylarkProviderIdentifier {
     this.key = null;
   }
 
-  private SkylarkProviderIdentifier(SkylarkClassObjectConstructor.Key key) {
+  private SkylarkProviderIdentifier(Provider.Key key) {
     this.legacyId = null;
     this.key = key;
   }
@@ -70,10 +66,8 @@ public final class SkylarkProviderIdentifier {
     return legacyId;
   }
 
-  /**
-   * Returns a key identifying the declared provider (only for non-legacy providers).
-   */
-  public SkylarkClassObjectConstructor.Key getKey() {
+  /** Returns a key identifying the declared provider (only for non-legacy providers). */
+  public Provider.Key getKey() {
     Preconditions.checkState(!isLegacy(), "Check !isLegacy() first");
     return key;
   }
@@ -83,12 +77,12 @@ public final class SkylarkProviderIdentifier {
     if (isLegacy()) {
       return legacyId;
     }
-    return key.getExportedName();
+    return key.toString();
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(legacyId, key);
+    return legacyId != null ? legacyId.hashCode() * 2 : key.hashCode();
   }
 
   @Override

@@ -22,10 +22,10 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -319,20 +319,26 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
 
   /**
    * Returns true iff the rule class has an attribute with the given name and type.
+   *
+   * <p>Note: RuleContext also has isAttrDefined(), which takes Aspects into account. Whenever
+   * possible, use RuleContext.isAttrDefined() instead of this method.
    */
   public boolean isAttrDefined(String attrName, Type<?> type) {
     return ruleClass.hasAttr(attrName, type);
   }
 
+  /**
+   * {@see #isAttributeValueExplicitlySpecified(String)}
+   */
   @Override
   public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
     return attributes.isAttributeValueExplicitlySpecified(attribute);
   }
 
   /**
-   * Returns true iff the value of the specified attribute is explicitly set in the BUILD file (as
-   * opposed to its default value). This also returns true if the value from the BUILD file is the
-   * same as the default value. In addition, this method return false if the rule has no attribute
+   * Returns true iff the value of the specified attribute is explicitly set in the BUILD file.
+   * This returns true also if the value explicity specified in the BUILD file is the same as the
+   * attribute's default value. In addition, this method return false if the rule has no attribute
    * with the given name.
    */
   public boolean isAttributeValueExplicitlySpecified(String attrName) {
@@ -467,18 +473,40 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
    */
   void populateOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
       throws LabelSyntaxException, InterruptedException {
+    populateOutputFilesInternal(eventHandler, pkgBuilder, /*performChecks=*/ true);
+  }
+
+  void populateOutputFilesUnchecked(EventHandler eventHandler, Package.Builder pkgBuilder)
+      throws InterruptedException {
+    try {
+      populateOutputFilesInternal(eventHandler, pkgBuilder, /*performChecks=*/ false);
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  void populateOutputFilesInternal(
+      EventHandler eventHandler, Package.Builder pkgBuilder, boolean performChecks)
+      throws LabelSyntaxException, InterruptedException {
     Preconditions.checkState(outputFiles == null);
     // Order is important here: implicit before explicit
-    outputFiles = Lists.newArrayList();
-    outputFileMap = LinkedListMultimap.create();
-    populateImplicitOutputFiles(eventHandler, pkgBuilder);
-    populateExplicitOutputFiles(eventHandler);
-    outputFiles = ImmutableList.copyOf(outputFiles);
-    outputFileMap = ImmutableListMultimap.copyOf(outputFileMap);
+    ImmutableList.Builder<OutputFile> outputFilesBuilder = ImmutableList.builder();
+    ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder =
+        ImmutableListMultimap.builder();
+    populateImplicitOutputFiles(eventHandler, pkgBuilder, outputFilesBuilder, performChecks);
+    populateExplicitOutputFiles(
+        eventHandler, outputFilesBuilder, outputFileMapBuilder, performChecks);
+    outputFiles = outputFilesBuilder.build();
+    outputFileMap = outputFileMapBuilder.build();
   }
 
   // Explicit output files are user-specified attributes of type OUTPUT.
-  private void populateExplicitOutputFiles(EventHandler eventHandler) throws LabelSyntaxException {
+  private void populateExplicitOutputFiles(
+      EventHandler eventHandler,
+      ImmutableList.Builder<OutputFile> outputFilesBuilder,
+      ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder,
+      boolean performChecks)
+      throws LabelSyntaxException {
     NonconfigurableAttributeMapper nonConfigurableAttributes =
         NonconfigurableAttributeMapper.of(this);
     for (Attribute attribute : ruleClass.getAttributes()) {
@@ -487,59 +515,93 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
       if (type == BuildType.OUTPUT) {
         Label outputLabel = nonConfigurableAttributes.get(name, BuildType.OUTPUT);
         if (outputLabel != null) {
-          addLabelOutput(attribute, outputLabel, eventHandler);
+          addLabelOutput(
+              attribute,
+              outputLabel,
+              eventHandler,
+              outputFilesBuilder,
+              outputFileMapBuilder,
+              performChecks);
         }
       } else if (type == BuildType.OUTPUT_LIST) {
         for (Label label : nonConfigurableAttributes.get(name, BuildType.OUTPUT_LIST)) {
-          addLabelOutput(attribute, label, eventHandler);
+          addLabelOutput(
+              attribute,
+              label,
+              eventHandler,
+              outputFilesBuilder,
+              outputFileMapBuilder,
+              performChecks);
         }
       }
     }
   }
 
   /**
-   * Implicit output files come from rule-specific patterns, and are a function
-   * of the rule's "name", "srcs", and other attributes.
+   * Implicit output files come from rule-specific patterns, and are a function of the rule's
+   * "name", "srcs", and other attributes.
    */
-  private void populateImplicitOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
+  private void populateImplicitOutputFiles(
+      EventHandler eventHandler,
+      Package.Builder pkgBuilder,
+      ImmutableList.Builder<OutputFile> outputFilesBuilder,
+      boolean performChecks)
       throws InterruptedException {
     try {
       RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
       for (String out : implicitOutputsFunction.getImplicitOutputs(attributeMap)) {
-        try {
-          addOutputFile(pkgBuilder.createLabel(out), eventHandler);
-        } catch (LabelSyntaxException e) {
-          reportError(
-              "illegal output file name '"
-                  + out
-                  + "' in rule "
-                  + getLabel()
-                  + " due to: "
-                  + e.getMessage(),
-              eventHandler);
+        Label label;
+        if (performChecks) {
+          try {
+            label = pkgBuilder.createLabel(out);
+          } catch (LabelSyntaxException e) {
+            reportError(
+                "illegal output file name '"
+                    + out
+                    + "' in rule "
+                    + getLabel()
+                    + " due to: "
+                    + e.getMessage(),
+                eventHandler);
+            continue;
+          }
+        } else {
+          label = Label.createUnvalidated(pkgBuilder.getPackageIdentifier(), out);
         }
+        addOutputFile(label, eventHandler, outputFilesBuilder);
       }
     } catch (EvalException e) {
-      reportError(e.print(), eventHandler);
+      reportError(String.format("In rule %s: %s", getLabel(), e.print()), eventHandler);
     }
   }
 
-  private void addLabelOutput(Attribute attribute, Label label, EventHandler eventHandler)
+  private void addLabelOutput(
+      Attribute attribute,
+      Label label,
+      EventHandler eventHandler,
+      ImmutableList.Builder<OutputFile> outputFilesBuilder,
+      ImmutableListMultimap.Builder<String, OutputFile> outputFileMapBuilder,
+      boolean performChecks)
       throws LabelSyntaxException {
-    if (!label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
-      throw new IllegalStateException("Label for attribute " + attribute
-          + " should refer to '" + pkg.getName()
-          + "' but instead refers to '" + label.getPackageFragment()
-          + "' (label '" + label.getName() + "')");
+    if (performChecks) {
+      if (!label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
+        throw new IllegalStateException("Label for attribute " + attribute
+            + " should refer to '" + pkg.getName()
+            + "' but instead refers to '" + label.getPackageFragment()
+            + "' (label '" + label.getName() + "')");
+      }
+      if (label.getName().equals(".")) {
+        throw new LabelSyntaxException("output file name can't be equal '.'");
+      }
     }
-    if (label.getName().equals(".")) {
-      throw new LabelSyntaxException("output file name can't be equal '.'");
-    }
-    OutputFile outputFile = addOutputFile(label, eventHandler);
-    outputFileMap.put(attribute.getName(), outputFile);
+    OutputFile outputFile = addOutputFile(label, eventHandler, outputFilesBuilder);
+    outputFileMapBuilder.put(attribute.getName(), outputFile);
   }
 
-  private OutputFile addOutputFile(Label label, EventHandler eventHandler) {
+  private OutputFile addOutputFile(
+      Label label,
+      EventHandler eventHandler,
+      ImmutableList.Builder<OutputFile> outputFilesBuilder) {
     if (label.getName().equals(getName())) {
       // TODO(bazel-team): for now (23 Apr 2008) this is just a warning.  After
       // June 1st we should make it an error.
@@ -547,7 +609,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
                     + "another name for the rule", eventHandler);
     }
     OutputFile outputFile = new OutputFile(pkg, label, this);
-    outputFiles.add(outputFile);
+    outputFilesBuilder.add(outputFile);
     return outputFile;
   }
 
@@ -692,7 +754,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
    * can require from its direct dependencies.
    */
   public Collection<? extends Label> getAspectLabelsSuperset(DependencyFilter predicate) {
-    LinkedHashMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
+    SetMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
       for (Aspect candidateClass : attribute.getAspects(this)) {
         AspectDefinition.addAllAttributesOfAspect(Rule.this, labels, candidateClass, predicate);
@@ -705,6 +767,11 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
    * @return The repository name.
    */
   public RepositoryName getRepository() {
-    return getLabel().getPackageIdentifier().getRepository();
+    return RepositoryName.createFromValidStrippedName(pkg.getWorkspaceName());
+  }
+
+  /** Returns the suffix of target kind for all rules. */
+  public static String targetKindSuffix() {
+    return " rule";
   }
 }

@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import javax.annotation.Nullable;
 
 /**
@@ -27,76 +30,80 @@ import javax.annotation.Nullable;
  * but to avoid storing heavyweight analysis objects in actions, and to avoid coupling between the
  * analysis and actions packages, the RuleConfiguredTarget provides an instance of this class.
  */
+@AutoValue
 @Immutable
-public final class ActionOwner {
+public abstract class ActionOwner {
   /** An action owner for special cases. Usage is strongly discouraged. */
   public static final ActionOwner SYSTEM_ACTION_OWNER =
-      new ActionOwner(null, null, "system", "empty target kind", "system", null);
+      ActionOwner.create(
+          null,
+          ImmutableList.<AspectDescriptor>of(),
+          null,
+          "system",
+          "empty target kind",
+          "system",
+          null,
+          null);
 
-  @Nullable private final Label label;
-  @Nullable private final Location location;
-  @Nullable private final String mnemonic;
-  @Nullable private final String targetKind;
-  private final String configurationChecksum;
-  @Nullable private final String additionalProgressInfo;
-
-  public ActionOwner(
+  public static ActionOwner create(
       @Nullable Label label,
+      ImmutableList<AspectDescriptor> aspectDescriptors,
       @Nullable Location location,
       @Nullable String mnemonic,
       @Nullable String targetKind,
       String configurationChecksum,
+      @Nullable BuildEvent configuration,
       @Nullable String additionalProgressInfo) {
-    this.label = label;
-    this.location = location;
-    this.mnemonic = mnemonic;
-    this.targetKind = targetKind;
-    this.configurationChecksum = Preconditions.checkNotNull(configurationChecksum);
-    this.additionalProgressInfo = additionalProgressInfo;
+    return new AutoValue_ActionOwner(
+        location,
+        label,
+        aspectDescriptors,
+        mnemonic,
+        Preconditions.checkNotNull(configurationChecksum),
+        configuration,
+        targetKind,
+        additionalProgressInfo);
   }
 
   /** Returns the location of this ActionOwner, if any; null otherwise. */
   @Nullable
-  public Location getLocation() {
-    return location;
-  }
+  public abstract Location getLocation();
 
-  /**
-   * Returns the label for this ActionOwner, if any; null otherwise.
-   */
+  /** Returns the label for this ActionOwner, if any; null otherwise. */
   @Nullable
-  public Label getLabel() {
-    return label;
-  }
+  public abstract Label getLabel();
+
+  public abstract ImmutableList<AspectDescriptor> getAspectDescriptors();
 
   /** Returns the configuration's mnemonic. */
   @Nullable
-  public String getConfigurationMnemonic() {
-    return mnemonic;
-  }
+  public abstract String getConfigurationMnemonic();
 
   /**
    * Returns the short cache key for the configuration of the action owner.
    *
-   * <p>Special action owners that are not targets can return any string here. If the
-   * underlying configuration is null, this should return "null".
+   * <p>Special action owners that are not targets can return any string here. If the underlying
+   * configuration is null, this should return "null".
    */
-  public String getConfigurationChecksum() {
-    return configurationChecksum;
-  }
+  public abstract String getConfigurationChecksum();
+
+  /**
+   * Return the configuration of the action owner, if any, as it should be reported in the build
+   * event protocol.
+   */
+  @Nullable
+  public abstract BuildEvent getConfiguration();
 
   /** Returns the target kind (rule class name) for this ActionOwner, if any; null otherwise. */
   @Nullable
-  public String getTargetKind() {
-    return targetKind;
-  }
+  public abstract String getTargetKind();
 
   /**
    * Returns additional information that should be displayed in progress messages, or {@code null}
    * if nothing should be added.
    */
   @Nullable
-  String getAdditionalProgressInfo() {
-    return additionalProgressInfo;
-  }
+  abstract String getAdditionalProgressInfo();
+
+  ActionOwner() {}
 }

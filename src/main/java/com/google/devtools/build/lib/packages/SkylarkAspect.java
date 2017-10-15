@@ -20,15 +20,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /** A Skylark value that is a result of an 'aspect(..)' function call. */
 @SkylarkModule(
@@ -43,9 +41,13 @@ public class SkylarkAspect implements SkylarkExportable {
   private final BaseFunction implementation;
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
+  private final ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders;
+  private final ImmutableSet<SkylarkProviderIdentifier> provides;
   private final ImmutableSet<String> paramAttributes;
   private final ImmutableSet<String> fragments;
   private final ImmutableSet<String> hostFragments;
+  private final ImmutableList<Label> requiredToolchains;
+
   private final Environment funcallEnv;
   private SkylarkAspectClass aspectClass;
 
@@ -53,18 +55,23 @@ public class SkylarkAspect implements SkylarkExportable {
       BaseFunction implementation,
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
+      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders,
+      ImmutableSet<SkylarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
       ImmutableSet<String> hostFragments,
+      ImmutableList<Label> requiredToolchains,
       Environment funcallEnv) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
     this.attributes = attributes;
+    this.requiredAspectProviders = requiredAspectProviders;
+    this.provides = provides;
     this.paramAttributes = paramAttributes;
     this.fragments = fragments;
     this.hostFragments = hostFragments;
+    this.requiredToolchains = requiredToolchains;
     this.funcallEnv = funcallEnv;
-    ImmutableList.Builder<Pair<String, Attribute>> builder = ImmutableList.builder();
   }
 
   public BaseFunction getImplementation() {
@@ -89,9 +96,14 @@ public class SkylarkAspect implements SkylarkExportable {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, "Aspect:");
-    implementation.write(buffer, quotationMark);
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<aspect>");
+  }
+
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
+    printer.append("Aspect:");
+    printer.repr(implementation);
   }
 
   public String getName() {
@@ -116,12 +128,12 @@ public class SkylarkAspect implements SkylarkExportable {
   private static final List<String> allAttrAspects = Arrays.asList("*");
 
   public AspectDefinition getDefinition(AspectParameters aspectParams) {
-    AspectDefinition.Builder builder = new AspectDefinition.Builder(getName());
+    AspectDefinition.Builder builder = new AspectDefinition.Builder(aspectClass);
     if (allAttrAspects.equals(attributeAspects)) {
-      builder.allAttributesAspect(aspectClass);
+      builder.propagateAlongAllAttributes();
     } else {
       for (String attributeAspect : attributeAspects) {
-        builder.attributeAspect(attributeAspect, aspectClass);
+        builder.propagateAlongAttribute(attributeAspect);
       }
     }
     
@@ -140,8 +152,16 @@ public class SkylarkAspect implements SkylarkExportable {
       }
       builder.add(attr);
     }
+    builder.requireAspectsWithProviders(requiredAspectProviders);
+    ImmutableList.Builder<SkylarkProviderIdentifier> advertisedSkylarkProviders =
+        ImmutableList.builder();
+    for (SkylarkProviderIdentifier provider : provides) {
+      advertisedSkylarkProviders.add(provider);
+    }
+    builder.advertiseProvider(advertisedSkylarkProviders.build());
     builder.requiresConfigurationFragmentsBySkylarkModuleName(fragments);
     builder.requiresHostConfigurationFragmentsBySkylarkModuleName(hostFragments);
+    builder.addRequiredToolchains(requiredToolchains);
     return builder.build();
   }
 
@@ -151,37 +171,37 @@ public class SkylarkAspect implements SkylarkExportable {
   }
 
   public Function<Rule, AspectParameters> getDefaultParametersExtractor() {
-    return new Function<Rule, AspectParameters>() {
-      @Nullable
-      @Override
-      public AspectParameters apply(Rule rule) {
-        AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
-        AspectParameters.Builder builder = new AspectParameters.Builder();
-        for (Attribute aspectAttr : attributes) {
-          if (!Attribute.isImplicit(aspectAttr.getName())) {
-            String param = aspectAttr.getName();
-            Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
-            if (paramAttributes.contains(aspectAttr.getName())) {
-              // These are preconditions because if they are false, RuleFunction.call() should
-              // already have generated an error.
-              Preconditions.checkArgument(ruleAttr != null,
-                  String.format("Cannot apply aspect %s to %s that does not define attribute '%s'.",
-                                getName(),
-                                rule.getTargetKind(),
-                                param));
-              Preconditions.checkArgument(ruleAttr.getType() == Type.STRING,
-                  String.format("Cannot apply aspect %s to %s with non-string attribute '%s'.",
-                                getName(),
-                                rule.getTargetKind(),
-                                param));
-            }
-            if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
-              builder.addAttribute(param, (String) ruleAttrs.get(param, ruleAttr.getType()));
-            }
+    return rule -> {
+      AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
+      AspectParameters.Builder builder = new AspectParameters.Builder();
+      for (Attribute aspectAttr : attributes) {
+        if (!Attribute.isImplicit(aspectAttr.getName())) {
+          String param = aspectAttr.getName();
+          Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
+          if (paramAttributes.contains(aspectAttr.getName())) {
+            // These are preconditions because if they are false, RuleFunction.call() should
+            // already have generated an error.
+            Preconditions.checkArgument(
+                ruleAttr != null,
+                String.format(
+                    "Cannot apply aspect %s to %s that does not define attribute '%s'.",
+                    getName(), rule.getTargetKind(), param));
+            Preconditions.checkArgument(
+                ruleAttr.getType() == Type.STRING,
+                String.format(
+                    "Cannot apply aspect %s to %s with non-string attribute '%s'.",
+                    getName(), rule.getTargetKind(), param));
+          }
+          if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
+            builder.addAttribute(param, (String) ruleAttrs.get(param, ruleAttr.getType()));
           }
         }
-        return builder.build();
       }
+      return builder.build();
     };
+  }
+
+  public ImmutableList<Label> getRequiredToolchains() {
+    return requiredToolchains;
   }
 }

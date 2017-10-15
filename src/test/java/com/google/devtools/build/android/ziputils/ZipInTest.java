@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.ziputils;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENHOW;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENLEN;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENOFF;
@@ -23,10 +25,6 @@ import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.E
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDSUB;
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDTOT;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.android.ziputils.ZipIn.ZipEntry;
@@ -87,7 +85,7 @@ public class ZipInTest {
     fileSystem.addFile(filename, bytes);
     zipIn = newZipIn(filename);
     result = zipIn.endOfCentralDirectory();
-    assertNotNull(subcase + "found", result);
+    assertWithMessage(subcase + "found").that(result).isNotNull();
 
     subcase = " EOCD not there at all, ";
     bytes = new byte[]{
@@ -108,7 +106,9 @@ public class ZipInTest {
       zipIn.endOfCentralDirectory();
       fail(subcase + "expected IllegalStateException");
     } catch (Exception ex) {
-      assertSame(subcase + "caught exception", IllegalStateException.class, ex.getClass());
+      assertWithMessage(subcase + "caught exception")
+          .that(ex.getClass())
+          .isSameAs(IllegalStateException.class);
     }
 
     // If we can't read it, it's not there
@@ -131,7 +131,9 @@ public class ZipInTest {
       zipIn.endOfCentralDirectory();
       fail(subcase + "expected IndexOutOfBoundsException");
     } catch (Exception ex) {
-      assertSame(subcase + "caught exception", IndexOutOfBoundsException.class, ex.getClass());
+      assertWithMessage(subcase + "caught exception")
+          .that(ex.getClass())
+          .isSameAs(IndexOutOfBoundsException.class);
     }
 
     // Current implementation doesn't know to scan past a bad EOCD record.
@@ -155,7 +157,9 @@ public class ZipInTest {
       zipIn.endOfCentralDirectory();
       fail(subcase + "expected IndexOutOfBoundsException");
     } catch (Exception ex) {
-      assertSame(subcase + "caught exception", IndexOutOfBoundsException.class, ex.getClass());
+      assertWithMessage(subcase + "caught exception")
+          .that(ex.getClass())
+          .isSameAs(IndexOutOfBoundsException.class);
     }
 
     // Minimal format checking here, assuming the EndOfDirectoryTest class
@@ -176,7 +180,9 @@ public class ZipInTest {
       zipIn.endOfCentralDirectory();
       fail(subcase + "expected IllegalArgumentException");
     } catch (Exception ex) {
-      assertSame(subcase + "caught exception", IllegalArgumentException.class, ex.getClass());
+      assertWithMessage(subcase + "caught exception")
+          .that(ex.getClass())
+          .isSameAs(IllegalArgumentException.class);
     }
 
     subcase = " EOCD no comment, ";
@@ -190,9 +196,11 @@ public class ZipInTest {
     fileSystem.addFile(filename, bytes);
     zipIn = newZipIn(filename);
     result = zipIn.endOfCentralDirectory();
-    assertNotNull(subcase + "found", result);
-    assertEquals(subcase + "comment", "", result.getComment());
-    assertEquals(subcase + "marker", ZipInputStream.ENDSIG, (int) result.get(ENDSIG));
+    assertWithMessage(subcase + "found").that(result).isNotNull();
+    assertWithMessage(subcase + "comment").that(result.getComment()).isEqualTo("");
+    assertWithMessage(subcase + "marker")
+        .that((int) result.get(ENDSIG))
+        .isEqualTo(ZipInputStream.ENDSIG);
 
     subcase = " EOCD comment, ";
     bytes = new byte[100];
@@ -202,14 +210,17 @@ public class ZipInTest {
     offset = bytes.length - ZipInputStream.ENDHDR - commentLen;
     buffer.position(offset);
     EndOfCentralDirectory.view(buffer, comment);
-    assertEquals(subcase + "setup", comment,
-        new String(bytes, bytes.length - commentLen, commentLen, UTF_8));
+    assertWithMessage(subcase + "setup")
+        .that(new String(bytes, bytes.length - commentLen, commentLen, UTF_8))
+        .isEqualTo(comment);
     fileSystem.addFile(filename, bytes);
     zipIn = newZipIn(filename);
     result = zipIn.endOfCentralDirectory();
-    assertNotNull(subcase + "found", result);
-    assertEquals(subcase + "comment", comment, result.getComment());
-    assertEquals(subcase + "marker", ZipInputStream.ENDSIG, (int) result.get(ENDSIG));
+    assertWithMessage(subcase + "found").that(result).isNotNull();
+    assertWithMessage(subcase + "comment").that(result.getComment()).isEqualTo(comment);
+    assertWithMessage(subcase + "marker")
+        .that((int) result.get(ENDSIG))
+        .isEqualTo(ZipInputStream.ENDSIG);
 
     subcase = " EOCD extra data, ";
     bytes = new byte[100];
@@ -222,9 +233,11 @@ public class ZipInTest {
     fileSystem.addFile(filename, bytes);
     zipIn = newZipIn(filename);
     result = zipIn.endOfCentralDirectory();
-    assertNotNull(subcase + "found", result);
-    assertEquals(subcase + "comment", "", result.getComment());
-    assertEquals(subcase + "marker", ZipInputStream.ENDSIG, (int) result.get(ENDSIG));
+    assertWithMessage(subcase + "found").that(result).isNotNull();
+    assertWithMessage(subcase + "comment").that(result.getComment()).isEqualTo("");
+    assertWithMessage(subcase + "marker")
+        .that((int) result.get(ENDSIG))
+        .isEqualTo(ZipInputStream.ENDSIG);
   }
 
   /**
@@ -274,11 +287,13 @@ public class ZipInTest {
     fileSystem.addFile(filename, bytes);
     zipIn = newZipIn(filename);
     CentralDirectory result = zipIn.centralDirectory();
-    assertNotNull(subcase + "found", result);
+    assertWithMessage(subcase + "found").that(result).isNotNull();
     List<DirectoryEntry> list = result.list();
-    assertEquals(subcase + "size", count, list.size());
+    assertWithMessage(subcase + "size").that(list.size()).isEqualTo(count);
     for (int i = 0; i < list.size(); i++) {
-      assertEquals(subcase + "offset check[" + i + "]", i, list.get(i).get(CENOFF));
+      assertWithMessage(subcase + "offset check[" + i + "]")
+          .that(list.get(i).get(CENOFF))
+          .isEqualTo(i);
     }
   }
 
@@ -297,18 +312,21 @@ public class ZipInTest {
     builder.create(filename);
 
     final ZipIn zipIn = newZipIn(filename);
-    zipIn.scanEntries(new EntryHandler() {
-      int count = 0;
-      @Override
-      public void handle(ZipIn in, LocalFileHeader header, DirectoryEntry dirEntry,
-          ByteBuffer data) throws IOException {
-        assertSame(zipIn, in);
-        String filename = "pkg/f" + count + ".class";
-        assertEquals(filename, header.getFilename());
-        assertEquals(filename, dirEntry.getFilename());
-        count++;
-      }
-    });
+    zipIn.scanEntries(
+        new EntryHandler() {
+          int count = 0;
+
+          @Override
+          public void handle(
+              ZipIn in, LocalFileHeader header, DirectoryEntry dirEntry, ByteBuffer data)
+              throws IOException {
+            assertThat(in).isSameAs(zipIn);
+            String filename = "pkg/f" + count + ".class";
+            assertThat(header.getFilename()).isEqualTo(filename);
+            assertThat(dirEntry.getFilename()).isEqualTo(filename);
+            count++;
+          }
+        });
   }
 
   /**
@@ -332,12 +350,12 @@ public class ZipInTest {
       header = zipIn.nextHeaderFrom(offset);
       String name = "pkg/f" + count + ".class";
       if (header != null) {
-        assertEquals(name, header.getFilename());
+        assertThat(header.getFilename()).isEqualTo(name);
         count++;
         offset = (int) header.fileOffset() + 4;
       }
     } while(header != null);
-    assertEquals(ENTRY_COUNT, count);
+    assertThat(count).isEqualTo(ENTRY_COUNT);
   }
 
   /**
@@ -360,12 +378,12 @@ public class ZipInTest {
     LocalFileHeader header = zipIn.nextHeaderFrom(null);
     for (DirectoryEntry dirEntry : list) {
       name = "pkg/f" + count + ".class";
-      assertEquals(name, dirEntry.getFilename());
-      assertEquals(name, header.getFilename());
+      assertThat(dirEntry.getFilename()).isEqualTo(name);
+      assertThat(header.getFilename()).isEqualTo(name);
       header = zipIn.nextHeaderFrom(dirEntry);
       count++;
     }
-    assertNull(header);
+    assertThat(header).isNull();
   }
 
   /**
@@ -389,8 +407,8 @@ public class ZipInTest {
     for (DirectoryEntry dirEntry : list) {
       name = "pkg/f" + count + ".class";
       header = zipIn.localHeaderFor(dirEntry);
-      assertEquals(name, dirEntry.getFilename());
-      assertEquals(name, header.getFilename());
+      assertThat(dirEntry.getFilename()).isEqualTo(name);
+      assertThat(header.getFilename()).isEqualTo(name);
       count++;
     }
   }
@@ -416,8 +434,8 @@ public class ZipInTest {
     for (DirectoryEntry dirEntry : list) {
       name = "pkg/f" + count + ".class";
       header = zipIn.localHeaderAt(dirEntry.get(CENOFF));
-      assertEquals(name, dirEntry.getFilename());
-      assertEquals(name, header.getFilename());
+      assertThat(dirEntry.getFilename()).isEqualTo(name);
+      assertThat(header.getFilename()).isEqualTo(name);
       count++;
     }
   }
@@ -443,15 +461,15 @@ public class ZipInTest {
       zipEntry = zipIn.nextFrom(offset);
       String name = "pkg/f" + count + ".class";
       if (zipEntry.getCode() != ZipEntry.Status.ENTRY_NOT_FOUND) {
-        assertNotNull(zipEntry.getHeader());
-        assertNotNull(zipEntry.getDirEntry());
-        assertEquals(name, zipEntry.getHeader().getFilename());
-        assertEquals(name, zipEntry.getDirEntry().getFilename());
+        assertThat(zipEntry.getHeader()).isNotNull();
+        assertThat(zipEntry.getDirEntry()).isNotNull();
+        assertThat(zipEntry.getHeader().getFilename()).isEqualTo(name);
+        assertThat(zipEntry.getDirEntry().getFilename()).isEqualTo(name);
         count++;
         offset = (int) zipEntry.getHeader().fileOffset() + 4;
       }
     } while(zipEntry.getCode() != ZipEntry.Status.ENTRY_NOT_FOUND);
-    assertEquals(ENTRY_COUNT, count);
+    assertThat(count).isEqualTo(ENTRY_COUNT);
   }
 
   /**
@@ -477,14 +495,14 @@ public class ZipInTest {
         break;
       }
       name = "pkg/f" + count + ".class";
-      assertNotNull(zipEntry.getHeader());
-      assertNotNull(zipEntry.getDirEntry());
-      assertEquals(name, zipEntry.getHeader().getFilename());
-      assertEquals(name, zipEntry.getDirEntry().getFilename());
+      assertThat(zipEntry.getHeader()).isNotNull();
+      assertThat(zipEntry.getDirEntry()).isNotNull();
+      assertThat(zipEntry.getHeader().getFilename()).isEqualTo(name);
+      assertThat(zipEntry.getDirEntry().getFilename()).isEqualTo(name);
       zipEntry = zipIn.nextFrom(dirEntry);
       count++;
     }
-    assertEquals(ENTRY_COUNT, count);
+    assertThat(count).isEqualTo(ENTRY_COUNT);
   }
 
   /**
@@ -508,13 +526,13 @@ public class ZipInTest {
     for (DirectoryEntry dirEntry : list) {
       zipEntry = zipIn.entryAt(dirEntry.get(CENOFF));
       name = "pkg/f" + count + ".class";
-      assertNotNull(zipEntry.getHeader());
-      assertNotNull(zipEntry.getDirEntry());
-      assertEquals(name, zipEntry.getHeader().getFilename());
-      assertEquals(name, zipEntry.getDirEntry().getFilename());
+      assertThat(zipEntry.getHeader()).isNotNull();
+      assertThat(zipEntry.getDirEntry()).isNotNull();
+      assertThat(zipEntry.getHeader().getFilename()).isEqualTo(name);
+      assertThat(zipEntry.getDirEntry().getFilename()).isEqualTo(name);
       count++;
     }
-    assertEquals(ENTRY_COUNT, count);
+    assertThat(count).isEqualTo(ENTRY_COUNT);
   }
 
   /**
@@ -539,16 +557,16 @@ public class ZipInTest {
       String name = "pkg/f" + count + ".class";
       if (header != null) {
         ZipEntry zipEntry = zipIn.entryWith(header);
-        assertNotNull(zipEntry.getDirEntry());
-        assertSame(header, zipEntry.getHeader());
-        assertEquals(name, zipEntry.getHeader().getFilename());
-        assertEquals(name, zipEntry.getDirEntry().getFilename());
-        assertEquals(name, header.getFilename());
+        assertThat(zipEntry.getDirEntry()).isNotNull();
+        assertThat(zipEntry.getHeader()).isSameAs(header);
+        assertThat(zipEntry.getHeader().getFilename()).isEqualTo(name);
+        assertThat(zipEntry.getDirEntry().getFilename()).isEqualTo(name);
+        assertThat(header.getFilename()).isEqualTo(name);
         count++;
         offset = (int) header.fileOffset() + 4;
       }
     } while(header != null);
-    assertEquals(ENTRY_COUNT, count);
+    assertThat(count).isEqualTo(ENTRY_COUNT);
   }
 
   private ZipIn newZipIn(String filename) throws IOException {

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.io.OutErr;
-
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -57,6 +56,7 @@ class BuildResultPrinter {
       BuildRequest request,
       BuildResult result,
       Collection<ConfiguredTarget> configuredTargets,
+      Collection<ConfiguredTarget> configuredTargetsToSkip,
       Collection<AspectValue> aspects) {
     // NOTE: be careful what you print!  We don't want to create a consistency
     // problem where the summary message and the exit code disagree.  The logic
@@ -72,6 +72,9 @@ class BuildResultPrinter {
       Collection<ConfiguredTarget> successfulTargets = result.getSuccessfulTargets();
       (successfulTargets.contains(target) ? succeeded : failed).add(target);
     }
+
+    // TODO(bazel-team): convert these to a new "SKIPPED" status when ready: b/62191890.
+    failed.addAll(configuredTargetsToSkip);
 
     // Suppress summary if --show_result value is exceeded:
     if (succeeded.size() + failed.size() + aspectsToPrint.size()
@@ -129,7 +132,7 @@ class BuildResultPrinter {
       // For failed compilation, it is still useful to examine temp artifacts,
       // (ie, preprocessed and assembler files).
       OutputGroupProvider topLevelProvider =
-          target.getProvider(OutputGroupProvider.class);
+          OutputGroupProvider.get(target);
       String productName = env.getRuntime().getProductName();
       if (topLevelProvider != null) {
         for (Artifact temp : topLevelProvider.getOutputGroup(OutputGroupProvider.TEMP_FILES)) {

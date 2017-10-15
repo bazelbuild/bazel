@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.bazel;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -24,12 +26,14 @@ import com.google.devtools.build.lib.bazel.repository.GitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpFileFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
+import com.google.devtools.build.lib.bazel.repository.MavenDownloader;
 import com.google.devtools.build.lib.bazel.repository.MavenJarFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenServerFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenServerRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
@@ -46,6 +50,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
@@ -56,22 +61,26 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
-
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -84,8 +93,11 @@ public class BazelRepositoryModule extends BlazeModule {
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final SkylarkRepositoryFunction skylarkRepositoryFunction;
   private final RepositoryDelegatorFunction delegator;
-  private final AtomicReference<HttpDownloader> httpDownloader =
-      new AtomicReference<>(new HttpDownloader());
+  private final RepositoryCache repositoryCache = new RepositoryCache();
+  private final HttpDownloader httpDownloader = new HttpDownloader(repositoryCache);
+  private final MavenDownloader mavenDownloader = new MavenDownloader(repositoryCache);
+  private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
+  private FileSystem filesystem;
 
   public BazelRepositoryModule() {
     this.skylarkRepositoryFunction = new SkylarkRepositoryFunction(httpDownloader);
@@ -93,12 +105,12 @@ public class BazelRepositoryModule extends BlazeModule {
         ImmutableMap.<String, RepositoryFunction>builder()
             .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
             .put(HttpArchiveRule.NAME, new HttpArchiveFunction(httpDownloader))
-            .put(GitRepositoryRule.NAME, new GitRepositoryFunction())
+            .put(GitRepositoryRule.NAME, new GitRepositoryFunction(httpDownloader))
             .put(HttpJarRule.NAME, new HttpJarFunction(httpDownloader))
             .put(HttpFileRule.NAME, new HttpFileFunction(httpDownloader))
-            .put(MavenJarRule.NAME, new MavenJarFunction(httpDownloader))
+            .put(MavenJarRule.NAME, new MavenJarFunction(mavenDownloader))
             .put(NewHttpArchiveRule.NAME, new NewHttpArchiveFunction(httpDownloader))
-            .put(NewGitRepositoryRule.NAME, new NewGitRepositoryFunction())
+            .put(NewGitRepositoryRule.NAME, new NewGitRepositoryFunction(httpDownloader))
             .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
             .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
             .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
@@ -131,7 +143,7 @@ public class BazelRepositoryModule extends BlazeModule {
         public DirtyResult check(
             SkyKey skyKey, SkyValue skyValue, @Nullable TimestampGranularityMonitor tsgm) {
           RepositoryDirectoryValue repositoryValue = (RepositoryDirectoryValue) skyValue;
-          return repositoryValue.isFetchingDelayed()
+          return repositoryValue.repositoryExists() && repositoryValue.isFetchingDelayed()
               ? DirtyResult.dirty(skyValue)
               : DirtyResult.notDirty(skyValue);
         }
@@ -143,12 +155,14 @@ public class BazelRepositoryModule extends BlazeModule {
   }
 
   @Override
-  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     builder.addCustomDirtinessChecker(REPOSITORY_VALUE_CHECKER);
     // Create the repository function everything flows through.
     builder.addSkyFunction(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
     builder.addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, delegator);
     builder.addSkyFunction(MavenServerFunction.NAME, new MavenServerFunction());
+    filesystem = directories.getFileSystem();
   }
 
   @Override
@@ -157,8 +171,10 @@ public class BazelRepositoryModule extends BlazeModule {
       // TODO(bazel-team): Migrate away from Class<?>
       RuleDefinition ruleDefinition;
       try {
-        ruleDefinition = handler.getValue().getRuleDefinition().newInstance();
-      } catch (IllegalAccessException | InstantiationException e) {
+        ruleDefinition = handler.getValue().getRuleDefinition().getDeclaredConstructor()
+            .newInstance();
+      } catch (IllegalAccessException | InstantiationException | NoSuchMethodException
+          | InvocationTargetException e) {
         throw new IllegalStateException(e);
       }
       builder.addRuleDefinition(ruleDefinition);
@@ -167,26 +183,45 @@ public class BazelRepositoryModule extends BlazeModule {
   }
 
   @Override
-  public void handleOptions(OptionsProvider optionsProvider) {
-    PackageCacheOptions pkgOptions = optionsProvider.getOptions(PackageCacheOptions.class);
+  public void beforeCommand(CommandEnvironment env) {
+    delegator.setClientEnvironment(env.getActionClientEnv());
+    PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
 
-    RepositoryOptions repoOptions = optionsProvider.getOptions(RepositoryOptions.class);
-    if (repoOptions != null && repoOptions.experimentalRepositoryCache != null) {
-      httpDownloader.get().setRepositoryCache(
-          new RepositoryCache(repoOptions.experimentalRepositoryCache));
+    RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
+    if (repoOptions != null) {
+      if (repoOptions.experimentalRepositoryCache != null) {
+        Path repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
+        repositoryCache.setRepositoryCachePath(repositoryCachePath);
+      } else {
+        repositoryCache.setRepositoryCachePath(null);
+      }
+
+      if (repoOptions.repositoryOverrides != null) {
+        ImmutableMap.Builder<RepositoryName, PathFragment> builder = ImmutableMap.builder();
+        for (RepositoryOverride override : repoOptions.repositoryOverrides) {
+          builder.put(override.repositoryName(), override.path());
+        }
+        ImmutableMap<RepositoryName, PathFragment> newOverrides = builder.build();
+        if (!Maps.difference(overrides, newOverrides).areEqual()) {
+          overrides = newOverrides;
+        }
+      } else {
+        overrides = ImmutableMap.of();
+      }
     }
   }
 
   @Override
-  public void beforeCommand(Command command, CommandEnvironment env) throws AbruptExitException {
-    delegator.setClientEnvironment(env.getClientEnv());
-    skylarkRepositoryFunction.setCommandEnvironment(env);
+  public ImmutableList<Injected> getPrecomputedValues() {
+    return ImmutableList.of(
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides));
   }
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "fetch".equals(command.name()) || "build".equals(command.name())
+    return ImmutableSet.of("fetch", "build", "query").contains(command.name())
         ? ImmutableList.<Class<? extends OptionsBase>>of(RepositoryOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
   }

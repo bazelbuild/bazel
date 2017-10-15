@@ -1,15 +1,23 @@
-DEFAULT_VISIBILITY = [
-    "//java/com/google/testing/junit/runner:__subpackages__",
-    "//javatests/com/google/testing/junit/runner:__subpackages__",
-    "//third_party/bazel/src/java_tools/junitrunner/java/com/google/testing/junit/runner:__subpackages__",
-    "//third_party/bazel/src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:__subpackages__",
-]
-
 package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "common_runner_java_files",
+    srcs = glob(
+        ["*.java"],
+        exclude =
+            [
+                "BazelTestRunner.java",
+                "ExperimentalTestRunner.java",
+            ],
+    ),
+)
 
 java_library(
     name = "test_runner",
-    srcs = glob(["*.java"]),
+    srcs = [
+        "BazelTestRunner.java",
+        ":common_runner_java_files",
+    ],
     data = ["//tools:test_sharding_compliant"],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
@@ -21,14 +29,44 @@ java_library(
     ],
 )
 
+java_library(
+    name = "experimental_test_runner",
+    srcs = [
+        "ExperimentalTestRunner.java",
+        ":common_runner_java_files",
+    ],
+    data = ["//tools:test_sharding_compliant"],
+    deps = [
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:junit4",
+    ],
+)
+
 java_binary(
     name = "Runner",
     main_class = "com.google.testing.junit.runner.BazelTestRunner",
     runtime_deps = [":test_runner"],
 )
 
+java_binary(
+    name = "ExperimentalRunner",
+    main_class = "com.google.testing.junit.runner.ExperimentalTestRunner",
+    runtime_deps = [":experimental_test_runner"],
+)
+
 filegroup(
     name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
-    srcs = glob(["**"]),
+    srcs = glob(["**/*.java"]) + [
+        "BUILD",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util:srcs",
+    ],
 )

@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,15 +29,15 @@ public class CycleDeduperTest {
 
   @Test
   public void simple() throws Exception {
-    assertTrue(cycleDeduper.seen(ImmutableList.of("a", "b")));
-    assertFalse(cycleDeduper.seen(ImmutableList.of("a", "b")));
-    assertFalse(cycleDeduper.seen(ImmutableList.of("b", "a")));
+    assertThat(cycleDeduper.seen(ImmutableList.of("a", "b"))).isTrue();
+    assertThat(cycleDeduper.seen(ImmutableList.of("a", "b"))).isFalse();
+    assertThat(cycleDeduper.seen(ImmutableList.of("b", "a"))).isFalse();
 
-    assertTrue(cycleDeduper.seen(ImmutableList.of("a", "b", "c")));
-    assertFalse(cycleDeduper.seen(ImmutableList.of("b", "c", "a")));
-    assertFalse(cycleDeduper.seen(ImmutableList.of("c", "a", "b")));
-    assertTrue(cycleDeduper.seen(ImmutableList.of("b", "a", "c")));
-    assertFalse(cycleDeduper.seen(ImmutableList.of("c", "b", "a")));
+    assertThat(cycleDeduper.seen(ImmutableList.of("a", "b", "c"))).isTrue();
+    assertThat(cycleDeduper.seen(ImmutableList.of("b", "c", "a"))).isFalse();
+    assertThat(cycleDeduper.seen(ImmutableList.of("c", "a", "b"))).isFalse();
+    assertThat(cycleDeduper.seen(ImmutableList.of("b", "a", "c"))).isTrue();
+    assertThat(cycleDeduper.seen(ImmutableList.of("c", "b", "a"))).isFalse();
   }
 
   @Test

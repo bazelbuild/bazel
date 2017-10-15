@@ -30,9 +30,22 @@ if [ -n "${BAZEL_WRKDIR}" ] ; then
 fi
 
 
+# We define the fail function early so we can use it when detecting the JDK
+# See https://github.com/bazelbuild/bazel/issues/2949,
+function fail() {
+  local exitCode=$?
+  if [[ "$exitCode" = "0" ]]; then
+    exitCode=1
+  fi
+  echo >&2
+  echo "ERROR: $@" >&2
+  exit $exitCode
+}
+
+
 # Set standard variables
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-WORKSPACE_DIR="$(dirname $(dirname ${DIR}))"
+WORKSPACE_DIR="$(dirname "$(dirname "${DIR}")")"
 
 JAVA_VERSION=${JAVA_VERSION:-1.8}
 BAZELRC=${BAZELRC:-"/dev/null"}
@@ -54,20 +67,48 @@ if [ "${MACHINE_TYPE}" = 's390x' ]; then
   MACHINE_IS_Z='yes'
 fi
 
-# Extension for executables.
+if [ "${MACHINE_TYPE}" = 'ppc64' -o "${MACHINE_TYPE}" = 'ppc64le' ]; then
+  MACHINE_IS_64BIT='yes'
+fi
+
+PATHSEP=":"
+case "${PLATFORM}" in
+linux)
+  # JAVA_HOME must point to a Java installation.
+  JAVA_HOME="${JAVA_HOME:-$(readlink -f $(which javac) | sed 's_/bin/javac__')}"
+  ;;
+
+freebsd)
+  # JAVA_HOME must point to a Java installation.
+  JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
+  ;;
+
+darwin)
+  if [[ -z "$JAVA_HOME" ]]; then
+    JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" \
+      || fail "Could not find JAVA_HOME, please ensure a JDK (version ${JAVA_VERSION}+) is installed."
+  fi
+  ;;
+
+msys*|mingw*|cygwin*)
+  # Use a simplified platform string.
+  PLATFORM="windows"
+  PATHSEP=";"
+  # Find the latest available version of the SDK.
+  JAVA_HOME="${JAVA_HOME:-$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)}"
+  # Replace backslashes with forward slashes.
+  JAVA_HOME="${JAVA_HOME//\\//}"
+esac
+
 EXE_EXT=""
-case "${PLATFORM}" in
-msys*|mingw*)
+if [ "${PLATFORM}" == "windows" ]; then
+  # Extension for executables.
   EXE_EXT=".exe"
-esac
 
-# Fix TMPDIR on msys
-case "${PLATFORM}" in
-msys*|mingw*)
-  default_tmp=${TMP:-$(cygpath -W)/Temp}
+  # Fix TMPDIR on windows
+  default_tmp=${TMP:-$(cygpath -mO)/Temp}
   TMPDIR=$(cygpath -ml "${TMPDIR:-$default_tmp}")
-esac
-
+fi
 
 # Whether we display build messages or not.  We set this conditionally because
 # the file including us or the user may already have defined VERBOSE to their
@@ -86,6 +127,11 @@ function atexit() {
 
   [ -n "${ATEXIT_HANDLERS}" ] || trap 'run_atexit_handlers $?' EXIT
   ATEXIT_HANDLERS="${ATEXIT_HANDLERS} ${handler}"
+}
+
+function restore_saved_path() {
+  export PATH=$BAZEL_OLD_PATH
+  export BAZEL_OLD_PATH=
 }
 
 # Exit routine to run all registered atexit handlers.
@@ -116,10 +162,11 @@ function run_atexit_handlers() {
 
 function tempdir() {
   local tmp=${TMPDIR:-/tmp}
-  local DIR="$(mktemp -d ${tmp%%/}/bazel_XXXXXXXX)"
+  mkdir -p "${tmp}"
+  local DIR="$(mktemp -d "${tmp%%/}/bazel_XXXXXXXX")"
   mkdir -p "${DIR}"
   local DIRBASE=$(basename "${DIR}")
-  eval "cleanup_tempdir_${DIRBASE}() { rm -rf '${DIR}'; }"
+  eval "cleanup_tempdir_${DIRBASE}() { rm -rf '${DIR}' >&/dev/null || true ; }"
   atexit cleanup_tempdir_${DIRBASE}
   NEW_TMPDIR="${DIR}"
 }
@@ -134,6 +181,7 @@ function cleanup_phasefile() {
 }
 
 atexit cleanup_phasefile
+atexit restore_saved_path
 
 # Excutes a command respecting the current verbosity settings.
 #
@@ -155,16 +203,6 @@ function run() {
       exit $exitcode
     fi
   fi
-}
-
-function fail() {
-  local exitCode=$?
-  if [[ "$exitCode" = "0" ]]; then
-    exitCode=1
-  fi
-  echo >&2
-  echo "ERROR: $@" >&2
-  exit $exitCode
 }
 
 function display() {
@@ -200,13 +238,13 @@ function new_step() {
 }
 
 function git_sha1() {
-  if [ -x "$(which git || true)" ] && [ -d .git ]; then
+  if [ -x "$(which git 2>/dev/null)" ] && [ -d .git ]; then
     git rev-parse --short HEAD 2>/dev/null || true
   fi
 }
 
 function git_date() {
-  if [ -x "$(which git || true)" ] && [ -d .git ]; then
+  if [ -x "$(which git 2>/dev/null)" ] && [ -d .git ]; then
     git log -1 --pretty=%ai | cut -d " " -f 1 || true
   fi
 }

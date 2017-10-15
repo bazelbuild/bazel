@@ -14,19 +14,19 @@
 
 package com.google.devtools.build.lib.testutil;
 
-import com.google.devtools.build.lib.util.Clock;
-
+import com.google.devtools.build.lib.clock.Clock;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A fake clock for testing.
  */
 public final class ManualClock implements Clock {
-  private long currentTimeMillis = 0L;
+  private final AtomicLong currentTimeMillis = new AtomicLong();
 
   @Override
   public long currentTimeMillis() {
-    return currentTimeMillis;
+    return currentTimeMillis.get();
   }
 
   /**
@@ -36,11 +36,11 @@ public final class ManualClock implements Clock {
    */
   @Override
   public long nanoTime() {
-    return TimeUnit.MILLISECONDS.toNanos(currentTimeMillis)
+    return TimeUnit.MILLISECONDS.toNanos(currentTimeMillis.get())
         + TimeUnit.SECONDS.toNanos(1000);
   }
 
-  public void advanceMillis(long time) {
-    currentTimeMillis += time;
+  public long advanceMillis(long time) {
+    return currentTimeMillis.addAndGet(time);
   }
 }

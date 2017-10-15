@@ -90,8 +90,8 @@ public class DeterministicHelper extends NotifyingHelper {
 
     @Override
     public Map<SkyKey, ? extends NodeEntry> getBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
-        throws InterruptedException {
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+            throws InterruptedException {
       return makeDeterministic(super.getBatch(requestor, reason, keys));
     }
   }
@@ -119,8 +119,8 @@ public class DeterministicHelper extends NotifyingHelper {
 
     @Override
     public Map<SkyKey, ? extends NodeEntry> getBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
-        throws InterruptedException {
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+            throws InterruptedException {
       return makeDeterministic(super.getBatch(requestor, reason, keys));
     }
   }
@@ -135,9 +135,10 @@ public class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
-    public synchronized Collection<SkyKey> getReverseDeps() throws InterruptedException {
+    public synchronized Collection<SkyKey> getReverseDepsForDoneEntry()
+        throws InterruptedException {
       TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
-      Iterables.addAll(result, super.getReverseDeps());
+      Iterables.addAll(result, super.getReverseDepsForDoneEntry());
       return result;
     }
 

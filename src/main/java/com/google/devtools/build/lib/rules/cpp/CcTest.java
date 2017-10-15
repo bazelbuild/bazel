@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
 /**
  * A configured target class for cc_test rules.
@@ -32,6 +32,6 @@ public abstract class CcTest implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException {
-    return CcBinary.init(semantics, context, /*fake =*/ false, /*isTest =*/ true);
+    return CcBinary.init(semantics, context, /*fake =*/ false);
   }
 }

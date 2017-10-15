@@ -14,18 +14,21 @@
 package com.google.devtools.build.android;
 
 import com.android.builder.core.VariantType;
-import com.android.ide.common.res2.MergingException;
-import com.android.utils.StdLogger;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
+import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -34,6 +37,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -62,62 +67,81 @@ public class AarGeneratorAction {
   private static final Logger logger = Logger.getLogger(AarGeneratorAction.class.getName());
 
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
-    @Option(name = "mainData",
-        defaultValue = "null",
-        converter = UnvalidatedAndroidDataConverter.class,
-        category = "input",
-        help = "The directory containing the primary resource directory."
-            + "The contents will override the contents of any other resource directories during "
-            + "merging. The expected format is resources[#resources]:assets[#assets]:manifest")
+  public static final class AarGeneratorOptions extends OptionsBase {
+    @Option(
+      name = "mainData",
+      defaultValue = "null",
+      converter = UnvalidatedAndroidDataConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The directory containing the primary resource directory."
+              + "The contents will override the contents of any other resource directories during "
+              + "merging. The expected format is resources[#resources]:assets[#assets]:manifest"
+    )
     public UnvalidatedAndroidData mainData;
 
-    @Option(name = "manifest",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "input",
-        help = "Path to AndroidManifest.xml.")
+    @Option(
+      name = "manifest",
+      defaultValue = "null",
+      converter = ExistingPathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to AndroidManifest.xml."
+    )
     public Path manifest;
 
-    @Option(name = "rtxt",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "input",
-        help = "Path to R.txt.")
+    @Option(
+      name = "rtxt",
+      defaultValue = "null",
+      converter = ExistingPathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to R.txt."
+    )
     public Path rtxt;
 
-    @Option(name = "classes",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "input",
-        help = "Path to classes.jar.")
+    @Option(
+      name = "classes",
+      defaultValue = "null",
+      converter = ExistingPathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to classes.jar."
+    )
     public Path classes;
 
-    @Option(name = "aarOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to write the archive.")
+    @Option(
+      name = "aarOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to write the archive."
+    )
     public Path aarOutput;
 
-    // TODO: remove once blaze stops sending "--nostrictMerge" (since this is unused).
-    @Option(name = "strictMerge",
-        defaultValue = "true",
-        category = "option",
-        help = "Merge strategy for resources.")
-    public boolean strictMerge;
+    @Option(name = "throwOnResourceConflict",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    public boolean throwOnResourceConflict;
   }
 
   public static void main(String[] args) {
     Stopwatch timer = Stopwatch.createStarted();
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
-    optionsParser.parseAndExitUponError(args);
-    Options options = optionsParser.getOptions(Options.class);
+    AarGeneratorOptions options =
+        Options.parseAndExitUponError(AarGeneratorOptions.class, /*allowResidue=*/ true, args)
+            .getOptions();
 
     checkFlags(options);
-
-    AndroidResourceProcessor resourceProcessor =
-        new AndroidResourceProcessor(new StdLogger(com.android.utils.StdLogger.Level.VERBOSE));
 
     try (ScopedTemporaryDirectory scopedTmp = new ScopedTemporaryDirectory("aar_gen_tmp")) {
       Path tmp = scopedTmp.getPath();
@@ -129,7 +153,7 @@ public class AarGeneratorAction {
       // There aren't any dependencies, but we merge to combine primary resources from different
       // res/assets directories into a single res and single assets directory.
       MergedAndroidData mergedData =
-          resourceProcessor.mergeData(
+          AndroidResourceMerger.mergeData(
               options.mainData,
               ImmutableList.<DependencyAndroidData>of(),
               ImmutableList.<DependencyAndroidData>of(),
@@ -137,12 +161,18 @@ public class AarGeneratorAction {
               assetsOut,
               null,
               VariantType.LIBRARY,
-              null);
+              null,
+              /* filteredResources= */ ImmutableList.<String>of(),
+              options.throwOnResourceConflict
+          );
       logger.fine(String.format("Merging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       writeAar(options.aarOutput, mergedData, options.manifest, options.rtxt, options.classes);
       logger.fine(
           String.format("Packaging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
+    } catch (MergeConflictException e) {
+      logger.log(Level.SEVERE, e.getMessage());
+      System.exit(1);
     } catch (IOException | MergingException e) {
       logger.log(Level.SEVERE, "Error during merging resources", e);
       System.exit(1);
@@ -151,7 +181,7 @@ public class AarGeneratorAction {
   }
 
   @VisibleForTesting
-  static void checkFlags(Options options) throws IllegalArgumentException {
+  static void checkFlags(AarGeneratorOptions options) {
     List<String> nullFlags = new LinkedList<>();
     if (options.manifest == null) {
       nullFlags.add("manifest");
@@ -189,8 +219,9 @@ public class AarGeneratorAction {
       zipOut.write(Files.readAllBytes(classes));
       zipOut.closeEntry();
 
-      Files.walkFileTree(
-          data.getResourceDir(), new ZipDirectoryWriter(zipOut, data.getResourceDir(), "res"));
+      ZipDirectoryWriter resWriter = new ZipDirectoryWriter(zipOut, data.getResourceDir(), "res");
+      Files.walkFileTree(data.getResourceDir(), resWriter);
+      resWriter.writeEntries();
 
       ZipEntry r = new ZipEntry("R.txt");
       r.setTime(EPOCH);
@@ -199,8 +230,10 @@ public class AarGeneratorAction {
       zipOut.closeEntry();
 
       if (Files.exists(data.getAssetDir()) && data.getAssetDir().toFile().list().length > 0) {
-        Files.walkFileTree(
-            data.getAssetDir(), new ZipDirectoryWriter(zipOut, data.getAssetDir(), "assets"));
+        ZipDirectoryWriter assetWriter =
+            new ZipDirectoryWriter(zipOut, data.getAssetDir(), "assets");
+        Files.walkFileTree(data.getAssetDir(), assetWriter);
+        assetWriter.writeEntries();
       }
     }
     aar.toFile().setLastModified(EPOCH);
@@ -210,6 +243,8 @@ public class AarGeneratorAction {
     private final ZipOutputStream zipOut;
     private final Path root;
     private final String dirName;
+    private final Collection<Path> directories = new ArrayList<>();
+    private final Collection<Path> files = new ArrayList<>();
 
     public ZipDirectoryWriter(ZipOutputStream zipOut, Path root, String dirName) {
       this.zipOut = zipOut;
@@ -219,23 +254,40 @@ public class AarGeneratorAction {
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      ZipEntry entry = new ZipEntry(new File(dirName, root.relativize(file).toString()).toString());
-      entry.setTime(EPOCH);
-      zipOut.putNextEntry(entry);
-      zipOut.write(Files.readAllBytes(file));
-      zipOut.closeEntry();
+      files.add(file);
       return FileVisitResult.CONTINUE;
     }
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
         throws IOException {
+      directories.add(dir);
+      return FileVisitResult.CONTINUE;
+    }
+
+    void writeEntries() throws IOException {
+      for (Path dir : Ordering.natural().immutableSortedCopy(directories)) {
+        writeDirectoryEntry(dir);
+      }
+      for (Path file : Ordering.natural().immutableSortedCopy(files)) {
+        writeFileEntry(file);
+      }
+    }
+
+    private void writeFileEntry(Path file) throws IOException {
+      ZipEntry entry = new ZipEntry(new File(dirName, root.relativize(file).toString()).toString());
+      entry.setTime(EPOCH);
+      zipOut.putNextEntry(entry);
+      zipOut.write(Files.readAllBytes(file));
+      zipOut.closeEntry();
+    }
+
+    private void writeDirectoryEntry(Path dir) throws IOException {
       ZipEntry entry =
           new ZipEntry(new File(dirName, root.relativize(dir).toString()).toString() + "/");
       entry.setTime(EPOCH);
       zipOut.putNextEntry(entry);
       zipOut.closeEntry();
-      return FileVisitResult.CONTINUE;
     }
   }
 }

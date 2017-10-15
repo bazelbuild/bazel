@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.protobuf.TextFormat;
-
 import java.io.IOException;
 
 /**
@@ -59,6 +59,21 @@ public class CrosstoolConfigurationHelper {
   public static String defaultCpu() {
     if (OS.getCurrent() == OS.WINDOWS) {
       return "x64_windows";
+    } else if (OS.getCurrent() == OS.LINUX) {
+      switch (CPU.getCurrent()) {
+        case X86_32:
+          return "piii";
+        case X86_64:
+          return "k8";
+        case PPC:
+          return "ppc";
+        case ARM:
+          return "arm";
+        case S390X:
+          return "s390x";
+        default:
+          return "unknown";
+      }
     }
     return OS.getCurrent() == OS.DARWIN ? "darwin" : "k8";
   }

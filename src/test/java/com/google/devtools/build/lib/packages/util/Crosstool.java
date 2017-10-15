@@ -20,6 +20,8 @@ import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * A helper class to create a crosstool package containing a CROSSTOOL file, and the various
@@ -111,9 +113,15 @@ final class Crosstool {
         CrosstoolConfig.CrosstoolRelease.newBuilder();
     TextFormat.merge(crosstoolFileContents, configBuilder);
     StringBuilder compilerMap = new StringBuilder();
+    // Remove duplicates
+    Set<String> keys = new LinkedHashSet<>();
     for (CrosstoolConfig.CToolchain toolchain : configBuilder.build().getToolchainList()) {
-      compilerMap.append(String.format("'%s|%s': ':cc-compiler-%s',\n",
-          toolchain.getTargetCpu(), toolchain.getCompiler(), toolchain.getTargetCpu()));
+      String key = String.format("%s|%s", toolchain.getTargetCpu(), toolchain.getCompiler());
+      if (!keys.contains(key)) {
+        keys.add(key);
+        compilerMap.append(
+            String.format("'%s': ':cc-compiler-%s',\n", key, toolchain.getTargetCpu()));
+      }
     }
 
     for (String arch : archs) {

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
@@ -45,11 +45,19 @@ public interface AndroidDataWritingVisitor extends Flushable {
    *
    * @param source The source file to copy.
    * @param relativeDestinationPath The relative destination path to write the resource to.
-   * @throws IOException if there are errors during copying.
-   * @throws MergingException for errors during png crunching.
+   * @throws MergingException for errors during copying.
    */
-  void copyResource(Path source, String relativeDestinationPath)
-      throws IOException, MergingException;
+  void copyResource(Path source, String relativeDestinationPath) throws MergingException;
+
+  /**
+   * Adds the provided attribute to the root &lt;resources&gt; tag.
+   *
+   * @param fqn The fully qualified name of the attribute indicating both the name of the attribute
+   *     and which qualified values.xml file to be associated with.
+   * @param name The simple name of the attribute given as {@code [prefix:]name}.
+   * @param value The value of the attribute.
+   */
+  void defineAttribute(FullyQualifiedName fqn, String name, String value);
 
   /**
    * Adds the namespaces associated with a {@link FullyQualifiedName}.
@@ -82,7 +90,7 @@ public interface AndroidDataWritingVisitor extends Flushable {
   /** Represents the xml values resource meta data. */
   @CheckReturnValue
   interface ValueResourceDefinitionMetadata {
-    ValuesResourceDefinition derivedFrom(Path source);
+    ValuesResourceDefinition derivedFrom(DataSource source);
   }
 
   /** Fluent interface to define the xml value for a {@link FullyQualifiedName}. */

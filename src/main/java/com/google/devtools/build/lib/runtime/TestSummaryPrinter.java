@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.devtools.build.lib.rules.test.TestLogHelper;
-import com.google.devtools.build.lib.rules.test.TestStrategy.TestOutputFormat;
+import com.google.devtools.build.lib.exec.TestLogHelper;
+import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -93,6 +92,18 @@ public class TestSummaryPrinter {
       TestSummary summary,
       AnsiTerminalPrinter terminalPrinter,
       boolean verboseSummary, boolean printFailedTestCases) {
+    print(summary, terminalPrinter, verboseSummary, printFailedTestCases, false);
+  }
+
+  /**
+   * Prints summary status for a single test.
+   * @param terminalPrinter The printer to print to
+   */
+  public static void print(
+      TestSummary summary,
+      AnsiTerminalPrinter terminalPrinter,
+      boolean verboseSummary, boolean printFailedTestCases,
+      boolean withConfigurationName) {
     BlazeTestStatus status = summary.getStatus();
     // Skip output for tests that failed to build.
     if (status == BlazeTestStatus.FAILED_TO_BUILD
@@ -100,8 +111,12 @@ public class TestSummaryPrinter {
       return;
     }
     String message = getCacheMessage(summary) + statusString(summary.getStatus());
+    String targetName = summary.getTarget().getLabel().toString();
+    if (withConfigurationName) {
+      targetName += " (" + summary.getTarget().getConfiguration().getMnemonic() + ")";
+    }
     terminalPrinter.print(
-        Strings.padEnd(summary.getTarget().getLabel().toString(), 78 - message.length(), ' ')
+        Strings.padEnd(targetName, 78 - message.length(), ' ')
         + " " + TestSummary.getStatusMode(summary.getStatus()) + message + Mode.DEFAULT
         + (verboseSummary ? getAttemptSummary(summary) + getTimeSummary(summary) : "") + "\n");
 

@@ -35,15 +35,18 @@ import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamily
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.RepeatedFamilyNameException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.List;
 
 /**
- * Contains information regarding the creation of a released bundle such as an application
- * or extension. The information which generally includes app icons, launch image, targeted devices
- * and other data for potential signing is used to create a releasable bundle out of the bundle
- * created using {@link Bundling} object.
+ * Contains information regarding the creation of a released bundle such as an application or
+ * extension. The information which generally includes app icons, launch image, targeted devices and
+ * other data for potential signing is used to create a releasable bundle out of the bundle created
+ * using {@link Bundling} object.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 @Immutable
 final class ReleaseBundling {
   static final class Builder {

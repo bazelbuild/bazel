@@ -75,6 +75,15 @@ MULTIPLE_APPLICATIONS = """
 """
 
 
+NO_PACKAGE_MANIFEST = """
+<manifest
+  xmlns:android="http://schemas.android.com/apk/res/android">
+  <application android:name="old.application">
+  </application>
+</manifest>
+"""
+
+
 class StubifyMobileInstallTest(unittest.TestCase):
 
   def GetApplication(self, manifest_string):
@@ -127,6 +136,10 @@ class StubifyMobileInstallTest(unittest.TestCase):
   def testTooManyApplications(self):
     with self.assertRaises(BadManifestException):
       StubifyMobileInstall(MULTIPLE_APPLICATIONS)
+
+  def testNoPackageInManifest(self):
+    with self.assertRaises(BadManifestException):
+      StubifyMobileInstall(NO_PACKAGE_MANIFEST)
 
 
 class StubifyInstantRunTest(unittest.TestCase):

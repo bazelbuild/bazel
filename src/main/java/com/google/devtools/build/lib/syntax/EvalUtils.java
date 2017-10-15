@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -23,13 +24,12 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import net.bytebuddy.implementation.bytecode.StackManipulation;
+import javax.annotation.Nullable;
 
 /**
  * Utilities used by the evaluator.
@@ -52,50 +52,51 @@ public final class EvalUtils {
   /**
    * Compare two Skylark objects.
    *
-   * <p> It may throw an unchecked exception ComparisonException that should be wrapped in
-   * an EvalException.
+   * <p>It may throw an unchecked exception ComparisonException that should be wrapped in an
+   * EvalException.
    */
-  public static final Ordering<Object> SKYLARK_COMPARATOR = new Ordering<Object>() {
-    private int compareLists(SkylarkList o1, SkylarkList o2) {
-      for (int i = 0; i < Math.min(o1.size(), o2.size()); i++) {
-        int cmp = compare(o1.get(i), o2.get(i));
-        if (cmp != 0) {
-          return cmp;
+  public static final Ordering<Object> SKYLARK_COMPARATOR =
+      new Ordering<Object>() {
+        private int compareLists(SkylarkList o1, SkylarkList o2) {
+          for (int i = 0; i < Math.min(o1.size(), o2.size()); i++) {
+            int cmp = compare(o1.get(i), o2.get(i));
+            if (cmp != 0) {
+              return cmp;
+            }
+          }
+          return Integer.compare(o1.size(), o2.size());
         }
-      }
-      return Integer.compare(o1.size(), o2.size());
-    }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public int compare(Object o1, Object o2) {
-      o1 = SkylarkType.convertToSkylark(o1, /*env=*/ null);
-      o2 = SkylarkType.convertToSkylark(o2, /*env=*/ null);
+        @Override
+        @SuppressWarnings("unchecked")
+        public int compare(Object o1, Object o2) {
+          o1 = SkylarkType.convertToSkylark(o1, /*env=*/ null);
+          o2 = SkylarkType.convertToSkylark(o2, /*env=*/ null);
 
-      if (o1 instanceof SkylarkList && o2 instanceof SkylarkList
-          && ((SkylarkList) o1).isTuple() == ((SkylarkList) o2).isTuple()) {
-        return compareLists((SkylarkList) o1, (SkylarkList) o2);
-      }
-      try {
-        return ((Comparable<Object>) o1).compareTo(o2);
-      } catch (ClassCastException e) {
-        return compareByClass(o1, o2);
-      }
-    }
-  };
+          if (o1 instanceof SkylarkList
+              && o2 instanceof SkylarkList
+              && ((SkylarkList) o1).isTuple() == ((SkylarkList) o2).isTuple()) {
+            return compareLists((SkylarkList) o1, (SkylarkList) o2);
+          }
+          if (!o1.getClass().equals(o2.getClass())) {
+            throw new ComparisonException(
+                "Cannot compare " + getDataTypeName(o1) + " with " + getDataTypeName(o2));
+          }
 
-  public static final int compareByClass(Object o1, Object o2) {
-    try {
-      // Different types -> let the class names decide
-      return o1.getClass().getName().compareTo(o2.getClass().getName());
-    } catch (NullPointerException ex) {
-      throw new ComparisonException(
-          "Cannot compare " + getDataTypeName(o1) + " with " + EvalUtils.getDataTypeName(o2));
-    }
-  }
-
-  public static final StackManipulation checkValidDictKey =
-      ByteCodeUtils.invoke(EvalUtils.class, "checkValidDictKey", Object.class);
+          if (o1 instanceof ClassObject) {
+            throw new ComparisonException("Cannot compare structs");
+          }
+          if (o1 instanceof SkylarkNestedSet) {
+            throw new ComparisonException("Cannot compare depsets");
+          }
+          try {
+            return ((Comparable<Object>) o1).compareTo(o2);
+          } catch (ClassCastException e) {
+            throw new ComparisonException(
+                "Cannot compare " + getDataTypeName(o1) + " with " + getDataTypeName(o2));
+          }
+        }
+      };
 
   /**
    * Checks that an Object is a valid key for a Skylark dict.
@@ -148,10 +149,11 @@ public final class EvalUtils {
         || c.equals(String.class) // basic values
         || c.equals(Integer.class)
         || c.equals(Boolean.class)
-        || c.isAnnotationPresent(SkylarkModule.class) // registered Skylark class
+        // there is a registered Skylark ancestor class (useful e.g. when using AutoValue)
+        || SkylarkInterfaceUtils.getSkylarkModule(c) != null
         || ImmutableMap.class.isAssignableFrom(c) // will be converted to SkylarkDict
         || NestedSet.class.isAssignableFrom(c) // will be converted to SkylarkNestedSet
-        || c.equals(PathFragment.class); // other known class
+        || PathFragment.class.isAssignableFrom(c); // other known class
   }
 
   // TODO(bazel-team): move the following few type-related functions to SkylarkType
@@ -204,7 +206,7 @@ public final class EvalUtils {
     if (fullDetails) {
       if (object instanceof SkylarkNestedSet) {
         SkylarkNestedSet set = (SkylarkNestedSet) object;
-        return "set of " + set.getContentType() + "s";
+        return "depset of " + set.getContentType() + "s";
       }
       if (object instanceof SelectorList) {
         SelectorList list = (SelectorList) object;
@@ -247,9 +249,9 @@ public final class EvalUtils {
       return "function";
     } else if (c.equals(SelectorValue.class)) {
       return "select";
-    } else if (NestedSet.class.isAssignableFrom(c) || SkylarkNestedSet.class.isAssignableFrom(c)) {
+    } else if (NestedSet.class.isAssignableFrom(c)) {
       // TODO(bazel-team): no one should be seeing naked NestedSet at all.
-      return "set";
+      return "depset";
     } else {
       if (c.getSimpleName().isEmpty()) {
         return c.getName();
@@ -261,18 +263,18 @@ public final class EvalUtils {
 
   public static Object checkNotNull(Expression expr, Object obj) throws EvalException {
     if (obj == null) {
-      throw new EvalException(expr.getLocation(),
-          "Unexpected null value, please send a bug report. "
-          + "This was generated by '" + expr + "'");
+      throw new EvalException(
+          expr.getLocation(),
+          "unexpected null value, please send a bug report. "
+              + "This was generated by expression '"
+              + expr
+              + "'");
     }
     return obj;
   }
 
-  public static final StackManipulation toBoolean =
-      ByteCodeUtils.invoke(EvalUtils.class, "toBoolean", Object.class);
-
   /**
-   * @return the truth value of an object, according to Python rules.
+   * Returns the truth value of an object, according to Python rules.
    * http://docs.python.org/2/library/stdtypes.html#truth-value-testing
    */
   public static boolean toBoolean(Object o) {
@@ -299,16 +301,23 @@ public final class EvalUtils {
     }
   }
 
-  public static final StackManipulation toCollection =
-      ByteCodeUtils.invoke(EvalUtils.class, "toCollection", Object.class, Location.class);
-
-  public static Collection<?> toCollection(Object o, Location loc) throws EvalException {
+  public static Collection<?> toCollection(Object o, Location loc, @Nullable Environment env)
+      throws EvalException {
     if (o instanceof Collection) {
       return (Collection<?>) o;
     } else if (o instanceof SkylarkList) {
       return ((SkylarkList) o).getImmutableList();
     } else if (o instanceof Map) {
       // For dictionaries we iterate through the keys only
+      if (o instanceof SkylarkDict) {
+        // SkylarkDicts handle ordering themselves
+        SkylarkDict<?, ?> dict = (SkylarkDict) o;
+        List<Object> list = Lists.newArrayListWithCapacity(dict.size());
+        for (Map.Entry<?, ?> entries : dict.entrySet()) {
+          list.add(entries.getKey());
+        }
+        return  ImmutableList.copyOf(list);
+      }
       // For determinism, we sort the keys.
       try {
         return SKYLARK_COMPARATOR.sortedCopy(((Map<?, ?>) o).keySet());
@@ -316,28 +325,67 @@ public final class EvalUtils {
         throw new EvalException(loc, e);
       }
     } else if (o instanceof SkylarkNestedSet) {
-      return ((SkylarkNestedSet) o).toCollection();
+      return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
     } else {
       throw new EvalException(loc,
           "type '" + getDataTypeName(o) + "' is not a collection");
     }
   }
 
-  public static final StackManipulation toIterable =
-      ByteCodeUtils.invoke(EvalUtils.class, "toIterable", Object.class, Location.class);
+  private static Collection<?> nestedSetToCollection(
+      SkylarkNestedSet set, Location loc, @Nullable Environment env) throws EvalException {
+    if (env != null && env.getSemantics().incompatibleDepsetIsNotIterable) {
+      throw new EvalException(
+          loc,
+          "type 'depset' is not iterable. Use the `to_list()` method to get a list. Use "
+              + "--incompatible_depset_is_not_iterable=false to temporarily disable this check.");
+    }
+    return set.toCollection();
+  }
 
-  public static Iterable<?> toIterable(Object o, Location loc) throws EvalException {
+  public static Iterable<?> toIterable(Object o, Location loc, @Nullable Environment env)
+      throws EvalException {
     if (o instanceof String) {
       // This is not as efficient as special casing String in for and dict and list comprehension
       // statements. However this is a more unified way.
-      return split((String) o);
+      return split((String) o, loc, env);
+    } else if (o instanceof SkylarkNestedSet) {
+      return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
     } else if (o instanceof Iterable) {
       return (Iterable<?>) o;
     } else if (o instanceof Map) {
-      return toCollection(o, loc);
+      return toCollection(o, loc, env);
     } else {
       throw new EvalException(loc,
           "type '" + getDataTypeName(o) + "' is not iterable");
+    }
+  }
+
+  /**
+   * Given an {@link Iterable}, returns it as-is. Given a {@link SkylarkNestedSet}, returns its
+   * contents as an iterable. Throws {@link EvalException} for any other value.
+   *
+   * <p>This is a kludge for the change that made {@code SkylarkNestedSet} not implement {@code
+   * Iterable}. It is different from {@link #toIterable} in its behavior for strings and other types
+   * that are not strictly Java-iterable.
+   *
+   * @throws EvalException if {@code o} is not an iterable or set
+   * @deprecated avoid writing APIs that implicitly treat depsets as iterables. It encourages
+   *     unnecessary flattening of depsets.
+   *     <p>TODO(bazel-team): Remove this if/when implicit iteration over {@code SkylarkNestedSet}
+   *     is no longer supported.
+   */
+  @Deprecated
+  public static Iterable<?> toIterableStrict(Object o, Location loc, @Nullable Environment env)
+      throws EvalException {
+    if (o instanceof Iterable) {
+      return (Iterable<?>) o;
+    } else if (o instanceof SkylarkNestedSet) {
+      return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
+    } else {
+      throw new EvalException(loc,
+          "expected Iterable or depset, but got '" + getDataTypeName(o) + "' (strings and maps "
+          + "are not allowed here)");
     }
   }
 
@@ -353,7 +401,15 @@ public final class EvalUtils {
     }
   }
 
-  private static ImmutableList<String> split(String value) {
+  private static ImmutableList<String> split(String value, Location loc, @Nullable Environment env)
+      throws EvalException {
+    if (env != null && env.getSemantics().incompatibleStringIsNotIterable) {
+      throw new EvalException(
+          loc,
+          "type 'string' is not iterable. You may still use `len` and string indexing. Use "
+              + "--incompatible_string_is_not_iterable=false to temporarily disable this check.");
+    }
+
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
     for (char c : value.toCharArray()) {
       builder.add(String.valueOf(c));
@@ -370,12 +426,139 @@ public final class EvalUtils {
     } else if (arg instanceof Map) {
       return ((Map<?, ?>) arg).size();
     } else if (arg instanceof SkylarkList) {
-      return ((SkylarkList) arg).size();
+      return ((SkylarkList<?>) arg).size();
+    } else if (arg instanceof SkylarkNestedSet) {
+      // TODO(bazel-team): Add a deprecation warning: don't implicitly flatten depsets.
+      return ((SkylarkNestedSet) arg).toCollection().size();
     } else if (arg instanceof Iterable) {
       // Iterables.size() checks if arg is a Collection so it's efficient in that sense.
       return Iterables.size((Iterable<?>) arg);
     }
     return -1;
+  }
+
+  // The following functions for indexing and slicing match the behavior of Python.
+
+  /**
+   * Resolves a positive or negative index to an index in the range [0, length), or throws
+   * EvalException if it is out-of-range. If the index is negative, it counts backward from
+   * length.
+   */
+  public static int getSequenceIndex(int index, int length, Location loc)
+      throws EvalException {
+    int actualIndex = index;
+    if (actualIndex < 0) {
+      actualIndex += length;
+    }
+    if (actualIndex < 0 || actualIndex >= length) {
+      throw new EvalException(
+          loc,
+          "index out of range (index is " + index + ", but sequence has " + length + " elements)");
+    }
+    return actualIndex;
+  }
+
+  /**
+   * Performs index resolution after verifying that the given object has index type.
+   */
+  public static int getSequenceIndex(Object index, int length, Location loc)
+      throws EvalException {
+    if (!(index instanceof Integer)) {
+      throw new EvalException(
+          loc, "indices must be integers, not " + EvalUtils.getDataTypeName(index));
+    }
+    return getSequenceIndex(((Integer) index).intValue(), length, loc);
+  }
+
+  /**
+   * Resolves a positive or negative index to an integer that can denote the left or right boundary
+   * of a slice. If reverse is false, the slice has positive stride (i.e., its elements are in their
+   * normal order) and the result is guaranteed to be in range [0, length + 1). If reverse is true,
+   * the slice has negative stride and the result is in range [-1, length). In either case, if the
+   * index is negative, it counts backward from length. Note that an input index of -1 represents
+   * the last element's position, while an output integer of -1 represents the imaginary position
+   * to the left of the first element.
+   */
+  public static int clampRangeEndpoint(int index, int length, boolean reverse) {
+    if (index < 0) {
+      index += length;
+    }
+    if (!reverse) {
+      return Math.max(Math.min(index, length), 0);
+    } else {
+      return Math.max(Math.min(index, length - 1), -1);
+    }
+  }
+
+  /**
+   * Resolves a positive or negative index to an integer that can denote the boundary for a
+   * slice with positive stride.
+   */
+  public static int clampRangeEndpoint(int index, int length) {
+    return clampRangeEndpoint(index, length, false);
+  }
+
+  /**
+   * Calculates the indices of the elements that should be included in the slice [start:end:step]
+   * of a sequence with the given length. Each of start, end, and step must be supplied, and step
+   * may not be 0.
+   */
+  public static List<Integer> getSliceIndices(int start, int end, int step, int length) {
+    if (step == 0) {
+      throw new IllegalArgumentException("Slice step cannot be zero");
+    }
+    start = clampRangeEndpoint(start, length, step < 0);
+    end = clampRangeEndpoint(end, length, step < 0);
+    ImmutableList.Builder<Integer> indices = ImmutableList.builder();
+    for (int current = start; step > 0 ? current < end : current > end; current += step) {
+      indices.add(current);
+    }
+    return indices.build();
+  }
+
+  /**
+   * Calculates the indices of the elements in a slice, after validating the arguments and replacing
+   * Runtime.NONE with default values. Throws an EvalException if a bad argument is given.
+   */
+  public static List<Integer> getSliceIndices(
+      Object startObj, Object endObj, Object stepObj, int length, Location loc)
+      throws EvalException {
+    int start;
+    int end;
+    int step;
+
+    if (stepObj == Runtime.NONE) {
+      // This case is excluded by the parser, but let's handle it for completeness.
+      step = 1;
+    } else if (stepObj instanceof Integer) {
+      step = ((Integer) stepObj).intValue();
+    } else {
+      throw new EvalException(
+          loc, String.format("slice step must be an integer, not '%s'", stepObj));
+    }
+    if (step == 0) {
+      throw new EvalException(loc, "slice step cannot be zero");
+    }
+
+    if (startObj == Runtime.NONE) {
+      start = (step > 0) ? 0 : length - 1;
+    } else if (startObj instanceof Integer) {
+      start = ((Integer) startObj).intValue();
+    } else {
+      throw new EvalException(
+          loc, String.format("slice start must be an integer, not '%s'", startObj));
+    }
+    if (endObj == Runtime.NONE) {
+      // If step is negative, can't use -1 for end since that would be converted
+      // to the rightmost element's position.
+      end = (step > 0) ? length : -length - 1;
+    } else if (endObj instanceof Integer) {
+      end = ((Integer) endObj).intValue();
+    } else {
+      throw new EvalException(loc, String.format("slice end must be an integer, not '%s'", endObj));
+    }
+
+    return getSliceIndices(start, end, step, length);
   }
 
   /** @return true if x is Java null or Skylark None */
@@ -408,6 +591,6 @@ public final class EvalUtils {
         b.put(key, value);
       }
     }
-    return SkylarkDict.<K, V>copyOf(env, b.build());
+    return SkylarkDict.copyOf(env, b.build());
   }
 }

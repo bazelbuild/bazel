@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -27,7 +26,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
-
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
@@ -41,7 +40,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -125,7 +123,7 @@ public class DensitySpecificResourceFilter {
   private final Path out;
   private final Path working;
 
-  private static final Map<String, Integer> DENSITY_MAP =
+  private static final ImmutableMap<String, Integer> DENSITY_MAP =
       new ImmutableMap.Builder<String, Integer>()
           .put("nodpi", 0)
           .put("ldpi", 120)
@@ -179,7 +177,7 @@ public class DensitySpecificResourceFilter {
 
     for (String density : densities) {
       if (!DENSITY_MAP.containsKey(density)) {
-        throw MergingException.withMessage(density + " is not a known density qualifier.").build();
+        throw MergingException.withMessage(density + " is not a known density qualifier.");
       }
     }
   }
@@ -311,7 +309,7 @@ public class DensitySpecificResourceFilter {
   /** Filters the contents of a resource directory. */
   public Path filter(Path unFilteredResourceDir) {
     // no densities to filter, so skip.
-    if (densities.isEmpty()) { 
+    if (densities.isEmpty()) {
       return unFilteredResourceDir;
     }
     final Path filteredResourceDir =

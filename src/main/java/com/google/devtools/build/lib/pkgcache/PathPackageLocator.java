@@ -28,13 +28,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -46,8 +45,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * filesystem) idempotent.
  */
 public class PathPackageLocator implements Serializable {
+  private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
-  public static final Set<String> DEFAULT_TOP_LEVEL_EXCLUDES = ImmutableSet.of("experimental");
+  public static final ImmutableSet<String> DEFAULT_TOP_LEVEL_EXCLUDES =
+      ImmutableSet.of("experimental");
 
   private final ImmutableList<Path> pathEntries;
   // Transient because this is an injected value in Skyframe, and as such, its serialized
@@ -101,7 +102,8 @@ public class PathPackageLocator implements Serializable {
       AtomicReference<? extends UnixGlob.FilesystemCalls> cache)  {
     Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
     if (packageIdentifier.getRepository().isMain()) {
-      return getFilePath(packageIdentifier.getPackageFragment().getRelative("BUILD"), cache);
+      return getFilePath(
+          packageIdentifier.getPackageFragment().getRelative(BUILD_PATH_FRAGMENT), cache);
     } else {
       Verify.verify(outputBase != null, String.format(
           "External package '%s' needs to be loaded but this PathPackageLocator instance does not "
@@ -111,11 +113,15 @@ public class PathPackageLocator implements Serializable {
       // is true for the invocation in GlobCache, but not for the locator.getBuildFileForPackage()
       // invocation in Parser#include().
       Path buildFile = outputBase.getRelative(
-          packageIdentifier.getSourceRoot()).getRelative("BUILD");
-      FileStatus stat = cache.get().statNullable(buildFile, Symlinks.FOLLOW);
-      if (stat != null && stat.isFile()) {
-        return buildFile;
-      } else {
+          packageIdentifier.getSourceRoot()).getRelative(BUILD_PATH_FRAGMENT);
+      try {
+        FileStatus stat = cache.get().statIfFound(buildFile, Symlinks.FOLLOW);
+        if (stat != null && stat.isFile()) {
+          return buildFile;
+        } else {
+          return null;
+        }
+      } catch (IOException e) {
         return null;
       }
     }
@@ -164,7 +170,7 @@ public class PathPackageLocator implements Serializable {
       // Replace "%workspace%" with the path of the enclosing workspace directory.
       pathElement = pathElement.replace(workspaceWildcard, workspace.getPathString());
 
-      PathFragment pathElementFragment = new PathFragment(pathElement);
+      PathFragment pathElementFragment = PathFragment.create(pathElement);
 
       // If the path string started with "%workspace%" or "/", it is already absolute,
       // so the following line is a no-op.
@@ -219,16 +225,20 @@ public class PathPackageLocator implements Serializable {
     AtomicReference<? extends UnixGlob.FilesystemCalls> cache = UnixGlob.DEFAULT_SYSCALLS_REF;
     // TODO(bazel-team): correctness in the presence of changes to the location of the WORKSPACE
     // file.
-    return getFilePath(new PathFragment("WORKSPACE"), cache);
+    return getFilePath(PathFragment.create("WORKSPACE"), cache);
   }
 
   private Path getFilePath(PathFragment suffix,
       AtomicReference<? extends UnixGlob.FilesystemCalls> cache) {
     for (Path pathEntry : pathEntries) {
       Path buildFile = pathEntry.getRelative(suffix);
-      FileStatus stat = cache.get().statNullable(buildFile, Symlinks.FOLLOW);
-      if (stat != null && stat.isFile()) {
-        return buildFile;
+      try {
+        FileStatus stat = cache.get().statIfFound(buildFile, Symlinks.FOLLOW);
+        if (stat != null && stat.isFile()) {
+          return buildFile;
+        }
+      } catch (IOException ignored) {
+        // Treat IOException as a missing file.
       }
     }
     return null;

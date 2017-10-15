@@ -20,19 +20,22 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
-import com.google.devtools.build.lib.analysis.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.nativedeps.NativeDepsHelper;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashMap;
@@ -46,7 +49,7 @@ import javax.annotation.Nullable;
 @Immutable
 public final class NativeLibs {
   public static final NativeLibs EMPTY =
-      new NativeLibs(ImmutableMap.<String, Iterable<Artifact>>of(), null);
+      new NativeLibs(ImmutableMap.<String, NestedSet<Artifact>>of(), null);
 
   public static NativeLibs fromLinkedNativeDeps(
       RuleContext ruleContext,
@@ -55,7 +58,7 @@ public final class NativeLibs {
       Map<String, CcToolchainProvider> toolchainMap,
       Map<String, BuildConfiguration> configurationMap)
       throws InterruptedException {
-    Map<String, Iterable<Artifact>> result = new LinkedHashMap<>();
+    Map<String, NestedSet<Artifact>> result = new LinkedHashMap<>();
     String nativeDepsLibraryBasename = null;
     for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry :
         depsByArchitecture.asMap().entrySet()) {
@@ -72,14 +75,14 @@ public final class NativeLibs {
               configurationMap.get(entry.getKey()),
               toolchainMap.get(entry.getKey()));
 
-      ImmutableList.Builder<Artifact> librariesBuilder = ImmutableList.builder();
+      NestedSetBuilder<Artifact> librariesBuilder = NestedSetBuilder.stableOrder();
       if (nativeDepsLibrary != null) {
         librariesBuilder.add(nativeDepsLibrary);
         nativeDepsLibraryBasename = nativeDepsLibrary.getExecPath().getBaseName();
       }
       librariesBuilder.addAll(
           filterUniqueSharedLibraries(ruleContext, nativeDepsLibrary, linkParams.getLibraries()));
-      ImmutableList<Artifact> libraries = librariesBuilder.build();
+      NestedSet<Artifact> libraries = librariesBuilder.build();
 
       if (!libraries.isEmpty()) {
         result.put(entry.getKey(), libraries);
@@ -97,29 +100,28 @@ public final class NativeLibs {
           "nativedeps_filename", nativeDepsFileName,
           ruleContext.getBinOrGenfilesDirectory());
       ruleContext.registerAction(
-          new FileWriteAction(
-              ruleContext.getActionOwner(), nativeDepsName, nativeDepsLibraryBasename, false));
+          FileWriteAction.create(ruleContext, nativeDepsName, nativeDepsLibraryBasename, false));
 
       return new NativeLibs(ImmutableMap.copyOf(result), nativeDepsName);
     }
   }
 
   // Map from architecture (CPU folder to place the library in) to libraries for that CPU
-  private final ImmutableMap<String, Iterable<Artifact>> nativeLibs;
+  private final ImmutableMap<String, NestedSet<Artifact>> nativeLibs;
   @Nullable private final Artifact nativeLibsName;
 
   @VisibleForTesting
-  NativeLibs(ImmutableMap<String, Iterable<Artifact>> nativeLibs,
-      @Nullable Artifact nativeLibsName) {
+  NativeLibs(
+      ImmutableMap<String, NestedSet<Artifact>> nativeLibs, @Nullable Artifact nativeLibsName) {
     this.nativeLibs = nativeLibs;
     this.nativeLibsName = nativeLibsName;
   }
 
   /**
    * Returns a map from the name of the architecture (CPU folder to place the library in) to the
-   * set of libraries for that architecture.
+   * nested set of libraries for that architecture.
    */
-  public Map<String, Iterable<Artifact>> getMap() {
+  public Map<String, NestedSet<Artifact>> getMap() {
     return nativeLibs;
   }
 
@@ -133,12 +135,12 @@ public final class NativeLibs {
     return result.build();
   }
 
-  public Artifact createApkBuilderSymlinks(RuleContext ruleContext) {
+  public Pair<Artifact, Runfiles> createApkBuilderSymlinks(RuleContext ruleContext) {
     Map<PathFragment, Artifact> symlinks = new LinkedHashMap<>();
-    for (Map.Entry<String, Iterable<Artifact>> entry : nativeLibs.entrySet()) {
+    for (Map.Entry<String, NestedSet<Artifact>> entry : nativeLibs.entrySet()) {
       String arch = entry.getKey();
       for (Artifact lib : entry.getValue()) {
-        symlinks.put(new PathFragment(arch + "/" + lib.getExecPath().getBaseName()), lib);
+        symlinks.put(PathFragment.create(arch + "/" + lib.getExecPath().getBaseName()), lib);
       }
     }
 
@@ -147,11 +149,12 @@ public final class NativeLibs {
     }
 
     Artifact inputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks.manifest");
-    ruleContext.registerAction(new SourceManifestAction.Builder(
+    SourceManifestAction sourceManifestAction = new SourceManifestAction.Builder(
         ruleContext.getWorkspaceName(), ManifestType.SOURCE_SYMLINKS, ruleContext.getActionOwner(),
         inputManifest, ruleContext.getConfiguration().legacyExternalRunfiles())
             .addRootSymlinks(symlinks)
-            .build());
+            .build();
+    ruleContext.registerAction(sourceManifestAction);
     Artifact outputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks/MANIFEST");
     Artifact nativeLibsMiddleman =
         ruleContext.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
@@ -168,7 +171,7 @@ public final class NativeLibs {
             false,
             ruleContext.getConfiguration().getLocalShellEnvironment(),
             ruleContext.getConfiguration().runfilesEnabled()));
-    return outputManifest;
+    return Pair.of(outputManifest, sourceManifestAction.getGeneratedRunfiles());
   }
 
   /**
@@ -214,7 +217,7 @@ public final class NativeLibs {
                 + artifact.prettyPrint()
                 + " and "
                 + oldArtifact.prettyPrint()
-                + ((oldArtifact == linkedLibrary)
+                + ((oldArtifact.equals(linkedLibrary))
                     ? " (the library compiled for this target)"
                     : ""));
       }

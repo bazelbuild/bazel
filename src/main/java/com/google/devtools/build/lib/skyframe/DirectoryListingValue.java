@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Objects;
 
 /**
@@ -55,7 +55,7 @@ public abstract class DirectoryListingValue implements SkyValue {
    */
   @ThreadSafe
   public static SkyKey key(RootedPath directoryUnderRoot) {
-    return SkyKey.create(SkyFunctions.DIRECTORY_LISTING, directoryUnderRoot);
+    return LegacySkyKey.create(SkyFunctions.DIRECTORY_LISTING, directoryUnderRoot);
   }
 
   static DirectoryListingValue value(RootedPath dirRootedPath, FileValue dirFileValue,

@@ -14,10 +14,8 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
-import com.google.common.base.Verify;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
@@ -35,9 +33,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
-import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
-import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
+import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -52,22 +49,27 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.LoadingCallback;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -90,7 +92,7 @@ import java.util.regex.Pattern;
  */
 public final class BuildTool {
 
-  private static final Logger LOG = Logger.getLogger(BuildTool.class.getName());
+  private static final Logger logger = Logger.getLogger(BuildTool.class.getName());
 
   private final CommandEnvironment env;
   private final BlazeRuntime runtime;
@@ -137,23 +139,13 @@ public final class BuildTool {
     env.setupPackageCache(request, DefaultsPackage.getDefaultsPackageContent(buildOptions));
 
     ExecutionTool executionTool = null;
-    LoadingResult loadingResult = null;
-    BuildConfigurationCollection configurations = null;
+    BuildConfigurationCollection configurations;
     boolean catastrophe = false;
     try {
       env.getEventBus().post(new BuildStartingEvent(env, request));
-      LOG.info("Build identifier: " + request.getId());
-      executionTool = new ExecutionTool(env, request);
-      if (needsExecutionPhase(request.getBuildOptions())) {
-        // Initialize the execution tool early if we need it. This hides the latency of setting up
-        // the execution backends.
-        executionTool.init();
-      }
+      logger.info("Build identifier: " + request.getId());
 
-      // Loading phase.
-      loadingResult = runLoadingPhase(request, validator);
-
-      // Create the build configurations.
+      // Error out early if multi_cpus is set, but we're not in build or test command.
       if (!request.getMultiCpus().isEmpty()) {
         getReporter().handle(Event.warn(
             "The --experimental_multi_cpu option is _very_ experimental and only intended for "
@@ -165,9 +157,49 @@ public final class BuildTool {
               + "'test' right now!");
         }
       }
-      configurations = env.getSkyframeExecutor().createConfigurations(
-            env.getReporter(), runtime.getConfigurationFactory(), buildOptions,
-            request.getMultiCpus(), request.getViewOptions().keepGoing);
+
+      // Exit if there are any pending exceptions from modules.
+      env.throwPendingException();
+
+      // Target pattern evaluation.
+      LoadingResult loadingResult = evaluateTargetPatterns(request, validator);
+      env.setWorkspaceName(loadingResult.getWorkspaceName());
+      executionTool = new ExecutionTool(env, request);
+      if (needsExecutionPhase(request.getBuildOptions())) {
+        executionTool.init();
+      }
+
+      // Compute the heuristic instrumentation filter if needed.
+      if (request.needsInstrumentationFilter()) {
+        String instrumentationFilter =
+            InstrumentationFilterSupport.computeInstrumentationFilter(
+                env.getReporter(), loadingResult.getTestsToRun());
+        try {
+          // We're modifying the buildOptions in place, which is not ideal, but we also don't want
+          // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
+          // problem (and the performance loss may not be a big deal).
+          buildOptions.get(BuildConfiguration.Options.class).instrumentationFilter =
+              new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
+        } catch (OptionsParsingException e) {
+          throw new InvalidConfigurationException(e);
+        }
+      }
+
+      // Exit if there are any pending exceptions from modules.
+      env.throwPendingException();
+
+      // Configuration creation.
+      // TODO(gregce): BuildConfigurationCollection is important for static configs, less so for
+      // dynamic configs. Consider dropping it outright and passing on-the-fly target / host configs
+      // directly when needed (although this could be hard when Skyframe is unavailable).
+      configurations =
+          env.getSkyframeExecutor()
+              .createConfigurations(
+                  env.getReporter(),
+                  runtime.getConfigurationFragmentFactories(),
+                  buildOptions,
+                  request.getMultiCpus(),
+                  request.getViewOptions().keepGoing);
 
       env.throwPendingException();
       if (configurations.getTargetConfigurations().size() == 1) {
@@ -177,7 +209,7 @@ public final class BuildTool {
         env.getEventBus().post(new MakeEnvironmentEvent(
             configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
       }
-      LOG.info("Configurations created");
+      logger.info("Configurations created");
 
       if (request.getBuildOptions().performAnalysisPhase) {
         AnalysisResult analysisResult = runAnalysisPhase(request, loadingResult, configurations);
@@ -185,10 +217,30 @@ public final class BuildTool {
         result.setActualTargets(analysisResult.getTargetsToBuild());
         result.setTestTargets(analysisResult.getTargetsToTest());
 
-        LoadedPackageProvider bridge =
-            new LoadedPackageProvider(env.getPackageManager(), env.getReporter());
-        checkTargetEnvironmentRestrictions(analysisResult.getTargetsToBuild(), bridge);
         reportTargets(analysisResult);
+
+        for (ConfiguredTarget target : analysisResult.getTargetsToSkip()) {
+          BuildConfiguration config = target.getConfiguration();
+          Label label = target.getLabel();
+          env.getEventBus().post(new AbortedEvent(config.getEventId(), AbortReason.SKIPPED,
+              String.format("Target %s build was skipped.", label), label));
+        }
+
+        // TODO(janakr): this query will operate over the graph as constructed by analysis, but will
+        // also pick up any nodes that are in the graph from prior builds. This makes the results
+        // not reproducible at the level of a single command. Either tolerate, or wipe the analysis
+        // graph beforehand if this option is specified, or add another option to wipe if desired
+        // (SkyframeExecutor#dropConfiguredTargets should be sufficient).
+        if (request.getBuildOptions().queryExpression != null) {
+          try {
+            doConfiguredTargetQuery(request, configurations);
+          } catch (QueryException | IOException e) {
+            if (!request.getViewOptions().keepGoing) {
+              throw new ViewCreationFailedException("Error doing configured target query", e);
+            }
+            env.getReporter().error(null, "Error doing configured target query", e);
+          }
+        }
 
         // Execution phase.
         if (needsExecutionPhase(request.getBuildOptions())) {
@@ -206,7 +258,7 @@ public final class BuildTool {
         }
       } else {
         getReporter().handle(Event.progress("Loading complete."));
-        LOG.info("No analysis requested, so finished");
+        logger.info("No analysis requested, so finished");
         String errorMessage = BuildView.createErrorMessage(loadingResult, null);
         if (errorMessage != null) {
           throw new BuildFailedException(errorMessage);
@@ -216,23 +268,29 @@ public final class BuildTool {
     } catch (RuntimeException e) {
       // Print an error message for unchecked runtime exceptions. This does not concern Error
       // subclasses such as OutOfMemoryError.
-      request.getOutErr().printErrLn("Unhandled exception thrown during build; message: " +
-          e.getMessage());
+      request.getOutErr().printErrLn(
+          "Unhandled exception thrown during build; message: " + e.getMessage());
       catastrophe = true;
       throw e;
     } catch (Error e) {
       catastrophe = true;
       throw e;
+    } catch (InvalidConfigurationException e) {
+      // TODO(gregce): With "global configurations" we cannot tie a configuration creation failure
+      // to a single target and have to halt the entire build. Once configurations are genuinely
+      // created as part of the analysis phase they should report their error on the level of the
+      // target(s) that triggered them.
+      catastrophe = true;
+      throw e;
     } finally {
+      if (executionTool != null) {
+        executionTool.shutdown();
+      }
       if (!catastrophe) {
         // Delete dirty nodes to ensure that they do not accumulate indefinitely.
         long versionWindow = request.getViewOptions().versionWindowForDirtyNodeGc;
         if (versionWindow != -1) {
           env.getSkyframeExecutor().deleteOldNodes(versionWindow);
-        }
-
-        if (executionTool != null) {
-          executionTool.shutdown();
         }
         // The workspace status actions will not run with certain flags, or if an error
         // occurs early in the build. Tell a lie so that the event is not missing.
@@ -244,56 +302,6 @@ public final class BuildTool {
                     env.getBlazeWorkspace().getWorkspaceStatusActionFactory()
                         .createDummyWorkspaceStatus()));
       }
-    }
-  }
-
-  /**
-   * Checks that if this is an environment-restricted build, all top-level targets support the
-   * expected environments.
-   *
-   * @param topLevelTargets the build's top-level targets
-   * @throws ViewCreationFailedException if constraint enforcement is on, the build declares
-   *     environment-restricted top level configurations, and any top-level target doesn't support
-   *     the expected environments
-   */
-  private static void checkTargetEnvironmentRestrictions(
-      Iterable<ConfiguredTarget> topLevelTargets, LoadedPackageProvider packageManager)
-      throws ViewCreationFailedException, InterruptedException {
-    for (ConfiguredTarget topLevelTarget : topLevelTargets) {
-      BuildConfiguration config = topLevelTarget.getConfiguration();
-      if (config == null) {
-        // TODO(bazel-team): support file targets (they should apply package-default constraints).
-        continue;
-      } else if (!config.enforceConstraints() || config.getTargetEnvironments().isEmpty()) {
-        continue;
-      }
-
-      // Parse and collect this configuration's environments.
-      EnvironmentCollection.Builder builder = new EnvironmentCollection.Builder();
-      for (Label envLabel : config.getTargetEnvironments()) {
-        try {
-          Target env = packageManager.getLoadedTarget(envLabel);
-          builder.put(ConstraintSemantics.getEnvironmentGroup(env), envLabel);
-        } catch (NoSuchPackageException | NoSuchTargetException
-            | ConstraintSemantics.EnvironmentLookupException e) {
-          throw new ViewCreationFailedException("invalid target environment", e);
-        }
-      }
-      EnvironmentCollection expectedEnvironments = builder.build();
-
-      // Now check the target against those environments.
-      SupportedEnvironmentsProvider provider =
-          Verify.verifyNotNull(topLevelTarget.getProvider(SupportedEnvironmentsProvider.class));
-        Collection<Label> missingEnvironments = ConstraintSemantics.getUnsupportedEnvironments(
-            provider.getRefinedEnvironments(), expectedEnvironments);
-        if (!missingEnvironments.isEmpty()) {
-          throw new ViewCreationFailedException(
-              String.format("This is a restricted-environment build. %s does not support"
-                  + " required environment%s %s",
-                  topLevelTarget.getLabel(),
-                  missingEnvironments.size() == 1 ? "" : "s",
-                  Joiner.on(", ").join(missingEnvironments)));
-        }
     }
   }
 
@@ -365,6 +373,11 @@ public final class BuildTool {
     } catch (InvalidConfigurationException e) {
       exitCode = ExitCode.COMMAND_LINE_ERROR;
       reportExceptionError(e);
+      // TODO(gregce): With "global configurations" we cannot tie a configuration creation failure
+      // to a single target and have to halt the entire build. Once configurations are genuinely
+      // created as part of the analysis phase they should report their error on the level of the
+      // target(s) that triggered them.
+      result.setCatastrophe();
     } catch (AbruptExitException e) {
       exitCode = e.getExitCode();
       reportExceptionError(e);
@@ -379,6 +392,40 @@ public final class BuildTool {
     return result;
   }
 
+  private void doConfiguredTargetQuery(
+      BuildRequest request, BuildConfigurationCollection configurations)
+      throws InterruptedException, QueryException, IOException {
+    WalkableGraph walkableGraph =
+        SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
+    ConfiguredTargetQueryEnvironment configuredTargetQueryEnvironment =
+        new ConfiguredTargetQueryEnvironment(
+            request.getViewOptions().keepGoing,
+            env.getReporter(),
+            env.getRuntime().getQueryFunctions(),
+            configurations.getTargetConfigurations().get(0),
+            configurations.getHostConfiguration(),
+            env.newTargetPatternEvaluator().getOffset(),
+            env.getPackageManager().getPackagePath(),
+            () -> walkableGraph);
+    configuredTargetQueryEnvironment.evaluateQuery(
+        request.getBuildOptions().queryExpression,
+        new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
+          @Override
+          public void processOutput(Iterable<ConfiguredTarget> partialResult)
+              throws IOException, InterruptedException {
+            for (ConfiguredTarget configuredTarget : partialResult) {
+              env.getReporter()
+                  .getOutErr()
+                  .printOutLn(
+                      configuredTarget.getLabel()
+                          + " ("
+                          + configuredTarget.getConfiguration()
+                          + ")");
+            }
+          }
+        });
+  }
+
   private void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {
     if (shouldStopOnFailure(request)) {
       result.setStopOnFirstFailure(true);
@@ -389,14 +436,10 @@ public final class BuildTool {
     return !(request.getViewOptions().keepGoing && request.getExecutionOptions().testKeepGoing);
   }
 
-  @VisibleForTesting
-  protected final LoadingResult runLoadingPhase(final BuildRequest request,
-                                                final TargetValidator validator)
-          throws LoadingFailedException, TargetParsingException, InterruptedException,
-          AbruptExitException {
+  private final LoadingResult evaluateTargetPatterns(
+      final BuildRequest request, final TargetValidator validator)
+      throws LoadingFailedException, TargetParsingException, InterruptedException {
     Profiler.instance().markPhase(ProfilePhase.LOAD);
-    env.throwPendingException();
-
     initializeOutputFilter(request);
 
     final boolean keepGoing = request.getViewOptions().keepGoing;
@@ -416,15 +459,12 @@ public final class BuildTool {
     LoadingResult result =
         loadingPhaseRunner.execute(
             getReporter(),
-            env.getEventBus(),
             request.getTargets(),
             env.getRelativeWorkingDirectory(),
             request.getLoadingOptions(),
-            runtime.createBuildOptions(request).getAllLabels(),
             keepGoing,
             request.shouldRunTests(),
             callback);
-    env.throwPendingException();
     return result;
   }
 
@@ -471,7 +511,8 @@ public final class BuildTool {
 
     // TODO(bazel-team): Merge these into one event.
     env.getEventBus().post(new AnalysisPhaseCompleteEvent(analysisResult.getTargetsToBuild(),
-        view.getTargetsVisited(), timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+        view.getTargetsVisited(), timer.stop().elapsed(TimeUnit.MILLISECONDS),
+        view.getAndClearPkgManagerStatistics()));
     env.getEventBus().post(new TestFilteringCompleteEvent(analysisResult.getTargetsToBuild(),
         analysisResult.getTargetsToTest()));
 
@@ -503,7 +544,7 @@ public final class BuildTool {
    *        a thrown exception somewhere along the way.
    */
   public void stopRequest(BuildResult result, Throwable crash, ExitCode exitCondition) {
-    Preconditions.checkState((crash == null) || (exitCondition != ExitCode.SUCCESS));
+    Preconditions.checkState((crash == null) || !exitCondition.equals(ExitCode.SUCCESS));
     result.setUnhandledThrowable(crash);
     result.setExitCondition(exitCondition);
     // The stop time has to be captured before we send the BuildCompleteEvent.

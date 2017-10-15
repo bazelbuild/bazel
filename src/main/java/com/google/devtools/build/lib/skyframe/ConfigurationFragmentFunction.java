@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -97,7 +97,7 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
   /**
    * A {@link ConfigurationEnvironment} implementation that can create dependencies on files.
    */
-  private final class ConfigurationBuilderEnvironment implements ConfigurationEnvironment {
+  private static final class ConfigurationBuilderEnvironment implements ConfigurationEnvironment {
     private final PackageProviderForConfigurations packageProvider;
 
     ConfigurationBuilderEnvironment(PackageProviderForConfigurations packageProvider) {
@@ -105,7 +105,7 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
     }
 
     @Override
-    public EventHandler getEventHandler() {
+    public ExtendedEventHandler getEventHandler() {
       return packageProvider.getEventHandler();
     }
 

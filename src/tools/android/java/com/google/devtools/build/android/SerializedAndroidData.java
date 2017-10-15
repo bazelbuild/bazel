@@ -47,7 +47,7 @@ public class SerializedAndroidData {
         splitPaths(parts[0], fileSystem),
         splitPaths(parts[1], fileSystem),
         parts[2],
-        parts.length > 3 ? fileSystem.getPath(parts[3]) : null);
+        parts.length > 3 ? exists(fileSystem.getPath(parts[3])) : null);
   }
 
   protected static ImmutableList<Path> splitPaths(String pathsString, FileSystem fileSystem) {
@@ -91,13 +91,13 @@ public class SerializedAndroidData {
     }
   }
 
-  public void deserialize(AndroidDataSerializer serializer, KeyValueConsumers consumers)
+  public void deserialize(AndroidDataDeserializer deserializer, KeyValueConsumers consumers)
       throws DeserializationException {
     // Missing symbols means the resources where provided via android_resources rules.
     if (symbols == null) {
       throw new DeserializationException(true);
     }
-    serializer.read(symbols, consumers);
+    deserializer.read(symbols, consumers);
   }
 
   public String getLabel() {

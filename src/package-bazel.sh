@@ -34,6 +34,8 @@ mkdir -p "${PACKAGE_DIR}"
 trap "rm -fr ${PACKAGE_DIR}" EXIT
 
 cp $* ${PACKAGE_DIR}
+# The server jar needs to be the first binary we extract. This is how the Bazel
+# client knows what .jar to pass to the JVM.
 cp ${DEPLOY_JAR} ${PACKAGE_DIR}/A-server.jar
 cp ${INSTALL_BASE_KEY} ${PACKAGE_DIR}/install_base_key
 # The timestamp of embedded tools should already be zeroed out in the input zip
@@ -41,7 +43,7 @@ touch -t 198001010000.00 ${PACKAGE_DIR}/*
 
 if [ -n "${EMBEDDED_TOOLS}" ]; then
   mkdir ${PACKAGE_DIR}/embedded_tools
-  (cd ${PACKAGE_DIR}/embedded_tools && unzip -q ${WORKDIR}/${EMBEDDED_TOOLS})
+  (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
 
-(cd ${PACKAGE_DIR} && find . -type f | sort | zip -qDX@ ${WORKDIR}/${OUT})
+(cd ${PACKAGE_DIR} && find . -type f | sort | zip -qDX@ "${WORKDIR}/${OUT}")

@@ -44,7 +44,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
@@ -71,7 +70,7 @@ public final class UnixGlob {
     GlobVisitor visitor =
         (threadPool == null)
             ? new GlobVisitor(checkForInterruption)
-            : new GlobVisitor(threadPool, checkForInterruption, -1);
+            : new GlobVisitor(threadPool, checkForInterruption);
     return visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
   }
 
@@ -85,7 +84,7 @@ public final class UnixGlob {
     GlobVisitor visitor =
         (threadPool == null)
             ? new GlobVisitor(checkForInterruption)
-            : new GlobVisitor(threadPool, checkForInterruption, -1);
+            : new GlobVisitor(threadPool, checkForInterruption);
     visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
     return visitor.getNumGlobTasksForTesting();
   }
@@ -97,10 +96,9 @@ public final class UnixGlob {
       Predicate<Path> dirPred,
       FilesystemCalls syscalls,
       boolean checkForInterruption,
-      ThreadPoolExecutor threadPool,
-      int maxDirectoriesToEagerlyVisit) {
+      ThreadPoolExecutor threadPool) {
     Preconditions.checkNotNull(threadPool, "%s %s", base, patterns);
-    return new GlobVisitor(threadPool, checkForInterruption, maxDirectoriesToEagerlyVisit)
+    return new GlobVisitor(threadPool, checkForInterruption)
         .globAsync(base, patterns, excludeDirectories, dirPred, syscalls);
   }
 
@@ -132,15 +130,6 @@ public final class UnixGlob {
     }
     if (pattern.charAt(0) == '/') {
       return "pattern cannot be absolute";
-    }
-    for (int i = 0; i < pattern.length(); i++) {
-      char c = pattern.charAt(i);
-      switch (c) {
-        case '(': case ')':
-        case '{': case '}':
-        case '[': case ']':
-        return "illegal character '" + c + "'";
-      }
     }
     Iterable<String> segments = Splitter.on('/').split(pattern);
     for (String segment : segments) {
@@ -274,7 +263,7 @@ public final class UnixGlob {
     /**
      * Return the stat() for the given path, or null.
      */
-    FileStatus statNullable(Path path, Symlinks symlinks);
+    FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException;
   }
 
   public static FilesystemCalls DEFAULT_SYSCALLS = new FilesystemCalls() {
@@ -284,8 +273,8 @@ public final class UnixGlob {
     }
 
     @Override
-    public FileStatus statNullable(Path path, Symlinks symlinks) {
-      return path.statNullable(symlinks);
+    public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
+      return path.statIfFound(symlinks);
     }
   };
 
@@ -309,7 +298,6 @@ public final class UnixGlob {
     private ThreadPoolExecutor threadPool;
     private AtomicReference<? extends FilesystemCalls> syscalls =
         new AtomicReference<>(DEFAULT_SYSCALLS);
-    private int maxDirectoriesToEagerlyVisit = -1;
 
     /**
      * Creates a glob builder with the given base path.
@@ -390,11 +378,6 @@ public final class UnixGlob {
       return this;
     }
 
-    public Builder setMaxDirectoriesToEagerlyVisit(int maxDirectoriesToEagerlyVisit) {
-      this.maxDirectoriesToEagerlyVisit = maxDirectoriesToEagerlyVisit;
-      return this;
-    }
-
     /**
      * Executes the glob.
      */
@@ -439,8 +422,7 @@ public final class UnixGlob {
           pathFilter,
           syscalls.get(),
           checkForInterrupt,
-          threadPool,
-          maxDirectoriesToEagerlyVisit);
+          threadPool);
     }
   }
 
@@ -507,21 +489,17 @@ public final class UnixGlob {
     private final AtomicLong totalOps = new AtomicLong(0);
     private final AtomicLong pendingOps = new AtomicLong(0);
     private final AtomicReference<IOException> failure = new AtomicReference<>();
-    private final int maxDirectoriesToEagerlyVisit;
-    private final AtomicInteger visitedDirectories = new AtomicInteger(0);
     private volatile boolean canceled = false;
 
     GlobVisitor(
         ThreadPoolExecutor executor,
-        boolean failFastOnInterrupt,
-        int maxDirectoriesToEagerlyVisit) {
+        boolean failFastOnInterrupt) {
       this.executor = executor;
       this.result = new GlobFuture(this, failFastOnInterrupt);
-      this.maxDirectoriesToEagerlyVisit = maxDirectoriesToEagerlyVisit;
     }
 
     GlobVisitor(boolean failFastOnInterrupt) {
-      this(null, failFastOnInterrupt, -1);
+      this(null, failFastOnInterrupt);
     }
 
     /**
@@ -558,25 +536,22 @@ public final class UnixGlob {
     }
 
     /**
-     * Whether or not to store the results of this glob. If this glob is being done purely to warm
-     * the filesystem, we do not store the results, since it would take unnecessary memory.
-     */
-    private boolean storeGlobResults() {
-      return maxDirectoriesToEagerlyVisit == -1;
-    }
-
-    /**
      * Same as {@link #glob}, except does so asynchronously and returns a {@link Future} for the
      * result.
      */
-    public Future<List<Path>> globAsync(
+    Future<List<Path>> globAsync(
         Path base,
         Collection<String> patterns,
         boolean excludeDirectories,
         Predicate<Path> dirPred,
         FilesystemCalls syscalls) {
 
-      FileStatus baseStat = syscalls.statNullable(base, Symlinks.FOLLOW);
+      FileStatus baseStat;
+      try {
+        baseStat = syscalls.statIfFound(base, Symlinks.FOLLOW);
+      } catch (IOException e) {
+        return Futures.immediateFailedFuture(e);
+      }
       if (baseStat == null || patterns.isEmpty()) {
         return Futures.immediateFuture(Collections.<Path>emptyList());
       }
@@ -640,18 +615,16 @@ public final class UnixGlob {
       totalOps.incrementAndGet();
       pendingOps.incrementAndGet();
 
-      Runnable wrapped = new Runnable() {
-        @Override
-        public void run() {
-          try {
-            if (!canceled && failure.get() == null) {
-              r.run();
+      Runnable wrapped =
+          () -> {
+            try {
+              if (!canceled && failure.get() == null) {
+                r.run();
+              }
+            } finally {
+              decrementAndCheckDone();
             }
-          } finally {
-            decrementAndCheckDone();
-          }
-        }
-      };
+          };
 
       if (executor == null) {
         wrapped.run();
@@ -780,7 +753,7 @@ public final class UnixGlob {
       }
 
       if (idx == context.patternParts.length) { // Base case.
-        if (storeGlobResults() && !(context.excludeDirectories && baseIsDir)) {
+        if (!(context.excludeDirectories && baseIsDir)) {
           results.add(base);
         }
 
@@ -792,10 +765,6 @@ public final class UnixGlob {
         return;
       }
 
-      if (maxDirectoriesToEagerlyVisit > -1
-          && visitedDirectories.incrementAndGet() > maxDirectoriesToEagerlyVisit) {
-        return;
-      }
       final String pattern = context.patternParts[idx];
 
       // ** is special: it can match nothing at all.
@@ -808,7 +777,7 @@ public final class UnixGlob {
       if (!pattern.contains("*") && !pattern.contains("?")) {
         // We do not need to do a readdir in this case, just a stat.
         Path child = base.getChild(pattern);
-        FileStatus status = context.syscalls.statNullable(child, Symlinks.FOLLOW);
+        FileStatus status = context.syscalls.statIfFound(child, Symlinks.FOLLOW);
         if (status == null || (!status.isDirectory() && !status.isFile())) {
           // The file is a dangling symlink, fifo, does not exist, etc.
           return;
@@ -843,7 +812,7 @@ public final class UnixGlob {
             context.queueGlob(child, childIsDir, idx + 1);
           } else {
             // Instead of using an async call, just repeat the base case above.
-            if (storeGlobResults() && idx + 1 == context.patternParts.length) {
+            if (idx + 1 == context.patternParts.length) {
               results.add(child);
             }
           }

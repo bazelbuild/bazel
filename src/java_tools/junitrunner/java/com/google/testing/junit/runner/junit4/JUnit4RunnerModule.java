@@ -31,7 +31,7 @@ import javax.inject.Singleton;
 import org.junit.runner.notification.RunListener;
 
 /**
- * Dagger module for real test runs.
+ * Utility class for real test runs. This is a legacy Dagger module.
  */
 public final class JUnit4RunnerModule {
   static Ticker ticker() {

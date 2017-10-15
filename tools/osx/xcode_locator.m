@@ -51,11 +51,18 @@
 
 // Given an entry, insert it into a dictionary that is keyed by versions.
 // For an entry that is 6.4.1:/Applications/Xcode.app
-// Add it for 6.4.1, and optionally add it for 6.4 if it is newer than any entry that may already
-// be there, and add it for 6 if it is newer than what is there.
+// Add it for 6.4.1, and optionally add it for 6.4 and 6 if it is "better" than any entry that may
+// already be there, where "better" is defined as:
+// 1. Under /Applications/. (This avoids mounted xcode versions taking precedence over installed
+//    versions.)
+// 2. Not older (at least as high version number).
 static void AddEntryToDictionary(XcodeVersionEntry *entry, NSMutableDictionary *dict) {
+  BOOL inApplications = [entry.url.path rangeOfString:@"/Applications/"].location != NSNotFound;
   NSString *entryVersion = entry.version;
   NSString *subversion = entryVersion;
+  if (dict[entryVersion] && !inApplications) {
+    return;
+  }
   dict[entryVersion] = entry;
   while (YES) {
     NSRange range = [subversion rangeOfString:@"." options:NSBackwardsSearch];
@@ -65,7 +72,9 @@ static void AddEntryToDictionary(XcodeVersionEntry *entry, NSMutableDictionary *
     subversion = [subversion substringToIndex:range.location];
     XcodeVersionEntry *subversionEntry = dict[subversion];
     if (subversionEntry) {
-      if ([subversionEntry.version compare:entry.version] == NSOrderedAscending) {
+      BOOL atLeastAsLarge =
+          ([subversionEntry.version compare:entry.version] == NSOrderedDescending);
+      if (inApplications && atLeastAsLarge) {
         dict[subversion] = entry;
       }
     } else {

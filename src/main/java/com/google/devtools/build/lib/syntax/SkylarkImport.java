@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.Serializable;
+import javax.annotation.Nullable;
 
 /**
  * Encapsulates the four syntactic variants of Skylark imports: Absolute paths, relative
@@ -45,7 +46,7 @@ public interface SkylarkImport extends Serializable {
    *
    * @throws IllegalStateException if this import takes the form of an absolute path.
    */
-  Label getLabel(Label containingFileLabel);
+  Label getLabel(@Nullable Label containingFileLabel);
 
   /**
    * True if this import takes the form of an absolute path.

@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
 
 /**
@@ -28,7 +30,7 @@ import com.google.devtools.build.lib.util.Preconditions;
  * All InputFiles for the same target are equivalent, so configuration does not
  * play any role here and is always set to <b>null</b>.
  */
-public final class InputFileConfiguredTarget extends FileConfiguredTarget {
+public final class InputFileConfiguredTarget extends FileConfiguredTarget implements SkylarkValue {
   private final Artifact artifact;
   private final NestedSet<TargetLicense> licenses;
 
@@ -64,5 +66,20 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   @Override
   public final NestedSet<TargetLicense> getTransitiveLicenses() {
     return licenses;
+  }
+
+  @Override
+  public TargetLicense getOutputLicenses() {
+    return null;
+  }
+
+  @Override
+  public boolean hasOutputLicenses() {
+    return false;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<input file target " + getTarget().getLabel() + ">");
   }
 }

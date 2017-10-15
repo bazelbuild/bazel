@@ -21,14 +21,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
-import com.google.devtools.build.android.AndroidResourceClassWriter;
+import com.google.devtools.build.android.AndroidResourceSymbolSink;
+import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Path;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -72,7 +72,7 @@ public class PublicXmlResourceValue implements XmlResourceValue {
 
   @Override
   public void write(
-      FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+      FullyQualifiedName key, DataSource source, AndroidDataWritingVisitor mergedDataWriter) {
     for (Entry<ResourceType, Optional<Integer>> entry : typeToId.entrySet()) {
       Integer value = entry.getValue().orNull();
       mergedDataWriter
@@ -91,10 +91,9 @@ public class PublicXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void writeResourceToClass(
-      FullyQualifiedName key, AndroidResourceClassWriter resourceClassWriter) {
+  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
     for (Entry<ResourceType, Optional<Integer>> entry : typeToId.entrySet()) {
-      resourceClassWriter.writePublicValue(entry.getKey(), key.name(), entry.getValue());
+      sink.acceptPublicResource(entry.getKey(), key.name(), entry.getValue());
     }
   }
 
@@ -172,5 +171,10 @@ public class PublicXmlResourceValue implements XmlResourceValue {
       combined.put(entry.getKey(), entry.getValue());
     }
     return of(combined);
+  }
+  
+  @Override
+  public String asConflictStringWith(DataSource source) {
+    return source.asConflictString();
   }
 }

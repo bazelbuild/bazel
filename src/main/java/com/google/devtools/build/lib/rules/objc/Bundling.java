@@ -590,7 +590,7 @@ final class Bundling {
   public Map<String, String> variableSubstitutions() {
     return ImmutableMap.of(
         "EXECUTABLE_NAME", Strings.nullToEmpty(executableName),
-        "BUNDLE_NAME", new PathFragment(getBundleDir()).getBaseName(),
+        "BUNDLE_NAME", PathFragment.create(getBundleDir()).getBaseName(),
         "PRODUCT_NAME", name);
   }
 

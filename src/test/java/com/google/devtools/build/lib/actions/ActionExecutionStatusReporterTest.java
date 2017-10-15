@@ -14,31 +14,27 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-/**
- * Test for the {@link ActionExecutionStatusReporter} class.
- */
+/** Test for the {@link ActionExecutionStatusReporter} class. */
 @RunWith(JUnit4.class)
 public class ActionExecutionStatusReporterTest {
   private static final class MockClock implements Clock {
@@ -72,6 +68,7 @@ public class ActionExecutionStatusReporterTest {
 
   private Action mockAction(String progressMessage) {
     Action action = Mockito.mock(Action.class);
+    when(action.getOwner()).thenReturn(ActionsTestUtil.NULL_ACTION_OWNER);
     when(action.getProgressMessage()).thenReturn(progressMessage);
     if (progressMessage == null) {
       when(action.prettyPrint()).thenReturn("default message");
@@ -96,18 +93,32 @@ public class ActionExecutionStatusReporterTest {
   private void verifyOutput(String... lines) throws Exception {
     events.clear();
     statusReporter.showCurrentlyExecutingActions("");
-    assertThat(Splitter.on('\n').omitEmptyStrings().trimResults().split(
-        Iterables.getOnlyElement(events.collector()).getMessage().replaceAll(" +", " ")))
-        .containsExactlyElementsIn(Arrays.asList(lines)).inOrder();
+    assertThat(
+            Splitter.on('\n')
+                .omitEmptyStrings()
+                .trimResults()
+                .split(
+                    Iterables.getOnlyElement(events.collector())
+                        .getMessage()
+                        .replaceAll(" +", " ")))
+        .containsExactlyElementsIn(Arrays.asList(lines))
+        .inOrder();
   }
 
   private void verifyWarningOutput(String... lines) throws Exception {
     events.setFailFast(false);
     events.clear();
     statusReporter.warnAboutCurrentlyExecutingActions();
-    assertThat(Splitter.on('\n').omitEmptyStrings().trimResults().split(
-        Iterables.getOnlyElement(events.collector()).getMessage().replaceAll(" +", " ")))
-        .containsExactlyElementsIn(Arrays.asList(lines)).inOrder();
+    assertThat(
+            Splitter.on('\n')
+                .omitEmptyStrings()
+                .trimResults()
+                .split(
+                    Iterables.getOnlyElement(events.collector())
+                        .getMessage()
+                        .replaceAll(" +", " ")))
+        .containsExactlyElementsIn(Arrays.asList(lines))
+        .inOrder();
   }
 
   @Test
@@ -260,18 +271,18 @@ public class ActionExecutionStatusReporterTest {
   @Test
   public void testWaitTimeCalculation() throws Exception {
     // --progress_report_interval=0
-    assertEquals(10, ActionExecutionStatusReporter.getWaitTime(0, 0));
-    assertEquals(30, ActionExecutionStatusReporter.getWaitTime(0, 10));
-    assertEquals(60, ActionExecutionStatusReporter.getWaitTime(0, 30));
-    assertEquals(60, ActionExecutionStatusReporter.getWaitTime(0, 60));
+    assertThat(ActionExecutionStatusReporter.getWaitTime(0, 0)).isEqualTo(10);
+    assertThat(ActionExecutionStatusReporter.getWaitTime(0, 10)).isEqualTo(30);
+    assertThat(ActionExecutionStatusReporter.getWaitTime(0, 30)).isEqualTo(60);
+    assertThat(ActionExecutionStatusReporter.getWaitTime(0, 60)).isEqualTo(60);
 
     // --progress_report_interval=42
-    assertEquals(42, ActionExecutionStatusReporter.getWaitTime(42, 0));
-    assertEquals(42, ActionExecutionStatusReporter.getWaitTime(42, 42));
+    assertThat(ActionExecutionStatusReporter.getWaitTime(42, 0)).isEqualTo(42);
+    assertThat(ActionExecutionStatusReporter.getWaitTime(42, 42)).isEqualTo(42);
 
     // --progress_report_interval=30 (looks like one of the default timeout stages)
-    assertEquals(30, ActionExecutionStatusReporter.getWaitTime(30, 0));
-    assertEquals(30, ActionExecutionStatusReporter.getWaitTime(30, 30));
+    assertThat(ActionExecutionStatusReporter.getWaitTime(30, 0)).isEqualTo(30);
+    assertThat(ActionExecutionStatusReporter.getWaitTime(30, 30)).isEqualTo(30);
   }
 
   private void setScheduling(ActionExecutionMetadata action) {

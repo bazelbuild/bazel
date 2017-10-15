@@ -9,12 +9,14 @@ filegroup(
         "//third_party/iossim:srcs",
         "//third_party/grpc:srcs",
         "//third_party/java/android_databinding:srcs",
+        "//third_party/java/aosp_gradle_core:srcs",
         "//third_party/java/apkbuilder:srcs",
-        "//third_party/java/apksig:srcs",
-        "//third_party/java/buck-ios-support:srcs",
         "//third_party/java/dd_plist:srcs",
         "//third_party/java/j2objc:srcs",
+        "//third_party/java/jacoco:srcs",
         "//third_party/java/jarjar:srcs",
+        "//third_party/java/javapoet:srcs",
+        "//third_party/java/jopt-simple:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/jdk/javabuilder:srcs",
         "//third_party/javascript/bootstrap:srcs",
@@ -28,6 +30,8 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/zlib:srcs",
         "//third_party/nanopb:srcs",
+        "//third_party/googleapis:srcs",
+        "//third_party/def_parser:srcs",
     ],
 )
 
@@ -76,13 +80,21 @@ java_import(
         "android_common/com.android.tools.build_builder-model_2.0.0.jar",
         "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
         "android_common/com.android.tools.build_manifest-merger_25.0.0.jar",
+        "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
+        "android_common/com.android.tools.layoutlib_layoutlib_25.0.0.jar",
+        "android_common/com.android.tools.lint_lint-api_25.0.0.jar",
+        "android_common/com.android.tools.lint_lint-checks_25.0.0.jar",
         "android_common/com.android.tools_common_25.0.0.jar",
         "android_common/com.android.tools_ddmlib_25.0.0.jar",
         "android_common/com.android.tools_dvlib_25.0.0.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
         "android_common/com.android.tools_sdk-common_25.0.0.jar",
         "android_common/com.android.tools_sdklib_25.0.0.jar",
-        "android_common/com.android.tools.layoutlib_layoutlib_25.0.0.jar",
+    ],
+    runtime_deps = [
+        ":asm",
+        ":asm-analysis",
+        ":asm-tree",
     ],
 )
 
@@ -118,12 +130,13 @@ java_import(
 
 java_import(
     name = "apache_httpclient",
-    jars = ["apache_httpclient/httpclient-4.2.5.jar"],
+    jars = ["apache_httpclient/httpclient-4.5.3.jar"],
+    deps = [":apache_commons_logging"],
 )
 
 java_import(
     name = "apache_httpcore",
-    jars = ["apache_httpcore/httpcore-4.2.4.jar"],
+    jars = ["apache_httpcore/httpcore-4.4.6.jar"],
 )
 
 java_import(
@@ -136,18 +149,57 @@ java_import(
 )
 
 java_import(
+    name = "api_client",
+    jars = [
+        "api_client/google-api-client-1.22.0.jar",
+        "api_client/google-api-client-jackson2-1.22.0.jar",
+        "api_client/google-http-client-1.22.0.jar",
+        "api_client/google-http-client-jackson2-1.22.0.jar",
+    ],
+    runtime_deps = [
+        ":jackson2",
+    ],
+)
+
+java_import(
     name = "asm",
-    jars = ["asm/asm-5.0.4.jar"],
+    jars = ["asm/asm-5.1.jar"],
+)
+
+java_import(
+    name = "asm-analysis",
+    jars = ["asm/asm-analysis-5.1.jar"],
+    runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-5.0.4.jar"],
+    jars = ["asm/asm-commons-5.1.jar"],
+    runtime_deps = [":asm-tree"],
+)
+
+java_import(
+    name = "asm-tree",
+    jars = ["asm/asm-tree-5.1.jar"],
+    runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-5.0.4.jar"],
+    jars = ["asm/asm-util-5.1.jar"],
+    runtime_deps = [":asm-tree"],
+)
+
+java_import(
+    name = "auth",
+    jars = [
+        "auth/google-auth-library-oauth2-http-0.6.0.jar",
+        "auth/google-auth-library-credentials-0.6.0.jar",
+    ],
+    runtime_deps = [
+        ":api_client",
+        ":guava",
+    ],
 )
 
 java_plugin(
@@ -215,49 +267,13 @@ java_library(
 
 java_import(
     name = "auto_value_value",
-    jars = ["auto/auto-value-1.2.jar"],
+    jars = ["auto/auto-value-1.4.jar"],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "auto_value-jars",
-    srcs = ["auto/auto-value-1.2.jar"],
-)
-
-java_library(
-    name = "dagger",
-    exported_plugins = [":dagger_plugin"],
-    exports = [
-        ":dagger_api",
-        ":jsr330_inject",
-    ],
-)
-
-java_plugin(
-    name = "dagger_plugin",
-    processor_class = "dagger.internal.codegen.ComponentProcessor",
-    deps = [
-        ":dagger_api",
-        ":dagger_compiler",
-        ":dagger_producers",
-        ":guava",
-        ":jsr330_inject",
-    ],
-)
-
-java_import(
-    name = "dagger_api",
-    jars = ["dagger/dagger-2.5.jar"],
-)
-
-java_import(
-    name = "dagger_compiler",
-    jars = ["dagger/dagger-compiler-2.5.jar"],
-)
-
-java_import(
-    name = "dagger_producers",
-    jars = ["dagger/dagger-producers-2.5.jar"],
+    srcs = ["auto/auto-value-1.4.jar"],
 )
 
 java_import(
@@ -284,19 +300,35 @@ java_import(
 )
 
 java_import(
+    name = "hungarian_algorithm",
+    jars = ["hungarian_algorithm/software-and-algorithms-1.0.jar"],
+    srcjar = "hungarian_algorithm/software-and-algorithms-1.0-src.jar",
+)
+
+java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_core-2.0.13.jar",
-        "error_prone/error_prone_annotations-2.0.13.jar",
-        "error_prone/error_prone_annotation-2.0.13.jar",
+        "error_prone/error_prone_check_api-2.1.1.jar",
+        "error_prone/error_prone_core-2.1.1.jar",
+        "error_prone/error_prone_annotations-2.1.1.jar",
+        "error_prone/error_prone_annotation-2.1.1.jar",
     ],
-    exports = [
+    deps = [
+        ":auto_common",
         ":guava",
+        ":hungarian_algorithm",
         ":jcip_annotations",
         ":jsr305",
         ":pcollections",
         "//third_party/checker_framework_dataflow",
         "//third_party/jformatstring",
+    ],
+)
+
+java_import(
+    name = "jackson2",
+    jars = [
+        "jackson2/jackson-core-2.8.6.jar",
     ],
 )
 
@@ -316,12 +348,15 @@ java_import(
 
 # For bootstrapping JavaBuilder
 filegroup(
-    name = "error_prone-jars",
+    name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
-        "error_prone/error_prone_annotation-2.0.13.jar",
-        "error_prone/error_prone_annotations-2.0.13.jar",
-        "error_prone/error_prone_core-2.0.13.jar",
-        "guava/guava-19.0.jar",
+        "auto/auto-common-0.3.jar",
+        "error_prone/error_prone_annotation-2.1.1.jar",
+        "error_prone/error_prone_annotations-2.1.1.jar",
+        "error_prone/error_prone_check_api-2.1.1.jar",
+        "error_prone/error_prone_core-2.1.1.jar",
+        "guava/guava-21.0.jar",
+        "hungarian_algorithm/software-and-algorithms-1.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
@@ -332,13 +367,32 @@ filegroup(
 
 java_import(
     name = "guava",
-    jars = ["guava/guava-19.0.jar"],
+    jars = [
+        "error_prone/error_prone_annotations-2.1.1.jar",
+        "jcip_annotations/jcip-annotations-1.0-1.jar",
+        "jsr305/jsr-305.jar",
+        "guava/guava-21.0.jar",
+    ],
+)
+
+java_import(
+    name = "instrumentation",
+    jars = [
+        "instrumentation/instrumentation-api-0.4.3.jar",
+    ],
+)
+
+java_import(
+    name = "opencensus-api",
+    jars = [
+        "opencensus/opencensus-api-0.5.1.jar",
+    ],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-19.0.jar"],
+    srcs = ["guava/guava-21.0.jar"],
 )
 
 java_import(
@@ -348,7 +402,7 @@ java_import(
 
 java_import(
     name = "jimfs",
-    jars = ["jimfs/jimfs-1.1-rc1.jar"],
+    jars = ["jimfs/jimfs-1.1.jar"],
 )
 
 java_import(
@@ -394,7 +448,12 @@ java_import(
 
 java_import(
     name = "netty",
-    jars = ["netty/netty-all-4.1.0.CR6.jar"],
+    jars = ["netty/netty-all-4.1.14.Final.jar"],
+)
+
+java_import(
+    name = "netty_tcnative",
+    jars = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.5.Final.jar"],
 )
 
 java_import(
@@ -429,7 +488,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib.jar"],
+    jars = ["guava/guava-testlib-21.0.jar"],
 )
 
 java_import(
@@ -446,8 +505,13 @@ java_import(
 )
 
 java_import(
+    name = "turbine",
+    jars = ["turbine/turbine-0.1-20170828.jar"],
+)
+
+java_import(
     name = "truth",
-    jars = ["truth/truth-0.28.jar"],
+    jars = ["truth/truth-0.32.jar"],
 )
 
 java_import(
@@ -529,4 +593,9 @@ config_setting(
 config_setting(
     name = "s390x",
     values = {"host_cpu": "s390x"},
+)
+
+config_setting(
+    name = "ppc",
+    values = {"host_cpu": "ppc"},
 )

@@ -18,8 +18,8 @@ import com.sun.tools.javac.tree.JCTree;
 public class NodeUtils {
 
     /**
-     * @return true iff {@code node} corresponds to a boolean typed
-     *         expression (either the primitive type {@code boolean}, or
+     * @return true iff <code>node</code> corresponds to a boolean typed
+     *         expression (either the primitive type <code>boolean</code>, or
      *         class type {@link java.lang.Boolean})
      */
     public static boolean isBooleanTypeNode(Node node) {

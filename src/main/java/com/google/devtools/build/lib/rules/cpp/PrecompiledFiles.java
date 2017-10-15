@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -34,7 +34,11 @@ public final class PrecompiledFiles {
    * rule (this is the most common usage for this class).
    */
   public PrecompiledFiles(RuleContext ruleContext) {
-    this.files = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
+    if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
+      this.files = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
+    } else {
+      this.files = ImmutableList.<Artifact>of();
+    }
   }
 
   public Iterable<Artifact> getLibraries() {
@@ -71,21 +75,20 @@ public final class PrecompiledFiles {
 
   public Iterable<Artifact> getObjectFiles(final boolean usePic) {
     if (usePic) {
-      return Iterables.filter(files, new Predicate<Artifact>() {
-        @Override
-        public boolean apply(Artifact artifact) {
-          String filename = artifact.getExecPathString();
+      return Iterables.filter(
+          files,
+          artifact -> {
+            String filename = artifact.getExecPathString();
 
-          // For compatibility with existing BUILD files, any ".o" files listed
-          // in srcs are assumed to be position-independent code, or
-          // at least suitable for inclusion in shared libraries, unless they
-          // end with ".nopic.o". (The ".nopic.o" extension is an undocumented
-          // feature to give users at least some control over this.) Note that
-          // some target platforms do not require shared library code to be PIC.
-          return CppFileTypes.PIC_OBJECT_FILE.matches(filename)
-              || (CppFileTypes.OBJECT_FILE.matches(filename) && !filename.endsWith(".nopic.o"));
-        }
-      });
+            // For compatibility with existing BUILD files, any ".o" files listed
+            // in srcs are assumed to be position-independent code, or
+            // at least suitable for inclusion in shared libraries, unless they
+            // end with ".nopic.o". (The ".nopic.o" extension is an undocumented
+            // feature to give users at least some control over this.) Note that
+            // some target platforms do not require shared library code to be PIC.
+            return CppFileTypes.PIC_OBJECT_FILE.matches(filename)
+                || (CppFileTypes.OBJECT_FILE.matches(filename) && !filename.endsWith(".nopic.o"));
+          });
     } else {
       return FileType.filter(files, CppFileTypes.OBJECT_FILE);
     }

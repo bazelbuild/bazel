@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -45,6 +47,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -113,10 +116,8 @@ public class Package {
    */
   private MakeEnvironment makeEnv;
 
-  /**
-   * The collection of all targets defined in this package, indexed by name.
-   */
-  protected Map<String, Target> targets;
+  /** The collection of all targets defined in this package, indexed by name. */
+  protected ImmutableSortedKeyMap<String, Target> targets;
 
   /**
    * Default visibility for rules that do not specify it.
@@ -192,6 +193,9 @@ public class Package {
   private ImmutableSet<String> features;
 
   private ImmutableList<Event> events;
+  private ImmutableList<Postable> posts;
+
+  private ImmutableList<Label> registeredToolchainLabels;
 
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
@@ -259,6 +263,8 @@ public class Package {
     defaultRestrictedTo = environments;
   }
 
+  // This must always be consistent with Root.computeSourceRoot; otherwise computing source roots
+  // from exec paths does not work, which can break the action cache for input-discovering actions.
   private static Path getSourceRoot(Path buildFile, PathFragment packageFragment) {
     Path current = buildFile.getParentDirectory();
     for (int i = 0, len = packageFragment.segmentCount();
@@ -314,6 +320,8 @@ public class Package {
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSortedSet.copyOf(builder.features);
     this.events = ImmutableList.copyOf(builder.events);
+    this.posts = ImmutableList.copyOf(builder.posts);
+    this.registeredToolchainLabels = ImmutableList.copyOf(builder.registeredToolchainLabels);
   }
 
   /**
@@ -389,7 +397,7 @@ public class Package {
   /**
    * Returns all make variables for a given platform.
    */
-  public Map<String, String> getAllMakeVariables(String platform) {
+  public ImmutableMap<String, String> getAllMakeVariables(String platform) {
     ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
     for (String var : makeEnv.getBindings().keySet()) {
       String value = makeEnv.lookup(var, platform);
@@ -429,27 +437,28 @@ public class Package {
     return containsErrors;
   }
 
+  public List<Postable> getPosts() {
+    return posts;
+  }
+
   public List<Event> getEvents() {
     return events;
   }
 
-  /**
-   * Returns an (immutable, unordered) view of all the targets belonging to this package.
-   */
-  public Collection<Target> getTargets() {
-    return getTargets(targets);
+  /** Returns an (immutable, ordered) view of all the targets belonging to this package. */
+  public ImmutableSortedKeyMap<String, Target> getTargets() {
+    return targets;
   }
 
   /**
-   * Common getTargets implementation, accessible by both {@link Package} and
-   * {@link Package.Builder}.
+   * Common getTargets implementation, accessible by {@link Package.Builder}.
    */
   private static Collection<Target> getTargets(Map<String, Target> targetMap) {
     return Collections.unmodifiableCollection(targetMap.values());
   }
 
   /**
-   * Returns a (read-only, unordered) iterator of all the targets belonging
+   * Returns a (read-only, ordered) iterable of all the targets belonging
    * to this package which are instances of the specified class.
    */
   public <T extends Target> Iterable<T> getTargets(Class<T> targetClass) {
@@ -475,11 +484,14 @@ public class Package {
     return (Rule) targets.get(targetName);
   }
 
+  /** Returns all rules in the package that match the given rule class. */
+  public Iterable<Rule> getRulesMatchingRuleClass(final String ruleClass) {
+    Iterable<Rule> targets = getTargets(Rule.class);
+    return Iterables.filter(targets, rule -> rule.getRuleClass().equals(ruleClass));
+  }
+
   /**
    * Returns this package's workspace name.
-   *
-   * <p>Package-private to encourage callers to get their workspace name from a rule, not a
-   * package.</p>
    */
   public String getWorkspaceName() {
     return workspaceName;
@@ -513,7 +525,7 @@ public class Package {
     // stat(2) is executed.
     Path filename = getPackageDirectory().getRelative(targetName);
     String suffix;
-    if (!new PathFragment(targetName).isNormalized()) {
+    if (!PathFragment.create(targetName).isNormalized()) {
       // Don't check for file existence in this case because the error message
       // would be confusing and wrong. If the targetName is "foo/bar/.", and
       // there is a directory "foo/bar", it doesn't mean that "//pkg:foo/bar/."
@@ -527,12 +539,7 @@ public class Package {
       suffix = "; however, a source file of this name exists.  (Perhaps add "
           + "'exports_files([\"" + targetName + "\"])' to " + name + "/BUILD?)";
     } else {
-      String suggestion = SpellChecker.suggest(targetName, targets.keySet());
-      if (suggestion != null) {
-        suffix = " (did you mean '" + suggestion + "'?)";
-      } else {
-        suffix = "";
-      }
+      suffix = SpellChecker.didYouMean(targetName, targets.keySet());
     }
 
     throw makeNoSuchTargetException(targetName, suffix);
@@ -641,6 +648,10 @@ public class Package {
     return defaultRestrictedTo;
   }
 
+  public ImmutableList<Label> getRegisteredToolchainLabels() {
+    return registeredToolchainLabels;
+  }
+
   @Override
   public String toString() {
     return "Package(" + name + ")="
@@ -692,6 +703,7 @@ public class Package {
    * {@link com.google.devtools.build.lib.skyframe.PackageFunction}.
    */
   public static class Builder {
+
     public static interface Helper {
       /**
        * Returns a fresh {@link Package} instance that a {@link Builder} will internally mutate
@@ -740,6 +752,9 @@ public class Package {
     private List<String> defaultCopts = null;
     private List<String> features = new ArrayList<>();
     private List<Event> events = Lists.newArrayList();
+    private List<Postable> posts = Lists.newArrayList();
+    @Nullable String ioExceptionMessage = null;
+    @Nullable private IOException ioException = null;
     private boolean containsErrors = false;
 
     private License defaultLicense = License.NO_LICENSE;
@@ -752,6 +767,8 @@ public class Package {
     protected ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
 
     protected ExternalPackageBuilder externalPackageData = new ExternalPackageBuilder();
+
+    protected List<Label> registeredToolchainLabels = new ArrayList<>();
 
     /**
      * True iff the "package" function has already been called in this package.
@@ -819,6 +836,10 @@ public class Package {
 
     Path getFilename() {
       return filename;
+    }
+
+    public List<Postable> getPosts() {
+      return posts;
     }
 
     public List<Event> getEvents() {
@@ -911,6 +932,12 @@ public class Package {
       return this;
     }
 
+    Builder setIOExceptionAndMessage(IOException e, String message) {
+      this.ioException = e;
+      this.ioExceptionMessage = message;
+      return setContainsErrors();
+    }
+
     /**
      * Declares that errors were encountering while loading this package.
      */
@@ -921,6 +948,18 @@ public class Package {
 
     public boolean containsErrors() {
       return containsErrors;
+    }
+
+    public Builder addPosts(Iterable<Postable> posts) {
+      for (Postable post : posts) {
+        addPost(post);
+      }
+      return this;
+    }
+
+    public Builder addPost(Postable post) {
+      this.posts.add(post);
+      return this;
     }
 
     public Builder addEvents(Iterable<Event> events) {
@@ -1129,7 +1168,7 @@ public class Package {
       }
       if (!((InputFile) cacheInstance).isVisibilitySpecified()
           || cacheInstance.getVisibility() != visibility
-          || cacheInstance.getLicense() != license) {
+          || !Objects.equals(cacheInstance.getLicense(), license)) {
         targets.put(filename, new InputFile(
             pkg, cacheInstance.getLabel(), cacheInstance.getLocation(), visibility, license));
       }
@@ -1234,12 +1273,10 @@ public class Package {
       // Now, modify the package:
       for (OutputFile outputFile : rule.getOutputFiles()) {
         targets.put(outputFile.getName(), outputFile);
-        PathFragment outputFileFragment = new PathFragment(outputFile.getName());
+        PathFragment outputFileFragment = PathFragment.create(outputFile.getName());
         for (int i = 1; i < outputFileFragment.segmentCount(); i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
-          if (!outputFilePrefixes.containsKey(prefix)) {
-            outputFilePrefixes.put(prefix, outputFile);
-          }
+          outputFilePrefixes.putIfAbsent(prefix, outputFile);
         }
       }
       targets.put(rule.getName(), rule);
@@ -1253,11 +1290,19 @@ public class Package {
       addRuleUnchecked(rule);
     }
 
-    private Builder beforeBuild(boolean discoverAssumedInputFiles) throws InterruptedException {
+    void addRegisteredToolchainLabels(List<Label> toolchains) {
+      this.registeredToolchainLabels.addAll(toolchains);
+    }
+
+    private Builder beforeBuild(boolean discoverAssumedInputFiles)
+        throws InterruptedException, NoSuchPackageException {
       Preconditions.checkNotNull(pkg);
       Preconditions.checkNotNull(filename);
       Preconditions.checkNotNull(buildFileLabel);
       Preconditions.checkNotNull(makeEnv);
+      if (ioException != null) {
+        throw new NoSuchPackageException(getPackageIdentifier(), ioExceptionMessage, ioException);
+      }
       // Freeze subincludes.
       subincludes = (subincludes == null)
           ? Collections.<Label, Path>emptyMap()
@@ -1268,12 +1313,14 @@ public class Package {
       // current instance here.
       buildFile = (InputFile) Preconditions.checkNotNull(targets.get(buildFileLabel.getName()));
 
-      List<Rule> rules = Lists.newArrayList(getTargets(Rule.class));
+      // The Iterable returned by getTargets is sorted, so when we build up the list of tests by
+      // processing it in order below, that list will be sorted too.
+      Iterable<Rule> sortedRules = Lists.newArrayList(getTargets(Rule.class));
 
       if (discoverAssumedInputFiles) {
         // All labels mentioned in a rule that refer to an unknown target in the
         // current package are assumed to be InputFiles, so let's create them:
-        for (final Rule rule : rules) {
+        for (final Rule rule : sortedRules) {
           AggregatingAttributeMapper.of(rule).visitLabels(new AcceptsLabelAttribute() {
             @Override
             public void acceptLabelAttribute(Label label, Attribute attribute) {
@@ -1288,27 +1335,24 @@ public class Package {
       // Note, we implement this here when the Package is fully constructed,
       // since clearly this information isn't available at Rule construction
       // time, as forward references are permitted.
-      List<Label> allTests = new ArrayList<>();
-      for (Rule rule : rules) {
+      List<Label> sortedTests = new ArrayList<>();
+      for (Rule rule : sortedRules) {
         if (TargetUtils.isTestRule(rule) && !TargetUtils.hasManualTag(rule)) {
-          allTests.add(rule.getLabel());
+          sortedTests.add(rule.getLabel());
         }
       }
-      Collections.sort(allTests);
-      for (Rule rule : rules) {
+      for (Rule rule : sortedRules) {
         AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
         if (rule.getRuleClass().equals("test_suite")
-            && attributes.get("tests", BuildType.LABEL_LIST).isEmpty()
-            && (!attributes.has("suites", BuildType.LABEL_LIST)
-                || attributes.get("suites", BuildType.LABEL_LIST).isEmpty())) {
-          rule.setAttributeValueByName("$implicit_tests", allTests);
+            && attributes.get("tests", BuildType.LABEL_LIST).isEmpty()) {
+          rule.setAttributeValueByName("$implicit_tests", sortedTests);
         }
       }
       return this;
     }
 
     /** Intended for use by {@link com.google.devtools.build.lib.skyframe.PackageFunction} only. */
-    public Builder buildPartial() throws InterruptedException {
+    public Builder buildPartial() throws InterruptedException, NoSuchPackageException {
       if (alreadyBuilt) {
         return this;
       }
@@ -1356,15 +1400,16 @@ public class Package {
       return externalPackageData;
     }
 
-    public Package build() throws InterruptedException {
+    public Package build() throws InterruptedException, NoSuchPackageException {
       return build(/*discoverAssumedInputFiles=*/ true);
     }
 
     /**
-     * Build the package, optionally adding any labels in the package not already associated with
-     * a target as an input file.
+     * Build the package, optionally adding any labels in the package not already associated with a
+     * target as an input file.
      */
-    public Package build(boolean discoverAssumedInputFiles) throws InterruptedException {
+    public Package build(boolean discoverAssumedInputFiles)
+        throws InterruptedException, NoSuchPackageException {
       if (alreadyBuilt) {
         return pkg;
       }
@@ -1424,7 +1469,7 @@ public class Package {
         }
 
         // Check if a prefix of this output file matches an already existing one
-        PathFragment outputFileFragment = new PathFragment(outputFileName);
+        PathFragment outputFileFragment = PathFragment.create(outputFileName);
         for (int i = 1; i < outputFileFragment.segmentCount(); i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
           if (outputFiles.containsKey(prefix)) {
@@ -1435,9 +1480,7 @@ public class Package {
             throw conflictingOutputFile(outputFile, (OutputFile) targets.get(prefix));
           }
 
-          if (!outputFilePrefixes.containsKey(prefix)) {
-            outputFilePrefixes.put(prefix, outputFile);
-          }
+          outputFilePrefixes.putIfAbsent(prefix, outputFile);
         }
       }
 
@@ -1503,12 +1546,14 @@ public class Package {
     private static String conflictsWith(Target target) {
       String message = "conflicts with existing ";
       if (target instanceof OutputFile) {
-        return message + "generated file from rule '"
-          + ((OutputFile) target).getGeneratingRule().getName()
-          + "'";
+        message +=
+            "generated file from rule '"
+                + ((OutputFile) target).getGeneratingRule().getName()
+                + "'";
       } else {
-        return message + target.getTargetKind();
+        message += target.getTargetKind();
       }
+      return message + ", defined at " + target.getLocation();
     }
   }
 }

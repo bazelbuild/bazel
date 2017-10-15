@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -119,13 +117,10 @@ public final class SymlinkTreeHelper {
     if (enableRunfiles) {
       List<String> args =
           getSpawnArgumentList(
-              actionExecutionContext.getExecutor().getExecRoot(), binTools);
-      try (ResourceHandle handle =
-               ResourceManager.instance().acquireResources(action, RESOURCE_SET)) {
-        actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
-            new BaseSpawn.Local(args, shellEnvironment, action),
-            actionExecutionContext);
-      }
+              actionExecutionContext.getExecRoot(), binTools);
+      actionExecutionContext.getSpawnActionContext(action.getMnemonic()).exec(
+          new BaseSpawn.Local(args, shellEnvironment, action, RESOURCE_SET),
+          actionExecutionContext);
     } else {
       // Pretend we created the runfiles tree by copying the manifest
       try {
@@ -145,7 +140,7 @@ public final class SymlinkTreeHelper {
     Preconditions.checkNotNull(path, BUILD_RUNFILES + " not found in embedded tools");
 
     List<String> args = Lists.newArrayList();
-    args.add(execRoot.getRelative(path).getPathString());
+    args.add(path.getPathString());
 
     if (filesetTree) {
       args.add("--allow_relative");

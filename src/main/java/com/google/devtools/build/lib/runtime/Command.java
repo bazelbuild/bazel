@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -73,6 +72,12 @@ public @interface Command {
   boolean allowResidue() default false;
 
   /**
+   * Specifies whether the command line residue might have sensitive data, or arbitrary command
+   * line values.
+   */
+  boolean hasSensitiveResidue() default false;
+
+  /**
    * Returns true if this command wants to write binary data to stdout.
    * Enabling this flag will disable ANSI escape stripping for this command.
    * This should be used in conjunction with {@code Reporter#switchToAnsiAllowingHandler}.
@@ -87,6 +92,13 @@ public @interface Command {
    * See {@link RunCommand} for example usage.
    */
   boolean binaryStdErr() default false;
+
+  /**
+   * Returns true if this command may want to write to the command.log.
+   *
+   * <p>The clean command would typically set this to false so it can delete the command.log.
+   */
+  boolean writeCommandLog() default true;
 
   /**
    * The help message for this command.  If the value starts with "resource:",

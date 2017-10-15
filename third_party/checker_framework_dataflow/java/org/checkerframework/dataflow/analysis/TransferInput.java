@@ -33,9 +33,9 @@ public class TransferInput<A extends AbstractValue<A>, S extends Store<S>> {
      * The regular result store (or {@code null} if none is present). The
      * following invariant is maintained:
      *
-     * <pre>{@code
-     * store == null &hArr; thenStore != null &amp;&amp; elseStore != null
-     * }</pre>
+     * <pre>
+     * store == null &lt;==&gt; thenStore != null &amp;&amp; elseStore != null
+     * </pre>
      */
     protected final /*@Nullable*/ S store;
 
@@ -43,9 +43,9 @@ public class TransferInput<A extends AbstractValue<A>, S extends Store<S>> {
      * The 'then' result store (or {@code null} if none is present). The
      * following invariant is maintained:
      *
-     * <pre>{@code
-     * store == null &hArr; thenStore != null &amp;&amp; elseStore != null
-     * }</pre>
+     * <pre>
+     * store == null &lt;==&gt; thenStore != null &amp;&amp; elseStore != null
+     * </pre>
      */
     protected final /*@Nullable*/ S thenStore;
 
@@ -53,9 +53,9 @@ public class TransferInput<A extends AbstractValue<A>, S extends Store<S>> {
      * The 'else' result store (or {@code null} if none is present). The
      * following invariant is maintained:
      *
-     * <pre>{@code
-     * store == null &hArr; thenStore != null &amp;&amp; elseStore != null
-     * }</pre>
+     * <pre>
+     * store == null &lt;==&gt; thenStore != null &amp;&amp; elseStore != null
+     * </pre>
      */
     protected final /*@Nullable*/ S elseStore;
 
@@ -149,14 +149,14 @@ public class TransferInput<A extends AbstractValue<A>, S extends Store<S>> {
     }
 
     /**
-     * @return the {@link Node} for this {@link TransferInput}.
+     * @return The {@link Node} for this {@link TransferInput}.
      */
     public Node getNode() {
         return node;
     }
 
     /**
-     * @return the abstract value of {@link Node} {@code n}, which is required
+     * @return The abstract value of {@link Node} {@code n}, which is required
      *         to be a 'sub-node' (that is, a direct or indirect child) of the
      *         node this transfer input is associated with. Furthermore,
      *         {@code n} cannot be a l-value node. Returns {@code null} if no
@@ -167,7 +167,7 @@ public class TransferInput<A extends AbstractValue<A>, S extends Store<S>> {
     }
 
     /**
-     * @return the regular result store produced if no exception is thrown by
+     * @return The regular result store produced if no exception is thrown by
      *         the {@link Node} corresponding to this transfer function result.
      */
     public S getRegularStore() {
@@ -179,7 +179,7 @@ public class TransferInput<A extends AbstractValue<A>, S extends Store<S>> {
     }
 
     /**
-     * @return the result store produced if the {@link Node} this result belongs
+     * @return The result store produced if the {@link Node} this result belongs
      *         to evaluates to {@code true}.
      */
     public S getThenStore() {
@@ -190,7 +190,7 @@ public class TransferInput<A extends AbstractValue<A>, S extends Store<S>> {
     }
 
     /**
-     * @return the result store produced if the {@link Node} this result belongs
+     * @return The result store produced if the {@link Node} this result belongs
      *         to evaluates to {@code false}.
      */
     public S getElseStore() {
@@ -217,7 +217,7 @@ public class TransferInput<A extends AbstractValue<A>, S extends Store<S>> {
         return (thenStore != null && elseStore != null);
     }
 
-    /** @return an exact copy of this store. */
+    /** @return An exact copy of this store. */
     public TransferInput<A, S> copy() {
         return new TransferInput<>(this);
     }
@@ -276,6 +276,24 @@ public class TransferInput<A extends AbstractValue<A>, S extends Store<S>> {
         if (store == null) {
             return "[then=" + thenStore + ", else=" + elseStore + "]";
         } else {
+            return "[" + store + "]";
+        }
+    }
+
+    public boolean hasDOToutput() {
+        return true;
+    }
+
+    public String toDOToutput() {
+        if (store == null) {
+            if (thenStore.hasDOToutput()) {
+                return "[then=" + thenStore.toDOToutput() + ", else=" + elseStore.toDOToutput() + "]";
+            }
+            return "[then=" + thenStore + ", else=" + elseStore + "]";
+        } else {
+            if (store.hasDOToutput()) {
+                return "[" + store.toDOToutput() + "]";
+            }
             return "[" + store + "]";
         }
     }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -32,26 +33,18 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     this.graph = graph;
   }
 
+  @Nullable
   private NodeEntry getEntryForValue(SkyKey key) throws InterruptedException {
     NodeEntry entry =
-        Preconditions.checkNotNull(
-            graph.getBatch(null, Reason.WALKABLE_GRAPH_VALUE, ImmutableList.of(key)).get(key),
-            key);
-    Preconditions.checkState(entry.isDone(), "%s %s", key, entry);
-    return entry;
-  }
-
-  @Override
-  public boolean exists(SkyKey key) throws InterruptedException {
-    NodeEntry entry =
-        graph.getBatch(null, Reason.EXISTENCE_CHECKING, ImmutableList.of(key)).get(key);
-    return entry != null && entry.isDone();
+        graph.getBatch(null, Reason.WALKABLE_GRAPH_VALUE, ImmutableList.of(key)).get(key);
+    return entry != null && entry.isDone() ? entry : null;
   }
 
   @Nullable
   @Override
   public SkyValue getValue(SkyKey key) throws InterruptedException {
-    return getEntryForValue(key).getValue();
+    NodeEntry entry = getEntryForValue(key);
+    return entry == null ? null : entry.getValue();
   }
 
   private static SkyValue getValue(NodeEntry entry) throws InterruptedException {
@@ -93,10 +86,24 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     return result;
   }
 
+  @Override
+  public boolean isCycle(SkyKey key) throws InterruptedException {
+    NodeEntry entry = getEntryForValue(key);
+    if (entry == null) {
+      return false;
+    }
+    ErrorInfo errorInfo = entry.getErrorInfo();
+    return errorInfo != null && !Iterables.isEmpty(errorInfo.getCycleInfo());
+  }
+
   @Nullable
   @Override
   public Exception getException(SkyKey key) throws InterruptedException {
-    ErrorInfo errorInfo = getEntryForValue(key).getErrorInfo();
+    NodeEntry entry = getEntryForValue(key);
+    if (entry == null) {
+      return null;
+    }
+    ErrorInfo errorInfo = entry.getErrorInfo();
     return errorInfo == null ? null : errorInfo.getException();
   }
 
@@ -121,9 +128,14 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
     for (Entry<SkyKey, ? extends NodeEntry> entry : entries.entrySet()) {
       Preconditions.checkState(entry.getValue().isDone(), entry);
-      result.put(entry.getKey(), entry.getValue().getReverseDeps());
+      result.put(entry.getKey(), entry.getValue().getReverseDepsForDoneEntry());
     }
     return result;
+  }
+
+  @Override
+  public Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason) {
+    return graph.getCurrentlyAvailableNodes(keys, reason);
   }
 
 }

@@ -9,7 +9,10 @@ filegroup(
 
 sh_library(
     name = "relnotes",
-    srcs = ["relnotes.sh"],
+    srcs = [
+        "common.sh",
+        "relnotes.sh",
+    ],
 )
 
 sh_test(
@@ -30,7 +33,6 @@ sh_test(
 sh_library(
     name = "release",
     srcs = [
-        "common.sh",
         "release.sh",
     ],
     deps = [":relnotes"],
@@ -44,6 +46,7 @@ sh_test(
         "//:git",
         "//src/test/shell:bashunit",
     ],
+    shard_count = 2,
     tags = ["need_git"],
     deps = [":release"],
 )

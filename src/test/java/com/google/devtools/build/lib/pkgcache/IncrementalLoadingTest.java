@@ -14,16 +14,15 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -31,19 +30,19 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.GlobList;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -107,7 +106,7 @@ public class IncrementalLoadingTest {
   }
 
   protected PackageCacheTester createTester(FileSystem fs, ManualClock clock) throws Exception {
-    return new PackageCacheTester(fs, clock, Preprocessor.Factory.Supplier.NullSupplier.INSTANCE);
+    return new PackageCacheTester(fs, clock);
   }
 
   @Test
@@ -116,11 +115,11 @@ public class IncrementalLoadingTest {
         "filegroup(name = 'hello', srcs = ['foo.txt'])");
     tester.sync();
     Target oldTarget = tester.getTarget("//base:hello");
-    assertNotNull(oldTarget);
+    assertThat(oldTarget).isNotNull();
 
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertSame(oldTarget, newTarget);
+    assertThat(newTarget).isSameAs(oldTarget);
   }
 
   @Test
@@ -132,7 +131,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/BUILD", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertNotSame(oldTarget, newTarget);
+    assertThat(newTarget).isNotSameAs(oldTarget);
   }
 
   @Test
@@ -145,7 +144,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/foo.txt", "other");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertSame(oldTarget, newTarget);
+    assertThat(newTarget).isSameAs(oldTarget);
   }
 
   @Test
@@ -158,7 +157,7 @@ public class IncrementalLoadingTest {
     tester.removeFile("base/foo.txt");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertSame(oldTarget, newTarget);
+    assertThat(newTarget).isSameAs(oldTarget);
   }
 
   @Test
@@ -170,7 +169,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/mybuild", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertNotSame(oldTarget, newTarget);
+    assertThat(newTarget).isNotSameAs(oldTarget);
   }
 
   @Test
@@ -183,7 +182,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("other/BUILD", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertNotSame(oldTarget, newTarget);
+    assertThat(newTarget).isNotSameAs(oldTarget);
   }
 
   @Test
@@ -210,7 +209,7 @@ public class IncrementalLoadingTest {
     tester.sync();
 
     Target a3 = tester.getTarget("//a:a");
-    assertNotSame(a1, a3);
+    assertThat(a3).isNotSameAs(a1);
   }
 
   @Test
@@ -226,7 +225,7 @@ public class IncrementalLoadingTest {
     Target a2 = tester.getTarget("//a:a");
     tester.sync();
 
-    assertNotSame(a1, a2);
+    assertThat(a2).isNotSameAs(a1);
   }
 
   @Test
@@ -240,7 +239,7 @@ public class IncrementalLoadingTest {
     tester.sync();
 
     Target fg2 = tester.getTarget("//a:fg");
-    assertSame(fg1, fg2);
+    assertThat(fg2).isSameAs(fg1);
   }
 
   @Test
@@ -253,7 +252,7 @@ public class IncrementalLoadingTest {
     tester.addFile("base/bar.txt", "also nothing");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertNotSame(oldTarget, newTarget);
+    assertThat(newTarget).isNotSameAs(oldTarget);
   }
 
   @Test
@@ -267,7 +266,7 @@ public class IncrementalLoadingTest {
     tester.removeFile("base/bar.txt");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertNotSame(oldTarget, newTarget);
+    assertThat(newTarget).isNotSameAs(oldTarget);
   }
 
   @Test
@@ -283,7 +282,7 @@ public class IncrementalLoadingTest {
 
     tester.sync();
     Target a2 = tester.getTarget("//a:a");
-    assertNotSame(a1, a2);
+    assertThat(a2).isNotSameAs(a1);
   }
 
   @Test
@@ -299,7 +298,7 @@ public class IncrementalLoadingTest {
     tester.addFile("c");
     tester.sync();
     Target a3 = tester.getTarget("//a:a");
-    assertNotSame(a1, a3);
+    assertThat(a3).isNotSameAs(a1);
   }
 
   @Test
@@ -341,15 +340,15 @@ public class IncrementalLoadingTest {
     tester.addFile("e/data.txt");
     throwOnReaddir = parentDir;
     tester.sync();
-    Target target = tester.getTarget("//e:e");
-    assertThat(((Rule) target).containsErrors()).isTrue();
-    GlobList<?> globList = (GlobList<?>) ((Rule) target).getAttributeContainer().getAttr("data");
-    assertThat(globList).isEmpty();
+    try {
+      tester.getTarget("//e:e");
+    } catch (NoSuchPackageException expected) {
+    }
     throwOnReaddir = null;
     tester.sync();
-    target = tester.getTarget("//e:e");
+    Target target = tester.getTarget("//e:e");
     assertThat(((Rule) target).containsErrors()).isFalse();
-    globList = (GlobList<?>) ((Rule) target).getAttributeContainer().getAttr("data");
+    GlobList<?> globList = (GlobList<?>) ((Rule) target).getAttributeContainer().getAttr("data");
     assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt"));
   }
 
@@ -363,7 +362,7 @@ public class IncrementalLoadingTest {
     // Write file in directory to force reload of top-level glob.
     tester.addFile("pkg/irrelevant_file");
     tester.addFile("pkg/bar/irrelevant_file"); // Subglob is also reloaded.
-    assertSame(pkg, tester.getTarget("//pkg:pkg").getPackage());
+    assertThat(tester.getTarget("//pkg:pkg").getPackage()).isSameAs(pkg);
   }
 
   @Test
@@ -448,15 +447,13 @@ public class IncrementalLoadingTest {
     private final ManualClock clock;
     private final Path workspace;
     private final Path outputBase;
-    private final Reporter reporter = new Reporter();
+    private final Reporter reporter = new Reporter(new EventBus());
     private final SkyframeExecutor skyframeExecutor;
     private final List<Path> changes = new ArrayList<>();
     private boolean everythingModified = false;
     private ModifiedFileSet modifiedFileSet;
 
-    public PackageCacheTester(
-        FileSystem fs, ManualClock clock, Preprocessor.Factory.Supplier supplier)
-            throws IOException {
+    public PackageCacheTester(FileSystem fs, ManualClock clock) throws IOException {
       this.clock = clock;
       workspace = fs.getPath("/workspace");
       workspace.createDirectory();
@@ -468,8 +465,8 @@ public class IncrementalLoadingTest {
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
               loadingMock
-                  .getPackageFactoryForTesting()
-                  .create(loadingMock.createRuleClassProvider(), fs),
+                  .getPackageFactoryBuilderForTesting()
+                  .build(loadingMock.createRuleClassProvider(), fs),
               new BlazeDirectories(
                   fs.getPath("/install"),
                   fs.getPath("/output"),
@@ -480,12 +477,15 @@ public class IncrementalLoadingTest {
               loadingMock.createRuleClassProvider().getBuildInfoFactories(),
               ImmutableList.of(new ManualDiffAwarenessFactory()),
               Predicates.<PathFragment>alwaysFalse(),
-              supplier,
               ImmutableMap.<SkyFunctionName, SkyFunction>of(),
               ImmutableList.<PrecomputedValue.Injected>of(),
               ImmutableList.<SkyValueDirtinessChecker>of(),
+              PathFragment.EMPTY_FRAGMENT,
               loadingMock.getProductName(),
-              CrossRepositoryLabelViolationStrategy.ERROR);
+              BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+              BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+      TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
       PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
       packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
       packageCacheOptions.showLoadingProgress = true;
@@ -493,8 +493,10 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           packageCacheOptions,
+          Options.getDefaults(SkylarkSemanticsOptions.class),
           "",
           UUID.randomUUID(),
+          ImmutableMap.<String, String>of(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
     }
@@ -520,7 +522,7 @@ public class IncrementalLoadingTest {
       Path path = workspace.getRelative(fileName);
       Preconditions.checkState(!path.exists());
       FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
-      path.createSymbolicLink(new PathFragment(target));
+      path.createSymbolicLink(PathFragment.create(target));
       changes.add(path);
     }
 
@@ -542,7 +544,7 @@ public class IncrementalLoadingTest {
       Path symlink = workspace.getRelative(fileName);
       Preconditions.checkState(symlink.exists());
       symlink.delete();
-      symlink.createSymbolicLink(new PathFragment(newTarget));
+      symlink.createSymbolicLink(PathFragment.create(newTarget));
       changes.add(symlink);
     }
 
@@ -579,13 +581,15 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           packageCacheOptions,
+          Options.getDefaults(SkylarkSemanticsOptions.class),
           "",
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
+          ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.invalidateFilesUnderPathForTesting(
-          new Reporter(), modifiedFileSet, workspace);
-      ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter());
+          new Reporter(new EventBus()), modifiedFileSet, workspace);
+      ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter(new EventBus()));
 
       changes.clear();
     }

@@ -14,20 +14,33 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.syntax.EvalUtils.SKYLARK_COMPARATOR;
+
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -35,8 +48,8 @@ import javax.annotation.Nullable;
  * built when the target is mentioned on the command line (as opposed to being always built, like
  * {@link com.google.devtools.build.lib.analysis.FileProvider})
  *
- * <p>The artifacts are grouped into "output groups". Which output groups are built is controlled
- * by the {@code --output_groups} undocumented command line option, which in turn is added to the
+ * <p>The artifacts are grouped into "output groups". Which output groups are built is controlled by
+ * the {@code --output_groups} undocumented command line option, which in turn is added to the
  * command line at the discretion of the build command being run.
  *
  * <p>Output groups starting with an underscore are "not important". This means that artifacts built
@@ -44,7 +57,11 @@ import javax.annotation.Nullable;
  * not mentioned on the output.
  */
 @Immutable
-public final class OutputGroupProvider implements TransitiveInfoProvider {
+public final class OutputGroupProvider extends NativeInfo
+    implements SkylarkIndexable, Iterable<String> {
+  public static final String SKYLARK_NAME = "output_groups";
+
+  public static NativeProvider<OutputGroupProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   /**
    * Prefix for output groups that are not reported to the user on the terminal output of Blaze when
@@ -104,8 +121,20 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupProvider(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
     this.outputGroups = outputGroups;
   }
+
+  @Nullable
+  public static OutputGroupProvider get(TransitiveInfoCollection collection) {
+    return collection.get(OutputGroupProvider.SKYLARK_CONSTRUCTOR);
+  }
+
+  @Nullable
+  public static OutputGroupProvider get(ConfiguredAspect aspect) {
+    return (OutputGroupProvider) aspect.get(SKYLARK_CONSTRUCTOR.getKey());
+  }
+
 
   /** Return the artifacts in a particular output group.
    *
@@ -124,7 +153,8 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
    * @param providers providers to merge {@code this} with.
    */
   @Nullable
-  public static OutputGroupProvider merge(List<OutputGroupProvider> providers) {
+  public static OutputGroupProvider merge(List<OutputGroupProvider> providers)
+      throws DuplicateException {
     if (providers.size() == 0) {
       return null;
     }
@@ -137,7 +167,8 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
     for (OutputGroupProvider provider : providers) {
       for (String outputGroup : provider.outputGroups.keySet()) {
         if (!seenGroups.add(outputGroup)) {
-          throw new IllegalStateException("Output group " + outputGroup + " provided twice");
+          throw new DuplicateException(
+              "Output group " + outputGroup + " provided twice");
         }
 
         resultBuilder.put(outputGroup, provider.getOutputGroup(outputGroup));
@@ -181,5 +212,77 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
     }
 
     return ImmutableSortedSet.copyOf(current);
+  }
+
+  @Override
+  public Object getIndex(Object key, Location loc) throws EvalException {
+    if (!(key instanceof String)) {
+      throw new EvalException(loc, String.format(
+          "Output grout names must be strings, got %s instead",
+          EvalUtils.getDataTypeName(key)));
+    }
+
+    NestedSet<Artifact> result = outputGroups.get(key);
+    if (result != null) {
+      return SkylarkNestedSet.of(Artifact.class, result);
+    } else {
+      throw new EvalException(loc, String.format(
+          "Output group %s not present", key
+      ));
+    }
+  }
+
+  @Override
+  public boolean containsKey(Object key, Location loc) throws EvalException {
+    return outputGroups.containsKey(key);
+  }
+
+  @Override
+  public Iterator<String> iterator() {
+    return SKYLARK_COMPARATOR.sortedCopy(outputGroups.keySet()).iterator();
+  }
+
+  @Override
+  public Object getValue(String name) {
+    NestedSet<Artifact> result = outputGroups.get(name);
+    if (result == null) {
+      return null;
+    }
+    return SkylarkNestedSet.of(Artifact.class, result);
+  }
+
+  @Override
+  public ImmutableCollection<String> getKeys() {
+    return outputGroups.keySet();
+  }
+
+  /** A constructor callable from Skylark for OutputGroupProvider. */
+  private static class Constructor extends NativeProvider<OutputGroupProvider> {
+
+    private Constructor() {
+      super(OutputGroupProvider.class, "OutputGroupInfo");
+    }
+
+    @Override
+    protected OutputGroupProvider createInstanceFromSkylark(Object[] args, Location loc)
+        throws EvalException {
+
+      @SuppressWarnings("unchecked")
+      Map<String, Object> kwargs = (Map<String, Object>) args[0];
+
+      ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
+      for (Entry<String, Object> entry : kwargs.entrySet()) {
+        builder.put(
+            entry.getKey(),
+            SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
+                loc, entry.getKey(), entry.getValue()));
+      }
+      return new OutputGroupProvider(builder.build());
+    }
+
+    @Override
+    public String getErrorMessageFormatForInstances() {
+      return "Output group %s not present";
+    }
   }
 }

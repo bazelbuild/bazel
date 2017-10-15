@@ -119,6 +119,18 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
+   * Creates a RepositoryName from a known-valid string (not @-prefixed). Generally this is a
+   * directory that has been created via getSourceRoot() or getPathUnderExecRoot().
+   */
+  public static RepositoryName createFromValidStrippedName(String name) {
+    try {
+      return repositoryNameCache.get("@" + name);
+    } catch (ExecutionException e) {
+      throw new IllegalArgumentException(e.getMessage());
+    }
+  }
+
+  /**
    * Extracts the repository name from a PathFragment that was created with
    * {@code PackageIdentifier.getSourceRoot}.
    *
@@ -127,7 +139,7 @@ public final class RepositoryName implements Serializable {
    * was invalid.
    */
   public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path) {
-    if (path.segmentCount() < 2 || !path.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
+    if (path.segmentCount() < 2 || !path.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
       return null;
     }
     try {
@@ -190,7 +202,7 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
-   * Returns if this is the default repository, that is, {@link #name} is "@".
+   * Returns if this is the main repository, that is, {@link #name} is "@".
    */
   public boolean isMain() {
     return name.equals("@");
@@ -220,7 +232,7 @@ public final class RepositoryName implements Serializable {
   public PathFragment getPathUnderExecRoot() {
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
-        : new PathFragment(Label.EXTERNAL_PATH_PREFIX).getRelative(strippedName());
+        : Label.EXTERNAL_PATH_PREFIX.getRelative(strippedName());
   }
 
   /**
@@ -229,7 +241,7 @@ public final class RepositoryName implements Serializable {
   // TODO(kchodorow): remove once execroot is reorg-ed.
   public PathFragment getRunfilesPath() {
     return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT : new PathFragment("..").getRelative(strippedName());
+        ? PathFragment.EMPTY_FRAGMENT : PathFragment.create("..").getRelative(strippedName());
   }
 
   /**

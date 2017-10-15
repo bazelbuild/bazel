@@ -39,6 +39,21 @@ default_toolchain {
   toolchain_identifier: "local_linux"
 }
 
+default_toolchain {
+  cpu: "ppc"
+  toolchain_identifier: "local_linux"
+}
+
+default_toolchain {
+  cpu: "ppc64"
+  toolchain_identifier: "local_linux"
+}
+
+default_toolchain {
+  cpu: "ios_x86_64"
+  toolchain_identifier: "ios_x86_64"
+}
+
 toolchain {
   abi_version: "armeabi-v7a"
   abi_libc_version: "armeabi-v7a"
@@ -158,9 +173,6 @@ toolchain {
   linker_flag: "-no-canonical-prefixes"
   # Have gcc return the exit code from ld.
   linker_flag: "-pass-exit-codes"
-  # Stamp the binary with a unique identifier.
-  linker_flag: "-Wl,--build-id=md5"
-  linker_flag: "-Wl,--hash-style=gnu"
   # Gold linker only? Can we enable this by default?
   # linker_flag: "-Wl,--warn-execstack"
   # linker_flag: "-Wl,--detect-odr-violations"
@@ -213,9 +225,6 @@ toolchain {
   tool_path { name: "dwp" path: "/usr/bin/dwp" }
   tool_path { name: "gcc" path: "osx_cc_wrapper.sh" }
   cxx_flag: "-std=c++0x"
-  ar_flag: "-static"
-  ar_flag: "-s"
-  ar_flag: "-o"
   linker_flag: "-lstdc++"
   linker_flag: "-undefined"
   linker_flag: "dynamic_lookup"
@@ -321,6 +330,7 @@ toolchain {
   # used by gcc. That works because bazel currently doesn't track files at
   # absolute locations and has no remote execution, yet. However, this will need
   # to be fixed, maybe with auto-detection?
+  cxx_builtin_include_directory: "/usr/lib/clang"
   cxx_builtin_include_directory: "/usr/local/include"
   cxx_builtin_include_directory: "/usr/include"
   tool_path { name: "gcov" path: "/usr/bin/gcov" }
@@ -375,8 +385,6 @@ toolchain {
   # Have gcc return the exit code from ld.
   #linker_flag: "-pass-exit-codes"
   # Stamp the binary with a unique identifier.
-  #linker_flag: "-Wl,--build-id=md5"
-  linker_flag: "-Wl,--hash-style=gnu"
   # Gold linker only? Can we enable this by default?
   # linker_flag: "-Wl,--warn-execstack"
   # linker_flag: "-Wl,--detect-odr-violations"
@@ -517,40 +525,40 @@ toolchain {
 }
 
 toolchain {
-   abi_version: "local"
-   abi_libc_version: "local"
-   builtin_sysroot: ""
-   compiler: "windows_msys64"
-   host_system_name: "local"
-   needsPic: false
-   target_libc: "local"
-   target_cpu: "x64_windows"
-   target_system_name: "local"
-   toolchain_identifier: "local_windows_msys64"
+  abi_version: "local"
+  abi_libc_version: "local"
+  builtin_sysroot: ""
+  compiler: "windows_msys64"
+  host_system_name: "local"
+  needsPic: false
+  target_libc: "local"
+  target_cpu: "x64_windows"
+  target_system_name: "local"
+  toolchain_identifier: "local_windows_msys64"
 
-   tool_path { name: "ar" path: "C:/tools/msys64/usr/bin/ar" }
-   tool_path { name: "compat-ld" path: "C:/tools/msys64/usr/bin/ld" }
-   tool_path { name: "cpp" path: "C:/tools/msys64/usr/bin/cpp" }
-   tool_path { name: "dwp" path: "C:/tools/msys64/usr/bin/dwp" }
-   # Use gcc instead of g++ so that C will compile correctly.
-   tool_path { name: "gcc" path: "C:/tools/msys64/usr/bin/gcc" }
-   cxx_flag: "-std=gnu++0x"
-   linker_flag: "-lstdc++"
-   # TODO(bazel-team): In theory, the path here ought to exactly match the path
-   # used by gcc. That works because bazel currently doesn't track files at
-   # absolute locations and has no remote execution, yet. However, this will need
-   # to be fixed, maybe with auto-detection?
-   cxx_builtin_include_directory: "C:/tools/msys64/"
-   cxx_builtin_include_directory: "/usr/"
-   tool_path { name: "gcov" path: "C:/tools/msys64/usr/bin/gcov" }
-   tool_path { name: "ld" path: "C:/tools/msys64/usr/bin/ld" }
-   tool_path { name: "nm" path: "C:/tools/msys64/usr/bin/nm" }
-   tool_path { name: "objcopy" path: "C:/tools/msys64/usr/bin/objcopy" }
-   objcopy_embed_flag: "-I"
-   objcopy_embed_flag: "binary"
-   tool_path { name: "objdump" path: "C:/tools/msys64/usr/bin/objdump" }
-   tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
-   linking_mode_flags { mode: DYNAMIC }
+  tool_path { name: "ar" path: "C:/tools/msys64/usr/bin/ar" }
+  tool_path { name: "compat-ld" path: "C:/tools/msys64/usr/bin/ld" }
+  tool_path { name: "cpp" path: "C:/tools/msys64/usr/bin/cpp" }
+  tool_path { name: "dwp" path: "C:/tools/msys64/usr/bin/dwp" }
+  # Use gcc instead of g++ so that C will compile correctly.
+  tool_path { name: "gcc" path: "C:/tools/msys64/usr/bin/gcc" }
+  cxx_flag: "-std=gnu++0x"
+  linker_flag: "-lstdc++"
+  # TODO(bazel-team): In theory, the path here ought to exactly match the path
+  # used by gcc. That works because bazel currently doesn't track files at
+  # absolute locations and has no remote execution, yet. However, this will need
+  # to be fixed, maybe with auto-detection?
+  cxx_builtin_include_directory: "C:/tools/msys64/"
+  cxx_builtin_include_directory: "/usr/"
+  tool_path { name: "gcov" path: "C:/tools/msys64/usr/bin/gcov" }
+  tool_path { name: "ld" path: "C:/tools/msys64/usr/bin/ld" }
+  tool_path { name: "nm" path: "C:/tools/msys64/usr/bin/nm" }
+  tool_path { name: "objcopy" path: "C:/tools/msys64/usr/bin/objcopy" }
+  objcopy_embed_flag: "-I"
+  objcopy_embed_flag: "binary"
+  tool_path { name: "objdump" path: "C:/tools/msys64/usr/bin/objdump" }
+  tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
+  linking_mode_flags { mode: DYNAMIC }
 }
 
 toolchain {
@@ -615,7 +623,6 @@ toolchain {
   compiler_flag: "-m64"
   compiler_flag: "/D__inline__=__inline"
   # TODO(pcloudy): Review those flags below, they should be defined by cl.exe
-  compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
 
   # Don't pollute with GDI macros in windows.h.
@@ -672,12 +679,15 @@ toolchain {
       action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       flag_group {
+        iterate_over: 'quote_include_paths'
         flag: '/I%{quote_include_paths}'
       }
       flag_group {
+        iterate_over: 'include_paths'
         flag: '/I%{include_paths}'
       }
       flag_group {
+        iterate_over: 'system_include_paths'
         flag: '/I%{system_include_paths}'
       }
     }
@@ -742,6 +752,7 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
+    implies: 'copts'
   }
 
   action_config {
@@ -775,6 +786,26 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
+    implies: 'copts'
+  }
+
+  feature {
+    name: 'copts'
+    flag_set {
+      expand_if_all_available: 'copts'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      flag_group {
+        iterate_over: 'copts'
+        flag: '%{copts}'
+      }
+    }
   }
 
   compilation_mode_flags {
@@ -801,4 +832,38 @@ toolchain {
     compiler_flag: "/O2"
     compiler_flag: "-Xcompilation-mode=opt"
   }
+}
+
+# Stub crosstool to allow construction of apple crosstool configuration in a
+# static configuration set.
+# TODO(b/33804121): Remove this once dynamic configurations are in place.
+toolchain {
+  toolchain_identifier: "ios_x86_64"
+  host_system_name: "x86_64-apple-macosx"
+  target_system_name: "x86_64-apple-ios"
+  target_cpu: "ios_x86_64"
+  target_libc: "ios"
+  compiler: "compiler"
+  abi_version: "local"
+  abi_libc_version: "local"
+  supports_gold_linker: false
+  supports_incremental_linker: false
+  supports_fission: false
+  supports_interface_shared_objects: false
+  supports_normalizing_ar: false
+  supports_start_end_lib: false
+
+  tool_path { name: "ar" path: "/bin/false" }
+  tool_path { name: "compat-ld" path: "/bin/false" }
+  tool_path { name: "cpp" path: "/bin/false" }
+  tool_path { name: "dwp" path: "/bin/false" }
+  tool_path { name: "gcc" path: "/bin/false" }
+  tool_path { name: "gcov" path: "/bin/false" }
+  tool_path { name: "ld" path: "/bin/false" }
+
+  tool_path { name: "nm" path: "/bin/false" }
+  tool_path { name: "objcopy" path: "/bin/false" }
+  tool_path { name: "objdump" path: "/bin/false" }
+  tool_path { name: "strip" path: "/bin/false" }
+  linking_mode_flags { mode: DYNAMIC }
 }

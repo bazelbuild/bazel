@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
 public final class BlazeWorkspace {
   public static final String DO_NOT_BUILD_FILE_NAME = "DO_NOT_BUILD_HERE";
 
-  private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
+  private static final Logger logger = Logger.getLogger(BlazeRuntime.class.getName());
 
   private final BlazeRuntime runtime;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
@@ -89,6 +89,10 @@ public final class BlazeWorkspace {
     // Here we use outputBase instead of outputPath because we need a file system to create the
     // latter.
     this.outputBaseFilesystemTypeName = FileSystemUtils.getFileSystem(getOutputBase());
+  }
+
+  public BlazeRuntime getRuntime() {
+    return runtime;
   }
 
   /**
@@ -150,15 +154,6 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns the execution root directory associated with this Blaze server
-   * process. This is where all input and output files visible to the actual
-   * build reside.
-   */
-  public Path getExecRoot() {
-    return directories.getExecRoot();
-  }
-
-  /**
    * Returns path to the cache directory. Path must be inside output base to
    * ensure that users can run concurrent instances of blaze in different
    * clients without attempting to concurrently write to the same action cache
@@ -190,9 +185,10 @@ public final class BlazeWorkspace {
    * <p>This method should be called from the "main" thread on which the command will execute;
    * that thread will receive interruptions if a module requests an early exit.
    */
-  public CommandEnvironment initCommand() {
+  public CommandEnvironment initCommand(Command command, OptionsProvider options) {
     CommandEnvironment env = new CommandEnvironment(
-        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread());
+        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread(), command,
+        options);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }
@@ -204,10 +200,19 @@ public final class BlazeWorkspace {
   }
 
   /**
+   * Reinitializes the Skyframe evaluator.
+   */
+  public void resetEvaluator() {
+    skyframeExecutor.resetEvaluator();
+  }
+
+  /**
    * Removes in-memory caches.
    */
   public void clearCaches() throws IOException {
-    skyframeExecutor.resetEvaluator();
+    if (actionCache != null) {
+      actionCache.clear();
+    }
     actionCache = null;
     FileSystemUtils.deleteTree(getCacheDirectory());
   }
@@ -219,11 +224,11 @@ public final class BlazeWorkspace {
    */
   public ActionCache getPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
-      try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO, LOG)) {
+      try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO, logger)) {
         try {
           actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());
         } catch (IOException e) {
-          LOG.log(Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
+          logger.log(Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
           LoggingUtil.logToRemote(
               Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
           reporter.handle(
@@ -233,7 +238,7 @@ public final class BlazeWorkspace {
                       + ". Corrupted files were renamed to '"
                       + getCacheDirectory()
                       + "/*.bad'. "
-                      + "Blaze will now reset action cache data, causing a full rebuild"));
+                      + "Bazel will now reset action cache data, causing a full rebuild"));
           actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());
         }
       }
@@ -268,7 +273,7 @@ public final class BlazeWorkspace {
           "only Blaze will modify this directory and the files in it,",
           "so if you change anything here you may mess up Blaze's cache.");
     } catch (IOException e) {
-      LOG.warning("Couldn't write to '" + outputBaseReadmeFile + "': " + e.getMessage());
+      logger.warning("Couldn't write to '" + outputBaseReadmeFile + "': " + e.getMessage());
     }
   }
 
@@ -277,7 +282,7 @@ public final class BlazeWorkspace {
       FileSystemUtils.createDirectoryAndParents(filePath.getParentDirectory());
       FileSystemUtils.writeContent(filePath, ISO_8859_1, getWorkspace().toString());
     } catch (IOException e) {
-      LOG.warning("Couldn't write to '" + filePath + "': " + e.getMessage());
+      logger.warning("Couldn't write to '" + filePath + "': " + e.getMessage());
     }
   }
 
@@ -297,7 +302,7 @@ public final class BlazeWorkspace {
     try {
       FileSystemUtils.createDirectoryAndParents(directories.getExecRoot());
     } catch (IOException e) {
-      LOG.warning(
+      logger.warning(
           "failed to create execution root '" + directories.getExecRoot() + "': " + e.getMessage());
     }
   }

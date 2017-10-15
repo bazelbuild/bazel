@@ -15,19 +15,15 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
@@ -51,7 +47,8 @@ public class SymlinkActionTest extends BuildViewTestCase {
   public final void setUp() throws Exception  {
     input = scratch.file("input.txt", "Hello, world.");
     inputArtifact = getSourceArtifact("input.txt");
-    Path linkedInput = directories.getExecRoot().getRelative("input.txt");
+    Path linkedInput =
+        directories.getExecRoot(TestConstants.WORKSPACE_NAME).getRelative("input.txt");
     FileSystemUtils.createDirectoryAndParents(linkedInput.getParentDirectory());
     linkedInput.createSymbolicLink(input);
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
@@ -64,45 +61,23 @@ public class SymlinkActionTest extends BuildViewTestCase {
   @Test
   public void testInputArtifactIsInput() {
     Iterable<Artifact> inputs = action.getInputs();
-    assertEquals(Sets.newHashSet(inputArtifact), Sets.newHashSet(inputs));
+    assertThat(inputs).containsExactly(inputArtifact);
   }
 
   @Test
   public void testDestinationArtifactIsOutput() {
     Iterable<Artifact> outputs = action.getOutputs();
-    assertEquals(Sets.newHashSet(outputArtifact), Sets.newHashSet(outputs));
+    assertThat(outputs).containsExactly(outputArtifact);
   }
 
   @Test
   public void testSymlink() throws Exception {
     Executor executor = new TestExecutorBuilder(directories, null).build();
-    action.execute(new ActionExecutionContext(executor, null, null, null,
-        ImmutableMap.<String, String>of(), null));
-    assertTrue(output.isSymbolicLink());
-    assertEquals(input, output.resolveSymbolicLinks());
-    assertEquals(inputArtifact, action.getPrimaryInput());
-    assertEquals(outputArtifact, action.getPrimaryOutput());
-  }
-
-  @Test
-  public void testExecutableSymlink() throws Exception {
-    Executor executor = new TestExecutorBuilder(directories, null).build();
-    outputArtifact = getBinArtifactWithNoOwner("destination2.txt");
-    output = outputArtifact.getPath();
-    action = new ExecutableSymlinkAction(NULL_ACTION_OWNER, inputArtifact, outputArtifact);
-    assertFalse(input.isExecutable());
-    ActionExecutionContext actionExecutionContext =
-      new ActionExecutionContext(executor, null, null, null,
-          ImmutableMap.<String, String>of(), null);
-    try {
-      action.execute(actionExecutionContext);
-      fail("Expected ActionExecutionException");
-    } catch (ActionExecutionException e) {
-      assertThat(e.getMessage()).containsMatch("'input.txt' is not executable");
-    }
-    input.setExecutable(true);
-    action.execute(actionExecutionContext);
-    assertTrue(output.isSymbolicLink());
-    assertEquals(input, output.resolveSymbolicLinks());
+    action.execute(new ActionExecutionContext(executor, null, ActionInputPrefetcher.NONE, null,
+        null, ImmutableMap.<String, String>of(), null));
+    assertThat(output.isSymbolicLink()).isTrue();
+    assertThat(output.resolveSymbolicLinks()).isEqualTo(input);
+    assertThat(action.getPrimaryInput()).isEqualTo(inputArtifact);
+    assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
   }
 }

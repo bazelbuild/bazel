@@ -13,24 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.builder.core.VariantConfiguration;
 import com.android.builder.core.VariantType;
 import com.android.ide.common.internal.PngCruncher;
 import com.android.ide.common.internal.PngException;
-import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
 import com.google.common.io.Files;
+import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.SerializedAndroidDataConverter;
 import com.google.devtools.build.android.Converters.SerializedAndroidDataListConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -61,19 +67,24 @@ public class AndroidResourceMergingAction {
       defaultValue = "null",
       converter = SerializedAndroidDataConverter.class,
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The directory containing the primary resource directory. The contents will override"
               + " the contents of any other resource directories during merging."
-              + " The expected format is " + SerializedAndroidData.EXPECTED_FORMAT
+              + " The expected format is "
+              + SerializedAndroidData.EXPECTED_FORMAT
     )
     public SerializedAndroidData primaryData;
 
     @Option(
-        name = "primaryManifest",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "input",
-        help = "Path to primary resource's manifest file."
+      name = "primaryManifest",
+      defaultValue = "null",
+      converter = ExistingPathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to primary resource's manifest file."
     )
     public Path primaryManifest;
 
@@ -82,10 +93,13 @@ public class AndroidResourceMergingAction {
       defaultValue = "",
       converter = SerializedAndroidDataListConverter.class,
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Transitive Data dependencies. These values will be used if not defined in the "
               + "primary resources. The expected format is "
-              + SerializedAndroidData.EXPECTED_FORMAT + "[&...]"
+              + SerializedAndroidData.EXPECTED_FORMAT
+              + "[&...]"
     )
     public List<SerializedAndroidData> transitiveData;
 
@@ -94,10 +108,13 @@ public class AndroidResourceMergingAction {
       defaultValue = "",
       converter = SerializedAndroidDataListConverter.class,
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Direct Data dependencies. These values will be used if not defined in the "
               + "primary resources. The expected format is "
-              + SerializedAndroidData.EXPECTED_FORMAT + "[&...]"
+              + SerializedAndroidData.EXPECTED_FORMAT
+              + "[&...]"
     )
     public List<SerializedAndroidData> directData;
 
@@ -106,6 +123,8 @@ public class AndroidResourceMergingAction {
       defaultValue = "null",
       converter = PathConverter.class,
       category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path to the write merged resources archive."
     )
     public Path resourcesOutput;
@@ -115,16 +134,20 @@ public class AndroidResourceMergingAction {
       defaultValue = "null",
       converter = PathConverter.class,
       category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path for the generated java class jar."
     )
     public Path classJarOutput;
 
     @Option(
-        name = "manifestOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the output processed AndroidManifest.xml."
+      name = "manifestOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the output processed AndroidManifest.xml."
     )
     public Path manifestOutput;
 
@@ -132,24 +155,54 @@ public class AndroidResourceMergingAction {
       name = "packageForR",
       defaultValue = "null",
       category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Custom java package to generate the R symbols files."
     )
     public String packageForR;
+
+    @Option(
+      name = "symbolsBinOut",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to write the merged symbols binary."
+    )
+    public Path symbolsBinOut;
+
+    @Option(
+      name = "dataBindingInfoOut",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where data binding's layout info output should be written."
+    )
+    public Path dataBindingInfoOut;
+
+    @Option(name = "throwOnResourceConflict",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    public boolean throwOnResourceConflict;
   }
 
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
         OptionsParser.newOptionsParser(Options.class, AaptConfigOptions.class);
+    optionsParser.enableParamsFileSupport(FileSystems.getDefault());
     optionsParser.parseAndExitUponError(args);
     AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
 
-    final AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
-
     Preconditions.checkNotNull(options.primaryData);
     Preconditions.checkNotNull(options.primaryManifest);
-    Preconditions.checkNotNull(options.classJarOutput);
 
     try (ScopedTemporaryDirectory scopedTmp =
         new ScopedTemporaryDirectory("android_resource_merge_tmp")) {
@@ -162,17 +215,20 @@ public class AndroidResourceMergingAction {
       logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       VariantType packageType = VariantType.LIBRARY;
-      String packageName = options.packageForR;
+      String packageForR = options.packageForR;
+      if (packageForR == null) {
+        packageForR =
+            Strings.nullToEmpty(
+                VariantConfiguration.getManifestPackage(options.primaryManifest.toFile()));
+      }
       AndroidResourceClassWriter resourceClassWriter =
-          new AndroidResourceClassWriter(
-              new AndroidFrameworkAttrIdJar(aaptConfigOptions.androidJar),
-              generatedSources,
-              packageName);
+          AndroidResourceClassWriter.createWith(
+              aaptConfigOptions.androidJar, generatedSources, packageForR);
       resourceClassWriter.setIncludeClassFile(true);
       resourceClassWriter.setIncludeJavaFile(false);
 
       final MergedAndroidData mergedData =
-          resourceProcessor.mergeData(
+          AndroidResourceMerger.mergeData(
               options.primaryData,
               options.primaryManifest,
               options.directData,
@@ -181,7 +237,9 @@ public class AndroidResourceMergingAction {
               mergedAssets,
               new StubPngCruncher(),
               packageType,
-              resourceClassWriter);
+              options.symbolsBinOut,
+              resourceClassWriter,
+              options.throwOnResourceConflict);
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
@@ -190,42 +248,55 @@ public class AndroidResourceMergingAction {
       // the manifests compatible with the old manifest merger.
       if (options.manifestOutput != null) {
         MergedAndroidData processedData =
-            resourceProcessor.processManifest(
-                packageType,
-                options.packageForR,
-                null, /* applicationId */
-                -1, /* versionCode */
-                null, /* versionName */
-                mergedData,
-                processedManifest);
-        resourceProcessor.copyManifestToOutput(processedData, options.manifestOutput);
+            AndroidManifestProcessor.with(stdLogger)
+                .processManifest(
+                    packageType,
+                    options.packageForR,
+                    null, /* applicationId */
+                    -1, /* versionCode */
+                    null, /* versionName */
+                    mergedData,
+                    processedManifest);
+        AndroidResourceOutputs.copyManifestToOutput(processedData, options.manifestOutput);
       }
 
-      resourceProcessor.createClassJar(generatedSources, options.classJarOutput);
-
-      logger.fine(
-          String.format("Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      if (options.classJarOutput != null) {
+        AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
+        logger.fine(
+            String.format(
+                "Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      }
 
       if (options.resourcesOutput != null) {
+        Path resourcesDir =
+            AndroidResourceProcessor.processDataBindings(
+                tmp.resolve("res_no_binding"),
+                mergedData.getResourceDir(),
+                options.dataBindingInfoOut,
+                packageType,
+                options.packageForR,
+                options.primaryManifest,
+                true);
+
         // For now, try compressing the library resources that we pass to the validator. This takes
         // extra CPU resources to pack and unpack (~2x), but can reduce the zip size (~4x).
-        resourceProcessor.createResourcesZip(
-            mergedData.getResourceDir(),
-            mergedData.getAssetDir(),
-            options.resourcesOutput,
-            true /* compress */);
+        AndroidResourceOutputs.createResourcesZip(
+            resourcesDir, mergedData.getAssetDir(), options.resourcesOutput, true /* compress */);
         logger.fine(
             String.format(
                 "Create resources.zip finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       }
+    } catch (MergeConflictException e) {
+      logger.log(Level.SEVERE, e.getMessage());
+      System.exit(1);
     } catch (MergingException e) {
       logger.log(Level.SEVERE, "Error during merging resources", e);
       throw e;
+    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
+      System.exit(1);
     } catch (Exception e) {
       logger.log(Level.SEVERE, "Unexpected", e);
       throw e;
-    } finally {
-      resourceProcessor.shutdown();
     }
     logger.fine(String.format("Resources merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
   }

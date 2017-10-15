@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.profiler.chart;
 
-import com.google.devtools.build.lib.profiler.ProfileInfo;
-import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-
+import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
+import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.Task;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -43,20 +42,32 @@ public class AggregatingChartCreator implements ChartCreator {
       ProfilerTask.ACTION_SUBMIT);
 
   /** The tasks in the 'blaze internal' category. */
-  private static Set<ProfilerTask> BLAZE_TASKS =
-      EnumSet.of(ProfilerTask.CREATE_PACKAGE, ProfilerTask.PACKAGE_VALIDITY_CHECK,
-          ProfilerTask.CONFIGURED_TARGET, ProfilerTask.TRANSITIVE_CLOSURE,
-          ProfilerTask.EXCEPTION, ProfilerTask.INFO, ProfilerTask.UNKNOWN);
+  private static final Set<ProfilerTask> BLAZE_TASKS =
+      EnumSet.of(
+          ProfilerTask.CREATE_PACKAGE,
+          ProfilerTask.PACKAGE_VALIDITY_CHECK,
+          ProfilerTask.CONFIGURED_TARGET,
+          ProfilerTask.TRANSITIVE_CLOSURE,
+          ProfilerTask.EXCEPTION,
+          ProfilerTask.INFO,
+          ProfilerTask.UNKNOWN);
 
   /** The tasks in the 'locks' category. */
-  private static Set<ProfilerTask> LOCK_TASKS =
+  private static final Set<ProfilerTask> LOCK_TASKS =
       EnumSet.of(ProfilerTask.ACTION_LOCK, ProfilerTask.WAIT);
 
   /** The tasks in the 'VFS' category. */
-  private static Set<ProfilerTask> VFS_TASKS =
-      EnumSet.of(ProfilerTask.VFS_STAT, ProfilerTask.VFS_DIR, ProfilerTask.VFS_READLINK,
-          ProfilerTask.VFS_MD5, ProfilerTask.VFS_DELETE, ProfilerTask.VFS_OPEN,
-          ProfilerTask.VFS_READ, ProfilerTask.VFS_WRITE, ProfilerTask.VFS_GLOB,
+  private static final Set<ProfilerTask> VFS_TASKS =
+      EnumSet.of(
+          ProfilerTask.VFS_STAT,
+          ProfilerTask.VFS_DIR,
+          ProfilerTask.VFS_READLINK,
+          ProfilerTask.VFS_MD5,
+          ProfilerTask.VFS_DELETE,
+          ProfilerTask.VFS_OPEN,
+          ProfilerTask.VFS_READ,
+          ProfilerTask.VFS_WRITE,
+          ProfilerTask.VFS_GLOB,
           ProfilerTask.VFS_XATTR);
 
   /** The data of the profiled build. */

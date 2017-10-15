@@ -34,7 +34,7 @@ import com.sun.source.tree.Tree;
 public class PackageNameNode extends Node {
 
     protected final Tree tree;
-    /** The package named by this node */
+    // The package named by this node
     protected final Element element;
 
     /** The parent name, if any. */

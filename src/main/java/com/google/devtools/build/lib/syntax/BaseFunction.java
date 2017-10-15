@@ -19,17 +19,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
-import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 /**
  * A base class for Skylark functions, whether builtin or user-defined.
@@ -159,7 +158,7 @@ public abstract class BaseFunction implements SkylarkValue {
    * @param signature the signature, without default values or types
    */
   public BaseFunction(String name, FunctionSignature signature) {
-    this(name, FunctionSignature.WithValues.<Object, SkylarkType>create(signature), null);
+    this(name, FunctionSignature.WithValues.create(signature), null);
   }
 
   /**
@@ -286,8 +285,7 @@ public abstract class BaseFunction implements SkylarkValue {
       arguments[kwParamIndex] = SkylarkDict.copyOf(env, kwargs);
     } else {
       // Hard general case (2c): some keyword arguments may correspond to named parameters
-      SkylarkDict<String, Object> kwArg = hasKwParam
-          ? SkylarkDict.<String, Object>of(env) : SkylarkDict.<String, Object>empty();
+      SkylarkDict<String, Object> kwArg = hasKwParam ? SkylarkDict.of(env) : SkylarkDict.empty();
 
       // For nicer stabler error messages, start by checking against
       // an argument being provided both as positional argument and as keyword argument.
@@ -404,15 +402,6 @@ public abstract class BaseFunction implements SkylarkValue {
     return parent;
   }
 
-  public static final StackManipulation call =
-      ByteCodeUtils.invoke(
-          BaseFunction.class,
-          "call",
-          List.class,
-          Map.class,
-          FuncallExpression.class,
-          Environment.class);
-
   /**
    * The outer calling convention to a BaseFunction.
    *
@@ -518,14 +507,13 @@ public abstract class BaseFunction implements SkylarkValue {
 
   /**
    * Returns the signature as "[className.]methodName(name1: paramType1, name2: paramType2, ...)"
-   * or "[className.]methodName(paramType1, paramType2, ...)", depending on the value of showNames.
    */
-  public String getShortSignature(boolean showNames) {
+  public String getShortSignature() {
     StringBuilder builder = new StringBuilder();
     boolean hasSelf = hasSelfArgument();
 
     builder.append(getFullName()).append("(");
-    signature.toStringBuilder(builder, showNames, false, false, hasSelf);
+    signature.toStringBuilder(builder, false, false, hasSelf);
     builder.append(")");
 
     return builder.toString();
@@ -578,7 +566,12 @@ public abstract class BaseFunction implements SkylarkValue {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, "<function " + getName() + ">");
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<function " + getName() + ">");
+  }
+
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
+    printer.append("<function " + getName() + ">");
   }
 }

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -57,6 +58,6 @@ public class ExternalPackageFunction implements SkyFunction {
    * Returns a SkyKey to find the WORKSPACE file at the given path.
    */
   public static SkyKey key(RootedPath workspacePath) {
-    return SkyKey.create(SkyFunctions.EXTERNAL_PACKAGE, workspacePath);
+    return LegacySkyKey.create(SkyFunctions.EXTERNAL_PACKAGE, workspacePath);
   }
 }

@@ -17,32 +17,38 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
-
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * Test summary entry. Stores summary information for a single test rule.
- * Also used to sort summary output by status.
+ * Test summary entry. Stores summary information for a single test rule. Also used to sort summary
+ * output by status.
  *
- * <p>Invariant:
- * All TestSummary mutations should be performed through the Builder.
- * No direct TestSummary methods (except the constructor) may mutate the object.
+ * <p>Invariant: All TestSummary mutations should be performed through the Builder. No direct
+ * TestSummary methods (except the constructor) may mutate the object.
  */
 @VisibleForTesting // Ideally package-scoped.
-public class TestSummary implements Comparable<TestSummary> {
+public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   /**
    * Builder class responsible for creating and altering TestSummary objects.
    */
@@ -57,7 +63,8 @@ public class TestSummary implements Comparable<TestSummary> {
 
     private void mergeFrom(TestSummary existingSummary) {
       // Yuck, manually fill in fields.
-      summary.shardRunStatuses = ArrayListMultimap.create(existingSummary.shardRunStatuses);
+      summary.shardRunStatuses =
+          MultimapBuilder.hashKeys().arrayListValues().build(existingSummary.shardRunStatuses);
       setTarget(existingSummary.target);
       setStatus(existingSummary.status);
       addCoverageFiles(existingSummary.coverageFiles);
@@ -213,7 +220,7 @@ public class TestSummary implements Comparable<TestSummary> {
 
     /**
      * Set the number of results cached, locally or remotely.
-     * 
+     *
      * @param numCached number of results cached locally or remotely
      * @return this Builder
      */
@@ -336,9 +343,8 @@ public class TestSummary implements Comparable<TestSummary> {
   }
 
   /**
-   * Whether or not any results associated with this test were cached locally
-   * or remotely.
-   * 
+   * Whether or not any results associated with this test were cached locally or remotely.
+   *
    * @return true if any results were cached, false if not
    */
   public boolean isCached() {
@@ -365,9 +371,9 @@ public class TestSummary implements Comparable<TestSummary> {
   }
 
   /**
-   * Whether or not any action was taken for this test, that is there was some
-   * result that was <em>not cached</em>.
-   * 
+   * Whether or not any action was taken for this test, that is there was some result that was
+   * <em>not cached</em>.
+   *
    * @return true if some action was taken for this test, false if not
    */
   public boolean actionRan() {
@@ -410,7 +416,7 @@ public class TestSummary implements Comparable<TestSummary> {
   }
 
   private static int getSortKey(BlazeTestStatus status) {
-    return status == BlazeTestStatus.PASSED ? -1 : status.ordinal();
+    return status == BlazeTestStatus.PASSED ? -1 : status.getNumber();
   }
 
   @Override
@@ -445,5 +451,35 @@ public class TestSummary implements Comparable<TestSummary> {
     return status == BlazeTestStatus.PASSED
         ? Mode.INFO
         : (status == BlazeTestStatus.FLAKY ? Mode.WARNING : Mode.ERROR);
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.testSummary(
+        target.getTarget().getLabel(), target.getConfiguration().getEventId());
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    return ImmutableList.of();
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    PathConverter pathConverter = converters.pathConverter();
+    BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
+        BuildEventStreamProtos.TestSummary.newBuilder()
+            .setOverallStatus(BuildEventStreamerUtils.bepStatus(status))
+            .setTotalNumCached(getNumCached())
+            .setTotalRunCount(totalRuns());
+    for (Path path : getFailedLogs()) {
+      summaryBuilder.addFailed(
+          BuildEventStreamProtos.File.newBuilder().setUri(pathConverter.apply(path)).build());
+    }
+    for (Path path : getPassedLogs()) {
+      summaryBuilder.addPassed(
+          BuildEventStreamProtos.File.newBuilder().setUri(pathConverter.apply(path)).build());
+    }
+    return GenericBuildEvent.protoChaining(this).setTestSummary(summaryBuilder.build()).build();
   }
 }

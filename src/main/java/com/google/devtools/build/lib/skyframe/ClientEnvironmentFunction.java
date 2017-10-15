@@ -18,10 +18,17 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** The Skyframe function that generates values for variables of the client environment. */
 public final class ClientEnvironmentFunction implements SkyFunction {
+
+  private final AtomicReference<Map<String, String>> clientEnv;
+
+  ClientEnvironmentFunction(AtomicReference<Map<String, String>> clientEnv) {
+    this.clientEnv = clientEnv;
+  }
 
   @Nullable
   @Override
@@ -31,8 +38,7 @@ public final class ClientEnvironmentFunction implements SkyFunction {
 
   @Nullable
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-    Map<String, String> clientEnv = PrecomputedValue.CLIENT_ENV.get(env);
-    return new ClientEnvironmentValue(clientEnv.get((String) skyKey.argument()));
+  public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
+    return new ClientEnvironmentValue(clientEnv.get().get((String) key.argument()));
   }
 }

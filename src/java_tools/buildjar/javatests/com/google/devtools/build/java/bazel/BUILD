@@ -1,3 +1,7 @@
+# Description:
+#  Tests for tools for working with Java source code
+package(default_visibility = ["//src:__subpackages__"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

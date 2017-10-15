@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
@@ -31,13 +33,14 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.TriState;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A java compiler configuration containing the flags required for compilation. */
 @Immutable
 @SkylarkModule(
   name = "java",
-  doc = "A java compiler configuration",
+  doc = "A java compiler configuration.",
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
 )
 public final class JavaConfiguration extends Fragment {
@@ -48,7 +51,23 @@ public final class JavaConfiguration extends Fragment {
     /** JavaBuilder computes the reduced classpath before invoking javac. */
     JAVABUILDER,
     /** Blaze computes the reduced classpath before invoking JavaBuilder. */
-    EXPERIMENTAL_BLAZE
+    BLAZE
+  }
+
+  /** Values for the --experimental_one_version_enforcement option */
+  public enum OneVersionEnforcementLevel {
+    /** Don't attempt to check for one version violations (the default) */
+    OFF,
+    /**
+     * Check for one version violations, emit warnings to stderr if any are found, but don't break
+     * the binary.
+     */
+    WARNING,
+    /**
+     * Check for one version violations, emit warnings to stderr if any are found, and break the
+     * rule if it's found.
+     */
+    ERROR
   }
 
   /**
@@ -84,7 +103,7 @@ public final class JavaConfiguration extends Fragment {
      */
     OPTIMIZE_MINIFY;
 
-    private String proguardDirectives;
+    private final String proguardDirectives;
 
     private JavaOptimizationMode(String... donts) {
       StringBuilder proguardDirectives = new StringBuilder();
@@ -127,23 +146,26 @@ public final class JavaConfiguration extends Fragment {
   private final Label javaLauncherLabel;
   private final boolean useIjars;
   private final boolean useHeaderCompilation;
-  private final boolean optimizeHeaderCompilationAnnotationProcessing;
+  private final boolean headerCompilationDisableJavacFallback;
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
+  private final OneVersionEnforcementLevel enforceOneVersion;
   private final JavaClasspathMode javaClasspath;
-  private final ImmutableList<String> javaWarns;
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
   private final StrictDepsMode strictJavaDeps;
-  private final ImmutableList<String> javacOpts;
   private final Label proguardBinary;
   private final ImmutableList<Label> extraProguardSpecs;
   private final TriState bundleTranslations;
   private final ImmutableList<Label> translationTargets;
   private final JavaOptimizationMode javaOptimizationMode;
+  private final ImmutableMap<String, Optional<Label>> bytecodeOptimizers;
   private final Label javaToolchain;
+  private final boolean explicitJavaTestDeps;
+  private final boolean experimentalTestRunner;
+  private final boolean jplPropagateCcLinkParamsStore;
 
-  // TODO(dmarting): remove when we have rolled out the new behavior
+  // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean legacyBazelJavaTest;
 
   JavaConfiguration(
@@ -157,15 +179,12 @@ public final class JavaConfiguration extends Fragment {
     this.javaLauncherLabel = javaOptions.javaLauncher;
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
-    this.optimizeHeaderCompilationAnnotationProcessing =
-        javaOptions.optimizeHeaderCompilationAnnotationProcessing;
+    this.headerCompilationDisableJavacFallback = javaOptions.headerCompilationDisableJavacFallback;
     this.generateJavaDeps = generateJavaDeps;
     this.javaClasspath = javaOptions.javaClasspath;
-    this.javaWarns = ImmutableList.copyOf(javaOptions.javaWarns);
     this.defaultJvmFlags = ImmutableList.copyOf(defaultJvmFlags);
     this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
-    this.javacOpts = ImmutableList.copyOf(javaOptions.javacOpts);
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.bundleTranslations = javaOptions.bundleTranslations;
@@ -173,6 +192,10 @@ public final class JavaConfiguration extends Fragment {
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.legacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
+    this.enforceOneVersion = javaOptions.enforceOneVersion;
+    this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
+    this.experimentalTestRunner = javaOptions.experimentalTestRunner;
+    this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -185,6 +208,16 @@ public final class JavaConfiguration extends Fragment {
       }
     }
     this.translationTargets = translationsBuilder.build();
+
+    ImmutableMap.Builder<String, Optional<Label>> optimizersBuilder = ImmutableMap.builder();
+    for (Map.Entry<String, Label> optimizer : javaOptions.bytecodeOptimizers.entrySet()) {
+      String mnemonic = optimizer.getKey();
+      if (optimizer.getValue() == null && !"Proguard".equals(mnemonic)) {
+        throw new InvalidConfigurationException("Must supply label for optimizer " + mnemonic);
+      }
+      optimizersBuilder.put(mnemonic, Optional.fromNullable(optimizer.getValue()));
+    }
+    this.bytecodeOptimizers = optimizersBuilder.build();
   }
 
   @SkylarkCallable(name = "default_javac_flags", structField = true,
@@ -193,6 +226,15 @@ public final class JavaConfiguration extends Fragment {
   // probably.
   public ImmutableList<String> getDefaultJavacFlags() {
     return commandLineJavacFlags;
+  }
+
+  @SkylarkCallable(
+      name = "strict_java_deps",
+      structField = true,
+      doc = "The value of the strict_java_deps flag."
+  )
+  public String getStrictJavaDepsName() {
+    return strictJavaDeps.name().toLowerCase();
   }
 
   @Override
@@ -208,6 +250,14 @@ public final class JavaConfiguration extends Fragment {
     globalMakeEnvBuilder.put("JAVA_TRANSLATIONS", buildTranslations() ? "1" : "0");
   }
 
+  @Override
+  public boolean compatibleWithStrategy(String strategyName) {
+    if (strategyName.equals("experimental_worker")) {
+      return explicitJavaTestDeps() && useExperimentalTestRunner();
+    }
+    return true;
+  }
+
   /**
    * Returns true iff Java compilation should use ijars.
    */
@@ -220,9 +270,12 @@ public final class JavaConfiguration extends Fragment {
     return useHeaderCompilation;
   }
 
-  /** Returns true if only api-generating java_plugins should be run during header compilation. */
-  public boolean optimizeHeaderCompilationAnnotationProcessing() {
-    return optimizeHeaderCompilationAnnotationProcessing;
+  /**
+   * If --java_header_compilation is set, report diagnostics from turbine instead of falling back to
+   * javac. Diagnostics will be produced more quickly, but may be less helpful.
+   */
+  public boolean headerCompilationDisableJavacFallback() {
+    return headerCompilationDisableJavacFallback;
   }
 
   /**
@@ -234,13 +287,6 @@ public final class JavaConfiguration extends Fragment {
 
   public JavaClasspathMode getReduceJavaClasspath() {
     return javaClasspath;
-  }
-
-  /**
-   * Returns the extra warnings enabled for Java compilation.
-   */
-  public ImmutableList<String> getJavaWarns() {
-    return javaWarns;
   }
 
   public ImmutableList<String> getDefaultJvmFlags() {
@@ -271,10 +317,6 @@ public final class JavaConfiguration extends Fragment {
    */
   public Label getJavaLauncherLabel() {
     return javaLauncherLabel;
-  }
-
-  public ImmutableList<String> getJavacOpts() {
-    return javacOpts;
   }
 
   /**
@@ -330,6 +372,13 @@ public final class JavaConfiguration extends Fragment {
   }
 
   /**
+   * Returns ordered list of optimizers to run.
+   */
+  public ImmutableMap<String, Optional<Label>> getBytecodeOptimizers() {
+    return bytecodeOptimizers;
+  }
+
+  /**
    * Returns true if java_test in Bazel should behave in legacy mode that existed before we
    * open-sourced our test runner.
    */
@@ -337,7 +386,38 @@ public final class JavaConfiguration extends Fragment {
     return legacyBazelJavaTest;
   }
 
+  /**
+   * Returns true if we should be the ExperimentalTestRunner instead of the BazelTestRunner for
+   * bazel's java_test runs.
+   */
+  public boolean useExperimentalTestRunner() {
+    return experimentalTestRunner;
+  }
+
+  /**
+   * Make it mandatory for java_test targets to explicitly declare any JUnit or Hamcrest
+   * dependencies instead of accidentally obtaining them from the TestRunner's dependencies.
+   */
+  public boolean explicitJavaTestDeps() {
+    return explicitJavaTestDeps;
+  }
+
+  /**
+   * Returns an enum representing whether or not Bazel should attempt to enforce one-version
+   * correctness on java_binary rules using the 'oneversion' tool in the java_toolchain.
+   *
+   * One-version correctness will inspect for multiple non-identical versions of java classes in the
+   * transitive dependencies for a java_binary.
+   */
+  public OneVersionEnforcementLevel oneVersionEnforcementLevel() {
+    return enforceOneVersion;
+  }
+
   public boolean strictDepsJavaProtos() {
     return strictDepsJavaProtos;
+  }
+
+  public boolean jplPropagateCcLinkParamsStore() {
+    return jplPropagateCcLinkParamsStore;
   }
 }

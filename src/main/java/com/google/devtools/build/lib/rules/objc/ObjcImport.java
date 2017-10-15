@@ -14,16 +14,13 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
-
-import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 
@@ -45,30 +42,30 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
             .addExtraImportLibraries(
                 ruleContext.getPrerequisiteArtifacts("archives", Mode.TARGET).list())
             .addDepObjcProviders(
-                ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+                ruleContext.getPrerequisites(
+                    "bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
             .build();
 
-    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
-    new CompilationSupport(ruleContext)
-        .registerGenerateModuleMapAction(Optional.<CompilationArtifacts>absent())
-        .addXcodeSettings(xcodeProviderBuilder, common)
+    CompilationAttributes compilationAttributes =
+        CompilationAttributes.Builder.fromRuleContext(ruleContext).build();
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
+
+    Iterable<Artifact> publicHeaders = compilationAttributes.hdrs();
+    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
+
+    new CompilationSupport.Builder()
+        .setRuleContext(ruleContext)
+        .build()
+        .registerGenerateModuleMapAction(moduleMap, publicHeaders)
         .validateAttributes();
 
-    new ResourceSupport(ruleContext)
-        .validateAttributes()
-        .addXcodeSettings(xcodeProviderBuilder);
-
-    new XcodeSupport(ruleContext)
-        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
-        .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
-        .registerActions(xcodeProviderBuilder.build())
-        .addFilesToBuild(filesToBuild);
+    new ResourceSupport(ruleContext).validateAttributes();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
-        .addProvider(ObjcProvider.class, common.getObjcProvider())
+        .addNativeDeclaredProvider(common.getObjcProvider())
         .build();
   }
 }

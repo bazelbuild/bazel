@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -83,7 +83,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     ActionExecutionContext context = actionExecutionContext();
     action.execute(context);
     String content = new String(FileSystemUtils.readContentAsLatin1(outputArtifact.getPath()));
-    assertEquals("--flag1\n--flag2\n--flag3\nvalue1\nvalue2", content.trim());
+    assertThat(content.trim()).isEqualTo("--flag1\n--flag2\n--flag3\nvalue1\nvalue2");
   }
 
   @Test
@@ -94,15 +94,15 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     ActionExecutionContext context = actionExecutionContext();
     action.execute(context);
     String content = new String(FileSystemUtils.readContentAsLatin1(outputArtifact.getPath()));
-    assertEquals(
-        "--flag1\n"
-        + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact1:"
-        + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact2",
-        content.trim());
+    assertThat(content.trim())
+        .isEqualTo(
+            "--flag1\n"
+                + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact1\n"
+                + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact2");
   }
 
   private Artifact createTreeArtifact(String rootRelativePath) {
-    PathFragment relpath = new PathFragment(rootRelativePath);
+    PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
         rootDir.getPath().getRelative(relpath),
         rootDir,
@@ -115,7 +115,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
       Artifact inputTreeArtifact, String parentRelativePath) {
     return ActionInputHelper.treeFileArtifact(
         inputTreeArtifact,
-        new PathFragment(parentRelativePath));
+        PathFragment.create(parentRelativePath));
   }
 
   private ParameterFileWriteAction createParameterFileWriteAction(
@@ -133,14 +133,14 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     return CustomCommandLine.builder()
         .add("--flag1")
         .add("--flag2")
-        .add("--flag3", ImmutableList.of("value1", "value2"))
+        .addAll("--flag3", ImmutableList.of("value1", "value2"))
         .build();
   }
 
   private CommandLine createTreeArtifactExpansionCommandLine() {
     return CustomCommandLine.builder()
         .add("--flag1")
-        .addJoinExpandedTreeArtifactExecPath(":", treeArtifact)
+        .addExpandedTreeArtifactExecPaths(treeArtifact)
         .build();
   }
 
@@ -161,7 +161,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     };
 
     Executor executor = new TestExecutorBuilder(directories, binTools).build();
-    return new ActionExecutionContext(executor, null, null, new FileOutErr(),
-        ImmutableMap.<String, String>of(), artifactExpander);
+    return new ActionExecutionContext(executor, null, ActionInputPrefetcher.NONE, null,
+        new FileOutErr(), ImmutableMap.<String, String>of(), artifactExpander);
   }
 }

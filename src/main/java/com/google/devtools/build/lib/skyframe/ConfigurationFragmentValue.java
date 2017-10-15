@@ -23,12 +23,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.Serializable;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -57,7 +56,7 @@ public class ConfigurationFragmentValue implements SkyValue {
             BuildConfiguration.getOptionsClasses(
                 ImmutableList.<Class<? extends BuildConfiguration.Fragment>>of(fragmentType),
                 ruleClassProvider));
-    return SkyKey.create(
+    return LegacySkyKey.create(
         SkyFunctions.CONFIGURATION_FRAGMENT,
         new ConfigurationFragmentKey(optionsKey, fragmentType));
   }

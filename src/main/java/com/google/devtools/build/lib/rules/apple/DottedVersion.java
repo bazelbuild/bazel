@@ -14,19 +14,27 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Represents a value with multiple components, separated by periods, for example {@code 4.5.6} or
@@ -37,7 +45,9 @@ import java.util.regex.Pattern;
  *
  * <p>Dotted versions are ordered using natural integer sorting on components in order from first to
  * last where any missing element is considered to have the value 0 if they don't contain any
- * non-numeric characters. For example: <pre>
+ * non-numeric characters. For example:
+ *
+ * <pre>
  *   3.1.25 > 3.1.1
  *   3.1.20 > 3.1.2
  *   3.1.1 > 3.1
@@ -50,7 +60,9 @@ import java.util.regex.Pattern;
  * component with a smaller integer. If the integers are the same, the alphabetic sequences are
  * compared lexicographically, and if <i>they</i> turn out to be the same, the final (optional)
  * integer is compared. As with the leading integer, this final integer is considered to be 0 if not
- * present. For example: <pre>
+ * present. For example:
+ *
+ * <pre>
  *   3.1.1 > 3.1.1beta3
  *   3.1.1beta1 > 3.1.0
  *   3.1 > 3.1.0alpha1
@@ -67,16 +79,17 @@ import java.util.regex.Pattern;
   name = "DottedVersion",
   category = SkylarkModuleCategory.NONE,
   doc =
-      "A value representing a version with multiple components, seperated by periods, such as "
+      "A value representing a version with multiple components, separated by periods, such as "
           + "1.2.3.4."
 )
-public final class DottedVersion implements Comparable<DottedVersion> {
+@Immutable
+public final class DottedVersion implements Comparable<DottedVersion>, SkylarkValue {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
   private static final Pattern COMPONENT_PATTERN = Pattern.compile("(\\d+)(?:([a-z]+)(\\d*))?");
   private static final String ILLEGAL_VERSION =
       "Dotted version components must all be of the form \\d+([a-z]+\\d*)? but got %s";
   private static final String NO_ALPHA_SEQUENCE = null;
-  private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0);
+  private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0, "0");
 
   /**
    * Generates a new dotted version from the given version string.
@@ -84,10 +97,15 @@ public final class DottedVersion implements Comparable<DottedVersion> {
    * @throws IllegalArgumentException if the passed string is not a valid dotted version
    */
   public static DottedVersion fromString(String version) {
+    if (Strings.isNullOrEmpty(version)) {
+      throw new IllegalArgumentException(String.format(ILLEGAL_VERSION, version));
+    }
     ArrayList<Component> components = new ArrayList<>();
     for (String component : DOT_SPLITTER.split(version)) {
       components.add(toComponent(component, version));
     }
+
+    int numOriginalComponents = components.size();
 
     // Remove trailing (but not the first) zero components for easier comparison and hashcoding.
     for (int i = components.size() - 1; i > 0; i--) {
@@ -96,7 +114,7 @@ public final class DottedVersion implements Comparable<DottedVersion> {
       }
     }
 
-    return new DottedVersion(ImmutableList.copyOf(components), version);
+    return new DottedVersion(ImmutableList.copyOf(components), version, numOriginalComponents);
   }
 
   private static Component toComponent(String component, String version) {
@@ -118,7 +136,7 @@ public final class DottedVersion implements Comparable<DottedVersion> {
       secondNumber = parseNumber(parsedComponent, 3, version);
     }
 
-    return new Component(firstNumber, alphaSequence, secondNumber);
+    return new Component(firstNumber, alphaSequence, secondNumber, component);
   }
 
   private static int parseNumber(Matcher parsedComponent, int group, String version) {
@@ -133,16 +151,19 @@ public final class DottedVersion implements Comparable<DottedVersion> {
 
   private final ImmutableList<Component> components;
   private final String stringRepresentation;
+  private final int numOriginalComponents;
 
-  private DottedVersion(ImmutableList<Component> components, String version) {
+  private DottedVersion(ImmutableList<Component> components, String version,
+      int numOriginalComponents) {
     this.components = components;
     this.stringRepresentation = version;
+    this.numOriginalComponents = numOriginalComponents;
   }
 
   @Override
   @SkylarkCallable(name = "compare_to", 
     doc = "Compares based on most signifigant (first) not-matching version component. "
-        + "So, for example, 1.2.3 > 1.2.4")
+        + "So, for example, 1.2.3 < 1.2.4")
   public int compareTo(DottedVersion other) {
     int maxComponents = Math.max(components.size(), other.components.size());
     for (int componentIndex = 0; componentIndex < maxComponents; componentIndex++) {
@@ -154,6 +175,52 @@ public final class DottedVersion implements Comparable<DottedVersion> {
       }
     }
     return 0;
+  }
+
+  /**
+   * Returns the string representation of this dotted version, padded to a minimum number of
+   * components if the string representation does not already contain that many components.
+   * 
+   * <p>For example, a dotted version of "7.3" will return "7.3" with either one or two components
+   * requested, "7.3.0" if three are requested, and "7.3.0.0" if four are requested.
+   * 
+   * <p>Trailing zero components at the end of a string representation will not be removed. For
+   * example, a dotted version of "1.0.0" will return "1.0.0" if only one or two components
+   * are requested.
+   *
+   * @param numMinComponents the minimum number of dot-separated numbers that should be present
+   *     in the returned string representation
+   */
+  public String toStringWithMinimumComponents(int numMinComponents) {
+    ImmutableList.Builder<Component> stringComponents = ImmutableList.builder();
+    stringComponents.addAll(components);
+    int numComponents = Math.max(this.numOriginalComponents, numMinComponents);
+    int zeroesToPad = numComponents - components.size();
+    for (int i = 0; i < zeroesToPad; i++) {
+      stringComponents.add(ZERO_COMPONENT);
+    }
+    return Joiner.on('.').join(stringComponents.build());
+  }
+
+  /**
+   * Returns true if this version number has any alphabetic characters, such as 'alpha' in
+   * "7.3alpha.2".
+   */
+  public boolean hasAlphabeticCharacters() {
+    for (Component component : components) {
+      if (!Objects.equals(component.alphaSequence, NO_ALPHA_SEQUENCE)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns the number of components in this version number. For example, "7.3.0" has three
+   * components.
+   */
+  public int numComponents() {
+    return components.size();
   }
 
   @Override
@@ -185,15 +252,56 @@ public final class DottedVersion implements Comparable<DottedVersion> {
     return ZERO_COMPONENT;
   }
 
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append(stringRepresentation);
+  }
+
+  static final ObjectCodec<DottedVersion> CODEC =
+      new ObjectCodec<DottedVersion>() {
+        @Override
+        public void serialize(DottedVersion obj, CodedOutputStream codedOut) throws IOException {
+          codedOut.writeInt32NoTag(obj.components.size());
+          for (Component component : obj.components) {
+            component.serialize(codedOut);
+          }
+          codedOut.writeStringNoTag(obj.stringRepresentation);
+          codedOut.writeInt32NoTag(obj.numOriginalComponents);
+        }
+
+        @Override
+        public DottedVersion deserialize(CodedInputStream codedIn) throws IOException {
+          int numComponents = codedIn.readInt32();
+          // TODO(janakr: Presize this if/when https://github.com/google/guava/issues/196 is
+          // resolved.
+          ImmutableList.Builder<Component> components = ImmutableList.builder();
+          for (int i = 0; i < numComponents; i++) {
+            components.add(Component.deserialize(codedIn));
+          }
+          return new DottedVersion(components.build(), codedIn.readString(), codedIn.readInt32());
+        }
+
+        @Override
+        public Class<DottedVersion> getEncodedClass() {
+          return DottedVersion.class;
+        }
+      };
+
   private static final class Component implements Comparable<Component> {
     private final int firstNumber;
-    private final String alphaSequence;
+    @Nullable private final String alphaSequence;
     private final int secondNumber;
+    private final String stringRepresentation;
 
-    public Component(int firstNumber, String alphaSequence, int secondNumber) {
+    public Component(
+        int firstNumber,
+        @Nullable String alphaSequence,
+        int secondNumber,
+        String stringRepresentation) {
       this.firstNumber = firstNumber;
       this.alphaSequence = alphaSequence;
       this.secondNumber = secondNumber;
+      this.stringRepresentation = stringRepresentation;
     }
 
     @Override
@@ -220,6 +328,31 @@ public final class DottedVersion implements Comparable<DottedVersion> {
     @Override
     public int hashCode() {
       return Objects.hash(firstNumber, alphaSequence, secondNumber);
+    }
+
+    @Override
+    public String toString() {
+      return stringRepresentation;
+    }
+
+    void serialize(CodedOutputStream out) throws IOException {
+      if (alphaSequence == null) {
+        out.writeBoolNoTag(false);
+      } else {
+        out.writeBoolNoTag(true);
+        out.writeStringNoTag(alphaSequence);
+      }
+      out.writeInt32NoTag(firstNumber);
+      out.writeInt32NoTag(secondNumber);
+      out.writeStringNoTag(stringRepresentation);
+    }
+
+    static Component deserialize(CodedInputStream in) throws IOException {
+      String alphaSequence = null;
+      if (in.readBool()) {
+        alphaSequence = in.readString();
+      }
+      return new Component(in.readInt32(), alphaSequence, in.readInt32(), in.readString());
     }
   }
 }

@@ -18,11 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 
 /**
  * A class to contain the base definition of common BUILD rule attributes.
@@ -87,12 +85,12 @@ public class PredefinedAttributes {
     return builder.build();
   }
 
-  public static final Map<String, RuleDocumentationAttribute> COMMON_ATTRIBUTES =
+  public static final ImmutableMap<String, RuleDocumentationAttribute> COMMON_ATTRIBUTES =
       generateAttributeMap(DocgenConsts.COMMON_ATTRIBUTES, COMMON_ATTRIBUTES_DOCFILES);
 
-  public static final Map<String, RuleDocumentationAttribute> BINARY_ATTRIBUTES =
+  public static final ImmutableMap<String, RuleDocumentationAttribute> BINARY_ATTRIBUTES =
       generateAttributeMap(DocgenConsts.BINARY_ATTRIBUTES, BINARY_ATTRIBUTES_DOCFILES);
 
-  public static final Map<String, RuleDocumentationAttribute> TEST_ATTRIBUTES =
+  public static final ImmutableMap<String, RuleDocumentationAttribute> TEST_ATTRIBUTES =
       generateAttributeMap(DocgenConsts.TEST_ATTRIBUTES, TEST_ATTRIBUTES_DOCFILES);
 }

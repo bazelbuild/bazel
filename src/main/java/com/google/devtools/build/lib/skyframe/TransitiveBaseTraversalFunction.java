@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -123,7 +126,8 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
     TProcessedTargets processedTargets = processTarget(label, targetAndErrorIfAny);
 
     // Process deps from attributes.
-    Iterable<SkyKey> labelDepKeys = getLabelDepKeys(targetAndErrorIfAny.getTarget());
+    Collection<SkyKey> labelDepKeys =
+        Collections2.transform(getLabelDeps(targetAndErrorIfAny.getTarget()), this::getKey);
 
     Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap =
         env.getValuesOrThrow(labelDepKeys, NoSuchPackageException.class,
@@ -195,42 +199,42 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
       Environment env)
       throws InterruptedException;
 
-  private Iterable<SkyKey> getLabelDepKeys(Target target) throws InterruptedException {
-    List<SkyKey> depKeys = Lists.newArrayList();
-    for (Label depLabel : getLabelDeps(target)) {
-      depKeys.add(getKey(depLabel));
-    }
-    return depKeys;
-  }
-
   // TODO(bazel-team): Unify this logic with that in LabelVisitor, and possibly DependencyResolver.
-  private static Iterable<Label> getLabelDeps(Target target) throws InterruptedException {
-    final Set<Label> labels = new HashSet<>();
+  private static Collection<Label> getLabelDeps(Target target) throws InterruptedException {
     if (target instanceof OutputFile) {
       Rule rule = ((OutputFile) target).getGeneratingRule();
-      labels.add(rule.getLabel());
-      visitTargetVisibility(target, labels);
+      List<Label> visibilityLabels = visitTargetVisibility(target);
+      HashSet<Label> result = Sets.newHashSetWithExpectedSize(visibilityLabels.size() + 1);
+      result.add(rule.getLabel());
+      result.addAll(visibilityLabels);
+      return result;
     } else if (target instanceof InputFile) {
-      visitTargetVisibility(target, labels);
+      return new HashSet<>(visitTargetVisibility(target));
     } else if (target instanceof Rule) {
-      visitTargetVisibility(target, labels);
-      visitRule(target, labels);
+      List<Label> visibilityLabels = visitTargetVisibility(target);
+      Collection<Label> ruleLabels = visitRule(target);
+      HashSet<Label> result =
+          Sets.newHashSetWithExpectedSize(visibilityLabels.size() + ruleLabels.size());
+      result.addAll(visibilityLabels);
+      result.addAll(ruleLabels);
+      return result;
     } else if (target instanceof PackageGroup) {
-      visitPackageGroup((PackageGroup) target, labels);
+      return new HashSet<>(visitPackageGroup((PackageGroup) target));
+    } else {
+      return ImmutableSet.of();
     }
-    return labels;
   }
 
-  private static void visitRule(Target target, Set<Label> labels) throws InterruptedException {
-    labels.addAll(((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES).values());
+  private static Collection<Label> visitRule(Target target) throws InterruptedException {
+    return ((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES).values();
   }
 
-  private static void visitTargetVisibility(Target target, Set<Label> labels) {
-    labels.addAll(target.getVisibility().getDependencyLabels());
+  private static List<Label> visitTargetVisibility(Target target) {
+    return target.getVisibility().getDependencyLabels();
   }
 
-  private static void visitPackageGroup(PackageGroup packageGroup, Set<Label> labels) {
-    labels.addAll(packageGroup.getIncludes());
+  private static List<Label> visitPackageGroup(PackageGroup packageGroup) {
+    return packageGroup.getIncludes();
   }
 
   enum LoadTargetResultsType {

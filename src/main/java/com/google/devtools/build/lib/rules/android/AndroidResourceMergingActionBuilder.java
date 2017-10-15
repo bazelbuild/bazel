@@ -17,15 +17,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
+import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,7 +36,7 @@ import java.util.List;
  * $android_resource_validator action. For android_binary, see {@link
  * AndroidResourcesProcessorBuilder}.
  */
-class AndroidResourceMergingActionBuilder {
+public class AndroidResourceMergingActionBuilder {
 
   private static final ResourceContainerConverter.ToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
       ResourceContainerConverter.builder()
@@ -62,9 +62,11 @@ class AndroidResourceMergingActionBuilder {
   private Artifact mergedResourcesOut;
   private Artifact classJarOut;
   private Artifact manifestOut;
+  private Artifact dataBindingInfoZip;
 
   // Flags
   private String customJavaPackage;
+  private boolean throwOnResourceConflict;
 
   /** @param ruleContext The RuleContext that was used to create the SpawnAction.Builder. */
   public AndroidResourceMergingActionBuilder(RuleContext ruleContext) {
@@ -101,27 +103,41 @@ class AndroidResourceMergingActionBuilder {
     return this;
   }
 
+  /**
+   * The output zip for resource-processed data binding expressions (i.e. a zip of .xml files).
+   * If null, data binding processing is skipped (and data binding expressions aren't allowed in
+   * layout resources).
+   */
+  public AndroidResourceMergingActionBuilder setDataBindingInfoZip(Artifact zip) {
+    this.dataBindingInfoZip = zip;
+    return this;
+  }
+
   public AndroidResourceMergingActionBuilder setJavaPackage(String customJavaPackage) {
     this.customJavaPackage = customJavaPackage;
+    return this;
+  }
+
+  public AndroidResourceMergingActionBuilder setThrowOnResourceConflict(
+      boolean throwOnResourceConflict) {
+    this.throwOnResourceConflict = throwOnResourceConflict;
     return this;
   }
 
   public ResourceContainer build(ActionConstructionContext context) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
 
+    // Set the busybox tool.
+    builder.add("--tool").add("MERGE").add("--");
+
     // Use a FluentIterable to avoid flattening the NestedSets
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
-    inputs.addAll(
-        ruleContext
-            .getExecutablePrerequisite("$android_resource_merger", Mode.HOST)
-            .getRunfilesSupport()
-            .getRunfilesArtifactsWithoutMiddlemen());
 
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
     Preconditions.checkNotNull(primary);
-    builder.add("--primaryData").add(RESOURCE_CONTAINER_TO_ARG.apply(primary));
+    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.apply(primary));
     inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
 
     Preconditions.checkNotNull(primary.getManifest());
@@ -131,10 +147,11 @@ class AndroidResourceMergingActionBuilder {
     ResourceContainerConverter.convertDependencies(
         dependencies, builder, inputs, RESOURCE_CONTAINER_TO_ARG, RESOURCE_CONTAINER_TO_ARTIFACTS);
 
-    Preconditions.checkNotNull(classJarOut);
     List<Artifact> outs = new ArrayList<>();
-    builder.addExecPath("--classJarOutput", classJarOut);
-    outs.add(classJarOut);
+    if (classJarOut != null) {
+      builder.addExecPath("--classJarOutput", classJarOut);
+      outs.add(classJarOut);
+    }
 
     if (mergedResourcesOut != null) {
       builder.addExecPath("--resourcesOutput", mergedResourcesOut);
@@ -151,38 +168,59 @@ class AndroidResourceMergingActionBuilder {
     if (!Strings.isNullOrEmpty(customJavaPackage)) {
       // Sets an alternative java package for the generated R.java
       // this allows android rules to generate resources outside of the java{,tests} tree.
-      builder.add("--packageForR").add(customJavaPackage);
+      builder.add("--packageForR", customJavaPackage);
+    }
+
+    // TODO(corysmith): Move the data binding parsing out of the merging pass to enable faster
+    // aapt2 builds.
+    if (dataBindingInfoZip != null) {
+      builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
+      outs.add(dataBindingInfoZip);
+    }
+
+    if (throwOnResourceConflict) {
+      builder.add("--throwOnResourceConflict");
     }
 
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
+
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+      // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+      // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+      // file.
+      // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+      // list-type and list-of-list-type flags that use such problematic separators in favor of
+      // multi-value flags (to remove one level of listing) and by changing all list separators to a
+      // platform-safe character (= comma).
+      spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
+    } else {
+      spawnActionBuilder.useParameterFile(ParameterFileType.UNQUOTED);
+    }
+
     // Create the spawn action.
     ruleContext.registerAction(
         spawnActionBuilder
+            .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))
             .setCommandLine(builder.build())
             .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resource_merger", Mode.HOST))
-            .setProgressMessage("Merging Android resources for " + ruleContext.getLabel())
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage("Merging Android resources for %s", ruleContext.getLabel())
             .setMnemonic("AndroidResourceMerger")
             .build(context));
 
     // Return the full set of processed transitive dependencies.
-    return ResourceContainer.create(
-        primary.getLabel(),
-        primary.getJavaPackage(),
-        primary.getRenameManifestPackage(),
-        primary.getConstantsInlined(),
-        primary.getApk(),
-        manifestOut != null ? manifestOut : primary.getManifest(),
-        primary.getJavaSourceJar(),
-        classJarOut,
-        primary.getArtifacts(ResourceType.ASSETS),
-        primary.getArtifacts(ResourceType.RESOURCES),
-        primary.getRoots(ResourceType.ASSETS),
-        primary.getRoots(ResourceType.RESOURCES),
-        primary.isManifestExported(),
-        primary.getRTxt(),
-        primary.getSymbolsTxt());
+    ResourceContainer.Builder result = primary.toBuilder();
+    if (classJarOut != null) {
+      // ensure the classJar is propagated if it exists. Otherwise, AndroidCommon tries to make it.
+      // TODO(corysmith): Centralize the class jar generation.
+      result.setJavaClassJar(classJarOut);
+    }
+    if (manifestOut != null) {
+      result.setManifest(manifestOut);
+    }
+    return result.build();
   }
 }

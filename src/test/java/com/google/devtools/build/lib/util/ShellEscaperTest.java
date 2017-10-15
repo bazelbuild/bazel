@@ -13,18 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.ShellEscaper.escapeString;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
-
+import java.util.Arrays;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Arrays;
-import java.util.Set;
 
 /**
  * Tests for {@link ShellEscaper}.
@@ -36,41 +34,42 @@ public class ShellEscaperTest {
 
   @Test
   public void shellEscape() throws Exception {
-    assertEquals("''", escapeString(""));
-    assertEquals("foo", escapeString("foo"));
-    assertEquals("'foo bar'", escapeString("foo bar"));
-    assertEquals("''\\''foo'\\'''", escapeString("'foo'"));
-    assertEquals("'\\'\\''foo\\'\\'''", escapeString("\\'foo\\'"));
-    assertEquals("'${filename%.c}.o'", escapeString("${filename%.c}.o"));
-    assertEquals("'<html!>'", escapeString("<html!>"));
+    assertThat(escapeString("")).isEqualTo("''");
+    assertThat(escapeString("foo")).isEqualTo("foo");
+    assertThat(escapeString("foo bar")).isEqualTo("'foo bar'");
+    assertThat(escapeString("'foo'")).isEqualTo("''\\''foo'\\'''");
+    assertThat(escapeString("\\'foo\\'")).isEqualTo("'\\'\\''foo\\'\\'''");
+    assertThat(escapeString("${filename%.c}.o")).isEqualTo("'${filename%.c}.o'");
+    assertThat(escapeString("<html!>")).isEqualTo("'<html!>'");
   }
 
   @Test
   public void escapeAll() throws Exception {
     Set<String> escaped = ImmutableSet.copyOf(
         ShellEscaper.escapeAll(Arrays.asList("foo", "@bar", "baz'qux")));
-    assertEquals(ImmutableSet.of("foo", "@bar", "'baz'\\''qux'"), escaped);
+    assertThat(escaped).containsExactly("foo", "@bar", "'baz'\\''qux'");
   }
 
   @Test
   public void escapeJoinAllIntoAppendable() throws Exception {
     Appendable appendable = ShellEscaper.escapeJoinAll(
         new StringBuilder("initial"), Arrays.asList("foo", "$BAR"));
-    assertEquals("initialfoo '$BAR'", appendable.toString());
+    assertThat(appendable.toString()).isEqualTo("initialfoo '$BAR'");
   }
 
   @Test
   public void escapeJoinAllIntoAppendableWithCustomJoiner() throws Exception {
     Appendable appendable = ShellEscaper.escapeJoinAll(
         new StringBuilder("initial"), Arrays.asList("foo", "$BAR"), Joiner.on('|'));
-    assertEquals("initialfoo|'$BAR'", appendable.toString());
+    assertThat(appendable.toString()).isEqualTo("initialfoo|'$BAR'");
   }
 
   @Test
   public void escapeJoinAll() throws Exception {
     String actual = ShellEscaper.escapeJoinAll(
         Arrays.asList("foo", "@echo:-", "100", "$US", "a b", "\"qu'ot'es\"", "\"quot\"", "\\"));
-    assertEquals("foo @echo:- 100 '$US' 'a b' '\"qu'\\''ot'\\''es\"' '\"quot\"' '\\'", actual);
+    assertThat(actual)
+        .isEqualTo("foo @echo:- 100 '$US' 'a b' '\"qu'\\''ot'\\''es\"' '\"quot\"' '\\'");
   }
 
   @Test
@@ -78,6 +77,7 @@ public class ShellEscaperTest {
     String actual = ShellEscaper.escapeJoinAll(
         Arrays.asList("foo", "@echo:-", "100", "$US", "a b", "\"qu'ot'es\"", "\"quot\"", "\\"),
         Joiner.on('|'));
-    assertEquals("foo|@echo:-|100|'$US'|'a b'|'\"qu'\\''ot'\\''es\"'|'\"quot\"'|'\\'", actual);
+    assertThat(actual)
+        .isEqualTo("foo|@echo:-|100|'$US'|'a b'|'\"qu'\\''ot'\\''es\"'|'\"quot\"'|'\\'");
   }
 }

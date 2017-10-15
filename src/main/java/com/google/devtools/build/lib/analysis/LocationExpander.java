@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Joiner;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 
 /**
  * Expands $(location) tags inside target attributes.
@@ -48,7 +49,7 @@ import java.util.TreeSet;
  * Note that //mypackage:myhelper should have just one output.
  */
 public class LocationExpander {
-  
+
   /**
    * List of options to tweak the LocationExpander.
    */
@@ -58,9 +59,10 @@ public class LocationExpander {
     /** Allow to take label from the data attribute */
     ALLOW_DATA,
   }
-  
+
   private static final int MAX_PATHS_SHOWN = 5;
   private static final String LOCATION = "$(location";
+
   private final RuleContext ruleContext;
   private final ImmutableSet<Options> options;
 
@@ -105,7 +107,7 @@ public class LocationExpander {
 
   /**
    * Creates location expander helper bound to specific target.
-   * 
+   *
    * @param ruleContext the BUILD rule's context
    * @param options the list of options, see {@link Options}.
    */
@@ -181,7 +183,7 @@ public class LocationExpander {
       message = String.format(" in %s expression", message);
 
       // (2) parse label
-      String labelText = value.substring(start + scannedLength, end);
+      String labelText = value.substring(start + scannedLength, end).trim();
       Label label = parseLabel(labelText, message, reporter);
 
       if (label == null) {
@@ -194,11 +196,7 @@ public class LocationExpander {
         Collection<String> paths = resolveLabel(label, message, multiple);
         result.append(value, restart, start);
 
-        if (multiple) {
-          Joiner.on(' ').appendTo(result, paths);
-        } else {
-          result.append(Iterables.getOnlyElement(paths));
-        }
+        appendPaths(result, paths, multiple);
       } catch (IllegalStateException ise) {
         reporter.report(ruleContext, ise.getMessage());
         return value;
@@ -206,7 +204,7 @@ public class LocationExpander {
 
       restart = end + 1;
     }
-    
+
     return result.toString();
   }
 
@@ -255,6 +253,25 @@ public class LocationExpander {
     }
 
     return paths;
+  }
+
+  private void appendPaths(StringBuilder result, Collection<String> paths, boolean multiple) {
+    Stream<String> stream = paths.stream();
+    if (!multiple) {
+      stream = stream.limit(1);
+    }
+
+    String pathString = stream.map(LocationExpander::quotePath).collect(joining(" "));
+
+    result.append(pathString);
+  }
+
+  private static String quotePath(String path) {
+    // TODO(jcater): Handle more cases where escaping is needed.
+    if (path.contains(" ")) {
+      path = "'" + path + "'";
+    }
+    return path;
   }
 
   /**
@@ -313,7 +330,7 @@ public class LocationExpander {
       if (executableArtifact != null) {
         mapGet(locationMap, label).add(executableArtifact);
       } else {
-        mapGet(locationMap, label).addAll(filesToRun.getFilesToRun());
+        Iterables.addAll(mapGet(locationMap, label), filesToRun.getFilesToRun());
       }
     }
     return locationMap;
@@ -357,7 +374,7 @@ public class LocationExpander {
     }
     return values;
   }
-  
+
   private static interface ErrorReporter {
     void report(RuleContext ctx, String error);
   }

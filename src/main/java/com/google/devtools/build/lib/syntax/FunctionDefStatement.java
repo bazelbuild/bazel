@@ -13,66 +13,52 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
 
 /**
  * Syntax node for a function definition.
  */
-public class FunctionDefStatement extends Statement {
+public final class FunctionDefStatement extends Statement {
 
-  private final Identifier ident;
+  private final Identifier identifier;
   private final FunctionSignature.WithValues<Expression, Expression> signature;
   private final ImmutableList<Statement> statements;
   private final ImmutableList<Parameter<Expression, Expression>> parameters;
 
-  public FunctionDefStatement(Identifier ident,
+  public FunctionDefStatement(Identifier identifier,
       Iterable<Parameter<Expression, Expression>> parameters,
       FunctionSignature.WithValues<Expression, Expression> signature,
       Iterable<Statement> statements) {
-    this.ident = ident;
+    this.identifier = identifier;
+    this.parameters = ImmutableList.copyOf(parameters);
     this.signature = signature;
     this.statements = ImmutableList.copyOf(statements);
-    this.parameters = ImmutableList.copyOf(parameters);
   }
 
   @Override
-  void doExec(Environment env) throws EvalException, InterruptedException {
-    List<Expression> defaultExpressions = signature.getDefaultValues();
-    ArrayList<Object> defaultValues = null;
-    ArrayList<SkylarkType> types = null;
-
-    if (defaultExpressions != null) {
-      defaultValues = new ArrayList<>(defaultExpressions.size());
-      for (Expression expr : defaultExpressions) {
-        defaultValues.add(expr.eval(env));
-      }
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    buffer.append("def ");
+    identifier.prettyPrint(buffer);
+    buffer.append('(');
+    String sep = "";
+    for (Parameter<?, ?> param : parameters) {
+      buffer.append(sep);
+      param.prettyPrint(buffer);
+      sep = ", ";
     }
-    env.update(
-        ident.getName(),
-        new UserDefinedFunction(
-            ident,
-            FunctionSignature.WithValues.<Object, SkylarkType>create(
-                signature.getSignature(), defaultValues, types),
-            statements,
-            env.getGlobals()));
+    buffer.append("):\n");
+    printSuite(buffer, statements, indentLevel);
   }
 
   @Override
   public String toString() {
-    return "def " + ident + "(" + signature + "):\n";
+    return "def " + identifier + "(" + signature + "): ...\n";
   }
 
-  public Identifier getIdent() {
-    return ident;
+  public Identifier getIdentifier() {
+    return identifier;
   }
 
   public ImmutableList<Statement> getStatements() {
@@ -93,42 +79,7 @@ public class FunctionDefStatement extends Statement {
   }
 
   @Override
-  void validate(final ValidationEnvironment env) throws EvalException {
-    ValidationEnvironment localEnv = new ValidationEnvironment(env);
-    FunctionSignature sig = signature.getSignature();
-    FunctionSignature.Shape shape = sig.getShape();
-    ImmutableList<String> names = sig.getNames();
-    List<Expression> defaultExpressions = signature.getDefaultValues();
-
-    int positionals = shape.getPositionals();
-    int mandatoryPositionals = shape.getMandatoryPositionals();
-    int namedOnly = shape.getNamedOnly();
-    int mandatoryNamedOnly = shape.getMandatoryNamedOnly();
-    boolean starArg = shape.hasStarArg();
-    boolean kwArg = shape.hasKwArg();
-    int named = positionals + namedOnly;
-    int args = named + (starArg ? 1 : 0) + (kwArg ? 1 : 0);
-    int startOptionals = mandatoryPositionals;
-    int endOptionals = named - mandatoryNamedOnly;
-
-    int j = 0; // index for the defaultExpressions
-    for (int i = 0; i < args; i++) {
-      String name = names.get(i);
-      if (startOptionals <= i && i < endOptionals) {
-        defaultExpressions.get(j++).validate(env);
-      }
-      localEnv.declare(name, getLocation());
-    }
-    for (Statement stmts : statements) {
-      stmts.validate(localEnv);
-    }
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo) {
-    throw new UnsupportedOperationException(
-        "Skylark does not support nested function definitions"
-            + " and the current entry point for the compiler is UserDefinedFunction.");
+  public Kind kind() {
+    return Kind.FUNCTION_DEF;
   }
 }

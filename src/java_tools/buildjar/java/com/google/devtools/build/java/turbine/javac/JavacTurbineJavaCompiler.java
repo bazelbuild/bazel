@@ -15,17 +15,14 @@
 package com.google.devtools.build.java.turbine.javac;
 
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
-import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileRequest.Prune;
-
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.CompileStates.CompileState;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.Context;
-
+import com.sun.tools.javac.util.Log;
 import java.util.Queue;
-
 import javax.annotation.Nullable;
 import javax.tools.JavaFileObject;
 
@@ -39,22 +36,22 @@ import javax.tools.JavaFileObject;
 class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
 
   @Nullable private final StrictJavaDepsPlugin strictJavaDeps;
-  private final boolean prune;
+  private final JavacTransitive transitive;
 
   public JavacTurbineJavaCompiler(
-      Context context, @Nullable StrictJavaDepsPlugin strictJavaDeps, Prune prune) {
+      Context context, @Nullable StrictJavaDepsPlugin strictJavaDeps, JavacTransitive transitive) {
     super(context);
     this.strictJavaDeps = strictJavaDeps;
-    this.prune = prune == Prune.YES;
+    if (strictJavaDeps != null) {
+      strictJavaDeps.init(context, Log.instance(context), this);
+    }
+    this.transitive = transitive;
   }
 
   @Override
   protected JCCompilationUnit parse(JavaFileObject javaFileObject, CharSequence charSequence) {
     JCCompilationUnit result = super.parse(javaFileObject, charSequence);
-    if (!prune) {
-      return result;
-    }
-    TreePruner.prune(result);
+    TreePruner.prune(context, result);
     return result;
   }
 
@@ -67,15 +64,12 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
     if (strictJavaDeps != null) {
       strictJavaDeps.postAttribute(result);
     }
+    transitive.postAttribute(result);
     return result;
   }
 
   @Override
   protected void flow(Env<AttrContext> env, Queue<Env<AttrContext>> results) {
-    if (!prune) {
-      super.flow(env, results);
-      return;
-    }
     // skip FLOW (as if -relax was enabled, except -relax is broken for JDK >= 8)
     if (!compileStates.isDone(env, CompileState.FLOW)) {
       compileStates.put(env, CompileState.FLOW);
@@ -88,6 +82,7 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
     if (strictJavaDeps != null) {
       strictJavaDeps.finish();
     }
+    transitive.finish();
   }
 
   /**
@@ -95,13 +90,13 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
    * for the given compilation context.
    */
   public static void preRegister(
-      Context context, @Nullable final StrictJavaDepsPlugin sjd, final Prune prune) {
+      Context context, @Nullable final StrictJavaDepsPlugin sjd, JavacTransitive transitive) {
     context.put(
         compilerKey,
         new Context.Factory<JavaCompiler>() {
           @Override
           public JavaCompiler make(Context c) {
-            return new JavacTurbineJavaCompiler(c, sjd, prune);
+            return new JavacTurbineJavaCompiler(c, sjd, transitive);
           }
         });
   }

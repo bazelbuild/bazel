@@ -21,7 +21,7 @@ public class ErrorReporter {
      * Log an error message and abort processing.
      * Call this method instead of raising an exception.
      *
-     * @param msg the error message to log
+     * @param msg The error message to log.
      */
     public static void errorAbort(String msg) {
         if (handler != null) {

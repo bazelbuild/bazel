@@ -29,7 +29,6 @@ import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.TypeSymbol;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Type.AnnotatedType;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
@@ -132,13 +131,11 @@ public class InternalUtils {
      */
     public static boolean isAnonymousConstructor(final MethodTree method) {
         /*@Nullable*/ Element e = InternalUtils.symbol(method);
-        if (e == null || !(e instanceof Symbol)) {
+        if (e == null || !(e instanceof Symbol))
             return false;
-        }
 
-        if ((((/*@NonNull*/ Symbol)e).flags() & Flags.ANONCONSTR) != 0) {
+        if ((((/*@NonNull*/ Symbol)e).flags() & Flags.ANONCONSTR) != 0)
             return true;
-        }
 
         return false;
     }
@@ -198,9 +195,8 @@ public class InternalUtils {
 
     public final static List<AnnotationMirror> annotationsFromTypeAnnotationTrees(List<? extends AnnotationTree> annos) {
         List<AnnotationMirror> annotations = new ArrayList<AnnotationMirror>(annos.size());
-        for (AnnotationTree anno : annos) {
+        for (AnnotationTree anno : annos)
             annotations.add(((JCAnnotation)anno).attribute);
-        }
         return annotations;
     }
 
@@ -237,9 +233,6 @@ public class InternalUtils {
      * Returns whether a TypeVariable represents a captured type.
      */
     public static boolean isCaptured(TypeVariable typeVar) {
-        if (typeVar instanceof AnnotatedType) {
-            return ((Type.TypeVar) ((Type.AnnotatedType) typeVar).unannotatedType()).isCaptured();
-        }
         return ((Type.TypeVar) typeVar).isCaptured();
     }
 
@@ -251,21 +244,17 @@ public class InternalUtils {
     }
 
     /**
-     * Returns the least upper bound of two {@link TypeMirror}s,
-     * ignoring any annotations on the types.
+     * Returns the least upper bound of two {@link TypeMirror}s.
      *
-     * Wrapper around Types.lub to add special handling for
-     * null types, primitives, and wildcards.
-     *
-     * @param processingEnv the {@link ProcessingEnvironment} to use.
-     * @param tm1 a {@link TypeMirror}.
-     * @param tm2 a {@link TypeMirror}.
-     * @return the least upper bound of {@code tm1} and {@code tm2}.
+     * @param processingEnv The {@link ProcessingEnvironment} to use.
+     * @param tm1 A {@link TypeMirror}.
+     * @param tm2 A {@link TypeMirror}.
+     * @return The least upper bound of {@code tm1} and {@code tm2}.
      */
     public static TypeMirror leastUpperBound(
             ProcessingEnvironment processingEnv, TypeMirror tm1, TypeMirror tm2) {
-        Type t1 = ((Type) tm1).unannotatedType();
-        Type t2 = ((Type) tm2).unannotatedType();
+        Type t1 = (Type) tm1;
+        Type t2 = (Type) tm2;
         JavacProcessingEnvironment javacEnv = (JavacProcessingEnvironment) processingEnv;
         Types types = Types.instance(javacEnv.getContext());
         if (types.isSameType(t1, t2)) {
@@ -313,22 +302,17 @@ public class InternalUtils {
     }
 
     /**
-     * Returns the greatest lower bound of two {@link TypeMirror}s,
-     * ignoring any annotations on the types.
+     * Returns the greatest lower bound of two {@link TypeMirror}s.
      *
-     * Wrapper around Types.glb to add special handling for
-     * null types, primitives, and wildcards.
-     *
-     *
-     * @param processingEnv the {@link ProcessingEnvironment} to use.
-     * @param tm1 a {@link TypeMirror}.
-     * @param tm2 a {@link TypeMirror}.
-     * @return the greatest lower bound of {@code tm1} and {@code tm2}.
+     * @param processingEnv The {@link ProcessingEnvironment} to use.
+     * @param tm1 A {@link TypeMirror}.
+     * @param tm2 A {@link TypeMirror}.
+     * @return The greatest lower bound of {@code tm1} and {@code tm2}.
      */
     public static TypeMirror greatestLowerBound(
             ProcessingEnvironment processingEnv, TypeMirror tm1, TypeMirror tm2) {
-        Type t1 = ((Type) tm1).unannotatedType();
-        Type t2 = ((Type) tm2).unannotatedType();
+        Type t1 = (Type) tm1;
+        Type t2 = (Type) tm2;
         JavacProcessingEnvironment javacEnv = (JavacProcessingEnvironment) processingEnv;
         Types types = Types.instance(javacEnv.getContext());
         if (types.isSameType(t1, t2)) {
@@ -361,9 +345,6 @@ public class InternalUtils {
         if (t2.getKind() == TypeKind.WILDCARD) {
             return t1;
         }
-
-        // If neither type is a primitive type, null type, or wildcard
-        // and if the types are not the same, use javac types.glb
         return types.glb(t1, t2);
     }
 

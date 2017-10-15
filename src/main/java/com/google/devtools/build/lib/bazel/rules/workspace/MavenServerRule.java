@@ -67,7 +67,7 @@ public class MavenServerRule implements RuleDefinition {
 <p>How to access a Maven repository.</p>
 
 <p>This is a combination of a &lt;repository&gt; definition from a pom.xml file and a
-&lt;server&lt; definition from a settings.xml file.</p>
+&lt;server&gt; definition from a settings.xml file.</p>
 
 <h4>Using <code>maven_server</code></h4>
 
@@ -78,18 +78,18 @@ public class MavenServerRule implements RuleDefinition {
 maven_jar(
     name = "junit",
     artifact = "junit:junit-dep:4.10",
-    server = "my-server",
+    server = "my_server",
 )
 
 maven_server(
-    name = "my-server",
+    name = "my_server",
     url = "http://intranet.mycorp.net",
 )
 </pre>
 
 This specifies that junit should be downloaded from http://intranet.mycorp.net using the
 authentication information found in ~/.m2/settings.xml (specifically, the settings
-for the server with the id <code>my-server</code>).
+for the server with the id <code>my_server</code>).
 
 <h4>Specifying a default server</h4>
 

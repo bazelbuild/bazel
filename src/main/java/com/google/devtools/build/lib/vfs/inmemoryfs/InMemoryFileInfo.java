@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -66,13 +65,13 @@ public class InMemoryFileInfo extends FileInfo {
       }
 
       @Override
-      public void write(int dataByte) {
+      public synchronized void write(int dataByte) {
         Preconditions.checkState(!closed);
         super.write(dataByte);
       }
 
       @Override
-      public void write(byte[] data, int offset, int length) {
+      public synchronized void write(byte[] data, int offset, int length) {
         Preconditions.checkState(!closed);
         super.write(data, offset, length);
       }

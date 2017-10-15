@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
 import com.android.builder.core.VariantType;
 import com.android.ide.common.xml.AndroidManifestParser;
 import com.android.ide.common.xml.ManifestData;
@@ -29,6 +30,9 @@ import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.FileInputStream;
@@ -60,7 +64,7 @@ import org.xml.sax.SAXException;
  *       --resources path to processed resources zip
  *       --rTxt path to processed resources R.txt
  *       --primaryManifest path to processed resources AndroidManifest.xml
- *       --dependencyManifests paths to dependency library manifests
+ *       --dependencyManifest path to dependency library manifest (repeated flag)
  *       --shrunkResourceApk path to write shrunk ap_
  *       --shrunkResources path to write shrunk resources zip
  * </pre>
@@ -71,89 +75,155 @@ public class ResourceShrinkerAction {
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
-    @Option(name = "shrunkJar",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        help = "Path to the shrunk jar from a Proguard run with shrinking enabled.")
+    @Option(
+      name = "shrunkJar",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ExistingPathConverter.class,
+      help = "Path to the shrunk jar from a Proguard run with shrinking enabled."
+    )
     public Path shrunkJar;
 
-    @Option(name = "proguardMapping",
-        defaultValue = "null",
-        category = "input",
-        converter = PathConverter.class,
-        help = "Path to the Proguard obfuscation mapping of shrunkJar.")
+    @Option(
+      name = "proguardMapping",
+      defaultValue = "null",
+      category = "input",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the Proguard obfuscation mapping of shrunkJar."
+    )
     public Path proguardMapping;
 
-    @Option(name = "resources",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        help = "Path to the resources zip to be shrunk.")
+    @Option(
+      name = "resources",
+      defaultValue = "null",
+      category = "input",
+      converter = ExistingPathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the resources zip to be shrunk."
+    )
     public Path resourcesZip;
 
-    @Option(name = "rTxt",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        help = "Path to the R.txt of the complete resource tree.")
+    @Option(
+      name = "rTxt",
+      defaultValue = "null",
+      category = "input",
+      converter = ExistingPathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the R.txt of the complete resource tree."
+    )
     public Path rTxt;
 
-    @Option(name = "primaryManifest",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        help = "Path to the primary manifest for the resources to be shrunk.")
+    @Option(
+      name = "primaryManifest",
+      defaultValue = "null",
+      category = "input",
+      converter = ExistingPathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the primary manifest for the resources to be shrunk."
+    )
     public Path primaryManifest;
 
-    @Option(name = "dependencyManifests",
-        defaultValue = "",
-        category = "input",
-        converter = PathListConverter.class,
-        help = "A list of paths to the manifests of the dependencies.")
+    @Option(
+      name = "dependencyManifest",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "input",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Paths to the manifests of the dependencies. Specify one path per flag."
+    )
     public List<Path> dependencyManifests;
 
-    @Option(name = "resourcePackages",
-        defaultValue = "",
-        category = "input",
-        converter = CommaSeparatedOptionListConverter.class,
-        help = "A list of packages that resources have been generated for.")
+    // TODO(laszlocsomor): remove this flag after 2018-01-31 (about 6 months from now). Everyone
+    // should have updated to newer Bazel versions by then.
+    @Deprecated
+    @Option(
+      name = "dependencyManifests",
+      defaultValue = "",
+      category = "input",
+      converter = PathListConverter.class,
+      deprecationWarning = "Deprecated in favour of \"--dependencyManifest\"",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A list of paths to the manifests of the dependencies.",
+      metadataTags = {OptionMetadataTag.DEPRECATED}
+    )
+    public List<Path> deprecatedDependencyManifests;
+
+    @Option(
+      name = "resourcePackages",
+      defaultValue = "",
+      category = "input",
+      converter = CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A list of packages that resources have been generated for."
+    )
     public List<String> resourcePackages;
 
-    @Option(name = "shrunkResourceApk",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        help = "Path to where the shrunk resource.ap_ should be written.")
+    @Option(
+      name = "shrunkResourceApk",
+      defaultValue = "null",
+      category = "output",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where the shrunk resource.ap_ should be written."
+    )
     public Path shrunkApk;
 
-    @Option(name = "shrunkResources",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        help = "Path to where the shrunk resource.ap_ should be written.")
+    @Option(
+      name = "shrunkResources",
+      defaultValue = "null",
+      category = "output",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where the shrunk resource.ap_ should be written."
+    )
     public Path shrunkResources;
 
-    @Option(name = "rTxtOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to where the R.txt should be written.")
+    @Option(
+      name = "rTxtOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      category = "output",
+      help = "Path to where the R.txt should be written."
+    )
     public Path rTxtOutput;
 
-    @Option(name = "log",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        help = "Path to where the shrinker log should be written.")
+    @Option(
+      name = "log",
+      defaultValue = "null",
+      category = "output",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where the shrinker log should be written."
+    )
     public Path log;
 
-    @Option(name = "packageType",
-        defaultValue = "DEFAULT",
-        converter = VariantTypeConverter.class,
-        category = "config",
-        help = "Variant configuration type for packaging the resources."
-            + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
+    @Option(
+      name = "packageType",
+      defaultValue = "DEFAULT",
+      converter = VariantTypeConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Variant configuration type for packaging the resources."
+              + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST"
+    )
     public VariantType packageType;
   }
 
@@ -184,6 +254,8 @@ public class ResourceShrinkerAction {
     optionsParser.parseAndExitUponError(args);
     aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     options = optionsParser.getOptions(Options.class);
+    options.dependencyManifests =
+        Converters.concatLists(options.dependencyManifests, options.deprecatedDependencyManifests);
 
     AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
     // Setup temporary working directories.
@@ -215,7 +287,7 @@ public class ResourceShrinkerAction {
       }
 
       // Shrink resources.
-      ResourceShrinker resourceShrinker = new ResourceShrinker(
+      ResourceUsageAnalyzer resourceShrinker = new ResourceUsageAnalyzer(
           resourcePackages,
           options.rTxt,
           options.shrunkJar,
@@ -235,6 +307,7 @@ public class ResourceShrinkerAction {
 
       // Build ap_ with shrunk resources.
       resourceProcessor.processResources(
+          working,
           aaptConfigOptions.aapt,
           aaptConfigOptions.androidJar,
           aaptConfigOptions.buildToolsVersion,
@@ -243,7 +316,7 @@ public class ResourceShrinkerAction {
           null /* packageForR */,
           new FlagAaptOptions(aaptConfigOptions),
           aaptConfigOptions.resourceConfigs,
-          ImmutableList.<String>of() /* splits */,
+          aaptConfigOptions.splits,
           new MergedAndroidData(
               shrunkResources, resourceFiles.resolve("assets"), options.primaryManifest),
           ImmutableList.<DependencyAndroidData>of() /* libraries */,
@@ -251,17 +324,18 @@ public class ResourceShrinkerAction {
           options.shrunkApk,
           null /* proguardOutput */,
           null /* mainDexProguardOutput */,
-         null /* publicResourcesOut */,
-         null /* dataBindingInfoOut */);
+          null /* publicResourcesOut */,
+          null /* dataBindingInfoOut */);
       if (options.shrunkResources != null) {
-        resourceProcessor.createResourcesZip(shrunkResources, resourceFiles.resolve("assets"),
-            options.shrunkResources, false /* compress */);
+        AndroidResourceOutputs.createResourcesZip(
+            shrunkResources,
+            resourceFiles.resolve("assets"),
+            options.shrunkResources,
+            false /* compress */);
       }
       if (options.rTxtOutput != null) {
-        resourceProcessor.copyRToOutput(
-            generatedSources,
-            options.rTxtOutput,
-            options.packageType == VariantType.LIBRARY);
+        AndroidResourceOutputs.copyRToOutput(
+            generatedSources, options.rTxtOutput, options.packageType == VariantType.LIBRARY);
       }
       logger.fine(String.format("Packing resources finished at %sms",
           timer.elapsed(TimeUnit.MILLISECONDS)));

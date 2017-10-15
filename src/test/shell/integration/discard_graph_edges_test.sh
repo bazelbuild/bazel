@@ -63,25 +63,287 @@ function test_query() {
   expect_log "//testing:system_malloc"
 }
 
+function test_top_level_aspect() {
+  mkdir -p "foo" || fail "Couldn't make directory"
+  cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
+def _simple_aspect_impl(target, ctx):
+  result=depset()
+  for orig_out in target.files:
+    aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
+    ctx.actions.write(
+        output=aspect_out,
+        content = "Hello from aspect for %s" % orig_out.basename)
+    result += [aspect_out]
+  for src in ctx.rule.attr.srcs:
+    result += src.aspectouts
+
+  return struct(output_groups={
+      "aspect-out" : result }, aspectouts = result)
+
+simple_aspect = aspect(implementation=_simple_aspect_impl,
+                       attr_aspects = ["srcs"])
+
+def _rule_impl(ctx):
+  output = ctx.outputs.out
+  ctx.actions.run_shell(
+      inputs=[],
+      outputs=[output],
+      progress_message="Touching output %s" % output,
+      command="touch %s" % output.path)
+
+simple_rule = rule(
+    implementation =_rule_impl,
+    attrs = {"srcs": attr.label_list(aspects=[simple_aspect])},
+    outputs={"out": "%{name}.out"}
+    )
+EOF
+
+cat > foo/BUILD <<'EOF' || fail "Couldn't write BUILD file"
+load("//foo:simpleaspect.bzl", "simple_rule")
+
+simple_rule(name = "foo", srcs = [":dep"])
+simple_rule(name = "dep", srcs = [])
+EOF
+  bazel $STARTUP_FLAGS build $BUILD_FLAGS //foo:foo >& "$TEST_log" \
+      || fail "Expected success"
+  bazel --batch clean >& "$TEST_log" || fail "Expected success"
+  bazel $STARTUP_FLAGS build $BUILD_FLAGS \
+      --aspects foo/simpleaspect.bzl%simple_aspect \
+      --output_groups=aspect-out //foo:foo >& "$TEST_log" \
+      || fail "Expected success"
+  [[ -e "bazel-bin/foo/foo.out.aspect" ]] || fail "Aspect foo not run"
+  [[ -e "bazel-bin/foo/dep.out.aspect" ]] || fail "Aspect bar not run"
+}
+
+function extract_histogram_count() {
+  local histofile="$1"
+  local item="$2"
+  # We can't use + here because Macs don't recognize it as a special character by default.
+  grep "$item" "$histofile" | sed -e 's/^ *[0-9][0-9]*: *\([0-9][0-9]*\) .*$/\1/' \
+      || fail "Couldn't get item from $histofile"
+}
+
+function prepare_histogram() {
+  readonly local build_args="$1"
+  rm -rf histodump
+  mkdir -p histodump || fail "Couldn't create directory"
+  readonly local server_pid_fifo="$TEST_TMPDIR/server_pid"
+cat > histodump/foo.bzl <<'EOF' || fail "Couldn't create bzl file"
+def foo():
+  pass
+EOF
+cat > histodump/bar.bzl <<'EOF' || fail "Couldn't create bzl file"
+def bar():
+  pass
+EOF
+cat > histodump/baz.bzl <<'EOF' || fail "Couldn't create bzl file"
+def baz():
+  pass
+EOF
+
+  cat > histodump/BUILD <<EOF || fail "Couldn't create BUILD file"
+load(":foo.bzl", "foo")
+load(":bar.bzl", "bar")
+load(":baz.bzl", "baz")
+cc_library(name = 'cclib', srcs = ['cclib.cc'])
+genrule(name = 'histodump',
+        srcs = glob(["*.in"]),
+        outs = ['histo.txt'],
+        local = 1,
+        tools = [':cclib'],
+        cmd = 'server_pid=\$\$(cat $server_pid_fifo) ; ' +
+              '${bazel_javabase}/bin/jmap -histo:live \$\$server_pid > ' +
+              '\$(location histo.txt) ' +
+              '|| echo "server_pid in genrule: \$\$server_pid"'
+       )
+EOF
+
+  touch histodump/cclib.cc
+  rm -f "$server_pid_fifo"
+  mkfifo "$server_pid_fifo"
+  histo_file="$(bazel info "${PRODUCT_NAME}-genfiles" \
+      2> /dev/null)/histodump/histo.txt"
+  bazel clean >& "$TEST_log" || fail "Couldn't clean"
+  bazel $STARTUP_FLAGS build --show_timestamps $build_args \
+      //histodump:histodump >> "$TEST_log" 2>&1 &
+  server_pid=$!
+  echo "server_pid in main thread is ${server_pid}" >> "$TEST_log"
+  echo "$server_pid" > "$server_pid_fifo"
+  echo "Finished writing pid to fifo at " >> "$TEST_log"
+  date >> "$TEST_log"
+  # Wait for previous command to finish.
+  wait "$server_pid" || fail "Bazel command failed"
+  cat "$histo_file" >> "$TEST_log"
+  echo "$histo_file"
+}
+
+# TODO(b/62450749): This is flaky on CI.
+function test_packages_cleared() {
+  local histo_file="$(prepare_histogram "--nodiscard_analysis_cache")"
+  local package_count="$(extract_histogram_count "$histo_file" \
+      'devtools\.build\.lib\..*\.Package$')"
+  [[ "$package_count" -ge 9 ]] \
+      || fail "package count $package_count too low: did you move/rename the class?"
+  local glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
+  [[ "$glob_count" -ge 8 ]] \
+      || fail "glob count $glob_count too low: did you move/rename the class?"
+  local env_count="$(extract_histogram_count "$histo_file" \
+      'Environment\$Extension$')"
+  [[ "$env_count" -ge 3 ]] \
+      || fail "env extension count $env_count too low: did you move/rename the class?"
+  local ct_count="$(extract_histogram_count "$histo_file" \
+       'RuleConfiguredTarget$')"
+  [[ "ct_count" -ge 40 ]] \
+      || fail "RuleConfiguredTarget count $ct_count too low: did you move/rename the class?"
+  local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
+  package_count="$(extract_histogram_count "$histo_file" \
+      'devtools\.build\.lib\..*\.Package$')"
+  # A few packages aren't cleared.
+  [[ "$package_count" -le 8 ]] \
+      || fail "package count $package_count too high"
+  glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
+  [[ "$glob_count" -le 1 ]] \
+      || fail "glob count $glob_count too high"
+  env_count="$(extract_histogram_count "$histo_file" \
+      'Environment\$  Extension$')"
+  # TODO(janakr): this is failing since the test was disabled and someone snuck
+  # a regression in. Fix.
+  [[ "$env_count" -le 7 ]] \
+      || fail "env extension count $env_count too high"
+  ct_count="$(extract_histogram_count "$histo_file" \
+       'RuleConfiguredTarget$')"
+  [[ "$ct_count" -le 1 ]] \
+      || fail "too many RuleConfiguredTarget: expected at most 1, got $ct_count"
+}
+
+function test_actions_deleted_after_execution() {
+  rm -rf histodump
+  mkdir -p histodump || fail "Couldn't create directory"
+  readonly local wait_fifo="$TEST_TMPDIR/wait_fifo"
+  readonly local server_pid_file="$TEST_TMPDIR/server_pid.txt"
+  cat > histodump/BUILD <<EOF || fail "Couldn't create BUILD file"
+genrule(name = 'action0',
+        outs = ['wait.out'],
+        local = 1,
+        cmd = 'cat $wait_fifo > /dev/null; touch \$@'
+        )
+EOF
+  for i in $(seq 1 3); do
+    iminus=$((i-1))
+    cat >> histodump/BUILD <<EOF || fail "Couldn't append"
+genrule(name = 'action${i}',
+        srcs = [':action${iminus}'],
+        outs = ['histo.${i}'],
+        local = 1,
+        cmd = 'server_pid=\$\$(cat $server_pid_file) ; ' +
+              '${bazel_javabase}/bin/jmap -histo:live \$\$server_pid > ' +
+              '\$(location histo.${i}) ' +
+              '|| echo "server_pid in genrule: \$\$server_pid"'
+       )
+EOF
+  done
+  mkfifo "$wait_fifo"
+  local readonly histo_root="$(bazel info "${PRODUCT_NAME}-genfiles" \
+      2> /dev/null)/histodump/histo."
+  bazel clean >& "$TEST_log" || fail "Couldn't clean"
+  bazel $STARTUP_FLAGS build --show_timestamps $BUILD_FLAGS \
+      //histodump:action3 >> "$TEST_log" 2>&1 &
+  server_pid=$!
+  echo "server_pid in main thread is ${server_pid}" >> "$TEST_log"
+  echo "$server_pid" > "$server_pid_file"
+  echo "Finished writing pid to fifo at " >> "$TEST_log"
+  date >> "$TEST_log"
+  echo "" > "$wait_fifo"
+  # Wait for previous command to finish.
+  wait "$server_pid" || fail "Bazel command failed"
+  local genrule_action_count=100
+  for i in $(seq 1 3); do
+    local histo_file="$histo_root$i"
+    local new_genrule_action_count="$(extract_histogram_count "$histo_file" \
+        "GenRuleAction$")"
+    if [[ "$new_genrule_action_count" -ge "$genrule_action_count" ]]; then
+      cat "$histo_file" >> "$TEST_log"
+      fail "Number of genrule actions did not decrease: $new_genrule_action_count vs. $genrule_action_count"
+    fi
+    if [[ -z "$new_genrule_action_count" ]]; then
+      cat "$histo_file" >> "$TEST_log"
+      fail "No genrule actions? Class may have been renamed"
+    fi
+    genrule_action_count="$new_genrule_action_count"
+  done
+}
+
 # Action conflicts can cause deletion of nodes, and deletion is tricky with no edges.
 function test_action_conflict() {
   mkdir -p conflict || fail "Couldn't create directory"
-  cat > conflict/BUILD <<EOF || fail "Couldn't create BUILD file"
-cc_library(name='x', srcs=['foo.cc'])
-cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])
-cc_binary(name='foo', deps=['x'], data=['_objs/x/conflict/foo.pic.o'])
+
+  cat > conflict/conflict_rule.bzl <<EOF || fail "Couldn't write bzl file"
+def _create(ctx):
+  files_to_build = depset(ctx.outputs.outs)
+  intemediate_outputs = [ctx.actions.declare_file("bar")]
+  intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intemediate_outputs[0].path)
+  action_cmd = "touch " + list(files_to_build)[0].path
+  ctx.actions.run_shell(outputs=list(intemediate_outputs),
+                        command=intermediate_cmd)
+  ctx.actions.run_shell(inputs=list(intemediate_outputs),
+                        outputs=list(files_to_build),
+                        command=action_cmd)
+  struct(files=files_to_build,
+         data_runfiles=ctx.runfiles(transitive_files=files_to_build))
+
+conflict = rule(
+    implementation=_create,
+    attrs={
+        "outs": attr.output_list(mandatory=True),
+        },
+    )
 EOF
-  touch conflict/foo.cc || fail
-  touch conflict/bar.cc || fail
+
+  mkdir -p conflict || fail "Couldn't create directory"
+  cat > conflict/BUILD <<EOF || fail "Couldn't create BUILD file"
+load("//conflict:conflict_rule.bzl", "conflict")
+
+conflict(name='hello', outs=['hello_out'])
+conflict(name='goodbye', outs=['goodbye_out'])
+genrule(name='foo',
+        srcs = ['hello_out', 'goodbye_out'],
+        outs = ['foo_out'],
+        cmd = 'touch $@')
+
+EOF
 
   # --nocache_test_results to make log-grepping easier.
-  bazel $STARTUP_FLAGS test $BUILD_FLAGS --nocache_test_results //conflict:foo //testing:mytest >& $TEST_log \
-    && fail "Expected failure"
+  bazel $STARTUP_FLAGS test $BUILD_FLAGS \
+      --nocache_test_results //conflict:foo //testing:mytest >& $TEST_log \
+      && fail "Expected failure"
   exit_code=$?
   [ $exit_code -eq 1 ] || fail "Wrong exit code: $exit_code"
   expect_log "is generated by these conflicting actions"
   expect_not_log "Graph edges not stored"
   expect_log "mytest *PASSED"
+}
+
+function test_remove_actions() {
+  bazel "$STARTUP_FLAGS" test $BUILD_FLAGS \
+      --noexperimental_enable_critical_path_profiling //testing:mytest \
+      >& $TEST_log || fail "Expected success"
+}
+
+function test_modules() {
+  mkdir -p foo || fail "mkdir failed"
+  cat > foo/BUILD <<EOF || fail "BUILD file creation failed"
+package(features=['prune_header_modules','header_modules','use_header_modules'])
+cc_library(name = 'a', hdrs = ['a.h'])
+cc_library(name = 'b', hdrs = ['b.h'], deps = [':a'])
+cc_library(name = 'c', deps = [':b'], srcs = ['c.cc'])
+EOF
+  touch foo/a.h || fail "touch a.h failed"
+  touch foo/b.h || fail "touch b.h failed"
+  echo '#include "foo/b.h"' > foo/c.cc || fail "c.cc creation failed"
+
+  bazel "$STARTUP_FLAGS" build $BUILD_FLAGS \
+      --noexperimental_enable_critical_path_profiling \
+      //foo:c >& "$TEST_log" || fail "Build failed"
 }
 
 # The following tests are not expected to exercise codepath -- make sure nothing bad happens.

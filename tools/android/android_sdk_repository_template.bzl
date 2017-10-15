@@ -13,20 +13,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+def create_config_setting_rules():
+  """Create config_setting rules for windows_msvc, windows_msys, windows.
+
+  These represent the matching --host_cpu values.
+  """
+  for suffix in ["", "_msvc", "_msys"]:
+    name = "windows" + suffix
+    if not native.existing_rule(name):
+      native.config_setting(
+          name = name,
+          values = {"host_cpu": "x64_" + name},
+      )
+
 def create_android_sdk_rules(
     name,
     build_tools_version,
     build_tools_directory,
-    api_level):
-  """Generate the contents of the android_sdk_repository.
+    api_levels,
+    default_api_level):
+  """Generate android_sdk rules for the API levels in the Android SDK.
 
   Args:
     name: string, the name of the repository being generated.
     build_tools_version: string, the version of Android's build tools to use.
     build_tools_directory: string, the directory name of the build tools in
         sdk's build-tools directory.
-    api_level: int, the API level from which to get android.jar et al.
+    api_levels: list of ints, the API levels from which to get android.jar
+        et al. and create android_sdk rules.
+    default_api_level: int, the API level to alias the default sdk to if
+        --android_sdk is not specified on the command line.
   """
+
+  create_config_setting_rules()
 
   # This filegroup is used to pass the contents of the SDK to the Android
   # integration tests. We need to glob because not all of these folders ship
@@ -46,153 +65,64 @@ def create_android_sdk_rules(
           "sources",
           "system-images",
           "tools",
-      ]),
+      ], exclude_directories = 0),
   )
 
-  native.java_import(
-      name = "appcompat_v7_import",
-      jars = ["extras/android/support/v7/appcompat/libs/android-support-v7-appcompat.jar"]
-  )
+  for api_level in api_levels:
+    if api_level >= 23:
+      # Android 23 removed most of org.apache.http from android.jar and moved it
+      # to a separate jar.
+      native.java_import(
+          name = "org_apache_http_legacy-%d" % api_level,
+          jars = ["platforms/android-%d/optional/org.apache.http.legacy.jar" % api_level]
+      )
 
-  native.android_library(
-      name = "appcompat_v7",
-      custom_package = "android.support.v7.appcompat",
-      manifest = "extras/android/support/v7/appcompat/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/appcompat/res/**"]),
-      deps = [":appcompat_v7_import"]
-  )
-
-  native.java_import(
-      name = "customtabs_import",
-      jars = ["extras/android/support/customtabs/libs/android-support-customtabs.jar"],
-  )
-
-  native.android_library(
-      name = "customtabs",
-      custom_package = "android.support.customtabs",
-      manifest = "extras/android/support/customtabs/AndroidManifest.xml",
-      deps = [":customtabs_import"]
-  )
-
-  native.java_import(
-      name = "design_import",
-      jars = ["extras/android/support/design/libs/android-support-design.jar"],
-  )
-
-  native.android_library(
-      name = "design",
-      custom_package = "android.support.design",
-      manifest = "extras/android/support/design/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/design/res/**"]),
-      deps = [":design_import", ":appcompat_v7"]
-  )
-
-  native.java_import(
-      name = "mediarouter_v7_import",
-      jars = ["extras/android/support/v7/mediarouter/libs/android-support-v7-mediarouter.jar"]
-  )
-
-  native.android_library(
-      name = "mediarouter_v7",
-      custom_package = "android.support.v7.mediarouter",
-      manifest = "extras/android/support/v7/mediarouter/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/mediarouter/res/**"]),
-      deps = [
-          ":appcompat_v7",
-          ":mediarouter_v7_import",
-      ]
-  )
-
-  native.java_import(
-      name = "cardview_v7_import",
-      jars = ["extras/android/support/v7/cardview/libs/android-support-v7-cardview.jar"]
-  )
-
-  native.android_library(
-      name = "cardview_v7",
-      custom_package = "android.support.v7.cardview",
-      manifest = "extras/android/support/v7/cardview/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/cardview/res/**"]),
-      deps = [":cardview_v7_import"]
-  )
-
-  native.java_import(
-      name = "gridlayout_v7_import",
-      jars = ["extras/android/support/v7/gridlayout/libs/android-support-v7-gridlayout.jar"]
-  )
-
-  native.android_library(
-      name = "gridlayout_v7",
-      custom_package = "android.support.v7.gridlayout",
-      manifest = "extras/android/support/v7/gridlayout/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/gridlayout/res/**"]),
-      deps = [":gridlayout_v7_import"]
-  )
-
-  native.java_import(
-      name = "palette_v7_import",
-      jars = ["extras/android/support/v7/palette/libs/android-support-v7-palette.jar"]
-  )
-
-  native.android_library(
-      name = "palette_v7",
-      custom_package = "android.support.v7.palette",
-      manifest = "extras/android/support/v7/palette/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/palette/res/**"]),
-      deps = [":palette_v7_import"]
-  )
-
-  native.java_import(
-      name = "recyclerview_v7_import",
-      jars = ["extras/android/support/v7/recyclerview/libs/android-support-v7-recyclerview.jar"]
-  )
-
-  native.android_library(
-      name = "recyclerview_v7",
-      custom_package = "android.support.v7.recyclerview",
-      manifest = "extras/android/support/v7/recyclerview/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/recyclerview/res/**"]),
-      deps = [":recyclerview_v7_import"]
-  )
-
-  if api_level >= 23:
-    # Android 23 removed most of org.apache.http from android.jar and moved it
-    # to a separate jar.
-    native.java_import(
-        name = "org_apache_http_legacy",
-        jars = ["platforms/android-%d/optional/org.apache.http.legacy.jar" % api_level]
+    native.android_sdk(
+        name = "sdk-%d" % api_level,
+        build_tools_version = build_tools_version,
+        proguard = ":proguard_binary",
+        aapt = select({
+            ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/aapt.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/aapt.exe" % build_tools_directory,
+            "//conditions:default": ":aapt_binary",
+        }),
+        dx = ":dx_binary",
+        main_dex_list_creator = ":main_dex_list_creator",
+        adb = select({
+            ":windows": "platform-tools/adb.exe",
+            ":windows_msvc": "platform-tools/adb.exe",
+            ":windows_msys": "platform-tools/adb.exe",
+            "//conditions:default": "platform-tools/adb",
+        }),
+        framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
+        aidl = select({
+            ":windows": "build-tools/%s/aidl.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/aidl.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/aidl.exe" % build_tools_directory,
+            "//conditions:default": ":aidl_binary",
+        }),
+        android_jar = "platforms/android-%d/android.jar" % api_level,
+        shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
+        annotations_jar = "tools/support/annotations.jar",
+        main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
+        apksigner = ":apksigner",
+        zipalign = select({
+            ":windows": "build-tools/%s/zipalign.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/zipalign.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/zipalign.exe" % build_tools_directory,
+            "//conditions:default": ":zipalign_binary",
+        }),
     )
 
-  native.java_import(
-      name = "appcompat_v4",
-      jars = ["extras/android/support/v4/android-support-v4.jar"]
+  native.alias(
+      name = "org_apache_http_legacy",
+      actual = ":org_apache_http_legacy-%d" % default_api_level,
   )
 
-  native.java_import(
-      name = "appcompat_v13",
-      jars = ["extras/android/support/v13/android-support-v13.jar"]
-  )
-
-  native.android_sdk(
+  native.alias(
       name = "sdk",
-      build_tools_version = build_tools_version,
-      proguard = ":proguard_binary",
-      aapt = ":aapt_binary",
-      dx = ":dx_binary",
-      main_dex_list_creator = ":main_dex_list_creator",
-      adb = "platform-tools/adb",
-      framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
-      aidl = ":aidl_binary",
-      android_jar = "platforms/android-%d/android.jar" % api_level,
-      shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
-      annotations_jar = "tools/support/annotations.jar",
-      main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
-      apkbuilder = "@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder",
-      apksigner = "@bazel_tools//third_party/java/apksig:embedded_apksigner",
-      zipalign = ":zipalign_binary",
-      jack = ":fail",
-      jill = ":fail",
-      resource_extractor = ":fail"
+      actual = ":sdk-%d" % default_api_level,
   )
 
   native.java_import(
@@ -204,6 +134,12 @@ def create_android_sdk_rules(
       name = "proguard_binary",
       main_class = "proguard.ProGuard",
       runtime_deps = [":proguard_import"]
+  )
+
+  native.java_binary(
+      name = "apksigner",
+      main_class = "com.android.apksigner.ApkSignerTool",
+      runtime_deps = ["build-tools/%s/lib/apksigner.jar" % build_tools_directory],
   )
 
   native.filegroup(
@@ -224,8 +160,12 @@ def create_android_sdk_rules(
             "cat > $@ << 'EOF'",
             "#!/bin/bash",
             "set -eu",
-            # The tools under build-tools/VERSION require the libraries under build-tools/VERSION/lib,
-            # so we can't simply depend on them as a file like we do with aapt.
+            # The tools under build-tools/VERSION require the libraries under
+            # build-tools/VERSION/lib, so we can't simply depend on them as a
+            # file like we do with aapt.
+            # On Windows however we can use these binaries directly because
+            # there's no runfiles support so Bazel just creates a junction to
+            # {SDK}/build-tools.
             "SDK=$${0}.runfiles/%s" % name,
             "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_directory, tool),
             "EOF\n"]),
@@ -242,13 +182,26 @@ def create_android_sdk_rules(
 
   native.sh_binary(
       name = "fail",
-      srcs = ["fail.sh"])
+      srcs = select({
+          ":windows": [":generate_fail_cmd"],
+          ":windows_msvc": [":generate_fail_cmd"],
+          ":windows_msys": [":generate_fail_cmd"],
+          "//conditions:default": [":generate_fail_sh"],
+      }),
+  )
 
   native.genrule(
       name = "generate_fail_sh",
-      srcs = [],
+      executable = 1,
       outs = ["fail.sh"],
       cmd = "echo -e '#!/bin/bash\\nexit 1' >> $@; chmod +x $@",
+  )
+
+  native.genrule(
+      name = "generate_fail_cmd",
+      executable = 1,
+      outs = ["fail.cmd"],
+      cmd = "echo @exit /b 1 > $@",
   )
 
 
@@ -299,17 +252,101 @@ def create_android_sdk_rules(
       jars = [":dx_jar"],
   )
 
-  GOOGLE_PLAY_SERVICES_DIR = "extras/google/google_play_services/libproject/google-play-services_lib"
 
-  native.java_import(
-      name = "google_play_services_lib",
-      jars = [GOOGLE_PLAY_SERVICES_DIR + "/libs/google-play-services.jar"])
+TAGDIR_TO_TAG_MAP = {
+    "google_apis": "google",
+    "default": "android",
+    "android-tv": "tv",
+    "android-wear": "wear",
+}
 
-  native.android_library(
-      name = "google_play_services",
-      custom_package = "com.google.android.gms",
-      manifest = GOOGLE_PLAY_SERVICES_DIR + "/AndroidManifest.xml",
-      exports_manifest = 1,
-      resource_files = native.glob([GOOGLE_PLAY_SERVICES_DIR + "/res/**"]),
-      proguard_specs = [GOOGLE_PLAY_SERVICES_DIR + "/proguard.txt"],
-      deps = [":google_play_services_lib"])
+
+ARCHDIR_TO_ARCH_MAP = {
+    "x86": "x86",
+    "armeabi-v7a": "arm",
+}
+
+
+def create_system_images_filegroups(system_image_dirs):
+  """Generate filegroups for the system images in the Android SDK.
+
+  Args:
+    system_image_dirs: list of strings, the directories containing system image
+        files to be used to create android_device rules.
+  """
+
+  # These images will need to be updated as Android releases new system images.
+  # We are intentionally not adding future releases because there is no
+  # guarantee that they will work out of the box. Supported system images should
+  # be added here once they have been confirmed to work with the Bazel Android
+  # testing infrastructure.
+  system_images = [(tag, str(api), arch)
+                   for tag in ["android", "google"]
+                   for api in [10] + range(15, 20) + range(21, 27)
+                   for arch in ("x86", "arm")]
+  tv_images = [("tv", str(api), arch)
+               for api in range(21, 25) for arch in ("x86", "arm")]
+  wear_images = [("wear", str(api), "x86")
+                 for api in range(20, 26)] + [("wear", str(api), "arm")
+                                              for api in range(24, 26)]
+  supported_system_images = system_images + tv_images + wear_images
+
+  installed_system_images_dirs = {}
+  for system_image_dir in system_image_dirs:
+    apidir, tagdir, archdir = system_image_dir.split("/")[1:]
+    if "-" not in apidir:
+      continue
+    api = apidir.split("-")[1]  # "android-24" --> "24", "android-O" --> "O"
+    if tagdir not in TAGDIR_TO_TAG_MAP:
+      continue
+    tag = TAGDIR_TO_TAG_MAP[tagdir]
+    if archdir not in ARCHDIR_TO_ARCH_MAP:
+      continue
+    arch = ARCHDIR_TO_ARCH_MAP[archdir]
+    if (tag, api, arch) in supported_system_images:
+      name = "emulator_images_%s_%s_%s" % (tag, api, arch)
+      installed_system_images_dirs[name] = system_image_dir
+    else:
+      # TODO(bazel-team): If the user has an unsupported system image installed,
+      # should we print a warning? This includes all 64-bit system-images.
+      pass
+
+  for (tag, api, arch) in supported_system_images:
+    name = "emulator_images_%s_%s_%s" % (tag, api, arch)
+    if name in installed_system_images_dirs:
+      system_image_dir = installed_system_images_dirs[name]
+      # For supported system images that exist in /sdk/system-images/, we
+      # create a filegroup with their contents.
+      native.filegroup(
+          name = name,
+          srcs = native.glob([
+              "%s/**" % system_image_dir,
+          ]),
+      )
+      native.filegroup(
+          name = "%s_qemu2_extra" % name,
+          srcs = native.glob(["%s/kernel-ranchu" % system_image_dir]),
+      )
+    else:
+      # For supported system images that are not installed in the SDK, we
+      # create a "poison pill" genrule to display a helpful error message to
+      # a user who attempts to run a test against an android_device that
+      # they don't have the system image for installed.
+      native.genrule(
+          name = name,
+          outs = [
+              # Necessary so that the build doesn't fail in analysis because
+              # android_device expects a file named source.properties.
+              "poison_pill_for_%s/source.properties" % name,
+          ],
+          cmd = """echo \
+          This rule requires that the Android SDK used by Bazel has the \
+          following system image installed: %s. Please install this system \
+          image through the Android SDK Manager and try again. ; \
+          exit 1
+          """ % name,
+      )
+      native.filegroup(
+          name = "%s_qemu2_extra" % name,
+          srcs = [],
+      )

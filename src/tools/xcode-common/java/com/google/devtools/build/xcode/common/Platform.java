@@ -16,9 +16,7 @@ package com.google.devtools.build.xcode.common;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-
 import java.util.Locale;
-import java.util.Set;
 
 /**
  * An enum that can be used to distinguish between various apple platforms.
@@ -28,8 +26,8 @@ public enum Platform {
   IOS_SIMULATOR("iPhoneSimulator"),
   MACOSX("MacOSX");
 
-  private static final Set<String> IOS_SIMULATOR_ARCHS = ImmutableSet.of("i386", "x86_64");
-  private static final Set<String> IOS_DEVICE_ARCHS =
+  private static final ImmutableSet<String> IOS_SIMULATOR_ARCHS = ImmutableSet.of("i386", "x86_64");
+  private static final ImmutableSet<String> IOS_DEVICE_ARCHS =
       ImmutableSet.of("armv6", "armv7", "armv7s", "arm64");
 
   private final String nameInPlist;

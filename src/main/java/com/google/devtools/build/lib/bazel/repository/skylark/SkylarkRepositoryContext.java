@@ -15,23 +15,27 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -42,6 +46,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -53,9 +58,12 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** Skylark API for the repository_rule's context. */
 @SkylarkModule(
@@ -71,52 +79,39 @@ public class SkylarkRepositoryContext {
 
   private final Rule rule;
   private final Path outputDirectory;
-  private final SkylarkClassObject attrObject;
+  private final Info attrObject;
   private final SkylarkOS osObject;
   private final Environment env;
-  private final AtomicReference<HttpDownloader> httpDownloader;
-
-  /**
-   * Convert attribute name from native naming convention to Skylark naming convention.
-   *
-   * <p>In native code, private values start with $ or :. In Skylark, private values start
-   * with _, because of the grammar.
-   */
-  private String attributeToSkylark(String oldName) {
-    if (!oldName.isEmpty() && (oldName.charAt(0) == '$' || oldName.charAt(0) == ':')) {
-      return "_" + oldName.substring(1);
-    }
-    return oldName;
-  }
+  private final HttpDownloader httpDownloader;
+  private final Map<String, String> markerData;
 
   /**
    * Create a new context (repository_ctx) object for a skylark repository rule ({@code rule}
    * argument).
    */
-  SkylarkRepositoryContext(
-      Rule rule, Path outputDirectory, Environment environment,
-      Map<String, String> env, AtomicReference<HttpDownloader> httpDownloader)
+  SkylarkRepositoryContext(Rule rule, Path outputDirectory, Environment environment,
+      Map<String, String> env, HttpDownloader httpDownloader, Map<String, String> markerData)
       throws EvalException {
     this.rule = rule;
     this.outputDirectory = outputDirectory;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
     this.httpDownloader = httpDownloader;
+    this.markerData = markerData;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
       if (!name.equals("$local")) {
         Object val = attrs.getObject(name);
         attrBuilder.put(
-            attributeToSkylark(name),
+            Attribute.getSkylarkName(name),
             val == null
                 ? Runtime.NONE
                 // Attribute values should be type safe
                 : SkylarkType.convertToSkylark(val, null));
       }
     }
-    attrObject = SkylarkClassObjectConstructor.STRUCT.create(
-        attrBuilder.build(), "No such attribute '%s'");
+    attrObject = NativeProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
   }
 
   @SkylarkCallable(
@@ -135,7 +130,7 @@ public class SkylarkRepositoryContext {
         "A struct to access the values of the attributes. The values are provided by "
             + "the user (if not, a default value is used)."
   )
-  public SkylarkClassObject getAttr() {
+  public Info getAttr() {
     return attrObject;
   }
 
@@ -155,16 +150,12 @@ public class SkylarkRepositoryContext {
   private SkylarkPath getPath(String method, Object path)
       throws EvalException, InterruptedException {
     if (path instanceof String) {
-      PathFragment pathFragment = new PathFragment(path.toString());
+      PathFragment pathFragment = PathFragment.create(path.toString());
       return new SkylarkPath(pathFragment.isAbsolute()
           ? outputDirectory.getFileSystem().getPath(path.toString())
           : outputDirectory.getRelative(pathFragment));
     } else if (path instanceof Label) {
-      SkylarkPath result = getPathFromLabel((Label) path);
-      if (result == null) {
-        throw SkylarkRepositoryFunction.restart();
-      }
-      return result;
+      return getPathFromLabel((Label) path);
     } else if (path instanceof SkylarkPath) {
       return (SkylarkPath) path;
     } else {
@@ -350,7 +341,7 @@ public class SkylarkRepositoryContext {
   @SkylarkCallable(
     name = "os",
     structField = true,
-    doc = "A struct to access information from the system "
+    doc = "A struct to access information from the system."
   )
   public SkylarkOS getOS() {
     return osObject;
@@ -368,39 +359,47 @@ public class SkylarkRepositoryContext {
   }
 
   @SkylarkCallable(
-    name = "execute",
-    doc =
-        "Executes the command given by the list of arguments. The execution time of the command"
-            + " is limited by <code>timeout</code> (in seconds, default 600 seconds). This method"
-            + " returns an <code>exec_result</code> structure containing the output of the"
-            + " command. The <code>environment</code> map can be used to override some environment"
-            + " variables to be passed to the process.",
-    parameters = {
-      @Param(
-        name = "arguments",
-        type = SkylarkList.class,
-        doc =
-            "List of arguments, the first element should be the path to the program to "
-                + "execute."
-      ),
-      @Param(
-        name = "timeout",
-        type = Integer.class,
-        named = true,
-        defaultValue = "600",
-        doc = "maximum duration of the command in seconds (default is 600 seconds)."
-      ),
-      @Param(
-        name = "environment",
-        type = SkylarkDict.class,
-        defaultValue = "{}",
-        named = true,
-        doc = "force some environment variables to be set to be passed to the process."
-      ),
-    }
+      name = "execute",
+      doc =
+          "Executes the command given by the list of arguments. The execution time of the command"
+              + " is limited by <code>timeout</code> (in seconds, default 600 seconds). This method"
+              + " returns an <code>exec_result</code> structure containing the output of the"
+              + " command. The <code>environment</code> map can be used to override some"
+              + " environment variables to be passed to the process.",
+      parameters = {
+          @Param(
+              name = "arguments",
+              type = SkylarkList.class,
+              doc =
+                  "List of arguments, the first element should be the path to the program to "
+                      + "execute."
+          ),
+          @Param(
+              name = "timeout",
+              type = Integer.class,
+              named = true,
+              defaultValue = "600",
+              doc = "maximum duration of the command in seconds (default is 600 seconds)."
+          ),
+          @Param(
+              name = "environment",
+              type = SkylarkDict.class,
+              defaultValue = "{}",
+              named = true,
+              doc = "force some environment variables to be set to be passed to the process."
+          ),
+          @Param(
+              name = "quiet",
+              type = Boolean.class,
+              defaultValue = "True",
+              named = true,
+              doc = "If stdout and stderr should be printed to the terminal."
+          ),
+      }
   )
   public SkylarkExecutionResult execute(
-      SkylarkList<Object> arguments, Integer timeout, SkylarkDict<String, String> environment)
+      SkylarkList<Object> arguments, Integer timeout, SkylarkDict<String, String> environment,
+      boolean quiet)
       throws EvalException, RepositoryFunctionException {
     createDirectory(outputDirectory);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
@@ -408,6 +407,7 @@ public class SkylarkRepositoryContext {
         .setDirectory(outputDirectory.getPathFile())
         .addEnvironmentVariables(environment)
         .setTimeout(timeout.longValue() * 1000)
+        .setOutErr(quiet ? null : Reporter.outErrForReporter(env.getListener()))
         .execute();
   }
 
@@ -415,31 +415,45 @@ public class SkylarkRepositoryContext {
     name = "which",
     doc =
         "Returns the path of the corresponding program or None "
-            + "if there is no such program in the path"
+            + "if there is no such program in the path",
+    allowReturnNones = true
   )
-  public Object which(String program) throws EvalException {
+  public SkylarkPath which(String program) throws EvalException {
     if (program.contains("/") || program.contains("\\")) {
       throw new EvalException(
           Location.BUILTIN,
           "Program argument of which() may not contains a / or a \\ ('" + program + "' given)");
     }
+    try {
+      SkylarkPath commandPath = findCommandOnPath(program);
+      if (commandPath != null) {
+        return commandPath;
+      }
+
+      if (!program.endsWith(OsUtils.executableExtension())) {
+        program += OsUtils.executableExtension();
+        return findCommandOnPath(program);
+      }
+    } catch (IOException e) {
+      // IOException when checking executable file means we cannot read the file data so
+      // we cannot execute it, swallow the exception.
+    }
+    return null;
+  }
+
+  private SkylarkPath findCommandOnPath(String program) throws IOException {
     for (String p : getPathEnvironment()) {
-      PathFragment fragment = new PathFragment(p);
+      PathFragment fragment = PathFragment.create(p);
       if (fragment.isAbsolute()) {
         // We ignore relative path as they don't mean much here (relative to where? the workspace
         // root?).
         Path path = outputDirectory.getFileSystem().getPath(fragment).getChild(program);
-        try {
-          if (path.exists() && path.isExecutable()) {
-            return new SkylarkPath(path);
-          }
-        } catch (IOException e) {
-          // IOException when checking executable file means we cannot read the file data so
-          // we cannot executes it, swallow the exception.
+        if (path.exists() && path.isExecutable()) {
+          return new SkylarkPath(path);
         }
       }
     }
-    return Runtime.NONE;
+    return null;
   }
 
   @SkylarkCallable(
@@ -448,10 +462,12 @@ public class SkylarkRepositoryContext {
     parameters = {
       @Param(
         name = "url",
-        type = String.class,
-        doc =
-            "URL to the file to download. There is no authentication."
-                + " Redirection are followed."
+        allowedTypes = {
+          @ParamType(type = String.class),
+          @ParamType(type = SkylarkList.class, generic1 = String.class),
+        },
+        named = true,
+        doc = "List of mirror URLs referencing the same file."
       ),
       @Param(
         name = "output",
@@ -460,6 +476,8 @@ public class SkylarkRepositoryContext {
           @ParamType(type = Label.class),
           @ParamType(type = SkylarkPath.class)
         },
+        defaultValue = "''",
+        named = true,
         doc = "path to the output file, relative to the repository directory."
       ),
       @Param(
@@ -483,17 +501,28 @@ public class SkylarkRepositoryContext {
       ),
     }
   )
-  public void download(String url, Object output, String sha256, Boolean executable)
-      throws RepositoryFunctionException, EvalException, InterruptedException {
+  public void download(
+      Object url, Object output, String sha256, Boolean executable)
+          throws RepositoryFunctionException, EvalException, InterruptedException {
+    validateSha256(sha256);
+    List<URL> urls = getUrls(url);
     SkylarkPath outputPath = getPath("download()", output);
     try {
       checkInOutputDirectory(outputPath);
       makeDirectories(outputPath.getPath());
-      httpDownloader.get().download(url, sha256, null, outputPath.getPath(), env.getListener(),
+      httpDownloader.download(
+          urls,
+          sha256,
+          Optional.<String>absent(),
+          outputPath.getPath(),
+          env.getListener(),
           osObject.getEnvironmentVariables());
       if (executable) {
         outputPath.getPath().setExecutable(true);
       }
+    } catch (InterruptedException e) {
+      throw new RepositoryFunctionException(
+          new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -505,11 +534,12 @@ public class SkylarkRepositoryContext {
     parameters = {
       @Param(
         name = "url",
-        type = String.class,
-        doc =
-            "a URL referencing an archive file containing a Bazel repository."
-                + " Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported."
-                + " There is no support for authentication. Redirections are followed."
+        allowedTypes = {
+          @ParamType(type = String.class),
+          @ParamType(type = SkylarkList.class, generic1 = String.class),
+        },
+        named = true,
+        doc = "List of mirror URLs referencing the same file."
       ),
       @Param(
         name = "output",
@@ -518,6 +548,8 @@ public class SkylarkRepositoryContext {
           @ParamType(type = Label.class),
           @ParamType(type = SkylarkPath.class)
         },
+        defaultValue = "''",
+        named = true,
         doc =
             "path to the directory where the archive will be unpacked,"
                 + " relative to the repository directory."
@@ -542,8 +574,8 @@ public class SkylarkRepositoryContext {
         doc =
             "the archive type of the downloaded file."
                 + " By default, the archive type is determined from the file extension of the URL."
-                + " If the file has no extension, you can explicitly specify either"
-                + "\"zip\", \"jar\", \"tar.gz\", or \"tgz\" here."
+                + " If the file has no extension, you can explicitly specify either \"zip\","
+                + " \"jar\", \"war\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\" here."
       ),
       @Param(
         name = "stripPrefix",
@@ -552,24 +584,37 @@ public class SkylarkRepositoryContext {
         named = true,
         doc =
             "a directory prefix to strip from the extracted files."
-                + "\nMany archives contain a top-level directory that contains alfiles in"
+                + "\nMany archives contain a top-level directory that contains all files in the"
                 + " archive. Instead of needing to specify this prefix over and over in the"
-                + " <code>build_file</code>, this field can be used to strip it extracted"
+                + " <code>build_file</code>, this field can be used to strip it from extracted"
                 + " files."
       ),
     }
   )
   public void downloadAndExtract(
-      String url, Object output, String sha256, String type, String stripPrefix)
-      throws RepositoryFunctionException, InterruptedException, EvalException {
+      Object url, Object output, String sha256, String type, String stripPrefix)
+          throws RepositoryFunctionException, InterruptedException, EvalException {
+    validateSha256(sha256);
+    List<URL> urls = getUrls(url);
+
     // Download to outputDirectory and delete it after extraction
     SkylarkPath outputPath = getPath("download_and_extract()", output);
     checkInOutputDirectory(outputPath);
     createDirectory(outputPath.getPath());
+
     Path downloadedPath;
     try {
-      downloadedPath = httpDownloader.get().download(url, sha256, type, outputPath.getPath(),
-          env.getListener(), osObject.getEnvironmentVariables());
+      downloadedPath =
+          httpDownloader.download(
+              urls,
+              sha256,
+              Optional.of(type),
+              outputPath.getPath(),
+              env.getListener(),
+              osObject.getEnvironmentVariables());
+    } catch (InterruptedException e) {
+      throw new RepositoryFunctionException(
+          new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -591,6 +636,43 @@ public class SkylarkRepositoryContext {
               "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
           Transience.TRANSIENT);
     }
+  }
+
+  private static void validateSha256(String sha256) throws RepositoryFunctionException {
+    if (!sha256.isEmpty() && !KeyType.SHA256.isValid(sha256)) {
+      throw new RepositoryFunctionException(
+          new IOException("Invalid SHA256 checksum"), Transience.TRANSIENT);
+    }
+  }
+
+  private static List<URL> getUrls(Object urlOrList) throws RepositoryFunctionException {
+    List<String> urlStrings;
+    if (urlOrList instanceof String) {
+      urlStrings = ImmutableList.of((String) urlOrList);
+    } else {
+      @SuppressWarnings("unchecked")
+      List<String> list = (List<String>) urlOrList;
+      urlStrings = list;
+    }
+    if (urlStrings.isEmpty()) {
+      throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
+    }
+    List<URL> urls = new ArrayList<>();
+    for (String urlString : urlStrings) {
+      URL url;
+      try {
+        url = new URL(urlString);
+      } catch (MalformedURLException e) {
+        throw new RepositoryFunctionException(
+            new IOException("Bad URL: " + urlString), Transience.PERSISTENT);
+      }
+      if (!HttpUtils.isUrlSupportedByDownloader(url)) {
+        throw new RepositoryFunctionException(
+            new IOException("Unsupported protocol: " + url.getProtocol()), Transience.PERSISTENT);
+      }
+      urls.add(url);
+    }
+    return urls;
   }
 
   // This is just for test to overwrite the path environment
@@ -619,50 +701,31 @@ public class SkylarkRepositoryContext {
 
   // Resolve the label given by value into a file path.
   private SkylarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
-    // Look for package.
-    if (label.getPackageIdentifier().getRepository().isDefault()) {
-      try {
-        label = Label.create(label.getPackageIdentifier().makeAbsolute(),
-            label.getName());
-      } catch (LabelSyntaxException e) {
-        throw new AssertionError(e);  // Can't happen because the input label is valid
-      }
-    }
-    SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
-    PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
-    if (pkgLookupValue == null) {
-      return null;
-    }
-    if (!pkgLookupValue.packageExists()) {
-      throw new EvalException(
-          Location.BUILTIN, "Unable to load package for " + label + ": not found.");
-    }
-
-    // And now for the file
-    Path packageRoot = pkgLookupValue.getRoot();
-    RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, label.toPathFragment());
+    RootedPath rootedPath = RepositoryFunction.getRootedPathFromLabel(label, env);
     SkyKey fileSkyKey = FileValue.key(rootedPath);
     FileValue fileValue = null;
     try {
-      fileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  fileSkyKey,
-                  IOException.class,
-                  FileSymlinkException.class,
-                  InconsistentFilesystemException.class);
+      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
+          FileSymlinkException.class, InconsistentFilesystemException.class);
     } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
       throw new EvalException(Location.BUILTIN, e);
     }
 
     if (fileValue == null) {
-      return null;
+      throw RepositoryFunction.restart();
     }
-    if (!fileValue.isFile()) {
+    if (!fileValue.isFile() || fileValue.isSpecialFile()) {
       throw new EvalException(
-          Location.BUILTIN, "Not a file: " + rootedPath.asPath().getPathString());
+          Location.BUILTIN, "Not a regular file: " + rootedPath.asPath().getPathString());
     }
 
+    // A label does not contains space so it safe to use as a key.
+    try {
+      markerData.put("FILE:" + label, RepositoryFunction.fileValueToMarkerValue(fileValue));
+    } catch (IOException e) {
+      throw new EvalException(Location.BUILTIN, e);
+    }
     return new SkylarkPath(rootedPath.asPath());
   }
+
 }

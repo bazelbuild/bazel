@@ -13,86 +13,45 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.android.ParsedAndroidData.Builder;
-import com.google.devtools.build.android.ParsedAndroidData.ParsedAndroidDataBuildingPathWalker;
-
-import com.android.ide.common.res2.MergingException;
-
-import java.io.BufferedInputStream;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributeView;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
-/**
- * Handles the Merging of ParsedAndroidData.
- */
-public class AndroidDataMerger {
+/** Handles the Merging of ParsedAndroidData. */
+class AndroidDataMerger {
 
-  private static final Logger logger = Logger.getLogger(AndroidDataMerger.class.getCanonicalName());
+  public static class MergeConflictException extends RuntimeException {
 
-  private static final class ParseDependencyDataTask implements Callable<Boolean> {
-
-    private final AndroidDataSerializer serializer;
-
-    private final SerializedAndroidData dependency;
-
-    private final Builder targetBuilder;
-
-    private ParseDependencyDataTask(
-        AndroidDataSerializer serializer, SerializedAndroidData dependency, Builder targetBuilder) {
-      this.serializer = serializer;
-      this.dependency = dependency;
-      this.targetBuilder = targetBuilder;
+    private MergeConflictException(String message) {
+      super(message);
     }
 
-    @Override
-    public Boolean call() throws Exception {
-      final Builder parsedDataBuilder = ParsedAndroidData.Builder.newBuilder();
-      try {
-        dependency.deserialize(serializer, parsedDataBuilder.consumers());
-      } catch (DeserializationException e) {
-        if (!e.isLegacy()) {
-          throw MergingException.wrapException(e).build();
-        }
-        logger.fine(
-            String.format(
-                "\u001B[31mDEPRECATION:\u001B[0m Legacy resources used for %s",
-                dependency.getLabel()));
-        // Legacy android resources -- treat them as direct dependencies.
-        dependency.walk(ParsedAndroidDataBuildingPathWalker.create(parsedDataBuilder));
-      }
-      // The builder isn't threadsafe, so synchronize the copyTo call.
-      synchronized (targetBuilder) {
-        // All the resources are sorted before writing, so they can be aggregated in
-        // whatever order here.
-        parsedDataBuilder.copyTo(targetBuilder);
-      }
-      // Had to return something?
-      return Boolean.TRUE;
+    static MergeConflictException withMessage(String message) {
+      return new MergeConflictException(message);
     }
   }
 
+  private static final Logger logger = Logger.getLogger(AndroidDataMerger.class.getCanonicalName());
+
   /** Interface for comparing paths. */
   interface SourceChecker {
-    boolean checkEquality(Path one, Path two) throws IOException;
+    boolean checkEquality(DataSource one, DataSource two) throws IOException;
   }
 
   /** Compares two paths by the contents of the files. */
@@ -103,13 +62,13 @@ public class AndroidDataMerger {
     }
 
     @Override
-    public boolean checkEquality(Path one, Path two) throws IOException {
+    public boolean checkEquality(DataSource one, DataSource two) throws IOException {
       // TODO(corysmith): Is there a filesystem hash we can use?
-      if (getFileSize(one) != getFileSize(two)) {
+      if (one.getFileSize() != two.getFileSize()) {
         return false;
       }
-      try (final InputStream oneStream = new BufferedInputStream(Files.newInputStream(one));
-          final InputStream twoStream = new BufferedInputStream(Files.newInputStream(two))) {
+      try (final InputStream oneStream = one.newBufferedInputStream();
+          final InputStream twoStream = two.newBufferedInputStream()) {
         int bytesRead = 0;
         while (true) {
           int oneByte = oneStream.read();
@@ -122,12 +81,8 @@ public class AndroidDataMerger {
               // getFileSize did not return correct size.
               logger.severe(
                   String.format(
-                      "Filesystem size of %s (%s) or %s (%s) is inconsistant with bytes read %s.",
-                      one,
-                      getFileSize(one),
-                      two,
-                      getFileSize(two),
-                      bytesRead));
+                      "Filesystem size of %s (%s) or %s (%s) is inconsistent with bytes read %s.",
+                      one, one.getFileSize(), two, two.getFileSize(), bytesRead));
               return false;
             }
           }
@@ -137,10 +92,6 @@ public class AndroidDataMerger {
         }
       }
     }
-
-    private long getFileSize(Path path) throws IOException {
-      return Files.getFileAttributeView(path, BasicFileAttributeView.class).readAttributes().size();
-    }
   }
 
   static class NoopSourceChecker implements SourceChecker {
@@ -149,40 +100,41 @@ public class AndroidDataMerger {
     }
 
     @Override
-    public boolean checkEquality(Path one, Path two) {
+    public boolean checkEquality(DataSource one, DataSource two) {
       return false;
     }
   }
 
   private final SourceChecker deDuplicator;
   private final ListeningExecutorService executorService;
+  private final AndroidDataDeserializer deserializer;
 
   /** Creates a merger with no path deduplication and a default {@link ExecutorService}. */
-  public static AndroidDataMerger createWithDefaults() {
+  @VisibleForTesting
+  static AndroidDataMerger createWithDefaults() {
     return createWithDefaultThreadPool(NoopSourceChecker.create());
   }
 
   /** Creates a merger with a custom deduplicator and a default {@link ExecutorService}. */
-  public static AndroidDataMerger createWithDefaultThreadPool(SourceChecker deDuplicator) {
-    return new AndroidDataMerger(deDuplicator,
-        MoreExecutors.newDirectExecutorService());
-  }
-
-  /** Creates a merger with a custom deduplicator and an {@link ExecutorService}. */
-  public static AndroidDataMerger create(
-      SourceChecker deDuplicator, ListeningExecutorService executorService) {
-    return new AndroidDataMerger(deDuplicator, executorService);
+  @VisibleForTesting
+  static AndroidDataMerger createWithDefaultThreadPool(SourceChecker deDuplicator) {
+    return new AndroidDataMerger(
+        deDuplicator, MoreExecutors.newDirectExecutorService(), AndroidDataDeserializer.create());
   }
 
   /** Creates a merger with a file contents hashing deduplicator. */
-  public static AndroidDataMerger createWithPathDeduplictor(
-      ListeningExecutorService executorService) {
-    return create(ContentComparingChecker.create(), executorService);
+  static AndroidDataMerger createWithPathDeduplictor(
+      ListeningExecutorService executorService, AndroidDataDeserializer deserializer) {
+    return new AndroidDataMerger(ContentComparingChecker.create(), executorService, deserializer);
   }
 
-  private AndroidDataMerger(SourceChecker deDuplicator, ListeningExecutorService executorService) {
+  private AndroidDataMerger(
+      SourceChecker deDuplicator,
+      ListeningExecutorService executorService,
+      AndroidDataDeserializer deserializer) {
     this.deDuplicator = deDuplicator;
     this.executorService = executorService;
+    this.deserializer = deserializer;
   }
 
   /**
@@ -190,45 +142,27 @@ public class AndroidDataMerger {
    * ParsedAndroidData}.
    *
    * @see AndroidDataMerger#merge(ParsedAndroidData, ParsedAndroidData, UnvalidatedAndroidData,
-   *     boolean) for details.
+   *     boolean, boolean) for details.
    */
   UnwrittenMergedAndroidData loadAndMerge(
       List<? extends SerializedAndroidData> transitive,
       List<? extends SerializedAndroidData> direct,
       ParsedAndroidData primary,
       Path primaryManifest,
-      boolean allowPrimaryOverrideAll)
-      throws MergingException {
+      boolean allowPrimaryOverrideAll,
+      boolean throwOnResourceConflict) {
     Stopwatch timer = Stopwatch.createStarted();
     try {
-      final ParsedAndroidData.Builder directBuilder = ParsedAndroidData.Builder.newBuilder();
-      final ParsedAndroidData.Builder transitiveBuilder = ParsedAndroidData.Builder.newBuilder();
-      final AndroidDataSerializer serializer = AndroidDataSerializer.create();
-      final List<ListenableFuture<Boolean>> tasks = new ArrayList<>();
-      for (final SerializedAndroidData dependency : direct) {
-        tasks.add(
-            executorService.submit(
-                new ParseDependencyDataTask(serializer, dependency, directBuilder)));
-      }
-      for (final SerializedAndroidData dependency : transitive) {
-        tasks.add(
-            executorService.submit(
-                new ParseDependencyDataTask(serializer, dependency, transitiveBuilder)));
-      }
-      // Wait for all the parsing to complete.
-      FailedFutureAggregator<MergingException> aggregator =
-          FailedFutureAggregator.createForMergingExceptionWithMessage(
-              "Failure(s) during dependency parsing");
-      aggregator.aggregateAndMaybeThrow(tasks);
       logger.fine(
           String.format("Merged dependencies read in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       timer.reset().start();
       return doMerge(
-          transitiveBuilder.build(),
-          directBuilder.build(),
+          ParsedAndroidData.loadedFrom(transitive, executorService, deserializer),
+          ParsedAndroidData.loadedFrom(direct, executorService, deserializer),
           primary,
           primaryManifest,
-          allowPrimaryOverrideAll);
+          allowPrimaryOverrideAll,
+          throwOnResourceConflict);
     } finally {
       logger.fine(String.format("Resources merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     }
@@ -236,18 +170,20 @@ public class AndroidDataMerger {
 
   /**
    * Merges DataResources into an UnwrittenMergedAndroidData.
-   * <p>
-   * This method has two basic states, library and binary. These are distinguished by
+   *
+   * <p>This method has two basic states, library and binary. These are distinguished by
    * allowPrimaryOverrideAll, which allows the primary data to overwrite any value in the closure, a
    * trait associated with binaries, as a binary is a leaf node. The other semantics are slightly
    * more complicated: a given resource can be overwritten only if it resides in the direct
    * dependencies of primary data. This forces an explicit simple priority for each resource,
    * instead of the more subtle semantics of multiple layers of libraries with potential overwrites.
-   * <p>
-   * The UnwrittenMergedAndroidData contains only one of each DataKey in both the direct and
+   *
+   * <p>The UnwrittenMergedAndroidData contains only one of each DataKey in both the direct and
    * transitive closure.
    *
-   * The merge semantics for overwriting resources (non id and styleable) are as follows: <pre>
+   * <p>The merge semantics for overwriting resources (non id and styleable) are as follows:
+   *
+   * <pre>
    *   Key:
    *     A(): package A
    *     A(foo): package A with resource symbol foo
@@ -278,36 +214,44 @@ public class AndroidDataMerger {
    *     A(foo),B(foo) -> C() -> D(foo) == Valid
    *     A() -> B(foo),C(foo) -> D(foo) == Valid
    * </pre>
-   * <p>
-   * Combining resources are much simpler -- since a combining (id and styleable) resource does not
-   * get replaced when redefined, they are simply combined: <pre>
+   *
+   * <p>Combining resources are much simpler -- since a combining (id and styleable) resource does
+   * not get replaced when redefined, they are simply combined:
+   *
+   * <pre>
    *     A(foo) -> B(foo) -> C(foo) == Valid
-   *     
+   *
    * </pre>
-   * 
+   *
    * @param transitive The transitive dependencies to merge.
    * @param direct The direct dependencies to merge.
    * @param primaryData The primary data to merge against.
    * @param allowPrimaryOverrideAll Boolean that indicates if the primary data will be considered
-   *    the ultimate source of truth, provided it doesn't conflict with itself.
+   *     the ultimate source of truth, provided it doesn't conflict with itself.
    * @return An UnwrittenMergedAndroidData, containing DataResource objects that can be written to
-   *    disk for aapt processing or serialized for future merge passes.
-   * @throws MergingException if there are merge conflicts or issues with parsing resources from
-   *    primaryData.
+   *     disk for aapt processing or serialized for future merge passes.
+   * @throws MergingException if there are issues with parsing resources from
+   *     primaryData.
+   * @throws MergeConflictException if there are merge conflicts
    */
   UnwrittenMergedAndroidData merge(
       ParsedAndroidData transitive,
       ParsedAndroidData direct,
       UnvalidatedAndroidData primaryData,
-      boolean allowPrimaryOverrideAll)
-      throws MergingException {
+      boolean allowPrimaryOverrideAll,
+      boolean throwOnResourceConflict) {
     try {
       // Extract the primary resources.
       ParsedAndroidData parsedPrimary = ParsedAndroidData.from(primaryData);
       return doMerge(
-          transitive, direct, parsedPrimary, primaryData.getManifest(), allowPrimaryOverrideAll);
+          transitive,
+          direct,
+          parsedPrimary,
+          primaryData.getManifest(),
+          allowPrimaryOverrideAll,
+          throwOnResourceConflict);
     } catch (IOException e) {
-      throw MergingException.wrapException(e).build();
+      throw MergingException.wrapException(e);
     }
   }
 
@@ -316,16 +260,17 @@ public class AndroidDataMerger {
       ParsedAndroidData direct,
       ParsedAndroidData parsedPrimary,
       Path primaryManifest,
-      boolean allowPrimaryOverrideAll)
-      throws MergingException {
+      boolean allowPrimaryOverrideAll,
+      boolean throwOnResourceConflict) {
     try {
       // Create the builders for the final parsed data.
       final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
       final ParsedAndroidData.Builder transitiveBuilder = ParsedAndroidData.Builder.newBuilder();
       final KeyValueConsumers transitiveConsumers = transitiveBuilder.consumers();
       final KeyValueConsumers primaryConsumers = primaryBuilder.consumers();
-
       final Set<MergeConflict> conflicts = new HashSet<>();
+
+      // Find all internal conflicts.
       conflicts.addAll(parsedPrimary.conflicts());
       for (MergeConflict conflict : Iterables.concat(direct.conflicts(), transitive.conflicts())) {
         if (allowPrimaryOverrideAll
@@ -338,7 +283,12 @@ public class AndroidDataMerger {
 
       // overwriting resources
       for (Entry<DataKey, DataResource> entry : parsedPrimary.iterateOverwritableEntries()) {
-        primaryConsumers.overwritingConsumer.consume(entry.getKey(), entry.getValue());
+        if (direct.containsOverwritable(entry.getKey())) {
+          primaryConsumers.overwritingConsumer.consume(
+              entry.getKey(), entry.getValue().overwrite(direct.getOverwritable(entry.getKey())));
+        } else {
+          primaryConsumers.overwritingConsumer.consume(entry.getKey(), entry.getValue());
+        }
       }
 
       for (Map.Entry<DataKey, DataResource> entry : direct.iterateOverwritableEntries()) {
@@ -353,7 +303,7 @@ public class AndroidDataMerger {
         if (allowPrimaryOverrideAll && parsedPrimary.containsOverwritable(entry.getKey())) {
           continue;
         }
-        // If a transitive value is in the direct map report a conflict, as it is commonly
+        // If a transitive value is in the direct map, report a conflict, as it is commonly
         // unintentional.
         if (direct.containsOverwritable(entry.getKey())) {
           conflicts.add(direct.foundResourceConflict(entry.getKey(), entry.getValue()));
@@ -391,7 +341,12 @@ public class AndroidDataMerger {
 
       // assets
       for (Entry<DataKey, DataAsset> entry : parsedPrimary.iterateAssetEntries()) {
-        primaryConsumers.assetConsumer.consume(entry.getKey(), entry.getValue());
+        if (direct.containsAsset(entry.getKey())) {
+          primaryConsumers.assetConsumer.consume(
+              entry.getKey(), entry.getValue().overwrite(direct.getAsset(entry.getKey())));
+        } else {
+          primaryConsumers.assetConsumer.consume(entry.getKey(), entry.getValue());
+        }
       }
 
       for (Map.Entry<DataKey, DataAsset> entry : direct.iterateAssetEntries()) {
@@ -424,24 +379,22 @@ public class AndroidDataMerger {
       if (!conflicts.isEmpty()) {
         List<String> messages = new ArrayList<>();
         for (MergeConflict conflict : conflicts) {
-          if (!conflict.first().equals(conflict.second())
-              && !deDuplicator.checkEquality(
-                  conflict.first().source(), conflict.second().source())) {
+          if (conflict.isValidWith(deDuplicator)) {
             messages.add(conflict.toConflictMessage());
           }
         }
         if (!messages.isEmpty()) {
-          // TODO(corysmith): Turn these into errors.
-          logger.warning(Joiner.on("").join(messages));
+          String conflictMessage = Joiner.on("").join(messages);
+          if (throwOnResourceConflict) {
+            throw MergeConflictException.withMessage(conflictMessage);
+          }
+          logger.warning(conflictMessage);
         }
       }
-
       return UnwrittenMergedAndroidData.of(
-          primaryManifest,
-          primaryBuilder.build(),
-          transitiveBuilder.build());
+          primaryManifest, primaryBuilder.build(), transitiveBuilder.build());
     } catch (IOException e) {
-      throw MergingException.wrapException(e).build();
+      throw MergingException.wrapException(e);
     }
   }
 }

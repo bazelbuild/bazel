@@ -14,26 +14,21 @@
 package com.google.devtools.build.android.ziputils;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
-
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Date;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Date;
-
-/**
- * Unit tests for {@link SplitZip}.
- */
+/** Unit tests for {@link SplitZip}. */
 @RunWith(JUnit4.class)
 public class SplitZipTest {
   private FakeFileSystem fileSystem;
@@ -59,7 +54,9 @@ public class SplitZipTest {
       instance.addOutput((String) null);
       fail("should have failed");
     } catch (Exception ex) {
-      assertTrue("NullPointerException expected", ex instanceof NullPointerException);
+      assertWithMessage("NullPointerException expected")
+          .that(ex instanceof NullPointerException)
+          .isTrue();
     }
     try {
       SplitZip result = instance
@@ -67,7 +64,7 @@ public class SplitZipTest {
               "out/shard1.jar"))
           .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard2.jar", false),
               "out/shard2.jar"));
-      assertSame(instance, result);
+      assertThat(result).isSameAs(instance);
     } catch (IOException ex) {
       fail("Unexpected exception: " + ex);
     }
@@ -78,7 +75,7 @@ public class SplitZipTest {
     SplitZip instance = new SplitZip();
     String res = "res";
     SplitZip result = instance.setResourceFile(res);
-    assertSame(instance, result);
+    assertThat(result).isSameAs(instance);
   }
 
   @Test
@@ -93,9 +90,9 @@ public class SplitZipTest {
   public void testSetMainClassListFile() {
     SplitZip instance = new SplitZip();
     SplitZip result = instance.setMainClassListFile((String) null);
-    assertSame(instance, result);
+    assertThat(result).isSameAs(instance);
     result = instance.setMainClassListFile("no format checks");
-    assertSame(instance, result);
+    assertThat(result).isSameAs(instance);
   }
 
   @Test
@@ -113,7 +110,7 @@ public class SplitZipTest {
   public void testSetEntryDate() {
     SplitZip instance = new SplitZip();
     SplitZip result = instance.setEntryDate(null);
-    assertSame(instance, result);
+    assertThat(result).isSameAs(instance);
   }
 
   @Test
@@ -122,7 +119,7 @@ public class SplitZipTest {
     Date now = new Date();
     instance.setEntryDate(now);
     Date result = instance.getEntryDate();
-    assertSame(result, now);
+    assertThat(now).isSameAs(result);
     instance.setEntryDate(null);
     assertThat(instance.getEntryDate()).isNull();
   }
@@ -131,7 +128,7 @@ public class SplitZipTest {
   public void testUseDefaultEntryDate() {
     SplitZip instance = new SplitZip();
     SplitZip result = instance.useDefaultEntryDate();
-    assertSame(instance, result);
+    assertThat(result).isSameAs(instance);
     Date date = instance.getEntryDate();
     assertThat(date).isEqualTo(DosTime.DOS_EPOCH);
   }
@@ -144,7 +141,9 @@ public class SplitZipTest {
       instance.addInput(noexists);
       fail("should not be able to add non existing file: " + noexists);
     } catch (IOException ex) {
-      assertTrue("FileNotFoundException expected", ex instanceof FileNotFoundException);
+      assertWithMessage("FileNotFoundException expected")
+          .that(ex instanceof FileNotFoundException)
+          .isTrue();
     }
   }
 
@@ -156,7 +155,9 @@ public class SplitZipTest {
       instance.addInputs(Arrays.asList(noexists));
       fail("should not be able to add non existing file: " + noexists);
     } catch (IOException ex) {
-      assertTrue("FileNotFoundException expected", ex instanceof FileNotFoundException);
+      assertWithMessage("FileNotFoundException expected")
+          .that(ex instanceof FileNotFoundException)
+          .isTrue();
     }
   }
 

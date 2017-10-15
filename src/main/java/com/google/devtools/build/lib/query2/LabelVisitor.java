@@ -23,8 +23,9 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -39,8 +40,8 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
+import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
@@ -85,7 +86,6 @@ final class LabelVisitor {
   private class VisitationAttributes {
     private Collection<Target> targetsToVisit;
     private boolean success = false;
-    private boolean visitSubincludes = true;
     private int maxDepth = 0;
 
     /**
@@ -93,8 +93,7 @@ final class LabelVisitor {
      */
     boolean current() {
       return targetsToVisit.equals(lastVisitation.targetsToVisit)
-          && maxDepth <= lastVisitation.maxDepth
-          && visitSubincludes == lastVisitation.visitSubincludes;
+          && maxDepth <= lastVisitation.maxDepth;
     }
   }
 
@@ -138,11 +137,7 @@ final class LabelVisitor {
    * 9. This exception causes the execution of the currently running command to
    * terminate prematurely.
    *
-   * The interruption of the loading of an individual package can happen in two
-   * different ways depending on whether Python preprocessing is in effect or
-   * not.
-   *
-   * If there is no Python preprocessing:
+   * The interruption of the loading of an individual package happens as follow:
    *
    * 1. We periodically check the interruption state of the thread in
    * UnixGlob.reallyGlob(). If it is interrupted, an InterruptedException is
@@ -152,38 +147,8 @@ final class LabelVisitor {
    * responsible for package loading. This either means that the worker thread
    * terminates or that the label parsing terminates if the package that is
    * being loaded was specified on the command line.
-   *
-   * If there is Python preprocessing, events are a bit more complicated. In
-   * this case, the real work happens on the thread the Python preprocessor is
-   * called from, but in a bit more convoluted way: a new thread is spawned by
-   * to handle the input from the Python process and
-   * the output to the Python process is handled on the main thread. The reading
-   * thread parses requests from the preprocessor, and passes them using a queue
-   * to the writing thread (that is, the main thread), so that we can do the
-   * work there. This is important because this way, we don't have any work that
-   * we need to interrupt in a thread that is not spawned by us. So:
-   *
-   * 1. The interrupted state of the main thread is set.
-   *
-   * 2. This results in an InterruptedException during the execution of the task
-   * in PythonStdinInputStream.getNextMessage().
-   *
-   * 3. We exit from RequestParser.Request.run() prematurely, set a flag to
-   * signal that we were interrupted, and throw an InterruptedIOException.
-   *
-   * 4. The Python child process and reading thread are terminated.
-   *
-   * 5. Based on the flag we set in step 3, we realize that the termination was
-   * due to an interruption, and an InterruptedException is thrown. This can
-   * either raise an AbnormalTerminationException, or make Command.execute()
-   * return normally, so we check for both cases.
-   *
-   * 6. This InterruptedException causes the loading of the package to terminate
-   * prematurely.
-   *
-   * Life is not simple.
    */
-  private final PackageProvider packageProvider;
+  private final TargetProvider targetProvider;
   private final DependencyFilter edgeFilter;
   private final SetMultimap<Package, Target> visitedMap =
       Multimaps.synchronizedSetMultimap(HashMultimap.<Package, Target>create());
@@ -199,19 +164,23 @@ final class LabelVisitor {
   /**
    * Construct a LabelVisitor.
    *
-   * @param packageProvider how to resolve labels to targets.
-   * @param edgeFilter which edges may be traversed.
+   * @param targetProvider how to resolve labels to targets
+   * @param edgeFilter which edges may be traversed
    */
-  public LabelVisitor(
-      PackageProvider packageProvider, DependencyFilter edgeFilter) {
-    this.packageProvider = packageProvider;
+  public LabelVisitor(TargetProvider targetProvider, DependencyFilter edgeFilter) {
+    this.targetProvider = targetProvider;
     this.lastVisitation = new VisitationAttributes();
     this.edgeFilter = edgeFilter;
   }
 
-  boolean syncWithVisitor(EventHandler eventHandler, Collection<Target> targetsToVisit,
-      boolean keepGoing, int parallelThreads, int maxDepth, TargetEdgeObserver... observers)
-          throws InterruptedException {
+  boolean syncWithVisitor(
+      ExtendedEventHandler eventHandler,
+      Collection<Target> targetsToVisit,
+      boolean keepGoing,
+      int parallelThreads,
+      int maxDepth,
+      TargetEdgeObserver... observers)
+      throws InterruptedException {
     VisitationAttributes nextVisitation = new VisitationAttributes();
     nextVisitation.targetsToVisit = targetsToVisit;
     nextVisitation.maxDepth = maxDepth;
@@ -230,12 +199,13 @@ final class LabelVisitor {
   }
 
   // Does a bounded transitive visitation starting at the given top-level targets.
-  private boolean redoVisitation(EventHandler eventHandler,
-                                 VisitationAttributes visitation,
-                                 boolean keepGoing,
-                                 int parallelThreads,
-                                 int maxDepth,
-                                 TargetEdgeObserver... observers)
+  private boolean redoVisitation(
+      ExtendedEventHandler eventHandler,
+      VisitationAttributes visitation,
+      boolean keepGoing,
+      int parallelThreads,
+      int maxDepth,
+      TargetEdgeObserver... observers)
       throws InterruptedException {
     visitedMap.clear();
     visitedTargets.clear();
@@ -265,21 +235,30 @@ final class LabelVisitor {
 
     private final static String THREAD_NAME = "LabelVisitor";
 
-    private final EventHandler eventHandler;
+    private final ExtendedEventHandler eventHandler;
     private final boolean keepGoing;
     private final int maxDepth;
     private final Iterable<TargetEdgeObserver> observers;
     private final TargetEdgeErrorObserver errorObserver;
     private final AtomicBoolean stopNewActions = new AtomicBoolean(false);
-    private static final boolean CONCURRENT = true;
 
-
-    public Visitor(EventHandler eventHandler, boolean keepGoing, int parallelThreads,
-                   int maxDepth, TargetEdgeObserver... observers) {
+    public Visitor(
+        ExtendedEventHandler eventHandler,
+        boolean keepGoing,
+        int parallelThreads,
+        int maxDepth,
+        TargetEdgeObserver... observers) {
       // Observing the loading phase of a typical large package (with all subpackages) shows
       // maximum thread-level concurrency of ~20. Limiting the total number of threads to 200 is
       // therefore conservative and should help us avoid hitting native limits.
-      super(CONCURRENT, parallelThreads, 1L, TimeUnit.SECONDS, !keepGoing, THREAD_NAME);
+      super(
+          parallelThreads,
+          1L,
+          TimeUnit.SECONDS,
+          !keepGoing,
+          THREAD_NAME,
+          AbstractQueueVisitor.EXECUTOR_FACTORY,
+          ErrorClassifier.DEFAULT);
       this.eventHandler = eventHandler;
       this.maxDepth = maxDepth;
       this.errorObserver = new TargetEdgeErrorObserver();
@@ -328,8 +307,8 @@ final class LabelVisitor {
 
       // Avoid thread-related overhead when not crossing packages.
       // Can start a new thread when count reaches 100, to prevent infinite recursion.
-      if (from != null && from.getLabel().getPackageFragment() == label.getPackageFragment() &&
-          !blockNewActions() && count < RECURSION_LIMIT) {
+      if (from != null && from.getLabel().getPackageFragment().equals(label.getPackageFragment())
+          && !blockNewActions() && count < RECURSION_LIMIT) {
         newVisitRunnable(from, attr, label, depth, count + 1).run();
       } else {
         execute(newVisitRunnable(from, attr, label, depth, 0));
@@ -338,18 +317,15 @@ final class LabelVisitor {
 
     private Runnable newVisitRunnable(final Target from, final Attribute attr, final Label label,
         final int depth, final int count) {
-      return new Runnable() {
-        @Override
-        public void run() {
+      return () -> {
+        try {
           try {
-            try {
-              visit(from, attr, packageProvider.getTarget(eventHandler, label), depth + 1, count);
-            } catch (NoSuchThingException e) {
-              observeError(from, label, e);
-            }
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            visit(from, attr, targetProvider.getTarget(eventHandler, label), depth + 1, count);
+          } catch (NoSuchThingException e) {
+            observeError(from, label, e);
           }
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
         }
       };
     }

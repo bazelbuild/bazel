@@ -12,30 +12,74 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/main/cpp/startup_options.h"
+
 #include <stdlib.h>
 
-#include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/workspace_layout.h"
 #include "gtest/gtest.h"
 
 namespace blaze {
 
 class StartupOptionsTest : public ::testing::Test {
  protected:
-  StartupOptionsTest() = default;
+  StartupOptionsTest() : workspace_layout_(new WorkspaceLayout()) {}
   ~StartupOptionsTest() = default;
 
   void SetUp() override {
     // This knowingly ignores the possibility of these environment variables
     // being unset because we expect our test runner to set them in all cases.
     // Otherwise, we'll crash here, but this keeps our code simpler.
-    old_home_ = getenv("HOME");
-    old_test_tmpdir_ = getenv("TEST_TMPDIR");
+    old_home_ = GetHomeDir();
+    old_test_tmpdir_ = GetEnv("TEST_TMPDIR");
+
+    ReinitStartupOptions();
   }
 
   void TearDown() override {
-    setenv("HOME", old_home_.c_str(), 1);
-    setenv("TEST_TMPDIR", old_test_tmpdir_.c_str(), 1);
+    SetEnv("HOME", old_home_);
+    SetEnv("TEST_TMPDIR", old_test_tmpdir_);
   }
+
+  // Recreates startup_options_ after changes to the environment.
+  void ReinitStartupOptions() {
+    startup_options_.reset(new StartupOptions(workspace_layout_.get()));
+  }
+
+  void SuccessfulIsNullaryTest(const std::string& flag_name) const {
+    EXPECT_TRUE(startup_options_->IsNullary("--" + flag_name));
+    EXPECT_TRUE(startup_options_->IsNullary("--no" + flag_name));
+
+    EXPECT_FALSE(startup_options_->IsNullary("--" + flag_name + "__invalid"));
+
+    EXPECT_DEATH(startup_options_->IsNullary("--" + flag_name + "=foo"),
+                 ("In argument '--" + flag_name + "=foo': option "
+                     "'--" + flag_name + "' does not take a value").c_str());
+
+    EXPECT_DEATH(startup_options_->IsNullary("--no" + flag_name + "=foo"),
+                 ("In argument '--no" + flag_name + "=foo': option "
+                     "'--no" + flag_name + "' does not take a value").c_str());
+
+    EXPECT_FALSE(startup_options_->IsUnary("--" + flag_name));
+    EXPECT_FALSE(startup_options_->IsUnary("--no" + flag_name));
+  }
+
+  void SuccessfulIsUnaryTest(const std::string& flag_name) const {
+    EXPECT_TRUE(startup_options_->IsUnary("--" + flag_name));
+    EXPECT_TRUE(startup_options_->IsUnary("--" + flag_name + "="));
+    EXPECT_TRUE(startup_options_->IsUnary("--" + flag_name + "=foo"));
+
+    EXPECT_FALSE(startup_options_->IsUnary("--" + flag_name + "__invalid"));
+    EXPECT_FALSE(startup_options_->IsNullary("--" + flag_name));
+    EXPECT_FALSE(startup_options_->IsNullary("--no" + flag_name));
+  }
+
+ private:
+  std::unique_ptr<WorkspaceLayout> workspace_layout_;
+
+ protected:
+  std::unique_ptr<StartupOptions> startup_options_;
 
  private:
   std::string old_home_;
@@ -43,35 +87,145 @@ class StartupOptionsTest : public ::testing::Test {
 };
 
 TEST_F(StartupOptionsTest, ProductName) {
-  blaze::StartupOptions startup_options;
-  ASSERT_EQ("Bazel", startup_options.product_name);
+  ASSERT_EQ("Bazel", startup_options_->product_name);
 }
 
-TEST_F(StartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
-  setenv("HOME", "/nonexistent/home", 1);
-  setenv("TEST_TMPDIR", "/nonexistent/tmpdir", 1);
+TEST_F(StartupOptionsTest, JavaLoggingOptions) {
+  ASSERT_EQ("com.google.devtools.build.lib.util.SingleLineFormatter",
+      startup_options_->java_logging_formatter);
+}
 
-  blaze::StartupOptions startup_options;
-  ASSERT_EQ("/nonexistent/tmpdir", startup_options.output_root);
+// TODO(bazel-team): remove the ifdef guard once the implementation of
+// GetOutputRoot is stable among the different platforms.
+#ifdef __linux
+TEST_F(StartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
+  SetEnv("HOME", "/nonexistent/home");
+  SetEnv("TEST_TMPDIR", "/nonexistent/tmpdir");
+  ReinitStartupOptions();
+
+  ASSERT_EQ("/nonexistent/tmpdir", startup_options_->output_root);
 }
 
 TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
-  setenv("HOME", "/nonexistent/home", 1);
-  unsetenv("TEST_TMPDIR");
+  SetEnv("HOME", "/nonexistent/home");
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
 
-  blaze::StartupOptions startup_options;
-  ASSERT_EQ("/nonexistent/home/.cache/bazel", startup_options.output_root);
+  ASSERT_EQ("/nonexistent/home/.cache/bazel", startup_options_->output_root);
+}
+#endif  // __linux
+
+TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
+  EXPECT_FALSE(startup_options_->IsNullary(""));
+  EXPECT_FALSE(startup_options_->IsNullary("--"));
+  EXPECT_FALSE(startup_options_->IsUnary(""));
+  EXPECT_FALSE(startup_options_->IsUnary("--"));
 }
 
-TEST_F(StartupOptionsTest, OutputRootUseBuiltin) {
-  // We cannot just unsetenv("HOME") because the logic to compute the output
-  // root falls back to using the passwd database if HOME is null... and mocking
-  // that out is hard.
-  setenv("HOME", "", 1);
-  unsetenv("TEST_TMPDIR");
+TEST_F(StartupOptionsTest, ValidStartupFlagsTest) {
+  // IMPORTANT: Before modifying this test, please contact a Bazel core team
+  // member that knows the Google-internal procedure for adding/deprecating
+  // startup flags.
+  SuccessfulIsNullaryTest("allow_configurable_attributes");
+  SuccessfulIsNullaryTest("batch");
+  SuccessfulIsNullaryTest("batch_cpu_scheduling");
+  SuccessfulIsNullaryTest("block_for_lock");
+  SuccessfulIsNullaryTest("client_debug");
+  SuccessfulIsNullaryTest("deep_execroot");
+  SuccessfulIsNullaryTest("experimental_oom_more_eagerly");
+  SuccessfulIsNullaryTest("fatal_event_bus_exceptions");
+  SuccessfulIsNullaryTest("host_jvm_debug");
+  SuccessfulIsNullaryTest("master_bazelrc");
+  SuccessfulIsNullaryTest("master_blazerc");
+  SuccessfulIsNullaryTest("watchfs");
+  SuccessfulIsNullaryTest("write_command_log");
+  SuccessfulIsUnaryTest("bazelrc");
+  SuccessfulIsUnaryTest("blazerc");
+  SuccessfulIsUnaryTest("command_port");
+  SuccessfulIsUnaryTest("connect_timeout_secs");
+  SuccessfulIsUnaryTest("experimental_oom_more_eagerly_threshold");
+  SuccessfulIsUnaryTest("host_javabase");
+  SuccessfulIsUnaryTest("host_jvm_args");
+  SuccessfulIsUnaryTest("host_jvm_profile");
+  SuccessfulIsUnaryTest("invocation_policy");
+  SuccessfulIsUnaryTest("io_nice_level");
+  SuccessfulIsUnaryTest("install_base");
+  SuccessfulIsUnaryTest("max_idle_secs");
+  SuccessfulIsUnaryTest("output_base");
+  SuccessfulIsUnaryTest("output_user_root");
+}
 
-  blaze::StartupOptions startup_options;
-  ASSERT_EQ("/tmp", startup_options.output_root);
+TEST_F(StartupOptionsTest, ProcessSpaceSeparatedArgsTest) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--max_idle_secs"),
+      RcStartupFlag("somewhere", "42")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_EQ(42, startup_options_->max_idle_secs);
+
+  EXPECT_EQ("somewhere", startup_options_->original_startup_options_[0].source);
+  EXPECT_EQ("--max_idle_secs=42",
+            startup_options_->original_startup_options_[0].value);
+}
+
+TEST_F(StartupOptionsTest, ProcessEqualsSeparatedArgsTest) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--max_idle_secs=36")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(ec, blaze_exit_code::SUCCESS)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_EQ(36, startup_options_->max_idle_secs);
+
+  EXPECT_EQ("somewhere", startup_options_->original_startup_options_[0].source);
+  EXPECT_EQ("--max_idle_secs=36",
+            startup_options_->original_startup_options_[0].value);
+}
+
+TEST_F(StartupOptionsTest, ProcessIncorrectArgValueTest) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--max_idle_secs=notANumber")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::BAD_ARGV, ec)
+      << "ProcessArgs failed with the wrong error " << error;
+
+  // Even for a failing args processing step, expect the original value
+  // to be stored.
+  EXPECT_EQ("somewhere", startup_options_->original_startup_options_[0].source);
+  EXPECT_EQ("--max_idle_secs=notANumber",
+            startup_options_->original_startup_options_[0].value);
+}
+
+TEST_F(StartupOptionsTest, ProcessArgsWithMultipleArgstest) {
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--max_idle_secs=36"),
+      RcStartupFlag("somewhereElse", "--nowrite_command_log")};
+
+  std::string error;
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(ec, blaze_exit_code::SUCCESS)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_EQ(36, startup_options_->max_idle_secs);
+  EXPECT_FALSE(startup_options_->write_command_log);
+
+  EXPECT_EQ("somewhere", startup_options_->original_startup_options_[0].source);
+  EXPECT_EQ("--max_idle_secs=36",
+            startup_options_->original_startup_options_[0].value);
+
+  EXPECT_EQ("somewhereElse",
+            startup_options_->original_startup_options_[1].source);
+  EXPECT_EQ("--nowrite_command_log",
+            startup_options_->original_startup_options_[1].value);
 }
 
 }  // namespace blaze

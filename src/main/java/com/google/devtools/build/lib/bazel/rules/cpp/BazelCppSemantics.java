@@ -16,13 +16,18 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.FeatureSpecification;
+import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
+import com.google.devtools.build.lib.rules.cpp.NoProcessing;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -31,7 +36,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public class BazelCppSemantics implements CppSemantics {
   public static final CppSemantics INSTANCE = new BazelCppSemantics();
 
+  private final IncludeProcessing includeProcessing;
+
   private BazelCppSemantics() {
+    this.includeProcessing = new NoProcessing();
   }
 
   @Override
@@ -41,12 +49,14 @@ public class BazelCppSemantics implements CppSemantics {
 
   @Override
   public void finalizeCompileActionBuilder(
-      RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {
+      RuleContext ruleContext,
+      CppCompileActionBuilder actionBuilder,
+      FeatureSpecification featureSpecification) {
     actionBuilder.setCppConfiguration(ruleContext.getFragment(CppConfiguration.class));
     actionBuilder.setActionContext(CppCompileActionContext.class);
     // Because Bazel does not support include scanning, we need the entire crosstool filegroup,
     // including header files, as opposed to just the "compile" filegroup.
-    actionBuilder.addTransitiveMandatoryInputs(CppHelper.getToolchain(ruleContext).getCrosstool());
+    actionBuilder.addTransitiveMandatoryInputs(actionBuilder.getToolchain().getCrosstool());
     actionBuilder.setShouldScanIncludes(false);
   }
 
@@ -55,8 +65,18 @@ public class BazelCppSemantics implements CppSemantics {
   }
 
   @Override
+  public NestedSet<Artifact> getAdditionalPrunableIncludes() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  @Override
   public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
     return HeadersCheckingMode.STRICT;
+  }
+
+  @Override
+  public IncludeProcessing getIncludeProcessing() {
+    return includeProcessing;
   }
 
   @Override

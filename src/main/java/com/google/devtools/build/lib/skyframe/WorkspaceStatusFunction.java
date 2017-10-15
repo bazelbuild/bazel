@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -21,7 +22,10 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 /** Creates the workspace status artifacts and action. */
 public class WorkspaceStatusFunction implements SkyFunction {
-  WorkspaceStatusFunction() {
+  private final Supplier<Boolean> removeActionAfterEvaluation;
+
+  WorkspaceStatusFunction(Supplier<Boolean> removeActionAfterEvaluation) {
+    this.removeActionAfterEvaluation = Preconditions.checkNotNull(removeActionAfterEvaluation);
   }
 
   @Override
@@ -37,7 +41,8 @@ public class WorkspaceStatusFunction implements SkyFunction {
     return new WorkspaceStatusValue(
         action.getStableStatus(),
         action.getVolatileStatus(),
-        action);
+        action,
+        removeActionAfterEvaluation.get());
   }
 
   @Override

@@ -12,16 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "linux-sandbox-options.h"
-#include "linux-sandbox-utils.h"
-
-#define DIE(args...)                                     \
-  {                                                      \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" args); \
-    fprintf(stderr, "\": ");                             \
-    perror(NULL);                                        \
-    exit(EXIT_FAILURE);                                  \
-  }
+#include "src/main/tools/linux-sandbox-options.h"
 
 #include <errno.h>
 #include <sched.h>
@@ -32,12 +23,14 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "src/main/tools/logging.h"
+#include "src/main/tools/process-tools.h"
 
 using std::ifstream;
 using std::unique_ptr;
@@ -66,44 +59,26 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "  -L <file>  redirect stderr to a file\n"
           "  -w <file>  make a file or directory writable for the sandboxed "
           "process\n"
-          "  -i <file>  make a file or directory inaccessible for the "
-          "sandboxed process\n"
           "  -e <dir>  mount an empty tmpfs on a directory\n"
-          "  -b <dir>  bind mount a file or directory inside the sandbox\n"
+          "  -M/-m <source/target>  directory to mount inside the sandbox\n"
+          "    Multiple directories can be specified and each of them will be "
+          "mounted readonly.\n"
+          "    The -M option specifies which directory to mount, the -m option "
+          "specifies where to\n"
           "  -N  if set, a new network namespace will be created\n"
-          "  -R  if set, make the uid/gid be root, otherwise use nobody\n"
+          "  -R  if set, make the uid/gid be root\n"
+          "  -U  if set, make the uid/gid be nobody\n"
           "  -D  if set, debug info will be printed\n"
           "  @FILE  read newline-separated arguments from FILE\n"
           "  --  command to run inside sandbox, followed by arguments\n");
   exit(EXIT_FAILURE);
 }
 
-// Child function used by CheckNamespacesSupported() in call to clone().
-static int CheckNamespacesSupportedChild(void *arg) { return 0; }
-
-// Check whether the required namespaces are supported.
-static int CheckNamespacesSupported() {
-  const int kStackSize = 1024 * 1024;
-  vector<char> child_stack(kStackSize);
-
-  pid_t pid = clone(CheckNamespacesSupportedChild, &child_stack.back(),
-                    CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
-                        CLONE_NEWNET | CLONE_NEWPID | SIGCHLD,
-                    NULL);
-  if (pid < 0) {
-    DIE("pid");
+static void ValidateIsAbsolutePath(char *path, char *program_name, char flag) {
+  if (path[0] != '/') {
+    Usage(program_name, "The -%c option must be used with absolute paths only.",
+          flag);
   }
-
-  int err;
-  do {
-    err = waitpid(pid, NULL, 0);
-  } while (err < 0 && errno == EINTR);
-
-  if (err < 0) {
-    DIE("waitpid");
-  }
-
-  return EXIT_SUCCESS;
 }
 
 // Parses command line flags from an argv array and puts the results into an
@@ -112,33 +87,16 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   extern char *optarg;
   extern int optind, optopt;
   int c;
+  bool source_specified = false;
 
-  while ((c = getopt(args->size(), args->data(),
-                     ":CS:W:T:t:l:L:w:i:e:b:NRD")) != -1) {
+  while ((c = getopt(args->size(), args->data(), ":W:T:t:l:L:w:e:M:m:HNRUD")) !=
+         -1) {
+    if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
-      case 'C':
-        // Shortcut for the "does this system support sandboxing" check.
-        exit(CheckNamespacesSupported());
-        break;
-      case 'S':
-        if (opt.sandbox_root_dir == NULL) {
-          if (optarg[0] != '/') {
-            Usage(args->front(),
-                  "The -r option must be used with absolute paths only.");
-          }
-          opt.sandbox_root_dir = strdup(optarg);
-        } else {
-          Usage(args->front(),
-                "Multiple root directories (-r) specified, expected one.");
-        }
-        break;
       case 'W':
-        if (opt.working_dir == NULL) {
-          if (optarg[0] != '/') {
-            Usage(args->front(),
-                  "The -W option must be used with absolute paths only.");
-          }
-          opt.working_dir = strdup(optarg);
+        if (opt.working_dir.empty()) {
+          ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+          opt.working_dir.assign(optarg);
         } else {
           Usage(args->front(),
                 "Multiple working directories (-W) specified, expected one.");
@@ -157,54 +115,67 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         }
         break;
       case 'l':
-        if (opt.stdout_path == NULL) {
-          opt.stdout_path = optarg;
+        if (opt.stdout_path.empty()) {
+          opt.stdout_path.assign(optarg);
         } else {
           Usage(args->front(),
                 "Cannot redirect stdout to more than one destination.");
         }
         break;
       case 'L':
-        if (opt.stderr_path == NULL) {
-          opt.stderr_path = optarg;
+        if (opt.stderr_path.empty()) {
+          opt.stderr_path.assign(optarg);
         } else {
           Usage(args->front(),
                 "Cannot redirect stderr to more than one destination.");
         }
         break;
       case 'w':
-        if (optarg[0] != '/') {
-          Usage(args->front(),
-                "The -w option must be used with absolute paths only.");
-        }
-        opt.writable_files.push_back(strdup(optarg));
-        break;
-      case 'i':
-        if (optarg[0] != '/') {
-          Usage(args->front(),
-                "The -i option must be used with absolute paths only.");
-        }
-        opt.inaccessible_files.push_back(strdup(optarg));
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+        opt.writable_files.emplace_back(optarg);
         break;
       case 'e':
-        if (optarg[0] != '/') {
-          Usage(args->front(),
-                "The -e option must be used with absolute paths only.");
-        }
-        opt.tmpfs_dirs.push_back(strdup(optarg));
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+        opt.tmpfs_dirs.emplace_back(optarg);
         break;
-      case 'b':
-        if (optarg[0] != '/') {
+      case 'M':
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+        // Add the current source path to both source and target lists
+        opt.bind_mount_sources.emplace_back(optarg);
+        opt.bind_mount_targets.emplace_back(optarg);
+        source_specified = true;
+        break;
+      case 'm':
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+        if (!source_specified) {
           Usage(args->front(),
-                "The -b option must be used with absolute paths only.");
+                "The -m option must be strictly preceded by an -M option.");
         }
-        opt.bind_mounts.push_back(strdup(optarg));
+        opt.bind_mount_targets.pop_back();
+        opt.bind_mount_targets.emplace_back(optarg);
+        source_specified = false;
+        break;
+      case 'H':
+        opt.fake_hostname = true;
         break;
       case 'N':
         opt.create_netns = true;
         break;
       case 'R':
+        if (opt.fake_username) {
+          Usage(args->front(),
+                "The -R option cannot be used at the same time us the -U "
+                "option.");
+        }
         opt.fake_root = true;
+        break;
+      case 'U':
+        if (opt.fake_root) {
+          Usage(args->front(),
+                "The -U option cannot be used at the same time us the -R "
+                "option.");
+        }
+        opt.fake_username = true;
         break;
       case 'D':
         opt.debug = true;
@@ -229,8 +200,8 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
 
 // Expands a single argument, expanding options @filename to read in the content
 // of the file and add it to the list of processed arguments.
-unique_ptr<vector<char *>> ExpandArgument(unique_ptr<vector<char *>> expanded,
-                                          char *arg) {
+static unique_ptr<vector<char *>> ExpandArgument(
+    unique_ptr<vector<char *>> expanded, char *arg) {
   if (arg[0] == '@') {
     const char *filename = arg + 1;  // strip off the '@'.
     ifstream f(filename);
@@ -258,7 +229,7 @@ unique_ptr<vector<char *>> ExpandArgument(unique_ptr<vector<char *>> expanded,
 // Pre-processes an argument list, expanding options @filename to read in the
 // content of the file and add it to the list of arguments. Stops expanding
 // arguments once it encounters "--".
-unique_ptr<vector<char *>> ExpandArguments(const vector<char *> &args) {
+static unique_ptr<vector<char *>> ExpandArguments(const vector<char *> &args) {
   unique_ptr<vector<char *>> expanded(new vector<char *>());
   expanded->reserve(args.size());
   for (auto arg = args.begin(); arg != args.end(); ++arg) {
@@ -272,7 +243,6 @@ unique_ptr<vector<char *>> ExpandArguments(const vector<char *> &args) {
   return expanded;
 }
 
-// Handles parsing all command line flags and populates the global opt struct.
 void ParseOptions(int argc, char *argv[]) {
   vector<char *> args(argv, argv + argc);
   ParseCommandLine(ExpandArguments(args));
@@ -281,9 +251,7 @@ void ParseOptions(int argc, char *argv[]) {
     Usage(args.front(), "No command specified.");
   }
 
-  opt.tmpfs_dirs.push_back("/tmp");
-
-  if (opt.working_dir == NULL) {
-    opt.working_dir = getcwd(NULL, 0);
+  if (opt.working_dir.empty()) {
+    opt.working_dir = getcwd(nullptr, 0);
   }
 }

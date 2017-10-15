@@ -107,7 +107,6 @@ function test_build_app() {
 
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/app.xcodeproj || fail "should generate app.xcodeproj"
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
 }
 
@@ -116,10 +115,9 @@ function test_ios_test() {
   make_app
 
   bazel build --test_output=all --ios_sdk_version=$IOS_SDK_VERSION \
+      --ios_minimum_os=8.0 \
       //ios:PassingXcTest >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/PassingXcTest.xcodeproj \
-      || fail "should generate PassingXcTest.xcodeproj"
-  ls bazel-bin/ios/PassingXcTest.ipa \
+  ls bazel-out/ios_x86_64-fastbuild/bin/ios/PassingXcTest.ipa \
       || fail "should generate PassingXcTest.ipa"
 }
 
@@ -129,7 +127,6 @@ function test_valid_ios_sdk_version() {
 
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/app.xcodeproj || fail "should generate app.xcodeproj"
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
 }
 
@@ -145,7 +142,6 @@ function test_xcrun_cache() {
   ls bazel-out/__xcruncache || fail "xcrun cache should be present"
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/app.xcodeproj || fail "should generate app.xcodeproj"
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
   ls bazel-out/__xcruncache || fail "xcrun cache should be present"
 
@@ -199,17 +195,17 @@ int aFunction() {
 }
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      //objclib:objclib >"$TEST_log" 2>&1 || \
-      fail "Should build objc_library"
+  bazel build --verbose_failures --apple_crosstool_transition \
+      --ios_sdk_version=$IOS_SDK_VERSION //objclib:objclib >"$TEST_log" 2>&1 \
+      || fail "Should build objc_library"
 
   # Based on timezones, ar -tv may show the timestamp of the contents as either
   # Dec 31 1969 or Jan 1 1970 -- either is fine.
   # We would use 'date' here, but the format is slightly different (Jan 1 vs.
   # Jan 01).
-  ar -tv bazel-bin/objclib/libobjclib.a \
+  ar -tv bazel-out/ios_x86_64-fastbuild/bin/objclib/libobjclib.a \
       | grep "mysrc" | grep "Dec 31" | grep "1969" \
-      || ar -tv bazel-bin/objclib/libobjclib.a \
+      || ar -tv bazel-out/ios_x86_64-fastbuild/bin/objclib/libobjclib.a \
       | grep "mysrc" | grep "Jan  1" | grep "1970" || \
       fail "Timestamp of contents of archive file should be zero"
 }

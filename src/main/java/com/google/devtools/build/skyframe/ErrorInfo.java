@@ -42,6 +42,7 @@ public class ErrorInfo {
         Preconditions.checkNotNull(rootCauseException, "Cause null %s", rootCauseException),
         rootCauseSkyKey,
         /*cycles=*/ ImmutableList.<CycleInfo>of(),
+        skyFunctionException.isTransient(),
         isTransitivelyTransient || skyFunctionException.isTransient(),
         skyFunctionException.isCatastrophic());
   }
@@ -53,7 +54,8 @@ public class ErrorInfo {
         /*exception=*/ null,
         /*rootCauseOfException=*/ null,
         ImmutableList.of(cycleInfo),
-        /*isTransient=*/ false,
+        /*isDirectlyTransient=*/ false,
+        /*isTransitivelyTransient=*/ false,
         /*isCatastrophic=*/ false);
   }
 
@@ -66,7 +68,7 @@ public class ErrorInfo {
     ImmutableList.Builder<CycleInfo> cycleBuilder = ImmutableList.builder();
     Exception firstException = null;
     SkyKey firstChildKey = null;
-    boolean isTransient = false;
+    boolean isTransitivelyTransient = false;
     boolean isCatastrophic = false;
     for (ErrorInfo child : childErrors) {
       if (firstException == null) {
@@ -76,7 +78,7 @@ public class ErrorInfo {
       }
       rootCausesBuilder.addTransitive(child.rootCauses);
       cycleBuilder.addAll(CycleInfo.prepareCycles(currentValue, child.cycles));
-      isTransient |= child.isTransient();
+      isTransitivelyTransient |= child.isTransitivelyTransient();
       isCatastrophic |= child.isCatastrophic();
     }
 
@@ -85,7 +87,8 @@ public class ErrorInfo {
         firstException,
         firstChildKey,
         cycleBuilder.build(),
-        isTransient,
+        /*isDirectlyTransient=*/ false,
+        isTransitivelyTransient,
         isCatastrophic);
   }
 
@@ -96,11 +99,17 @@ public class ErrorInfo {
 
   private final ImmutableList<CycleInfo> cycles;
 
-  private final boolean isTransient;
+  private final boolean isDirectlyTransient;
+  private final boolean isTransitivelyTransient;
   private final boolean isCatastrophic;
 
-  public ErrorInfo(NestedSet<SkyKey> rootCauses, @Nullable Exception exception,
-      SkyKey rootCauseOfException, ImmutableList<CycleInfo> cycles, boolean isTransient,
+  public ErrorInfo(
+      NestedSet<SkyKey> rootCauses,
+      @Nullable Exception exception,
+      SkyKey rootCauseOfException,
+      ImmutableList<CycleInfo> cycles,
+      boolean isDirectlyTransient,
+      boolean isTransitivelyTransient,
       boolean isCatostrophic) {
     Preconditions.checkState(exception != null || !Iterables.isEmpty(cycles),
         "At least one of exception and cycles must be non-null/empty, respectively");
@@ -112,7 +121,8 @@ public class ErrorInfo {
     this.exception = exception;
     this.rootCauseOfException = rootCauseOfException;
     this.cycles = cycles;
-    this.isTransient = isTransient;
+    this.isDirectlyTransient = isDirectlyTransient;
+    this.isTransitivelyTransient = isTransitivelyTransient;
     this.isCatastrophic = isCatostrophic;
   }
 
@@ -162,11 +172,19 @@ public class ErrorInfo {
   }
 
   /**
+   * Returns true iff the error is directly transient, i.e. if there was a transient error
+   * encountered during the computation itself.
+   */
+  public boolean isDirectlyTransient() {
+    return isDirectlyTransient;
+  }
+
+  /**
    * Returns true iff the error is transitively transient, i.e. if retrying the same computation
    * could lead to a different result.
    */
-  public boolean isTransient() {
-    return isTransient;
+  public boolean isTransitivelyTransient() {
+    return isTransitivelyTransient;
   }
 
   /**

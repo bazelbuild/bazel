@@ -20,12 +20,9 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -41,9 +38,6 @@ import java.util.concurrent.Executors;
 public class TestAction extends AbstractAction {
 
   public static final Runnable NO_EFFECT = new Runnable() { @Override public void run() {} };
-
-  private static final ResourceSet RESOURCES =
-      ResourceSet.createWithRamCpuIo(/*memoryMb=*/1.0, /*cpu=*/0.1, /*io=*/0.0);
 
   protected final Callable<Void> effect;
 
@@ -81,7 +75,7 @@ public class TestAction extends AbstractAction {
   @Override
   public boolean discoversInputs() {
     for (Artifact input : getInputs()) {
-      if (!input.getExecPath().getBaseName().endsWith(".optional")) {
+      if (input.getExecPath().getBaseName().endsWith(".optional")) {
         return true;
       }
     }
@@ -91,6 +85,7 @@ public class TestAction extends AbstractAction {
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
     Preconditions.checkState(discoversInputs(), this);
+    updateInputs(getInputs());
     return ImmutableList.of();
   }
 
@@ -137,12 +132,6 @@ public class TestAction extends AbstractAction {
 
   @Override
   public String getMnemonic() { return "Test"; }
-
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return RESOURCES;
-  }
-
 
   /** No-op action that has exactly one output, and can be a middleman action. */
   public static class DummyAction extends TestAction {

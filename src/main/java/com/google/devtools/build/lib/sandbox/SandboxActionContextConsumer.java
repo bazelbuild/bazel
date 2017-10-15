@@ -17,11 +17,10 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.exec.ActionContextConsumer;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.OS;
 
 /**
  * {@link ActionContextConsumer} that requests the action contexts necessary for sandboxed
@@ -32,15 +31,16 @@ final class SandboxActionContextConsumer implements ActionContextConsumer {
   private final ImmutableMultimap<Class<? extends ActionContext>, String> contexts;
   private final ImmutableMap<String, String> spawnContexts;
 
-  public SandboxActionContextConsumer(CommandEnvironment env) {
+  public SandboxActionContextConsumer(CommandEnvironment cmdEnv) {
     ImmutableMultimap.Builder<Class<? extends ActionContext>, String> contexts =
         ImmutableMultimap.builder();
     ImmutableMap.Builder<String, String> spawnContexts = ImmutableMap.builder();
 
-    // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
-    // but it is not necessarily the default.
-    if ((OS.getCurrent() == OS.LINUX && LinuxSandboxedStrategy.isSupported(env))
-        || (OS.getCurrent() == OS.DARWIN && DarwinSandboxRunner.isSupported())) {
+    if (LinuxSandboxedSpawnRunner.isSupported(cmdEnv)
+        || DarwinSandboxedSpawnRunner.isSupported(cmdEnv)
+        || ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv)) {
+      // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
+      // but it is not necessarily the default.
       contexts.put(SpawnActionContext.class, "sandboxed");
 
       // This makes the "sandboxed" strategy the default Spawn strategy, unless it is

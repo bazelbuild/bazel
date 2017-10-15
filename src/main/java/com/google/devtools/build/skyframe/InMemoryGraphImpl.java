@@ -17,8 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,7 +58,8 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getBatch(SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+  public Map<SkyKey, NodeEntry> getBatch(
+      SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     // Use a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
     // and ImmutableMap.Builder does not tolerate duplicates. The map will be thrown away shortly.
     HashMap<SkyKey, NodeEntry> result = new HashMap<>();
@@ -84,6 +87,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       builder.put(key, createIfAbsent(key));
     }
     return builder.build();
+  }
+
+  @Override
+  public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps) {
+    return DepsReport.NO_INFORMATION;
   }
 
   @Override
@@ -119,6 +127,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return Collections.unmodifiableMap(nodeMap);
   }
 
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+    return nodeMap;
+  }
+
   @VisibleForTesting
   protected ConcurrentMap<SkyKey, ? extends NodeEntry> getNodeMap() {
     return nodeMap;
@@ -126,5 +139,16 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   boolean keepsEdges() {
     return keepEdges;
+  }
+
+  @Override
+  public Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason) {
+    ImmutableSet.Builder<SkyKey> builder = ImmutableSet.builder();
+    for (SkyKey key : keys) {
+      if (get(null, reason, key) != null) {
+        builder.add(key);
+      }
+    }
+    return builder.build();
   }
 }

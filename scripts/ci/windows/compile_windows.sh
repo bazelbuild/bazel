@@ -14,56 +14,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Jenkins is capable of executing shell scripts directly, even on Windows,
-# but it uses a shell binary bundled with it and not the msys one. We don't
-# want to use two different shells, so a batch file is used instead to call
-# the msys shell.
+# Ideally we would call directly script/ci/build.sh just like we do
+# for the linux script but we are not there yet.
 
-# We need to execute bash with -l so that we don't get the usual environment
-# variables from cmd.exe which would interfere with our operation, but that
-# means that PWD will be $HOME. Thus, we need to cd to the source tree.
+# Ensure we are in the root directory
 cd $(dirname $0)/../../..
-
-# Find Java. Minor versions and thus the name of the directory changes quite
-# often.
-export JAVA_HOME=$(ls -d c:/Program\ Files/Java/jdk* 2> /dev/null | head -n 1)
-if [[ "$JAVA_HOME" == "" ]]; then
-  echo "JDK not found under c:\\Program Files\\Java" 1>& 2
-  exit 1
-fi
-
-# These variables are temporarily needed for Bazel
-export BAZEL_SH="$(cygpath --windows /bin/bash)"
-export TMPDIR=${TMPDIR:-c:/bazel_ci/temp}
-export PATH="${PATH}:/c/python_27_amd64/files"
-mkdir -p "${TMPDIR}"  # mkdir does work with a path starting with 'c:/', wow
 
 # Even though there are no quotes around $* in the .bat file, arguments
 # containing spaces seem to be passed properly.
-echo "Bootstrapping Bazel"
-retCode=0
 source ./scripts/ci/build.sh
+
+# Bazel still needs to know where bash is, take it from cygpath.
+export BAZEL_SH="$(cygpath --windows /bin/bash)"
+# Make sure JAVA_HOME is in Windows path style.
+export JAVA_HOME="$(cygpath --windows "${JAVA_HOME}")"
 
 # TODO(bazel-team): we should replace ./compile.sh by the same script we use
 # for other platform
-./compile.sh "$*" || retCode=$?
-if (( $retCode != 0 )); then
-  echo "$retCode" > .unstable
-  exit 0
+release_label="$(get_full_release_name)"
+
+if [ -n "${release_label}" ]; then
+  export EMBED_LABEL="${release_label}"
 fi
 
-# Copy the resulting artifact.
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL="*"
+
+echo "BOOTSTRAP_BAZEL version:"
+${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc version
+
+${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
+    --embed_label=${release_label} --stamp \
+    //src:bazel //src:bazel_with_jdk
+
+# Copy the resulting artifacts.
 mkdir -p output/ci
-cp output/bazel.exe output/ci/bazel-$(get_full_release_name).exe
-
-# todo(bazel-team): add more tests here.
-echo "Running tests"
-./output/bazel test -k --test_output=all --test_tag_filters -no_windows\
-  //src/test/shell/bazel:bazel_windows_example_test \
-  //src/test/java/...
-retCode=$?
-
-# Exit for failure except for test failures (exit code 3).
-if (( $retCode != 0 )); then
-  echo "$retCode" > .unstable
-fi
+cp bazel-bin/src/bazel output/ci/bazel-$(get_full_release_name)-without-jdk.exe
+cp bazel-bin/src/bazel_with_jdk output/ci/bazel-$(get_full_release_name).exe
+cp bazel-bin/src/bazel output/bazel.exe
+zip -j output/ci/bazel-$(get_full_release_name)-without-jdk.zip output/bazel.exe
+cp -f bazel-bin/src/bazel_with_jdk output/bazel.exe
+zip -j output/ci/bazel-$(get_full_release_name).zip output/bazel.exe

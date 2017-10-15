@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.OptionsParser;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -34,12 +33,17 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * An example implementation of a worker process that is used for integration tests.
  */
 public class ExampleWorker {
+
+  static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
   // A UUID that uniquely identifies this running worker process.
   static final UUID workerUuid = UUID.randomUUID();
@@ -91,11 +95,25 @@ public class ExampleWorker {
           System.setOut(ps);
           System.setErr(ps);
 
-          try {
-            processRequest(request.getArgumentsList());
-          } catch (Exception e) {
-            e.printStackTrace();
-            exitCode = 1;
+          if (poisoned) {
+            if (workerOptions.hardPoison) {
+              throw new IllegalStateException("I'm a very poisoned worker and will just crash.");
+            }
+            System.out.println("I'm a poisoned worker and this is not a protobuf.");
+            System.out.println("Here's a fake stack trace for you:");
+            System.out.println("    at com.example.Something(Something.java:83)");
+            System.out.println("    at java.lang.Thread.run(Thread.java:745)");
+            System.out.print("And now, 8k of random bytes: ");
+            byte[] b = new byte[8192];
+            new Random().nextBytes(b);
+            System.out.write(b);
+          } else {
+            try {
+              processRequest(request.getArgumentsList());
+            } catch (Exception e) {
+              e.printStackTrace();
+              exitCode = 1;
+            }
           }
         } finally {
           System.setOut(originalStdOut);
@@ -103,7 +121,7 @@ public class ExampleWorker {
         }
 
         if (poisoned) {
-          System.out.println("I'm a poisoned worker and this is not a protobuf.");
+          baos.writeTo(System.out);
         } else {
           WorkResponse.newBuilder()
               .setOutput(baos.toString())
@@ -128,13 +146,19 @@ public class ExampleWorker {
   }
 
   private static void processRequest(List<String> args) throws Exception {
-    if (args.size() == 1 && args.get(0).startsWith("@")) {
-      args = Files.readAllLines(Paths.get(args.get(0).substring(1)), UTF_8);
+    ImmutableList.Builder<String> expandedArgs = ImmutableList.builder();
+    for (String arg : args) {
+      Matcher flagFileMatcher = FLAG_FILE_PATTERN.matcher(arg);
+      if (flagFileMatcher.matches()) {
+        expandedArgs.addAll(Files.readAllLines(Paths.get(flagFileMatcher.group(1)), UTF_8));
+      } else {
+        expandedArgs.add(arg);
+      }
     }
 
     OptionsParser parser = OptionsParser.newOptionsParser(ExampleWorkOptions.class);
     parser.setAllowResidue(true);
-    parser.parse(args);
+    parser.parse(expandedArgs.build());
     ExampleWorkOptions options = parser.getOptions(ExampleWorkOptions.class);
 
     List<String> outputs = new ArrayList<>();

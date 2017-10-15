@@ -27,14 +27,9 @@ filegroup(
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
-        "//external:bootclasspath",
-        "//external:extdir",
-        "//external:jdk-default",
         "//src:bazel",
-        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
-        "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
@@ -45,7 +40,18 @@ filegroup(
         "//third_party/ijar",
         "//third_party/java/jdk/langtools:test-srcs",
         "//tools:srcs",
-    ],
+        "@local_jdk//:bootclasspath",
+        # TODO(cushon): migrate to extclasspath and delete
+        "@local_jdk//:extdir",
+        "@local_jdk//:jdk",
+    ] + select({
+        # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
+        # is resolved, use cc implementation of singlejar on windows
+        "//src:windows": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//src:windows_msys": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//src:windows_msvc": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//conditions:default": ["//src/tools/singlejar:singlejar"],
+    }),
     visibility = [
         "//src/test/shell:__subpackages__",
     ],
@@ -72,6 +78,15 @@ sh_test(
 )
 
 sh_test(
+    name = "cpp_darwin_integration_test",
+    size = "large",
+    srcs = ["cpp_darwin_integration_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+)
+
+sh_test(
     name = "bazel_tools_test",
     size = "large",
     srcs = ["bazel_tools_test.sh"],
@@ -82,9 +97,38 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_random_characters_test",
+    size = "large",
+    srcs = ["bazel_random_characters_test.sh"],
+    data = [":test-deps"],
+    tags = ["nowindows"],
+)
+
+sh_test(
     name = "bazel_java_test",
     size = "large",
     srcs = ["bazel_java_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "persistent_test_runner_test",
+    size = "large",
+    srcs = ["persistent_test_runner_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "bazel_build_event_stream_test",
+    size = "medium",
+    srcs = ["bazel_build_event_stream_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "bazel_experimental_ui_test",
+    size = "medium",
+    srcs = ["bazel_experimental_ui_test.sh"],
     data = [":test-deps"],
 )
 
@@ -101,6 +145,16 @@ sh_test(
     data = [":test-deps"],
     shard_count = 3,
     tags = ["local"],
+)
+
+sh_test(
+    name = "bazel_coverage_test",
+    srcs = ["bazel_coverage_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "jdk8",  # TODO(elenairina): Re-enable for JDK7 once https://github.com/bazelbuild/bazel/issues/2890 is fixed.
+        "local",
+    ],
 )
 
 sh_test(
@@ -124,6 +178,7 @@ sh_test(
         "//src:darwin": [],
         "//src:darwin_x86_64": [],
         "//src:windows": [],
+        "//src:windows_msys": [],
         "//src:windows_msvc": [],
         "//conditions:default": ["//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg"],
     }),
@@ -139,13 +194,13 @@ genrule(
     testonly = 1,
     srcs = [
         "//src/java_tools/singlejar:srcs",
-        "//src/main/protobuf:srcs",
-        "//src/main/java/com/google/devtools/build/lib:srcs",
         "//src/main/java/com/google/devtools/build/lib/actions:srcs",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
-        "//src/main/java/com/google/devtools/build/lib/worker:srcs",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
+        "//src/main/java/com/google/devtools/build/lib/worker:srcs",
+        "//src/main/java/com/google/devtools/build/lib:srcs",
+        "//src/main/protobuf:srcs",
         "//src/tools/xcode-common:srcs",
         "//third_party:srcs",
     ],
@@ -202,6 +257,13 @@ sh_test(
 )
 
 sh_test(
+    name = "cross_repository_test",
+    size = "large",
+    srcs = ["cross_repository_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "external_skylark_load_test",
     size = "large",
     srcs = ["external_skylark_load_test.sh"],
@@ -214,6 +276,7 @@ sh_test(
     size = "large",
     srcs = ["skylark_repository_test.sh"],
     data = [":test-deps"],
+    shard_count = 6,
 )
 
 sh_test(
@@ -242,26 +305,19 @@ sh_test(
     data = [":test-deps"],
 )
 
-# To run this test, ensure that the maven_dependency_plugin() in WORKSPACE is uncommented as well.
+# To run this test, ensure that maven_dependency_plugin() and
+# android_repositories() in WORKSPACE are uncommented.
 sh_test(
     name = "maven_skylark_test",
     size = "medium",
     srcs = ["maven_skylark_test.sh"],
     data = [
         ":test-deps",
+        "//external:android_ndk_for_testing",
+        "//external:android_sdk_for_testing",
         "@m2//:files",
     ],
     tags = ["manual"],
-)
-
-sh_test(
-    name = "generate_workspace_test",
-    size = "large",
-    srcs = ["generate_workspace_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/tools/generate_workspace",
-    ],
 )
 
 sh_test(
@@ -286,9 +342,9 @@ sh_test(
 )
 
 sh_test(
-    name = "cc_inc_library_test",
+    name = "cc_integration_test",
     size = "medium",
-    srcs = ["cc_inc_library_test.sh"],
+    srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
 )
 
@@ -305,38 +361,6 @@ sh_test(
     srcs = ["bazel_sandboxing_cpp_test.sh"],
     data = [":test-deps"],
     tags = ["local"],
-)
-
-sh_test(
-    name = "bazel_worker_test",
-    size = "large",
-    srcs = ["bazel_worker_test.sh"],
-    args = [
-        "--worker_sandboxing=no",
-        "non-sandboxed",
-    ],
-    data = [
-        ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
-    ],
-    shard_count = 3,
-    tags = ["jdk8"],
-)
-
-sh_test(
-    name = "bazel_sandboxed_worker_test",
-    size = "large",
-    srcs = ["bazel_worker_test.sh"],
-    args = [
-        "--worker_sandboxing",
-        "sandboxed",
-    ],
-    data = [
-        ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
-    ],
-    shard_count = 3,
-    tags = ["jdk8"],
 )
 
 sh_test(
@@ -368,6 +392,16 @@ sh_test(
 )
 
 sh_test(
+    name = "remote_execution_sandboxing_test",
+    size = "large",
+    srcs = ["remote_execution_sandboxing_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/tools/remote_worker",
+    ],
+)
+
+sh_test(
     name = "client_test",
     size = "medium",
     srcs = ["client_test.sh"],
@@ -379,6 +413,105 @@ sh_test(
     size = "medium",
     srcs = ["execroot_test.sh"],
     data = [":test-deps"],
+)
+
+sh_test(
+    name = "bazel_repository_cache_test",
+    size = "large",
+    srcs = ["bazel_repository_cache_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "bazel_with_jdk_test",
+    size = "medium",
+    srcs = ["bazel_with_jdk_test.sh"],
+    data = [
+        ":test-deps",
+        "//src:bazel_with_jdk",
+    ],
+)
+
+sh_test(
+    name = "build_files_test",
+    size = "medium",
+    srcs = ["build_files_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "bazel_bootstrap_distfile_test",
+    timeout = "eternal",
+    srcs = ["bazel_bootstrap_distfile_test.sh"],
+    args = ["$(location //:bazel-distfile)"],
+    data = [
+        ":test-deps",
+        "//:bazel-distfile",
+    ],
+    tags = ["jdk8"],
+)
+
+sh_test(
+    name = "bazel_determinism_test",
+    timeout = "eternal",
+    srcs = ["bazel_determinism_test.sh"],
+    args = ["$(location //:bazel-distfile)"],
+    data = [
+        ":test-deps",
+        "//:bazel-distfile",
+    ],
+    tags = [
+        "jdk8",
+        "slow",
+    ],
+)
+
+sh_test(
+    name = "rule_test_test",
+    size = "medium",
+    srcs = ["rule_test_test.sh"],
+    data = [":test-deps"],
+    shard_count = 2,
+)
+
+sh_test(
+    name = "help_test",
+    size = "small",
+    srcs = ["help_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "toolchain_test",
+    size = "large",
+    srcs = ["toolchain_test.sh"],
+    data = [":test-deps"],
+    shard_count = 5,
+)
+
+sh_test(
+    name = "java_launcher_test",
+    size = "medium",
+    srcs = ["java_launcher_test.sh"],
+    args = ["$(JAVABASE)"],
+    data = [":test-deps"],
+)
+
+genquery(
+    name = "srcs_list",
+    expression = "kind(\"source file\", deps(//:srcs))",
+    scope = ["//:srcs"],
+)
+
+sh_test(
+    name = "srcs_test",
+    size = "small",
+    srcs = ["srcs_test.sh"],
+    data = [
+        ":srcs_list",
+        "@local_bazel_source_list//:sources",
+    ],
+    tags = ["no_windows"],
 )
 
 test_suite(

@@ -24,10 +24,8 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.AbruptExitException;
-
 import java.util.Collection;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -56,6 +54,8 @@ public interface Builder {
    *        artifacts.
    * @param exclusiveTests are executed one at a time, only after all other tasks have completed
    * @param targetsToBuild Set of targets which will be built
+   * @param targetsToSkip Set of targets which should be skipped (they still show up in build
+   *        results, but with a "SKIPPED" status and without the cost of any actual build work)
    * @param aspects Set of aspects that will be built
    * @param executor an opaque application-specific value that will be
    *        passed down to the execute() method of any Action executed during
@@ -65,10 +65,10 @@ public interface Builder {
    *        valid even if a future action throws ActionExecutionException
    * @param lastExecutionTimeRange If not null, the start/finish time of the last build that
    *        run the execution phase.
-   * @param topLevelArtifactContext contains the the options which determine the artifacts to build
+   * @param topLevelArtifactContext contains the options which determine the artifacts to build
    *        for the top-level targets.
    * @throws BuildFailedException if there were problems establishing the action execution
-   *         environment, if the the metadata of any file  during the build could not be obtained,
+   *         environment, if the metadata of any file  during the build could not be obtained,
    *         if any input files are missing, or if an action fails during execution
    * @throws InterruptedException if there was an asynchronous stop request
    * @throws TestExecException if any test fails
@@ -79,7 +79,8 @@ public interface Builder {
       Set<Artifact> artifacts,
       Set<ConfiguredTarget> parallelTests,
       Set<ConfiguredTarget> exclusiveTests,
-      Collection<ConfiguredTarget> targetsToBuild,
+      Set<ConfiguredTarget> targetsToBuild,
+      Set<ConfiguredTarget> targetsToSkip,
       Collection<AspectValue> aspects,
       Executor executor,
       Set<ConfiguredTarget> builtTargets,

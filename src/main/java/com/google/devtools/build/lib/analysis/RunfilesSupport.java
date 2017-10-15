@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.CommandLine;
+import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -75,21 +77,24 @@ public final class RunfilesSupport {
   private final Artifact sourcesManifest;
   private final Artifact owningExecutable;
   private final boolean createSymlinks;
-  private final ImmutableList<String> args;
+  private final CommandLine args;
 
   /**
    * Creates the RunfilesSupport helper with the given executable and runfiles.
    *
    * @param ruleContext the rule context to create the runfiles support for
    * @param executable the executable for whose runfiles this runfiles support is responsible, may
-   *        be null
+   *     be null
    * @param runfiles the runfiles
-   * @param appendingArgs to be added after the rule's args
    */
-  private RunfilesSupport(RuleContext ruleContext, Artifact executable, Runfiles runfiles,
-      List<String> appendingArgs, boolean createSymlinks) {
+  private RunfilesSupport(
+      RuleContext ruleContext,
+      Artifact executable,
+      Runfiles runfiles,
+      CommandLine args) {
     owningExecutable = Preconditions.checkNotNull(executable);
-    this.createSymlinks = createSymlinks;
+    boolean createManifest = ruleContext.getConfiguration().buildRunfilesManifests();
+    createSymlinks = createManifest && ruleContext.getConfiguration().buildRunfiles();
 
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
@@ -100,7 +105,7 @@ public final class RunfilesSupport {
           ruleContext.getPrerequisite(":run_under", Mode.DATA);
       runfiles = new Runfiles.Builder(
           ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
-          .merge(getRunfiles(runUnderTarget))
+          .merge(getRunfiles(runUnderTarget, ruleContext.getWorkspaceName()))
           .merge(runfiles)
           .build();
     }
@@ -114,16 +119,17 @@ public final class RunfilesSupport {
     }
 
     Artifact artifactsMiddleman = createArtifactsMiddleman(ruleContext, runfiles.getAllArtifacts());
-    runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext);
-    this.runfilesManifest = createRunfilesAction(ruleContext, runfiles, artifactsMiddleman);
-    this.runfilesMiddleman = createRunfilesMiddleman(
-        ruleContext, artifactsMiddleman, runfilesManifest);
+    if (createManifest) {
+      runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext);
+      runfilesManifest = createRunfilesAction(ruleContext, runfiles, artifactsMiddleman);
+    } else {
+      runfilesInputManifest = runfilesManifest =
+          createManifestMiddleman(ruleContext, runfiles, artifactsMiddleman);
+    }
+    runfilesMiddleman = createRunfilesMiddleman(ruleContext, artifactsMiddleman, runfilesManifest);
     sourcesManifest = createSourceManifest(ruleContext, runfiles);
 
-    args = ImmutableList.<String>builder()
-        .addAll(ruleContext.getTokenizedStringListAttr("args"))
-        .addAll(appendingArgs)
-        .build();
+    this.args = args;
   }
 
   /**
@@ -318,7 +324,26 @@ public final class RunfilesSupport {
   }
 
   /**
-   * Creates an Artifact which writes the "sources only" manifest file.
+   * Creates a middleman artifact which substitutes for the input and
+   * output manifests when manifest files are disabled.
+   */
+  private Artifact createManifestMiddleman(ActionConstructionContext context, Runfiles runfiles,
+      Artifact artifactsMiddleman) {
+    // Deps which are otherwise omitted when we don't build the manifest.
+    // These may include "pruning manifests" which are needed at execution time.
+    Collection<Artifact> manifestDeps = SourceManifestAction.getDependencies(runfiles);
+    if (manifestDeps.isEmpty()) {
+      // Can't create a runfiles middleman from zero artifacts.
+      return artifactsMiddleman;
+    }
+    return context.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
+        context.getActionOwner(), owningExecutable, SourceManifestAction.getDependencies(runfiles),
+        context.getConfiguration().getMiddlemanDirectory(context.getRule().getRepository()),
+        "runfiles_manifest");
+  }
+
+  /**
+   * Creates an {@link Artifact} which writes the "sources only" manifest file.
    *
    * @param context the owner for the manifest action
    * @param runfiles the runfiles
@@ -344,49 +369,79 @@ public final class RunfilesSupport {
    *
    * @return the Runfiles object
    */
-  private static Runfiles getRunfiles(TransitiveInfoCollection target) {
+  private static Runfiles getRunfiles(TransitiveInfoCollection target, String workspaceName) {
     RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
     if (runfilesProvider != null) {
       return runfilesProvider.getDefaultRunfiles();
     } else {
-      return Runfiles.EMPTY;
+      return new Runfiles.Builder(workspaceName)
+          .addTransitiveArtifacts(target.getProvider(FilesToRunProvider.class).getFilesToRun())
+          .build();
     }
   }
 
-  /**
-   * Returns the unmodifiable list of expanded and tokenized 'args' attribute
-   * values.
-   */
-  public List<String> getArgs() {
+  /** Returns the unmodifiable list of expanded and tokenized 'args' attribute values. */
+  public CommandLine getArgs() {
     return args;
   }
 
   /**
-   * Creates and returns a RunfilesSupport object for the given rule and executable. Note that this
-   * method calls back into the passed in rule to obtain the runfiles.
+   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
+   * that this method calls back into the passed in rule to obtain the runfiles.
    */
-  public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
-      Artifact executable) {
-    return new RunfilesSupport(ruleContext, executable, runfiles, ImmutableList.<String>of(),
-        ruleContext.shouldCreateRunfilesSymlinks());
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable) {
+    return new RunfilesSupport(
+        ruleContext,
+        executable,
+        runfiles,
+        computeArgs(ruleContext, CommandLine.EMPTY, ImmutableList.<MakeVariableSupplier>of()));
   }
 
   /**
-   * Creates and returns a RunfilesSupport object for the given rule and executable. Note that this
-   * method calls back into the passed in rule to obtain the runfiles.
+   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
+   * that this method calls back into the passed in rule to obtain the runfiles.
    */
-  public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
-      Artifact executable, boolean createSymlinks) {
-    return new RunfilesSupport(ruleContext, executable, runfiles, ImmutableList.<String>of(),
-        createSymlinks);
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable, List<String> appendingArgs) {
+    return new RunfilesSupport(
+        ruleContext,
+        executable,
+        runfiles,
+        computeArgs(
+            ruleContext, CommandLine.of(appendingArgs), ImmutableList.<MakeVariableSupplier>of()));
   }
 
   /**
-   * Creates and returns a RunfilesSupport object for the given rule, executable, runfiles and args.
+   * Creates and returns a {@link RunfilesSupport} object for the given rule, executable, runfiles
+   * and args.
    */
-  public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
-      Artifact executable, List<String> appendingArgs) {
-    return new RunfilesSupport(ruleContext, executable, runfiles,
-        ImmutableList.copyOf(appendingArgs), ruleContext.shouldCreateRunfilesSymlinks());
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable, CommandLine appendingArgs) {
+    return new RunfilesSupport(
+        ruleContext,
+        executable,
+        runfiles,
+        computeArgs(ruleContext, appendingArgs, ImmutableList.<MakeVariableSupplier>of()));
+  }
+
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext,
+      Runfiles runfiles,
+      Artifact executable,
+      ImmutableList<? extends MakeVariableSupplier> makeVariableSuppliers) {
+    return new RunfilesSupport(
+        ruleContext,
+        executable,
+        runfiles,
+        computeArgs(ruleContext, CommandLine.EMPTY, makeVariableSuppliers));
+  }
+
+  private static CommandLine computeArgs(
+      RuleContext ruleContext,
+      CommandLine additionalArgs,
+      ImmutableList<? extends MakeVariableSupplier> makeVariableSuppliers) {
+    return CommandLine.concat(
+        ruleContext.getTokenizedStringListAttr("args", makeVariableSuppliers), additionalArgs);
   }
 }

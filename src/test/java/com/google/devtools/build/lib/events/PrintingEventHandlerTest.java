@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,8 +30,8 @@ public class PrintingEventHandlerTest extends EventTestTemplate {
   @Test
   public void collectsEvents() {
     RecordingOutErr recordingOutErr = new RecordingOutErr();
-    PrintingEventHandler handler = new PrintingEventHandler(EventKind.ERRORS_AND_WARNINGS);
-    handler.setOutErr(recordingOutErr);
+    PrintingEventHandler handler =
+        new PrintingEventHandler(recordingOutErr, EventKind.ERRORS_AND_WARNINGS);
     handler.handle(event);
     MoreAsserts.assertEqualsUnifyingLineEnds("WARNING: /path/to/workspace/my/sample/path.txt:3:4: "
                  + "This is not an error message.\n",

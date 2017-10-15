@@ -14,15 +14,16 @@
 
 package com.google.devtools.build.lib.events;
 
-/**
- * An ErrorEventListener which does nothing.
- */
-public final class NullEventHandler implements EventHandler {
-  public static final EventHandler INSTANCE = new NullEventHandler();
+/** An ErrorEventListener which does nothing. */
+public final class NullEventHandler implements ExtendedEventHandler {
+  public static final ExtendedEventHandler INSTANCE = new NullEventHandler();
 
   private NullEventHandler() {}  // Prevent instantiation
 
   @Override
   public void handle(Event e) {
   }
+
+  @Override
+  public void post(ExtendedEventHandler.Postable e) {}
 }

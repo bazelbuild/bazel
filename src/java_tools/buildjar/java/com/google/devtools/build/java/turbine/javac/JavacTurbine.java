@@ -14,41 +14,43 @@
 
 package com.google.devtools.build.java.turbine.javac;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
-import com.google.devtools.build.java.turbine.TurbineOptions;
-import com.google.devtools.build.java.turbine.TurbineOptionsParser;
-import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileRequest.Prune;
-import com.google.devtools.build.java.turbine.javac.ZipOutputFileManager.OutputFileObject;
+import com.google.turbine.binder.ClassPathBinder;
+import com.google.turbine.options.TurbineOptions;
+import com.google.turbine.options.TurbineOptionsParser;
 import com.sun.tools.javac.util.Context;
 import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
-import javax.tools.StandardLocation;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -64,12 +66,17 @@ import org.objectweb.asm.Opcodes;
  */
 public class JavacTurbine implements AutoCloseable {
 
+  private static final Splitter SPACE_SPLITTER = Splitter.on(' ');
+
   public static void main(String[] args) throws IOException {
     System.exit(compile(TurbineOptionsParser.parse(Arrays.asList(args))).exitCode());
   }
 
   public static Result compile(TurbineOptions turbineOptions) throws IOException {
-    try (JavacTurbine turbine = new JavacTurbine(new PrintWriter(System.err), turbineOptions)) {
+    try (JavacTurbine turbine =
+        new JavacTurbine(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
+            turbineOptions)) {
       return turbine.compile();
     }
   }
@@ -102,11 +109,13 @@ public class JavacTurbine implements AutoCloseable {
 
   private static final int ZIPFILE_BUFFER_SIZE = 1024 * 16;
 
-  private static final Joiner CLASSPATH_JOINER = Joiner.on(':');
 
   private final PrintWriter out;
   private final TurbineOptions turbineOptions;
   @VisibleForTesting Context context;
+
+  /** Cache of opened zip filesystems for srcjars. */
+  private final Map<Path, FileSystem> filesystems = new HashMap<>();
 
   public JavacTurbine(PrintWriter out, TurbineOptions turbineOptions) {
     this.out = out;
@@ -114,9 +123,6 @@ public class JavacTurbine implements AutoCloseable {
   }
 
   Result compile() throws IOException {
-    Path tmpdir = Paths.get(turbineOptions.tempDir());
-    Files.createDirectories(tmpdir);
-
     ImmutableList.Builder<String> argbuilder = ImmutableList.builder();
 
     argbuilder.addAll(JavacOptions.removeBazelSpecificFlags(turbineOptions.javacOpts()));
@@ -128,6 +134,15 @@ public class JavacTurbine implements AutoCloseable {
     // Disable debug info
     argbuilder.add("-g:none");
 
+    // Enable MethodParameters
+    argbuilder.add("-parameters");
+
+    // Compile-time jars always use Java 8
+    argbuilder.add("-source");
+    argbuilder.add("8");
+    argbuilder.add("-target");
+    argbuilder.add("8");
+
     ImmutableList<Path> processorpath;
     if (!turbineOptions.processors().isEmpty()) {
       argbuilder.add("-processor");
@@ -137,22 +152,18 @@ public class JavacTurbine implements AutoCloseable {
       processorpath = ImmutableList.of();
     }
 
-    List<String> sources = new ArrayList<>();
-    sources.addAll(turbineOptions.sources());
-    sources.addAll(extractSourceJars(turbineOptions, tmpdir));
-
-    argbuilder.addAll(sources);
+    ImmutableList<Path> sources =
+        ImmutableList.<Path>builder()
+            .addAll(asPaths(turbineOptions.sources()))
+            .addAll(getSourceJarEntries(turbineOptions))
+            .build();
 
     JavacTurbineCompileRequest.Builder requestBuilder =
         JavacTurbineCompileRequest.builder()
+            .setSources(sources)
             .setJavacOptions(argbuilder.build())
             .setBootClassPath(asPaths(turbineOptions.bootClassPath()))
             .setProcessorClassPath(processorpath);
-
-    if (!Collections.disjoint(
-        turbineOptions.processors(), turbineOptions.blacklistedProcessors())) {
-      requestBuilder.setPrune(Prune.NO);
-    }
 
     // JavaBuilder exempts some annotation processors from Strict Java Deps enforcement.
     // To avoid having to apply the same exemptions here, we just ignore strict deps errors
@@ -162,22 +173,28 @@ public class JavacTurbine implements AutoCloseable {
     if (sources.isEmpty()) {
       // accept compilations with an empty source list for compatibility with JavaBuilder
       emitClassJar(
-          Paths.get(turbineOptions.outputFile()), ImmutableMap.<String, OutputFileObject>of());
-      dependencyModule.emitDependencyInformation(/*classpath=*/ "", /*successful=*/ true);
+          Paths.get(turbineOptions.outputFile()),
+          /* files= */ ImmutableMap.of(),
+          /* transitive= */ ImmutableMap.of());
+      dependencyModule.emitDependencyInformation(
+          /*classpath=*/ ImmutableList.of(), /*successful=*/ true);
       return Result.OK_WITH_REDUCED_CLASSPATH;
     }
 
     Result result = Result.ERROR;
-    JavacTurbineCompileResult compileResult;
-    List<String> actualClasspath;
+    JavacTurbineCompileResult compileResult = null;
+    ImmutableList<String> actualClasspath = ImmutableList.of();
 
-    List<String> originalClasspath = turbineOptions.classPath();
-    List<String> compressedClasspath =
+    ImmutableList<String> originalClasspath = turbineOptions.classPath();
+    ImmutableList<String> compressedClasspath =
         dependencyModule.computeStrictClasspath(turbineOptions.classPath());
 
     requestBuilder.setStrictDepsPlugin(new StrictJavaDepsPlugin(dependencyModule));
 
-    {
+    JavacTransitive transitive = new JavacTransitive(turbineOptions.bootClassPath());
+    requestBuilder.setTransitivePlugin(transitive);
+
+    if (turbineOptions.shouldReduceClassPath()) {
       // compile with reduced classpath
       actualClasspath = compressedClasspath;
       requestBuilder.setClassPath(asPaths(actualClasspath));
@@ -188,11 +205,9 @@ public class JavacTurbine implements AutoCloseable {
       }
     }
 
-    if (!compileResult.success() && hasRecognizedError(compileResult.output())) {
+    if (compileResult == null
+        || (!compileResult.success() && hasRecognizedError(compileResult.output()))) {
       // fall back to transitive classpath
-      deleteRecursively(tmpdir);
-      extractSourceJars(turbineOptions, tmpdir);
-
       actualClasspath = originalClasspath;
       requestBuilder.setClassPath(asPaths(actualClasspath));
       compileResult = JavacTurbineCompiler.compile(requestBuilder.build());
@@ -203,12 +218,14 @@ public class JavacTurbine implements AutoCloseable {
     }
 
     if (result.ok()) {
-      emitClassJar(Paths.get(turbineOptions.outputFile()), compileResult.files());
-      dependencyModule.emitDependencyInformation(
-          CLASSPATH_JOINER.join(actualClasspath), compileResult.success());
+      emitClassJar(
+          Paths.get(turbineOptions.outputFile()),
+          compileResult.files(),
+          transitive.collectTransitiveDependencies());
+      dependencyModule.emitDependencyInformation(actualClasspath, compileResult.success());
+    } else {
+      out.print(compileResult.output());
     }
-
-    out.print(compileResult.output());
     return result;
   }
 
@@ -219,9 +236,10 @@ public class JavacTurbine implements AutoCloseable {
             .setReduceClasspath()
             .setTargetLabel(turbineOptions.targetLabel().orNull())
             .addDepsArtifacts(turbineOptions.depsArtifacts())
+            .setPlatformJars(turbineOptions.bootClassPath())
             .setStrictJavaDeps(strictDepsMode.toString())
-            .addDirectMappings(turbineOptions.directJarsToTargets())
-            .addIndirectMappings(turbineOptions.indirectJarsToTargets());
+            .addDirectMappings(parseJarsToTargets(turbineOptions.directJarsToTargets()))
+            .addIndirectMappings(parseJarsToTargets(turbineOptions.indirectJarsToTargets()));
 
     if (turbineOptions.outputDeps().isPresent()) {
       dependencyModuleBuilder.setOutputDepsProtoFile(turbineOptions.outputDeps().get());
@@ -230,19 +248,42 @@ public class JavacTurbine implements AutoCloseable {
     return dependencyModuleBuilder.build();
   }
 
+  private static ImmutableMap<String, JarOwner> parseJarsToTargets(
+      ImmutableMap<String, String> input) {
+    ImmutableMap.Builder<String, JarOwner> result = ImmutableMap.builder();
+    for (Map.Entry<String, String> entry : input.entrySet()) {
+      result.put(entry.getKey(), parseJarOwner(entry.getKey()));
+    }
+    return result.build();
+  }
+
+  private static JarOwner parseJarOwner(String line) {
+    List<String> ownerStringParts = SPACE_SPLITTER.splitToList(line);
+    JarOwner owner;
+    Preconditions.checkState(ownerStringParts.size() == 1 || ownerStringParts.size() == 2);
+    if (ownerStringParts.size() == 1) {
+      owner = JarOwner.create(ownerStringParts.get(0));
+    } else {
+      owner = JarOwner.create(ownerStringParts.get(0), ownerStringParts.get(1));
+    }
+    return owner;
+  }
+
   /** Write the class output from a successful compilation to the output jar. */
-  private static void emitClassJar(Path outputJar, ImmutableMap<String, OutputFileObject> files)
+  private static void emitClassJar(
+      Path outputJar, Map<String, byte[]> files, Map<String, byte[]> transitive)
       throws IOException {
     try (OutputStream fos = Files.newOutputStream(outputJar);
         ZipOutputStream zipOut =
             new ZipOutputStream(new BufferedOutputStream(fos, ZIPFILE_BUFFER_SIZE))) {
-      boolean hasEntries = false;
-      for (Map.Entry<String, OutputFileObject> entry : files.entrySet()) {
-        if (entry.getValue().location != StandardLocation.CLASS_OUTPUT) {
-          continue;
-        }
+      for (Map.Entry<String, byte[]> entry : transitive.entrySet()) {
         String name = entry.getKey();
-        byte[] bytes = entry.getValue().asBytes();
+        byte[] bytes = entry.getValue();
+        ZipUtil.storeEntry(ClassPathBinder.TRANSITIVE_PREFIX + name + ".class", bytes, zipOut);
+      }
+      for (Map.Entry<String, byte[]> entry : files.entrySet()) {
+        String name = entry.getKey();
+        byte[] bytes = entry.getValue();
         if (bytes == null) {
           continue;
         }
@@ -250,11 +291,6 @@ public class JavacTurbine implements AutoCloseable {
           bytes = processBytecode(bytes);
         }
         ZipUtil.storeEntry(name, bytes, zipOut);
-        hasEntries = true;
-      }
-      if (!hasEntries) {
-        // ZipOutputStream refuses to create a completely empty zip file.
-        ZipUtil.storeEntry("dummy", new byte[0], zipOut);
       }
     }
   }
@@ -329,31 +365,36 @@ public class JavacTurbine implements AutoCloseable {
     return result.build();
   }
 
-  /** Extra sources in srcjars to disk. */
-  private static List<String> extractSourceJars(TurbineOptions turbineOptions, Path tmpdir)
+  /** Returns paths to the source jar entries to compile. */
+  private ImmutableList<Path> getSourceJarEntries(TurbineOptions turbineOptions)
       throws IOException {
-    if (turbineOptions.sourceJars().isEmpty()) {
-      return Collections.emptyList();
-    }
-
-    ArrayList<String> extractedSources = new ArrayList<>();
+    ImmutableList.Builder<Path> sources = ImmutableList.builder();
     for (String sourceJar : turbineOptions.sourceJars()) {
-      try (ZipFile zf = new ZipFile(sourceJar)) {
-        Enumeration<? extends ZipEntry> entries = zf.entries();
-        while (entries.hasMoreElements()) {
-          ZipEntry ze = entries.nextElement();
-          if (!ze.getName().endsWith(".java")) {
-            continue;
-          }
-          Path dest = tmpdir.resolve(ze.getName());
-          Files.createDirectories(dest.getParent());
-          // allow overlapping source jars for compatibility with JavaBuilder (see b/26688023)
-          Files.copy(zf.getInputStream(ze), dest, StandardCopyOption.REPLACE_EXISTING);
-          extractedSources.add(dest.toAbsolutePath().toString());
-        }
+      for (Path root : getJarFileSystem(Paths.get(sourceJar)).getRootDirectories()) {
+        Files.walkFileTree(
+            root,
+            new SimpleFileVisitor<Path>() {
+              @Override
+              public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+                  throws IOException {
+                String fileName = path.getFileName().toString();
+                if (fileName.endsWith(".java")) {
+                  sources.add(path);
+                }
+                return FileVisitResult.CONTINUE;
+              }
+            });
       }
     }
-    return extractedSources;
+    return sources.build();
+  }
+
+  private FileSystem getJarFileSystem(Path sourceJar) throws IOException {
+    FileSystem fs = filesystems.get(sourceJar);
+    if (fs == null) {
+      filesystems.put(sourceJar, fs = FileSystems.newFileSystem(sourceJar, null));
+    }
+    return fs;
   }
 
   private static final Pattern MISSING_PACKAGE =
@@ -376,27 +417,8 @@ public class JavacTurbine implements AutoCloseable {
   @Override
   public void close() throws IOException {
     out.flush();
-    deleteRecursively(Paths.get(turbineOptions.tempDir()));
-  }
-
-  private static void deleteRecursively(final Path dir) throws IOException {
-    Files.walkFileTree(
-        dir,
-        new SimpleFileVisitor<Path>() {
-          @Override
-          public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-              throws IOException {
-            Files.delete(path);
-            return FileVisitResult.CONTINUE;
-          }
-
-          @Override
-          public FileVisitResult postVisitDirectory(Path path, IOException exc) throws IOException {
-            if (!path.equals(dir)) {
-              Files.delete(path);
-            }
-            return FileVisitResult.CONTINUE;
-          }
-        });
+    for (FileSystem fs : filesystems.values()) {
+      fs.close();
+    }
   }
 }

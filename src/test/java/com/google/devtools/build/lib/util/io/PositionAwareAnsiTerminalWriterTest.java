@@ -13,17 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-
-/**
- * Tests {@link PositionAwareAnsiTerminalWriter}.
- */
+/** Tests {@link PositionAwareAnsiTerminalWriter}. */
 @RunWith(JUnit4.class)
 public class PositionAwareAnsiTerminalWriterTest {
   static final String NL = LoggingTerminalWriter.NEWLINE;
@@ -40,8 +37,8 @@ public class PositionAwareAnsiTerminalWriterTest {
 
     terminalWriter.append(sample);
 
-    assertEquals(sample.length(), terminalWriter.getPosition());
-    assertEquals(sample, loggingTerminalWriter.getTranscript());
+    assertThat(terminalWriter.getPosition()).isEqualTo(sample.length());
+    assertThat(loggingTerminalWriter.getTranscript()).isEqualTo(sample);
   }
 
   @Test
@@ -54,14 +51,14 @@ public class PositionAwareAnsiTerminalWriterTest {
         new PositionAwareAnsiTerminalWriter(loggingTerminalWriter);
 
     terminalWriter.append(firstLine);
-    assertEquals(firstLine.length(), terminalWriter.getPosition());
+    assertThat(terminalWriter.getPosition()).isEqualTo(firstLine.length());
     terminalWriter.newline();
-    assertEquals(0, terminalWriter.getPosition());
+    assertThat(terminalWriter.getPosition()).isEqualTo(0);
     terminalWriter.append(secondLine);
-    assertEquals(secondLine.length(), terminalWriter.getPosition());
+    assertThat(terminalWriter.getPosition()).isEqualTo(secondLine.length());
     terminalWriter.newline();
-    assertEquals(0, terminalWriter.getPosition());
-    assertEquals(firstLine + NL + secondLine + NL, loggingTerminalWriter.getTranscript());
+    assertThat(terminalWriter.getPosition()).isEqualTo(0);
+    assertThat(loggingTerminalWriter.getTranscript()).isEqualTo(firstLine + NL + secondLine + NL);
   }
 
   @Test
@@ -74,10 +71,10 @@ public class PositionAwareAnsiTerminalWriterTest {
         new PositionAwareAnsiTerminalWriter(loggingTerminalWriter);
 
     terminalWriter.append(firstLine + "\n" + secondLine);
-    assertEquals(secondLine.length(), terminalWriter.getPosition());
+    assertThat(terminalWriter.getPosition()).isEqualTo(secondLine.length());
     terminalWriter.append("\n");
-    assertEquals(0, terminalWriter.getPosition());
-    assertEquals(firstLine + NL + secondLine + NL, loggingTerminalWriter.getTranscript());
+    assertThat(terminalWriter.getPosition()).isEqualTo(0);
+    assertThat(loggingTerminalWriter.getTranscript()).isEqualTo(firstLine + NL + secondLine + NL);
   }
 
   @Test
@@ -94,9 +91,8 @@ public class PositionAwareAnsiTerminalWriterTest {
         .append("fail")
         .normal()
         .append("normal");
-    assertEquals(
-        "abc" + OK + "ok" + FAIL + "fail" + NORMAL + "normal",
-        loggingTerminalWriter.getTranscript());
+    assertThat(loggingTerminalWriter.getTranscript())
+        .isEqualTo("abc" + OK + "ok" + FAIL + "fail" + NORMAL + "normal");
   }
 
   @Test
@@ -108,9 +104,9 @@ public class PositionAwareAnsiTerminalWriterTest {
         new PositionAwareAnsiTerminalWriter(loggingTerminalWriter);
 
     terminalWriter.failStatus();
-    assertEquals(0, terminalWriter.getPosition());
+    assertThat(terminalWriter.getPosition()).isEqualTo(0);
     terminalWriter.append(sample);
-    assertEquals(sample.length(), terminalWriter.getPosition());
-    assertEquals(FAIL + sample, loggingTerminalWriter.getTranscript());
+    assertThat(terminalWriter.getPosition()).isEqualTo(sample.length());
+    assertThat(loggingTerminalWriter.getTranscript()).isEqualTo(FAIL + sample);
   }
 }

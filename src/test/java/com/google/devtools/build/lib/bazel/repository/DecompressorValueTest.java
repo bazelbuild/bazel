@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -59,7 +58,7 @@ public class DecompressorValueTest {
       DecompressorDescriptor.builder().setArchivePath(zipPath).build();
       fail(".baz isn't a valid suffix");
     } catch (RepositoryFunctionException expected) {
-      assertThat(expected.getMessage()).contains("Expected a file with a .zip, .jar,");
+      assertThat(expected).hasMessageThat().contains("Expected a file with a .zip, .jar,");
     }
   }
 

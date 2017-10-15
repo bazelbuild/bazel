@@ -31,30 +31,51 @@ public class ExecutorUtil {
   }
 
   /**
-   * Shutdown the executor. If an interrupt occurs, invoke shutdownNow(), but
+   * Shutdown the executor via shutdownNow(). If an interrupt occurs, ignore it (since the tasks
+   * were already interrupted by the initial shutdownNow) and still block on the eventual
+   * termination of the pool.
+   *
+   * @param executor the executor service.
+   * @return true iff interrupted.
+   */
+  public static boolean uninterruptibleShutdownNow(ExecutorService executor) {
+    return shutdownImpl(executor, /*shutdownNowInitially=*/true, /*shutdownNowOnInterrupt=*/false);
+  }
+
+  /**
+   * Shutdown the executor via shutdown(). If an interrupt occurs, invoke shutdownNow(), but
    * still block on the eventual termination of the pool.
    *
    * @param executor the executor service.
    * @return true iff interrupted.
    */
   public static boolean interruptibleShutdown(ExecutorService executor) {
-    return shutdownImpl(executor, /*interruptible=*/true);
+    return shutdownImpl(
+        executor,
+        /*shutdownNowInitially=*/false,
+        /*shutdownNowOnInterrupt=*/true);
   }
 
   /**
-   * Shutdown the executor. If an interrupt occurs, ignore it and still block on the eventual
-   * termination of the pool. This way, all tasks are guaranteed to have completed normally.
+   * Shutdown the executor via shutdown(). If an interrupt occurs, ignore it and still block on the
+   * eventual termination of the pool. This way, all tasks are guaranteed to have completed
+   * normally.
    *
    * @param executor the executor service.
    * @return true iff interrupted.
    */
   public static boolean uninterruptibleShutdown(ExecutorService executor) {
-    return shutdownImpl(executor, /*interruptible=*/false);
+    return shutdownImpl(executor, /*shutdownNowInitially=*/false, /*shutdownNowOnInterrupt=*/false);
   }
 
-  private static boolean shutdownImpl(ExecutorService executor, boolean interruptible) {
+  private static boolean shutdownImpl(
+      ExecutorService executor, boolean shutdownNowInitially, boolean shutdownNowOnInterrupt) {
     Preconditions.checkState(!executor.isShutdown());
-    executor.shutdown();
+    if (shutdownNowInitially) {
+      executor.shutdownNow();
+    } else {
+      executor.shutdown();
+    }
 
     // Common pattern: check for interrupt, but don't return until all threads
     // are finished.
@@ -64,7 +85,7 @@ public class ExecutorUtil {
         executor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
         break;
       } catch (InterruptedException e) {
-        if (interruptible) {
+        if (shutdownNowOnInterrupt) {
           executor.shutdownNow();
         }
         interrupted = true;

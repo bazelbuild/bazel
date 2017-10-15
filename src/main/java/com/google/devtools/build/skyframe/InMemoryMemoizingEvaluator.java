@@ -21,7 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
@@ -136,8 +136,12 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   }
 
   @Override
-  public <T extends SkyValue> EvaluationResult<T> evaluate(Iterable<SkyKey> roots, Version version,
-          boolean keepGoing, int numThreads, EventHandler eventHandler)
+  public <T extends SkyValue> EvaluationResult<T> evaluate(
+      Iterable<? extends SkyKey> roots,
+      Version version,
+      boolean keepGoing,
+      int numThreads,
+      ExtendedEventHandler eventHandler)
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
     IntVersion intVersion = (IntVersion) version;
@@ -172,6 +176,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
               eventHandler,
               emittedEventState,
               DEFAULT_STORED_EVENT_FILTER,
+              ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
               keepGoing,
               numThreads,
               progressReceiver);
@@ -200,11 +205,19 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       if (prevEntry != null && prevEntry.isDone()) {
         try {
           Iterable<SkyKey> directDeps = prevEntry.getDirectDeps();
-          Preconditions.checkState(
-              Iterables.isEmpty(directDeps), "existing entry for %s has deps: %s", key, directDeps);
-          if (newValue.equals(prevEntry.getValue())
-              && !valuesToDirty.contains(key)
-              && !valuesToDelete.contains(key)) {
+          if (Iterables.isEmpty(directDeps)) {
+            if (newValue.equals(prevEntry.getValue())
+                && !valuesToDirty.contains(key)
+                && !valuesToDelete.contains(key)) {
+              it.remove();
+            }
+          } else {
+            // Rare situation of an injected dep that depends on another node. Usually the dep is
+            // the error transience node. When working with external repositories, it can also be an
+            // external workspace file. Don't bother injecting it, just invalidate it.
+            // We'll wastefully evaluate the node freshly during evaluation, but this happens very
+            // rarely.
+            valuesToDirty.add(key);
             it.remove();
           }
         } catch (InterruptedException e) {
@@ -251,6 +264,11 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   @Override
   public Map<SkyKey, SkyValue> getValues() {
     return graph.getValues();
+  }
+
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getGraphMap() {
+    return graph.getAllValuesMutable();
   }
 
   @Override
@@ -350,11 +368,6 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         public boolean apply(Event event) {
           switch (event.getKind()) {
             case INFO:
-              throw new UnsupportedOperationException(
-                  "SkyFunctions should not display INFO messages: "
-                      + event.getLocation()
-                      + ": "
-                      + event.getMessage());
             case PROGRESS:
               return false;
             default:

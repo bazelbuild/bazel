@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.util.io;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
@@ -44,7 +42,7 @@ public class AnsiTerminalPrinterTest {
   }
 
   private void assertString(String string) {
-    assertEquals(string, stream.toString());
+    assertThat(stream.toString()).isEqualTo(string);
   }
 
   private void assertRegex(String regex) {
@@ -80,13 +78,13 @@ public class AnsiTerminalPrinterTest {
     assertThat(codes).hasLength(8);
     for (int i = 0; i < 4; i++) {
       assertThat(codes[i]).isNotEmpty();
-      assertEquals(codes[i], codes[i+4]);
+      assertThat(codes[i + 4]).isEqualTo(codes[i]);
     }
-    assertFalse(codes[0].equals(codes[1]));
-    assertFalse(codes[0].equals(codes[2]));
-    assertFalse(codes[0].equals(codes[3]));
-    assertFalse(codes[1].equals(codes[2]));
-    assertFalse(codes[1].equals(codes[3]));
-    assertFalse(codes[2].equals(codes[3]));
+    assertThat(codes[0].equals(codes[1])).isFalse();
+    assertThat(codes[0].equals(codes[2])).isFalse();
+    assertThat(codes[0].equals(codes[3])).isFalse();
+    assertThat(codes[1].equals(codes[2])).isFalse();
+    assertThat(codes[1].equals(codes[3])).isFalse();
+    assertThat(codes[2].equals(codes[3])).isFalse();
   }
 }

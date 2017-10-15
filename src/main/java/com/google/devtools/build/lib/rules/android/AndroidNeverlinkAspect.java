@@ -49,7 +49,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
     if (!JavaCommon.getConstraints(ruleContext).contains("android")
         && !ruleContext.getRule().getRuleClass().startsWith("android_")) {
-      return new ConfiguredAspect.Builder(NAME, ruleContext).build();
+      return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
     }
 
     List<TransitiveInfoCollection> deps = new ArrayList<>();
@@ -65,7 +65,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
       deps.addAll(ruleContext.getPrerequisites(attribute, Mode.TARGET));
     }
 
-    return new ConfiguredAspect.Builder(NAME, ruleContext)
+    return new ConfiguredAspect.Builder(this, parameters, ruleContext)
         .addProvider(
             AndroidNeverLinkLibrariesProvider.create(
                 AndroidCommon.collectTransitiveNeverlinkLibraries(
@@ -77,13 +77,13 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-    AspectDefinition.Builder builder = new AspectDefinition.Builder("AndroidNeverlinkAspect");
+    AspectDefinition.Builder builder = new AspectDefinition.Builder(this);
     for (String attribute : ATTRIBUTES) {
-      builder.attributeAspect(attribute, this);
+      builder.propagateAlongAttribute(attribute);
     }
 
     return builder
-        .requireProvider(JavaCompilationArgsProvider.class)
+        .requireProviders(JavaCompilationArgsProvider.class)
         .requiresConfigurationFragments()
         .build();
   }

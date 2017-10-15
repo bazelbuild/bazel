@@ -15,16 +15,15 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,7 +34,7 @@ import java.util.List;
  *
  * <p>This is split from merging, so that it can happen off of the compilation critical path.
  */
-class AndroidResourceValidatorActionBuilder {
+public class AndroidResourceValidatorActionBuilder {
 
   private final RuleContext ruleContext;
   private final AndroidSdkProvider sdk;
@@ -51,11 +50,22 @@ class AndroidResourceValidatorActionBuilder {
   // Flags
   private String customJavaPackage;
   private boolean debug;
+  private Artifact staticLibraryOut;
+  private ResourceDependencies resourceDeps;
+  private Artifact aapt2SourceJarOut;
+  private Artifact aapt2RTxtOut;
+  private Artifact compiledSymbols;
+  private Artifact apkOut;
 
   /** @param ruleContext The RuleContext that was used to create the SpawnAction.Builder. */
   public AndroidResourceValidatorActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
+  }
+
+  public AndroidResourceValidatorActionBuilder setStaticLibraryOut(Artifact staticLibraryOut) {
+    this.staticLibraryOut = staticLibraryOut;
+    return this;
   }
 
   /** The primary resource container. We mostly propagate its values, but update the R.txt. */
@@ -89,22 +99,133 @@ class AndroidResourceValidatorActionBuilder {
     return this;
   }
 
+  /** Used to add the static library from the dependencies. */
+  public AndroidResourceValidatorActionBuilder withDependencies(ResourceDependencies resourceDeps) {
+    this.resourceDeps = resourceDeps;
+    return this;
+  }
+
+  public AndroidResourceValidatorActionBuilder setAapt2RTxtOut(Artifact aapt2RTxtOut) {
+    this.aapt2RTxtOut = aapt2RTxtOut;
+    return this;
+  }
+
+  public AndroidResourceValidatorActionBuilder setAapt2SourceJarOut(Artifact aapt2SourceJarOut) {
+    this.aapt2SourceJarOut = aapt2SourceJarOut;
+    return this;
+  }
+
   public ResourceContainer build(ActionConstructionContext context) {
+    ResourceContainer container = primary;
+    if (rTxtOut != null) {
+      container = createValidateAction(container, context);
+    }
+    if (compiledSymbols != null) {
+      container = createLinkStaticLibraryAction(container, context);
+    }
+    return container;
+  }
+
+  public AndroidResourceValidatorActionBuilder setCompiledSymbols(Artifact compiledSymbols) {
+    this.compiledSymbols = compiledSymbols;
+    return this;
+  }
+
+  public AndroidResourceValidatorActionBuilder setApkOut(Artifact apkOut) {
+    this.apkOut = apkOut;
+    return this;
+  }
+
+  /**
+   * This creates a static library using aapt2. It also generates a source jar and R.txt from aapt.
+   *
+   * <p>This allows the link action to replace the validate action for builds that use aapt2, as
+   * opposed to executing both actions.
+   */
+  private ResourceContainer createLinkStaticLibraryAction(
+      ResourceContainer validated, ActionConstructionContext context) {
+    Preconditions.checkNotNull(staticLibraryOut);
+    Preconditions.checkNotNull(aapt2SourceJarOut);
+    Preconditions.checkNotNull(aapt2RTxtOut);
+    Preconditions.checkNotNull(resourceDeps);
+
+    CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
+    ImmutableList.Builder<Artifact> inputs = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> outs = ImmutableList.builder();
+
+    // Set the busybox tool.
+    builder.add("--tool").add("LINK_STATIC_LIBRARY").add("--");
+
+    builder.addExecPath("--aapt2", sdk.getAapt2().getExecutable());
+
+    FluentIterable<Artifact> libraries =
+        FluentIterable.from(resourceDeps.getResources()).transform(
+            ResourceContainer::getStaticLibrary).append(sdk.getAndroidJar());
+
+    builder
+        .add("--libraries")
+        .addJoinedExecPaths(
+            context.getConfiguration().getHostPathSeparator(), ImmutableList.copyOf(libraries));
+    inputs.addAll(libraries);
+
+    builder.addExecPath("--compiled", compiledSymbols);
+    inputs.add(compiledSymbols);
+
+    builder.addExecPath("--manifest", primary.getManifest());
+    inputs.add(validated.getManifest());
+
+    if (!Strings.isNullOrEmpty(customJavaPackage)) {
+      // Sets an alternative java package for the generated R.java
+      // this allows android rules to generate resources outside of the java{,tests} tree.
+      builder.add("--packageForR", customJavaPackage);
+    }
+
+    builder.addExecPath("--sourceJarOut", aapt2SourceJarOut);
+    outs.add(aapt2SourceJarOut);
+
+    builder.addExecPath("--rTxtOut", aapt2RTxtOut);
+    outs.add(aapt2RTxtOut);
+
+    builder.addExecPath("--staticLibraryOut", staticLibraryOut);
+    outs.add(staticLibraryOut);
+
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .useParameterFile(ParameterFileType.UNQUOTED)
+            .useDefaultShellEnvironment()
+            .addTool(sdk.getAapt2())
+            .addInputs(inputs.build())
+            .addOutputs(outs.build())
+            .setCommandLine(builder.build())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage(
+                "Linking static android resource library for %s", ruleContext.getLabel())
+            .setMnemonic("AndroidResourceLink")
+            .build(context));
+
+    return validated
+        .toBuilder()
+        .setAapt2JavaSourceJar(aapt2SourceJarOut)
+        .setAapt2RTxt(aapt2RTxtOut)
+        .setStaticLibrary(staticLibraryOut)
+        .build();
+  }
+
+  private ResourceContainer createValidateAction(
+      ResourceContainer primary, ActionConstructionContext context) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
 
+    // Set the busybox tool.
+    builder.add("--tool").add("VALIDATE").add("--");
+
     if (!Strings.isNullOrEmpty(sdk.getBuildToolsVersion())) {
-      builder.add("--buildToolsVersion").add(sdk.getBuildToolsVersion());
+      builder.add("--buildToolsVersion", sdk.getBuildToolsVersion());
     }
 
     builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
 
-    // Use a FluentIterable to avoid flattening the NestedSets
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
-    inputs.addAll(
-        ruleContext
-            .getExecutablePrerequisite("$android_resource_validator", Mode.HOST)
-            .getRunfilesSupport()
-            .getRunfilesArtifactsWithoutMiddlemen());
+    ImmutableList.Builder<Artifact> inputs = ImmutableList.builder();
 
     builder.addExecPath("--annotationJar", sdk.getAnnotationsJar());
     inputs.add(sdk.getAnnotationsJar());
@@ -126,7 +247,7 @@ class AndroidResourceValidatorActionBuilder {
     if (!Strings.isNullOrEmpty(customJavaPackage)) {
       // Sets an alternative java package for the generated R.java
       // this allows android rules to generate resources outside of the java{,tests} tree.
-      builder.add("--packageForR").add(customJavaPackage);
+      builder.add("--packageForR", customJavaPackage);
     }
     List<Artifact> outs = new ArrayList<>();
     Preconditions.checkNotNull(rTxtOut);
@@ -137,36 +258,31 @@ class AndroidResourceValidatorActionBuilder {
     builder.addExecPath("--srcJarOutput", sourceJarOut);
     outs.add(sourceJarOut);
 
+    if (apkOut != null) {
+      builder.addExecPath("--packagePath", apkOut);
+      outs.add(apkOut);
+    }
+
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
     // Create the spawn action.
     ruleContext.registerAction(
         spawnActionBuilder
+            .useParameterFile(ParameterFileType.UNQUOTED)
+            .useDefaultShellEnvironment()
             .addTool(sdk.getAapt())
-            .addTransitiveInputs(inputs.build())
+            .addInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))
             .setCommandLine(builder.build())
             .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resource_validator", Mode.HOST))
-            .setProgressMessage("Validating Android resources for " + ruleContext.getLabel())
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage("Validating Android resources for %s", ruleContext.getLabel())
             .setMnemonic("AndroidResourceValidator")
             .build(context));
 
     // Return the full set of validated transitive dependencies.
-    return ResourceContainer.create(
-        primary.getLabel(),
-        primary.getJavaPackage(),
-        primary.getRenameManifestPackage(),
-        primary.getConstantsInlined(),
-        primary.getApk(),
-        primary.getManifest(),
-        sourceJarOut,
-        primary.getJavaClassJar(),
-        primary.getArtifacts(ResourceType.ASSETS),
-        primary.getArtifacts(ResourceType.RESOURCES),
-        primary.getRoots(ResourceType.ASSETS),
-        primary.getRoots(ResourceType.RESOURCES),
-        primary.isManifestExported(),
-        rTxtOut,
-        primary.getSymbolsTxt());
+    return primary.toBuilder()
+        .setJavaSourceJar(sourceJarOut)
+        .setRTxt(rTxtOut)
+        .build();
   }
 }

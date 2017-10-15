@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Sets;
@@ -41,37 +39,38 @@ public class EnvironmentTest extends EvaluationTestCase {
   // Test the API directly
   @Test
   public void testLookupAndUpdate() throws Exception {
-    assertNull(lookup("foo"));
+    assertThat(lookup("foo")).isNull();
     update("foo", "bar");
-    assertEquals("bar", lookup("foo"));
+    assertThat(lookup("foo")).isEqualTo("bar");
   }
 
   @Test
-  public void testLookupWithDefault() throws Exception {
-    assertEquals(21, getEnvironment().lookup("VERSION", 21));
+  public void testHasVariable() throws Exception {
+    assertThat(getEnvironment().hasVariable("VERSION")).isFalse();
     update("VERSION", 42);
-    assertEquals(42, getEnvironment().lookup("VERSION", 21));
+    assertThat(getEnvironment().hasVariable("VERSION")).isTrue();
   }
 
   @Test
   public void testDoubleUpdateSucceeds() throws Exception {
     update("VERSION", 42);
-    assertEquals(42, lookup("VERSION"));
+    assertThat(lookup("VERSION")).isEqualTo(42);
     update("VERSION", 43);
-    assertEquals(43, lookup("VERSION"));
+    assertThat(lookup("VERSION")).isEqualTo(43);
   }
 
   // Test assign through interpreter, lookup through API:
   @Test
   public void testAssign() throws Exception {
-    assertNull(lookup("foo"));
+    assertThat(lookup("foo")).isNull();
     eval("foo = 'bar'");
-    assertEquals("bar", lookup("foo"));
+    assertThat(lookup("foo")).isEqualTo("bar");
   }
 
   // Test update through API, reference through interpreter:
   @Test
   public void testReference() throws Exception {
+    setFailFast(false);
     try {
       eval("foo");
       fail();
@@ -79,12 +78,13 @@ public class EnvironmentTest extends EvaluationTestCase {
       assertThat(e).hasMessage("name 'foo' is not defined");
     }
     update("foo", "bar");
-    assertEquals("bar", eval("foo"));
+    assertThat(eval("foo")).isEqualTo("bar");
   }
 
   // Test assign and reference through interpreter:
   @Test
   public void testAssignAndReference() throws Exception {
+    setFailFast(false);
     try {
       eval("foo");
       fail();
@@ -92,7 +92,7 @@ public class EnvironmentTest extends EvaluationTestCase {
       assertThat(e).hasMessage("name 'foo' is not defined");
     }
     eval("foo = 'bar'");
-    assertEquals("bar", eval("foo"));
+    assertThat(eval("foo")).isEqualTo("bar");
   }
 
   @Test
@@ -114,81 +114,75 @@ public class EnvironmentTest extends EvaluationTestCase {
           .update("quux", 42);
     }
 
-    assertEquals(
-        Sets.newHashSet(
-            "foo",
-            "wiz",
-            "False",
-            "None",
-            "True",
-            "-",
-            "all",
-            "any",
-            "bool",
-            "dict",
-            "dir",
-            "enumerate",
-            "fail",
-            "getattr",
-            "hasattr",
-            "hash",
-            "int",
-            "len",
-            "list",
-            "max",
-            "min",
-            "print",
-            "range",
-            "repr",
-            "reversed",
-            "select",
-            "set",
-            "sorted",
-            "str",
-            "type",
-            "zip"),
-        outerEnv.getVariableNames());
-    assertEquals(
-        Sets.newHashSet(
-            "foo",
-            "wiz",
-            "quux",
-            "False",
-            "None",
-            "True",
-            "-",
-            "all",
-            "any",
-            "bool",
-            "dict",
-            "dir",
-            "enumerate",
-            "fail",
-            "getattr",
-            "hasattr",
-            "hash",
-            "int",
-            "len",
-            "list",
-            "max",
-            "min",
-            "print",
-            "range",
-            "repr",
-            "reversed",
-            "select",
-            "set",
-            "sorted",
-            "str",
-            "type",
-            "zip"),
-        innerEnv.getVariableNames());
+    assertThat(outerEnv.getVariableNames())
+        .isEqualTo(
+            Sets.newHashSet(
+                "foo",
+                "wiz",
+                "False",
+                "None",
+                "True",
+                "all",
+                "any",
+                "bool",
+                "dict",
+                "dir",
+                "enumerate",
+                "fail",
+                "getattr",
+                "hasattr",
+                "hash",
+                "int",
+                "len",
+                "list",
+                "max",
+                "min",
+                "print",
+                "range",
+                "repr",
+                "reversed",
+                "sorted",
+                "str",
+                "tuple",
+                "zip"));
+    assertThat(innerEnv.getVariableNames())
+        .isEqualTo(
+            Sets.newHashSet(
+                "foo",
+                "wiz",
+                "quux",
+                "False",
+                "None",
+                "True",
+                "all",
+                "any",
+                "bool",
+                "dict",
+                "dir",
+                "enumerate",
+                "fail",
+                "getattr",
+                "hasattr",
+                "hash",
+                "int",
+                "len",
+                "list",
+                "max",
+                "min",
+                "print",
+                "range",
+                "repr",
+                "reversed",
+                "sorted",
+                "str",
+                "tuple",
+                "zip"));
   }
 
   @Test
   public void testToString() throws Exception {
-    update("subject", new StringLiteral("Hello, 'world'.", '\''));
-    update("from", new StringLiteral("Java", '"'));
+    update("subject", new StringLiteral("Hello, 'world'."));
+    update("from", new StringLiteral("Java"));
     assertThat(getEnvironment().toString()).isEqualTo("<Environment[test]>");
   }
 
@@ -212,12 +206,12 @@ public class EnvironmentTest extends EvaluationTestCase {
               .setEventHandler(Environment.FAIL_FAST_HANDLER)
               .build();
       env.update("x", 1);
-      assertEquals(env.lookup("x"), 1);
+      assertThat(env.lookup("x")).isEqualTo(1);
       env.update("y", 2);
-      assertEquals(env.lookup("y"), 2);
-      assertEquals(env.lookup("x"), 1);
+      assertThat(env.lookup("y")).isEqualTo(2);
+      assertThat(env.lookup("x")).isEqualTo(1);
       env.update("x", 3);
-      assertEquals(env.lookup("x"), 3);
+      assertThat(env.lookup("x")).isEqualTo(3);
     }
     try {
       // This update to an existing variable should fail because the environment was frozen.
@@ -245,8 +239,8 @@ public class EnvironmentTest extends EvaluationTestCase {
       }
     }
     DummyFreezable dummy = new DummyFreezable();
-    Location locA = Location.fromPathFragment(new PathFragment("/a"));
-    Location locB = Location.fromPathFragment(new PathFragment("/b"));
+    Location locA = Location.fromPathFragment(PathFragment.create("/a"));
+    Location locB = Location.fromPathFragment(PathFragment.create("/b"));
     Environment env = Environment.builder(mutability).build();
 
     // Acquire two locks, release two locks, check along the way.
@@ -259,7 +253,7 @@ public class EnvironmentTest extends EvaluationTestCase {
     mutability.unlock(dummy, locA);
     assertThat(mutability.isLocked(dummy)).isTrue();
     try {
-      Mutability.checkMutable(dummy, env);
+      Mutability.checkMutable(dummy, env.mutability());
       fail("Able to mutate locked object");
     } catch (Mutability.MutabilityException e) {
       assertThat(e).hasMessage("trying to mutate a locked object (is it currently being iterated "
@@ -269,20 +263,20 @@ public class EnvironmentTest extends EvaluationTestCase {
     try {
       mutability.unlock(dummy, locA);
       fail("Able to unlock object with wrong location");
-    } catch (AssertionError e) {
+    } catch (IllegalArgumentException e) {
       assertThat(e).hasMessage("trying to unlock an object for a location at which "
           + "it was not locked (/a:1)");
     }
     mutability.unlock(dummy, locB);
     assertThat(mutability.isLocked(dummy)).isFalse();
-    Mutability.checkMutable(dummy, env);
+    Mutability.checkMutable(dummy, env.mutability());
 
     // Acquire, then freeze.
     mutability.lock(dummy, locA);
     mutability.freeze();
     assertThat(mutability.isLocked(dummy)).isFalse();
     try {
-      Mutability.checkMutable(dummy, env);
+      Mutability.checkMutable(dummy, env.mutability());
       fail("Able to mutate locked object");
     } catch (Mutability.MutabilityException e) {
       assertThat(e).hasMessage("trying to mutate a frozen object");
@@ -298,18 +292,21 @@ public class EnvironmentTest extends EvaluationTestCase {
     // We don't even get a runtime exception trying to modify these,
     // because we get compile-time exceptions even before we reach runtime!
     try {
-      env.eval("special_var = 41");
+      BuildFileAST.eval(env, "special_var = 41");
       throw new AssertionError("failed to fail");
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessage("ERROR 1:1: Variable special_var is read only");
+    } catch (EvalException e) {
+      assertThat(e).hasMessageThat().contains("Variable special_var is read only");
     }
 
     try {
-      env.eval("def foo(x): x += global_var; global_var = 36; return x", "foo(1)");
+      BuildFileAST.eval(env, "def foo(x): x += global_var; global_var = 36; return x", "foo(1)");
       throw new AssertionError("failed to fail");
     } catch (EvalExceptionWithStackTrace e) {
-      assertThat(e.getMessage()).contains("Variable 'global_var' is referenced before assignment. "
-          + "The variable is defined in the global scope.");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "Variable 'global_var' is referenced before assignment. "
+                  + "The variable is defined in the global scope.");
     }
   }
 }

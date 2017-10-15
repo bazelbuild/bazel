@@ -20,8 +20,8 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -139,7 +139,7 @@ public abstract class SkylarkType implements Serializable {
     return TOP;
   }
 
-  private static final class Empty {}; // Empty type, used as basis for Bottom
+  private static final class Empty {} // Empty type, used as basis for Bottom
 
   // Notable types
 
@@ -154,36 +154,35 @@ public abstract class SkylarkType implements Serializable {
   // by declaring its type as TOP instead of NONE, even though at runtime,
   // we reject None from all types but NONE, and in particular from e.g. lists of Files.
   // TODO(bazel-team): resolve this inconsistency, one way or the other.
-  public static final Simple NONE = Simple.of(Runtime.NoneType.class);
+  public static final Simple NONE = Simple.forClass(Runtime.NoneType.class);
 
-  private static final class Global {}
   /** The STRING type, for strings */
-  public static final Simple STRING = Simple.of(String.class);
+  public static final Simple STRING = Simple.forClass(String.class);
 
   /** The INTEGER type, for 32-bit signed integers */
-  public static final Simple INT = Simple.of(Integer.class);
+  public static final Simple INT = Simple.forClass(Integer.class);
 
   /** The BOOLEAN type, that contains TRUE and FALSE */
-  public static final Simple BOOL = Simple.of(Boolean.class);
+  public static final Simple BOOL = Simple.forClass(Boolean.class);
 
   /** The FUNCTION type, that contains all functions, otherwise dynamically typed at call-time */
   public static final SkylarkFunctionType FUNCTION = new SkylarkFunctionType("unknown", TOP);
 
   /** The DICT type, that contains SkylarkDict */
-  public static final Simple DICT = Simple.of(SkylarkDict.class);
+  public static final Simple DICT = Simple.forClass(SkylarkDict.class);
 
   /** The SEQUENCE type, that contains lists and tuples */
   // TODO(bazel-team): this was added for backward compatibility with the BUILD language,
   // that doesn't make a difference between list and tuple, so that functions can be declared
   // that keep not making the difference. Going forward, though, we should investigate whether
   // we ever want to use this type, and if not, make sure no existing client code uses it.
-  public static final Simple SEQUENCE = Simple.of(SkylarkList.class);
+  public static final Simple SEQUENCE = Simple.forClass(SkylarkList.class);
 
   /** The LIST type, that contains all MutableList-s */
-  public static final Simple LIST = Simple.of(MutableList.class);
+  public static final Simple LIST = Simple.forClass(MutableList.class);
 
   /** The TUPLE type, that contains all Tuple-s */
-  public static final Simple TUPLE = Simple.of(Tuple.class);
+  public static final Simple TUPLE = Simple.forClass(Tuple.class);
 
   /** The STRING_LIST type, a MutableList of strings */
   public static final SkylarkType STRING_LIST = Combination.of(LIST, STRING);
@@ -192,8 +191,7 @@ public abstract class SkylarkType implements Serializable {
   public static final SkylarkType INT_LIST = Combination.of(LIST, INT);
 
   /** The SET type, that contains all SkylarkNestedSet-s, and the generic combinator for them */
-  public static final Simple SET = Simple.of(SkylarkNestedSet.class);
-
+  public static final Simple SET = Simple.forClass(SkylarkNestedSet.class);
 
   // Common subclasses of SkylarkType
 
@@ -280,7 +278,7 @@ public abstract class SkylarkType implements Serializable {
         // as a substitute to handling inheritance.
         Class<?> skylarkType = EvalUtils.getSkylarkType(type);
         if (skylarkType != type) {
-          simple = Simple.of(skylarkType);
+          simple = Simple.forClass(skylarkType);
         } else {
           simple = new Simple(type);
         }
@@ -289,11 +287,15 @@ public abstract class SkylarkType implements Serializable {
     }
 
     /**
-     * The public way to create a Simple type
+     * The way to create a Simple type.
+     *
      * @param type a Class
      * @return the Simple type that contains exactly the instances of that Class
      */
-    public static Simple of(Class<?> type) {
+    // Only call this method from SkylarkType. Calling it from outside SkylarkType leads to
+    // circular dependencies in class initialization, showing up as an NPE while initializing NONE.
+    // You actually want to call SkylarkType.of().
+    private static Simple forClass(Class<?> type) {
       return simpleCache.getUnchecked(type);
     }
   }
@@ -331,7 +333,7 @@ public abstract class SkylarkType implements Serializable {
         if (generic == BOTTOM) {
           return BOTTOM;
         }
-        SkylarkType arg = intersection(argType, ((Combination) other).getArgType());
+        SkylarkType arg = intersection(argType, other.getArgType());
         if (arg == BOTTOM) {
           return BOTTOM;
         }
@@ -377,7 +379,7 @@ public abstract class SkylarkType implements Serializable {
     }
 
     private static final Interner<Combination> combinationInterner =
-        Interners.<Combination>newWeakInterner();
+        BlazeInterners.newWeakInterner();
 
     public static SkylarkType of(SkylarkType generic, SkylarkType argument) {
       // assume all combinations with TOP are the same as the simple type, and canonicalize.
@@ -389,7 +391,7 @@ public abstract class SkylarkType implements Serializable {
       }
     }
     public static SkylarkType of(Class<?> generic, Class<?> argument) {
-      return of(Simple.of(generic), Simple.of(argument));
+      return of(Simple.forClass(generic), Simple.forClass(argument));
     }
   }
 
@@ -439,7 +441,7 @@ public abstract class SkylarkType implements Serializable {
       return list;
     }
     @Override public SkylarkType intersectWith(SkylarkType other) {
-      List<SkylarkType> otherTypes = addElements(new ArrayList<SkylarkType>(), other);
+      List<SkylarkType> otherTypes = addElements(new ArrayList<>(), other);
       List<SkylarkType> results = new ArrayList<>();
       for (SkylarkType element : types) {
         for (SkylarkType otherElement : otherTypes) {
@@ -485,17 +487,17 @@ public abstract class SkylarkType implements Serializable {
       } else if (canonical.size() == 1) {
         return canonical.get(0);
       } else {
-        return new Union(ImmutableList.<SkylarkType>copyOf(canonical));
+        return new Union(ImmutableList.copyOf(canonical));
       }
     }
     public static SkylarkType of(SkylarkType... types) {
       return of(Arrays.asList(types));
     }
     public static SkylarkType of(SkylarkType t1, SkylarkType t2) {
-      return of(ImmutableList.<SkylarkType>of(t1, t2));
+      return of(ImmutableList.of(t1, t2));
     }
     public static SkylarkType of(Class<?> t1, Class<?> t2) {
-      return of(Simple.of(t1), Simple.of(t2));
+      return of(Simple.forClass(t1), Simple.forClass(t2));
     }
   }
 
@@ -505,7 +507,7 @@ public abstract class SkylarkType implements Serializable {
     } else if (BaseFunction.class.isAssignableFrom(type)) {
       return new SkylarkFunctionType("unknown", TOP);
     } else {
-      return Simple.of(type);
+      return Simple.forClass(type);
     }
   }
 
@@ -575,7 +577,7 @@ public abstract class SkylarkType implements Serializable {
     } else if (value instanceof SkylarkNestedSet) {
       return of(SET, ((SkylarkNestedSet) value).getContentType());
     } else {
-      return Simple.of(value.getClass());
+      return Simple.forClass(value.getClass());
     }
   }
 
@@ -601,9 +603,8 @@ public abstract class SkylarkType implements Serializable {
    */
   static void checkTypeAllowedInSkylark(Object object, Location loc) throws EvalException {
     if (!isTypeAllowedInSkylark(object)) {
-      throw new EvalException(loc,
-                    "Type is not allowed in Skylark: "
-          + object.getClass().getSimpleName());
+      throw new EvalException(
+          loc, "internal error: type '" + object.getClass().getSimpleName() + "' is not allowed");
     }
   }
 
@@ -660,19 +661,25 @@ public abstract class SkylarkType implements Serializable {
       return ImmutableMap.of();
     }
     if (!(obj instanceof Map<?, ?>)) {
-      throw new EvalException(null, String.format(
-          "Illegal argument: expected a dictionary for %s but got %s instead",
-          what, EvalUtils.getDataTypeName(obj)));
+      throw new EvalException(
+          null,
+          String.format(
+              "expected a dictionary for '%s' but got '%s' instead",
+              what, EvalUtils.getDataTypeName(obj)));
     }
 
     for (Map.Entry<?, ?> input : ((Map<?, ?>) obj).entrySet()) {
       if (!keyType.isAssignableFrom(input.getKey().getClass())
           || !valueType.isAssignableFrom(input.getValue().getClass())) {
-        throw new EvalException(null, String.format(
-            "Illegal argument: expected <%s, %s> type for '%s' but got <%s, %s> instead",
-            keyType.getSimpleName(), valueType.getSimpleName(), what,
-            EvalUtils.getDataTypeName(input.getKey()),
-            EvalUtils.getDataTypeName(input.getValue())));
+        throw new EvalException(
+            null,
+            String.format(
+                "expected <%s, %s> type for '%s' but got <%s, %s> instead",
+                keyType.getSimpleName(),
+                valueType.getSimpleName(),
+                what,
+                EvalUtils.getDataTypeName(input.getKey()),
+                EvalUtils.getDataTypeName(input.getValue())));
       }
     }
 
@@ -735,8 +742,10 @@ public abstract class SkylarkType implements Serializable {
   public static void checkType(Object object, Class<?> type, @Nullable Object description)
       throws EvalException {
     if (!type.isInstance(object)) {
-      throw new EvalException(null,
-          Printer.format("Illegal argument: expected type %r %sbut got type %s instead",
+      throw new EvalException(
+          null,
+          Printer.format(
+              "expected type '%r' %sbut got type '%s' instead",
               type,
               description == null ? "" : String.format("for %s ", description),
               EvalUtils.getDataTypeName(object)));

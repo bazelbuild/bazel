@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.annotations.VisibleForTesting;
-
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 

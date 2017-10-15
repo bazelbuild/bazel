@@ -15,12 +15,38 @@ package com.google.devtools.build.lib.util.io;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A class which encapsulates the fancy curses-type stuff that you can do using
  * standard ANSI terminal control sequences.
  */
 public class AnsiTerminal {
+  /**
+   * An enumeration of all terminal colors, containing the escape sequences for both background and
+   * foreground settings.
+   */
+  public enum Color {
+    RED("^[31m", "^[41m"),
+    GREEN("^[32m", "^[42m"),
+    YELLOW("^[33m", "^[43m"),
+    BLUE("^[34m", "^[44m"),
+    MAGENTA("^[35m", "^[45m"),
+    CYAN("^[36m", "^[46m"),
+    GRAY("^[37m", "^[47m"),
+
+    DEFAULT("^[0m", "^[0m");
+
+    private final byte[] escapeSeq;
+    private final byte[] backgroundEscapeSeq;
+
+    private Color(String escapeSeq, String backgroundEscapeSeq) {
+      this.escapeSeq = escapeSeq.replace('^', (char) 27).getBytes(StandardCharsets.US_ASCII);
+      this.backgroundEscapeSeq =
+          backgroundEscapeSeq.replace('^', (char) 27).getBytes(StandardCharsets.US_ASCII);
+    }
+  }
+
   private static final byte[] ESC = {27, (byte) '['};
   private static final byte BEL = 7;
   private static final byte UP = (byte) 'A';
@@ -28,23 +54,6 @@ public class AnsiTerminal {
   private static final byte SET_GRAPHICS = (byte) 'm';
   private static final byte TEXT_BOLD = (byte) '1';
   private static final byte[] SET_TERM_TITLE = {27, (byte) ']', (byte) '0', (byte) ';'};
-
-  public static final String FG_BLACK = "30";
-  public static final String FG_RED = "31";
-  public static final String FG_GREEN = "32";
-  public static final String FG_YELLOW = "33";
-  public static final String FG_BLUE = "34";
-  public static final String FG_MAGENTA = "35";
-  public static final String FG_CYAN = "36";
-  public static final String FG_GRAY = "37";
-  public static final String BG_BLACK = "40";
-  public static final String BG_RED = "41";
-  public static final String BG_GREEN = "42";
-  public static final String BG_YELLOW = "43";
-  public static final String BG_BLUE = "44";
-  public static final String BG_MAGENTA = "45";
-  public static final String BG_CYAN = "46";
-  public static final String BG_GRAY = "47";
 
   public static byte[] CR = { 13 };
 
@@ -86,11 +95,19 @@ public class AnsiTerminal {
   /**
    * Set the color of the foreground or background of the terminal.
    *
-   * @param color one of the foreground or background color
-   * constants
+   * @param color one of the foreground or background color constants
    */
-  public void setTextColor(String color) throws IOException {
-    writeBytes(ESC, color.getBytes(), new byte[] { SET_GRAPHICS });
+  public void setTextColor(Color color) throws IOException {
+    writeBytes(color.escapeSeq);
+  }
+
+  /**
+   * Set the color of the foreground or background of the terminal.
+   *
+   * @param color one of the foreground or background color constants
+   */
+  public void setBackgroundColor(Color color) throws IOException {
+    writeBytes(color.backgroundEscapeSeq);
   }
 
   /**
@@ -104,28 +121,35 @@ public class AnsiTerminal {
    * Makes text print on the terminal in red.
    */
   public void textRed() throws IOException {
-    setTextColor(FG_RED);
+    setTextColor(Color.RED);
   }
 
   /**
    * Makes text print on the terminal in blue.
    */
   public void textBlue() throws IOException {
-    setTextColor(FG_BLUE);
+    setTextColor(Color.BLUE);
   }
 
   /**
-   * Makes text print on the terminal in red.
+   * Makes text print on the terminal in green.
    */
   public void textGreen() throws IOException {
-    setTextColor(FG_GREEN);
+    setTextColor(Color.GREEN);
   }
 
   /**
-   * Makes text print on the terminal in red.
+   * Makes text print on the terminal in magenta.
    */
   public void textMagenta() throws IOException {
-    setTextColor(FG_MAGENTA);
+    setTextColor(Color.MAGENTA);
+  }
+
+  /**
+   * Makes text print on the terminal in yellow.
+   */
+  public void textYellow() throws IOException {
+    setTextColor(Color.YELLOW);
   }
 
   /**

@@ -14,7 +14,8 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Joiner;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -37,21 +38,22 @@ import java.util.List;
  *
  * <pre>expr ::= SET '(' WORD * ')'</pre>
  */
-class SetExpression extends QueryExpression {
+public class SetExpression extends QueryExpression {
 
   private final List<TargetLiteral> words;
 
-  SetExpression(List<TargetLiteral> words) {
+  public SetExpression(List<TargetLiteral> words) {
     this.words = words;
   }
 
   @Override
-  protected <T> void evalImpl(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
-          throws QueryException, InterruptedException {
+  public <T> QueryTaskFuture<Void> eval(
+      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+    ArrayList<QueryTaskFuture<Void>> queryTasks = new ArrayList<>(words.size());
     for (TargetLiteral expr : words) {
-      env.eval(expr, context, callback);
+      queryTasks.add(env.eval(expr, context, callback));
     }
+    return env.whenAllSucceed(queryTasks);
   }
 
   @Override
@@ -62,8 +64,13 @@ class SetExpression extends QueryExpression {
   }
 
   @Override
-  public QueryExpression getMapped(QueryExpressionMapper mapper) {
-    return mapper.map(this);
+  public <T> T accept(QueryExpressionVisitor<T> visitor) {
+    return visitor.visit(this);
+  }
+
+  /** Gets the list of {@link TargetLiteral}s contained in the expression. */
+  List<TargetLiteral> getWords() {
+    return words;
   }
 
   @Override

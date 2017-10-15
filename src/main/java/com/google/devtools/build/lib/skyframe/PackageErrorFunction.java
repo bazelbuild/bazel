@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -38,7 +39,7 @@ import javax.annotation.Nullable;
  */
 public class PackageErrorFunction implements SkyFunction {
   public static SkyKey key(PackageIdentifier packageIdentifier) {
-    return SkyKey.create(SkyFunctions.PACKAGE_ERROR, packageIdentifier);
+    return LegacySkyKey.create(SkyFunctions.PACKAGE_ERROR, packageIdentifier);
   }
 
   @Nullable

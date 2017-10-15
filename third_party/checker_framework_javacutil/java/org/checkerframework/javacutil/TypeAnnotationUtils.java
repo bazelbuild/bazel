@@ -1,7 +1,6 @@
 package org.checkerframework.javacutil;
 
 import java.lang.reflect.InvocationTargetException;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -29,7 +28,6 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.JCLambda;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
-import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Pair;
 
 /**
@@ -45,60 +43,51 @@ public class TypeAnnotationUtils {
     /**
      * Check whether a TypeCompound is contained in a list of TypeCompounds.
      *
-     * @param list the input list of TypeCompounds
-     * @param tc the TypeCompound to find
-     * @return true, iff a TypeCompound equal to tc is contained in list
+     * @param list The input list of TypeCompounds.
+     * @param tc The TypeCompound to find.
+     * @return true, iff a TypeCompound equal to tc is contained in list.
      */
     public static boolean isTypeCompoundContained(Types types, List<TypeCompound> list, TypeCompound tc) {
         for (Attribute.TypeCompound rawat : list) {
-            if (contentEquals(rawat.type.tsym.name, tc.type.tsym.name) &&
+            if (rawat.type.tsym.name.contentEquals(tc.type.tsym.name) &&
                     // TODO: in previous line, it would be nicer to use reference equality:
                     //   rawat.type == tc.type &&
                     // or at least "isSameType":
                     //   types.isSameType(rawat.type, tc.type) &&
                     // but each fails in some cases.
                     rawat.values.equals(tc.values) &&
-                    isSameTAPositionExceptTreePos(rawat.position, tc.position)) {
+                    isSameTAPosition(rawat.position, tc.position)) {
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean contentEquals(Name n1, Name n2) {
-        // Views of underlying bytes, not copies as with Name#contentEquals
-        ByteBuffer b1 = ByteBuffer.wrap(n1.getByteArray(), n1.getByteOffset(), n1.getByteLength());
-        ByteBuffer b2 = ByteBuffer.wrap(n2.getByteArray(), n2.getByteOffset(), n2.getByteLength());
-
-        return b1.equals(b2);
-    }
-
     /**
      * Compare two TypeAnnotationPositions for equality.
      *
-     * @param p1 the first position
-     * @param p2 the second position
-     * @return true, iff the two positions are equal
+     * @param p1 The first position.
+     * @param p2 The second position.
+     * @return true, iff the two positions are equal.
      */
     public static boolean isSameTAPosition(TypeAnnotationPosition p1,
             TypeAnnotationPosition p2) {
-        return isSameTAPositionExceptTreePos(p1, p2) && p1.pos == p2.pos;
-    }
-
-    public static boolean isSameTAPositionExceptTreePos(TypeAnnotationPosition p1,
-                                           TypeAnnotationPosition p2) {
-        return p1.isValidOffset == p2.isValidOffset &&
-               p1.bound_index == p2.bound_index &&
-               p1.exception_index == p2.exception_index &&
-               p1.location.equals(p2.location) &&
-               Arrays.equals(p1.lvarIndex, p2.lvarIndex) &&
-               Arrays.equals(p1.lvarLength, p2.lvarLength) &&
-               Arrays.equals(p1.lvarOffset, p2.lvarOffset) &&
-               p1.offset == p2.offset &&
-               p1.onLambda == p2.onLambda &&
-               p1.parameter_index == p2.parameter_index &&
-               p1.type == p2.type &&
-               p1.type_index == p2.type_index;
+        if (p1.isValidOffset == p2.isValidOffset &&
+                p1.bound_index == p2.bound_index &&
+                p1.exception_index == p2.exception_index &&
+                p1.location.equals(p2.location) &&
+                Arrays.equals(p1.lvarIndex, p2.lvarIndex) &&
+                Arrays.equals(p1.lvarLength, p2.lvarLength) &&
+                Arrays.equals(p1.lvarOffset, p2.lvarOffset) &&
+                p1.offset == p2.offset &&
+                p1.onLambda == p2.onLambda &&
+                p1.parameter_index == p2.parameter_index &&
+                p1.pos == p2.pos &&
+                p1.type == p2.type &&
+                p1.type_index == p2.type_index) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -106,7 +95,7 @@ public class TypeAnnotationUtils {
      * argument AnnotationMirror.
      *
      * @param am  an AnnotationMirror, which may be part of an AST or an internally
-     *            created subclass
+     *            created subclass.
      * @return  a new Attribute.Compound corresponding to the AnnotationMirror
      */
     public static Attribute.Compound createCompoundFromAnnotationMirror(ProcessingEnvironment env,
@@ -127,8 +116,8 @@ public class TypeAnnotationUtils {
      * argument AnnotationMirror.
      *
      * @param am  an AnnotationMirror, which may be part of an AST or an internally
-     *            created subclass
-     * @param tapos  the type annotation position to use
+     *            created subclass.
+     * @param tapos  the type annotation position to use.
      * @return  a new Attribute.TypeCompound corresponding to the AnnotationMirror
      */
     public static Attribute.TypeCompound createTypeCompoundFromAnnotationMirror(ProcessingEnvironment env,
@@ -148,9 +137,9 @@ public class TypeAnnotationUtils {
      * Returns a newly created Attribute corresponding to an argument
      * AnnotationValue.
      *
-     * @param meth the ExecutableElement that is assigned the value, needed for empty arrays
+     * @param meth the ExecutableElement that is assigned the value, needed for empty arrays.
      * @param av  an AnnotationValue, which may be part of an AST or an internally
-     *            created subclass
+     *            created subclass.
      * @return  a new Attribute corresponding to the AnnotationValue
      */
     public static Attribute attributeFromAnnotationValue(ProcessingEnvironment env, ExecutableElement meth, AnnotationValue av) {
@@ -306,15 +295,16 @@ public class TypeAnnotationUtils {
      * Catch all exceptions and abort if one occurs - the reflection code should
      * never break once fully debugged.
      *
-     * @param tc the TAPCall abstraction to encapsulate two methods
-     * @return the created TypeAnnotationPosition
+     * @param ver The SourceVersion to decide what API to use.
+     * @param tc The TAPCall abstraction to encapsulate two methods.
+     * @return The created TypeAnnotationPosition.
      */
     private static <RET> RET call8or9(Call8or9<RET> tc) {
         try {
             boolean hasNine;
             try {
                 hasNine = SourceVersion.valueOf("RELEASE_9") != null;
-            } catch (IllegalArgumentException iae) {
+            } catch(IllegalArgumentException iae) {
                 hasNine = false;
             }
             if (hasNine) {
@@ -323,7 +313,7 @@ public class TypeAnnotationUtils {
                 boolean hasEight;
                 try {
                     hasEight = SourceVersion.valueOf("RELEASE_8") != null;
-                } catch (IllegalArgumentException iae) {
+                } catch(IllegalArgumentException iae) {
                     hasEight = false;
                 }
                 if (hasEight) {
@@ -589,15 +579,12 @@ public class TypeAnnotationUtils {
         TypeAnnotationPosition.class.getField("bound_index").set(res, tapos.bound_index);
         res.exception_index = tapos.exception_index;
         res.location = List.from(tapos.location);
-        if (tapos.lvarIndex != null) {
+        if (tapos.lvarIndex != null)
             res.lvarIndex = Arrays.copyOf(tapos.lvarIndex, tapos.lvarIndex.length);
-        }
-        if (tapos.lvarLength != null) {
+        if (tapos.lvarLength != null)
             res.lvarLength = Arrays.copyOf(tapos.lvarLength, tapos.lvarLength.length);
-        }
-        if (tapos.lvarOffset != null) {
+        if (tapos.lvarOffset != null)
             res.lvarOffset = Arrays.copyOf(tapos.lvarOffset, tapos.lvarOffset.length);
-        }
         res.offset = tapos.offset;
         TypeAnnotationPosition.class.getField("onLambda").set(res, tapos.onLambda);
         TypeAnnotationPosition.class.getField("parameter_index").set(res, tapos.parameter_index);
@@ -608,7 +595,7 @@ public class TypeAnnotationUtils {
     }
 
     public static Type unannotatedType(final Type in) {
-        return call8or9(
+    	return call8or9(
                 new Call8or9<Type>() {
                     @Override
                     public Type call8() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {

@@ -20,16 +20,19 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 /**
  * BlazeCommandEventHandler: an event handler established for the duration of a
@@ -37,7 +40,7 @@ import org.joda.time.format.DateTimeFormatter;
  */
 public class BlazeCommandEventHandler implements EventHandler {
 
-  private static final Logger LOG = Logger.getLogger(BlazeCommandEventHandler.class.getName());
+  private static final Logger logger = Logger.getLogger(BlazeCommandEventHandler.class.getName());
 
   public enum UseColor { YES, NO, AUTO }
   public enum UseCurses { YES, NO, AUTO }
@@ -56,102 +59,157 @@ public class BlazeCommandEventHandler implements EventHandler {
 
   public static class Options extends OptionsBase {
 
-    @Option(name = "show_progress",
-            defaultValue = "true",
-            category = "verbosity",
-            help = "Display progress messages during a build.")
+    @Option(
+      name = "show_progress",
+      defaultValue = "true",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Display progress messages during a build."
+    )
     public boolean showProgress;
 
-    @Option(name = "show_task_finish",
-            defaultValue = "false",
-            category = "verbosity",
-            help = "Display progress messages when tasks complete, not just when they start.")
+    @Option(
+      name = "show_task_finish",
+      defaultValue = "false",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Display progress messages when tasks complete, not just when they start."
+    )
     public boolean showTaskFinish;
 
-    @Option(name = "show_progress_rate_limit",
-            defaultValue = "0.03",  // A nice middle ground; snappy but not too spammy in logs.
-            category = "verbosity",
-            help = "Minimum number of seconds between progress messages in the output.")
+    @Option(
+      name = "show_progress_rate_limit",
+      defaultValue = "0.03", // A nice middle ground; snappy but not too spammy in logs.
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Minimum number of seconds between progress messages in the output."
+    )
     public double showProgressRateLimit;
 
-    @Option(name = "color",
-            defaultValue = "auto",
-            converter = UseColorConverter.class,
-            category = "verbosity",
-            help = "Use terminal controls to colorize output.")
+    @Option(
+      name = "color",
+      defaultValue = "auto",
+      converter = UseColorConverter.class,
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Use terminal controls to colorize output."
+    )
     public UseColor useColorEnum;
 
-    @Option(name = "curses",
-            defaultValue = "auto",
-            converter = UseCursesConverter.class,
-            category = "verbosity",
-            help = "Use terminal cursor controls to minimize scrolling output")
+    @Option(
+      name = "curses",
+      defaultValue = "auto",
+      converter = UseCursesConverter.class,
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Use terminal cursor controls to minimize scrolling output"
+    )
     public UseCurses useCursesEnum;
 
-    @Option(name = "terminal_columns",
-            defaultValue = "80",
-            category = "hidden",
-            help = "A system-generated parameter which specifies the terminal "
-               + " width in columns.")
+    @Option(
+      name = "terminal_columns",
+      defaultValue = "80",
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A system-generated parameter which specifies the terminal width in columns."
+    )
     public int terminalColumns;
 
-    @Option(name = "isatty",
-            defaultValue = "false",
-            category = "hidden",
-            help = "A system-generated parameter which is used to notify the "
-                + "server whether this client is running in a terminal. "
-                + "If this is set to false, then '--color=auto' will be treated as '--color=no'. "
-                + "If this is set to true, then '--color=auto' will be treated as '--color=yes'.")
+    @Option(
+      name = "isatty",
+      defaultValue = "false",
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A system-generated parameter which is used to notify the "
+              + "server whether this client is running in a terminal. "
+              + "If this is set to false, then '--color=auto' will be treated as '--color=no'. "
+              + "If this is set to true, then '--color=auto' will be treated as '--color=yes'."
+    )
     public boolean isATty;
 
     // This lives here (as opposed to the more logical BuildRequest.Options)
     // because the client passes it to the server *always*.  We don't want the
     // client to have to figure out when it should or shouldn't to send it.
-    @Option(name = "emacs",
-            defaultValue = "false",
-            category = "undocumented",
-            help = "A system-generated parameter which is true iff EMACS=t or INSIDE_EMACS is set "
-               + "in the environment of the client.  This option controls certain display "
-               + "features.")
+    @Option(
+      name = "emacs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A system-generated parameter which is true iff EMACS=t or INSIDE_EMACS is set "
+              + "in the environment of the client.  This option controls certain display "
+              + "features."
+    )
     public boolean runningInEmacs;
 
-    @Option(name = "show_timestamps",
-        defaultValue = "false",
-        category = "verbosity",
-        help = "Include timestamps in messages")
+    @Option(
+      name = "show_timestamps",
+      defaultValue = "false",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Include timestamps in messages"
+    )
     public boolean showTimestamp;
 
-    @Option(name = "progress_in_terminal_title",
-        defaultValue = "false",
-        category = "verbosity",
-        help = "Show the command progress in the terminal title. "
-            + "Useful to see what blaze is doing when having multiple terminal tabs.")
+    @Option(
+      name = "progress_in_terminal_title",
+      defaultValue = "false",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Show the command progress in the terminal title. "
+              + "Useful to see what blaze is doing when having multiple terminal tabs."
+    )
     public boolean progressInTermTitle;
 
-    @Option(name = "experimental_external_repositories",
-        defaultValue = "false",
-        category = "verbosity",
-        help = "Use external repositories for improved stability and speed when available.")
+    @Option(
+      name = "experimental_external_repositories",
+      defaultValue = "false",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Use external repositories for improved stability and speed when available."
+    )
     public boolean externalRepositories;
 
-    @Option(name = "force_experimental_external_repositories",
-        defaultValue = "false",
-        category = "verbosity",
-        help = "Forces --experimental_external_repositories.")
+    @Option(
+      name = "force_experimental_external_repositories",
+      defaultValue = "false",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Forces --experimental_external_repositories."
+    )
     public boolean forceExternalRepositories;
 
     @Option(
       name = "experimental_ui",
       defaultValue = "false",
       category = "verbosity",
-      help = "Switches to an alternative progress bar that more explicitly shows progress, such "
-          + "as loaded packages and executed actions.")
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Switches to an alternative progress bar that more explicitly shows progress, such "
+              + "as loaded packages and executed actions."
+    )
     public boolean experimentalUi;
 
     @Option(
       name = "experimental_ui_debug_all_events",
       defaultValue = "false",
-      category = "hidden",
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Report all events known to the experimental new Bazel UI."
     )
     public boolean experimentalUiDebugAllEvents;
@@ -160,6 +218,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "experimental_ui_actions_shown",
       defaultValue = "3",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Number of concurrent actions shown in the alternative progress bar; each "
               + "action is shown on a separate line. The alternative progress bar always shows "
@@ -168,14 +228,19 @@ public class BlazeCommandEventHandler implements EventHandler {
     )
     public int experimentalUiActionsShown;
 
-
     @Option(
-      name = "experimental_build_event_text_file",
-      defaultValue = "",
-      category = "hidden",
-      help = "If non-empty, write a textual representation of the build event protocol to that file"
+      name = "experimental_ui_limit_console_output",
+      defaultValue = "0",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Number of bytes to which the experimental UI will limit its output (non-positive "
+              + "values indicate unlimited). Once the limit is approaching, the experimental UI "
+              + "will try hard to limit in a meaningful way, but will ultimately just drop all  "
+              + "output."
     )
-    public String buildEventTextFile;
+    public int experimentalUiLimitConsoleOutput;
 
     public boolean useColor() {
       return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
@@ -187,7 +252,7 @@ public class BlazeCommandEventHandler implements EventHandler {
   }
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
-      DateTimeFormat.forPattern("(MM-dd HH:mm:ss.SSS) ");
+      DateTimeFormatter.ofPattern("(MM-dd HH:mm:ss.SSS) ");
 
   protected final OutErr outErr;
 
@@ -234,6 +299,7 @@ public class BlazeCommandEventHandler implements EventHandler {
       case TIMEOUT:
       case ERROR:
       case WARNING:
+      case DEBUG:
       case DEPCHECKER:
         prefix = event.getKind() + ": ";
         break;
@@ -285,7 +351,7 @@ public class BlazeCommandEventHandler implements EventHandler {
       // This can happen in server mode if the blaze client has exited, or if output is redirected
       // to a file and the disk is full, etc. May be moot in the case of full disk, or useful in
       // the case of real bug in our handling of streams.
-      LOG.log(Level.WARNING, "Failed to write event", e);
+      logger.log(Level.WARNING, "Failed to write event", e);
     }
   }
 
@@ -293,6 +359,6 @@ public class BlazeCommandEventHandler implements EventHandler {
    * @return a string representing the current time, eg "04-26 13:47:32.124".
    */
   protected String timestamp() {
-    return TIMESTAMP_FORMAT.print(System.currentTimeMillis());
+    return TIMESTAMP_FORMAT.format(ZonedDateTime.now());
   }
 }

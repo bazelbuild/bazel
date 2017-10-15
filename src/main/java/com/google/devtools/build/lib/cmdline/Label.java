@@ -13,23 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.cmdline;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintableValue;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -50,9 +52,9 @@ import javax.annotation.Nullable;
 )
 @Immutable
 @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue {
-  public static final PathFragment EXTERNAL_PACKAGE_NAME = new PathFragment("external");
-  public static final PathFragment EXTERNAL_PACKAGE_FILE_NAME = new PathFragment("WORKSPACE");
+public final class Label implements Comparable<Label>, Serializable, SkylarkValue, SkyKey {
+  public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
+  public static final PathFragment EXTERNAL_PACKAGE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 
   /**
@@ -61,26 +63,29 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    */
   public static final ImmutableSet<PathFragment> ABSOLUTE_PACKAGE_NAMES = ImmutableSet.of(
       // Used for select
-      new PathFragment("conditions"),
+      PathFragment.create("conditions"),
       // dependencies that are a function of the configuration
-      new PathFragment("tools/defaults"),
+      PathFragment.create("tools/defaults"),
       // Visibility is labels aren't actually targets
-      new PathFragment("visibility"),
+      PathFragment.create("visibility"),
       // There is only one //external package
       Label.EXTERNAL_PACKAGE_NAME);
 
   public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
       PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
 
-  public static final String EXTERNAL_PATH_PREFIX = "external";
+  public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
+  public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
+      SkyFunctionName.create("TRANSITIVE_TRAVERSAL");
 
-  private static final Interner<Label> LABEL_INTERNER = Interners.newWeakInterner();
+  private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
 
   /**
    * Factory for Labels from absolute string form. e.g.
    * <pre>
    * //foo/bar
    * //foo/bar:quux
+   * {@literal @}foo
    * {@literal @}foo//bar
    * {@literal @}foo//bar:baz
    * </pre>
@@ -96,6 +101,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * <pre>
    * //foo/bar
    * //foo/bar:quux
+   * {@literal @}foo
    * {@literal @}foo//bar
    * {@literal @}foo//bar:baz
    * </pre>
@@ -110,11 +116,14 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
     if (packageStartPos > 0) {
       repo = absName.substring(0, packageStartPos);
       absName = absName.substring(packageStartPos);
+    } else if (absName.startsWith("@")) {
+      repo = absName;
+      absName = "//:" + absName.substring(1);
     }
     try {
       LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
       PackageIdentifier pkgIdWithoutRepo =
-          validate(labelParts.getPackageName(), labelParts.getTargetName());
+          validatePackageName(labelParts.getPackageName(), labelParts.getTargetName());
       PathFragment packageFragment = pkgIdWithoutRepo.getPackageFragment();
       if (repo.isEmpty() && ABSOLUTE_PACKAGE_NAMES.contains(packageFragment)) {
         repo = "@";
@@ -144,15 +153,6 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
     return parseAbsoluteUnchecked(absName, true);
   }
 
-  /** A long way to say '(String) s -> parseAbsoluteUnchecked(s)'. */
-  public static final Function<String, Label> PARSE_ABSOLUTE_UNCHECKED =
-      new Function<String, Label>() {
-        @Override
-        public Label apply(@Nullable String s) {
-          return s == null ? null : parseAbsoluteUnchecked(s);
-        }
-      };
-
   /**
    * Factory for Labels from separate components.
    *
@@ -164,7 +164,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * @throws LabelSyntaxException if either of the arguments was invalid.
    */
   public static Label create(String packageName, String targetName) throws LabelSyntaxException {
-    return LABEL_INTERNER.intern(new Label(packageName, targetName));
+    return create(validatePackageName(packageName, targetName), targetName);
   }
 
   /**
@@ -173,7 +173,18 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    */
   public static Label create(PackageIdentifier packageId, String targetName)
       throws LabelSyntaxException {
-    return LABEL_INTERNER.intern(new Label(packageId, targetName));
+    return createUnvalidated(packageId, validateTargetName(packageId, targetName));
+  }
+
+  /**
+   * Similar factory to above, but does not perform target name validation.
+   *
+   * <p>Only call this method if you know what you're doing; in particular, don't call it on
+   * arbitrary {@code targetName} inputs
+   */
+
+  public static Label createUnvalidated(PackageIdentifier packageId, String targetName) {
+    return LABEL_INTERNER.intern(new Label(packageId, StringCanonicalizer.intern(targetName)));
   }
 
   /**
@@ -213,13 +224,17 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   }
 
   /**
-   * Validates the given target name and returns a canonical String instance if it is valid.
-   * Otherwise it throws a SyntaxException.
+   * Validates the given target name and returns a normalized name if it is valid. Otherwise it
+   * throws a SyntaxException.
    */
-  private static String canonicalizeTargetName(String name) throws LabelSyntaxException {
+  private static String validateTargetName(PackageIdentifier packageIdentifier, String name)
+      throws LabelSyntaxException {
     String error = LabelValidator.validateTargetName(name);
     if (error != null) {
       error = "invalid target name '" + StringUtilities.sanitizeControlChars(name) + "': " + error;
+      if (packageIdentifier.getPackageFragment().getPathString().endsWith("/" + name)) {
+        error += " (perhaps you meant \":" + name + "\"?)";
+      }
       throw new LabelSyntaxException(error);
     }
 
@@ -227,15 +242,14 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
     if (name.endsWith("/.")) {
       name = name.substring(0, name.length() - 2);
     }
-
-    return StringCanonicalizer.intern(name);
+    return name;
   }
 
   /**
    * Validates the given package name and returns a canonical {@link PackageIdentifier} instance
    * if it is valid. Otherwise it throws a SyntaxException.
    */
-  private static PackageIdentifier validate(String packageIdentifier, String name)
+  private static PackageIdentifier validatePackageName(String packageIdentifier, String name)
       throws LabelSyntaxException {
     String error = null;
     try {
@@ -262,34 +276,12 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   /** Precomputed hash code. */
   private final int hashCode;
 
-  /**
-   * Constructor from a package name, target name. Both are checked for validity
-   * and a SyntaxException is thrown if either is invalid.
-   * TODO(bazel-team): move the validation to {@link PackageIdentifier}. Unfortunately, there are a
-   * bazillion tests that use invalid package names (taking advantage of the fact that calling
-   * Label(PathFragment, String) doesn't validate the package name).
-   */
-  private Label(String packageIdentifier, String name) throws LabelSyntaxException {
-    this(validate(packageIdentifier, name), name);
-  }
-
-  private Label(PackageIdentifier packageIdentifier, String name)
-      throws LabelSyntaxException {
+  private Label(PackageIdentifier packageIdentifier, String name) {
     Preconditions.checkNotNull(packageIdentifier);
     Preconditions.checkNotNull(name);
 
     this.packageIdentifier = packageIdentifier;
-    try {
-      this.name = canonicalizeTargetName(name);
-    } catch (LabelSyntaxException e) {
-      // This check is just for a more helpful error message
-      // i.e. valid target name, invalid package name, colon-free label form
-      // used => probably they meant "//foo:bar.c" not "//foo/bar.c".
-      if (packageIdentifier.getPackageFragment().getPathString().endsWith("/" + name)) {
-        throw new LabelSyntaxException(e.getMessage() + " (perhaps you meant \":" + name + "\"?)");
-      }
-      throw e;
-    }
+    this.name = name;
     this.hashCode = hashCode(this.name, this.packageIdentifier);
   }
 
@@ -324,7 +316,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   public String getPackageName() {
     return packageIdentifier.getPackageFragment().getPathString();
   }
-  
+
   /**
    * Returns the execution root for the workspace, relative to the execroot (e.g., for label
    * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
@@ -416,15 +408,16 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * All other labels have identical shorthand and canonical forms.
    */
   public String toShorthandString() {
+    if (!getPackageFragment().getBaseName().equals(name)) {
+      return toString();
+    }
     String repository;
     if (packageIdentifier.getRepository().isMain()) {
       repository = "";
     } else {
       repository = packageIdentifier.getRepository().getName();
     }
-    return repository + (getPackageFragment().getBaseName().equals(name)
-        ? "//" + getPackageFragment()
-        : toString());
+    return repository + "//" + getPackageFragment();
   }
 
   /**
@@ -440,27 +433,37 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * Resolves a relative or absolute label name. If given name is absolute, then this method calls
    * {@link #parseAbsolute}. Otherwise, it calls {@link #getLocalTargetLabel}.
    *
-   * <p>For example:
-   * {@code :quux} relative to {@code //foo/bar:baz} is {@code //foo/bar:quux};
+   * <p>For example: {@code :quux} relative to {@code //foo/bar:baz} is {@code //foo/bar:quux};
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
    */
-  @SkylarkCallable(name = "relative", doc =
+  @SkylarkCallable(
+    name = "relative",
+    doc =
         "Resolves a label that is either absolute (starts with <code>//</code>) or relative to the"
-      + " current package. If this label is in a remote repository, the argument will be resolved "
-      + "relative to that repository. If the argument contains a repository, it will be returned "
-      + "as-is. Reserved labels will also be returned as-is.<br>"
-      + "For example:<br>"
-      + "<pre class=language-python>\n"
-      + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
-      + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
-      + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"@repo//wiz:quux\")\n"
-      + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") == "
-      + "Label(\"//visibility:public\")\n"
-      + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
-      + "Label(\"@other//wiz:quux\")\n"
-      + "</pre>")
+            + " current package. If this label is in a remote repository, the argument will be "
+            + " resolved relative to that repository. If the argument contains a repository, it"
+            + " will be returned as-is. Reserved labels will also be returned as-is.<br>"
+            + "For example:<br>"
+            + "<pre class=language-python>\n"
+            + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
+            + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
+            + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") == "
+            + "Label(\"@repo//wiz:quux\")\n"
+            + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") == "
+            + "Label(\"//visibility:public\")\n"
+            + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
+            + "Label(\"@other//wiz:quux\")\n"
+            + "</pre>",
+    parameters = {
+      @Param(
+        name = "relName",
+        type = String.class,
+        doc = "The label that will be resolved relative to this one."
+      )
+    }
+  )
   public Label getRelative(String relName) throws LabelSyntaxException {
     if (relName.length() == 0) {
       throw new LabelSyntaxException("empty package-relative label");
@@ -505,6 +508,11 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   }
 
   @Override
+  public SkyFunctionName functionName() {
+    return TRANSITIVE_TRAVERSAL;
+  }
+
+  @Override
   public int hashCode() {
     return hashCode;
   }
@@ -542,7 +550,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * Returns a suitable string for the user-friendly representation of the Label. Works even if the
    * argument is null.
    */
-  public static String print(Label label) {
+  public static String print(@Nullable Label label) {
     return label == null ? "(unknown)" : label.toString();
   }
 
@@ -552,34 +560,24 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    // We don't use the Skylark Printer class here to avoid creating a circular dependency.
-    //
-    // TODO(bazel-team): make the representation readable Label(//foo),
-    // and isolate the legacy functions that want the unreadable variant.
-    try {
-      // There is no need to escape the contents of the Label since characters that might otherwise
-      // require escaping are disallowed.
-      buffer.append(quotationMark);
-      buffer.append(toString());
-      buffer.append(quotationMark);
-    } catch (IOException e) {
-      // This function will only be used with in-memory Appendables, hence we should never get here.
-      throw new AssertionError(e);
-    }
+  public void reprLegacy(SkylarkPrinter printer) {
+    printer.repr(getCanonicalForm());
   }
 
   @Override
-  public void print(Appendable buffer, char quotationMark) {
-    // We don't use the Skylark Printer class here to avoid creating a circular dependency.
-    //
-    // TODO(bazel-team): make the representation readable Label(//foo),
-    // and isolate the legacy functions that want the unreadable variant.
-    try {
-      buffer.append(toString());
-    } catch (IOException e) {
-      // This function will only be used with in-memory Appendables, hence we should never get here.
-      throw new AssertionError(e);
-    }
+  public void repr(SkylarkPrinter printer) {
+    printer.append("Label(");
+    printer.repr(getCanonicalForm());
+    printer.append(")");
+  }
+
+  @Override
+  public void strLegacy(SkylarkPrinter printer) {
+    printer.append(getCanonicalForm());
+  }
+
+  @Override
+  public void str(SkylarkPrinter printer) {
+    printer.append(getCanonicalForm());
   }
 }

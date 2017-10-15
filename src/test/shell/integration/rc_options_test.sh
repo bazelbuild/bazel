@@ -25,6 +25,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 set -e
 
+add_to_bazelrc "build --terminal_columns=6"
+
 function set_up() {
   mkdir -p pkg
   # have test with a long name, to be able to test line breaking in the output
@@ -44,11 +46,8 @@ EOF
 #### TESTS #############################################################
 
 function test_terminal_columns_honored() {
-  setup_bazelrc
-  cat >>$TEST_TMPDIR/bazelrc <<EOF
-build --terminal_columns=6
-EOF
-  bazel test --curses=yes --color=yes pkg:xxxxxxxxxxxxxxxxxxxxxxxxxtrue \
+  bazel test --curses=yes --color=yes --nocache_test_results \
+      pkg:xxxxxxxxxxxxxxxxxxxxxxxxxtrue \
       2>$TEST_log || fail "bazel test failed"
   # the lines are wrapped to 6 characters
   expect_log '^xxxx'
@@ -56,11 +55,8 @@ EOF
 }
 
 function test_options_override() {
-  setup_bazelrc
-  cat >>$TEST_TMPDIR/bazelrc <<EOF
-build --terminal_columns=6
-EOF
   bazel test --curses=yes --color=yes --terminal_columns=10 \
+      --nocache_test_results \
       pkg:xxxxxxxxxxxxxxxxxxxxxxxxxtrue 2>$TEST_log || fail "bazel test failed"
   # the lines are wrapped to 10 characters
   expect_log '^xxxxxxxx'

@@ -12,57 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <malloc.h>  // malloc, free
 #include <stdio.h>
 #include <windows.h>
 
-#ifdef COMPILER_MSVC
-#include <stdlib.h>  // exit
-#else  // not COMPILER_MSVC
-#include <sys/cygwin.h>  // cygwin_create_path, CCP_POSIX_TO_WIN_A
-#endif  // COMPILER_MSVC
+#include <string>
 
+#include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "third_party/ijar/mapped_file.h"
 
 #define MAX_ERROR 2048
 
 namespace devtools_ijar {
 
+using std::wstring;
+
 static char errmsg[MAX_ERROR] = "";
-
-class WindowsPath {
- public:
-  WindowsPath(const char* path);
-  ~WindowsPath();
-  const char* GetWindowsPath() const { return _win_path; }
-
- private:
-  char* _win_path;
-};
-
-
-void PrintLastError(const char* op) {
-  char *message;
-  DWORD err = GetLastError();
-  FormatMessage(
-      FORMAT_MESSAGE_ALLOCATE_BUFFER
-          | FORMAT_MESSAGE_FROM_SYSTEM
-          | FORMAT_MESSAGE_IGNORE_INSERTS,
-      NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      reinterpret_cast<char *>(&message),
-      0, NULL);
-  snprintf(errmsg, MAX_ERROR, "%s: %s", op, message);
-  LocalFree(message);
-}
-
-char* ToUnicodePath(const char* path) {
-  // Add \\?\ as prefix to enable unicode path which allows path length longer
-  // than 260
-  int length = strlen(path) + 5;
-  char* unicode_path = reinterpret_cast<char*>(malloc(length));
-  snprintf(unicode_path, length, "\\\\?\\%s", path);
-  return unicode_path;
-}
 
 struct MappedInputFileImpl {
   HANDLE file_;
@@ -79,37 +44,31 @@ MappedInputFile::MappedInputFile(const char* name) {
   opened_ = false;
   errmsg_ = errmsg;
 
-  WindowsPath path(name);
-  char* unicode_path = ToUnicodePath(path.GetWindowsPath());
-  HANDLE file = CreateFile(unicode_path, GENERIC_READ, FILE_SHARE_READ, NULL,
-                           OPEN_EXISTING, 0, NULL);
-  free(unicode_path);
+  wstring wname;
+  if (!blaze_util::AsAbsoluteWindowsPath(name, &wname)) {
+    blaze_util::pdie(255, "MappedInputFile(%s): AsAbsoluteWindowsPath", name);
+  }
+  HANDLE file = CreateFileW(wname.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
+                            OPEN_EXISTING, 0, NULL);
   if (file == INVALID_HANDLE_VALUE) {
-    PrintLastError("CreateFile()");
-    return;
+    blaze_util::pdie(255, "MappedInputFile(%s): CreateFileW(%S)", name,
+                     wname.c_str());
   }
 
   LARGE_INTEGER size;
   if (!GetFileSizeEx(file, &size)) {
-    PrintLastError("GetFileSizeEx()");
-    CloseHandle(file);
-    return;
+    blaze_util::pdie(255, "MappedInputFile(%s): GetFileSizeEx", name);
   }
 
   HANDLE mapping = CreateFileMapping(file, NULL, PAGE_READONLY,
       size.HighPart, size.LowPart, NULL);
-  if (mapping == NULL) {
-    PrintLastError("CreateFileMapping()");
-    CloseHandle(file);
-    return;
+  if (mapping == NULL || mapping == INVALID_HANDLE_VALUE) {
+    blaze_util::pdie(255, "MappedInputFile(%s): CreateFileMapping", name);
   }
 
   void *view = MapViewOfFileEx(mapping, FILE_MAP_READ, 0, 0, 0, NULL);
   if (view == NULL) {
-    PrintLastError("MapViewOfFileEx()");
-    CloseHandle(mapping);
-    CloseHandle(file);
-    return;
+    blaze_util::pdie(255, "MappedInputFile(%s): MapViewOfFileEx", name);
   }
 
   impl_ = new MappedInputFileImpl(file, mapping);
@@ -130,18 +89,15 @@ void MappedInputFile::Discard(size_t bytes) {
 
 int MappedInputFile::Close() {
   if (!UnmapViewOfFile(buffer_)) {
-    PrintLastError("UnmapViewOfFile()");
-    return -1;
+    blaze_util::pdie(255, "MappedInputFile::Close: UnmapViewOfFile");
   }
 
   if (!CloseHandle(impl_->mapping_)) {
-    PrintLastError("CloseHandle(mapping)");
-    return -1;
+    blaze_util::pdie(255, "MappedInputFile::Close: CloseHandle for mapping");
   }
 
   if (!CloseHandle(impl_->file_)) {
-    PrintLastError("CloseHandle(file)");
-    return -1;
+    blaze_util::pdie(255, "MappedInputFile::Close: CloseHandle for file");
   }
 
   return 0;
@@ -162,27 +118,26 @@ MappedOutputFile::MappedOutputFile(const char* name, u8 estimated_size) {
   opened_ = false;
   errmsg_ = errmsg;
 
-  WindowsPath path(name);
-  char* unicode_path = ToUnicodePath(path.GetWindowsPath());
-  HANDLE file = CreateFile(unicode_path, GENERIC_READ | GENERIC_WRITE, 0, NULL,
-                           CREATE_ALWAYS, 0, NULL);
-  free(unicode_path);
+  wstring wname;
+  if (!blaze_util::AsAbsoluteWindowsPath(name, &wname)) {
+    blaze_util::pdie(255, "MappedOutputFile(%s): AsAbsoluteWindowsPath", name);
+  }
+  HANDLE file = CreateFileW(wname.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
+                            NULL, CREATE_ALWAYS, 0, NULL);
   if (file == INVALID_HANDLE_VALUE) {
-    PrintLastError("CreateFile()");
-    return;
+    blaze_util::pdie(255, "MappedOutputFile(%s): CreateFileW(%S)", name,
+                     wname.c_str());
   }
 
   HANDLE mapping = CreateFileMapping(file, NULL, PAGE_READWRITE,
       estimated_size >> 32, estimated_size & 0xffffffffUL, NULL);
-  if (mapping == NULL) {
-    PrintLastError("CreateFileMapping()");
-    CloseHandle(file);
-    return;
+  if (mapping == NULL || mapping == INVALID_HANDLE_VALUE) {
+    blaze_util::pdie(255, "MappedOutputFile(%s): CreateFileMapping", name);
   }
 
   void *view = MapViewOfFileEx(mapping, FILE_MAP_ALL_ACCESS, 0, 0, 0, NULL);
   if (view == NULL) {
-    PrintLastError("MapViewOfFileEx()");
+    blaze_util::pdie(255, "MappedOutputFile(%s): MapViewOfFileEx", name);
     CloseHandle(mapping);
     CloseHandle(file);
     return;
@@ -199,64 +154,26 @@ MappedOutputFile::~MappedOutputFile() {
 
 int MappedOutputFile::Close(int size) {
   if (!UnmapViewOfFile(buffer_)) {
-    PrintLastError("UnmapViewOfFile()");
-    return -1;
+    blaze_util::pdie(255, "MappedOutputFile::Close: UnmapViewOfFile");
   }
 
   if (!CloseHandle(impl_->mapping_)) {
-    PrintLastError("CloseHandle(mapping)");
-    return -1;
+    blaze_util::pdie(255, "MappedOutputFile::Close: CloseHandle for mapping");
   }
 
   if (!SetFilePointer(impl_->file_, size, NULL, FILE_BEGIN)) {
-    PrintLastError("SetFilePointer()");
-    return -1;
+    blaze_util::pdie(255, "MappedOutputFile::Close: SetFilePointer");
   }
 
   if (!SetEndOfFile(impl_->file_)) {
-    PrintLastError("SetEndOfFile()");
-    return -1;
+    blaze_util::pdie(255, "MappedOutputFile::Close: SetEndOfFile");
   }
 
   if (!CloseHandle(impl_->file_)) {
-    PrintLastError("CloseHandle(file)");
-    return -1;
+    blaze_util::pdie(255, "MappedOutputFile::Close: CloseHandle for file");
   }
 
   return 0;
 }
-
-#ifdef COMPILER_MSVC
-
-  WindowsPath::WindowsPath(const char* path)
-      : _win_path(const_cast<char*>(path)) {
-    // Input path should already be Windows-style, but let's do a sanity check
-    // nevertheless. Not using assert(2) because we need this even in non-debug
-    // builds.
-    if (path[0] == '/') {
-      fprintf(
-          stderr,
-          "ERROR: Illegal state; '%s' is assumed to be a Windows path. This" \
-          " is a programming error, fix" \
-          " third_party/ijar/mapped_file_windows.cc\n",
-          path);
-      exit(1);
-    }
-  }
-
-  WindowsPath::~WindowsPath() {}
-
-#else  // not COMPILER_MSVC
-
-  WindowsPath::WindowsPath(const char* path) {
-    this->_win_path =
-        reinterpret_cast<char*>(cygwin_create_path(CCP_POSIX_TO_WIN_A, path));
-  }
-
-  WindowsPath::~WindowsPath() {
-    free(this->_win_path);
-  }
-
-#endif  // COMPILER_MSVC
 
 }  // namespace devtools_ijar

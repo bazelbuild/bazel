@@ -1,0 +1,328 @@
+diff --git a/third_party/def_parser/def_parser.cc b/third_party/def_parser/def_parser.cc
+index e96226a4b..07cb727b7 100644
+--- a/third_party/def_parser/def_parser.cc
++++ b/third_party/def_parser/def_parser.cc
+@@ -61,19 +61,24 @@
+ * Author:   Valery Fine 16/09/96  (E-mail: fine@vxcern.cern.ch)
+ *----------------------------------------------------------------------
+ */
+-#include "bindexplib.h"
++#include "src/main/cpp/util/file_platform.h"
++#include "third_party/def_parser/def_parser.h"
+ 
+-#include "cmsys/Encoding.hxx"
+-#include "cmsys/FStream.hxx"
++#include <algorithm>
+ #include <iostream>
++#include <fstream>
++#include <sstream>
+ #include <windows.h>
+ 
+ #ifndef IMAGE_FILE_MACHINE_ARMNT
+ #define IMAGE_FILE_MACHINE_ARMNT 0x01c4
+ #endif
+ 
+-typedef struct cmANON_OBJECT_HEADER_BIGOBJ
+-{
++using std::string;
++using std::wstring;
++using std::stringstream;
++
++typedef struct cmANON_OBJECT_HEADER_BIGOBJ {
+   /* same as ANON_OBJECT_HEADER_V2 */
+   WORD Sig1;    // Must be IMAGE_FILE_MACHINE_UNKNOWN
+   WORD Sig2;    // Must be 0xffff
+@@ -92,13 +97,10 @@ typedef struct cmANON_OBJECT_HEADER_BIGOBJ
+   DWORD NumberOfSymbols;
+ } cmANON_OBJECT_HEADER_BIGOBJ;
+ 
+-typedef struct _cmIMAGE_SYMBOL_EX
+-{
+-  union
+-  {
++typedef struct _cmIMAGE_SYMBOL_EX {
++  union {
+     BYTE ShortName[8];
+-    struct
+-    {
++    struct {
+       DWORD Short; // if 0, use LongName
+       DWORD Long;  // offset into string table
+     } Name;
+@@ -113,16 +115,14 @@ typedef struct _cmIMAGE_SYMBOL_EX
+ typedef cmIMAGE_SYMBOL_EX UNALIGNED* cmPIMAGE_SYMBOL_EX;
+ 
+ PIMAGE_SECTION_HEADER GetSectionHeaderOffset(
+-  PIMAGE_FILE_HEADER pImageFileHeader)
+-{
++  PIMAGE_FILE_HEADER pImageFileHeader) {
+   return (PIMAGE_SECTION_HEADER)((DWORD_PTR)pImageFileHeader +
+                                  IMAGE_SIZEOF_FILE_HEADER +
+                                  pImageFileHeader->SizeOfOptionalHeader);
+ }
+ 
+ PIMAGE_SECTION_HEADER GetSectionHeaderOffset(
+-  cmANON_OBJECT_HEADER_BIGOBJ* pImageFileHeader)
+-{
++  cmANON_OBJECT_HEADER_BIGOBJ* pImageFileHeader) {
+   return (PIMAGE_SECTION_HEADER)((DWORD_PTR)pImageFileHeader +
+                                  sizeof(cmANON_OBJECT_HEADER_BIGOBJ));
+ }
+@@ -130,8 +130,7 @@ PIMAGE_SECTION_HEADER GetSectionHeaderOffset(
+ /*
+ + * Utility func, strstr with size
+ + */
+-const char* StrNStr(const char* start, const char* find, size_t& size)
+-{
++const char* StrNStr(const char* start, const char* find, size_t& size) {
+   size_t len;
+   const char* hint;
+ 
+@@ -157,9 +156,8 @@ template <
+   class ObjectHeaderType,
+   // cmPIMAGE_SYMBOL_EX or PIMAGE_SYMBOL
+   class SymbolTableType>
+-class DumpSymbols
+-{
+-public:
++class DumpSymbols {
++ public:
+   /*
+    *----------------------------------------------------------------------
+    * Constructor --
+@@ -169,11 +167,10 @@ public:
+    *----------------------------------------------------------------------
+    */
+ 
+-  DumpSymbols(ObjectHeaderType* ih, std::set<std::string>& symbols,
+-              std::set<std::string>& dataSymbols, bool isI386)
++  DumpSymbols(ObjectHeaderType* ih, std::set<string>& symbols,
++              std::set<string>& dataSymbols, bool isI386)
+     : Symbols(symbols)
+-    , DataSymbols(dataSymbols)
+-  {
++    , DataSymbols(dataSymbols) {
+     this->ObjectImageHeader = ih;
+     this->SymbolTable =
+       (SymbolTableType*)((DWORD_PTR) this->ObjectImageHeader +
+@@ -190,7 +187,9 @@ public:
+    *      Dump an object file's exported symbols.
+    *----------------------------------------------------------------------
+    */
+-  void DumpObjFile() { this->DumpExternalsObjects(); }
++  void DumpObjFile() {
++    this->DumpExternalsObjects();
++  }
+ 
+   /*
+    *----------------------------------------------------------------------
+@@ -199,11 +198,10 @@ public:
+    *      Dumps a COFF symbol table from an OBJ.
+    *----------------------------------------------------------------------
+    */
+-  void DumpExternalsObjects()
+-  {
++  void DumpExternalsObjects() {
+     unsigned i;
+     PSTR stringTable;
+-    std::string symbol;
++    string symbol;
+     DWORD SectChar;
+     /*
+      * The string table apparently starts right after the symbol table
+@@ -230,8 +228,8 @@ public:
+           // if it starts with _ and has an @ then it is a __cdecl
+           // so remove the @ stuff for the export
+           if (symbol[0] == '_') {
+-            std::string::size_type posAt = symbol.find('@');
+-            if (posAt != std::string::npos) {
++            string::size_type posAt = symbol.find('@');
++            if (posAt != string::npos) {
+               symbol.erase(posAt);
+             }
+           }
+@@ -247,14 +245,14 @@ public:
+           const char* scalarPrefix = "??_G";
+           const char* vectorPrefix = "??_E";
+           // The original code had a check for
+-          //     symbol.find("real@") == std::string::npos)
++          //     symbol.find("real@") == string::npos)
+           // but this disallows member functions with the name "real".
+           if (symbol.compare(0, 4, scalarPrefix) &&
+               symbol.compare(0, 4, vectorPrefix)) {
+             SectChar = this->SectionHeaders[pSymbolTable->SectionNumber - 1]
+                          .Characteristics;
+             // skip symbols containing a dot
+-            if (symbol.find('.') == std::string::npos) {
++            if (symbol.find('.') == string::npos) {
+               if (!pSymbolTable->Type && (SectChar & IMAGE_SCN_MEM_WRITE)) {
+                 // Read only (i.e. constants) must be excluded
+                 this->DataSymbols.insert(symbol);
+@@ -278,9 +276,9 @@ public:
+     }
+   }
+ 
+-private:
+-  std::set<std::string>& Symbols;
+-  std::set<std::string>& DataSymbols;
++ private:
++  std::set<string>& Symbols;
++  std::set<string>& DataSymbols;
+   DWORD_PTR SymbolCount;
+   PIMAGE_SECTION_HEADER SectionHeaders;
+   ObjectHeaderType* ObjectImageHeader;
+@@ -288,35 +286,56 @@ private:
+   bool IsI386;
+ };
+ 
+-bool DumpFile(const char* filename, std::set<std::string>& symbols,
+-              std::set<std::string>& dataSymbols)
+-{
++void PrintLastError() {
++  DWORD last_error = GetLastError();
++  if (last_error == 0) {
++    return;
++  }
++
++  char* message_buffer;
++  size_t size = FormatMessageA(
++      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
++          FORMAT_MESSAGE_IGNORE_INSERTS,
++      NULL, last_error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
++      (LPSTR)&message_buffer, 0, NULL);
++
++  std::cerr << "(error: " << last_error << "): " << message_buffer;
++  LocalFree(message_buffer);
++}
++
++bool DumpFile(const char* filename, std::set<string>& symbols,
++              std::set<string>& dataSymbols) {
+   HANDLE hFile;
+   HANDLE hFileMapping;
+   LPVOID lpFileBase;
+   PIMAGE_DOS_HEADER dosHeader;
+ 
+-  hFile = CreateFileW(cmsys::Encoding::ToWide(filename).c_str(), GENERIC_READ,
++  wstring filenameW;
++  blaze_util::AsAbsoluteWindowsPath(filename, &filenameW);
++  hFile = CreateFileW(filenameW.c_str(), GENERIC_READ,
+                       FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                       FILE_ATTRIBUTE_NORMAL, 0);
+ 
+   if (hFile == INVALID_HANDLE_VALUE) {
++    PrintLastError();
+     fprintf(stderr, "Couldn't open file '%s' with CreateFile()\n", filename);
+     return false;
+   }
+ 
+   hFileMapping = CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
+   if (hFileMapping == 0) {
+-    CloseHandle(hFile);
++    PrintLastError();
+     fprintf(stderr, "Couldn't open file mapping with CreateFileMapping()\n");
++    CloseHandle(hFile);
+     return false;
+   }
+ 
+   lpFileBase = MapViewOfFile(hFileMapping, FILE_MAP_READ, 0, 0, 0);
+   if (lpFileBase == 0) {
++    PrintLastError();
++    fprintf(stderr, "Couldn't map view of file with MapViewOfFile()\n");
+     CloseHandle(hFileMapping);
+     CloseHandle(hFile);
+-    fprintf(stderr, "Couldn't map view of file with MapViewOfFile()\n");
+     return false;
+   }
+ 
+@@ -348,7 +367,7 @@ bool DumpFile(const char* filename, std::set<std::string>& symbols,
+         (h->Machine == IMAGE_FILE_MACHINE_I386));
+       symbolDumper.DumpObjFile();
+     } else {
+-      printf("unrecognized file format in '%s'\n", filename);
++      printf("Unrecognized file format in '%s'\n", filename);
+       return false;
+     }
+   }
+@@ -358,19 +377,23 @@ bool DumpFile(const char* filename, std::set<std::string>& symbols,
+   return true;
+ }
+ 
+-bool bindexplib::AddObjectFile(const char* filename)
+-{
++
++void DefParser::SetDLLName(const string& dllname) {
++  this->DLLName = dllname;
++}
++
++bool DefParser::AddObjectFile(const char* filename) {
+   return DumpFile(filename, this->Symbols, this->DataSymbols);
+ }
+ 
+-bool bindexplib::AddDefinitionFile(const char* filename)
+-{
+-  cmsys::ifstream infile(filename);
++bool DefParser::AddDefinitionFile(const char* filename) {
++  std::ifstream infile(filename);
+   if (!infile) {
++    PrintLastError();
+     fprintf(stderr, "Couldn't open definition file '%s'\n", filename);
+     return false;
+   }
+-  std::string str;
++  string str;
+   while (std::getline(infile, str)) {
+     // skip the LIBRAY and EXPORTS lines (if any)
+     if ((str.compare(0, 7, "LIBRARY") == 0) ||
+@@ -380,8 +403,8 @@ bool bindexplib::AddDefinitionFile(const char* filename)
+     // remove leading tabs & spaces
+     str.erase(0, str.find_first_not_of(" \t"));
+     std::size_t found = str.find(" \t DATA");
+-    if (found != std::string::npos) {
+-      str.erase(found, std::string::npos);
++    if (found != string::npos) {
++      str.erase(found, string::npos);
+       this->DataSymbols.insert(str);
+     } else {
+       this->Symbols.insert(str);
+@@ -391,14 +414,37 @@ bool bindexplib::AddDefinitionFile(const char* filename)
+   return true;
+ }
+ 
+-void bindexplib::WriteFile(FILE* file)
+-{
++bool DefParser::IsDefFile(const string& file) {
++  // Get file extension and convert it to lower case.
++  string ext = file.substr(file.find_last_of(".") + 1);
++  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
++  return ext == "def";
++}
++
++bool DefParser::AddFile(const string& file) {
++  if (IsDefFile(file)) {
++    if (!this->AddDefinitionFile(file.c_str())) {
++      return false;
++    }
++  } else {
++    if (!this->AddObjectFile(file.c_str())) {
++      return false;
++    }
++  }
++  return true;
++}
++
++void DefParser::WriteFile(FILE* file) {
++  if (!this->DLLName.empty()) {
++    fprintf(file, "LIBRARY %s\n", this->DLLName.c_str());
++  }
++
+   fprintf(file, "EXPORTS \n");
+-  for (std::set<std::string>::const_iterator i = this->DataSymbols.begin();
++  for (std::set<string>::const_iterator i = this->DataSymbols.begin();
+        i != this->DataSymbols.end(); ++i) {
+     fprintf(file, "\t%s \t DATA\n", i->c_str());
+   }
+-  for (std::set<std::string>::const_iterator i = this->Symbols.begin();
++  for (std::set<string>::const_iterator i = this->Symbols.begin();
+        i != this->Symbols.end(); ++i) {
+     fprintf(file, "\t%s\n", i->c_str());
+   }

@@ -25,7 +25,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,7 +45,7 @@ import java.util.Map;
  */
 public final class CommandBuilder {
 
-  private static final List<String> SHELLS = ImmutableList.of("/bin/sh", "/bin/bash");
+  private static final ImmutableList<String> SHELLS = ImmutableList.of("/bin/sh", "/bin/bash");
 
   private static final Splitter ARGV_SPLITTER = Splitter.on(CharMatcher.anyOf(" \t"));
 
@@ -159,7 +158,7 @@ public final class CommandBuilder {
       // /D - ignore AutoRun registry entries.
       // /C - execute command. This must be the last option before the command itself.
       return new String[] { "CMD.EXE", "/S", "/E:ON", "/V:ON", "/D", "/C",
-          "\"" + Joiner.on(' ').join(modifiedArgv) + "\"" };
+          Joiner.on(' ').join(modifiedArgv) };
     } else {
       return modifiedArgv.toArray(new String[argv.size()]);
     }

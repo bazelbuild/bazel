@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -eu
+
 case "${PLATFORM}" in
-  darwin)
+  darwin|freebsd)
     function nc_l() {
       nc -l $1
     }
@@ -68,11 +70,44 @@ public class Mongoose {
 EOF
   ${bazel_javabase}/bin/javac $pkg_dir/Mongoose.java
   test_jar=$TEST_TMPDIR/libcarnivore.jar
+  test_srcjar=$TEST_TMPDIR/libcarnivore-sources.jar
   cd ${TEST_TMPDIR}
   ${bazel_javabase}/bin/jar cf $test_jar carnivore/Mongoose.class
+  ${bazel_javabase}/bin/jar cf $test_srcjar carnivore/Mongoose.java
   sha256=$(sha256sum $test_jar | cut -f 1 -d ' ')
   # OS X doesn't have sha1sum, so use openssl.
   sha1=$(openssl sha1 $test_jar | cut -f 2 -d ' ')
+  cd -
+}
+
+function make_test_aar() {
+  test_aar=${TEST_TMPDIR}/example.aar
+  cd ${TEST_TMPDIR}
+  cat > AndroidManifest.xml <<EOF
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example" >
+    <uses-sdk
+        android:minSdkVersion="9"
+        android:targetSdkVersion="20" />
+    <application />
+</manifest>
+EOF
+  mkdir -p com/herbivore
+  cat > com/herbivore/Stegosaurus.java <<EOF
+package com.herbivore;
+class Stegosaurus {}
+EOF
+  ${bazel_javabase}/bin/javac -source 7 -target 7 com/herbivore/Stegosaurus.java
+  ${bazel_javabase}/bin/jar cf0 classes.jar com/herbivore/Stegosaurus.class
+  mkdir -p res/layout
+  cat > res/layout/my_view.xml <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout />
+EOF
+  zip -0 $test_aar AndroidManifest.xml classes.jar res/layout/my_view.xml
+  sha256=$(sha256sum $test_aar | cut -f 1 -d ' ')
+  # OS X doesn't have sha1sum, so use openssl.
+  sha1=$(openssl sha1 $test_aar | cut -f 2 -d ' ')
   cd -
 }
 
@@ -127,16 +162,29 @@ function create_artifact() {
   local group_id=$1
   local artifact_id=$2
   local version=$3
-  make_test_jar
+  local packaging=${4:-jar}
+  # TODO(davido): This is unused for now.
+  # Finalize the implementation once the underlying tests are fixed.
+  local classifier=${5:-jar}
+  if [ $packaging == "aar" ]; then
+    make_test_aar
+    local artifact=$test_aar
+  else
+    make_test_jar
+    local artifact=$test_jar
+    local srcjar_artifact=$test_srcjar
+  fi
   maven_path=$PWD/$(echo $group_id | sed 's/\./\//g')/$artifact_id/$version
   mkdir -p $maven_path
-  openssl sha1 $test_jar > $maven_path/$artifact_id-$version.jar.sha1
-  mv $test_jar $maven_path/$artifact_id-$version.jar
+  openssl sha1 $artifact > $maven_path/$artifact_id-$version.$packaging.sha1
+  openssl sha1 $srcjar_artifact > $maven_path/$artifact_id-$version-sources.$packaging.sha1
+  mv $artifact $maven_path/$artifact_id-$version.$packaging
+  mv $srcjar_artifact $maven_path/$artifact_id-$version-sources.$packaging
 }
 
 function serve_artifact() {
   startup_server $PWD
-  create_artifact $1 $2 $3
+  create_artifact $1 $2 $3 ${4:-jar}
 }
 
 function startup_server() {

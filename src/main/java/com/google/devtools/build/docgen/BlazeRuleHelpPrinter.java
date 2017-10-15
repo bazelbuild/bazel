@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,13 +28,12 @@ public class BlazeRuleHelpPrinter {
 
   private static Map<String, RuleDocumentation> ruleDocMap = null;
 
-  /**
-   * Returns the documentation of the given rule to be printed on the console.
-   */
-  public static String getRuleDoc(String ruleName, ConfiguredRuleClassProvider provider) {
+  /** Returns the documentation of the given rule to be printed on the console. */
+  public static String getRuleDoc(
+      String ruleName, String productName, ConfiguredRuleClassProvider provider) {
     if (ruleDocMap == null) {
       try {
-        BuildDocCollector collector = new BuildDocCollector(provider, false);
+        BuildDocCollector collector = new BuildDocCollector(productName, provider, false);
         Map<String, RuleDocumentation> ruleDocs = collector.collect(
             ImmutableList.of("java/com/google/devtools/build/lib/view",
                              "java/com/google/devtools/build/lib/rules"), null);
@@ -50,10 +47,13 @@ public class BlazeRuleHelpPrinter {
         return e.getMessage();
       }
     }
-    // Every rule should be documented and this method should be called only
-    // for existing rules (a check is performed in HelpCommand).
-    Preconditions.checkState(ruleDocMap.containsKey(ruleName), String.format(
-        "ERROR: Documentation of rule %s does not exist.", ruleName));
+    // TODO(fwe): generate the rule documentation when building the Bazel binary and ship
+    // the text documentation with the binary.
+    // The Bazel binary may not contain the rule sources, which means that the documentation
+    // retrieval step would fail with an exception.
+    if (!ruleDocMap.containsKey(ruleName)) {
+      return String.format("Documentation for rule %s is not part of the binary.\n", ruleName);
+    }
     return "Rule " + ruleName + ":"
         + ruleDocMap.get(ruleName).getCommandLineDocumentation() + "\n";
   }

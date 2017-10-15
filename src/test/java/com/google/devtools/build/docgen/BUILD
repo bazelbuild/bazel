@@ -1,11 +1,11 @@
 package(
-    default_visibility = ["//visibility:public"],
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
 )
-
-licenses(["notice"])  # Apache 2.0
 
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
     visibility = ["//src:__pkg__"],
 )
@@ -45,6 +45,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",

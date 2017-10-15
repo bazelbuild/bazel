@@ -103,6 +103,14 @@ function disable_errexit() {
 # Enable errexit with pretty stack traces.
 enable_errexit
 
+cat_jvm_log () {
+  if [[ "$log_content" =~ "(error code:".*", error message: '".*"', log file: '"(.*)"')" ]]; then
+    echo >&2
+    echo "Content of ${BASH_REMATCH[1]}:" >&2
+    cat "${BASH_REMATCH[1]}" >&2
+  fi
+}
+
 # Print message in "$1" then exit with status "$2"
 die () {
     # second argument is optional, defaulting to 1
@@ -116,6 +124,7 @@ die () {
         fi
         if [ "$CAPTURED_STD_ERR" -ne 0 ]; then
             cat "${TEST_TMPDIR}/captured.err" 1>&2
+            cat_jvm_log "$(cat "${TEST_TMPDIR}/captured.err")"
             CAPTURED_STD_ERR=0
         fi
     fi
@@ -433,7 +442,7 @@ function expect_log_n() {
     local expectednum=${2:-1}
     local message=${3:-Expected regexp "$pattern" not found exactly $expectednum times}
     local count=$(grep -sc -- "$pattern" $TEST_log)
-    [ $count = $expectednum ] && return 0
+    [[ $count = $expectednum ]] && return 0
     fail "$message"
     return 1
 }
@@ -551,7 +560,13 @@ function assert_not_contains() {
     local pattern=$1
     local file=$2
     local message=${3:-Expected regexp "$pattern" found in "$file"}
-    grep -sq -- "$pattern" "$file" || return 0
+
+    if [[ -f "$file" ]]; then
+      grep -sq -- "$pattern" "$file" || return 0
+    else
+      fail "$file is not a file: $message"
+      return 1
+    fi
 
     cat "$file" >&2
     fail "$message"
@@ -651,15 +666,19 @@ close FILE" "$block"
 # Usage: <total> <passed>
 # Adds the test summaries to the xml nodes.
 function __finish_test_report() {
-    local total=$1
-    local passed=$2
+    local suite_name="$1"
+    local total="$2"
+    local passed="$3"
     local failed=$((total - passed))
 
-    cat $XML_OUTPUT_FILE >$XML_OUTPUT_FILE.bak | \
-    sed \
-      "s/<testsuites>/<testsuites tests=\"$total\" failures=\"0\" errors=\"$failed\">/" | \
-    sed \
-      "s/<testsuite>/<testsuite tests=\"$total\" failures=\"0\" errors=\"$failed\">/"
+    # Update the xml output with the suite name and total number of
+    # passed/failed tests.
+    cat $XML_OUTPUT_FILE | \
+      sed \
+        "s/<testsuites>/<testsuites tests=\"$total\" failures=\"0\" errors=\"$failed\">/" | \
+      sed \
+        "s/<testsuite>/<testsuite name=\"${suite_name}\" tests=\"$total\" failures=\"0\" errors=\"$failed\">/" \
+        > $XML_OUTPUT_FILE.bak
 
     rm -f $XML_OUTPUT_FILE
     mv $XML_OUTPUT_FILE.bak $XML_OUTPUT_FILE
@@ -689,8 +708,13 @@ function get_run_time() {
 # Must be called from the end of the user's test suite.
 # Calls exit with zero on success, non-zero otherwise.
 function run_suite() {
+    local message="$1"
+    # The name of the suite should be the script being run, under Bazel that
+    # will be the filename with the ".sh" extension removed.
+    local suite_name="$(basename $0)"
+
     echo >&2
-    echo "$1" >&2
+    echo "$message" >&2
     echo >&2
 
     __log_to_test_report "<\/testsuites>" "<testsuite></testsuite>"
@@ -780,7 +804,9 @@ function run_suite() {
         # end marker in CDATA cannot be escaped, we need to split the CDATA sections
         log=$(cat $TEST_TMPDIR/__log | sed 's/]]>/]]>]]&gt;<![CDATA[/g')
         fail_msg=$(cat $TEST_TMPDIR/__fail 2> /dev/null || echo "No failure message")
-        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$fail_msg\"><![CDATA[$log]]></error></testcase>"
+        # Replacing '&' with '&amp;', '<' with '&lt;', '>' with '&gt;', and '"' with '&quot;'
+        escaped_fail_msg=$(echo $fail_msg | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/"/\&quot;/g')
+        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$escaped_fail_msg\"><![CDATA[$log]]></error></testcase>"
       fi
 
       if [[ "$TEST_verbose" == "true" ]]; then
@@ -789,7 +815,7 @@ function run_suite() {
       __log_to_test_report "<\/testsuite>" "$testcase_tag"
     done
 
-    __finish_test_report $total $passed
+    __finish_test_report "$suite_name" $total $passed
     __pad "$passed / $total tests passed." '*' >&2
     [ $total = $passed ] || {
       __pad "There were errors." '*'

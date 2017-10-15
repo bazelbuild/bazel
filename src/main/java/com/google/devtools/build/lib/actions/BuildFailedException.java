@@ -15,10 +15,9 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.ExitCode;
-
 import javax.annotation.Nullable;
 
 /**
@@ -42,7 +41,7 @@ import javax.annotation.Nullable;
 public class BuildFailedException extends Exception {
   private final boolean catastrophic;
   private final Action action;
-  private final Iterable<Label> rootCauses;
+  private final Iterable<Cause> rootCauses;
   private final boolean errorAlreadyShown;
   @Nullable private final ExitCode exitCode;
 
@@ -51,29 +50,37 @@ public class BuildFailedException extends Exception {
   }
 
   public BuildFailedException(String message) {
-    this(message, false, null, ImmutableList.<Label>of());
+    this(message, false, null, ImmutableList.<Cause>of());
   }
 
   public BuildFailedException(String message, ExitCode exitCode) {
-    this(message, false, null, ImmutableList.<Label>of(), false, exitCode);
+    this(message, false, null, ImmutableList.<Cause>of(), false, exitCode);
   }
 
   public BuildFailedException(String message, boolean catastrophic) {
-    this(message, catastrophic, null, ImmutableList.<Label>of());
+    this(message, catastrophic, null, ImmutableList.<Cause>of());
   }
 
-  public BuildFailedException(String message, boolean catastrophic,
-      Action action, Iterable<Label> rootCauses) {
+  public BuildFailedException(
+      String message, boolean catastrophic, Action action, Iterable<Cause> rootCauses) {
     this(message, catastrophic, action, rootCauses, false);
   }
 
-  public BuildFailedException(String message, boolean catastrophic,
-      Action action, Iterable<Label> rootCauses, boolean errorAlreadyShown) {
+  public BuildFailedException(
+      String message,
+      boolean catastrophic,
+      Action action,
+      Iterable<Cause> rootCauses,
+      boolean errorAlreadyShown) {
     this(message, catastrophic, action, rootCauses, errorAlreadyShown, null);
   }
 
-  public BuildFailedException(String message, boolean catastrophic,
-      Action action, Iterable<Label> rootCauses, boolean errorAlreadyShown,
+  public BuildFailedException(
+      String message,
+      boolean catastrophic,
+      Action action,
+      Iterable<Cause> rootCauses,
+      boolean errorAlreadyShown,
       ExitCode exitCode) {
     super(message);
     this.catastrophic = catastrophic;
@@ -91,7 +98,7 @@ public class BuildFailedException extends Exception {
     return action;
   }
 
-  public Iterable<Label> getRootCauses() {
+  public Iterable<Cause> getRootCauses() {
     return rootCauses;
   }
 

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.skylark;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -24,7 +26,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
  * Abstract class for containing documentation for a Skylark syntactic entity.
@@ -40,24 +41,7 @@ abstract class SkylarkDoc {
   /**
    * Returns a string containing the formatted HTML documentation of the entity being documented.
    */
-  public String getDocumentation() {
-    String doc = getEntityDocumentation();
-    if (doc == null || doc.length() == 0) {
-      return "";
-    }
-
-    // Check if valid punctiation is not present at the end of the documentation.
-    if (Pattern.matches(".+[^.?!]$", doc)) {
-      // Add a final period.
-      doc += ".";
-    }
-    return doc;
-  }
-
-  /**
-   * Returns a string containing the HTML documentation of the entity, before being post-processed.
-   */
-  protected abstract String getEntityDocumentation();
+  public abstract String getDocumentation();
 
   protected String getTypeAnchor(Class<?> returnType, Class<?> generic1) {
     return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + "s";
@@ -65,19 +49,23 @@ abstract class SkylarkDoc {
 
   protected String getTypeAnchor(Class<?> type) {
     if (type.equals(Boolean.class) || type.equals(boolean.class)) {
-      return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#bool\">bool</a>";
+      return "<a class=\"anchor\" href=\"bool.html\">bool</a>";
+    } else if (type.equals(int.class) || type.equals(Integer.class)) {
+      return "<a class=\"anchor\" href=\"int.html\">int</a>";
     } else if (type.equals(String.class)) {
       return "<a class=\"anchor\" href=\"string.html\">string</a>";
     } else if (Map.class.isAssignableFrom(type)) {
       return "<a class=\"anchor\" href=\"dict.html\">dict</a>";
     } else if (type.equals(Tuple.class)) {
       return "<a class=\"anchor\" href=\"list.html\">tuple</a>";
-    } else if (type.equals(MutableList.class)) {
+    } else if (type.equals(MutableList.class) || type.equals(ImmutableList.class)) {
       return "<a class=\"anchor\" href=\"list.html\">list</a>";
     } else if (type.equals(SkylarkList.class)) {
       return "<a class=\"anchor\" href=\"list.html\">sequence</a>";
     } else if (type.equals(Void.TYPE) || type.equals(NoneType.class)) {
       return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#None\">None</a>";
+    } else if (type.equals(NestedSet.class)) {
+      return "<a class=\"anchor\" href=\"depset.html\">depset</a>";
     } else if (type.isAnnotationPresent(SkylarkModule.class)) {
       SkylarkModule module = type.getAnnotation(SkylarkModule.class);
       if (module.documented()) {

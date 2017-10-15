@@ -35,6 +35,7 @@
 #include <vector>
 
 #include "third_party/ijar/mapped_file.h"
+#include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
 #include "third_party/ijar/zlib_client.h"
 
@@ -71,6 +72,8 @@ namespace devtools_ijar {
 // In the absence of ZIP64 support, zip files are limited to 4GB.
 // http://www.info-zip.org/FAQ.html#limits
 static const u8 kMaximumOutputSize = std::numeric_limits<uint32_t>::max();
+
+static const u4 kDosEpoch = 1 << 21 | 1 << 16;  // January 1, 1980 in DOS time
 
 //
 // A class representing a ZipFile for reading. Its public API is exposed
@@ -870,8 +873,7 @@ int OutputZipFile::WriteEmptyFile(const char *filename) {
   put_u2le(q, 10);  // extract_version
   put_u2le(q, 0);  // general_purpose_bit_flag
   put_u2le(q, 0);  // compression_method
-  put_u2le(q, 0);  // last_mod_file_time
-  put_u2le(q, 0);  // last_mod_file_date
+  put_u4le(q, kDosEpoch);     // last_mod_file date and time
   put_u4le(q, entry->crc32);  // crc32
   put_u4le(q, 0);  // compressed_size
   put_u4le(q, 0);  // uncompressed_size
@@ -902,8 +904,7 @@ void OutputZipFile::WriteCentralDirectory() {
     put_u2le(q, ZIP_VERSION_TO_EXTRACT);  // version to extract
     put_u2le(q, 0);  // general purpose bit flag
     put_u2le(q, entry->compression_method);  // compression method:
-    put_u2le(q, 0);                          // last_mod_file_time
-    put_u2le(q, 0);  // last_mod_file_date
+    put_u4le(q, kDosEpoch);                  // last_mod_file date and time
     put_u4le(q, entry->crc32);  // crc32
     put_u4le(q, entry->compressed_length);    // compressed_size
     put_u4le(q, entry->uncompressed_length);  // uncompressed_size
@@ -994,8 +995,7 @@ u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
   put_u2le(q, 0);                          // general purpose bit flag
   u1 *header_ptr = q;
   put_u2le(q, COMPRESSION_METHOD_STORED);  // compression method = placeholder
-  put_u2le(q, 0);                          // last_mod_file_time
-  put_u2le(q, 0);                          // last_mod_file_date
+  put_u4le(q, kDosEpoch);                  // last_mod_file date and time
   put_u4le(q, entry->crc32);               // crc32
   put_u4le(q, 0);  // compressed_size = placeholder
   put_u4le(q, 0);  // uncompressed_size = placeholder
@@ -1119,18 +1119,18 @@ ZipBuilder* ZipBuilder::Create(const char* zip_file, u8 estimated_size) {
 u8 ZipBuilder::EstimateSize(char const* const* files,
                             char const* const* zip_paths,
                             int nb_entries) {
-  struct stat statst;
+  Stat file_stat;
   // Digital signature field size = 6, End of central directory = 22, Total = 28
   u8 size = 28;
   // Count the size of all the files in the input to estimate the size of the
   // output.
   for (int i = 0; i < nb_entries; i++) {
-    statst.st_size = 0;
-    if (files[i] != NULL && stat(files[i], &statst) != 0) {
+    file_stat.total_size = 0;
+    if (files[i] != NULL && !stat_file(files[i], &file_stat)) {
       fprintf(stderr, "File %s does not seem to exist.", files[i]);
       return 0;
     }
-    size += statst.st_size;
+    size += file_stat.total_size;
     // Add sizes of Zip meta data
     // local file header = 30 bytes
     // data descriptor = 12 bytes

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -74,9 +75,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.ARTIFACT,
-                    new DummyArtifactFunction(artifactValueMap))
-                .put(SkyFunctions.ACTION_TEMPLATE_EXPANSION, new ActionTemplateExpansionFunction())
+                .put(SkyFunctions.ARTIFACT, new DummyArtifactFunction(artifactValueMap))
+                .put(
+                    SkyFunctions.ACTION_TEMPLATE_EXPANSION,
+                    new ActionTemplateExpansionFunction(Suppliers.ofInstance(false)))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);
@@ -119,12 +121,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     OutputPathMapper mapper = new OutputPathMapper() {
       @Override
       public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
-        return new PathFragment("conflict_path");
+        return PathFragment.create("conflict_path");
       }
     };
     SpawnActionTemplate spawnActionTemplate =
         new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
-            .setExecutable(new PathFragment("/bin/cp"))
+            .setExecutable(PathFragment.create("/bin/cp"))
             .setCommandLineTemplate(CustomCommandLine.builder().build())
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
@@ -150,10 +152,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         PathFragment path;
         switch (i) {
           case 0:
-            path = new PathFragment("path_prefix");
+            path = PathFragment.create("path_prefix");
             break;
           case 1:
-            path = new PathFragment("path_prefix/conflict");
+            path = PathFragment.create("path_prefix/conflict");
             break;
           default:
             path = inputTreeFileArtifact.getParentRelativePath();
@@ -165,7 +167,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     };
     SpawnActionTemplate spawnActionTemplate =
         new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
-            .setExecutable(new PathFragment("/bin/cp"))
+            .setExecutable(PathFragment.create("/bin/cp"))
             .setCommandLineTemplate(CustomCommandLine.builder().build())
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
@@ -188,11 +190,16 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    return ImmutableList.copyOf(result.get(skyKey).getExpandedActions());
+    ActionTemplateExpansionValue actionTemplateExpansionValue = result.get(skyKey);
+    ImmutableList.Builder<Action> actionList = ImmutableList.builder();
+    for (int i = 0; i < actionTemplateExpansionValue.getNumActions(); i++) {
+      actionList.add(actionTemplateExpansionValue.getAction(i));
+    }
+    return actionList.build();
   }
 
   private Artifact createTreeArtifact(String path) {
-    PathFragment execPath = new PathFragment("out").getRelative(path);
+    PathFragment execPath = PathFragment.create("out").getRelative(path);
     Path fullPath = rootDirectory.getRelative(execPath);
     return new SpecialArtifact(
         fullPath,
@@ -209,7 +216,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     for (String childRelativePath : childRelativePaths) {
       TreeFileArtifact treeFileArtifact = ActionInputHelper.treeFileArtifact(
-          treeArtifact, new PathFragment(childRelativePath));
+          treeArtifact, PathFragment.create(childRelativePath));
       scratch.file(treeFileArtifact.getPath().toString(), childRelativePath);
       // We do not care about the FileArtifactValues in this test.
       treeFileArtifactMap.put(treeFileArtifact, FileArtifactValue.create(treeFileArtifact));

@@ -16,11 +16,14 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -51,6 +54,7 @@ import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -60,6 +64,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
@@ -79,21 +85,27 @@ import java.util.List;
          shortDescription = "Runs the specified target.",
          help = "resource:run.txt",
          allowResidue = true,
+         hasSensitiveResidue = true,
          binaryStdOut = true,
          completion = "label-bin",
          binaryStdErr = true)
 public class RunCommand implements BlazeCommand  {
 
   public static class RunOptions extends OptionsBase {
-    @Option(name = "script_path",
-        category = "run",
-        defaultValue = "null",
-        converter = OptionsUtils.PathFragmentConverter.class,
-        help = "If set, write a shell script to the given file which invokes the "
-            + "target. If this option is set, the target is not run from %{product}. "
-            + "Use '%{product} run --script_path=foo //foo && foo' to invoke target '//foo' "
-            + "This differs from '%{product} run //foo' in that the %{product} lock is released "
-            + "and the executable is connected to the terminal's stdin.")
+    @Option(
+      name = "script_path",
+      category = "run",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "If set, write a shell script to the given file which invokes the "
+              + "target. If this option is set, the target is not run from %{product}. "
+              + "Use '%{product} run --script_path=foo //foo && ./foo' to invoke target '//foo' "
+              + "This differs from '%{product} run //foo' in that the %{product} lock is released "
+              + "and the executable is connected to the terminal's stdin."
+    )
     public PathFragment scriptPath;
   }
 
@@ -122,7 +134,7 @@ public class RunCommand implements BlazeCommand  {
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) { }
+  public void editOptions(OptionsParser optionsParser) { }
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
@@ -177,7 +189,7 @@ public class RunCommand implements BlazeCommand  {
       }
       for (ConfiguredTarget target : targetsBuilt) {
         ExitCode targetValidation = fullyValidateTarget(env, target);
-        if (targetValidation != ExitCode.SUCCESS) {
+        if (!targetValidation.equals(ExitCode.SUCCESS)) {
           return targetValidation;
         }
         if (runUnder != null && target.getLabel().equals(runUnder.getLabel())) {
@@ -220,18 +232,20 @@ public class RunCommand implements BlazeCommand  {
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     }
 
-    List<String> args = runTargetArgs;
+    List<String> args = Lists.newArrayList();
 
     FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
     RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
     if (runfilesSupport != null && runfilesSupport.getArgs() != null) {
-      List<String> targetArgs = runfilesSupport.getArgs();
-      if (!targetArgs.isEmpty()) {
-        args = Lists.newArrayListWithCapacity(targetArgs.size() + runTargetArgs.size());
-        args.addAll(targetArgs);
-        args.addAll(runTargetArgs);
+      CommandLine targetArgs = runfilesSupport.getArgs();
+      try {
+        Iterables.addAll(args, targetArgs.arguments());
+      } catch (CommandLineExpansionException e) {
+        env.getReporter().handle(Event.error("Could not expand target command line: " + e));
+        return ExitCode.ANALYSIS_FAILURE;
       }
     }
+    args.addAll(runTargetArgs);
 
     String productName = env.getRuntime().getProductName();
     //
@@ -246,16 +260,15 @@ public class RunCommand implements BlazeCommand  {
             options.getOptions(BuildRequestOptions.class).getSymlinkPrefix(productName),
             productName);
     List<String> cmdLine = new ArrayList<>();
-    if (runOptions.scriptPath == null) {
+    // process-wrapper does not work on Windows (nor is it necessary), so don't use it
+    // on that platform. Also we skip it when writing the command-line to a file instead
+    // of executing it directly.
+    if (OS.getCurrent() != OS.WINDOWS && runOptions.scriptPath == null) {
       PathFragment processWrapperPath =
           env.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER);
       Preconditions.checkNotNull(
           processWrapperPath, PROCESS_WRAPPER + " not found in embedded tools");
       cmdLine.add(env.getExecRoot().getRelative(processWrapperPath).getPathString());
-      cmdLine.add("-1");
-      cmdLine.add("15");
-      cmdLine.add("-");
-      cmdLine.add("-");
     }
     List<String> prettyCmdLine = new ArrayList<>();
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
@@ -315,14 +328,13 @@ public class RunCommand implements BlazeCommand  {
       // actual output of the command being run even if --color=no is specified.
       env.getReporter().switchToAnsiAllowingHandler();
 
-      // The command API is a little strange in that the following statement
-      // will return normally only if the program exits with exit code 0.
-      // If it ends with any other code, we have to catch BadExitStatusException.
-      command.execute(com.google.devtools.build.lib.shell.Command.NO_INPUT,
-          com.google.devtools.build.lib.shell.Command.NO_OBSERVER,
-          outErr.getOutputStream(),
-          outErr.getErrorStream(),
-          true /* interruptible */).getTerminationStatus().getExitCode();
+      // The command API is a little strange in that the following statement will return normally
+      // only if the program exits with exit code 0. If it ends with any other code, we have to
+      // catch BadExitStatusException.
+      command
+          .execute(outErr.getOutputStream(), outErr.getErrorStream())
+          .getTerminationStatus()
+          .getExitCode();
       return ExitCode.SUCCESS;
     } catch (BadExitStatusException e) {
       String message = "Non-zero return code '"

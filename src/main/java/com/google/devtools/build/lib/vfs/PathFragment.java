@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -32,55 +32,114 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * This class represents an immutable UNIX filesystem path, which may be absolute or relative. The
- * path is maintained as a simple ordered list of path segment strings.
+ * This class represents an immutable filesystem path, which may be absolute or relative. The path
+ * is maintained as a simple ordered list of path segment strings.
  *
  * <p>This class is independent from other VFS classes, especially anything requiring native code.
  * It is safe to use in places that need simple segmented string path functionality.
  *
- * <p>There is some limited support for Windows-style paths. Most importantly, drive identifiers
- * in front of a path (c:/abc) are supported and such paths are correctly recognized as absolute.
- * However, Windows-style backslash separators (C:\\foo\\bar) are explicitly not supported, same
- * with advanced features like \\\\network\\paths and \\\\?\\unc\\paths.
+ * <p>There is some limited support for Windows-style paths. Most importantly, drive identifiers in
+ * front of a path (c:/abc) are supported and such paths are correctly recognized as absolute, as
+ * are paths with backslash separators (C:\\foo\\bar). However, advanced Windows-style features like
+ * \\\\network\\paths and \\\\?\\unc\\paths are not supported.
  */
-@Immutable @ThreadSafe
-public final class PathFragment implements Comparable<PathFragment>, Serializable {
+@Immutable
+@ThreadSafe
+public abstract class PathFragment implements Comparable<PathFragment>, Serializable {
+  private static final Helper HELPER =
+      OS.getCurrent() == OS.WINDOWS ? WindowsPathFragment.HELPER : UnixPathFragment.HELPER;
+
+  public static final char SEPARATOR_CHAR = HELPER.getPrimarySeparatorChar();
 
   public static final int INVALID_SEGMENT = -1;
-
-  public static final char SEPARATOR_CHAR = '/';
-
-  public static final char EXTRA_SEPARATOR_CHAR =
-      (OS.getCurrent() == OS.WINDOWS) ? '\\' : '/';
 
   public static final String ROOT_DIR = "/";
 
   /** An empty path fragment. */
-  public static final PathFragment EMPTY_FRAGMENT = new PathFragment("");
+  public static final PathFragment EMPTY_FRAGMENT = create("");
 
-  public static final Function<String, PathFragment> TO_PATH_FRAGMENT =
-      new Function<String, PathFragment>() {
-        @Override
-        public PathFragment apply(String str) {
-          return new PathFragment(str);
-        }
-      };
+  /**
+   * A helper object for manipulating the various internal {@link PathFragment} implementations.
+   *
+   * <p>There will be exactly one {@link Helper} instance used to manipulate all the {@link
+   * PathFragment} instances (see {@link PathFragment#HELPER}). All of the various {@link Helper}
+   * and {@link PathFragment} implementations may assume this property.
+   */
+  protected abstract static class Helper {
+    /**
+     * Returns whether the two given arrays of segments have the same length and should be
+     * considered have logically equal contents.
+     */
+    protected final boolean segmentsEqual(String[] segments1, String[] segments2) {
+      return segments1.length == segments2.length
+          && segmentsEqual(segments1.length, segments1, 0, segments2);
+    }
 
-  public static final Predicate<PathFragment> IS_ABSOLUTE =
-      new Predicate<PathFragment>() {
-        @Override
-        public boolean apply(PathFragment input) {
-          return input.isAbsolute();
-        }
-      };
+    /**
+     * Returns whether the {@code length} segments in {@code segments1}, starting at {@code offset1}
+     * should be considered to be logically equal to the first {@code length} segments in {@code
+     * segments2}.
+     */
+    abstract boolean segmentsEqual(int length, String[] segments1, int offset1, String[] segments2);
 
-  private static final Function<PathFragment, String> TO_SAFE_PATH_STRING =
-      new Function<PathFragment, String>() {
-        @Override
-        public String apply(PathFragment path) {
-          return path.getSafePathString();
+    /** Returns the comparison result of two {@link PathFragment} instances. */
+    protected abstract int compare(PathFragment pathFragment1, PathFragment pathFragment2);
+
+    /** Returns a fresh {@link PathFragment} instance from the given path string. */
+    abstract PathFragment create(String path);
+    /**
+     * Returns a fresh {@link PathFragment} instance from the given information, taking ownership of
+     * {@code segments} and assuming the {@link String}s within have already been interned.
+     */
+    abstract PathFragment createAlreadyInterned(
+        char driveLetter, boolean isAbsolute, String[] segments);
+
+    /** Returns whether {@code c} is a path separator. */
+    abstract boolean isSeparator(char c);
+    /** Returns the primary path separator. */
+    abstract char getPrimarySeparatorChar();
+    /** Return whether the given {@code path} contains a path separator. */
+    abstract boolean containsSeparatorChar(String path);
+
+    /**
+     * Splits the given {@code toSegment} into path segments, starting at the given {@code offset}.
+     */
+    protected final String[] segment(String toSegment, int offset) {
+      int length = toSegment.length();
+
+      // We make two passes through the array of characters: count & alloc,
+      // because simply using ArrayList was a bottleneck showing up during profiling.
+      int seg = 0;
+      int start = offset;
+      for (int i = offset; i < length; i++) {
+        if (isSeparator(toSegment.charAt(i))) {
+          if (i > start) { // to skip repeated separators
+            seg++;
+          }
+          start = i + 1;
         }
-      };
+      }
+      if (start < length) {
+        seg++;
+      }
+      String[] result = new String[seg];
+      seg = 0;
+      start = offset;
+      for (int i = offset; i < length; i++) {
+        if (isSeparator(toSegment.charAt(i))) {
+          if (i > start) { // to skip repeated separators
+            result[seg] = StringCanonicalizer.intern(toSegment.substring(start, i));
+            seg++;
+          }
+          start = i + 1;
+        }
+      }
+      if (start < length) {
+        result[seg] = StringCanonicalizer.intern(toSegment.substring(start, length));
+      }
+      return result;
+    }
+  }
 
   /** Lower-level API. Create a PathFragment, interning segments. */
   public static PathFragment create(char driveLetter, boolean isAbsolute, String[] segments) {
@@ -88,7 +147,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     for (int i = 0; i < segments.length; i++) {
       internedSegments[i] = StringCanonicalizer.intern(segments[i]);
     }
-    return new PathFragment(driveLetter, isAbsolute, internedSegments);
+    return createAlreadyInterned(driveLetter, isAbsolute, internedSegments);
   }
 
   /** Same as {@link #create(char, boolean, String[])}, except for {@link List}s of segments. */
@@ -97,84 +156,88 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     for (int i = 0; i < segments.size(); i++) {
       internedSegments[i] = StringCanonicalizer.intern(segments.get(i));
     }
-    return new PathFragment(driveLetter, isAbsolute, internedSegments);
-  }
-
-  // We have 3 word-sized fields (segments, hashCode and path), and 2
-  // byte-sized ones, which fits in 16 bytes. Object sizes are rounded
-  // to 16 bytes.  Medium sized builds can easily hold millions of
-  // live PathFragments, so do not add further fields on a whim.
-
-  // The individual path components.
-  private final String[] segments;
-
-  // True both for UNIX-style absolute paths ("/foo") and Windows-style ("C:/foo").
-  private final boolean isAbsolute;
-
-  // Upper case windows drive letter, or '\0' if none. While a volumeName string is more
-  // general, we create a lot of these objects, so space is at a premium.
-  private final char driveLetter;
-
-  // hashCode and path are lazily initialized but semantically immutable.
-  private int hashCode;
-  private String path;
-
-  /**
-   * Construct a PathFragment from a string, which is an absolute or relative UNIX or Windows path.
-   */
-  public PathFragment(String path) {
-    this.driveLetter = getWindowsDriveLetter(path);
-    if (driveLetter != '\0') {
-      path = path.substring(2);
-      // TODO(bazel-team): Decide what to do about non-absolute paths with a volume name, e.g. C:x.
-    }
-    this.isAbsolute = path.length() > 0 && isSeparator(path.charAt(0));
-    this.segments = segment(path, isAbsolute ? 1 : 0);
-  }
-
-  private static boolean isSeparator(char c) {
-    return c == SEPARATOR_CHAR || c == EXTRA_SEPARATOR_CHAR;
+    return createAlreadyInterned(driveLetter, isAbsolute, internedSegments);
   }
 
   /**
    * Construct a PathFragment from a java.io.File, which is an absolute or
    * relative UNIX path.  Does not support Windows-style Files.
    */
-  public PathFragment(File path) {
-    this(path.getPath());
+  public static PathFragment create(File path) {
+    return HELPER.create(path.getPath());
   }
 
   /**
-   * Constructs a PathFragment, taking ownership of segments. Package-private,
-   * because it does not perform a defensive clone of the segments array. Used
+   * Construct a PathFragment from a string, which is an absolute or relative UNIX or Windows path.
+   */
+  public static PathFragment create(String path) {
+    return HELPER.create(path);
+  }
+
+  /**
+   * Constructs a PathFragment, taking ownership of {@code segments} and assuming the {@link
+   * String}s within have already been interned.
+   *
+   * <p>Package-private because it does not perform a defensive copy of the segments array. Used
    * here in PathFragment, and by Path.asFragment() and Path.relativeTo().
    */
-  PathFragment(char driveLetter, boolean isAbsolute, String[] segments) {
-    this.driveLetter = driveLetter;
-    this.isAbsolute = isAbsolute;
+  static PathFragment createAlreadyInterned(
+      char driveLetter, boolean isAbsolute, String[] segments) {
+    return HELPER.createAlreadyInterned(driveLetter, isAbsolute, segments);
+  }
+
+  /** Returns whether the current {@code path} contains a path separator. */
+  static boolean containsSeparator(String path) {
+    return HELPER.containsSeparatorChar(path);
+  }
+
+  /**
+   * Construct a PathFragment from a sequence of other PathFragments. The new fragment will be
+   * absolute iff the first fragment was absolute.
+   */
+  // TODO(bazel-team): Most usages of this method are wasteful from a garbage perspective. Refactor
+  // to something better.
+  public static PathFragment create(PathFragment first, PathFragment second, PathFragment... more) {
+    String[] segments = new String[sumLengths(first, second, more)];
+    int offset = 0;
+    offset += addSegmentsTo(segments, offset, first);
+    offset += addSegmentsTo(segments, offset, second);
+    for (PathFragment fragment : more) {
+      offset += addSegmentsTo(segments, offset, fragment);
+    }
+    boolean isAbsolute = first.isAbsolute();
+    char driveLetter = first.getDriveLetter();
+    return HELPER.createAlreadyInterned(driveLetter, isAbsolute, segments);
+  }
+
+  // Medium sized builds can easily hold millions of live PathFragments, so the per-instance size of
+  // PathFragment is a concern.
+  //
+  // We have two oop-sized fields (segments, path), and one 4-byte-sized one (hashCode).
+  //
+  // If Blaze is run on a jvm with -XX:+UseCompressedOops, each PathFragment instance is 24 bytes
+  // and so adding any additional field will increase the per-instance size to at least 32 bytes.
+  //
+  // If Blaze is run on a jvm with -XX:-UseCompressedOops, each PathFragment instance is 32 bytes
+  // and so adding any additional field will increase the per-instance size to at least 40 bytes.
+  //
+  // Therefore, do not add any additional fields unless you have considered the memory implications.
+
+  // The individual path components.
+  // Does *not* include the Windows drive letter.
+  protected final String[] segments;
+
+  // hashCode and path are lazily initialized but semantically immutable.
+  private int hashCode;
+  private String path;
+
+  protected PathFragment(String[] segments) {
     this.segments = segments;
   }
 
-  /**
-   * Construct a PathFragment from a sequence of other PathFragments. The new
-   * fragment will be absolute iff the first fragment was absolute.
-   */
-  public PathFragment(PathFragment first, PathFragment second, PathFragment... more) {
-    // TODO(bazel-team): The handling of absolute path fragments in this constructor is unexpected.
-    this.segments = new String[sumLengths(first, second, more)];
-    int offset = 0;
-    offset += addSegments(offset, first);
-    offset += addSegments(offset, second);
-    for (PathFragment fragment : more) {
-      offset += addSegments(offset, fragment);
-    }
-    this.isAbsolute = first.isAbsolute;
-    this.driveLetter = first.driveLetter;
-  }
-
-  private int addSegments(int offset, PathFragment fragment) {
+  private static int addSegmentsTo(String[] segments, int offset, PathFragment fragment) {
     int count = fragment.segmentCount();
-    System.arraycopy(fragment.segments, 0, this.segments, offset, count);
+    System.arraycopy(fragment.segments, 0, segments, offset, count);
     return count;
   }
 
@@ -186,60 +249,11 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     return total;
   }
 
-  /**
-   * Segments the string passed in as argument and returns an array of strings.
-   * The split is performed along occurrences of (sequences of) the slash
-   * character.
-   *
-   * @param toSegment the string to segment
-   * @param offset how many characters from the start of the string to ignore.
-   */
-  private static String[] segment(String toSegment, int offset) {
-    int length = toSegment.length();
-
-    // Handle "/" and "" quickly.
-    if (length == offset) {
-      return new String[0];
-    }
-
-    // We make two passes through the array of characters: count & alloc,
-    // because simply using ArrayList was a bottleneck showing up during profiling.
-    int seg = 0;
-    int start = offset;
-    for (int i = offset; i < length; i++) {
-      if (isSeparator(toSegment.charAt(i))) {
-        if (i > start) {  // to skip repeated separators
-          seg++;
-        }
-        start = i + 1;
-      }
-    }
-    if (start < length) {
-      seg++;
-    }
-    String[] result = new String[seg];
-    seg = 0;
-    start = offset;
-    for (int i = offset; i < length; i++) {
-      if (isSeparator(toSegment.charAt(i))) {
-        if (i > start) {  // to skip repeated separators
-          result[seg] = StringCanonicalizer.intern(toSegment.substring(start,  i));
-          seg++;
-        }
-        start = i + 1;
-      }
-    }
-    if (start < length) {
-      result[seg] = StringCanonicalizer.intern(toSegment.substring(start, length));
-    }
-    return result;
-  }
-
-  private Object writeReplace() {
+  protected Object writeReplace() {
     return new PathFragmentSerializationProxy(toString());
   }
 
-  private void readObject(ObjectInputStream stream) throws InvalidObjectException {
+  protected void readObject(ObjectInputStream stream) throws InvalidObjectException {
     throw new InvalidObjectException("Serialization is allowed only by proxy");
   }
 
@@ -253,7 +267,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     if (path == null) {
       synchronized (this) {
         if (path == null) {
-          path = StringCanonicalizer.intern(joinSegments(SEPARATOR_CHAR));
+          path = StringCanonicalizer.intern(joinSegments(HELPER.getPrimarySeparatorChar()));
         }
       }
     }
@@ -266,7 +280,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    */
   // TODO(bazel-team): Change getPathString to do this - this behavior makes more sense.
   public String getSafePathString() {
-    return (!isAbsolute && (segmentCount() == 0)) ? "." : getPathString();
+    return (!isAbsolute() && (segmentCount() == 0)) ? "." : getPathString();
   }
 
   /**
@@ -278,12 +292,12 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * the working directory) and not as command to be searched for in the search path.
    */
   public String getCallablePathString() {
-    if (isAbsolute) {
+    if (isAbsolute()) {
       return getPathString();
     } else if (segmentCount() == 0) {
       return ".";
     } else if (segmentCount() == 1) {
-      return "." + SEPARATOR_CHAR + getPathString();
+      return "." + HELPER.getPrimarySeparatorChar() + getPathString();
     } else {
       return getPathString();
     }
@@ -294,22 +308,16 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * {@code fragments}.
    */
   public static Iterable<String> safePathStrings(Iterable<PathFragment> fragments) {
-    return Iterables.transform(fragments, TO_SAFE_PATH_STRING);
+    return Iterables.transform(fragments, PathFragment::getSafePathString);
   }
 
   /** Returns the subset of {@code paths} that start with {@code startingWithPath}. */
-  public static ImmutableSet<PathFragment> filterPathsStartingWith(Set<PathFragment> paths,
-      PathFragment startingWithPath) {
-    return ImmutableSet.copyOf(Iterables.filter(paths, startsWithPredicate(startingWithPath)));
-  }
-
-  public static Predicate<PathFragment> startsWithPredicate(final PathFragment prefix) {
-    return new Predicate<PathFragment>() {
-      @Override
-      public boolean apply(PathFragment pathFragment) {
-        return pathFragment.startsWith(prefix);
-      }
-    };
+  public static ImmutableSet<PathFragment> filterPathsStartingWith(
+      Set<PathFragment> paths, PathFragment startingWithPath) {
+    return paths
+        .stream()
+        .filter(pathFragment -> pathFragment.startsWith(startingWithPath))
+        .collect(toImmutableSet());
   }
 
   /**
@@ -326,7 +334,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   }
 
   private String joinSegments(char separatorChar) {
-    if (segments.length == 0 && isAbsolute) {
+    if (segments.length == 0 && isAbsolute()) {
       return windowsVolume() + ROOT_DIR;
     }
 
@@ -335,13 +343,17 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     // we do not have to expand the capacity of the StringBuilder.
     // Heuristically, this estimate is right for about 99% of the time.
     int estimateSize =
-        ((driveLetter != '\0') ? 2 : 0)
-        + ((segments.length == 0) ? 0 : (segments.length + 1) * 20);
+        ((getDriveLetter() != '\0') ? 2 : 0)
+            + ((segments.length == 0) ? 0 : (segments.length + 1) * 20);
     StringBuilder result = new StringBuilder(estimateSize);
-    result.append(windowsVolume());
+    if (isAbsolute()) {
+      // Only print the Windows volume label if the PathFragment is absolute. Do not print relative
+      // Windows paths like "C:foo/bar", it would break all kinds of things, e.g. glob().
+      result.append(windowsVolume());
+    }
     boolean initialSegment = true;
     for (String segment : segments) {
-      if (!initialSegment || isAbsolute) {
+      if (!initialSegment || isAbsolute()) {
         result.append(separatorChar);
       }
       initialSegment = false;
@@ -396,8 +408,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       return this;
     }
 
-    return new PathFragment(driveLetter, isAbsolute,
-        subarray(scratchSegments, 0, segmentCount));
+    return HELPER.createAlreadyInterned(
+        getDriveLetter(), isAbsolute(), subarray(scratchSegments, 0, segmentCount));
   }
 
   /**
@@ -412,9 +424,15 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     if (otherFragment == EMPTY_FRAGMENT) {
       return this;
     }
-    return otherFragment.isAbsolute()
-        ? otherFragment
-        : new PathFragment(this, otherFragment);
+
+    if (otherFragment.isAbsolute()) {
+      char driveLetter = getDriveLetter();
+      return driveLetter == '\0' || otherFragment.getDriveLetter() != '\0'
+          ? otherFragment
+          : createAlreadyInterned(driveLetter, true, otherFragment.segments);
+    } else {
+      return create(this, otherFragment);
+    }
   }
 
   /**
@@ -426,7 +444,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * with no path normalization or I/O performed.
    */
   public PathFragment getRelative(String path) {
-    return getRelative(new PathFragment(path));
+    return getRelative(create(path));
   }
 
   /**
@@ -445,7 +463,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     baseName = StringCanonicalizer.intern(baseName);
     String[] newSegments = Arrays.copyOf(segments, segments.length + 1);
     newSegments[newSegments.length - 1] = baseName;
-    return new PathFragment(driveLetter, isAbsolute, newSegments);
+    return createAlreadyInterned(getDriveLetter(), isAbsolute(), newSegments);
   }
 
   /**
@@ -483,29 +501,26 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     String[] ancestorSegments = ancestorDirectory.segments();
     int ancestorLength = ancestorSegments.length;
 
-    if (isAbsolute != ancestorDirectory.isAbsolute()
-        || segments.length < ancestorLength) {
+    if (isAbsolute() != ancestorDirectory.isAbsolute() || segments.length < ancestorLength) {
       throw new IllegalArgumentException("PathFragment " + this
           + " is not beneath " + ancestorDirectory);
     }
 
-    for (int index = 0; index < ancestorLength; index++) {
-      if (!segments[index].equals(ancestorSegments[index])) {
-        throw new IllegalArgumentException("PathFragment " + this
-            + " is not beneath " + ancestorDirectory);
-      }
+    if (!HELPER.segmentsEqual(ancestorLength, segments, 0, ancestorSegments)) {
+      throw new IllegalArgumentException(
+          "PathFragment " + this + " is not beneath " + ancestorDirectory);
     }
 
     int length = segments.length - ancestorLength;
     String[] resultSegments = subarray(segments, ancestorLength, length);
-    return new PathFragment('\0', false, resultSegments);
+    return createAlreadyInterned('\0', false, resultSegments);
   }
 
   /**
    * Returns a relative path fragment to this path, relative to {@code path}.
    */
   public PathFragment relativeTo(String path) {
-    return relativeTo(new PathFragment(path));
+    return relativeTo(create(path));
   }
 
   /**
@@ -539,17 +554,12 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * order)
    */
   public boolean startsWith(PathFragment prefix) {
-    if (this.isAbsolute != prefix.isAbsolute ||
-        this.segments.length < prefix.segments.length ||
-        this.driveLetter != prefix.driveLetter) {
+    if (isAbsolute() != prefix.isAbsolute()
+        || this.segments.length < prefix.segments.length
+        || (isAbsolute() && getDriveLetter() != prefix.getDriveLetter())) {
       return false;
     }
-    for (int i = 0, len = prefix.segments.length; i < len; i++) {
-      if (!this.segments[i].equals(prefix.segments[i])) {
-        return false;
-      }
-    }
-    return true;
+    return HELPER.segmentsEqual(prefix.segments.length, segments, 0, prefix.segments);
   }
 
   /**
@@ -560,17 +570,12 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * order)
    */
   public boolean endsWith(PathFragment suffix) {
-    if ((suffix.isAbsolute && !suffix.equals(this)) ||
-        this.segments.length < suffix.segments.length) {
+    if ((suffix.isAbsolute() && !suffix.equals(this))
+        || this.segments.length < suffix.segments.length) {
       return false;
     }
     int offset = this.segments.length - suffix.segments.length;
-    for (int i = 0; i < suffix.segments.length; i++) {
-      if (!this.segments[offset + i].equals(suffix.segments[i])) {
-        return false;
-      }
-    }
-    return true;
+    return HELPER.segmentsEqual(suffix.segments.length, segments, offset, suffix.segments);
   }
 
   private static String[] subarray(String[] array, int start, int length) {
@@ -601,18 +606,20 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       throw new IndexOutOfBoundsException(String.format("path: %s, beginIndex: %d endIndex: %d",
           toString(), beginIndex, endIndex));
     }
-    boolean isAbsolute = (beginIndex == 0) && this.isAbsolute;
-    return ((beginIndex == 0) && (endIndex == count)) ? this :
-        new PathFragment(driveLetter, isAbsolute,
-            subarray(segments, beginIndex, endIndex - beginIndex));
+    boolean isAbsolute = (beginIndex == 0) && isAbsolute();
+    return ((beginIndex == 0) && (endIndex == count))
+        ? this
+        : createAlreadyInterned(
+            getDriveLetter(), isAbsolute, subarray(segments, beginIndex, endIndex - beginIndex));
   }
 
   /**
    * Returns true iff the path represented by this object is absolute.
+   *
+   * <p>True both for UNIX-style absolute paths ("/foo") and Windows-style ("C:/foo"). False for a
+   * Windows-style volume label ("C:") which is actually a relative path.
    */
-  public boolean isAbsolute() {
-    return isAbsolute;
-  }
+  public abstract boolean isAbsolute();
 
   /**
    * Returns the segments of this path fragment. This array should not be
@@ -626,17 +633,12 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     return ImmutableList.copyOf(segments);
   }
 
-  public String windowsVolume() {
-    if (OS.getCurrent() != OS.WINDOWS) {
-      return "";
-    }
-    return (driveLetter != '\0') ? driveLetter + ":" : "";
-  }
+  public abstract String windowsVolume();
 
   /** Return the drive letter or '\0' if not applicable. */
-  public char getDriveLetter() {
-    return driveLetter;
-  }
+  // TODO(bazel-team): This doesn't need to pollute the PathFragment interface (ditto for
+  // windowsVolume).
+  public abstract char getDriveLetter();
 
   /**
    * Returns the number of segments in this path.
@@ -683,24 +685,12 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * same segments and drive letter.
    */
   public PathFragment toRelative() {
-    Preconditions.checkArgument(isAbsolute);
-    return new PathFragment(driveLetter, false, segments);
-  }
-
-  /**
-   * Given a path, returns the Windows drive letter ('X'), or an null character if no volume
-   * name was specified.
-   */
-  static char getWindowsDriveLetter(String path) {
-    if (OS.getCurrent() == OS.WINDOWS
-        && path.length() >= 2 && path.charAt(1) == ':' && Character.isLetter(path.charAt(0))) {
-      return Character.toUpperCase(path.charAt(0));
-    }
-    return '\0';
+    Preconditions.checkArgument(isAbsolute());
+    return HELPER.createAlreadyInterned(getDriveLetter(), false, segments);
   }
 
   @Override
-  public int hashCode() {
+  public final int hashCode() {
     // We use the hash code caching strategy employed by java.lang.String. There are three subtle
     // things going on here:
     //
@@ -708,61 +698,33 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     // Yes, this means that if the hash code is really 0 then we will "recompute" it each time. But
     // this isn't a problem in practice since a hash code of 0 is rare.
     //
-    // (2) Since we have no synchronization, multiple threads can race here thinking there are the
+    // (2) Since we have no synchronization, multiple threads can race here thinking they are the
     // first one to compute and cache the hash code.
     //
     // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
-    // thread may not be visible by another.
+    // thread may not be visible by another. Note that we don't need to worry about multiple
+    // inefficient reads of 'hashCode' on the same thread since it's non-volatile.
     //
     // All three of these issues are benign from a correctness perspective; in the end we have no
     // overhead from synchronization, at the cost of potentially computing the hash code more than
     // once.
-    int h = hashCode;
-    if (h == 0) {
-      h = isAbsolute ? 1 : 0;
-      for (String segment : segments) {
-        h = h * 31 + segment.hashCode();
-      }
-      hashCode = h;
+    if (hashCode == 0) {
+      hashCode = computeHashCode();
     }
-    return h;
+    return hashCode;
   }
 
+  protected abstract int computeHashCode();
+
   @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (!(other instanceof PathFragment)) {
-      return false;
-    }
-    PathFragment otherPath = (PathFragment) other;
-    return isAbsolute == otherPath.isAbsolute &&
-        Arrays.equals(otherPath.segments, segments);
-  }
+  public abstract boolean equals(Object other);
 
   /**
    * Compares two PathFragments using the lexicographical order.
    */
   @Override
   public int compareTo(PathFragment p2) {
-    if (isAbsolute != p2.isAbsolute) {
-      return isAbsolute ? -1 : 1;
-    }
-    PathFragment p1 = this;
-    String[] segments1 = p1.segments;
-    String[] segments2 = p2.segments;
-    int len1 = segments1.length;
-    int len2 = segments2.length;
-    int n = Math.min(len1, len2);
-    for (int i = 0; i < n; i++) {
-      String segment1 = segments1[i];
-      String segment2 = segments2[i];
-      if (!segment1.equals(segment2)) {
-       return segment1.compareTo(segment2);
-      }
-    }
-    return len1 - len2;
+    return HELPER.compare(this, p2);
   }
 
   @Override

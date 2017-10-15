@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.truth.Truth;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -23,16 +23,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import javax.annotation.Nullable;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** TargetPatternEvaluator tests that require a custom filesystem. */
 @RunWith(JUnit4.class)
@@ -58,7 +55,7 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance(), new PathFragment(FS_ROOT)) {
+    return new InMemoryFileSystem(BlazeClock.instance(), PathFragment.create(FS_ROOT)) {
       @Override
       public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
         FileStatus defaultResult = super.stat(path, followSymlinks);

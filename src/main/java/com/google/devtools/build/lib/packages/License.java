@@ -289,6 +289,11 @@ public final class License {
     return exceptions;
   }
 
+  @SuppressWarnings("ReferenceEquality")
+  public boolean isSpecified() {
+    return this != License.NO_LICENSE;
+  }
+
   /**
    * A simple toString implementation which generates a canonical form of the
    * license. (The order of license types is guaranteed to be canonical by
@@ -310,10 +315,9 @@ public final class License {
    */
   @Override
   public boolean equals(Object o) {
-    return o == this ||
-        o instanceof License &&
-        ((License) o).licenseTypes.equals(this.licenseTypes) &&
-        ((License) o).exceptions.equals(this.exceptions);
+    return o == this || (o instanceof License
+        && ((License) o).licenseTypes.equals(this.licenseTypes)
+        && ((License) o).exceptions.equals(this.exceptions));
   }
 
   /**

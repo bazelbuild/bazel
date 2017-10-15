@@ -17,8 +17,8 @@ package com.google.devtools.build.java.bazel;
 import javax.tools.JavaCompiler;
 
 /**
- * Command line version of {@link BazelJavaCompiler}, interface-compatible
- * with the {@code javac} command, for use with {@code ant}, for example.
+ * Command line version of {@link BazelJavaCompiler}, interface-compatible with the {@code javac}
+ * command, for use with {@code ant}, for example.
  */
 public class BazelJavac {
   public static void main(String[] args) {

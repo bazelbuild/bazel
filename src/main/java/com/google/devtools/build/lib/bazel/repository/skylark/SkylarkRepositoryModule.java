@@ -18,10 +18,11 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -30,18 +31,20 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
-import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
-
 import java.util.Map;
 
 /**
@@ -89,6 +92,17 @@ public class SkylarkRepositoryModule {
                 + "reevaluated at every fetch.",
         named = true,
         positional = false
+      ),
+      @Param(
+        name = "environ",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "Provides a list of environment variable that this repository rule depends on. If"
+                + " an environment variable in that list change, the repository will be refetched.",
+        named = true,
+        positional = false
       )
     },
     useAst = true,
@@ -102,6 +116,7 @@ public class SkylarkRepositoryModule {
             BaseFunction implementation,
             Object attrs,
             Boolean local,
+            SkylarkList<String> environ,
             FuncallExpression ast,
             com.google.devtools.build.lib.syntax.Environment funcallEnv)
             throws EvalException {
@@ -110,16 +125,18 @@ public class SkylarkRepositoryModule {
           Builder builder = new Builder("", RuleClassType.WORKSPACE, true);
 
           builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
+          builder.addOrOverrideAttribute(attr("$environ", STRING_LIST)
+              .defaultValue(environ).build());
+          BaseRuleClasses.nameAttribute(builder);
           BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
           builder.add(attr("expect_failure", STRING));
           if (attrs != Runtime.NONE) {
             for (Map.Entry<String, Descriptor> attr :
                 castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
               Descriptor attrDescriptor = attr.getValue();
-              AttributeValueSource source = attrDescriptor.getAttributeBuilder().getValueSource();
+              AttributeValueSource source = attrDescriptor.getValueSource();
               String attrName = source.convertToNativeName(attr.getKey(), ast.getLocation());
-              Attribute.Builder<?> attrBuilder = attrDescriptor.getAttributeBuilder();
-              builder.addOrOverrideAttribute(attrBuilder.build(attrName));
+              builder.addOrOverrideAttribute(attrDescriptor.build(attrName));
             }
           }
           builder.setConfiguredTargetFunction(implementation);
@@ -141,7 +158,16 @@ public class SkylarkRepositoryModule {
     public Object call(
         Object[] args, FuncallExpression ast, com.google.devtools.build.lib.syntax.Environment env)
         throws EvalException, InterruptedException {
-      String ruleClassName = ast.getFunction().getName();
+      String ruleClassName = null;
+      Expression function = ast.getFunction();
+      if (function instanceof Identifier) {
+        ruleClassName = ((Identifier) function).getName();
+      } else if (function instanceof DotExpression) {
+        ruleClassName = ((DotExpression) function).getField().getName();
+      } else {
+        // TODO: Remove the wrong assumption that a  "function name" always exists and is relevant
+        throw new IllegalStateException("Function is not an identifier or method call");
+      }
       try {
         RuleClass ruleClass = builder.build(ruleClassName);
         PackageContext context = PackageFactory.getContext(env, ast);

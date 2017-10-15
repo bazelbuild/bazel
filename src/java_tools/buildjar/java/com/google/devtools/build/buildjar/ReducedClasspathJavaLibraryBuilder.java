@@ -14,14 +14,11 @@
 
 package com.google.devtools.build.buildjar;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
+import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
-
-import com.sun.tools.javac.main.Main.Result;
-
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.regex.Pattern;
 
 /**
  * A variant of SimpleJavaLibraryBuilder that attempts to reduce the compile-time classpath right
@@ -38,60 +35,64 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
    * regular compile.
    *
    * @param build A JavaLibraryBuildRequest request object describing what to compile
-   * @return result code of the javac compilation
    * @throws IOException clean-up up the output directory fails
    */
   @Override
-  Result compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner, PrintWriter err)
+  BlazeJavacResult compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner)
       throws IOException {
     // Minimize classpath, but only if we're actually compiling some sources (some invocations of
     // JavaBuilder are only building resource jars).
-    String compressedClasspath = build.getClassPath();
+    ImmutableList<String> compressedClasspath = build.getClassPath();
     if (!build.getSourceFiles().isEmpty()) {
       compressedClasspath =
           build.getDependencyModule().computeStrictClasspath(build.getClassPath());
     }
-    if (compressedClasspath.isEmpty()) {
-      // If the empty classpath is specified and javac is invoked programatically,
-      // javac falls back to using the host classpath. We don't want JavaBuilder
-      // to leak onto the compilation classpath, so we add the (hopefully empty)
-      // class output directory to prevent that from happening.
-      compressedClasspath = build.getClassDir();
-    }
-    String[] javacArguments = makeJavacArguments(build, compressedClasspath);
 
     // Compile!
-    StringWriter javacOutput = new StringWriter();
-    PrintWriter javacOutputWriter = new PrintWriter(javacOutput);
-    Result result = javacRunner.invokeJavac(build.getPlugins(), javacArguments, javacOutputWriter);
-    javacOutputWriter.close();
+    BlazeJavacResult result =
+        javacRunner.invokeJavac(build.toBlazeJavacArguments(compressedClasspath));
 
     // If javac errored out because of missing entries on the classpath, give it another try.
     // TODO(bazel-team): check performance impact of additional retries.
-    if (!result.isOK() && hasRecognizedError(javacOutput.toString())) {
-      if (debug) {
-        err.println("warning: [transitive] Target uses transitive classpath to compile.");
-      }
+    if (shouldFallBack(result)) {
+      // TODO(cushon): warn for transitive classpath fallback
 
       // Reset output directories
       prepareSourceCompilation(build);
 
       // Fall back to the regular compile, but add extra checks to catch transitive uses
-      javacArguments = makeJavacArguments(build);
-      result = javacRunner.invokeJavac(build.getPlugins(), javacArguments, err);
-    } else {
-      err.print(javacOutput.getBuffer());
+      result = javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
     }
     return result;
   }
 
-  private static final Pattern MISSING_PACKAGE =
-      Pattern.compile("error: package ([\\p{javaJavaIdentifierPart}\\.]+) does not exist");
-
-  private boolean hasRecognizedError(String javacOutput) {
-    return javacOutput.contains("error: cannot access")
-        || javacOutput.contains("error: cannot find symbol")
-        || javacOutput.contains("com.sun.tools.javac.code.Symbol$CompletionFailure")
-        || MISSING_PACKAGE.matcher(javacOutput).find();
+  private static boolean shouldFallBack(BlazeJavacResult result) {
+    if (result.isOk()) {
+      return false;
+    }
+    for (FormattedDiagnostic diagnostic : result.diagnostics()) {
+      String code = diagnostic.getCode();
+      if (code.contains("doesnt.exist")
+          || code.contains("cant.resolve")
+          || code.contains("cant.access")) {
+        return true;
+      }
+      // handle -Xdoclint:reference errors, which don't have a diagnostic code
+      // TODO(cushon): this is locale-dependent
+      if (diagnostic.getFormatted().contains("error: reference not found")) {
+        return true;
+      }
+      // Error Prone wraps completion failures
+      if (code.equals("compiler.err.error.prone.crash")
+          && diagnostic
+              .getFormatted()
+              .contains("com.sun.tools.javac.code.Symbol$CompletionFailure")) {
+        return true;
+      }
+    }
+    if (result.output().contains("com.sun.tools.javac.code.Symbol$CompletionFailure")) {
+      return true;
+    }
+    return false;
   }
 }

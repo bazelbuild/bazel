@@ -14,6 +14,8 @@
 #ifndef SRC_TOOLS_SINGLEJAR_TRANSIENT_BYTES_H_
 #define SRC_TOOLS_SINGLEJAR_TRANSIENT_BYTES_H_
 
+#define __STDC_FORMAT_MACROS 1
+
 #include <inttypes.h>
 #include <algorithm>
 #include <ostream>
@@ -136,7 +138,6 @@ class TransientBytes {
                 inflater->total_out() - old_total_out, out_bytes);
     }
     inflater->reset();
-    return;
   }
 
   // Writes the contents bytes to the given buffer in an optimal way, i.e., the

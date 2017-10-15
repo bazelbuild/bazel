@@ -13,17 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ResourceSet;
-
 import java.io.IOException;
-import java.util.Collection;
-
 import javax.annotation.Nullable;
 
 /**
@@ -45,11 +41,12 @@ public interface CppCompileActionContext extends ActionContext {
    * Does include scanning to find the list of files needed to execute the action.
    *
    * <p>Returns null if additional inputs will only be found during action execution, not before.
-   * </p>
    */
   @Nullable
-  public Collection<Artifact> findAdditionalInputs(CppCompileAction action,
-      ActionExecutionContext actionExecutionContext)
+  Iterable<Artifact> findAdditionalInputs(
+      CppCompileAction action,
+      ActionExecutionContext actionExecutionContext,
+      IncludeProcessing includeProcessing)
       throws ExecException, InterruptedException, ActionExecutionException;
 
   /**
@@ -57,23 +54,4 @@ public interface CppCompileActionContext extends ActionContext {
    */
   Reply execWithReply(CppCompileAction action,
       ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException;
-
-  /**
-   * Returns the executor reply from an exec exception, if available.
-   */
-  @Nullable Reply getReplyFromException(
-      ExecException e, CppCompileAction action);
-
-  /**
-   * Returns the estimated resource consumption of the action.
-   */
-  ResourceSet estimateResourceConsumption(CppCompileAction action);
-
-  /**
-   * Returns the include files that should be shipped to the executor in addition the ones that
-   * were declared.
-   */
-  Collection<Artifact> getScannedIncludeFiles(
-      CppCompileAction action, ActionExecutionContext actionExecutionContext)
-          throws ActionExecutionException, InterruptedException;
 }

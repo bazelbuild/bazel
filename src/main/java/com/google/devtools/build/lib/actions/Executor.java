@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsClassProvider;
 
@@ -36,14 +36,6 @@ import com.google.devtools.common.options.OptionsClassProvider;
  * they both provide services to actions being executed and are passed to almost the same places.
  */
 public interface Executor {
-  /**
-   * A marker interface for classes that provide services for actions during execution.
-   *
-   * <p>Interfaces extending this one should also be annotated with {@link ActionContextMarker}.
-   */
-  public interface ActionContext {
-  }
-
   /**
    * Returns the execution root. This is the directory underneath which Blaze builds its entire
    * output working tree, including the source symlink forest. All build actions are executed
@@ -78,12 +70,6 @@ public interface Executor {
    * subcommand string.
    */
   boolean reportsSubcommands();
-
-  /**
-   * Report a subcommand event to this Executor's Reporter and, if action
-   * logging is enabled, post it on its EventBus.
-   */
-  void reportSubcommand(String reason, String message);
 
   /**
    * An event listener to report messages to. Errors that signal a action failure should

@@ -21,7 +21,8 @@ import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
-import com.google.devtools.build.android.AndroidResourceClassWriter;
+import com.google.devtools.build.android.AndroidResourceSymbolSink;
+import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -29,7 +30,6 @@ import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Path;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -110,7 +110,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
 
   @Override
   public void write(
-      FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+      FullyQualifiedName key, DataSource source, AndroidDataWritingVisitor mergedDataWriter) {
     ValuesResourceDefinition definition =
         mergedDataWriter
             .define(key)
@@ -137,9 +137,8 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key,
-      AndroidResourceClassWriter resourceClassWriter) {
-    resourceClassWriter.writeStyleableResource(key, attrs);
+  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    sink.acceptStyleableResource(key, attrs);
   }
 
   @Override
@@ -215,5 +214,10 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
       }
     }
     return of(combined);
+  }
+
+  @Override
+  public String asConflictStringWith(DataSource source) {
+    return source.asConflictString();
   }
 }

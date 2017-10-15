@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Rule;
 
@@ -28,12 +31,15 @@ import com.google.devtools.build.lib.packages.Rule;
 @Immutable
 public final class LicensesProviderImpl implements LicensesProvider {
   public static final LicensesProvider EMPTY =
-      new LicensesProviderImpl(NestedSetBuilder.<TargetLicense>emptySet(Order.LINK_ORDER));
+      new LicensesProviderImpl(NestedSetBuilder.<TargetLicense>emptySet(Order.LINK_ORDER), null);
 
   private final NestedSet<TargetLicense> transitiveLicenses;
+  private final TargetLicense outputLicenses;
 
-  public LicensesProviderImpl(NestedSet<TargetLicense> transitiveLicenses) {
+  public LicensesProviderImpl(
+      NestedSet<TargetLicense> transitiveLicenses, TargetLicense outputLicenses) {
     this.transitiveLicenses = transitiveLicenses;
+    this.outputLicenses = outputLicenses;
   }
 
   /**
@@ -47,29 +53,59 @@ public final class LicensesProviderImpl implements LicensesProvider {
     NestedSetBuilder<TargetLicense> builder = NestedSetBuilder.linkOrder();
     BuildConfiguration configuration = ruleContext.getConfiguration();
     Rule rule = ruleContext.getRule();
-    License toolOutputLicense = rule.getToolOutputLicense(ruleContext.attributes());
+    AttributeMap attributes = ruleContext.attributes();
+    License toolOutputLicense = rule.getToolOutputLicense(attributes);
+    TargetLicense outputLicenses =
+        toolOutputLicense == null ? null : new TargetLicense(rule.getLabel(), toolOutputLicense);
+
     if (configuration.isHostConfiguration() && toolOutputLicense != null) {
       if (toolOutputLicense != License.NO_LICENSE) {
-        builder.add(new TargetLicense(rule.getLabel(), toolOutputLicense));
+        builder.add(outputLicenses);
       }
     } else {
       if (rule.getLicense() != License.NO_LICENSE) {
         builder.add(new TargetLicense(rule.getLabel(), rule.getLicense()));
       }
 
-      for (TransitiveInfoCollection dep : ruleContext.getConfiguredTargetMap().values()) {
-        LicensesProvider provider = dep.getProvider(LicensesProvider.class);
-        if (provider != null) {
-          builder.addTransitive(provider.getTransitiveLicenses());
+      ListMultimap<String, ? extends TransitiveInfoCollection> configuredMap =
+          ruleContext.getConfiguredTargetMap();
+
+      for (String depAttrName : attributes.getAttributeNames()) {
+        // Only add the transitive licenses for the attributes that do not have the output_licenses.
+        Attribute attribute = attributes.getAttributeDefinition(depAttrName);
+        for (TransitiveInfoCollection dep : configuredMap.get(depAttrName)) {
+          LicensesProvider provider = dep.getProvider(LicensesProvider.class);
+          if (provider == null) {
+            continue;
+          }
+          if (useOutputLicenses(attribute, configuration) && provider.hasOutputLicenses()) {
+              builder.add(provider.getOutputLicenses());
+          } else {
+            builder.addTransitive(provider.getTransitiveLicenses());
+          }
         }
       }
     }
 
-    return new LicensesProviderImpl(builder.build());
+    return new LicensesProviderImpl(builder.build(), outputLicenses);
+  }
+
+  private static boolean useOutputLicenses(Attribute attribute, BuildConfiguration configuration) {
+    return configuration.isHostConfiguration() || attribute.useOutputLicenses();
   }
 
   @Override
   public NestedSet<TargetLicense> getTransitiveLicenses() {
     return transitiveLicenses;
+  }
+
+  @Override
+  public TargetLicense getOutputLicenses() {
+    return outputLicenses;
+  }
+
+  @Override
+  public boolean hasOutputLicenses() {
+    return outputLicenses != null;
   }
 }

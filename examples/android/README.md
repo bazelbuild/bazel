@@ -5,22 +5,20 @@ android_sdk_repository(
     name="androidsdk",
     path="<full path to your Android SDK>",
     api_level=<api level>,
-    build_tools_version="<build tools version>")
+)
 
 android_ndk_repository(
     name="androidndk",
     path="<path to your Android NDK>",
-    api_level=<api_level>)
+    api_level=<api_level>,
+)
 ```
-For the `android_sdk_repository` rule, the values of the `api_level` and
-`build_tools_version` attributes correspond, respectively, to directories
-containing specific versions of the `android.jar` file and build tools. For
-example, if `path=/Users/xyzzy/Library/Android/sdk`,
-`api_level=21`, and `build_tools_version="21.1.1"` (note that
-quotes are required in the second case), then your SDK must contain the
-directories
-`/Users/xyzzy/Library/Android/sdk/platforms/android-21` and
-`/Users/xyzzy/Library/Android/sdk/build-tools/21.1.1`.
+
+For the `android_sdk_repository` rule, the value of `api_level` corresponds to
+a directory in the SDK containing the specific version of `android.jar` to
+compile against. For example, if `path = "/Users/xyzzy/Library/Android/sdk"` and
+`api_level = 21`, then the directory
+`/Users/xyzzy/Library/Android/sdk/platforms/android-21` must exist.
 
 Similarly, for the `android_ndk_repository` rule, the value of the `api_level`
 attribute corresponds to a directory containing the NDK libraries for that
@@ -29,16 +27,16 @@ API level. For example, if
 `api_level=21`, then you your NDK must contain the directory
 `/Users/xyzzy/Library/Android/android-ndk-r10e/platforms/android-21`.
 
+The example `android_binary` depends on
+`@androidsdk//com.android.support:appcompat-v7-25.0.0`, so you will need to
+install the Google Support Libraries version 25.0.0 from the Android SDK
+Manager.
+
 The following command can be used to build the example app:
 
 ```
 bazel build //examples/android/java/bazel:hello_world
 ```
-
-Yes, we know that this is a little clunky. We are working on the following things (and more):
-
- * Supporting other architectures than `armeabi-v7a` and compilers other than GCC 4.9
- * Eliminating the big ugly deprecation message from the console output of Bazel
 
 We also have a nice way to speed up the edit-compile-install development cycle for physical Android devices and emulators: Bazel knows what code changed since the last build, and can use this knowledge to install only the changed code to the device. This currently works with L devices and changes to Java code and Android resources. To try this out, take an `android_binary` rule and:
 

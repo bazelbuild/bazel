@@ -14,12 +14,9 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.Variable.SkylarkVariable;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-
+import com.google.devtools.build.lib.util.SpellChecker;
+import java.io.IOException;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 // TODO(bazel-team): for extra performance:
@@ -30,7 +27,11 @@ import javax.annotation.Nullable;
 // into array reference with a constant index. Variable lookups are currently a speed bottleneck,
 // as previously measured in an experiment.
 /**
- *  Syntax node for an identifier.
+ * Syntax node for an identifier.
+ *
+ * Unlike most {@link ASTNode} subclasses, this one supports {@link Object#equals} and {@link
+ * Object#hashCode} (but note that these methods ignore location information). They are needed
+ * because {@code Identifier}s are stored in maps when constructing {@link LoadStatement}.
  */
 public final class Identifier extends Expression {
 
@@ -52,8 +53,8 @@ public final class Identifier extends Expression {
   }
 
   @Override
-  public String toString() {
-    return name;
+  public void prettyPrint(Appendable buffer) throws IOException {
+    buffer.append(name);
   }
 
   @Override
@@ -74,7 +75,7 @@ public final class Identifier extends Expression {
   Object doEval(Environment env) throws EvalException {
     Object value = env.lookup(name);
     if (value == null) {
-      throw createInvalidIdentifierException();
+      throw createInvalidIdentifierException(env.getVariableNames());
     }
     return value;
   }
@@ -85,21 +86,15 @@ public final class Identifier extends Expression {
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    if (!env.hasSymbolInEnvironment(name)) {
-      throw createInvalidIdentifierException();
+  public Kind kind() {
+    return Kind.IDENTIFIER;
+  }
+
+  EvalException createInvalidIdentifierException(Set<String> symbols) {
+    if (name.equals("$error$")) {
+      return new EvalException(getLocation(), "contains syntax error(s)", true);
     }
-  }
-
-  private EvalException createInvalidIdentifierException() {
-    return name.equals("$error$")
-        ? new EvalException(getLocation(), "contains syntax error(s)", true)
-        : new EvalException(getLocation(), "name '" + name + "' is not defined");
-  }
-
-  @Override
-  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) {
-    SkylarkVariable variable = scope.getVariable(this);
-    return variable.load(scope, debugInfo.add(this));
+    String suggestion = SpellChecker.didYouMean(name, symbols);
+    return new EvalException(getLocation(), "name '" + name + "' is not defined" + suggestion);
   }
 }

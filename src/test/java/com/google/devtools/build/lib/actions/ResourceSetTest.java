@@ -13,13 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.ResourceSet.ResourceSetConverter;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,10 +39,10 @@ public class ResourceSetTest {
   @Test
   public void testConverterParsesExpectedFormat() throws Exception {
     ResourceSet resources = converter.convert("1,0.5,2");
-    assertEquals(1.0, resources.getMemoryMb(), 0.01);
-    assertEquals(0.5, resources.getCpuUsage(), 0.01);
-    assertEquals(2.0, resources.getIoUsage(), 0.01);
-    assertEquals(Integer.MAX_VALUE, resources.getLocalTestCount());
+    assertThat(resources.getMemoryMb()).isWithin(0.01).of(1.0);
+    assertThat(resources.getCpuUsage()).isWithin(0.01).of(0.5);
+    assertThat(resources.getIoUsage()).isWithin(0.01).of(2.0);
+    assertThat(resources.getLocalTestCount()).isEqualTo(Integer.MAX_VALUE);
   }
 
   @Test(expected = OptionsParsingException.class)

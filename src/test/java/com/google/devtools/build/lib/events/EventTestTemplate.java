@@ -29,7 +29,7 @@ public abstract class EventTestTemplate {
   @Before
   public final void createLocations() throws Exception  {
     String message = "This is not an error message.";
-    path = new PathFragment("/path/to/workspace/my/sample/path.txt");
+    path = PathFragment.create("/path/to/workspace/my/sample/path.txt");
 
     location = Location.fromPathAndStartColumn(path, 21, 31, new LineAndColumn(3, 4));
 

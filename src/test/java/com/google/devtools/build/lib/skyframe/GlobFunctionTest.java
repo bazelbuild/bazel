@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Functions;
@@ -33,6 +31,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -136,7 +135,10 @@ public abstract class GlobFunctionTest {
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
-        new PackageLookupFunction(deletedPackages, CrossRepositoryLabelViolationStrategy.ERROR));
+        new PackageLookupFunction(
+            deletedPackages,
+            CrossRepositoryLabelViolationStrategy.ERROR,
+            ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD)));
     skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction());
     skyFunctions.put(
@@ -144,6 +146,11 @@ public abstract class GlobFunctionTest {
         new FileStateFunction(
             new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper));
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
+    skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
+    skyFunctions.put(
+        SkyFunctions.DIRECTORY_LISTING_STATE,
+        new DirectoryListingStateFunction(externalFilesHelper));
+    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     return skyFunctions;
   }
 
@@ -324,21 +331,9 @@ public abstract class GlobFunctionTest {
   private void assertGlobsEqual(String pattern1, String pattern2) throws Exception {
     GlobValue value1 = runGlob(false, pattern1);
     GlobValue value2 = runGlob(false, pattern2);
-    assertEquals(
-        "GlobValues "
-            + value1.getMatches()
-            + " and "
-            + value2.getMatches()
-            + " should be equal. "
-            + "Patterns: "
-            + pattern1
-            + ","
-            + pattern2,
-        value1,
-        value2);
-    // Just to be paranoid:
-    assertEquals(value1, value1);
-    assertEquals(value2, value2);
+    new EqualsTester()
+        .addEqualityGroup(value1, value2)
+        .testEquals();
   }
 
   private GlobValue runGlob(boolean excludeDirs, String pattern) throws Exception {
@@ -398,9 +393,6 @@ public abstract class GlobFunctionTest {
 
   @Test
   public void testIllegalPatterns() throws Exception {
-    assertIllegalPattern("(illegal) pattern");
-    assertIllegalPattern("[illegal pattern");
-    assertIllegalPattern("}illegal pattern");
     assertIllegalPattern("foo**bar");
     assertIllegalPattern("?");
     assertIllegalPattern("");
@@ -449,7 +441,7 @@ public abstract class GlobFunctionTest {
 
   @Test
   public void testMatchesCallWithNoCache() {
-    assertTrue(UnixGlob.matches("*a*b", "CaCb", null));
+    assertThat(UnixGlob.matches("*a*b", "CaCb", null)).isTrue();
   }
 
   @Test
@@ -577,10 +569,10 @@ public abstract class GlobFunctionTest {
             false,
             SkyframeExecutor.DEFAULT_THREAD_COUNT,
             NullEventHandler.INSTANCE);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
-    assertThat(errorInfo.getException().getMessage()).contains(expectedMessage);
+    assertThat(errorInfo.getException()).hasMessageThat().contains(expectedMessage);
   }
 
   @Test
@@ -604,10 +596,10 @@ public abstract class GlobFunctionTest {
             false,
             SkyframeExecutor.DEFAULT_THREAD_COUNT,
             NullEventHandler.INSTANCE);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
-    assertThat(errorInfo.getException().getMessage()).contains(expectedMessage);
+    assertThat(errorInfo.getException()).hasMessageThat().contains(expectedMessage);
   }
 
   @Test
@@ -677,10 +669,10 @@ public abstract class GlobFunctionTest {
             false,
             SkyframeExecutor.DEFAULT_THREAD_COUNT,
             NullEventHandler.INSTANCE);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
-    assertThat(errorInfo.getException().getMessage()).contains(expectedMessage);
+    assertThat(errorInfo.getException()).hasMessageThat().contains(expectedMessage);
   }
 
   @Test
@@ -692,7 +684,7 @@ public abstract class GlobFunctionTest {
     assertGlobMatches("symlinks/*.txt", "symlinks/existing.txt");
   }
 
-  private class CustomInMemoryFs extends InMemoryFileSystem {
+  private static final class CustomInMemoryFs extends InMemoryFileSystem {
 
     private Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
 

@@ -29,18 +29,22 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 
 /**
- * A class for the Skylark native module.
+ * A class for the Skylark native module. TODO(laurentlb): Some definitions are duplicated from
+ * PackageFactory.
  */
-@SkylarkModule(name = "native", namespace = true,
-    title = "Native Module",
-    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
-    doc =
-    "A built-in module to support native rules and other package helper functions. "
-    + "All native rules appear as functions in this module, e.g. <code>native.cc_library</code>. "
-    + "Note that the native module is only available in the loading phase "
-    + "(i.e. for macros, not for rule implementations). Attributes will ignore <code>None</code> "
-    + "values, and treat them as if the attribute was unset.<br>"
-    + "The following functions are also available:")
+@SkylarkModule(
+  name = "native",
+  namespace = true,
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "A built-in module to support native rules and other package helper functions. "
+          + "All native rules appear as functions in this module, e.g. "
+          + "<code>native.cc_library</code>. "
+          + "Note that the native module is only available in the loading phase "
+          + "(i.e. for macros, not for rule implementations). Attributes will ignore "
+          + "<code>None</code> values, and treat them as if the attribute was unset.<br>"
+          + "The following functions are also available:"
+)
 public class SkylarkNativeModule {
 
   @SkylarkSignature(
@@ -49,11 +53,11 @@ public class SkylarkNativeModule {
     returnType = SkylarkList.class,
     doc =
         "Glob returns a list of every file in the current package that:<ul>\n"
-        + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
-        + "<li>Does not match any of the patterns in <code>exclude</code> "
-        + "(default <code>[]</code>).</li></ul>\n"
-        + "If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>),"
-        + " files of type directory will be omitted from the results (default <code>1</code>).",
+            + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
+            + "<li>Does not match any of the patterns in <code>exclude</code> "
+            + "(default <code>[]</code>).</li></ul>\n"
+            + "If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>),"
+            + " files of type directory will be omitted from the results (default <code>1</code>).",
     parameters = {
       @Param(
         name = "include",
@@ -90,8 +94,7 @@ public class SkylarkNativeModule {
             Environment env)
             throws EvalException, ConversionException, InterruptedException {
           env.checkLoadingPhase("native.glob", ast.getLocation());
-          return PackageFactory.callGlob(
-              null, false, include, exclude, excludeDirectories != 0, ast, env);
+          return PackageFactory.callGlob(null, include, exclude, excludeDirectories != 0, ast, env);
         }
       };
 
@@ -193,6 +196,47 @@ public class SkylarkNativeModule {
         return PackageFactory.callExportsFiles(srcs, visibility, licenses, ast, env);
       }
     };
+
+  @SkylarkSignature(
+    name = "package_name",
+    objectType = SkylarkNativeModule.class,
+    returnType = String.class,
+    doc =
+        "The name of the package being evaluated. "
+            + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
+            + "will be <code>some/package</code>. "
+            + "If the BUILD file calls a function defined in a .bzl file, "
+            + "<code>package_name()</code> will match the caller BUILD file package. "
+            + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
+    parameters = {},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction packageName =
+      new BuiltinFunction("package_name") {
+        public String invoke(Environment env) throws EvalException, ConversionException {
+          return (String) env.lookup("PACKAGE_NAME");
+        }
+      };
+
+  @SkylarkSignature(
+    name = "repository_name",
+    objectType = SkylarkNativeModule.class,
+    returnType = String.class,
+    doc =
+        "The name of the repository the rule or build extension is called from. "
+            + "For example, in packages that are called into existence by the WORKSPACE stanza "
+            + "<code>local_repository(name='local', path=...)</code> it will be set to "
+            + "<code>@local</code>. In packages in the main repository, it will be empty. This "
+            + "function is equivalent to the deprecated variable <code>REPOSITORY_NAME</code>.",
+    parameters = {},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction repositoryName =
+      new BuiltinFunction("repository_name") {
+        public String invoke(Environment env) throws EvalException, ConversionException {
+          return (String) env.lookup("REPOSITORY_NAME");
+        }
+      };
 
   public static final SkylarkNativeModule NATIVE_MODULE = new SkylarkNativeModule();
 

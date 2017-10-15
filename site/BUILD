@@ -1,12 +1,24 @@
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 exports_files(
     [
-        "versions/master/docs/bazel-user-manual.html",
+        "docs/user-manual.html",
         "command-line-reference-prefix.html",
         "command-line-reference-suffix.html",
     ],
 )
+
+exports_files(
+    [
+        "images/favicon.ico",
+    ],
+    visibility = ["//src/main/native/windows:__pkg__"],
+)
+
+DOT_GRAPH_HTML_FILES = [
+    "docs/query.html",
+    "docs/build-ref.html",
+]
 
 filegroup(
     name = "srcs",
@@ -25,47 +37,47 @@ filegroup(
             "command-line-reference-prefix.html",
             "command-line-reference-suffix.html",
             "site/README.md",
-        ],
+        ] + DOT_GRAPH_HTML_FILES,
     ),
 )
 
 pkg_tar(
     name = "jekyll-files",
-    files = [":jekyll-srcs"],
+    srcs = [":jekyll-srcs"],
     strip_prefix = ".",
 )
 
 pkg_tar(
     name = "bootstrap-css",
-    files = ["//third_party/css/bootstrap:bootstrap_css"],
+    srcs = ["//third_party/css/bootstrap:bootstrap_css"],
     package_dir = "assets",
     strip_prefix = "/third_party/css/bootstrap",
 )
 
 pkg_tar(
     name = "bootstrap-images",
-    files = ["//third_party/css/bootstrap:bootstrap_images"],
+    srcs = ["//third_party/css/bootstrap:bootstrap_images"],
     package_dir = "assets",
     strip_prefix = "/third_party/css/bootstrap",
 )
 
 pkg_tar(
     name = "font-awesome-css",
-    files = ["//third_party/css/font_awesome:font_awesome_css"],
+    srcs = ["//third_party/css/font_awesome:font_awesome_css"],
     package_dir = "assets",
     strip_prefix = "/third_party/css/font_awesome",
 )
 
 pkg_tar(
     name = "font-awesome-font",
-    files = ["//third_party/css/font_awesome:font_awesome_font"],
+    srcs = ["//third_party/css/font_awesome:font_awesome_font"],
     package_dir = "assets",
     strip_prefix = "/third_party/css/font_awesome",
 )
 
 pkg_tar(
     name = "bootstrap-js",
-    files = ["//third_party/javascript/bootstrap:bootstrap_js"],
+    srcs = ["//third_party/javascript/bootstrap:bootstrap_js"],
     package_dir = "assets",
     strip_prefix = "/third_party/javascript/bootstrap",
 )
@@ -76,6 +88,7 @@ pkg_tar(
         ":bootstrap-css",
         ":bootstrap-images",
         ":bootstrap-js",
+        ":dot-graphs",
         ":font-awesome-css",
         ":font-awesome-font",
         ":jekyll-files",
@@ -84,11 +97,32 @@ pkg_tar(
 
 pkg_tar(
     name = "skylark-rule-docs",
-    files = [
+    srcs = [
         "//tools/build_defs/docker:README.md",
         "//tools/build_defs/pkg:README.md",
     ],
     strip_prefix = "/tools/build_defs",
+)
+
+genrule(
+    name = "dot-graphs",
+    srcs = DOT_GRAPH_HTML_FILES,
+    outs = ["dot.tar"],
+    cmd = """
+origdir=$$PWD
+tmpdir=$$(mktemp -d)
+for f in $(SRCS); do
+    mkdir -p $$tmpdir/$$(dirname $$f)
+    if which dot > /dev/null; then
+      $(location //scripts/docs:generate_dot_graphs) < $$f > $$tmpdir/$$f
+    else
+      cp $$f $$tmpdir/$$f
+    fi
+done
+cd $$tmpdir/site
+tar cf $$origdir/$@ *
+""",
+    tools = ["//scripts/docs:generate_dot_graphs"],
 )
 
 genrule(

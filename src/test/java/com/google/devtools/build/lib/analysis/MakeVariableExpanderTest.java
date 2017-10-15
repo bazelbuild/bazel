@@ -14,16 +14,14 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Unit tests for the {@link MakeVariableExpander}, which expands variable references of the form
@@ -58,7 +56,7 @@ public class MakeVariableExpanderTest {
 
   private void assertExpansionEquals(String expected, String cmd)
       throws MakeVariableExpander.ExpansionException {
-    assertEquals(expected, MakeVariableExpander.expand(cmd, context));
+    assertThat(MakeVariableExpander.expand(cmd, context)).isEqualTo(expected);
   }
 
   private void assertExpansionFails(String expectedErrorSuffix, String cmd) {

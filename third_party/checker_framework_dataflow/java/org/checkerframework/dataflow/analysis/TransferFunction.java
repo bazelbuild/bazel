@@ -41,7 +41,7 @@ public interface TransferFunction<A extends AbstractValue<A>, S extends Store<S>
         extends NodeVisitor<TransferResult<A, S>, TransferInput<A, S>> {
 
     /**
-     * @return the initial store to be used by the org.checkerframework.dataflow analysis.
+     * @return The initial store to be used by the org.checkerframework.dataflow analysis.
      *         {@code parameters} is only set if the underlying AST is a method.
      */
     S initialStore(UnderlyingAST underlyingAST,

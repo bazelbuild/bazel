@@ -15,54 +15,39 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * This runner runs process-wrapper inside a sandboxed execution root, which should work on most
  * platforms and gives at least some isolation between running actions.
  */
-final class ProcessWrapperRunner extends SandboxRunner {
-  private final Path execRoot;
-  private final Path sandboxExecRoot;
+final class ProcessWrapperRunner {
+  private static final String PROCESS_WRAPPER = "process-wrapper" + OsUtils.executableExtension();
 
-  ProcessWrapperRunner(
-      Path execRoot, Path sandboxPath, Path sandboxExecRoot, boolean verboseFailures) {
-    super(sandboxExecRoot, verboseFailures);
-    this.execRoot = execRoot;
-    this.sandboxExecRoot = sandboxExecRoot;
+  static boolean isSupported(CommandEnvironment cmdEnv) {
+    // We can only use this runner, if the process-wrapper exists in the embedded tools.
+    // This might not always be the case, e.g. while bootstrapping.
+    return getProcessWrapper(cmdEnv) != null;
   }
 
-  static boolean isSupported(CommandEnvironment commandEnv) {
-    PathFragment embeddedTool =
-        commandEnv
-            .getBlazeWorkspace()
-            .getBinTools()
-            .getExecPath("process-wrapper" + OsUtils.executableExtension());
-    if (embeddedTool == null) {
-      // The embedded tool does not exist, meaning that we don't support sandboxing (e.g., while
-      // bootstrapping).
-      return false;
-    }
-    return true;
+  /** Returns the PathFragment of the process wrapper binary, or null if it doesn't exist. */
+  static Path getProcessWrapper(CommandEnvironment cmdEnv) {
+    PathFragment execPath = cmdEnv.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER);
+    return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
-  @Override
-  protected Command getCommand(
-      List<String> spawnArguments, Map<String, String> env, int timeout, boolean allowNetwork) {
+  static List<String> getCommandLine(
+      Path processWrapper, List<String> spawnArguments, Duration timeout, int timeoutGraceSeconds) {
     List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
-    commandLineArgs.add(execRoot.getRelative("_bin/process-wrapper").getPathString());
-    commandLineArgs.add(Integer.toString(timeout));
-    commandLineArgs.add("5"); /* kill delay: give some time to print stacktraces and whatnot. */
-    commandLineArgs.add("-"); /* stdout. */
-    commandLineArgs.add("-"); /* stderr. */
+    commandLineArgs.add(processWrapper.getPathString());
+    commandLineArgs.add("--timeout=" + timeout.getSeconds());
+    commandLineArgs.add("--kill_delay=" + timeoutGraceSeconds);
     commandLineArgs.addAll(spawnArguments);
-
-    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
+    return commandLineArgs;
   }
 }

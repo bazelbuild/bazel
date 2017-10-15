@@ -38,22 +38,19 @@ public class JavaImportBaseRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
-        .add(attr(":host_jdk", LABEL)
-            .cfg(HOST)
-            .value(JavaSemantics.HOST_JDK))
+        .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.hostJdkAttribute(environment)))
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(jars) -->
         The list of JAR files provided to Java targets that depend on this target.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("jars", LABEL_LIST)
-            .mandatory()
-            .allowedFileTypes(JavaSemantics.JAR))
+        .add(attr("jars", LABEL_LIST).mandatory().allowedFileTypes(JavaSemantics.JAR))
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(srcjar) -->
         A JAR file that contains source code for the compiled JAR files.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("srcjar", LABEL)
-            .allowedFileTypes(JavaSemantics.SOURCE_JAR, JavaSemantics.JAR)
-            .direct_compile_time_input())
-        .removeAttribute("deps")  // only exports are allowed; nothing is compiled
+        .add(
+            attr("srcjar", LABEL)
+                .allowedFileTypes(JavaSemantics.SOURCE_JAR, JavaSemantics.JAR)
+                .direct_compile_time_input())
+        .removeAttribute("deps") // only exports are allowed; nothing is compiled
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(neverlink) -->
         Only use this library for compilation and not at runtime.
         Useful if the library will be provided by the runtime environment
@@ -65,9 +62,11 @@ public class JavaImportBaseRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(constraints) -->
         Extra constraints imposed on this rule as a Java library.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("constraints", STRING_LIST)
-            .orderIndependent()
-            .nonconfigurable("used in Attribute.validityPredicate implementations (loading time)"))
+        .add(
+            attr("constraints", STRING_LIST)
+                .orderIndependent()
+                .nonconfigurable(
+                    "used in Attribute.validityPredicate implementations (loading time)"))
         .advertiseProvider(JavaSourceInfoProvider.class)
         .advertiseProvider(JavaCompilationArgsProvider.class)
         .build();

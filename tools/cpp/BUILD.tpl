@@ -24,8 +24,9 @@ filegroup(
 cc_toolchain_suite(
     name = "toolchain",
     toolchains = {
-        "%{name}|compiler": ":cc-compiler-%{name}",
+        "%{name}|%{compiler}": ":cc-compiler-%{name}",
         "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
+        "ios_x86_64|compiler": ":cc-compiler-ios_x86_64",
     },
 )
 
@@ -33,7 +34,7 @@ cc_toolchain(
     name = "cc-compiler-%{name}",
     all_files = "%{cc_compiler_deps}",
     compiler_files = "%{cc_compiler_deps}",
-    cpu = "local",
+    cpu = "%{name}",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
     linker_files = "%{cc_compiler_deps}",
@@ -58,3 +59,34 @@ cc_toolchain(
     strip_files = ":empty",
     supports_param_files = 1,
 )
+
+# ios crosstool configuration requires a default toolchain for the
+# ios_x86_64 cpu.
+cc_toolchain(
+    name = "cc-compiler-ios_x86_64",
+    all_files = ":empty",
+    compiler_files = ":empty",
+    cpu = "local",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+    supports_param_files = 1,
+)
+
+toolchain_type(name = "toolchain_type")
+
+# A dummy toolchain is necessary to satisfy toolchain resolution until platforms
+# are used in c++ by default.
+# TODO(b/64754003): Remove once platforms are used in c++ by default.
+toolchain(
+    name = "dummy_cc_toolchain",
+    toolchain = "dummy_cc_toolchain_impl",
+    toolchain_type = ":toolchain_type",
+)
+
+load(":dummy_toolchain.bzl", "dummy_toolchain")
+
+dummy_toolchain(name = "dummy_cc_toolchain_impl")

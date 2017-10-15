@@ -14,59 +14,24 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
-
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Implementation for {@code objc_library}.
  */
 public class ObjcLibrary implements RuleConfiguredTargetFactory {
-
-  /**
-   * A {@link CcLinkParamsStore} to be propagated to dependent cc_{library, binary} targets.
-   */
-  private static class ObjcLibraryCcLinkParamsStore extends CcLinkParamsStore {
-
-    private final ObjcCommon common;
-
-    public ObjcLibraryCcLinkParamsStore(ObjcCommon common) {
-      this.common = common;
-    }
-
-    @Override
-    protected void collect(
-        CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-      ObjcProvider objcProvider = common.getObjcProvider();
-
-      ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
-      for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY)) {
-        libraries.add(LinkerInputs.opaqueLibraryToLink(
-            library, ArtifactCategory.STATIC_LIBRARY,
-            FileSystemUtils.removeExtension(library.getRootRelativePathString())));
-      }
-
-      libraries.addAll(objcProvider.get(ObjcProvider.CC_LIBRARY));
-
-      builder.addLibraries(libraries.build());
-    }
-  }
 
   /**
    * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule context.
@@ -81,9 +46,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
         .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
         .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .addNonPropagatedDepObjcProviders(
-            ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
+            ruleContext.getPrerequisites(
+                "non_propagated_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .setHasModuleMap()
@@ -93,55 +59,55 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    // Support treating objc_library as experimental_objc_library
-    if (ruleContext.getFragment(ObjcConfiguration.class).useExperimentalObjcLibrary()) {
-      return ExperimentalObjcLibrary.configureExperimentalObjcLibrary(ruleContext);
-    }
-    
+    validateAttributes(ruleContext);
+
     ObjcCommon common = common(ruleContext);
 
-    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(common.getCompiledArchive().asSet());
 
+    Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     CompilationSupport compilationSupport =
-        new CompilationSupport(ruleContext)
-            .registerCompileAndArchiveActions(common)
-            .registerFullyLinkAction(common.getObjcProvider(),
-                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
-            .addXcodeSettings(xcodeProviderBuilder, common)
-            .validateAttributes();
+        new CompilationSupport.Builder()
+            .setRuleContext(ruleContext)
+            .setOutputGroupCollector(outputGroupCollector)
+            .setIsObjcLibrary()
+            .build();
 
-    new ResourceSupport(ruleContext)
-        .validateAttributes()
-        .addXcodeSettings(xcodeProviderBuilder);
+    compilationSupport
+        .registerCompileAndArchiveActions(common)
+        .registerFullyLinkAction(
+            common.getObjcProvider(),
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
+        .validateAttributes();
 
-    new XcodeSupport(ruleContext)
-        .addFilesToBuild(filesToBuild)
-        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
-        .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
-        .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
-        .addNonPropagatedDependencies(
-            xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
-        .registerActions(xcodeProviderBuilder.build());
+    new ResourceSupport(ruleContext).validateAttributes();
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
-        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
-        .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
-            J2ObjcEntryClassProvider.class)).build();
+      .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
+          J2ObjcEntryClassProvider.class)).build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
-        .addProvider(ObjcProvider.class, common.getObjcProvider())
+        .addNativeDeclaredProvider(common.getObjcProvider())
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addProvider(
             InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(common))
-        .addProvider(
-            CcLinkParamsProvider.class,
-            new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
+        .addNativeDeclaredProvider(
+            new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)))
+        .addOutputGroups(outputGroupCollector)
         .build();
+  }
+
+  /** Throws errors or warnings for bad attribute state. */
+  private static void validateAttributes(RuleContext ruleContext) {
+    for (String copt : ObjcCommon.getNonCrosstoolCopts(ruleContext)) {
+      if (copt.contains("-fmodules-cache-path")) {
+        ruleContext.ruleWarning(CompilationSupport.MODULES_CACHE_PATH_WARNING);
+      }
+    }
   }
 }

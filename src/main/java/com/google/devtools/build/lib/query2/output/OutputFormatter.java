@@ -13,29 +13,42 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
+import static java.util.Comparator.comparingInt;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.License;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.AggregatingQueryExpressionVisitor.ContainsFunctionQueryExpressionVisitor;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionVisitor;
+import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.EnumConverter;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -46,6 +59,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +75,7 @@ public abstract class OutputFormatter implements Serializable {
   /**
    * Discriminator for different kinds of OutputFormatter.
    */
-  public enum Type {
+  public enum OutputType {
     LABEL,
     LABEL_KIND,
     BUILD,
@@ -84,19 +98,13 @@ public abstract class OutputFormatter implements Serializable {
     DEFAULT   // Rule class default
   }
 
-  public static final Function<Node<Target>, Target> EXTRACT_NODE_LABEL =
-      new Function<Node<Target>, Target>() {
-        @Override
-        public Target apply(Node<Target> input) {
-          return input.getLabel();
-        }
-      };
+  public static final Function<Node<Target>, Target> EXTRACT_NODE_LABEL = Node::getLabel;
 
   /**
-   * Converter from strings to OutputFormatter.Type.
+   * Converter from strings to OutputFormatter.OutputType.
    */
-  public static class Converter extends EnumConverter<Type> {
-    public Converter() { super(Type.class, "output formatter"); }
+  public static class Converter extends EnumConverter<OutputType> {
+    public Converter() { super(OutputType.class, "output formatter"); }
   }
 
   public static ImmutableList<OutputFormatter> getDefaultFormatters() {
@@ -114,13 +122,7 @@ public abstract class OutputFormatter implements Serializable {
   }
 
   public static String formatterNames(Iterable<OutputFormatter> formatters) {
-    return Joiner.on(", ").join(Iterables.transform(formatters,
-        new Function<OutputFormatter, String>() {
-          @Override
-          public String apply(OutputFormatter input) {
-            return input.getName();
-          }
-    }));
+    return Streams.stream(formatters).map(OutputFormatter::getName).collect(joining(", "));
   }
 
   /**
@@ -151,6 +153,10 @@ public abstract class OutputFormatter implements Serializable {
             : DependencyFilter.NO_IMPLICIT_DEPS);
   }
 
+  public void verifyCompatible(QueryEnvironment<?> env, QueryExpression expr)
+      throws QueryException {
+  }
+
   /**
    * Format the result (a set of target nodes implicitly ordered according to
    * the graph maintained by the QueryEnvironment), and print it to "out".
@@ -175,15 +181,16 @@ public abstract class OutputFormatter implements Serializable {
     void setOptions(QueryOptions options, AspectResolver aspectResolver);
 
     /**
-     * Returns a {@link OutputFormatterCallback} whose {@link OutputFormatterCallback#process}
-     * outputs formatted {@link Target}s to the given {@code out}.
+     * Returns a {@link ThreadSafeOutputFormatterCallback} whose
+     * {@link OutputFormatterCallback#process} outputs formatted {@link Target}s to the given
+     * {@code out}.
      *
      * <p>Takes any options specified via the most recent call to {@link #setOptions} into
      * consideration.
      *
      * <p>Intended to be use for streaming out during evaluation of a query.
      */
-    OutputFormatterCallback<Target> createStreamCallback(
+    ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env);
 
     /**
@@ -242,8 +249,10 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public void close() throws IOException {
-      flushAndCheckError(printStream);
+    public void close(boolean failFast) throws IOException {
+      if (!failFast) {
+        flushAndCheckError(printStream);
+      }
     }
   }
 
@@ -283,9 +292,10 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return createPostFactoStreamCallback(out, options);
+      return new SynchronizedDelegatingOutputFormatterCallback<>(
+          createPostFactoStreamCallback(out, options));
     }
   }
 
@@ -322,25 +332,28 @@ public abstract class OutputFormatter implements Serializable {
         public void processOutput(Iterable<Target> partialResult) {
 
           for (Target target : partialResult) {
-            packageNames.add(target.getLabel().getPackageName());
+            packageNames.add(target.getLabel().getPackageIdentifier().toString());
           }
         }
 
         @Override
-        public void close() throws IOException {
-          final String lineTerm = options.getLineTerminator();
-          for (String packageName : packageNames) {
-            printStream.printf("%s%s", packageName, lineTerm);
+        public void close(boolean failFast) throws IOException {
+          if (!failFast) {
+            final String lineTerm = options.getLineTerminator();
+            for (String packageName : packageNames) {
+              printStream.printf("%s%s", packageName, lineTerm);
+            }
           }
-          super.close();
+          super.close(failFast);
         }
       };
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return createPostFactoStreamCallback(out, options);
+      return new SynchronizedDelegatingOutputFormatterCallback<>(
+          createPostFactoStreamCallback(out, options));
     }
   }
 
@@ -355,6 +368,23 @@ public abstract class OutputFormatter implements Serializable {
     @Override
     public String getName() {
       return "location";
+    }
+
+    @Override
+    public void verifyCompatible(QueryEnvironment<?> env, QueryExpression expr)
+        throws QueryException {
+      if (!(env instanceof AbstractBlazeQueryEnvironment)) {
+        return;
+      }
+
+      QueryExpressionVisitor<Boolean> noteBuildFilesAndLoadLilesVisitor =
+          new ContainsFunctionQueryExpressionVisitor(ImmutableList.of("loadfiles", "buildfiles"));
+
+      if (expr.accept(noteBuildFilesAndLoadLilesVisitor)) {
+        throw new QueryException(
+            "Query expressions involving 'buildfiles' or 'loadfiles' cannot be used with "
+            + "--output=location");
+      }
     }
 
     @Override
@@ -380,9 +410,10 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return createPostFactoStreamCallback(out, options);
+      return new SynchronizedDelegatingOutputFormatterCallback<>(
+          createPostFactoStreamCallback(out, options));
     }
   }
 
@@ -404,46 +435,88 @@ public abstract class OutputFormatter implements Serializable {
       return new TextOutputFormatterCallback<Target>(out) {
         private final Set<Label> printed = CompactHashSet.create();
 
-        private void outputRule(Rule rule, PrintStream printStream) {
+        private void outputRule(Rule rule, PrintStream printStream) throws InterruptedException {
           final String lineTerm = options.getLineTerminator();
+          final String outputAttributePattern = "  %s = %s," + lineTerm;
           printStream.printf("# %s%s", rule.getLocation(), lineTerm);
           printStream.printf("%s(%s", rule.getRuleClass(), lineTerm);
           printStream.printf("  name = \"%s\",%s", rule.getName(), lineTerm);
 
+          RawAttributeMapper attributeMap = RawAttributeMapper.of(rule);
           for (Attribute attr : rule.getAttributes()) {
-            Pair<Iterable<Object>, AttributeValueSource> values =
-                getPossibleAttributeValuesAndSources(rule, attr);
-            if (Iterables.size(values.first) != 1) {
-              continue; // TODO(bazel-team): handle configurable attributes.
+            // Ignore the "name" attribute here, as we already print it above.
+            // This is not strictly necessary, but convention has it that the
+            // name attribute is printed first.
+            if ("name".equals(attr.getName())) {
+              continue;
             }
-            if (values.second != AttributeValueSource.RULE) {
+            if (attributeMap.isConfigurable(attr.getName())) {
+              // We don't know the actual value for configurable attributes, so we reconstruct
+              // the select without trying to resolve it.
+              printStream.printf(
+                  outputAttributePattern,
+                  attr.getPublicName(),
+                  outputConfigurableAttrValue(rule, attributeMap, attr));
+              continue;
+            }
+            PossibleAttributeValues values = getPossibleAttributeValues(rule, attr);
+            if (values.source != AttributeValueSource.RULE) {
               continue; // Don't print default values.
             }
-            Object value = Iterables.getOnlyElement(values.first);
-            printStream.printf("  %s = ", attr.getPublicName());
-            if (value instanceof Label) {
-              value = ((Label) value).getDefaultCanonicalForm();
-            } else if (value instanceof License) {
-              List<String> licenseTypes = new ArrayList<>();
-              for (License.LicenseType licenseType : ((License) value).getLicenseTypes()) {
-                licenseTypes.add(licenseType.toString().toLowerCase());
-              }
-              value = licenseTypes;
-            } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
-              // Display it as a list (and not as a tuple). Attributes can never be tuples.
-              value = new ArrayList<>((List<?>) value);
+            if (Iterables.size(values) != 1) {
+              // Computed defaults that depend on configurable attributes can have multiple values.
+              continue;
             }
-            // It is *much* faster to write to a StringBuilder compared to the PrintStream object.
-            StringBuilder builder = new StringBuilder();
-            Printer.write(builder, value);
-            printStream.print(builder);
-            printStream.printf(",%s", lineTerm);
+            printStream.printf(
+                outputAttributePattern,
+                attr.getPublicName(),
+                outputAttrValue(Iterables.getOnlyElement(values)));
           }
           printStream.printf(")\n%s", lineTerm);
         }
 
+        /** Returns the given attribute value with BUILD output syntax. Does not support selects. */
+        private String outputAttrValue(Object value) {
+          if (value instanceof License) {
+            List<String> licenseTypes = new ArrayList<>();
+            for (License.LicenseType licenseType : ((License) value).getLicenseTypes()) {
+              licenseTypes.add(licenseType.toString().toLowerCase());
+            }
+            value = licenseTypes;
+          } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
+            // Display it as a list (and not as a tuple). Attributes can never be tuples.
+            value = new ArrayList<>((List<?>) value);
+          } else if (value instanceof TriState) {
+            value = ((TriState) value).toInt();
+          }
+          return new LabelPrinter().repr(value).toString();
+        }
+
+        /**
+         * Returns the given configurable attribute value with BUILD output syntax.
+         *
+         * <p>Since query doesn't know which select path should be chosen, this doesn't try to
+         * resolve the final value. Instead it just reconstructs the select.
+         */
+        private String outputConfigurableAttrValue(
+            Rule rule, RawAttributeMapper attributeMap, Attribute attr) {
+          List<String> selectors = new ArrayList<>();
+          for (BuildType.Selector<?> selector :
+              ((BuildType.SelectorList<?>) attributeMap.getRawAttributeValue(rule, attr))
+                  .getSelectors()) {
+            if (selector.isUnconditional()) {
+              selectors.add(
+                  outputAttrValue(
+                      Iterables.getOnlyElement(selector.getEntries().entrySet()).getValue()));
+            } else {
+              selectors.add(String.format("select(%s)", outputAttrValue(selector.getEntries())));
+            }
+          }
+          return String.join(" + ", selectors);
+        }
+
         @Override
-        public void processOutput(Iterable<Target> partialResult) {
+        public void processOutput(Iterable<Target> partialResult) throws InterruptedException {
 
           for (Target target : partialResult) {
             Rule rule = target.getAssociatedRule();
@@ -458,9 +531,10 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return createPostFactoStreamCallback(out, options);
+      return new SynchronizedDelegatingOutputFormatterCallback<>(
+          createPostFactoStreamCallback(out, options));
     }
   }
 
@@ -630,14 +704,7 @@ public abstract class OutputFormatter implements Serializable {
         // Use the natural order for RankAndLabels, which breaks ties alphabetically.
         Collections.sort(output);
       } else {
-        Collections.sort(
-            output,
-            new Comparator<RankAndLabel>() {
-              @Override
-              public int compare(RankAndLabel o1, RankAndLabel o2) {
-                return o1.rank - o2.rank;
-              }
-            });
+        Collections.sort(output, comparingInt(arg -> arg.rank));
       }
       final String lineTerm = options.getLineTerminator();
       PrintStream printStream = new PrintStream(out);
@@ -649,18 +716,51 @@ public abstract class OutputFormatter implements Serializable {
   }
 
   /**
+   * Helper class for {@link #getPossibleAttributeValues}.
+   */
+  static class PossibleAttributeValues implements Iterable<Object> {
+    final Iterable<Object> values;
+    final AttributeValueSource source;
+
+    PossibleAttributeValues(Iterable<Object> values, AttributeValueSource source) {
+      this.values = values;
+      this.source = source;
+    }
+
+    @Override
+    public Iterator<Object> iterator() {
+      return values.iterator();
+    }
+  }
+
+  /**
    * Returns the possible values of the specified attribute in the specified rule. For simple
    * attributes, this is a single value. For configurable and computed attributes, this may be a
    * list of values. See {@link AggregatingAttributeMapper#getPossibleAttributeValues} for how the
-   * value(s) is/are made.
+   * values are determined.
    *
-   * @return a pair, where the first value is the set of possible values and the
-   *     second is an enum that tells where the values come from (declared on the
-   *     rule, declared as a package level default or a
-   *     global default)
+   * <p>This applies an important optimization for label lists: instead of returning all possible
+   * values, it only returns possible <i>labels</i>. For example, given:
+   *
+   * <pre>
+   * select({
+   *     ":c": ["//a:one", "//a:two"],
+   *     ":d": ["//a:two"]
+   *     })</pre>
+   *
+   * it returns:
+   *
+   * <pre>["//a:one", "//a:two"]</pre>
+   *
+   * which loses track of which label appears in which branch.
+   *
+   * <p>This avoids the memory overruns that can happen be iterating over every possible value
+   * for an <code>attr = select(...) + select(...) + select(...) + ...</code> expression. Query
+   * operations generally don't care about specific attribute values - they just care which labels
+   * are possible.
    */
-  protected static Pair<Iterable<Object>, AttributeValueSource>
-      getPossibleAttributeValuesAndSources(Rule rule, Attribute attr) {
+  protected static PossibleAttributeValues getPossibleAttributeValues(Rule rule, Attribute attr)
+    throws InterruptedException {
     AttributeValueSource source;
 
     if (attr.getName().equals("visibility")) {
@@ -676,9 +776,28 @@ public abstract class OutputFormatter implements Serializable {
           ? AttributeValueSource.RULE : AttributeValueSource.DEFAULT;
     }
 
-    Iterable<Object> possibleAttributeValues =
-        AggregatingAttributeMapper.of(rule).getPossibleAttributeValues(rule, attr);
-    return Pair.of(possibleAttributeValues, source);
+    AggregatingAttributeMapper attributeMap = AggregatingAttributeMapper.of(rule);
+    Iterable<?> list;
+    if (attr.getType().equals(BuildType.LABEL_LIST)
+        && attributeMap.isConfigurable(attr.getName())) {
+      // TODO(gregce): Expand this to all collection types (we don't do this for scalars because
+      // there's currently no syntax for expressing multiple scalar values). This unfortunately
+      // isn't trivial because Bazel's label visitation logic includes special methods built
+      // directly into Type.
+      return new PossibleAttributeValues(
+          ImmutableList.<Object>of(
+              attributeMap.getReachableLabels(attr.getName(), /*includeSelectKeys=*/false)),
+          source);
+    } else if ((list =
+            attributeMap.getConcatenatedSelectorListsOfListType(
+                attr.getName(), attr.getType()))
+        != null) {
+      return new PossibleAttributeValues(Lists.newArrayList(list), source);
+    } else {
+      // The call to getPossibleAttributeValues below is especially slow with selector lists.
+      return new PossibleAttributeValues(attributeMap.getPossibleAttributeValues(rule, attr),
+          source);
+    }
   }
 
   private static void flushAndCheckError(PrintStream printStream) throws IOException {
@@ -701,5 +820,17 @@ public abstract class OutputFormatter implements Serializable {
         ? location.print(target.getPackage().getPackageDirectory().asFragment(),
             target.getPackage().getNameFragment())
         : location.print();
+  }
+
+  private static class LabelPrinter extends Printer.BasePrinter {
+    @Override
+    public LabelPrinter repr(Object o) {
+      if (o instanceof Label) {
+        writeString(((Label) o).getCanonicalForm());
+      } else {
+        super.repr(o);
+      }
+      return this;
+    }
   }
 }

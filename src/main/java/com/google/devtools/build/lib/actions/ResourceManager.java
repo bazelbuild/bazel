@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.actions;
 import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -83,8 +82,6 @@ public class ResourceManager {
       rm.releaseResources(actionMetadata, resourceSet);
     }
   }
-
-  private EventBus eventBus;
 
   private final ThreadLocal<Boolean> threadLocked = new ThreadLocal<Boolean>() {
     @Override
@@ -209,7 +206,6 @@ public class ResourceManager {
     AutoProfiler p = profiled(owner, ProfilerTask.ACTION_LOCK);
     CountDownLatch latch = null;
     try {
-      waiting(owner);
       latch = acquire(resources);
       if (latch != null) {
         latch.await();
@@ -229,8 +225,7 @@ public class ResourceManager {
       throw e;
     }
 
-    threadLocked.set(resources != ResourceSet.ZERO);
-    acquired(owner);
+    threadLocked.set(true);
 
     // Profile acquisition only if it waited for resource to become available.
     if (latch != null) {
@@ -245,7 +240,8 @@ public class ResourceManager {
    *
    * @return a ResourceHandle iff the given resources were locked (all or nothing), null otherwise.
    */
-  public ResourceHandle tryAcquire(ActionExecutionMetadata owner, ResourceSet resources) {
+  @VisibleForTesting
+  ResourceHandle tryAcquire(ActionExecutionMetadata owner, ResourceSet resources) {
     Preconditions.checkNotNull(
         resources, "tryAcquire called with resources == NULL during %s", owner);
     Preconditions.checkState(
@@ -262,7 +258,6 @@ public class ResourceManager {
 
     if (acquired) {
       threadLocked.set(resources != ResourceSet.ZERO);
-      acquired(owner);
       return new ResourceHandle(this, owner, resources);
     }
 
@@ -292,36 +287,13 @@ public class ResourceManager {
     return threadLocked.get();
   }
 
-  public void setEventBus(EventBus eventBus) {
-    Preconditions.checkState(this.eventBus == null);
-    this.eventBus = Preconditions.checkNotNull(eventBus);
-  }
-
-  public void unsetEventBus() {
-    Preconditions.checkState(this.eventBus != null);
-    this.eventBus = null;
-  }
-
-  private void waiting(ActionExecutionMetadata owner) {
-    if (eventBus != null) {
-      // Null only in tests.
-      eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
-    }
-  }
-
-  private void acquired(ActionExecutionMetadata owner) {
-    if (eventBus != null) {
-      // Null only in tests.
-      eventBus.post(ActionStatusMessage.runningStrategy(owner, "unknown"));
-    }
-  }
-
   /**
    * Releases previously requested resource =.
    *
    * <p>NB! This method must be thread-safe!
    */
-  public void releaseResources(ActionExecutionMetadata owner, ResourceSet resources) {
+  @VisibleForTesting
+  void releaseResources(ActionExecutionMetadata owner, ResourceSet resources) {
     Preconditions.checkNotNull(
         resources, "releaseResources called with resources == NULL during %s", owner);
     Preconditions.checkState(
@@ -376,7 +348,6 @@ public class ResourceManager {
     }
     return false;
   }
-
 
   /**
    * Tries to unblock one or more waiting threads if there are sufficient resources available.

@@ -21,18 +21,19 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.rules.SkylarkModules;
-import com.google.devtools.build.lib.rules.SkylarkRuleContext;
-import com.google.devtools.build.lib.rules.SkylarkRuleContext.Kind;
+import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
-
+import java.util.List;
 import org.junit.Before;
 
 /**
@@ -53,18 +54,24 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     return new EvaluationTestCase() {
       @Override
       public Environment newEnvironment() throws Exception {
-        return Environment.builder(mutability)
-            .setSkylark()
-            .setEventHandler(getEventHandler())
-            .setGlobals(SkylarkModules.getGlobals(SkylarkModules.MODULES))
-            .setToolsRepository(TestConstants.TOOLS_REPOSITORY)
-            .setPhase(Phase.LOADING)
-            .build()
-            .setupDynamic(
-                PackageFactory.PKG_CONTEXT,
-                // This dummy pkgContext works because no Skylark unit test attempts to actually
-                // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
-                new PackageContext(null, null, getEventHandler(), null));
+        List<Class<?>> modules =
+            new ImmutableList.Builder<Class<?>>()
+                .addAll(SkylarkModules.MODULES)
+                .add(PlatformCommon.class)
+                .build();
+        Environment env =
+            Environment.builder(mutability)
+                .setEventHandler(getEventHandler())
+                .setGlobals(SkylarkModules.getGlobals(modules))
+                .setPhase(Phase.LOADING)
+                .build()
+                .setupDynamic(
+                    PackageFactory.PKG_CONTEXT,
+                    // This dummy pkgContext works because no Skylark unit test attempts to actually
+                    // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
+                    new PackageContext(null, null, getEventHandler(), null));
+        SkylarkUtils.setToolsRepository(env, TestConstants.TOOLS_REPOSITORY);
+        return env;
       }
     };
   }
@@ -94,7 +101,8 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   }
 
   protected SkylarkRuleContext createRuleContext(String label) throws Exception {
-    return new SkylarkRuleContext(getRuleContextForSkylark(getConfiguredTarget(label)), Kind.RULE);
+    return new SkylarkRuleContext(getRuleContextForSkylark(getConfiguredTarget(label)), null,
+        getSkylarkSemantics());
   }
 
   protected Object evalRuleContextCode(String... lines) throws Exception {
@@ -144,7 +152,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       evalRuleContextCode(ruleContext, lines);
       fail();
     } catch (EvalException e) {
-      assertThat(e.getMessage()).startsWith(errorMsg);
+      assertThat(e).hasMessageThat().startsWith(errorMsg);
     }
   }
 
@@ -154,7 +162,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       eval(lines);
       fail("checkErrorContains(String, String...): There was no error");
     } catch (EvalException e) {
-      assertThat(e.getMessage()).contains(errorMsg);
+      assertThat(e).hasMessageThat().contains(errorMsg);
     }
   }
 
@@ -164,7 +172,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       evalRuleContextCode(ruleContext, lines);
       fail("checkErrorContains(SkylarkRuleContext, String, String...): There was no error");
     } catch (EvalException e) {
-      assertThat(e.getMessage()).contains(errorMsg);
+      assertThat(e).hasMessageThat().contains(errorMsg);
     }
   }
 }

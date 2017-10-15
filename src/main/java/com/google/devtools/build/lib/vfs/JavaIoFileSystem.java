@@ -14,13 +14,11 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.unix.FileAccessException;
-import com.google.devtools.build.lib.util.Clock;
-import com.google.devtools.build.lib.util.JavaClock;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -281,7 +279,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     long startTime = Profiler.nanoTimeMaybe();
     try {
       String link = Files.readSymbolicLink(file.toPath()).toString();
-      return new PathFragment(link);
+      return PathFragment.create(link);
     } catch (java.nio.file.NotLinkException e) {
       throw new NotASymlinkException(path);
     } catch (java.nio.file.NoSuchFileException e) {
@@ -380,11 +378,11 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected byte[] getMD5Digest(Path path) throws IOException {
+  protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      return super.getMD5Digest(path);
+      return super.getDigest(path, hashFunction);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
     }

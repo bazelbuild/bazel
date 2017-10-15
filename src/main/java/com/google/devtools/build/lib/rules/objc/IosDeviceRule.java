@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 
 /**
  * Rule definition for ios_device.
@@ -69,12 +70,16 @@ public final class IosDeviceRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("ios_device")
         .factoryClass(IosDevice.class)
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, AppleToolchain.RequiresXcodeConfigRule.class)
         .build();
   }
 }
 
 /*<!-- #BLAZE_RULE (NAME = ios_device, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule defines an iOS device profile that defines a simulator against
 which to run tests.</p>

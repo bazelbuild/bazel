@@ -109,7 +109,7 @@ public class FileSystemUtils {
    */
   public static PathFragment relativePath(PathFragment fromDir, PathFragment to) {
     if (to.equals(fromDir)) {
-      return new PathFragment(".");  // same dir, just return '.'
+      return PathFragment.create(".");  // same dir, just return '.'
     }
     if (to.startsWith(fromDir)) {
       return to.relativeTo(fromDir);  // easy case--it's a descendant
@@ -123,7 +123,7 @@ public class FileSystemUtils {
     for (int i = 0; i < levels; i++) {
       dotdots.append("../");
     }
-    return new PathFragment(dotdots.toString()).getRelative(to.relativeTo(ancestor));
+    return PathFragment.create(dotdots.toString()).getRelative(to.relativeTo(ancestor));
   }
 
   /**
@@ -229,9 +229,10 @@ public class FileSystemUtils {
     int count = path.segmentCount();
     for (int i = 0; i < count; i++) {
       if (path.getSegment(i).equals(oldSegment)) {
-        path = new PathFragment(path.subFragment(0, i),
-                                new PathFragment(newSegment),
-                                path.subFragment(i+1, count));
+        path = PathFragment.create(
+            path.subFragment(0, i),
+            PathFragment.create(newSegment),
+            path.subFragment(i+1, count));
         if (!replaceAll) {
           return path;
         }
@@ -287,7 +288,7 @@ public class FileSystemUtils {
    * 'user.dir'. This version does not require a {@link FileSystem}.
    */
   public static PathFragment getWorkingDirectory() {
-    return new PathFragment(System.getProperty("user.dir", "/"));
+    return PathFragment.create(System.getProperty("user.dir", "/"));
   }
 
   /****************************************************************************
@@ -356,7 +357,7 @@ public class FileSystemUtils {
    */
   @ThreadSafe  // but not atomic
   public static void ensureSymbolicLink(Path link, String target) throws IOException {
-    ensureSymbolicLink(link, new PathFragment(target));
+    ensureSymbolicLink(link, PathFragment.create(target));
   }
 
   /**
@@ -841,6 +842,38 @@ public class FileSystemUtils {
   }
 
   /**
+   * Updates the contents of the output file if they do not match the given array, thus maintaining
+   * the mtime and ctime in case of no updates. Follows symbolic links.
+   *
+   * <p>If the output file already exists but is unreadable, this tries to overwrite it with the new
+   * contents. In other words: unreadable or missing files are considered to be non-matching.
+   *
+   * @throws IOException if there was an error
+   */
+  public static void maybeUpdateContent(Path outputFile, byte[] newContent) throws IOException {
+    byte[] currentContent;
+    try {
+      currentContent = readContent(outputFile);
+    } catch (IOException e) {
+      // Ignore error per the rationale given in the docstring. Keep in mind that what we are doing
+      // here is for performance reasons only so we should only break if the real action (that is,
+      // the write) fails -- not any of the optimization steps.
+      currentContent = null;
+    }
+
+    if (currentContent == null) {
+      writeContent(outputFile, newContent);
+    } else {
+      if (!Arrays.equals(newContent, currentContent)) {
+        if (!outputFile.isWritable()) {
+          outputFile.delete();
+        }
+        writeContent(outputFile, newContent);
+      }
+    }
+  }
+
+  /**
    * Returns the entirety of the specified input stream and returns it as a char
    * array, decoding characters using ISO-8859-1 (Latin1).
    *
@@ -944,24 +977,17 @@ public class FileSystemUtils {
    * <p>Its results are unspecified and MUST NOT be interpreted programmatically.
    */
   public static void dump(FileSystem fs, final PrintStream out) {
-    if (!(fs instanceof UnixFileSystem)) {
-      out.println("  Not a UnixFileSystem.");
-      return;
-    }
-
     // Unfortunately there's no "letrec" for anonymous functions so we have to
     // (a) name the function, (b) put it in a box and (c) use List not array
     // because of the generic type.  *sigh*.
     final List<Predicate<Path>> dumpFunction = new ArrayList<>();
-    dumpFunction.add(new Predicate<Path>() {
-        @Override
-        public boolean apply(Path child) {
+    dumpFunction.add(
+        child -> {
           Path path = child;
           out.println("  " + path + " (" + path.toDebugString() + ")");
           path.applyToChildren(dumpFunction.get(0));
           return false;
-        }
-      });
+        });
 
     fs.getRootDirectory().applyToChildren(dumpFunction.get(0));
   }

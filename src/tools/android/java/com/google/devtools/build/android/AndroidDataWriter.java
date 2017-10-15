@@ -17,16 +17,21 @@ import com.android.SdkConstants;
 import com.android.annotations.NonNull;
 import com.android.ide.common.internal.PngCruncher;
 import com.android.ide.common.internal.PngException;
-import com.android.ide.common.res2.MergingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
+import com.google.devtools.build.android.AndroidResourceMergingAction.Options;
+import com.google.devtools.build.android.junctions.JunctionCreator;
+import com.google.devtools.build.android.junctions.NoopJunctionCreator;
+import com.google.devtools.build.android.junctions.WindowsJunctionCreator;
 import com.google.devtools.build.android.xml.Namespaces;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -68,11 +73,14 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
 
     @Override
     public Boolean call() throws Exception {
-      try {
+      try (JunctionCreator junc =
+          System.getProperty("os.name").toLowerCase().startsWith("windows")
+              ? new WindowsJunctionCreator(Files.createTempDirectory("pngcrunch"))
+              : new NoopJunctionCreator()) {
         Files.createDirectories(destinationPath.getParent());
-        cruncher.crunchPng(0, source.toFile(), destinationPath.toFile());
+        cruncher.crunchPng(0, junc.create(source).toFile(), junc.create(destinationPath).toFile());
       } catch (PngException e) {
-        throw MergingException.wrapException(e).build();
+        throw MergingException.wrapException(e);
       }
       return Boolean.TRUE;
     }
@@ -102,7 +110,7 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
   private static final char[] START_RESOURCES_TAG = "<resources".toCharArray();
   public static final char[] END_RESOURCES = "</resources>".toCharArray();
   private static final char[] LINE_END = "\n".toCharArray();
-  private static final PngCruncher NOOP_CRUNCHER =
+  static final PngCruncher NOOP_CRUNCHER =
       new PngCruncher() {
         @Override
         public int start() {
@@ -110,8 +118,7 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
         }
 
         @Override
-        public void end(int key) throws InterruptedException {
-        }
+        public void end(int key) throws InterruptedException {}
 
         @Override
         public void crunchPng(int key, @NonNull File source, @NonNull File destination)
@@ -125,9 +132,39 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
         }
       };
 
+  /**
+   * The merged {@link Options#resourcesOutput} is only used for validation and not for running
+   * (unlike the final APK), so the image files do not need to be the true image files. We only need
+   * the filenames to be the same.
+   *
+   * <p>Thus, we only create empty files for PNGs (convenient with a custom PngCruncher object).
+   * This does miss out on other image files like .webp.
+   */
+  static final PngCruncher STUB_CRUNCHER =
+      new PngCruncher() {
+
+        @Override
+        public void crunchPng(int key, File from, File to) throws PngException {
+          try {
+            to.createNewFile();
+            if (!to.setLastModified(System.currentTimeMillis())) {
+              throw new PngException("Could not set milliseconds");
+            }
+          } catch (IOException e) {
+            throw new PngException(e);
+          }
+        }
+
+        @Override
+        public int start() {
+          return 0;
+        }
+
+        @Override
+        public void end(int key) {}
+      };
+
   private final Path destination;
-  private final Map<String, Map<FullyQualifiedName, Iterable<String>>> valueFragments =
-      new HashMap<>();
 
   private final Map<String, ResourceValuesDefinitions> valueTags = new HashMap<>();
   private final Path resourceDirectory;
@@ -217,7 +254,7 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
 
   @Override
   public void copyResource(final Path source, final String relativeDestinationPath)
-      throws IOException, MergingException {
+      throws MergingException {
     final Path destinationPath = resourceDirectory.resolve(relativeDestinationPath);
     if (!source.getParent().getFileName().toString().startsWith(SdkConstants.FD_RES_RAW)
         && source.getFileName().toString().endsWith(SdkConstants.DOT_PNG)) {
@@ -246,7 +283,6 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
         .aggregateAndMaybeThrow(writeTasks);
 
     writeTasks.clear();
-    valueFragments.clear();
   }
 
   @Override
@@ -257,7 +293,15 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     }
     return valueTags.get(valuesPath).resource(fqn);
   }
-  
+
+  @Override
+  public void defineAttribute(FullyQualifiedName fqn, String name, String value) {
+    String valuesPath = fqn.valuesPath();
+    if (!valueTags.containsKey(valuesPath)) {
+      valueTags.put(valuesPath, new ResourceValuesDefinitions());
+    }
+    valueTags.get(valuesPath).addAttribute(name, value);
+  }
 
   @Override
   public void defineNamespacesFor(FullyQualifiedName fqn, Namespaces namespaces) {
@@ -279,14 +323,17 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
       private final Multimap<FullyQualifiedName, Segment> segments;
       private final Set<FullyQualifiedName> adopted;
       private final Namespaces namespaces;
+      private final Map<String, String> attributes;
 
       private WritingTask(
           Path valuesPath,
           Namespaces namespaces,
+          Map<String, String> attributes,
           Set<FullyQualifiedName> adopted,
           Multimap<FullyQualifiedName, Segment> segments) {
         this.valuesPath = valuesPath;
         this.namespaces = namespaces;
+        this.attributes = attributes;
         this.adopted = adopted;
         this.segments = segments;
       }
@@ -309,6 +356,13 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
             writer.write(prefixToUri.getValue());
             writer.write("\"");
           }
+          for (Entry<String, String> attribute : attributes.entrySet()) {
+            writer.write(" ");
+            writer.write(attribute.getKey());
+            writer.write("=\"");
+            writer.write(attribute.getValue());
+            writer.write("\"");
+          }
           writer.write(">");
           writer.write(LINE_END);
           Path previousSource = null;
@@ -328,9 +382,14 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     final Multimap<FullyQualifiedName, Segment> segments = ArrayListMultimap.create();
     final Set<FullyQualifiedName> adopted = new HashSet<>();
     Namespaces namespaces = Namespaces.empty();
+    final Map<String, String> attributes = Maps.newHashMap();
 
     private ValueResourceDefinitionMetadata resource(final FullyQualifiedName fqn) {
       return new StringValueResourceDefinitionMetadata(segments, adopted, fqn);
+    }
+
+    public void addAttribute(String name, String value) {
+      this.attributes.put(name, value);
     }
 
     public void addAllNamespaces(Namespaces namespaces) {
@@ -339,7 +398,7 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
 
     /** Generates a {@link Callable} that will write the {@link Segment} to the provided path. */
     public Callable<Boolean> createWritingTask(final Path valuesPath) {
-      return new WritingTask(valuesPath, namespaces, adopted, segments);
+      return new WritingTask(valuesPath, namespaces, attributes, adopted, segments);
     }
   }
 
@@ -369,8 +428,9 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     }
 
     @Override
-    public ValuesResourceDefinition derivedFrom(final Path source) {
-      final SegmentMapper mapper = SegmentMapper.create(segments, adopted, segmentsKey, source);
+    public ValuesResourceDefinition derivedFrom(final DataSource source) {
+      final SegmentMapper mapper =
+          SegmentMapper.create(segments, adopted, segmentsKey, source.getPath());
       return new StringValuesResourceDefinition(mapper);
     }
   }

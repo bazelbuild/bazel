@@ -14,21 +14,19 @@
 
 package com.google.devtools.common.options;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Maps;
-
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Map;
-
 /**
- * Test for {@link Converters.AssignmentConverter} and
- * {@link Converters.OptionalAssignmentConverter}.
+ * Test for {@link Converters.AssignmentConverter} and {@link
+ * Converters.OptionalAssignmentConverter}.
  */
 public abstract class AssignmentConverterTest {
 
@@ -47,9 +45,9 @@ public abstract class AssignmentConverterTest {
 
   @Test
   public void assignment() throws Exception {
-    assertEquals(Maps.immutableEntry("A", "1"), convert("A=1"));
-    assertEquals(Maps.immutableEntry("A", "ABC"), convert("A=ABC"));
-    assertEquals(Maps.immutableEntry("A", ""), convert("A="));
+    assertThat(convert("A=1")).isEqualTo(Maps.immutableEntry("A", "1"));
+    assertThat(convert("A=ABC")).isEqualTo(Maps.immutableEntry("A", "ABC"));
+    assertThat(convert("A=")).isEqualTo(Maps.immutableEntry("A", ""));
   }
 
   @Test
@@ -102,7 +100,7 @@ public abstract class AssignmentConverterTest {
 
     @Test
     public void missingValue() throws Exception {
-      assertEquals(Maps.immutableEntry("NAME", null), convert("NAME"));
+      assertThat(convert("NAME")).isEqualTo(Maps.immutableEntry("NAME", null));
     }
   }
 }

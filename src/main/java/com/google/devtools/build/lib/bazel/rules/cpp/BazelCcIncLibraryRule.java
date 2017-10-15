@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcIncLibraryRule;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /** Rule definition for the cc_inc_library class. */
 public final class BazelCcIncLibraryRule implements RuleDefinition {
@@ -31,7 +33,9 @@ public final class BazelCcIncLibraryRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(CppConfiguration.class)
-        .add(attr(":cc_toolchain", LABEL).value(BazelCppRuleClasses.CC_TOOLCHAIN))
+        .add(
+            attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                .value(CppRuleClasses.ccToolchainAttribute(env)))
         .add(attr(":stl", LABEL).value(BazelCppRuleClasses.STL))
         .build();
   }
@@ -51,7 +55,7 @@ public final class BazelCcIncLibraryRule implements RuleDefinition {
 <p>
 Bazel creates a subdirectory below
 <code>includes</code> (relative to WORKSPACE) for each such rule, and makes sure that all
-dependent rules have a corresponding <code>-I</code> directive to add this
+dependent rules have a corresponding <code>-isystem</code> directive to add this
 directory into the compiler's header file search path for all compilations. Note
 that if a rule has multiple <code>cc_inc_library</code> rules from the same
 package in its dependencies, the first such rule will take precedence.

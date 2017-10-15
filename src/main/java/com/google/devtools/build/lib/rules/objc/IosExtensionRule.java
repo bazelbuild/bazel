@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -28,7 +27,11 @@ import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.IpaRule;
 
 /**
  * Rule definition for ios_extension.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class IosExtensionRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -38,21 +41,19 @@ public class IosExtensionRule implements RuleDefinition {
         <ul>
          <li><code><var>name</var>.ipa</code>: the extension bundle as an <code>.ipa</code>
              file</li>
-         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
-             can be used to develop or build on a Mac.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+        .setImplicitOutputsFunction(ReleaseBundlingSupport.IPA)
         /* <!-- #BLAZE_RULE(ios_extension).ATTRIBUTE(binary) -->
         The binary target containing the logic for the extension.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("binary", LABEL)
-            .allowedRuleClasses("ios_extension_binary")
-            .allowedFileTypes()
-            .mandatory()
-            .direct_compile_time_input()
-            .cfg(IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
+        .add(
+            attr("binary", LABEL)
+                .allowedRuleClasses("ios_extension_binary")
+                .allowedFileTypes()
+                .mandatory()
+                .direct_compile_time_input()
+                .cfg(IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
         .build();
   }
 
@@ -64,13 +65,16 @@ public class IosExtensionRule implements RuleDefinition {
         .ancestors(
             BaseRuleClasses.BaseRule.class,
             ObjcRuleClasses.ReleaseBundlingRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
             IpaRule.class)
         .build();
   }
 }
 
 /*<!-- #BLAZE_RULE (NAME = ios_extension, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule produces a bundled binary for an iOS app extension from a compiled binary and bundle
 metadata.</p>

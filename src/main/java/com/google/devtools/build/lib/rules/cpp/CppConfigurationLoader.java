@@ -38,7 +38,9 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
+import com.google.devtools.common.options.OptionsParsingException;
 import javax.annotation.Nullable;
 
 /**
@@ -73,14 +75,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     if (params == null) {
       return null;
     }
-    CppConfiguration cppConfig = new CppConfiguration(params);
-    if (options.get(BuildConfiguration.Options.class).useDynamicConfigurations
-        != BuildConfiguration.Options.DynamicConfigsMode.OFF
-        && cppConfig.getLipoMode() != CrosstoolConfig.LipoMode.OFF) {
-      throw new InvalidConfigurationException(
-          "LIPO does not currently work with dynamic configurations");
-    }
-    return cppConfig;
+    return new CppConfiguration(params);
   }
 
   /**
@@ -93,14 +88,19 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final CppOptions cppOptions;
     protected final Label crosstoolTop;
     protected final Label ccToolchainLabel;
+    protected final Label stlLabel;
     protected final Path fdoZip;
+    protected final Label sysrootLabel;
 
-    CppConfigurationParameters(CrosstoolConfig.CToolchain toolchain,
+    CppConfigurationParameters(
+        CrosstoolConfig.CToolchain toolchain,
         String cacheKeySuffix,
         BuildOptions buildOptions,
         Path fdoZip,
         Label crosstoolTop,
-        Label ccToolchainLabel) {
+        Label ccToolchainLabel,
+        Label stlLabel,
+        Label sysrootLabel) {
       this.toolchain = toolchain;
       this.cacheKeySuffix = cacheKeySuffix;
       this.commonOptions = buildOptions.get(BuildConfiguration.Options.class);
@@ -108,6 +108,8 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       this.fdoZip = fdoZip;
       this.crosstoolTop = crosstoolTop;
       this.ccToolchainLabel = ccToolchainLabel;
+      this.stlLabel = stlLabel;
+      this.sysrootLabel = sysrootLabel;
     }
   }
 
@@ -125,6 +127,15 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       return null;
     }
 
+    CppOptions cppOptions = options.get(CppOptions.class);
+    Label stlLabel = null;
+    if (cppOptions.stl != null) {
+      stlLabel = RedirectChaser.followRedirects(env, cppOptions.stl, "stl");
+      if (stlLabel == null) {
+        return null;
+      }
+    }
+
     CrosstoolConfigurationLoader.CrosstoolFile file =
         CrosstoolConfigurationLoader.readCrosstool(env, crosstoolTopLabel);
     if (file == null) {
@@ -135,13 +146,12 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
 
     // FDO
     // TODO(bazel-team): move this to CppConfiguration.prepareHook
-    CppOptions cppOptions = options.get(CppOptions.class);
     Path fdoZip;
-    if (cppOptions.fdoOptimize == null) {
+    if (cppOptions.getFdoOptimize() == null) {
       fdoZip = null;
-    } else if (cppOptions.fdoOptimize.startsWith("//")) {
+    } else if (cppOptions.getFdoOptimize().startsWith("//")) {
       try {
-        Target target = env.getTarget(Label.parseAbsolute(cppOptions.fdoOptimize));
+        Target target = env.getTarget(Label.parseAbsolute(cppOptions.getFdoOptimize()));
         if (target == null) {
           return null;
         }
@@ -159,7 +169,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         throw new InvalidConfigurationException(e);
       }
     } else {
-      fdoZip = directories.getWorkspace().getRelative(cppOptions.fdoOptimize);
+      fdoZip = directories.getWorkspace().getRelative(cppOptions.getFdoOptimize());
       try {
         // We don't check for file existence, but at least the filename should be well-formed.
         FileSystemUtils.checkBaseName(fdoZip.getBaseName());
@@ -210,7 +220,44 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
           "The label '%s' is not a cc_toolchain rule", ccToolchainLabel));
     }
 
-    return new CppConfigurationParameters(toolchain, file.getMd5(), options,
-        fdoZip, crosstoolTopLabel, ccToolchainLabel);
+    Label sysrootLabel = getSysrootLabel(toolchain, cppOptions.libcTopLabel);
+
+    return new CppConfigurationParameters(
+        toolchain,
+        file.getMd5(),
+        options,
+        fdoZip,
+        crosstoolTopLabel,
+        ccToolchainLabel,
+        stlLabel,
+        sysrootLabel);
+  }
+
+  @Nullable
+  public static Label getSysrootLabel(CrosstoolConfig.CToolchain toolchain, Label libcTopLabel)
+      throws InvalidConfigurationException {
+    PathFragment defaultSysroot = CppConfiguration.computeDefaultSysroot(toolchain);
+
+    if ((libcTopLabel != null) && (defaultSysroot == null)) {
+      throw new InvalidConfigurationException(
+          "The selected toolchain "
+              + toolchain.getToolchainIdentifier()
+              + " does not support setting --grte_top.");
+    }
+
+    if (libcTopLabel != null) {
+      return libcTopLabel;
+    }
+
+    if (!toolchain.getDefaultGrteTop().isEmpty()) {
+      try {
+        Label grteTopLabel =
+            new CppOptions.LibcTopLabelConverter().convert(toolchain.getDefaultGrteTop());
+        return grteTopLabel;
+      } catch (OptionsParsingException e) {
+        throw new InvalidConfigurationException(e.getMessage(), e);
+      }
+    }
+    return null;
   }
 }

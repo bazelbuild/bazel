@@ -28,6 +28,7 @@ readonly OUT_DIR="${TEST_TMPDIR}/out"
 readonly OUT="${OUT_DIR}/outfile"
 readonly ERR="${OUT_DIR}/errfile"
 readonly SANDBOX_DIR="${OUT_DIR}/sandbox"
+readonly MOUNT_TARGET_ROOT="${TEST_SRCDIR}/targets"
 
 SANDBOX_DEFAULT_OPTS="-W $SANDBOX_DIR"
 
@@ -46,14 +47,19 @@ function test_execvp_error_message_contains_path() {
   expect_log "\"execvp(/does/not/exist, 0x[[:alnum:]]*)\": No such file or directory"
 }
 
-function test_default_user_is_nobody() {
+function test_default_user_is_current_user() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /usr/bin/id &> $TEST_log || fail
-  expect_log "uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)"
+  expect_log "$(id)"
 }
 
 function test_user_switched_to_root() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -R -- /usr/bin/id &> $TEST_log || fail
-  expect_log "uid=0(root) gid=0(root)"
+  expect_log "uid=0(root) gid=0(root) groups=0(root)"
+}
+
+function test_user_switched_to_nobody() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -U -- /usr/bin/id &> $TEST_log || fail
+  expect_log "uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)"
 }
 
 function test_network_namespace() {
@@ -111,10 +117,111 @@ function test_debug_logging() {
   expect_log "child exited normally with exitcode 0"
 }
 
+function test_mount_additional_paths_success() {
+  mkdir -p ${TEST_TMPDIR}/foo
+  mkdir -p ${TEST_TMPDIR}/bar
+  touch ${TEST_TMPDIR}/testfile
+  mkdir -p ${MOUNT_TARGET_ROOT}/foo
+  touch ${MOUNT_TARGET_ROOT}/sandboxed_testfile
+
+  touch /tmp/sandboxed_testfile
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
+    -M ${TEST_TMPDIR}/foo -m ${MOUNT_TARGET_ROOT}/foo \
+    -M ${TEST_TMPDIR}/bar \
+    -M ${TEST_TMPDIR}/testfile -m ${MOUNT_TARGET_ROOT}/sandboxed_testfile \
+    -- /bin/true &> $TEST_log || code=$?
+  # mount a directory to a customized path inside the sandbox
+  expect_log "bind mount: ${TEST_TMPDIR}/foo -> ${MOUNT_TARGET_ROOT}/foo\$"
+  # mount a directory to the same path inside the sanxbox
+  expect_log "bind mount: ${TEST_TMPDIR}/bar -> ${TEST_TMPDIR}/bar\$"
+  # mount a file to a customized path inside the sandbox
+  expect_log "bind mount: ${TEST_TMPDIR}/testfile -> ${MOUNT_TARGET_ROOT}/sandboxed_testfile\$"
+  expect_log "child exited normally with exitcode 0"
+  rm -rf ${MOUNT_TARGET_ROOT}/foo
+  rm -rf ${MOUNT_TARGET_ROOT}/sandboxed_testfile
+}
+
+function test_mount_additional_paths_relative_path() {
+  touch ${TEST_TMPDIR}/testfile
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
+    -M ${TEST_TMPDIR}/testfile -m tmp/sandboxed_testfile \
+    -- /bin/true &> $TEST_log || code=$?
+  # mount a directory to a customized path inside the sandbox
+  expect_log "The -m option must be used with absolute paths only.\$"
+}
+
+function test_mount_additional_paths_leading_m() {
+  mkdir -p ${TEST_TMPDIR}/foo
+  touch ${TEST_TMPDIR}/testfile
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
+    -m /tmp/foo \
+    -M ${TEST_TMPDIR}/testfile -m /tmp/sandboxed_testfile \
+    -- /bin/true &> $TEST_log || code=$?
+  # mount a directory to a customized path inside the sandbox
+  expect_log "The -m option must be strictly preceded by an -M option.\$"
+}
+
+function test_mount_additional_paths_m_not_preceeded_by_M() {
+  mkdir -p ${TEST_TMPDIR}/foo
+  mkdir -p ${TEST_TMPDIR}/bar
+  touch ${TEST_TMPDIR}/testfile
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
+    -M ${TEST_TMPDIR}/testfile -m /tmp/sandboxed_testfile \
+    -m /tmp/foo \
+    -M ${TEST_TMPDIR}/bar \
+    -- /bin/true &> $TEST_log || code=$?
+  # mount a directory to a customized path inside the sandbox
+  expect_log "The -m option must be strictly preceded by an -M option.\$"
+}
+
+function test_mount_additional_paths_other_flag_between_M_m_pair() {
+  mkdir -p ${TEST_TMPDIR}/bar
+  touch ${TEST_TMPDIR}/testfile
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS \
+    -M ${TEST_TMPDIR}/testfile -D -m /tmp/sandboxed_testfile \
+    -M ${TEST_TMPDIR}/bar \
+    -- /bin/true &> $TEST_log || code=$?
+  # mount a directory to a customized path inside the sandbox
+  expect_log "The -m option must be strictly preceded by an -M option.\$"
+}
+
+function test_mount_additional_paths_multiple_sources_mount_to_one_target() {
+  mkdir -p ${TEST_TMPDIR}/foo
+  mkdir -p ${TEST_TMPDIR}/bar
+  mkdir -p ${MOUNT_TARGET_ROOT}/foo
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
+    -M ${TEST_TMPDIR}/foo -m ${MOUNT_TARGET_ROOT}/foo \
+    -M ${TEST_TMPDIR}/bar -m ${MOUNT_TARGET_ROOT}/foo \
+    -- /bin/true &> $TEST_log || code=$?
+  # mount a directory to a customized path inside the sandbox
+  expect_log "bind mount: ${TEST_TMPDIR}/foo -> ${MOUNT_TARGET_ROOT}/foo\$"
+  # mount a new source directory to the same target, which will overwrite the previous source path
+  expect_log "bind mount: ${TEST_TMPDIR}/bar -> ${MOUNT_TARGET_ROOT}/foo\$"
+  expect_log "child exited normally with exitcode 0"
+  rm -rf ${MOUNT_TARGET_ROOT}/foo
+}
+
 function test_redirect_output() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/bash -c "echo out; echo err >&2" &> $TEST_log || code=$?
   assert_equals "out" "$(cat $OUT)"
   assert_equals "err" "$(cat $ERR)"
+}
+
+function test_tmp_is_writable() {
+  # If /tmp is not writable on the host, it won't be inside the sandbox.
+  test -w /tmp || return 0
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -w /tmp -- /bin/bash -c "rm -f $(mktemp --tmpdir=/tmp)" \
+    &> $TEST_log || fail
+}
+
+function test_dev_shm_is_writable() {
+  # If /dev/shm is not writable on the host, it won't be inside the sandbox.
+  test -w /dev/shm || return 0
+
+  # /dev/shm is often a symlink to /run/shm, thus we use readlink to get the canonical path.
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -w "$(readlink -f /dev/shm)" -- /bin/bash -c "rm -f $(mktemp --tmpdir=/dev/shm)" \
+    &> $TEST_log || fail
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

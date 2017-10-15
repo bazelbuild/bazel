@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.ziputils;
 
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCCRC;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCFLG;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCHOW;
@@ -22,20 +23,15 @@ import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCSIZ;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCTIM;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCVER;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.zip.ZipInputStream;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link LocalFileHeader}.
- */
+/** Unit tests for {@link LocalFileHeader}. */
 @RunWith(JUnit4.class)
 public class LocalFileHeaderTest {
 
@@ -57,10 +53,10 @@ public class LocalFileHeaderTest {
     int expMark = (int) ZipInputStream.LOCSIG;
     int expSize = ZipInputStream.LOCHDR + filenameLength + extraLength; // fixed + comment
     int expPos = 0;
-    assertEquals("not based at current position", expMark, view.get(LOCSIG));
-    assertEquals("Not slice with position 0", expPos, view.buffer.position());
-    assertEquals("Not sized with comment", expSize, view.getSize());
-    assertEquals("Not limited to size", expSize, view.buffer.limit());
+    assertWithMessage("not based at current position").that(view.get(LOCSIG)).isEqualTo(expMark);
+    assertWithMessage("Not slice with position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Not sized with comment").that(view.getSize()).isEqualTo(expSize);
+    assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
   }
 
   @Test
@@ -71,11 +67,11 @@ public class LocalFileHeaderTest {
         + extraData.length;
     int expPos = 0;
     LocalFileHeader view = LocalFileHeader.allocate(filename, extraData);
-    assertEquals("Incorrect filename", filename, view.getFilename());
-    Assert.assertArrayEquals("Incorrect extra data", extraData, view.getExtraData());
-    assertEquals("Not at position 0", expPos, view.buffer.position());
-    assertEquals("Not sized correctly", expSize, view.getSize());
-    assertEquals("Not limited to size", expSize, view.buffer.limit());
+    assertWithMessage("Incorrect filename").that(view.getFilename()).isEqualTo(filename);
+    assertWithMessage("Incorrect extra data").that(view.getExtraData()).isEqualTo(extraData);
+    assertWithMessage("Not at position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Not sized correctly").that(view.getSize()).isEqualTo(expSize);
+    assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
   }
 
   @Test
@@ -91,11 +87,11 @@ public class LocalFileHeaderTest {
     int expSize = ZipInputStream.LOCHDR + filename.getBytes(UTF_8).length;
     int expPos = 0;
     LocalFileHeader view = LocalFileHeader.view(buffer, filename, null);
-    assertEquals("not based at current position", expMark, view.get(LOCSIG));
-    assertEquals("Not slice with position 0", expPos, view.buffer.position());
-    assertEquals("Not sized with filename", expSize, view.getSize());
-    assertEquals("Not limited to size", expSize, view.buffer.limit());
-    assertEquals("Incorrect filename", filename, view.getFilename());
+    assertWithMessage("not based at current position").that(view.get(LOCSIG)).isEqualTo(expMark);
+    assertWithMessage("Not slice with position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Not sized with filename").that(view.getSize()).isEqualTo(expSize);
+    assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
+    assertWithMessage("Incorrect filename").that(view.getFilename()).isEqualTo(filename);
   }
 
   @Test
@@ -104,11 +100,13 @@ public class LocalFileHeaderTest {
     LocalFileHeader view = LocalFileHeader.allocate("pkg/foo.class", null);
     view.copy(buffer);
     int expSize = view.getSize();
-    assertEquals("buffer not advanced as expected", expSize, buffer.position());
+    assertWithMessage("buffer not advanced as expected").that(buffer.position()).isEqualTo(expSize);
     buffer.position(0);
     LocalFileHeader clone = LocalFileHeader.viewOf(buffer);
-    assertEquals("Fail to copy mark", view.get(LOCSIG), view.get(LOCSIG));
-    assertEquals("Fail to copy comment", view.getFilename(), clone.getFilename());
+    assertWithMessage("Fail to copy mark").that(view.get(LOCSIG)).isEqualTo(view.get(LOCSIG));
+    assertWithMessage("Fail to copy comment")
+        .that(clone.getFilename())
+        .isEqualTo(view.getFilename());
   }
 
   @Test
@@ -128,12 +126,12 @@ public class LocalFileHeaderTest {
         .set(LOCHOW, method)
         .set(LOCTIM, time)
         .set(LOCVER, version);
-    assertEquals("CRC", crc, view.get(LOCCRC));
-    assertEquals("Compressed size", compressed, view.get(LOCSIZ));
-    assertEquals("Uncompressed size", uncompressed, view.get(LOCLEN));
-    assertEquals("Flags", flags, view.get(LOCFLG));
-    assertEquals("Method", method, view.get(LOCHOW));
-    assertEquals("Modified time", time, view.get(LOCTIM));
-    assertEquals("Version needed", version, view.get(LOCVER));
+    assertWithMessage("CRC").that(view.get(LOCCRC)).isEqualTo(crc);
+    assertWithMessage("Compressed size").that(view.get(LOCSIZ)).isEqualTo(compressed);
+    assertWithMessage("Uncompressed size").that(view.get(LOCLEN)).isEqualTo(uncompressed);
+    assertWithMessage("Flags").that(view.get(LOCFLG)).isEqualTo(flags);
+    assertWithMessage("Method").that(view.get(LOCHOW)).isEqualTo(method);
+    assertWithMessage("Modified time").that(view.get(LOCTIM)).isEqualTo(time);
+    assertWithMessage("Version needed").that(view.get(LOCVER)).isEqualTo(version);
   }
 }

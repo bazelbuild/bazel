@@ -14,36 +14,28 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Optional;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+import java.io.IOException;
 
 /**
  * Syntax node for a function call statement. Used for build rules.
  */
 public final class ExpressionStatement extends Statement {
 
-  private final Expression expr;
+  private final Expression expression;
 
-  public ExpressionStatement(Expression expr) {
-    this.expr = expr;
+  public ExpressionStatement(Expression expression) {
+    this.expression = expression;
   }
 
   public Expression getExpression() {
-    return expr;
+    return expression;
   }
 
   @Override
-  public String toString() {
-    return expr.toString() + '\n';
-  }
-
-  @Override
-  void doExec(Environment env) throws EvalException, InterruptedException {
-    expr.eval(env);
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    expression.prettyPrint(buffer);
+    buffer.append('\n');
   }
 
   @Override
@@ -52,14 +44,7 @@ public final class ExpressionStatement extends Statement {
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    expr.validate(env);
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-      throws EvalException {
-    return expr.compile(scope, debugInfo);
+  public Kind kind() {
+    return Kind.EXPRESSION;
   }
 }

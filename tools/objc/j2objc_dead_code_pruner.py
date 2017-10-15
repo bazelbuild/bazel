@@ -106,7 +106,7 @@ def BuildReachableFileSet(entry_classes, reachability_tree, header_mapping,
   for entry_class in entry_classes.split(','):
     if entry_class not in header_mapping:
       raise Exception(entry_class +
-                      'is not in the transitive Java deps of included ' +
+                      ' is not in the transitive Java deps of included ' +
                       'j2objc_library rules.')
     transpiled_entry_files.append(header_mapping[entry_class])
 
@@ -372,14 +372,21 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
       else:
         cmd_env['ZERO_AR_DATE'] = '1'
         # Copy the input archive to the output location
-        j2objc_cmd += 'cp %s %s;' % (input_archive, output_archive)
+        j2objc_cmd += 'cp %s %s && ' % (input_archive, output_archive)
         # Make the output archive editable
-        j2objc_cmd += 'chmod +w %s;' % (output_archive)
+        j2objc_cmd += 'chmod +w %s && ' % (output_archive)
         # Remove the unreachable objects from the archive
         unreachable_object_names = MatchObjectNamesInArchive(
             xcrunwrapper, input_archive, unreachable_object_names)
-        j2objc_cmd += '%s ar -d -s %s %s;' % (
-            xcrunwrapper, output_archive, ' '.join(unreachable_object_names))
+        # We need to quote the object names because they may contains special
+        # shell characters.
+        quoted_unreachable_object_names = [
+            "'" + unreachable_object_name + "'"
+            for unreachable_object_name in unreachable_object_names]
+        j2objc_cmd += '%s ar -d -s %s %s && ' % (
+            xcrunwrapper,
+            output_archive,
+            ' '.join(quoted_unreachable_object_names))
         # Update the table of content of the archive file
         j2objc_cmd += '%s ranlib %s' % (xcrunwrapper, output_archive)
     # There are no unreachable objects, we just copy over the original archive
@@ -396,10 +403,7 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
   # "Touch" the output file.
   # Prevents a pre-Xcode-8 bug in which passing zero-date archive files to ld
   # would cause ld to error.
-  if os.path.exists(output_archive):
-    os.utime(output_archive, None)
-  else:
-    open(output_archive, 'a').close()
+  os.utime(output_archive, None)
 
 
 if __name__ == '__main__':

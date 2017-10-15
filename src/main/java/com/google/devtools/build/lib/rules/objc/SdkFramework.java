@@ -34,10 +34,8 @@ final class SdkFramework extends Value<SdkFramework> {
     return name;
   }
 
-  /**
-   * Returns an iterable which contains the name of each given framework in the same order.
-   */
-  static Iterable<String> names(Iterable<SdkFramework> frameworks) {
+  /** Returns an iterable which contains the name of each given framework in the same order. */
+  static ImmutableList<String> names(Iterable<SdkFramework> frameworks) {
     ImmutableList.Builder<String> result = new ImmutableList.Builder<>();
     for (SdkFramework framework : frameworks) {
       result.add(framework.getName());

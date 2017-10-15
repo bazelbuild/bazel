@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.SkylarkInfo;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,12 +27,14 @@ import java.util.Map;
  * This provides a view over the actions that were created during the analysis of a rule
  * (not including actions for its transitive dependencies).
  */
-public final class ActionsProvider{
+public final class ActionsProvider {
 
-  public static final SkylarkClassObjectConstructor ACTIONS_PROVIDER =
-      SkylarkClassObjectConstructor.createNative("Actions");
+  /** The Actions provider type itself. */
+  public static final NativeProvider<Info> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<Info>(Info.class, "Actions") {};
 
-  public static SkylarkClassObject create(Iterable<ActionAnalysisMetadata> actions) {
+  /** Factory method for creating instances of the Actions provider. */
+  public static Info create(Iterable<ActionAnalysisMetadata> actions) {
     Map<Artifact, ActionAnalysisMetadata> map = new HashMap<>();
     for (ActionAnalysisMetadata action : actions) {
       for (Artifact artifact : action.getOutputs()) {
@@ -42,6 +46,6 @@ public final class ActionsProvider{
       }
     }
     ImmutableMap<String, Object> fields = ImmutableMap.<String, Object>of("by_file", map);
-    return new SkylarkClassObject(ACTIONS_PROVIDER, fields);
+    return new SkylarkInfo(SKYLARK_CONSTRUCTOR, fields, Location.BUILTIN);
   }
 }

@@ -13,17 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Set;
-
-/**
- * Tests {@link AbstractEventHandler}.
- */
+/** Tests {@link AbstractEventHandler}. */
 @RunWith(JUnit4.class)
 public class AbstractEventHandlerTest {
 
@@ -36,12 +33,10 @@ public class AbstractEventHandlerTest {
 
   @Test
   public void retainsEventMask() {
-    assertEquals(EventKind.ALL_EVENTS,
-                 create(EventKind.ALL_EVENTS).getEventMask());
-    assertEquals(EventKind.ERRORS_AND_WARNINGS,
-                 create(EventKind.ERRORS_AND_WARNINGS).getEventMask());
-    assertEquals(EventKind.ERRORS,
-                 create(EventKind.ERRORS).getEventMask());
+    assertThat(create(EventKind.ALL_EVENTS).getEventMask()).isEqualTo(EventKind.ALL_EVENTS);
+    assertThat(create(EventKind.ERRORS_AND_WARNINGS).getEventMask())
+        .isEqualTo(EventKind.ERRORS_AND_WARNINGS);
+    assertThat(create(EventKind.ERRORS).getEventMask()).isEqualTo(EventKind.ERRORS);
   }
 
 }

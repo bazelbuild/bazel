@@ -112,10 +112,11 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
           <code>deps</code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("exports", LABEL_LIST)
-            .allowedRuleClasses(BazelJavaRuleClasses.ALLOWED_RULES_IN_DEPS)
-            .allowedFileTypes(/*May not have files in exports!*/))
-
+        .add(
+            attr("exports", LABEL_LIST)
+                .allowedRuleClasses(BazelJavaRuleClasses.ALLOWED_RULES_IN_DEPS)
+                .allowedFileTypes(/*May not have files in exports!*/ )
+                .mandatoryProvidersList(BazelJavaRuleClasses.MANDATORY_JAVA_PROVIDER_ONLY))
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(neverlink) -->
         Whether this library should only be used for compilation and not at runtime.
         Useful if the library will be provided by the runtime environment during execution. Examples
@@ -145,8 +146,11 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
           labels in <code><a href="${link java_library.plugins}">plugins</a></code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("exported_plugins", LABEL_LIST).cfg(HOST).allowedRuleClasses("java_plugin")
-            .legacyAllowAnyFileType())
+        .add(
+            attr("exported_plugins", LABEL_LIST)
+                .cfg(HOST)
+                .allowedRuleClasses("java_plugin")
+                .allowedFileTypes())
         .advertiseProvider(JavaSourceInfoProvider.class)
         .advertiseProvider(JavaCompilationArgsProvider.class)
         .build();

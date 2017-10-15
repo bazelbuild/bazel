@@ -87,7 +87,7 @@ tests. Simply rely on the PATH.</p>
 These tools may not be in the PATH, therefore you must use "Make" variable syntax
 in your genrule's cmd attribute.
 <ul>
-  <li class="harmful"> <code>CC</code>: The C compiler command. The built-in C++
+  <li class="harmful"> <code>CC</code>: The C and C++ compiler command. The built-in C++
     rules are much more sophisticated than "run the compiler on it". In order to
     support compilation modes as diverse as *SAN, LIPO, ThinLTO, with/without
     modules, and carefully optimized binaries at the same time as fast running
@@ -103,7 +103,7 @@ in your genrule's cmd attribute.
     combination with <code>CC</code>. Fail to do so at your own risk.
   </li>
   <li class="harmful"> <code>C_COMPILER</code>:
-    The C compiler frontend, e.g. "gcc".
+    The C/C++ compiler identifier, e.g. "gcc".
   </li>
   <li class="harmful"> <code>JAVA</code>: The "java" command (a Java virtual
     machine). Avoid this, and use a <code>java_binary</code> rule instead where
@@ -112,18 +112,18 @@ in your genrule's cmd attribute.
     working directory before changing it.
   </li>
 
-  <li> <code>STRIP</code>: The strip command from the same suite as the C
+  <li> <code>STRIP</code>: The strip command from the same suite as the C/C++
     compiler.</li>
   <li> <code>AR</code>: The "ar" command from crosstool. </li>
   <li> <code>NM</code>: The "nm" command from crosstool. </li>
-  <li> <code>OBJCOPY</code>: The objcopy command from the same suite as the C
+  <li> <code>OBJCOPY</code>: The objcopy command from the same suite as the C/C++
     compiler. </li>
 </ul>
 
 <p><strong>Tool option Variables</strong></p>
 
 <ul><!--  keep alphabetically sorted  -->
-  <li class="harmful"><code>CC_FLAGS</code>: A minimal set of flags for the C
+  <li class="harmful"><code>CC_FLAGS</code>: A minimal set of flags for the C/C++
     compiler to be used by genrules. In particular, it contains flags to select
     the correct architecture if <code>CC</code> supports multiple architectures.
   </li>

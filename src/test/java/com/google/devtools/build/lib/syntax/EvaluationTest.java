@@ -14,24 +14,21 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
-
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Test of evaluation behavior.  (Implicitly uses lexer + parser.)
@@ -50,8 +47,8 @@ public class EvaluationTest extends EvaluationTestCase {
    * <p>If a test uses this method, it allows potential subclasses to run the very same test in a
    * different mode in subclasses
    */
-  protected ModalTestCase newTest() {
-    return new BuildTest();
+  protected ModalTestCase newTest(String... skylarkOptions) {
+    return new BuildTest(skylarkOptions);
   }
 
   @Test
@@ -63,7 +60,9 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("123 + 456", 579)
         .testStatement("456 - 123", 333)
         .testStatement("8 % 3", 2)
-        .testIfErrorContains("unsupported operand type(s) for %: 'int' and 'string'", "3 % 'foo'");
+        .testIfErrorContains("unsupported operand type(s) for %: 'int' and 'string'", "3 % 'foo'")
+        .testStatement("-5", -5)
+        .testIfErrorContains("unsupported operand type for -: 'string'", "-'foo'");
   }
 
   @Test
@@ -74,118 +73,6 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testStringFormatMultipleArgs() throws Exception {
     newTest().testStatement("'%sY%s' % ('X', 'Z')", "XYZ");
-  }
-
-  @Test
-  public void testAndOr() throws Exception {
-    new BuildTest()
-        .testStatement("8 or 9", 8)
-        .testStatement("0 or 9", 9)
-        .testStatement("8 and 9", 9)
-        .testStatement("0 and 9", 0)
-
-        .testStatement("1 and 2 or 3", 2)
-        .testStatement("0 and 2 or 3", 3)
-        .testStatement("1 and 0 or 3", 3)
-
-        .testStatement("1 or 2 and 3", 1)
-        .testStatement("0 or 2 and 3", 3)
-        .testStatement("0 or 0 and 3", 0)
-        .testStatement("1 or 0 and 3", 1)
-
-        .testStatement("None and 1", Runtime.NONE)
-        .testStatement("\"\" or 9", 9)
-        .testStatement("\"abc\" or 9", "abc")
-
-        // check that 'foo' is not evaluated
-        .testStatement("8 or foo", 8)
-        .testStatement("0 and foo", 0);
-
-    new SkylarkTest()
-        .testIfErrorContains("name 'google' is not defined", "0 and google")
-        .testIfErrorContains("name 'google' is not defined", "8 or google");
-  }
-
-  @Test
-  public void testNot() throws Exception {
-    newTest().testStatement("not 1", false).testStatement("not ''", true);
-  }
-
-  @Test
-  public void testNotWithLogicOperators() throws Exception {
-    newTest()
-        .testStatement("not (0 and 0)", true)
-        .testStatement("not (1 or 0)", false)
-
-        .testStatement("0 and not 0", 0)
-        .testStatement("not 0 and 0", 0)
-
-        .testStatement("1 and not 0", true)
-        .testStatement("not 0 or 0", true)
-
-        .testStatement("not 1 or 0", 0)
-        .testStatement("not 1 or 1", 1);
-  }
-
-  @Test
-  public void testNotWithArithmeticOperators() throws Exception {
-    newTest().testStatement("not 0 + 0", true).testStatement("not 2 - 1", false);
-  }
-
-  @Test
-  public void testNotWithCollections() throws Exception {
-    newTest().testStatement("not []", true).testStatement("not {'a' : 1}", false);
-  }
-
-  @Test
-  public void testEquality() throws Exception {
-    newTest()
-        .testStatement("1 == 1", true)
-        .testStatement("1 == 2", false)
-        .testStatement("'hello' == 'hel' + 'lo'", true)
-        .testStatement("'hello' == 'bye'", false)
-        .testStatement("None == None", true)
-        .testStatement("[1, 2] == [1, 2]", true)
-        .testStatement("[1, 2] == [2, 1]", false);
-  }
-
-  @Test
-  public void testInequality() throws Exception {
-    newTest()
-        .testStatement("1 != 1", false)
-        .testStatement("1 != 2", true)
-        .testStatement("'hello' != 'hel' + 'lo'", false)
-        .testStatement("'hello' != 'bye'", true)
-        .testStatement("[1, 2] != [1, 2]", false)
-        .testStatement("[1, 2] != [2, 1]", true);
-  }
-
-  @Test
-  public void testEqualityPrecedence() throws Exception {
-    newTest()
-        .testStatement("1 + 3 == 2 + 2", true)
-        .testStatement("not 1 == 2", true)
-        .testStatement("not 1 != 2", false)
-        .testStatement("2 and 3 == 3 or 1", true)
-        .testStatement("2 or 3 == 3 and 1", 2);
-  }
-
-  @Test
-  public void testLessThan() throws Exception {
-    newTest()
-        .testStatement("1 <= 1", true)
-        .testStatement("1 < 1", false)
-        .testStatement("'a' <= 'b'", true)
-        .testStatement("'c' < 'a'", false);
-  }
-
-  @Test
-  public void testGreaterThan() throws Exception {
-    newTest()
-        .testStatement("1 >= 1", true)
-        .testStatement("1 > 1", false)
-        .testStatement("'a' >= 'b'", false)
-        .testStatement("'c' > 'a'", true);
   }
 
   @Test
@@ -225,6 +112,11 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testSetComparison() throws Exception {
+    newTest().testIfExactError("Cannot compare depsets", "depset([1, 2]) < depset([3, 4])");
+  }
+
+  @Test
   public void testSumFunction() throws Exception {
     BaseFunction sum = new BaseFunction("sum") {
       @Override
@@ -250,6 +142,12 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testComplexFunctionCall() throws Exception {
+    newTest().setUp("functions = [min, max]", "l = [1,2]")
+        .testEval("(functions[0](l), functions[1](l))", "(1, 2)");
+  }
+
+  @Test
   public void testKeywordArgs() throws Exception {
 
     // This function returns the map of keyword arguments passed to it.
@@ -267,7 +165,10 @@ public class EvaluationTest extends EvaluationTestCase {
         .update(kwargs.getName(), kwargs)
         .testEval(
             "kwargs(foo=1, bar='bar', wiz=[1,2,3]).items()",
-            "[('bar', 'bar'), ('foo', 1), ('wiz', [1, 2, 3])]");
+            "[('foo', 1), ('bar', 'bar'), ('wiz', [1, 2, 3])]")
+        .testEval(
+            "kwargs(wiz=[1,2,3], bar='bar', foo=1).items()",
+            "[('wiz', [1, 2, 3]), ('bar', 'bar'), ('foo', 1)]");
   }
 
   @Test
@@ -288,7 +189,9 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("6 * 7", 42)
         .testStatement("3 * 'ab'", "ababab")
         .testStatement("0 * 'ab'", "")
-        .testStatement("'1' + '0' * 5", "100000");
+        .testStatement("'1' + '0' * 5", "100000")
+        .testStatement("'ab' * -4", "")
+        .testStatement("-1 * ''", "");
   }
 
   @Test
@@ -303,6 +206,32 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("2147483647 / 2", 1073741823)
         .testIfErrorContains("unsupported operand type(s) for /: 'string' and 'int'", "'str' / 2")
         .testIfExactError("integer division by zero", "5 / 0");
+  }
+
+  @Test
+  public void testFloorDivision() throws Exception {
+    newTest()
+        .testStatement("6 // 2", 3)
+        .testStatement("6 // 4", 1)
+        .testStatement("3 // 6", 0)
+        .testStatement("7 // -2", -4)
+        .testStatement("-7 // 2", -4)
+        .testStatement("-7 // -2", 3)
+        .testStatement("2147483647 // 2", 1073741823)
+        .testIfErrorContains("unsupported operand type(s) for /: 'string' and 'int'", "'str' / 2")
+        .testIfExactError("integer division by zero", "5 // 0");
+  }
+
+  @Test
+  public void testCheckedArithmetic() throws Exception {
+    new SkylarkTest("--incompatible_checked_arithmetic=true")
+        .testIfErrorContains("integer overflow", "2000000000 + 2000000000")
+        .testIfErrorContains("integer overflow", "1234567890 * 987654321")
+        .testIfErrorContains("integer overflow", "- 2000000000 - 2000000000")
+
+        // literal 2147483648 is not allowed, so we compute it
+        .setUp("minint = - 2147483647 - 1")
+        .testIfErrorContains("integer overflow", "-minint");
   }
 
   @Test
@@ -325,13 +254,13 @@ public class EvaluationTest extends EvaluationTestCase {
     // list
     Object x = eval("[1,2] + [3,4]");
     assertThat((Iterable<Object>) x).containsExactly(1, 2, 3, 4).inOrder();
-    assertEquals(MutableList.of(env, 1, 2, 3, 4), x);
-    assertFalse(EvalUtils.isImmutable(x));
+    assertThat(x).isEqualTo(MutableList.of(env, 1, 2, 3, 4));
+    assertThat(EvalUtils.isImmutable(x)).isFalse();
 
     // tuple
     x = eval("(1,2) + (3,4)");
-    assertEquals(Tuple.of(1, 2, 3, 4), x);
-    assertTrue(EvalUtils.isImmutable(x));
+    assertThat(x).isEqualTo(Tuple.of(1, 2, 3, 4));
+    assertThat(EvalUtils.isImmutable(x)).isTrue();
 
     checkEvalError("unsupported operand type(s) for +: 'tuple' and 'list'",
         "(1,2) + [3,4]"); // list + tuple
@@ -343,7 +272,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testExactOrder("['foo/%s.java' % x for x in []]")
         .testExactOrder("['foo/%s.java' % y for y in ['bar', 'wiz', 'quux']]", "foo/bar.java",
             "foo/wiz.java", "foo/quux.java")
-        .testExactOrder("['%s/%s.java' % (z, t) " + "for z in ['foo', 'bar'] "
+        .testExactOrder("['%s/%s.java' % (z, t) for z in ['foo', 'bar'] "
             + "for t in ['baz', 'wiz', 'quux']]",
             "foo/baz.java",
             "foo/wiz.java",
@@ -351,7 +280,7 @@ public class EvaluationTest extends EvaluationTestCase {
             "bar/baz.java",
             "bar/wiz.java",
             "bar/quux.java")
-        .testExactOrder("['%s/%s.java' % (b, b) " + "for a in ['foo', 'bar'] "
+        .testExactOrder("['%s/%s.java' % (b, b) for a in ['foo', 'bar'] "
             + "for b in ['baz', 'wiz', 'quux']]",
             "baz/baz.java",
             "wiz/wiz.java",
@@ -359,8 +288,8 @@ public class EvaluationTest extends EvaluationTestCase {
             "baz/baz.java",
             "wiz/wiz.java",
             "quux/quux.java")
-        .testExactOrder("['%s/%s.%s' % (c, d, e) " + "for c in ['foo', 'bar'] "
-            + "for d in ['baz', 'wiz', 'quux'] " + "for e in ['java', 'cc']]",
+        .testExactOrder("['%s/%s.%s' % (c, d, e) for c in ['foo', 'bar'] "
+            + "for d in ['baz', 'wiz', 'quux'] for e in ['java', 'cc']]",
             "foo/baz.java",
             "foo/baz.cc",
             "foo/wiz.java",
@@ -372,7 +301,9 @@ public class EvaluationTest extends EvaluationTestCase {
             "bar/wiz.java",
             "bar/wiz.cc",
             "bar/quux.java",
-            "bar/quux.cc");
+            "bar/quux.cc")
+        .testExactOrder("[i for i in (1, 2)]", 1, 2)
+        .testExactOrder("[i for i in [2, 3] or [1, 2]]", 2, 3);
   }
 
   @Test
@@ -399,7 +330,9 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionsMultipleVariablesFail() throws Exception {
-    newTest().testIfExactError("lvalue has length 3, but rvalue has has length 2",
+    newTest().testIfErrorContains(
+        "assignment length mismatch: left-hand side has length 3, but right-hand side evaluates to "
+            + "value of length 2",
         "[x + y for x, y, z in [(1, 2), (3, 4)]]").testIfExactError(
         "type 'int' is not a collection", "[x + y for x, y in (1, 2)]");
   }
@@ -435,7 +368,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSingleTuple() throws Exception {
-    newTest().setUp("a, = [1]").testLookup("a", 1);
+    newTest().setUp("(a,) = [1]").testLookup("a", 1);
   }
 
   @Test
@@ -450,6 +383,19 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testDictWithDuplicatedKey() throws Exception {
+    new SkylarkTest("--incompatible_dict_literal_has_no_duplicates=true")
+        .testIfErrorContains(
+            "Duplicated key \"str\" when creating dictionary", "{'str': 1, 'x': 2, 'str': 3}");
+  }
+
+  @Test
+  public void testDictAllowDuplicatedKey() throws Exception {
+    new SkylarkTest("--incompatible_dict_literal_has_no_duplicates=false")
+        .testStatement("{'str': 1, 'x': 2, 'str': 3}", ImmutableMap.of("str", 3, "x", 2));
+  }
+
+  @Test
   public void testRecursiveTupleDestructuring() throws Exception {
     newTest()
         .setUp("((a, b), (c, d)) = [(1, 2), (3, 4)]")
@@ -460,11 +406,10 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testListComprehensionModifiesGlobalEnv() throws Exception {
-    new SkylarkTest().update("x", 42).testIfExactError("ERROR 1:1: Variable x is read only",
-        "[x + 1 for x in [1,2,3]]");
-    new BuildTest().update("x", 42).setUp("y =[x + 1 for x in [1,2,3]]")
-        .testExactOrder("y", 2, 3, 4).testLookup("x", 3); // (x is global)
+  public void testListComprehensionAtTopLevel() throws Exception {
+    // It is allowed to have a loop variable with the same name as a global variable.
+    newTest().update("x", 42).setUp("y = [x + 1 for x in [1,2,3]]")
+        .testExactOrder("y", 2, 3, 4);
   }
 
   @Test
@@ -501,14 +446,6 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testDictComprehensions_ToString() throws Exception {
-    assertEquals("{x: x for x in [1, 2]}",
-        parseExpression("{x : x for x in [1, 2]}").toString());
-    assertEquals("{x + 'a': x for x in [1, 2]}",
-        parseExpression("{x + 'a' : x for x in [1, 2]}").toString());
-  }
-
-  @Test
   public void testListConcatenation() throws Exception {
     newTest()
         .testStatement("[1, 2] + [3, 4]", MutableList.of(env, 1, 2, 3, 4))
@@ -519,13 +456,47 @@ public class EvaluationTest extends EvaluationTestCase {
             "(1, 2) + [3, 4]");
   }
 
+  @Test
+  public void testListMultiply() throws Exception {
+    newTest()
+        .testStatement("[1, 2, 3] * 1", MutableList.of(env, 1, 2, 3))
+        .testStatement("[1, 2] * 2", MutableList.of(env, 1, 2, 1, 2))
+        .testStatement("[1, 2] * 3", MutableList.of(env, 1, 2, 1, 2, 1, 2))
+        .testStatement("[1, 2] * 4", MutableList.of(env, 1, 2, 1, 2, 1, 2, 1, 2))
+        .testStatement("[8] * 5", MutableList.of(env, 8, 8, 8, 8, 8))
+        .testStatement("[    ] * 10", MutableList.empty())
+        .testStatement("[1, 2] * 0", MutableList.empty())
+        .testStatement("[1, 2] * -4", MutableList.empty())
+        .testStatement(" 2 * [1, 2]", MutableList.of(env, 1, 2, 1, 2))
+        .testStatement("10 * []", MutableList.empty())
+        .testStatement(" 0 * [1, 2]", MutableList.empty())
+        .testStatement("-4 * [1, 2]", MutableList.empty());
+  }
+
+  @Test
+  public void testTupleMultiply() throws Exception {
+    newTest()
+        .testStatement("(1, 2, 3) * 1", Tuple.of(1, 2, 3))
+        .testStatement("(1, 2) * 2", Tuple.of(1, 2, 1, 2))
+        .testStatement("(1, 2) * 3", Tuple.of(1, 2, 1, 2, 1, 2))
+        .testStatement("(1, 2) * 4", Tuple.of(1, 2, 1, 2, 1, 2, 1, 2))
+        .testStatement("(8,) * 5", Tuple.of(8, 8, 8, 8, 8))
+        .testStatement("(    ) * 10", Tuple.empty())
+        .testStatement("(1, 2) * 0", Tuple.empty())
+        .testStatement("(1, 2) * -4", Tuple.empty())
+        .testStatement(" 2 * (1, 2)", Tuple.of(1, 2, 1, 2))
+        .testStatement("10 * ()", Tuple.empty())
+        .testStatement(" 0 * (1, 2)", Tuple.empty())
+        .testStatement("-4 * (1, 2)", Tuple.empty());
+  }
+
   @SuppressWarnings("unchecked")
   @Test
   public void testSelectorListConcatenation() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
     SelectorList x = (SelectorList) eval("select({'foo': ['FOO'], 'bar': ['BAR']}) + []");
     List<Object> elements = x.getElements();
-    assertThat(elements.size()).isEqualTo(2);
+    assertThat(elements).hasSize(2);
     assertThat(elements.get(0)).isInstanceOf(SelectorValue.class);
     assertThat((Iterable<Object>) elements.get(1)).isEmpty();
   }
@@ -553,13 +524,20 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionOnString() throws Exception {
-    newTest().testExactOrder("[x for x in 'abc']", "a", "b", "c");
+    newTest("--incompatible_string_is_not_iterable=false")
+        .testExactOrder("[x for x in 'abc']", "a", "b", "c");
+  }
+
+  @Test
+  public void testListComprehensionOnStringIsForbidden() throws Exception {
+    newTest("--incompatible_string_is_not_iterable=true")
+        .testIfErrorContains("type 'string' is not iterable", "[x for x in 'abc']");
   }
 
   @Test
   public void testInvalidAssignment() throws Exception {
     newTest().testIfErrorContains(
-        "can only assign to variables and tuples, not to 'x + 1'", "x + 1 = 2");
+        "cannot assign to 'x + 1'", "x + 1 = 2");
   }
 
   @Test
@@ -639,10 +617,9 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testInFail() throws Exception {
     newTest()
-        .testIfExactError(
-            "in operator only works on strings if the left operand is also a string", "1 in '123'")
-        .testIfExactError(
-            "in operator only works on lists, tuples, sets, dicts and strings", "'a' in 1");
+        .testIfErrorContains(
+            "'in <string>' requires string as left operand, not 'int'", "1 in '123'")
+        .testIfErrorContains("'int' is not iterable. in operator only works on ", "'a' in 1");
   }
 
   @Test
@@ -650,30 +627,56 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest().testStatement("not 'a' in ['a'] or 0", 0);
   }
 
-  private Object createObjWithStr() {
-    return new Object() {
+  private SkylarkValue createObjWithStr() {
+    return new SkylarkValue() {
       @Override
-      public String toString() {
-        return "str marker";
+      public void repr(SkylarkPrinter printer) {
+        printer.append("<str marker>");
+      }
+
+      @Override
+      public void reprLegacy(SkylarkPrinter printer) {
+        printer.append("<str legacy marker>");
       }
     };
   }
 
   @Test
   public void testPercOnObject() throws Exception {
-    newTest().update("obj", createObjWithStr()).testStatement("'%s' % obj", "str marker");
+    newTest("--incompatible_descriptive_string_representations=true")
+        .update("obj", createObjWithStr())
+        .testStatement("'%s' % obj", "<str marker>");
+    newTest("--incompatible_descriptive_string_representations=false")
+        .update("obj", createObjWithStr())
+        .testStatement("'%s' % obj", "<str legacy marker>");
+    newTest()
+        .update("unknown", new Object())
+        .testStatement("'%s' % unknown", "<unknown object java.lang.Object>");
   }
 
   @Test
   public void testPercOnObjectList() throws Exception {
-    newTest().update("obj", createObjWithStr()).testStatement("'%s %s' % (obj, obj)",
-        "str marker str marker");
+    newTest("--incompatible_descriptive_string_representations=true")
+        .update("obj", createObjWithStr())
+        .testStatement("'%s %s' % (obj, obj)", "<str marker> <str marker>");
+    newTest("--incompatible_descriptive_string_representations=false")
+        .update("obj", createObjWithStr())
+        .testStatement("'%s %s' % (obj, obj)", "<str legacy marker> <str legacy marker>");
+    newTest()
+        .update("unknown", new Object())
+        .testStatement(
+            "'%s %s' % (unknown, unknown)",
+            "<unknown object java.lang.Object> <unknown object java.lang.Object>");
   }
 
   @Test
   public void testPercOnObjectInvalidFormat() throws Exception {
-    newTest().update("obj", createObjWithStr()).testIfExactError(
-        "invalid argument str marker for format pattern %d", "'%d' % obj");
+    newTest("--incompatible_descriptive_string_representations=true")
+        .update("obj", createObjWithStr())
+        .testIfExactError("invalid argument <str marker> for format pattern %d", "'%d' % obj");
+    newTest("--incompatible_descriptive_string_representations=false")
+        .update("obj", createObjWithStr())
+        .testIfExactError("invalid argument <str marker> for format pattern %d", "'%d' % obj");
   }
 
   @Test
@@ -695,7 +698,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeysDuplicateKeyArgs() throws Exception {
-    newTest().testIfExactError("duplicate keywords 'arg', 'k' in call to keys",
+    newTest().testIfExactError("duplicate keywords 'arg', 'k' in call to {\"a\": 1}.keys",
         "{'a': 1}.keys(arg='abc', arg='def', k=1, k=2)");
   }
 

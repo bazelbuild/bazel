@@ -14,15 +14,11 @@
 
 package com.google.devtools.build.lib.cmdline;
 
-
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.lib.cmdline.TargetPattern.ContainsTBDForTBDResult;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -66,28 +62,59 @@ public class TargetPatternTest {
   @Test
   public void testNormalize() {
     // Good cases.
-    assertEquals("empty", TargetPattern.normalize("empty"));
-    assertEquals("a/b", TargetPattern.normalize("a/b"));
-    assertEquals("a/b/c", TargetPattern.normalize("a/b/c"));
-    assertEquals("a/b/c.d", TargetPattern.normalize("a/b/c.d"));
-    assertEquals("a/b/c..", TargetPattern.normalize("a/b/c.."));
-    assertEquals("a/b/c...", TargetPattern.normalize("a/b/c..."));
+    assertThat(TargetPattern.normalize("empty")).isEqualTo("empty");
+    assertThat(TargetPattern.normalize("a/b")).isEqualTo("a/b");
+    assertThat(TargetPattern.normalize("a/b/c")).isEqualTo("a/b/c");
+    assertThat(TargetPattern.normalize("a/b/c.d")).isEqualTo("a/b/c.d");
+    assertThat(TargetPattern.normalize("a/b/c..")).isEqualTo("a/b/c..");
+    assertThat(TargetPattern.normalize("a/b/c...")).isEqualTo("a/b/c...");
 
-    assertEquals("a/b", TargetPattern.normalize("a/b/")); // Remove trailing empty segments
-    assertEquals("a/c", TargetPattern.normalize("a//c")); // Remove empty inner segments
-    assertEquals("a/d", TargetPattern.normalize("a/./d")); // Remove inner dot segments
-    assertEquals("a", TargetPattern.normalize("a/."));     // Remove trailing dot segments
+    assertThat(TargetPattern.normalize("a/b/")).isEqualTo("a/b"); // Remove trailing empty segments
+    assertThat(TargetPattern.normalize("a//c")).isEqualTo("a/c"); // Remove empty inner segments
+    assertThat(TargetPattern.normalize("a/./d")).isEqualTo("a/d"); // Remove inner dot segments
+    assertThat(TargetPattern.normalize("a/.")).isEqualTo("a"); // Remove trailing dot segments
     // Remove .. segment and its predecessor
-    assertEquals("a/e", TargetPattern.normalize("a/b/../e"));
+    assertThat(TargetPattern.normalize("a/b/../e")).isEqualTo("a/e");
     // Remove trailing .. segment and its predecessor
-    assertEquals("a/g", TargetPattern.normalize("a/g/b/.."));
+    assertThat(TargetPattern.normalize("a/g/b/..")).isEqualTo("a/g");
     // Remove double .. segments and two predecessors
-    assertEquals("a/h", TargetPattern.normalize("a/b/c/../../h"));
+    assertThat(TargetPattern.normalize("a/b/c/../../h")).isEqualTo("a/h");
     // Don't remove leading .. segments
-    assertEquals("../a", TargetPattern.normalize("../a"));
-    assertEquals("../../a", TargetPattern.normalize("../../a"));
-    assertEquals("../../../a", TargetPattern.normalize("../../../a"));
-    assertEquals("../../b", TargetPattern.normalize("a/../../../b"));
+    assertThat(TargetPattern.normalize("../a")).isEqualTo("../a");
+    assertThat(TargetPattern.normalize("../../a")).isEqualTo("../../a");
+    assertThat(TargetPattern.normalize("../../../a")).isEqualTo("../../../a");
+    assertThat(TargetPattern.normalize("a/../../../b")).isEqualTo("../../b");
+  }
+
+  @Test
+  public void testTargetsBelowDirectoryContainsColonStar() throws Exception {
+    // Given an outer pattern '//foo/...', that matches rules only,
+    TargetPattern outerPattern = parseAsExpectedType("//foo/...", Type.TARGETS_BELOW_DIRECTORY);
+    // And a nested inner pattern '//foo/bar/...:*', that matches all targets,
+    TargetPattern innerPattern =
+        parseAsExpectedType("//foo/bar/...:*", Type.TARGETS_BELOW_DIRECTORY);
+    // Then a directory exclusion would exactly describe the subtraction of the inner pattern from
+    // the outer pattern,
+    assertThat(outerPattern.containsTBDForTBD(innerPattern))
+        .isEqualTo(ContainsTBDForTBDResult.DIRECTORY_EXCLUSION_WOULD_BE_EXACT);
+    // And the inner pattern does not contain the outer pattern.
+    assertThat(innerPattern.containsTBDForTBD(outerPattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
+  }
+
+  @Test
+  public void testTargetsBelowDirectoryColonStarContains() throws Exception {
+    // Given an outer pattern '//foo/...:*', that matches all targets,
+    TargetPattern outerPattern = parseAsExpectedType("//foo/...:*", Type.TARGETS_BELOW_DIRECTORY);
+    // And a nested inner pattern '//foo/bar/...', that matches rules only,
+    TargetPattern innerPattern =
+        parseAsExpectedType("//foo/bar/...", Type.TARGETS_BELOW_DIRECTORY);
+    // Then a directory exclusion would be too broad,
+    assertThat(outerPattern.containsTBDForTBD(innerPattern))
+        .isEqualTo(ContainsTBDForTBDResult.DIRECTORY_EXCLUSION_WOULD_BE_TOO_BROAD);
+    // And the inner pattern does not contain the outer pattern.
+    assertThat(innerPattern.containsTBDForTBD(outerPattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
   }
 
   @Test
@@ -96,10 +123,12 @@ public class TargetPatternTest {
     TargetPattern outerPattern = parseAsExpectedType("//foo/...", Type.TARGETS_BELOW_DIRECTORY);
     // And a nested inner pattern '//foo/bar/...',
     TargetPattern innerPattern = parseAsExpectedType("//foo/bar/...", Type.TARGETS_BELOW_DIRECTORY);
-    // Then the outer pattern contains the inner pattern,,
-    assertTrue(outerPattern.containsBelowDirectory(innerPattern));
+    // Then the outer pattern contains the inner pattern,
+    assertThat(outerPattern.containsTBDForTBD(innerPattern))
+        .isEqualTo(ContainsTBDForTBDResult.DIRECTORY_EXCLUSION_WOULD_BE_EXACT);
     // And the inner pattern does not contain the outer pattern.
-    assertFalse(innerPattern.containsBelowDirectory(outerPattern));
+    assertThat(innerPattern.containsTBDForTBD(outerPattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
   }
 
   @Test
@@ -109,8 +138,8 @@ public class TargetPatternTest {
     // And a pattern '//bar/...',
     TargetPattern patternBar = parseAsExpectedType("//bar/...", Type.TARGETS_BELOW_DIRECTORY);
     // Then neither pattern contains the other.
-    assertFalse(patternFoo.containsBelowDirectory(patternBar));
-    assertFalse(patternBar.containsBelowDirectory(patternFoo));
+    assertThat(patternFoo.containsTBDForTBD(patternBar)).isEqualTo(ContainsTBDForTBDResult.OTHER);
+    assertThat(patternBar.containsTBDForTBD(patternFoo)).isEqualTo(ContainsTBDForTBDResult.OTHER);
   }
 
   @Test
@@ -124,16 +153,22 @@ public class TargetPatternTest {
     TargetPattern singleTargetPattern = parseAsExpectedType("//foo:bar", Type.SINGLE_TARGET);
     TargetPattern targetsInPackagePattern = parseAsExpectedType("foo:all", Type.TARGETS_IN_PACKAGE);
 
-    // Then the non-TargetsBelowDirectory patterns are contained by tbdFoo, and do not contain
-    // tbdFoo.
-    assertTrue(tbdFoo.containsBelowDirectory(pathAsTargetPattern));
-    assertFalse(pathAsTargetPattern.containsBelowDirectory(tbdFoo));
+    // Then the non-TargetsBelowDirectory patterns do not contain tbdFoo.
+    assertThat(pathAsTargetPattern.containsTBDForTBD(tbdFoo))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
+    // And are not considered to be a contained directory of the TargetsBelowDirectory pattern.
+    assertThat(tbdFoo.containsTBDForTBD(pathAsTargetPattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
 
-    assertTrue(tbdFoo.containsBelowDirectory(singleTargetPattern));
-    assertFalse(singleTargetPattern.containsBelowDirectory(tbdFoo));
+    assertThat(singleTargetPattern.containsTBDForTBD(tbdFoo))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
+    assertThat(tbdFoo.containsTBDForTBD(singleTargetPattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
 
-    assertTrue(tbdFoo.containsBelowDirectory(targetsInPackagePattern));
-    assertFalse(targetsInPackagePattern.containsBelowDirectory(tbdFoo));
+    assertThat(targetsInPackagePattern.containsTBDForTBD(tbdFoo))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
+    assertThat(tbdFoo.containsTBDForTBD(targetsInPackagePattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
   }
 
   @Test
@@ -151,10 +186,14 @@ public class TargetPatternTest {
         parseAsExpectedType("food:all", Type.TARGETS_IN_PACKAGE);
 
     // Then the non-TargetsBelowDirectory patterns are not contained by tbdFoo.
-    assertFalse(tbdFoo.containsBelowDirectory(targetsBelowDirectoryPattern));
-    assertFalse(tbdFoo.containsBelowDirectory(pathAsTargetPattern));
-    assertFalse(tbdFoo.containsBelowDirectory(singleTargetPattern));
-    assertFalse(tbdFoo.containsBelowDirectory(targetsInPackagePattern));
+    assertThat(tbdFoo.containsTBDForTBD(targetsBelowDirectoryPattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
+    assertThat(tbdFoo.containsTBDForTBD(pathAsTargetPattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
+    assertThat(tbdFoo.containsTBDForTBD(singleTargetPattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
+    assertThat(tbdFoo.containsTBDForTBD(targetsInPackagePattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
   }
 
   @Test
@@ -170,17 +209,24 @@ public class TargetPatternTest {
     TargetPattern targetsInPackagePattern = parseAsExpectedType("foo:all", Type.TARGETS_IN_PACKAGE);
 
     // Then the patterns are contained by tbdDepot, and do not contain tbdDepot.
-    assertTrue(tbdDepot.containsBelowDirectory(tbdFoo));
-    assertFalse(tbdFoo.containsBelowDirectory(tbdDepot));
+    assertThat(tbdDepot.containsTBDForTBD(tbdFoo))
+        .isEqualTo(ContainsTBDForTBDResult.DIRECTORY_EXCLUSION_WOULD_BE_EXACT);
+    assertThat(tbdFoo.containsTBDForTBD(tbdDepot)).isEqualTo(ContainsTBDForTBDResult.OTHER);
 
-    assertTrue(tbdDepot.containsBelowDirectory(pathAsTargetPattern));
-    assertFalse(pathAsTargetPattern.containsBelowDirectory(tbdDepot));
+    assertThat(tbdDepot.containsTBDForTBD(pathAsTargetPattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
+    assertThat(pathAsTargetPattern.containsTBDForTBD(tbdDepot))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
 
-    assertTrue(tbdDepot.containsBelowDirectory(singleTargetPattern));
-    assertFalse(singleTargetPattern.containsBelowDirectory(tbdDepot));
+    assertThat(tbdDepot.containsTBDForTBD(singleTargetPattern)).
+        isEqualTo(ContainsTBDForTBDResult.OTHER);
+    assertThat(singleTargetPattern.containsTBDForTBD(tbdDepot))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
 
-    assertTrue(tbdDepot.containsBelowDirectory(targetsInPackagePattern));
-    assertFalse(targetsInPackagePattern.containsBelowDirectory(tbdDepot));
+    assertThat(tbdDepot.containsTBDForTBD(targetsInPackagePattern))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
+    assertThat(targetsInPackagePattern.containsTBDForTBD(tbdDepot))
+        .isEqualTo(ContainsTBDForTBDResult.OTHER);
   }
 
   private static TargetPattern parse(String pattern) throws TargetParsingException {

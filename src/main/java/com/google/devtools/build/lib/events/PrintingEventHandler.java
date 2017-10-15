@@ -14,9 +14,8 @@
 package com.google.devtools.build.lib.events;
 
 import com.google.devtools.build.lib.util.io.OutErr;
-
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 /**
@@ -26,13 +25,6 @@ import java.util.Set;
  * ERROR: /home/jrluser/src/workspace/x/BUILD:23:1: syntax error.
  * </pre>
  * This syntax is parseable by Emacs's compile.el.
- *
- * <p>
- * By default, the output will go to SYSTEM_OUT_ERR,
- * but this can be changed by calling the setOut() method.
- *
- * <p>
- * This class is used only for tests.
  */
 public class PrintingEventHandler extends AbstractEventHandler
     implements EventHandler {
@@ -55,15 +47,22 @@ public class PrintingEventHandler extends AbstractEventHandler
   public static final PrintingEventHandler ERRORS_TO_STDERR =
       new PrintingEventHandler(EventKind.ERRORS_AND_OUTPUT);
 
-  private OutErr outErr = OutErr.SYSTEM_OUT_ERR;
+  private OutErr outErr;
 
   /**
-   * Setup a printing event handler that will handle events matching the mask.
-   * Events will be printed to the original System.out and System.err
-   * unless/until redirected by a call to setOutErr().
+   * Setup a printing event handler that prints events matching the mask.
+   */
+  public PrintingEventHandler(OutErr outErr, Set<EventKind> mask) {
+    super(mask);
+    this.outErr = outErr;
+  }
+
+  /**
+   * Setup a printing event handler that prints events matching the mask. Events are printed to the
+   * System.out and System.err unless/until redirected by a call to setOutErr().
    */
   public PrintingEventHandler(Set<EventKind> mask) {
-    super(mask);
+    this(OutErr.SYSTEM_OUT_ERR, mask);
   }
 
   /**
@@ -96,15 +95,14 @@ public class PrintingEventHandler extends AbstractEventHandler
           outErr.getErrorStream().flush();
           break;
         default:
-          PrintWriter err = new PrintWriter(outErr.getErrorStream());
-          err.print(event.getKind());
-          err.print(": ");
+          StringBuilder builder = new StringBuilder();
+          builder.append(event.getKind()).append(": ");
           if (event.getLocation() != null) {
-            err.print(event.getLocation().print());
-            err.print(": ");
+            builder.append(event.getLocation().print()).append(": ");
           }
-          err.println(event.getMessage());
-          err.flush();
+          builder.append(event.getMessage()).append("\n");
+          outErr.getErrorStream().write(builder.toString().getBytes(StandardCharsets.UTF_8));
+          outErr.getErrorStream().flush();
       }
     } catch (IOException e) {
       /*

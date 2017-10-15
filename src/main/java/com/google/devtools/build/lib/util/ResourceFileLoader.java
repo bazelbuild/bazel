@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.util;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.io.ByteStreams;
-
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -29,6 +28,14 @@ public final class ResourceFileLoader {
 
   private ResourceFileLoader() {}
 
+  public static boolean resourceExists(Class<?> relativeToClass, String resourceName) {
+    try (InputStream resourceStream = getResourceAsStream(relativeToClass, resourceName)) {
+      return resourceStream != null;
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
   /**
    * Loads a text resource that is located in a directory on the Java classpath that
    * corresponds to the package of <code>relativeToClass</code> using UTF8 encoding.
@@ -38,20 +45,21 @@ public final class ResourceFileLoader {
    */
   public static String loadResource(Class<?> relativeToClass, String resourceName)
       throws IOException {
+    try (InputStream stream = getResourceAsStream(relativeToClass, resourceName)) {
+      if (stream == null) {
+        throw new IOException(resourceName + " not found.");
+      }
+      return new String(ByteStreams.toByteArray(stream), UTF_8);
+    }
+  }
+
+  private static InputStream getResourceAsStream(Class<?> relativeToClass, String resourceName) {
     ClassLoader loader = relativeToClass.getClassLoader();
     // TODO(bazel-team): use relativeToClass.getPackage().getName().
     String className = relativeToClass.getName();
     String packageName = className.substring(0, className.lastIndexOf('.'));
     String path = packageName.replace('.', '/');
     String resource = path + '/' + resourceName;
-    InputStream stream = loader.getResourceAsStream(resource);
-    if (stream == null) {
-      throw new IOException(resourceName + " not found.");
-    }
-    try {
-      return new String(ByteStreams.toByteArray(stream), UTF_8);
-    } finally {
-      stream.close();
-    }
+    return loader.getResourceAsStream(resource);
   }
 }

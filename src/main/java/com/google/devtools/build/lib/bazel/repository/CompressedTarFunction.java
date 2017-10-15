@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
+import java.util.Date;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
@@ -58,7 +59,7 @@ public abstract class CompressedTarFunction implements Decompressor {
           FileSystemUtils.createDirectoryAndParents(filename);
         } else {
           if (entry.isSymbolicLink() || entry.isLink()) {
-            PathFragment linkName = new PathFragment(entry.getLinkName());
+            PathFragment linkName = PathFragment.create(entry.getLinkName());
             boolean wasAbsolute = linkName.isAbsolute();
             // Strip the prefix from the link path if set.
             linkName =
@@ -67,6 +68,9 @@ public abstract class CompressedTarFunction implements Decompressor {
               // Recover the path to an absolute path as maybeDeprefix() relativize the path
               // even if the prefix is not set
               linkName = descriptor.repositoryPath().getRelative(linkName).asFragment();
+            }
+            if (filename.exists()) {
+              filename.delete();
             }
             if (entry.isSymbolicLink()) {
               FileSystemUtils.ensureSymbolicLink(filename, linkName);
@@ -78,6 +82,11 @@ public abstract class CompressedTarFunction implements Decompressor {
             Files.copy(
                 tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
             filename.chmod(entry.getMode());
+
+            // This can only be done on real files, not links, or it will skip the reader to
+            // the next "real" file to try to find the mod time info.
+            Date lastModified = entry.getLastModifiedDate();
+            filename.setLastModifiedTime(lastModified.getTime());
           }
         }
       }

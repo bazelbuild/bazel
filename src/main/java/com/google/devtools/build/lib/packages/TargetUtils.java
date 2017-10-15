@@ -14,11 +14,20 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.Preconditions;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -118,6 +127,54 @@ public final class TargetUtils {
     return hasConstraint(rule, "external");
   }
 
+  public static List<String> getStringListAttr(Target target, String attrName) {
+    Preconditions.checkArgument(target instanceof Rule);
+    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING_LIST);
+  }
+
+  public static String getStringAttr(Target target, String attrName) {
+    Preconditions.checkArgument(target instanceof Rule);
+    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING);
+  }
+
+  public static Iterable<String> getAttrAsString(Target target, String attrName) {
+    Preconditions.checkArgument(target instanceof Rule);
+    List<String> values = new ArrayList<>(); // May hold null values.
+    Attribute attribute = ((Rule) target).getAttributeDefinition(attrName);
+    if (attribute != null) {
+      Type<?> attributeType = attribute.getType();
+      for (Object attrValue :
+          AggregatingAttributeMapper.of((Rule) target)
+              .visitAttribute(attribute.getName(), attributeType)) {
+
+        // Ugly hack to maintain backward 'attr' query compatibility for BOOLEAN and TRISTATE
+        // attributes. These are internally stored as actual Boolean or TriState objects but were
+        // historically queried as integers. To maintain compatibility, we inspect their actual
+        // value and return the integer equivalent represented as a String. This code is the
+        // opposite of the code in BooleanType and TriStateType respectively.
+        if (attributeType == BOOLEAN) {
+          values.add(Type.BOOLEAN.cast(attrValue) ? "1" : "0");
+        } else if (attributeType == TRISTATE) {
+          switch (BuildType.TRISTATE.cast(attrValue)) {
+            case AUTO:
+              values.add("-1");
+              break;
+            case NO:
+              values.add("0");
+              break;
+            case YES:
+              values.add("1");
+              break;
+            default:
+              throw new AssertionError("This can't happen!");
+          }
+        } else {
+          values.add(attrValue == null ? null : attrValue.toString());
+        }
+      }
+    }
+    return values;
+  }
 
   /**
    * If the given target is a rule, returns its <code>deprecation<code/> value, or null if unset.
@@ -154,7 +211,10 @@ public final class TargetUtils {
     Map<String, String> map = new HashMap<>();
     for (String tag :
         NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
-      if (tag.startsWith("block-") || tag.startsWith("requires-") || tag.equals("local")) {
+      if (tag.startsWith("block-")
+          || tag.startsWith("requires-")
+          || tag.equals("local")
+          || tag.startsWith("cpu:")) {
         map.put(tag, "");
       }
     }
@@ -191,6 +251,31 @@ public final class TargetUtils {
     ExplicitEdgeVisitor visitor = new ExplicitEdgeVisitor(rule, label);
     AggregatingAttributeMapper.of(rule).visitLabels(visitor);
     return visitor.isExplicit();
+  }
+
+  /**
+   * Returns a predicate to be used for test tag filtering, i.e., that only accepts tests that match
+   * all of the required tags and none of the excluded tags.
+   */
+  public static Predicate<Target> tagFilter(List<String> tagFilterList) {
+    Pair<Collection<String>, Collection<String>> tagLists =
+        TestTargetUtils.sortTagsBySense(tagFilterList);
+    final Collection<String> requiredTags = tagLists.first;
+    final Collection<String> excludedTags = tagLists.second;
+    return input -> {
+      if (requiredTags.isEmpty() && excludedTags.isEmpty()) {
+        return true;
+      }
+
+      if (!(input instanceof Rule)) {
+        return false;
+      }
+      // Note that test_tags are those originating from the XX_test rule,
+      // whereas the requiredTags and excludedTags originate from the command
+      // line or test_suite rule.
+      return TestTargetUtils.testMatchesFilters(
+          ((Rule) input).getRuleTags(), requiredTags, excludedTags, false);
+    };
   }
 
   private static class ExplicitEdgeVisitor implements AttributeMap.AcceptsLabelAttribute {

@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.common.collect.Ordering;
+import static java.util.Map.Entry.comparingByKey;
 
+import com.google.common.collect.Ordering;
 import java.io.File;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -127,15 +127,6 @@ public class CommandFailureUtils {
 
   private CommandFailureUtils() {} // Prevent instantiation.
 
-  private static Comparator<Map.Entry<String, String>> mapEntryComparator =
-      new Comparator<Map.Entry<String, String>>() {
-        @Override
-        public int compare(Map.Entry<String, String> x, Map.Entry<String, String> y) {
-          // A map can never have two keys with the same value, so we only need to compare the keys.
-          return x.getKey().compareTo(y.getKey());
-        }
-      };
-
   /**
    * Construct a string that describes the command.
    * Currently this returns a message of the form "foo bar baz",
@@ -191,6 +182,8 @@ public class CommandFailureUtils {
        */
       if (environment != null) {
         describeCommandImpl.describeCommandEnvPrefix(message);
+        // A map can never have two keys with the same value, so we only need to compare the keys.
+        Comparator<Map.Entry<String, String>> mapEntryComparator = comparingByKey();
         for (Map.Entry<String, String> entry :
             Ordering.from(mapEntryComparator).sortedCopy(environment.entrySet())) {
           message.append("  ");

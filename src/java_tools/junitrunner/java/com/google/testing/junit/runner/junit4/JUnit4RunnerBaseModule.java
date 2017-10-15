@@ -33,8 +33,9 @@ import org.junit.runner.Request;
 import org.junit.runner.notification.RunListener;
 
 /**
- * Dagger module for creating a {@link JUnit4Runner}. This contains the common bindings used when
+ * Utility class for creating a {@link JUnit4Runner}. This contains the common bindings used when
  * either the runner runs actual tests or when we do integration tests of the runner itself.
+ * This is a legacy Dagger module.
  */
 public abstract class JUnit4RunnerBaseModule {
 

@@ -17,7 +17,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.packages.AttributeContainer;
+import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.Path;
 
 /**
  * Builder class to create a {@link BlazeRuntime} instance. This class is part of the module API,
@@ -40,6 +43,10 @@ public final class ServerBuilder {
   private final ImmutableList.Builder<QueryFunction> queryFunctions = ImmutableList.builder();
   private final ImmutableList.Builder<OutputFormatter> queryOutputFormatters =
       ImmutableList.builder();
+  private final ImmutableList.Builder<PackageFactory.EnvironmentExtension> environmentExtensions =
+      ImmutableList.builder();
+  private final ImmutableList.Builder<PathConverter> pathToUriConverters
+      = ImmutableList.builder();
 
   @VisibleForTesting
   public ServerBuilder() {}
@@ -55,9 +62,7 @@ public final class ServerBuilder {
   }
 
   Function<RuleClass, AttributeContainer> getAttributeContainerFactory() {
-    return attributeContainerFactory == null
-        ? AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY
-        : attributeContainerFactory;
+    return attributeContainerFactory == null ? AttributeContainer::new : attributeContainerFactory;
   }
 
   ImmutableMap<String, InfoItem> getInfoItems() {
@@ -72,9 +77,35 @@ public final class ServerBuilder {
     return queryOutputFormatters.build();
   }
 
+  // Visible for WorkspaceResolver.
+  public ImmutableList<PackageFactory.EnvironmentExtension> getEnvironmentExtensions() {
+    return environmentExtensions.build();
+  }
+
   @VisibleForTesting
   public ImmutableList<BlazeCommand> getCommands() {
     return commands.build();
+  }
+
+  /**
+   * Return the derived total converter from Paths to URIs. It returns the answer of the first
+   * registered converter that can convert the given path, if any. If no registered converter can
+   * convert the given path, the "file" URI scheme is used.
+   */
+  public PathConverter getPathToUriConverter() {
+    final ImmutableList<PathConverter> converters = this.pathToUriConverters.build();
+    return new PathConverter(){
+      @Override
+      public String apply(Path path) {
+        for (PathConverter converter : converters) {
+          String value = converter.apply(path);
+          if (value != null) {
+            return value;
+          }
+        }
+        return "file://" + path.getPathString();
+      }
+    };
   }
 
   /**
@@ -156,6 +187,19 @@ public final class ServerBuilder {
 
   public ServerBuilder addQueryOutputFormatters(Iterable<OutputFormatter> formatters) {
     this.queryOutputFormatters.addAll(formatters);
+    return this;
+  }
+
+  public ServerBuilder addEnvironmentExtension(PackageFactory.EnvironmentExtension extension) {
+    this.environmentExtensions.add(extension);
+    return this;
+  }
+
+  /**
+   * Register a new {@link PathConverter}. Contervers are tried in the order they are registered.
+   */
+  public ServerBuilder addPathToUriConverter(PathConverter converter) {
+    this.pathToUriConverters.add(converter);
     return this;
   }
 }

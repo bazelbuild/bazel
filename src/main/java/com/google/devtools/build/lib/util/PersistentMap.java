@@ -15,18 +15,21 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ForwardingMap;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * A map that is backed by persistent storage. It uses two files on disk for
@@ -65,8 +68,10 @@ import java.util.Map;
 public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
 
   private static final int MAGIC = 0x20071105;
-
   private static final int ENTRY_MAGIC = 0xfe;
+  private static final int MIN_MAPFILE_SIZE = 16;
+  private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
+  private static final Logger logger = Logger.getLogger(PersistentMap.class.getName());
 
   private final int version;
   private final Path mapFile;
@@ -187,7 +192,15 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   private void writeJournal() {
     try {
       if (journalOut == null) {
-        journalOut = createMapFile(journalFile);
+        if (journalFile.exists()) {
+          // The journal file was left around after the last save() because
+          // keepJournal() was true. Append to it.
+          journalOut =
+              new DataOutputStream(new BufferedOutputStream(journalFile.getOutputStream(true)));
+        } else {
+          // Create new journal.
+          journalOut = createMapFile(journalFile);
+        }
       }
       writeEntries(journalOut, journal);
       journalOut.flush();
@@ -334,16 +347,30 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     if (!mapFile.exists()) {
       return;
     }
-    DataInputStream in = new DataInputStream(new BufferedInputStream(mapFile.getInputStream()));
-    try {
-      long fileSize = mapFile.getFileSize();
-      if (fileSize < (16)) {
-        if (failFast) {
-          throw new IOException(mapFile + " is too short: Only " + fileSize + " bytes");
-        } else {
-          return;
-        }
+
+    long fileSize = mapFile.getFileSize();
+    if (fileSize < MIN_MAPFILE_SIZE) {
+      if (failFast) {
+        throw new IOException(mapFile + " is too short: Only " + fileSize + " bytes");
+      } else {
+        return;
       }
+    } else if (fileSize > MAX_ARRAY_SIZE) {
+      if (failFast) {
+        throw new IOException(mapFile + " is too long: " + fileSize + " bytes");
+      } else {
+        return;
+      }
+    }
+
+    // We read the whole file up front as a performance optimization; otherwise calling available()
+    // on the stream over and over does a lot of syscalls.
+    byte[] mapBytes;
+    try (InputStream fileInput = mapFile.getInputStream()) {
+      mapBytes = ByteStreams.toByteArray(new BufferedInputStream(fileInput));
+    }
+    DataInputStream in = new DataInputStream(new ByteArrayInputStream(mapBytes));
+    try {
       if (in.readLong() != MAGIC) { // not a PersistentMap
         if (failFast) {
           throw new IOException("Unexpected format");
@@ -360,6 +387,8 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     } finally {
       in.close();
     }
+
+    logger.info(String.format("Loaded cache '%s' [%s bytes]", mapFile, fileSize));
   }
 
   /**

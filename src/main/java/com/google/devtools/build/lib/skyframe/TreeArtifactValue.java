@@ -61,9 +61,7 @@ class TreeArtifactValue implements SkyValue {
     Map<String, Metadata> digestBuilder =
         Maps.newHashMapWithExpectedSize(childFileValues.size());
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : childFileValues.entrySet()) {
-      digestBuilder.put(
-          e.getKey().getParentRelativePath().getPathString(),
-          new Metadata(e.getValue().getDigest()));
+      digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), e.getValue());
     }
 
     return new TreeArtifactValue(
@@ -76,7 +74,7 @@ class TreeArtifactValue implements SkyValue {
   }
 
   Metadata getMetadata() {
-    return new Metadata(digest.clone());
+    return getSelfData();
   }
 
   Set<PathFragment> getChildPaths() {
@@ -190,8 +188,30 @@ class TreeArtifactValue implements SkyValue {
         explodeDirectory(treeArtifact,
             pathToExplode.getChild(subpath.getBaseName()), valuesBuilder);
       } else if (subpath.isSymbolicLink()) {
-        throw new IOException(
-            "A TreeArtifact may not contain a symlink, found " + subpath);
+        PathFragment linkTarget = subpath.readSymbolicLinkUnchecked();
+        valuesBuilder.add(canonicalSubpathFragment);
+        if (linkTarget.isAbsolute()) {
+          // We tolerate absolute symlinks here. They will probably be dangling if any downstream
+          // consumer tries to read them, but let that be downstream's problem.
+          continue;
+        }
+        // We visit each path segment of the link target to catch any path traversal outside of the
+        // TreeArtifact root directory. For example, for TreeArtifact a/b/c, it is possible to have
+        // a symlink, a/b/c/sym_link that points to ../outside_dir/../c/link_target. Although this
+        // symlink points to a file under the TreeArtifact, the link target traverses outside of the
+        // TreeArtifact into a/b/outside_dir.
+        PathFragment intermediatePath = canonicalSubpathFragment.getParentDirectory();
+        for (String pathSegment : linkTarget.getSegments()) {
+          intermediatePath = intermediatePath.getRelative(pathSegment).normalize();
+          if (intermediatePath.containsUplevelReferences()) {
+            String errorMessage = String.format(
+                "A TreeArtifact may not contain relative symlinks whose target paths traverse "
+                + "outside of the TreeArtifact, found %s pointing to %s.",
+                subpath,
+                linkTarget);
+            throw new IOException(errorMessage);
+          }
+        }
       } else if (subpath.isFile()) {
         valuesBuilder.add(canonicalSubpathFragment);
       } else {

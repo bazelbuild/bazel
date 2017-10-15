@@ -17,15 +17,15 @@ import java.nio.file.Path;
 
 /**
  * Represents the AndroidData before processing, after merging.
- * 
- * <p>
- * The life cycle of AndroidData goes:
+ *
+ * <p>The life cycle of AndroidData goes:
+ *
  * <pre>
  * UnvalidatedAndroidData -> MergedAndroidData -> DensityFilteredAndroidData
  *      -> DependencyAndroidData
  * </pre>
  */
-class MergedAndroidData {
+class MergedAndroidData implements ManifestContainer {
 
   private Path resourceDir;
   private Path assetDir;
@@ -45,6 +45,7 @@ class MergedAndroidData {
     return assetDir;
   }
 
+  @Override
   public Path getManifest() {
     return manifest;
   }

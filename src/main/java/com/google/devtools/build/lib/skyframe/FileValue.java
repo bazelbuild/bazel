@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skyframe.FileStateValue.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
@@ -115,7 +116,7 @@ public abstract class FileValue implements SkyValue {
    */
   @ThreadSafe
   public static SkyKey key(RootedPath rootedPath) {
-    return SkyKey.create(SkyFunctions.FILE, rootedPath);
+    return LegacySkyKey.create(SkyFunctions.FILE, rootedPath);
   }
 
   /**

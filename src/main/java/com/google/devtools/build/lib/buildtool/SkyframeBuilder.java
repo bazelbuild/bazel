@@ -18,23 +18,24 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.Builder;
@@ -48,7 +49,6 @@ import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -58,7 +58,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
-
 import javax.annotation.Nullable;
 
 /**
@@ -73,6 +72,7 @@ public class SkyframeBuilder implements Builder {
   private final boolean finalizeActionsToOutputService;
   private final ModifiedFileSet modifiedOutputFiles;
   private final ActionInputFileCache fileCache;
+  private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionCacheChecker actionCacheChecker;
   private final int progressReportInterval;
 
@@ -80,7 +80,7 @@ public class SkyframeBuilder implements Builder {
   public SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
       boolean keepGoing, int numJobs, ModifiedFileSet modifiedOutputFiles,
       boolean finalizeActionsToOutputService, ActionInputFileCache fileCache,
-      int progressReportInterval) {
+      ActionInputPrefetcher actionInputPrefetcher, int progressReportInterval) {
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
     this.keepGoing = keepGoing;
@@ -88,6 +88,7 @@ public class SkyframeBuilder implements Builder {
     this.finalizeActionsToOutputService = finalizeActionsToOutputService;
     this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
+    this.actionInputPrefetcher = actionInputPrefetcher;
     this.progressReportInterval = progressReportInterval;
   }
 
@@ -97,7 +98,8 @@ public class SkyframeBuilder implements Builder {
       Set<Artifact> artifacts,
       Set<ConfiguredTarget> parallelTests,
       Set<ConfiguredTarget> exclusiveTests,
-      Collection<ConfiguredTarget> targetsToBuild,
+      Set<ConfiguredTarget> targetsToBuild,
+      Set<ConfiguredTarget> targetsToSkip,
       Collection<AspectValue> aspects,
       Executor executor,
       Set<ConfiguredTarget> builtTargets,
@@ -106,16 +108,22 @@ public class SkyframeBuilder implements Builder {
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     skyframeExecutor.prepareExecution(modifiedOutputFiles, lastExecutionTimeRange);
-    skyframeExecutor.setFileCache(fileCache);
+    skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
     ExecutionProgressReceiver executionProgressReceiver =
-        new ExecutionProgressReceiver(Preconditions.checkNotNull(builtTargets),
-            countTestActions(exclusiveTests), skyframeExecutor.getEventBus());
+        new ExecutionProgressReceiver(
+            Preconditions.checkNotNull(builtTargets),
+            countTestActions(exclusiveTests),
+            ImmutableSet.<ConfiguredTarget>builder()
+                .addAll(parallelTests)
+                .addAll(exclusiveTests)
+                .build(),
+            topLevelArtifactContext,
+            skyframeExecutor.getEventBus());
     skyframeExecutor
         .getEventBus()
         .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
-    ResourceManager.instance().setEventBus(skyframeExecutor.getEventBus());
 
     List<ExitCode> exitCodes = new LinkedList<>();
     EvaluationResult<?> result;
@@ -132,6 +140,10 @@ public class SkyframeBuilder implements Builder {
     skyframeExecutor.setActionExecutionProgressReportingObjects(executionProgressReceiver,
         executionProgressReceiver, statusReporter);
     watchdog.start();
+
+    targetsToBuild = Sets.difference(targetsToBuild, targetsToSkip);
+    parallelTests = Sets.difference(parallelTests, targetsToSkip);
+    exclusiveTests = Sets.difference(exclusiveTests, targetsToSkip);
 
     try {
       result =
@@ -203,7 +215,6 @@ public class SkyframeBuilder implements Builder {
       }
     } finally {
       watchdog.stop();
-      ResourceManager.instance().unsetEventBus();
       skyframeExecutor.setActionExecutionProgressReportingObjects(null, null, null);
       statusReporter.unregisterFromEventBus();
     }
@@ -222,15 +233,14 @@ public class SkyframeBuilder implements Builder {
   /**
    * Process the Skyframe update, taking into account the keepGoing setting.
    *
-   * <p> Returns optional {@link ExitCode} based on following conditions:
-   *    1. null, if result had no errors.
-   *    2. Optional.absent(), if result had errors but none of the errors specified an exit code.
-   *    3. Optional.of(e), if result had errors and one of them specified exit code 'e'.
-   * Throws on fail-fast failures.
+   * <p>Returns optional {@link ExitCode} based on following conditions: 1. null, if result had no
+   * errors. 2. Optional.absent(), if result had errors but none of the errors specified an exit
+   * code. 3. Optional.of(e), if result had errors and one of them specified exit code 'e'. Throws
+   * on fail-fast failures.
    */
   @Nullable
   private static Optional<ExitCode> processResult(
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       EvaluationResult<?> result,
       boolean keepGoing,
       SkyframeExecutor skyframeExecutor)

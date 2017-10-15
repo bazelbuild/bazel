@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -38,7 +38,7 @@ public interface ConfigurationEnvironment {
    * Returns an event handler to report errors to. Note that reporting an error does not cause the
    * computation to abort - you also need to throw an exception.
    */
-  EventHandler getEventHandler();
+  ExtendedEventHandler getEventHandler();
 
   /**
    * Returns a target for the given label, loading it if necessary, and throwing an exception if it
@@ -67,19 +67,21 @@ public interface ConfigurationEnvironment {
     private final LoadedPackageProvider packageProvider;
     private final BlazeDirectories blazeDirectories;
 
-    public TargetProviderEnvironment(PackageProvider packageProvider,
-        EventHandler eventHandler, BlazeDirectories blazeDirectories) {
+    public TargetProviderEnvironment(
+        PackageProvider packageProvider,
+        ExtendedEventHandler eventHandler,
+        BlazeDirectories blazeDirectories) {
       this.packageProvider = new LoadedPackageProvider(packageProvider, eventHandler);
       this.blazeDirectories = blazeDirectories;
     }
 
-    public TargetProviderEnvironment(PackageProvider packageProvider,
-        EventHandler eventHandler) {
+    public TargetProviderEnvironment(
+        PackageProvider packageProvider, ExtendedEventHandler eventHandler) {
       this(packageProvider, eventHandler, null);
     }
 
     @Override
-    public EventHandler getEventHandler() {
+    public ExtendedEventHandler getEventHandler() {
       return packageProvider.getEventHandler();
     }
 

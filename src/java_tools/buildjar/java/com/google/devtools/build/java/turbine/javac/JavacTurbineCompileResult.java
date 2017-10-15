@@ -16,10 +16,7 @@ package com.google.devtools.build.java.turbine.javac;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.java.turbine.javac.ZipOutputFileManager.OutputFileObject;
-
 import com.sun.tools.javac.util.Context;
-
 import java.io.StringWriter;
 
 /** The output from a {@link JavacTurbineCompiler} compilation. */
@@ -29,16 +26,13 @@ class JavacTurbineCompileResult {
     OK, ERROR
   }
 
-  private final ImmutableMap<String, OutputFileObject> files;
+  private final ImmutableMap<String, byte[]> files;
   private final Status status;
   private final StringWriter sb;
   private final Context context;
 
   JavacTurbineCompileResult(
-      ImmutableMap<String, OutputFileObject> files,
-      Status status,
-      StringWriter sb,
-      Context context) {
+      ImmutableMap<String, byte[]> files, Status status, StringWriter sb, Context context) {
     this.files = files;
     this.status = status;
     this.sb = sb;
@@ -55,8 +49,8 @@ class JavacTurbineCompileResult {
     return sb.toString();
   }
 
-  /** The files produced by the compilation's {@link ZipOutputFileManager}. */
-  ImmutableMap<String, OutputFileObject> files() {
+  /** The files produced by the compilation. */
+  ImmutableMap<String, byte[]> files() {
     return files;
   }
 

@@ -18,13 +18,16 @@
 #include <stdlib.h>
 
 #include <cassert>
+#include <memory>  // unique_ptr
 
 #include "src/main/cpp/util/exit_code.h"
 
 namespace blaze_util {
 
 using std::string;
+using std::unique_ptr;
 using std::vector;
+using std::wstring;
 
 static const char kSeparator[] = " \n\t\r";
 
@@ -79,14 +82,24 @@ bool starts_with(const string &haystack, const string &needle) {
       (memcmp(haystack.c_str(), needle.c_str(), needle.length()) == 0);
 }
 
-bool ends_with(const string &haystack, const string &needle) {
-  return ((haystack.length() >= needle.length()) &&
-          (memcmp(haystack.c_str() + (haystack.length()-needle.length()),
-                  needle.c_str(), needle.length()) == 0));
+template <typename char_type>
+static bool ends_with_impl(const std::basic_string<char_type> &haystack,
+                           const std::basic_string<char_type> &needle) {
+  return (haystack.length() >= needle.length()) &&
+         std::equal(haystack.cend() - needle.length(), haystack.cend(),
+                    needle.cbegin());
 }
 
-void JoinStrings(
-    const vector<string> &pieces, const char delimeter, string *output) {
+bool ends_with(const string &haystack, const string &needle) {
+  return ends_with_impl(haystack, needle);
+}
+
+bool ends_with(const wstring &haystack, const wstring &needle) {
+  return ends_with_impl(haystack, needle);
+}
+
+void JoinStrings(const vector<string> &pieces, const char delimeter,
+                 string *output) {
   bool first = true;
   for (const auto &piece : pieces) {
     if (first) {
@@ -296,15 +309,46 @@ void StringPrintf(string *str, const char *format, ...) {
 
 void ToLower(string *str) {
   assert(str);
-  if (str->empty()) {
-    return;
-  }
+  *str = AsLower(*str);
+}
 
-  string temp = "";
-  for (auto ch : *str) {
-    temp += tolower(ch);
+string AsLower(const string &str) {
+  if (str.empty()) {
+    return "";
   }
-  *str = temp;
+  unique_ptr<char[]> result(new char[str.size() + 1]);
+  char *result_ptr = result.get();
+  for (const auto &ch : str) {
+    *result_ptr++ = tolower(ch);
+  }
+  result.get()[str.size()] = 0;
+  return string(result.get());
+}
+
+template <typename U, typename V>
+static unique_ptr<V[]> UstringToVstring(
+    const U *input, size_t (*convert)(V *output, const U *input, size_t len),
+    const char* fmtStringU) {
+  size_t size = convert(nullptr, input, 0) + 1;
+  if (size == (size_t)-1) {
+    fprintf(stderr, "UstringToVstring: invalid input \"");
+    fprintf(stderr, fmtStringU, input);
+    fprintf(stderr, "\"\n");
+    exit(blaze_exit_code::INTERNAL_ERROR);
+    return unique_ptr<V[]>(nullptr);  // formally return, though unreachable
+  }
+  unique_ptr<V[]> result(new V[size]);
+  convert(result.get(), input, size);
+  result.get()[size - 1] = 0;
+  return std::move(result);
+}
+
+unique_ptr<char[]> WstringToCstring(const wchar_t *input) {
+  return UstringToVstring<wchar_t, char>(input, wcstombs, "%ls");
+}
+
+unique_ptr<wchar_t[]> CstringToWstring(const char *input) {
+  return UstringToVstring<char, wchar_t>(input, mbstowcs, "%s");
 }
 
 }  // namespace blaze_util

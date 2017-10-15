@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
+import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -47,14 +49,15 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsClassProvider;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -209,7 +212,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private ConfigurationCollectionFactory configurationCollectionFactory;
+    private ImmutableMap.Builder<Attribute.Transition, Attribute.Transition> dynamicTransitionMaps
+        = ImmutableMap.builder();
     private Class<? extends BuildConfiguration.Fragment> universalFragment;
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
@@ -219,6 +223,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private ImmutableBiMap.Builder<String, Class<? extends TransitiveInfoProvider>>
         registeredSkylarkProviders = ImmutableBiMap.builder();
     private Map<String, String> platformRegexps = new TreeMap<>();
+
+    // TODO(pcloudy): Remove this field after Bazel rule definitions are not used internally.
+    private String nativeLauncherLabel;
+
+    public Builder setNativeLauncherLabel(String label) {
+      this.nativeLauncherLabel = label;
+      return this;
+    }
 
     public void addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
@@ -306,8 +318,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder setConfigurationCollectionFactory(ConfigurationCollectionFactory factory) {
-      this.configurationCollectionFactory = factory;
+    public Builder addDynamicTransitionMaps(Map<Attribute.Transition, Attribute.Transition> maps) {
+      dynamicTransitionMaps.putAll(maps);
       return this;
     }
 
@@ -324,16 +336,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder addSkylarkModule(Class<?>... modules) {
       this.skylarkModules.add(modules);
-      return this;
-    }
-
-    /**
-     * Adds a mapping that determines which keys in structs returned by skylark rules should be
-     * interpreted as native TransitiveInfoProvider instances of type (map value).
-     */
-    public Builder registerSkylarkProvider(
-        String name, Class<? extends TransitiveInfoProvider> provider) {
-      this.registeredSkylarkProviders.put(name, provider);
       return this;
     }
 
@@ -428,12 +430,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
           ImmutableList.copyOf(configurationFragmentFactories),
-          configurationCollectionFactory,
+          new DynamicTransitionMapper(dynamicTransitionMaps.build()),
           universalFragment,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
-          skylarkModules.build(),
-          registeredSkylarkProviders.build());
+          skylarkModules.build());
     }
 
     @Override
@@ -444,6 +445,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @Override
     public Label getToolsLabel(String labelValue) {
       return getLabel(toolsRepository + labelValue);
+    }
+
+    @Override
+    public Label getLauncherLabel() {
+      if (nativeLauncherLabel == null) {
+        return null;
+      }
+      return getToolsLabel(nativeLauncherLabel);
     }
 
     @Override
@@ -523,9 +532,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories;
 
   /**
-   * The factory that creates the configuration collection.
+   * The dynamic configuration transition mapper.
    */
-  private final ConfigurationCollectionFactory configurationCollectionFactory;
+  private final DynamicTransitionMapper dynamicTransitionMapper;
 
   /**
    * A configuration fragment that should be available to all rules even when they don't
@@ -539,9 +548,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final Environment.Frame globals;
 
-  private final ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
-      registeredSkylarkProviders;
-
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
       String runfilesPrefix,
@@ -554,12 +560,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
-      ConfigurationCollectionFactory configurationCollectionFactory,
+      DynamicTransitionMapper dynamicTransitionMapper,
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
-      ImmutableList<Class<?>> skylarkModules,
-      ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> registeredSkylarkProviders) {
+      ImmutableList<Class<?>> skylarkModules) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -571,11 +576,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
     this.configurationFragmentFactories = configurationFragments;
-    this.configurationCollectionFactory = configurationCollectionFactory;
+    this.dynamicTransitionMapper = dynamicTransitionMapper;
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
-    this.registeredSkylarkProviders = registeredSkylarkProviders;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -641,10 +645,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   /**
-   * Returns the configuration collection creator.
+   * Returns the dynamic configuration transition mapper.
    */
-  public ConfigurationCollectionFactory getConfigurationCollectionFactory() {
-    return configurationCollectionFactory;
+  public DynamicTransitionMapper getDynamicTransitionMapper() {
+    return dynamicTransitionMapper;
   }
 
   /**
@@ -671,19 +675,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   /**
-   * Returns a map that indicates which keys in structs returned by skylark rules should be
-   * interpreted as native TransitiveInfoProvider instances of type (map value).
-   *
-   * <p>That is, if this map contains "dummy" -> DummyProvider.class, a "dummy" entry in a skylark
-   * rule implementations returned struct will be exported from that ConfiguredTarget as a
-   * DummyProvider.
-   */
-  public ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
-      getRegisteredSkylarkProviders() {
-    return this.registeredSkylarkProviders;
-  }
-
-  /**
    * Creates a BuildOptions class for the given options taken from an optionsProvider.
    */
   public BuildOptions createBuildOptions(OptionsClassProvider optionsProvider) {
@@ -695,7 +686,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<Class<?>> modules) {
     try (Mutability mutability = Mutability.create("ConfiguredRuleClassProvider globals")) {
       Environment env = createSkylarkRuleClassEnvironment(
-          mutability, SkylarkModules.getGlobals(modules), null, null, null);
+          mutability,
+          SkylarkModules.getGlobals(modules),
+          Options.getDefaults(SkylarkSemanticsOptions.class),
+          /*eventHandler=*/ null,
+          /*astFileContentHashCode=*/ null,
+          /*importMap=*/ null);
       for (Map.Entry<String, Object> entry : skylarkAccessibleToplLevels.entrySet()) {
         env.setup(entry.getKey(), entry.getValue());
       }
@@ -706,29 +702,38 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private Environment createSkylarkRuleClassEnvironment(
       Mutability mutability,
       Environment.Frame globals,
+      SkylarkSemanticsOptions skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap) {
-    return Environment.builder(mutability)
-        .setSkylark()
-        .setGlobals(globals)
-        .setEventHandler(eventHandler)
-        .setFileContentHashCode(astFileContentHashCode)
-        .setImportedExtensions(importMap)
-        .setToolsRepository(toolsRepository)
-        .setPhase(Phase.LOADING)
-        .build();
+    Environment env =
+        Environment.builder(mutability)
+            .setGlobals(globals)
+            .setSemantics(skylarkSemantics)
+            .setEventHandler(eventHandler)
+            .setFileContentHashCode(astFileContentHashCode)
+            .setImportedExtensions(importMap)
+            .setPhase(Phase.LOADING)
+            .build();
+    SkylarkUtils.setToolsRepository(env, toolsRepository);
+    return env;
   }
 
   @Override
   public Environment createSkylarkRuleClassEnvironment(
-      Label extensionLabel, Mutability mutability,
+      Label extensionLabel,
+      Mutability mutability,
+      SkylarkSemanticsOptions skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap) {
     return createSkylarkRuleClassEnvironment(
-        mutability, globals.setLabel(extensionLabel),
-        eventHandler, astFileContentHashCode, importMap);
+        mutability,
+        globals.withLabel(extensionLabel),
+        skylarkSemantics,
+        eventHandler,
+        astFileContentHashCode,
+        importMap);
   }
 
   @Override

@@ -16,14 +16,12 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -32,27 +30,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 
 /**
- * A placeholder action that, at execution time, expands into a list of {@link SpawnAction}s that
- * will be executed.
- *
- * <p>SpawnActionTemplate is for users who want to dynamically register SpawnActions operating on
- * individual {@link TreeFileArtifact} inside input and output TreeArtifacts at execution time.
- *
- * <p>It takes in one TreeArtifact and generates one TreeArtifact. The following happens at
- * execution time for SpawnActionTemplate:
- * <ol>
- *   <li>Input TreeArtifact is resolved.
- *   <li>For each individual {@link TreeFileArtifact} inside input TreeArtifact, generate an output
- *       {@link TreeFileArtifact} inside output TreeArtifact at the parent-relative path provided by
- *       {@link OutputPathMapper}.
- *   <li>For each pair of input and output {@link TreeFileArtifact}s, generate an associated
- *       {@link SpawnAction}.
- *   <li>All expanded {@link SpawnAction}s are executed and their output {@link TreeFileArtifact}s
- *       collected.
- *   <li>Output TreeArtifact is resolved.
- * </ol>
+ * An {@link ActionTemplate} that expands into {@link SpawnAction}s at execution time.
  */
-public final class SpawnActionTemplate implements ActionAnalysisMetadata {
+public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
   private final Artifact inputTreeArtifact;
   private final Artifact outputTreeArtifact;
   private final NestedSet<Artifact> commonInputs;
@@ -110,39 +90,23 @@ public final class SpawnActionTemplate implements ActionAnalysisMetadata {
     this.commandLineTemplate = commandLineTemplate;
   }
 
-  /**
-   * Given a list of input TreeFileArtifacts resolved at execution time, returns a list of expanded
-   * SpawnActions to be executed.
-   *
-   * @param inputTreeFileArtifacts the list of {@link TreeFileArtifact}s inside input TreeArtifact
-   *     resolved at execution time
-   * @param artifactOwner the {@link ArtifactOwner} of the generated output
-   *     {@link TreeFileArtifact}s
-   * @return a list of expanded {@link SpawnAction}s to execute, one for each input
-   *     {@link TreeFileArtifact}
-   * @throws ActionConflictException if the expanded actions have duplicated outputs
-   * @throws ArtifactPrefixConflictException if there is prefix conflict among the outputs of
-   *     expanded actions
-   */
+  @Override
   public Iterable<SpawnAction> generateActionForInputArtifacts(
-      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner)
-      throws ActionConflictException,  ArtifactPrefixConflictException {
+      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner) {
     ImmutableList.Builder<SpawnAction> expandedActions = new ImmutableList.Builder<>();
     for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
       PathFragment parentRelativeOutputPath =
           outputPathMapper.parentRelativeOutputPath(inputTreeFileArtifact);
 
-      TreeFileArtifact outputTreeFileArtifact = createTreeFileArtifact(
+      TreeFileArtifact outputTreeFileArtifact = ActionInputHelper.treeFileArtifact(
           outputTreeArtifact,
-          checkOutputParentRelativePath(parentRelativeOutputPath),
+          parentRelativeOutputPath,
           artifactOwner);
 
       expandedActions.add(createAction(inputTreeFileArtifact, outputTreeFileArtifact));
     }
 
-    Iterable<SpawnAction> actions = expandedActions.build();
-    checkActionAndArtifactConflicts(ImmutableList.<ActionAnalysisMetadata>copyOf(actions));
-    return actions;
+    return expandedActions.build();
   }
 
   /**
@@ -164,42 +128,11 @@ public final class SpawnActionTemplate implements ActionAnalysisMetadata {
     // explicitly via builder method #setExecutable and #setEnvironment.
     return actionBuilder.buildSpawnAction(
         getOwner(),
-        /*defaultShellEnvironment=*/ null,
+        commandLine,
+        /*configEnv=*/ null,
         /*defaultShellExecutable=*/ null,
-        /*paramsFile=*/ null,
-        /*paramFileWriteAction=*/ null);
+        /*paramsFile=*/ null);
   }
-
-  private static void checkActionAndArtifactConflicts(Iterable<ActionAnalysisMetadata> actions)
-      throws ActionConflictException,  ArtifactPrefixConflictException {
-    Map<Artifact, ActionAnalysisMetadata> generatingActions =
-        Actions.findAndThrowActionConflict(actions);
-    Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> artifactPrefixConflictMap =
-        Actions.findArtifactPrefixConflicts(generatingActions);
-
-    if (!artifactPrefixConflictMap.isEmpty()) {
-      throw artifactPrefixConflictMap.values().iterator().next();
-    }
-
-    return;
-  }
-
-  private static PathFragment checkOutputParentRelativePath(PathFragment parentRelativeOutputPath) {
-    Preconditions.checkArgument(
-        parentRelativeOutputPath.isNormalized() && !parentRelativeOutputPath.isAbsolute(),
-        "%s is not a proper relative path",
-        parentRelativeOutputPath);
-    return parentRelativeOutputPath;
-  }
-
-  private static TreeFileArtifact createTreeFileArtifact(Artifact parentTreeArtifact,
-      PathFragment parentRelativeOutputPath, ArtifactOwner artifactOwner) {
-    return ActionInputHelper.treeFileArtifact(
-        parentTreeArtifact,
-        parentRelativeOutputPath,
-        artifactOwner);
-  }
-
 
   /**
    * Returns the input TreeArtifact.
@@ -208,11 +141,13 @@ public final class SpawnActionTemplate implements ActionAnalysisMetadata {
    * TreeFileArtifacts. Skyframe then expands this SpawnActionTemplate with the TreeFileArtifacts
    * through {@link #generateActionForInputArtifacts}.
    */
+  @Override
   public Artifact getInputTreeArtifact() {
     return inputTreeArtifact;
   }
 
   /** Returns the output TreeArtifact. */
+  @Override
   public Artifact getOutputTreeArtifact() {
     return outputTreeArtifact;
   }
@@ -221,7 +156,6 @@ public final class SpawnActionTemplate implements ActionAnalysisMetadata {
   public ActionOwner getOwner() {
     return actionOwner;
   }
-
 
   @Override
   public final String getMnemonic() {
@@ -249,6 +183,12 @@ public final class SpawnActionTemplate implements ActionAnalysisMetadata {
   }
 
   @Override
+  public Iterable<Artifact> getInputFilesForExtraAction(
+      ActionExecutionContext actionExecutionContext) {
+    return ImmutableList.of();
+  }
+
+  @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
     return ImmutableSet.of();
   }
@@ -266,7 +206,7 @@ public final class SpawnActionTemplate implements ActionAnalysisMetadata {
   @Override
   public Iterable<String> getClientEnvironmentVariables() {
     return spawnActionBuilder
-        .buildSpawnAction(getOwner(), null, null, null, null)
+        .buildSpawnAction(getOwner(), CommandLine.of(ImmutableList.of()), null, null, null)
         .getClientEnvironmentVariables();
   }
 
@@ -341,7 +281,7 @@ public final class SpawnActionTemplate implements ActionAnalysisMetadata {
      * for expanded actions.
      */
     public Builder addCommonTool(FilesToRunProvider tool) {
-      toolsBuilder.addAll(tool.getFilesToRun());
+      toolsBuilder.addTransitive(tool.getFilesToRun());
       spawnActionBuilder.addTool(tool);
       return this;
     }
@@ -367,6 +307,8 @@ public final class SpawnActionTemplate implements ActionAnalysisMetadata {
     }
 
     /** Sets the map of environment variables for expanded actions. */
+    @Deprecated // TODO(ulfjack): Add env variables to the common environment, rather than replacing
+    // it wholesale, which ignores --action_env (unless the client code explicitly handles it).
     public Builder setEnvironment(Map<String, String> environment) {
       spawnActionBuilder.setEnvironment(environment);
       return this;

@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.Target;
-
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import javax.annotation.Nullable;
 
 /**
@@ -29,7 +30,19 @@ import javax.annotation.Nullable;
  * {@link TransitiveInfoCollection}s. Also, {@link ConfiguredTarget} objects should not be
  * accessible from the action graph.
  */
-public interface ConfiguredTarget extends TransitiveInfoCollection {
+public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject, SkylarkValue {
+
+  /**
+   *  All <code>ConfiguredTarget</code>s have a "label" field.
+   */
+  String LABEL_FIELD = "label";
+
+  /**
+   *  All <code>ConfiguredTarget</code>s have a "files" field.
+   */
+  String FILES_FIELD = "files";
+
+
   /**
    * Returns the Target with which this {@link ConfiguredTarget} is associated.
    */

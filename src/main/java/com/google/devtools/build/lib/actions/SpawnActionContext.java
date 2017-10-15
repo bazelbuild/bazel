@@ -17,27 +17,9 @@ package com.google.devtools.build.lib.actions;
  * A context that allows execution of {@link Spawn} instances.
  */
 @ActionContextMarker(name = "spawn")
-public interface SpawnActionContext extends Executor.ActionContext {
+public interface SpawnActionContext extends ActionContext {
 
   /** Executes the given spawn. */
   void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
-
-  /**
-   * Passing a spawns remotable flag to this method returns whether the spawn will actually be
-   * executed remotely.
-   *
-   * <p>This implements a tri-state mode. There are three possible cases: (1) implementations of
-   * this class can unconditionally execute spawns locally, (2) they can follow whatever is set for
-   * the corresponding spawn (see {@link Spawn#isRemotable}), or (3) they can unconditionally
-   * execute spawns remotely, i.e., force remote execution.
-   */
-  boolean willExecuteRemotely(boolean remotable);
-
-  /**
-   * If an ExecException should be rethrown by the strategy that executed this.
-   * Currently only works for LinuxSandboxedStrategy:
-   * If true, will throw ExecException and give reproduction instruction for sandbox.
-   */
-  boolean shouldPropagateExecException();
 }

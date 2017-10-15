@@ -40,3 +40,4 @@ public abstract class BasicTypeProcessor extends AbstractTypeProcessor {
     }
 
 }
+

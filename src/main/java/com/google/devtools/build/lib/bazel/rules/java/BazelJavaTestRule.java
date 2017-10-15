@@ -39,15 +39,15 @@ import com.google.devtools.build.lib.rules.java.Jvm;
  */
 public final class BazelJavaTestRule implements RuleDefinition {
 
-  private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
-
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     /* <!-- #BLAZE_RULE(java_test).IMPLICIT_OUTPUTS -->
     <ul>
       <li><code><var>name</var>.jar</code>: A Java archive.</li>
-      <li><code><var>name</var>_deploy.jar</code>: A Java archive suitable for deployment. (Only
-        built if explicitly requested.)</li>
+      <li><code><var>name</var>_deploy.jar</code>: A Java archive suitable
+        for deployment. (Only built if explicitly requested.) See the description of the
+        <code><var>name</var>_deploy.jar</code> output from
+        <a href="#java_binary">java_binary</a> for more details.</li>
     </ul>
     <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
     return builder
@@ -60,8 +60,15 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .override(attr("use_testrunner", BOOLEAN).value(true))
         .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
-        // TODO(dmarting): remove once we drop the legacy bazel java_test behavior.
-        .override(attr("main_class", STRING).value(JUNIT4_RUNNER))
+        // Input files for test actions collecting code coverage
+        .add(
+            attr("$lcov_merger", LABEL)
+                .value(env.getLabel("@bazel_tools//tools/test:LcovMerger")))
+        .add(
+            attr("$jacocorunner", LABEL)
+                .value(
+                    env.getLabel(
+                        "@bazel_tools//tools/jdk:JacocoCoverage")))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
         The Java class to be loaded by the test runner.<br/>
         <p>

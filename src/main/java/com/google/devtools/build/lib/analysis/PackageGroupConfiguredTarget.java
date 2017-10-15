@@ -14,16 +14,17 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.util.Preconditions;
-import javax.annotation.Nullable;
 
 /**
  * Dummy ConfiguredTarget for package groups. Contains no functionality, since
@@ -31,6 +32,9 @@ import javax.annotation.Nullable;
  */
 public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     implements PackageSpecificationProvider {
+  private static final FileProvider NO_FILES = new FileProvider(
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+
   private final NestedSet<PackageSpecification> packageSpecifications;
 
   PackageGroupConfiguredTarget(TargetContext targetContext, PackageGroup packageGroup) {
@@ -40,10 +44,10 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     NestedSetBuilder<PackageSpecification> builder =
         NestedSetBuilder.stableOrder();
     for (Label label : packageGroup.getIncludes()) {
-      TransitiveInfoCollection include = targetContext.findDirectPrerequisite(
+      TransitiveInfoCollection include = targetContext.maybeFindDirectPrerequisite(
           label, targetContext.getConfiguration());
-      PackageSpecificationProvider provider = include == null ? null :
-          include.getProvider(PackageSpecificationProvider.class);
+      PackageSpecificationProvider provider = include == null ? null
+          : include.getProvider(PackageSpecificationProvider.class);
       if (provider == null) {
         targetContext.getAnalysisEnvironment().getEventHandler().handle(Event.error(getTarget().getLocation(),
             String.format("label '%s' does not refer to a package group", label)));
@@ -68,15 +72,21 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
-  public Object get(String providerKey) {
-    // No providers.
+  public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
+    if (provider == FileProvider.class) {
+      return (P) NO_FILES;
+    } else {
+      return super.getProvider(provider);
+    }
+  }
+
+  @Override
+  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
     return null;
   }
 
-  @Nullable
   @Override
-  public SkylarkClassObject get(Key providerKey) {
-    // No providers.
+  protected Object rawGetSkylarkProvider(String providerKey) {
     return null;
   }
 }

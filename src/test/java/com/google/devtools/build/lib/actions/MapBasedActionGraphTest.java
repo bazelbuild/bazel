@@ -13,26 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.UncheckedActionConflictException;
 import com.google.devtools.build.lib.actions.util.TestAction;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link MapBasedActionGraph}.
@@ -73,7 +71,7 @@ public class MapBasedActionGraphTest {
     actionGraph.unregisterAction(action);
   }
 
-  private class ActionRegisterer extends AbstractQueueVisitor {
+  private static class ActionRegisterer extends AbstractQueueVisitor {
     private final MutableActionGraph graph = new MapBasedActionGraph();
     private final Artifact output;
     // Just to occasionally add actions that were already present.
@@ -82,12 +80,13 @@ public class MapBasedActionGraphTest {
 
     private ActionRegisterer() {
       super(
-          /*concurrent=*/ true,
           200,
           1,
           TimeUnit.SECONDS,
           /*failFastOnException=*/ true,
-          "action-graph-test");
+          "action-graph-test",
+          AbstractQueueVisitor.EXECUTOR_FACTORY,
+          ErrorClassifier.DEFAULT);
       FileSystem fileSystem = new InMemoryFileSystem(BlazeClock.instance());
       Path path = fileSystem.getPath("/root/foo");
       output = new Artifact(path, Root.asDerivedRoot(path));

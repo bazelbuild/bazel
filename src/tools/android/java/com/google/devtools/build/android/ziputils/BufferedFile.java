@@ -14,7 +14,6 @@
 package com.google.devtools.build.android.ziputils;
 
 import com.google.common.base.Preconditions;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;

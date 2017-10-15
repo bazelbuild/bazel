@@ -1,88 +1,41 @@
-### Updating binaries other than the Linux 64-bit and MinGW ones
-
-1. Go to http://search.maven.org/
-2. Search for g:"com.google.protobuf"
-3. Download the "jar" link from protobuf-java and put them in `<Bazel tree>/third_party/protobuf/<version>`
-4. Download all binaries from "protoc" and put them in `<Bazel tree>/third_party/protobuf/<version>`
-5. Set executable bit: `chmod +x *.exe`
-
-* * *
-### Updating the Linux 64-bit proto compiler
-The 64-bit Linux version of the proto compiler is linked statically. To update it, do
-the following steps on an x86_64 machine:
-
-1. `git clone http://github.com/google/protobuf.git`
-2. `git checkout <tag or commithash>` (e.g. `v3.0.0` or `e8ae137`)
-3. `./autogen.sh`
-4. `LDFLAGS=-static ./configure`
-5. Change `LDFLAGS = -static` to `LDFLAGS = -all-static` in  `src/Makefile`.
-6. `make`
-7. `cp src/protoc <Bazel tree>/third_party/protobuf/<version>/protoc-<version>-linux-x86_64.exe` .
-
-* * *
-### Updating the MinGW proto compiler (64-bit)
-Do this from a MinGW shell ([https://sourceforge.net/projects/msys2/files/]) on
-a Windows machine.
-
-1. Clone the protobuf repo and check out the right commit
-
-   ```sh
-   git clone http://github.com/google/protobuf.git
-   git checkout <tag or commithash>   # e.g. `v3.0.0` or `e8ae137`
-   ```
-
-2. Close all other MSYS/MinGW/Cygwin windows. Kill all running background jobs.
-   This step is optional, but if you have other terminal windows open the next
-   step may print some error messages (though it still seems to work).
-
-3. Install necessary MinGW packages
-
-   ```sh
-   pacman -Syuu autoconf automake libtool curl make gcc unzip
-   ```
-
-4. Configure for static linking and build like you would for Unix
-
-   ```sh
-   ./autogen.sh
-   ./configure --disable-shared   # takes about 2 minutes
-   ./make                         # takes about 11 minutes
-   ```
-
-5. Copy resulting binary
-
-   ```sh
-   cp src/protoc.exe <bazel tree>/third_party/protobuf/protoc-mingw.exe
-   ```
-
-* * *
-### Updating the Linux s390x 64-bit proto compiler
-To add 64-bit Linux s390x version of the statically linked proto compiler, use below steps:
-
-1. Build Protobuf compiler (v3.0.0-beta-2) from https://github.com/google/protobuf.
-2. `cp src/protoc <Bazel tree>/third_party/protobuf/protoc-linux-s390x_64.exe`
-3. `cp src/protoc <Bazel tree>/third_party/protobuf/<version>/protoc-linux-s390x_64.exe`
+# Updating protobuf
 
 
-* * *
-### Updating `protobuf.bzl` and the `src/` directory:
+1) Fetch the desired protobuf version and copy it in a folder `new_proto` under
+`third_party/protobuf`.
+2) Bazel uses upstream protobuf from source, except for java, as we currently don't
+build protobuf java when bootstrapping bazel. So instead we use pre-built jars.
+So build the java proto library from source and in case you cloned an upstream version
+of protobuf, remove the .git folders:
+```
+cd new_proto
+bazel build :protobuf_java :protobuf_java_util
+cp bazel-bin/libprotobuf_java.jar .
+cp bazel-bin/libprotobuf_java_util.jar .
+bazel clean --expunge
+rm -rf .git .gitignore .gitmodules
+```
+3) Modify protobuf's `BUILD` file to not build java from source, but to use
+   the jars instead. To do that, in the BUILD file delete the rules listed
+   under `Java support`. Then, from the `third_party/protobuf/<old_proto>/BUILD file`
+   copy the rules under "Modifications made by bazel" to the new BUILD file.
+   The java rules in there should have the same names as the ones you just deleted under "Java support".
+   You might need to update the names of the jars in the rules sources to the ones you just build.
+4) Copy `third_party/protobuf/<old_proto>/com_google_protobuf_java.BUILD` to the new
+   directory.
+5) Copy the `licenses` declaration and the `srcs` filegroup from
+   `third_party/protobuf/<old_proto>/util/python/BUILD` to the corresponding
+   file in the new directory.
+6) For each file listed in `RELATIVE_WELL_KNOWN_PROTOS` in the `new_proto/BUILD` file
+   copy it from `new_proto/srcs/google/protobuf` to `new_proto/google/protobuf`.
+7) Name the `new\_proto` directory according to the protobuf version number.
+8) In `third\_party/protobuf/BUILD` update `PROTOBUF\_VERSION` to the name of the
+directory you just created.
+9) In the root `WORKSPACE` file update relative paths of protobuf to point to
+the new version.
+10) Delete the `third_party/protobuf/<old_proto>` directory.
+11) Update this file if you found the :instructions to be wrong or incomplete.
 
-1. `git clone http://github.com/google/protobuf.git`
-2. `git checkout <tag or commithash>` (e.g. `v3.0.0` or `e8ae137`)
-3. `mkdir -p third_party/protobuf/<version>/src/google` in the root of the Bazel tree.
-4. `cp -R <root of protobuf tree>/src/google/protobuf third_party/protobuf/src/google`
-5. Update the rules in `third_party/protobuf/BUILD` with the rules in the protobuf repository.
+# Current protobuf version
 
-Finally, update the rules:
-
-1. Add a BUILD file to `third_party/protobuf/<version>/`. Use the BUILD file
-   for the previous version as a template. Update the `cc_library` rules to
-   match the rules in the BUILD file in the protobuf repository. Also copy
-   `protobuf.bzl` from the protobuf repository into
-   `third_party/protobuf/<version>/`.
-2. Modify `third_party/protobuf/BUILD` to point to the new rules.
-3. Delete the old version of protobuf.
-
-* * *
-### Updating anything else in the directory
-Follow usual procedure as described on https://www.bazel.io/contributing.html
+The current version of protobuf is [3.4.0](https://github.com/google/protobuf/releases/tag/v3.4.0).

@@ -1,17 +1,48 @@
+# Remote worker
+
 This program implements a remote execution worker that uses gRPC to accept work
-requests. It also serves as a Hazelcast server for distributed caching.
+requests. It can work as a remote execution worker, a cache worker, or both.
+The simplest setup is as follows:
 
 - First build remote_worker and run it.
 
         bazel build src/tools/remote_worker:all
-        bazel-bin/src/tools/remote_worker/remote_worker --work_path=/tmp/test \
+        bazel-bin/src/tools/remote_worker/remote_worker \
+            --work_path=/tmp/test \
             --listen_port=8080
 
 - Then you run Bazel pointing to the remote_worker instance.
 
-        bazel build --hazelcast_node=127.0.0.1:5701 --spawn_strategy=remote \
-            --remote_worker=127.0.0.1:8080 src/tools/generate_workspace:all
+        bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+            --spawn_strategy=remote --remote_cache=localhost:8080 \
+            --remote_executor=localhost:8080 src/tools/generate_workspace:all
 
 The above command will build generate_workspace with remote spawn strategy that
-uses Hazelcast as the distributed caching backend and executes work remotely on
-the localhost remote_worker.
+uses the local worker as the distributed caching and execution backend.
+
+## Sandboxing
+
+If you run the remote_worker on Linux, you can also enable sandboxing for increased hermeticity:
+
+        bazel-bin/src/tools/remote_worker/remote_worker \
+            --work_path=/tmp/test \
+            --listen_port=8080 \
+            --sandboxing \
+            --sandboxing_writable_path=/run/shm \
+            --sandboxing_tmpfs_dir=/tmp \
+            --sandboxing_block_network
+
+As you can see, the specific behavior of the sandbox can be tuned via the flags
+
+- --sandboxing_writable_path=<path> makes a path writable for running actions.
+- --sandboxing_tmpfs_dir=<path> will mount a fresh, empty tmpfs for each running action on a path.
+- --sandboxing_block_network will put each running action into its own network namespace that has
+  no network connectivity except for its own "localhost". Note that due to a Linux kernel issue this
+  might result in a loss of performance if you run many actions in parallel. For long running tests
+  it probably won't matter much, though.
+
+## Hazelcast caching
+
+You can also use a Hazelcast server for the distributed cache as follows:
+Suppose your Hazelcast server is listening on address:port. Then, run the
+remote worker with --hazelcast_node=address:port.

@@ -29,11 +29,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -48,17 +48,17 @@ public class IosTestRule implements RuleDefinition {
     final Label mcov = env.getToolsLabel("//tools/objc:mcov");
     return builder
         .requiresConfigurationFragments(
-            ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class)
+            ObjcConfiguration.class,
+            J2ObjcConfiguration.class,
+            AppleConfiguration.class,
+            CppConfiguration.class)
         /*<!-- #BLAZE_RULE(ios_test).IMPLICIT_OUTPUTS -->
         <ul>
         <li><code><var>name</var>.ipa</code>: the test bundle as an
         <code>.ipa</code> file
-        <li><code><var>name</var>.xcodeproj/project.pbxproj: An Xcode project file which can be
-        used to develop or build on a Mac.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+        .setImplicitOutputsFunction(ReleaseBundlingSupport.IPA)
         /* <!-- #BLAZE_RULE(ios_test).ATTRIBUTE(target_device) -->
         The device against which to run the test.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -90,7 +90,7 @@ public class IosTestRule implements RuleDefinition {
                       }
                     })
                 .allowedFileTypes()
-                .allowedRuleClasses("ios_application"))
+                .mandatoryProviders(XcTestAppProvider.SKYLARK_CONSTRUCTOR.id()))
         .override(
             attr(BundlingRule.INFOPLIST_ATTR, LABEL)
                 .value(
@@ -155,6 +155,7 @@ public class IosTestRule implements RuleDefinition {
                         return mcov;
                       }
                     }))
+        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }
 
@@ -168,7 +169,6 @@ public class IosTestRule implements RuleDefinition {
             BaseRuleClasses.TestBaseRule.class,
             ObjcRuleClasses.ReleaseBundlingRule.class,
             ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
             ObjcRuleClasses.SimulatorRule.class)
         .factoryClass(IosTest.class)
         .build();
@@ -176,6 +176,10 @@ public class IosTestRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = ios_test, TYPE = TEST, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule provides a way to build iOS unit tests written in KIF, GTM and XCTest test frameworks
 on both iOS simulator and real devices.

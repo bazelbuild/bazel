@@ -13,28 +13,26 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.packages.License.LicenseType;
-
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Arrays;
 
 @RunWith(JUnit4.class)
 public class LicenseTest {
 
   @Test
   public void testLeastRestrictive() {
-    assertEquals(
-        LicenseType.RESTRICTED, License.leastRestrictive(Arrays.asList(LicenseType.RESTRICTED)));
-    assertEquals(
-        LicenseType.RESTRICTED,
-        License.leastRestrictive(
-            Arrays.asList(LicenseType.RESTRICTED, LicenseType.BY_EXCEPTION_ONLY)));
-    assertEquals(
-        LicenseType.BY_EXCEPTION_ONLY, License.leastRestrictive(Arrays.<LicenseType>asList()));
+    assertThat(License.leastRestrictive(Arrays.asList(LicenseType.RESTRICTED)))
+        .isEqualTo(LicenseType.RESTRICTED);
+    assertThat(
+            License.leastRestrictive(
+                Arrays.asList(LicenseType.RESTRICTED, LicenseType.BY_EXCEPTION_ONLY)))
+        .isEqualTo(LicenseType.RESTRICTED);
+    assertThat(License.leastRestrictive(Arrays.<LicenseType>asList()))
+        .isEqualTo(LicenseType.BY_EXCEPTION_ONLY);
   }
 }

@@ -85,14 +85,14 @@ public class AnalysisResult<A extends AbstractValue<A>, S extends Store<S>> {
     }
 
     /**
-     * @return the value of effectively final local variables
+     * @return The value of effectively final local variables.
      */
     public HashMap<Element, A> getFinalLocalValues() {
         return finalLocalValues;
     }
 
     /**
-     * @return the abstract value for {@link Node} {@code n}, or {@code null} if
+     * @return The abstract value for {@link Node} {@code n}, or {@code null} if
      *         no information is available.
      */
     public /*@Nullable*/ A getValue(Node n) {
@@ -100,7 +100,7 @@ public class AnalysisResult<A extends AbstractValue<A>, S extends Store<S>> {
     }
 
     /**
-     * @return the abstract value for {@link Tree} {@code t}, or {@code null} if
+     * @return The abstract value for {@link Tree} {@code t}, or {@code null} if
      *         no information is available.
      */
     public /*@Nullable*/ A getValue(Tree t) {
@@ -109,32 +109,25 @@ public class AnalysisResult<A extends AbstractValue<A>, S extends Store<S>> {
     }
 
     /**
-     * @return the {@link Node} for a given {@link Tree}.
+     * @return The {@link Node} for a given {@link Tree}.
      */
     public /*@Nullable*/ Node getNodeForTree(Tree tree) {
         return treeLookup.get(tree);
     }
 
     /**
-     * @return the store immediately before a given {@link Tree}.
+     * @return The store immediately before a given {@link Tree}.
      */
     public S getStoreBefore(Tree tree) {
         Node node = getNodeForTree(tree);
         if (node == null) {
             return null;
         }
-        return getStoreBefore(node);
-    }
-
-    /**
-     * @return the store immediately before a given {@link Node}.
-     */
-    public S getStoreBefore(Node node) {
         return runAnalysisFor(node, true);
     }
 
     /**
-     * @return the store immediately after a given {@link Tree}.
+     * @return The store immediately after a given {@link Tree}.
      */
     public S getStoreAfter(Tree tree) {
         Node node = getNodeForTree(tree);

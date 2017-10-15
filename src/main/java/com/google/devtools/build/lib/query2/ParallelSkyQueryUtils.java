@@ -13,33 +13,38 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.CompactHashSet;
-import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
-import com.google.devtools.build.lib.concurrent.MoreFutures;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeCallback;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeUniquifier;
+import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedList;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.RecursiveAction;
-
 
 /**
  * Parallel implementations of various functionality in {@link SkyQueryEnvironment}.
@@ -51,6 +56,10 @@ import java.util.concurrent.RecursiveAction;
  */
 // TODO(bazel-team): Be more deliberate about bounding memory usage here.
 class ParallelSkyQueryUtils {
+
+  /** The maximum number of keys to visit at once. */
+  @VisibleForTesting static final int VISIT_BATCH_SIZE = 10000;
+
   private ParallelSkyQueryUtils() {
   }
 
@@ -58,43 +67,45 @@ class ParallelSkyQueryUtils {
    * Specialized parallel variant of {@link SkyQueryEnvironment#getAllRdeps} that is appropriate
    * when there is no depth-bound.
    */
-  static void getAllRdepsUnboundedParallel(
+  static QueryTaskFuture<Void> getAllRdepsUnboundedParallel(
       SkyQueryEnvironment env,
       QueryExpression expression,
       VariableContext<Target> context,
-      ThreadSafeCallback<Target> callback,
-      ForkJoinPool forkJoinPool)
-          throws QueryException, InterruptedException {
-    env.eval(
+      Callback<Target> callback,
+      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+    return env.eval(
         expression,
         context,
-        new SkyKeyBFSVisitorCallback(
-            new AllRdepsUnboundedVisitor.Factory(env, callback, forkJoinPool)));
+        ParallelVisitor.createParallelVisitorCallback(
+            new AllRdepsUnboundedVisitor.Factory(env, callback, packageSemaphore)));
   }
 
   /** Specialized parallel variant of {@link SkyQueryEnvironment#getRBuildFiles}. */
   static void getRBuildFilesParallel(
       SkyQueryEnvironment env,
       Collection<PathFragment> fileIdentifiers,
-      ThreadSafeCallback<Target> callback,
-      ForkJoinPool forkJoinPool)
+      Callback<Target> callback,
+      MultisetSemaphore<PackageIdentifier> packageSemaphore)
           throws QueryException, InterruptedException {
-    ThreadSafeUniquifier<SkyKey> keyUniquifier = env.createSkyKeyUniquifier();
-    RBuildFilesVisitor visitor = new RBuildFilesVisitor(env, forkJoinPool, keyUniquifier, callback);
+    Uniquifier<SkyKey> keyUniquifier = env.createSkyKeyUniquifier();
+    RBuildFilesVisitor visitor =
+        new RBuildFilesVisitor(env, keyUniquifier, callback, packageSemaphore);
     visitor.visitAndWaitForCompletion(env.getSkyKeysForFileFragments(fileIdentifiers));
   }
 
   /** A helper class that computes 'rbuildfiles(<blah>)' via BFS. */
-  private static class RBuildFilesVisitor extends AbstractSkyKeyBFSVisitor {
+  private static class RBuildFilesVisitor extends ParallelVisitor<SkyKey, Target> {
     private final SkyQueryEnvironment env;
+    private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
     private RBuildFilesVisitor(
         SkyQueryEnvironment env,
-        ForkJoinPool forkJoinPool,
-        ThreadSafeUniquifier<SkyKey> uniquifier,
-        Callback<Target> callback) {
-      super(forkJoinPool, uniquifier, callback);
+        Uniquifier<SkyKey> uniquifier,
+        Callback<Target> callback,
+        MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+      super(uniquifier, callback, VISIT_BATCH_SIZE);
       this.env = env;
+      this.packageSemaphore = packageSemaphore;
     }
 
     @Override
@@ -119,261 +130,197 @@ class ParallelSkyQueryUtils {
     }
 
     @Override
-    protected Iterable<Target> getTargetsToAddToResult(Iterable<SkyKey> keysToUseForResult)
-        throws InterruptedException {
-      return SkyQueryEnvironment.getBuildFilesForPackageValues(
-          env.graph.getSuccessfulValues(keysToUseForResult).values());
+    protected void processPartialResults(
+        Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
+        throws QueryException, InterruptedException {
+      Set<PackageIdentifier> pkgIdsNeededForResult =
+          Streams.stream(keysToUseForResult)
+              .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
+              .collect(toImmutableSet());
+      packageSemaphore.acquireAll(pkgIdsNeededForResult);
+      try {
+        callback.process(SkyQueryEnvironment.getBuildFilesForPackageValues(
+            env.graph.getSuccessfulValues(keysToUseForResult).values()));
+      } finally {
+        packageSemaphore.releaseAll(pkgIdsNeededForResult);
+      }
+    }
+
+    @Override
+    protected Iterable<SkyKey> preprocessInitialVisit(Iterable<SkyKey> keys) {
+      return keys;
     }
   }
 
-  /** A helper class that computes 'allrdeps(<blah>)' via BFS. */
-  private static class AllRdepsUnboundedVisitor extends AbstractSkyKeyBFSVisitor {
+  /**
+   * A helper class that computes 'allrdeps(<blah>)' via BFS.
+   *
+   * <p>The visitor uses a pair of <node, reverse dep> to keep track the nodes to visit and avoid
+   * dealing with targetification of reverse deps until they are needed. The node itself is needed
+   * to filter out disallowed deps later. Compared against the approach using a single SkyKey, it
+   * consumes 16 more bytes in a 64-bit environment for each edge. However it defers the need to
+   * load all the packages which have at least a target as a rdep of the current batch, thus greatly
+   * reduces the risk of OOMs. The additional memory usage should not be a large concern here, as
+   * even with 10M edges, the memory overhead is around 160M, and the memory can be reclaimed by
+   * regular GC.
+   */
+  private static class AllRdepsUnboundedVisitor
+      extends ParallelVisitor<Pair<SkyKey, SkyKey>, Target> {
     private final SkyQueryEnvironment env;
+    private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
     private AllRdepsUnboundedVisitor(
         SkyQueryEnvironment env,
-        ForkJoinPool forkJoinPool,
-        ThreadSafeUniquifier<SkyKey> uniquifier,
-        ThreadSafeCallback<Target> callback) {
-      super(forkJoinPool, uniquifier, callback);
+        Uniquifier<Pair<SkyKey, SkyKey>> uniquifier,
+        Callback<Target> callback,
+        MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+      super(uniquifier, callback, VISIT_BATCH_SIZE);
       this.env = env;
+      this.packageSemaphore = packageSemaphore;
     }
 
     /**
      * A {@link Factory} for {@link AllRdepsUnboundedVisitor} instances, each of which will be used
      * to perform visitation of the reverse transitive closure of the {@link Target}s passed in a
-     * single {@link ThreadSafeCallback#process} call. Note that all the created
-     * instances share the same {@code ThreadSafeUniquifier<SkyKey>} so that we don't visit the
-     * same Skyframe node more than once.
+     * single {@link Callback#process} call. Note that all the created instances share the same
+     * {@link Uniquifier} so that we don't visit the same Skyframe node more than once.
      */
-    private static class Factory implements AbstractSkyKeyBFSVisitor.Factory {
+    private static class Factory implements ParallelVisitor.Factory {
       private final SkyQueryEnvironment env;
-      private final ForkJoinPool forkJoinPool;
-      private final ThreadSafeUniquifier<SkyKey> uniquifier;
-      private final ThreadSafeCallback<Target> callback;
+      private final Uniquifier<Pair<SkyKey, SkyKey>> uniquifier;
+      private final Callback<Target> callback;
+      private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
       private Factory(
         SkyQueryEnvironment env,
-        ThreadSafeCallback<Target> callback,
-        ForkJoinPool forkJoinPool) {
+        Callback<Target> callback,
+        MultisetSemaphore<PackageIdentifier> packageSemaphore) {
         this.env = env;
-        this.forkJoinPool = forkJoinPool;
-        this.uniquifier = env.createSkyKeyUniquifier();
+        this.uniquifier = env.createReverseDepSkyKeyUniquifier();
         this.callback = callback;
+        this.packageSemaphore = packageSemaphore;
       }
 
       @Override
-      public AbstractSkyKeyBFSVisitor create() {
-        return new AllRdepsUnboundedVisitor(env, forkJoinPool, uniquifier, callback);
+      public ParallelVisitor<Pair<SkyKey, SkyKey>, Target> create() {
+        return new AllRdepsUnboundedVisitor(env, uniquifier, callback, packageSemaphore);
       }
     }
 
     @Override
-    protected Visit getVisitResult(Iterable<SkyKey> keys) throws InterruptedException {
-      // TODO(bazel-team): Defer some of this work to the next recursive visitation. Instead, have
-      // this visitation merely get the Skyframe-land rdeps.
+    protected Visit getVisitResult(Iterable<Pair<SkyKey, SkyKey>> keys)
+        throws InterruptedException {
+      Collection<SkyKey> filteredKeys = new ArrayList<>();
 
-      // Note that this does more than merely get the Skyframe-land rdeps:
-      // (i)  It only returns rdeps that have corresponding Targets.
-      // (ii) It only returns rdeps whose corresponding Targets have a valid dependency edge to
-      //      their direct dep.
-      Iterable<Target> rdepTargets = env.getReverseDepsOfTransitiveTraversalKeys(keys);
-      // Group the targets by package - this way when computeImpl splits these targets into batches,
-      // targets in the same package are likely to be in the same batch.
-      ArrayListMultimap<PackageIdentifier, SkyKey> rdepKeysByPackage = ArrayListMultimap.create();
-      for (Target rdepTarget : rdepTargets) {
-        rdepKeysByPackage.put(
-            rdepTarget.getLabel().getPackageIdentifier(),
-            SkyQueryEnvironment.TARGET_TO_SKY_KEY.apply(rdepTarget));
+      // Build a raw reverse dep map from pairs of SkyKeys to filter out the disallowed deps.
+      Map<SkyKey, Collection<SkyKey>> reverseDepsMap = Maps.newHashMap();
+      for (Pair<SkyKey, SkyKey> reverseDepPair : keys) {
+        // First-level nodes do not have a parent node (they may have one in Skyframe but we do not
+        // need to retrieve them.
+        if (reverseDepPair.first == null) {
+          filteredKeys.add(Preconditions.checkNotNull(reverseDepPair.second));
+          continue;
+        }
+
+        reverseDepsMap.computeIfAbsent(reverseDepPair.first, k -> new LinkedList<SkyKey>());
+
+        reverseDepsMap.get(reverseDepPair.first).add(reverseDepPair.second);
       }
+
+      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
+          env.makePackageKeyToTargetKeyMap(Iterables.concat(reverseDepsMap.values()));
+      Set<PackageIdentifier> pkgIdsNeededForTargetification =
+          packageKeyToTargetKeyMap
+              .keySet()
+              .stream()
+              .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
+              .collect(toImmutableSet());
+      packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
+
+      try {
+        // Filter out disallowed deps. We cannot defer the targetification any further as we do not
+        // want to retrieve the rdeps of unwanted nodes (targets).
+        if (!reverseDepsMap.isEmpty()) {
+          Collection<Target> filteredTargets =
+              env.filterRawReverseDepsOfTransitiveTraversalKeys(
+                  reverseDepsMap, packageKeyToTargetKeyMap);
+          filteredTargets
+              .stream()
+              .map(SkyQueryEnvironment.TARGET_TO_SKY_KEY)
+              .forEachOrdered(filteredKeys::add);
+        }
+      } finally {
+        packageSemaphore.releaseAll(pkgIdsNeededForTargetification);
+      }
+
+      // Retrieve the reverse deps as SkyKeys and defer the targetification and filtering to next
+      // recursive visitation.
+      Map<SkyKey, Iterable<SkyKey>> unfilteredReverseDeps = env.graph.getReverseDeps(filteredKeys);
+
+      ImmutableList.Builder<Pair<SkyKey, SkyKey>> builder = ImmutableList.builder();
+      for (Map.Entry<SkyKey, Iterable<SkyKey>> rdeps : unfilteredReverseDeps.entrySet()) {
+        for (SkyKey rdep : rdeps.getValue()) {
+          Label label = SkyQueryEnvironment.SKYKEY_TO_LABEL.apply(rdep);
+          if (label != null) {
+            builder.add(Pair.of(rdeps.getKey(), rdep));
+          }
+        }
+      }
+
+      return new Visit(/*keysToUseForResult=*/ filteredKeys, /*keysToVisit=*/ builder.build());
+    }
+
+    @Override
+    protected void processPartialResults(
+        Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
+        throws QueryException, InterruptedException {
+      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
+          env.makePackageKeyToTargetKeyMap(keysToUseForResult);
+      Set<PackageIdentifier> pkgIdsNeededForResult =
+          packageKeyToTargetKeyMap
+              .keySet()
+              .stream()
+              .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
+              .collect(toImmutableSet());
+      packageSemaphore.acquireAll(pkgIdsNeededForResult);
+      try {
+        callback.process(
+            env.makeTargetsFromPackageKeyToTargetKeyMap(packageKeyToTargetKeyMap).values());
+      } finally {
+        packageSemaphore.releaseAll(pkgIdsNeededForResult);
+      }
+    }
+
+    @Override
+    protected Iterable<Pair<SkyKey, SkyKey>> preprocessInitialVisit(Iterable<SkyKey> keys) {
+      return Iterables.transform(keys, key -> Pair.of(null, key));
+    }
+
+    @Override
+    protected Iterable<Task> getVisitTasks(Collection<Pair<SkyKey, SkyKey>> pendingKeysToVisit) {
+      // Group pending visits by package.
+      ListMultimap<PackageIdentifier, Pair<SkyKey, SkyKey>> visitsByPackage =
+          ArrayListMultimap.create();
+      for (Pair<SkyKey, SkyKey> visit : pendingKeysToVisit) {
+        Label label = SkyQueryEnvironment.SKYKEY_TO_LABEL.apply(visit.second);
+        if (label != null) {
+          visitsByPackage.put(label.getPackageIdentifier(), visit);
+        }
+      }
+
+      ImmutableList.Builder<Task> builder = ImmutableList.builder();
+
       // A couple notes here:
       // (i)  ArrayListMultimap#values returns the values grouped by key, which is exactly what we
       //      want.
       // (ii) ArrayListMultimap#values returns a Collection view, so we make a copy to avoid
       //      accidentally retaining the entire ArrayListMultimap object.
-      Iterable<SkyKey> keysToVisit = ImmutableList.copyOf(rdepKeysByPackage.values());
-      return new Visit(
-          /*keysToUseForResult=*/ keys,
-          /*keysToVisit=*/ keysToVisit);
-    }
-
-    @Override
-    protected Iterable<Target> getTargetsToAddToResult(Iterable<SkyKey> keysToUseForResult)
-        throws InterruptedException {
-      return env.makeTargetsFromSkyKeys(keysToUseForResult).values();
-    }
-  }
-
-  /**
-   * A {@link ThreadSafeCallback} whose {@link ThreadSafeCallback#process} method kicks off a BFS
-   * visitation via a fresh {@link AbstractSkyKeyBFSVisitor} instance.
-   */
-  private static class SkyKeyBFSVisitorCallback implements ThreadSafeCallback<Target> {
-    private final AbstractSkyKeyBFSVisitor.Factory visitorFactory;
-
-    private SkyKeyBFSVisitorCallback(AbstractSkyKeyBFSVisitor.Factory visitorFactory) {
-      this.visitorFactory = visitorFactory;
-    }
-
-    @Override
-    public void process(Iterable<Target> partialResult)
-        throws QueryException, InterruptedException {
-      AbstractSkyKeyBFSVisitor visitor = visitorFactory.create();
-      visitor.visitAndWaitForCompletion(
-          SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(partialResult));
-    }
-  }
-
-  /**
-   * A helper class for performing a custom BFS visitation on the Skyframe graph, using
-   * {@link ForkJoinQuiescingExecutor}.
-   *
-   * <p>The choice of {@link ForkJoinPool} over, say, AbstractQueueVisitor backed by a
-   * ThreadPoolExecutor, is very deliberate. {@link SkyKeyBFSVisitorCallback#process} kicks off
-   * a visitation and blocks on completion of it. But this visitation may never complete if there
-   * are a bounded number of threads in the global thread pool used for query evaluation!
-   */
-  @ThreadSafe
-  private abstract static class AbstractSkyKeyBFSVisitor {
-    private final ForkJoinPool forkJoinPool;
-    private final ThreadSafeUniquifier<SkyKey> uniquifier;
-    private final Callback<Target> callback;
-    /** The maximum number of keys to visit at once. */
-    private static final int VISIT_BATCH_SIZE = 10000;
-
-    private AbstractSkyKeyBFSVisitor(
-        ForkJoinPool forkJoinPool,
-        ThreadSafeUniquifier<SkyKey> uniquifier,
-        Callback<Target> callback) {
-      this.forkJoinPool = forkJoinPool;
-      this.uniquifier = uniquifier;
-      this.callback = callback;
-    }
-
-    /** Factory for {@link AbstractSkyKeyBFSVisitor} instances. */
-    private static interface Factory {
-      AbstractSkyKeyBFSVisitor create();
-    }
-
-    protected static final class Visit {
-      private final Iterable<SkyKey> keysToUseForResult;
-      private final Iterable<SkyKey> keysToVisit;
-
-      private Visit(Iterable<SkyKey> keysToUseForResult, Iterable<SkyKey> keysToVisit) {
-        this.keysToUseForResult = keysToUseForResult;
-        this.keysToVisit = keysToVisit;
-      }
-    }
-
-    void visitAndWaitForCompletion(Iterable<SkyKey> keys)
-        throws QueryException, InterruptedException {
-      Iterable<ForkJoinTask<?>> tasks = getTasks(new Visit(
-          /*keysToUseForResult=*/ ImmutableList.<SkyKey>of(),
-          /*keysToVisit=*/ keys));
-      for (ForkJoinTask<?> task : tasks) {
-        forkJoinPool.execute(task);
-      }
-      try {
-        MoreFutures.waitForAllInterruptiblyFailFast(tasks);
-      } catch (ExecutionException ee) {
-        Throwable cause = ee.getCause();
-        if (cause instanceof RuntimeQueryException) {
-          throw (QueryException) cause.getCause();
-        } else if (cause instanceof RuntimeInterruptedException) {
-          throw (InterruptedException) cause.getCause();
-        } else {
-          throw new IllegalStateException(cause);
-        }
-      }
-    }
-
-    private abstract static class AbstractInternalRecursiveAction extends RecursiveAction {
-      protected abstract void computeImpl() throws QueryException, InterruptedException;
-
-      @Override
-      public final void compute() {
-        try {
-          computeImpl();
-        } catch (QueryException queryException) {
-          throw new RuntimeQueryException(queryException);
-        } catch (InterruptedException interruptedException) {
-          throw new RuntimeInterruptedException(interruptedException);
-        }
-      }
-    }
-
-    private class VisitTask extends AbstractInternalRecursiveAction {
-      private final Iterable<SkyKey> keysToVisit;
-
-      private VisitTask(Iterable<SkyKey> keysToVisit) {
-        this.keysToVisit = keysToVisit;
+      for (Iterable<Pair<SkyKey, SkyKey>> keysToVisitBatch :
+          Iterables.partition(ImmutableList.copyOf(visitsByPackage.values()), VISIT_BATCH_SIZE)) {
+        builder.add(new VisitTask(keysToVisitBatch));
       }
 
-      @Override
-      protected void computeImpl() throws InterruptedException {
-        ImmutableList<SkyKey> uniqueKeys = uniquifier.unique(keysToVisit);
-        if (uniqueKeys.isEmpty()) {
-          return;
-        }
-        Iterable<ForkJoinTask<?>> tasks = getTasks(getVisitResult(uniqueKeys));
-        for (ForkJoinTask<?> task : tasks) {
-          task.fork();
-        }
-        for (ForkJoinTask<?> task : tasks) {
-          task.join();
-        }
-      }
-    }
-
-    private class GetAndProcessResultsTask extends AbstractInternalRecursiveAction {
-      private final Iterable<SkyKey> keysToUseForResult;
-
-      private GetAndProcessResultsTask(Iterable<SkyKey> keysToUseForResult) {
-        this.keysToUseForResult = keysToUseForResult;
-      }
-
-      @Override
-      protected void computeImpl() throws QueryException, InterruptedException {
-        callback.process(getTargetsToAddToResult(keysToUseForResult));
-      }
-    }
-
-    private Iterable<ForkJoinTask<?>> getTasks(Visit visit) {
-      // Split the given visit request into ForkJoinTasks for visiting keys and ForkJoinTasks for
-      // getting and outputting results, each of which obeys the separate batch limits.
-      // TODO(bazel-team): Attempt to group work on targets within the same package.
-      ImmutableList.Builder<ForkJoinTask<?>> tasksBuilder = ImmutableList.builder();
-      for (Iterable<SkyKey> keysToVisitBatch
-          : Iterables.partition(visit.keysToVisit, VISIT_BATCH_SIZE)) {
-        tasksBuilder.add(new VisitTask(keysToVisitBatch));
-      }
-      for (Iterable<SkyKey> keysToUseForResultBatch : Iterables.partition(
-          visit.keysToUseForResult, SkyQueryEnvironment.BATCH_CALLBACK_SIZE)) {
-        tasksBuilder.add(new GetAndProcessResultsTask(keysToUseForResultBatch));
-      }
-      return tasksBuilder.build();
-    }
-
-    /**
-     * Gets the given {@code keysToUseForResult}'s contribution to the set of {@link Target}s in the
-     * full visitation.
-     */
-    protected abstract Iterable<Target> getTargetsToAddToResult(
-        Iterable<SkyKey> keysToUseForResult) throws InterruptedException;
-
-    /** Gets the {@link Visit} representing the local visitation of the given {@code values}. */
-    protected abstract Visit getVisitResult(Iterable<SkyKey> values) throws InterruptedException;
-  }
-
-  private static class RuntimeQueryException extends RuntimeException {
-    private RuntimeQueryException(QueryException queryException) {
-      super(queryException);
-    }
-  }
-
-  private static class RuntimeInterruptedException extends RuntimeException {
-    private RuntimeInterruptedException(InterruptedException interruptedException) {
-      super(interruptedException);
+      return builder.build();
     }
   }
 }

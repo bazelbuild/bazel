@@ -58,6 +58,8 @@ message DataValue {
 message ProtoSource {
   // Required
   optional string filename = 1;
+  // The indexes of sources this source replaces.
+  repeated uint32 overwritten = 2;
 }
 
 // The container for a serialized xml value.
@@ -71,6 +73,7 @@ message DataValueXml {
     SIMPLE = 5;
     STYLEABLE = 6;
     STYLE = 7;
+    RESOURCES_ATTRIBUTE = 8;
   }
 
   optional XmlType type = 1;

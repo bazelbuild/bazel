@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.testutil.Suite;
@@ -35,6 +36,7 @@ import org.junit.runners.JUnit4;
 public class LineBufferedOutputStreamTest {
   private static class MockOutputStream extends OutputStream {
     private final List<String> writes = new ArrayList<>();
+    private boolean throwException = false;
 
     @Override
     public void write(int byteAsInt) throws IOException {
@@ -45,6 +47,10 @@ public class LineBufferedOutputStreamTest {
     @Override
     public synchronized void write(byte[] b, int off, int inlen) throws IOException {
       writes.add(new String(b, off, inlen, StandardCharsets.UTF_8));
+      if (throwException) {
+        throwException = false;
+        throw new IOException("thrown");
+      }
     }
   }
 
@@ -73,6 +79,21 @@ public class LineBufferedOutputStreamTest {
 
     assertThat(lineBuffer("a", "a", large, large, "a")).containsExactly(
         "aa", large, large, "a");
+  }
 
+  @Test
+  public void testIOErrorOnWrappedStream() throws Exception {
+    MockOutputStream mos = new MockOutputStream();
+    LineBufferedOutputStream cut = new LineBufferedOutputStream(mos, 4);
+    mos.throwException = true;
+    try {
+      cut.write("aaaa".getBytes(StandardCharsets.UTF_8));
+      fail("IOException expected");
+    } catch (IOException e) {
+      // Expected.
+    }
+    cut.write("a".getBytes(StandardCharsets.UTF_8));
+    cut.close();
+    assertThat(mos.writes).containsExactly("aaaa", "a");
   }
 }

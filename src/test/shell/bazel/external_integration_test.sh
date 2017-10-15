@@ -24,7 +24,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
-function set_up() {
+set_up() {
   bazel clean --expunge >& $TEST_log
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
@@ -45,6 +45,10 @@ public class BallPit {
     }
 }
 EOF
+}
+
+tear_down() {
+  shutdown_server
 }
 
 function zip_up() {
@@ -100,10 +104,11 @@ filegroup(
 EOF
     what_does_the_fox_say="Fraka-kaka-kaka-kaka-kow"
     cat > fox/male <<EOF
-#!/bin/bash
+#!/bin/sh
 echo $what_does_the_fox_say
 EOF
     chmod +x fox/male
+    touch -t 200403010021.42 fox/male
     ln -s male fox/male_relative
     ln -s /fox/male fox/male_absolute
     # Add some padding to the .zip to test that Bazel's download logic can
@@ -120,7 +125,7 @@ EOF
     cat > WORKSPACE <<EOF
 http_archive(
     name = 'endangered',
-    url = 'http://localhost:$nc_port/$repo2_name',
+    url = 'http://127.0.0.1:$nc_port/$repo2_name',
     sha256 = '$sha256'
 )
 EOF
@@ -134,7 +139,7 @@ sh_binary(
 EOF
 
     cat > zoo/female.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 ../endangered/fox/male
 EOF
     chmod +x zoo/female.sh
@@ -148,6 +153,15 @@ fi
   base_external_path=bazel-out/../external/endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
+  case "${PLATFORM}" in
+    darwin)
+      ts="$(stat -f %m ${base_external_path}/male)"
+      ;;
+    *)
+      ts="$(stat -c %Y ${base_external_path}/male)"
+      ;;
+  esac
+  assert_equals "1078100502" "$ts"
 }
 
 function assert_files_same() {
@@ -169,7 +183,7 @@ function test_http_archive_zip() {
   cat > WORKSPACE <<EOF
 http_archive(
     name = 'endangered',
-    url = 'http://localhost:$nc_port/bleh',
+    url = 'http://127.0.0.1:$nc_port/bleh',
     sha256 = '$sha256',
     type = 'zip',
 )
@@ -191,10 +205,9 @@ function test_http_archive_tar_xz() {
 }
 
 function test_http_archive_no_server() {
-  nc_port=$(pick_random_unused_tcp_port) || exit 1
   cat > WORKSPACE <<EOF
-http_archive(name = 'endangered', url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = 'dummy')
+http_archive(name = 'endangered', url = 'http://bad.example/repo.zip',
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
 EOF
 
   cat > zoo/BUILD <<EOF
@@ -206,13 +219,13 @@ sh_binary(
 EOF
 
   cat > zoo/female.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat fox/male
 EOF
   chmod +x zoo/female.sh
 
   bazel fetch //zoo:breeding-program >& $TEST_log && fail "Expected fetch to fail"
-  expect_log "Connection refused"
+  expect_log "Unknown host: bad.example"
 }
 
 function test_http_archive_mismatched_sha256() {
@@ -229,8 +242,11 @@ function test_http_archive_mismatched_sha256() {
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
-http_archive(name = 'endangered', url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = '$wrong_sha256')
+http_archive(
+    name = 'endangered',
+    url = 'http://127.0.0.1:$nc_port/repo.zip',
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826',
+)
 EOF
 
   cat > zoo/BUILD <<EOF
@@ -242,14 +258,14 @@ sh_binary(
 EOF
 
   cat > zoo/female.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat fox/male
 EOF
   chmod +x zoo/female.sh
 
   bazel fetch //zoo:breeding-program >& $TEST_log && echo "Expected fetch to fail"
   kill_nc
-  expect_log "does not match expected SHA-256"
+  expect_log "Checksum"
 }
 
 # Bazel should not re-download the .zip unless the user requests it or the
@@ -283,9 +299,16 @@ EOF
 
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
+  local marker_file=$(bazel info output_base)/external/\@endangered.marker
+  echo "<MARKER>"
+  cat "${marker_file}"
+  echo "</MARKER>"
   bazel shutdown >& $TEST_log || fail "Couldn't shut down"
   bazel run //zoo:breeding-program >& $TEST_log --show_progress_rate_limit=0 \
     || echo "Expected build/run to succeed"
+  echo "<MARKER>"
+  cat "${marker_file}"
+  echo "</MARKER>"
   expect_log $what_does_the_fox_say
   expect_not_log "Downloading from"
 }
@@ -295,7 +318,7 @@ function test_jar_download() {
   serve_jar
 
   cat > WORKSPACE <<EOF
-http_jar(name = 'endangered', url = 'http://localhost:$nc_port/lib.jar')
+http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar')
 EOF
 
   mkdir -p zoo
@@ -327,7 +350,7 @@ function test_http_to_https_redirect() {
   http_response=$TEST_TMPDIR/http_response
   cat > $http_response <<EOF
 HTTP/1.0 301 Moved Permantently
-Location: https://localhost:123456789/bad-port-shouldnt-work
+Location: https://127.0.0.1:123456789/bad-port-shouldnt-work
 EOF
   nc_port=$(pick_random_unused_tcp_port) || exit 1
   nc_l $nc_port < $http_response &
@@ -337,15 +360,15 @@ EOF
   cat > WORKSPACE <<EOF
 http_file(
     name = 'toto',
-    url = 'http://localhost:$nc_port/toto',
-    sha256 = 'whatever'
+    url = 'http://127.0.0.1:$nc_port/toto',
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
   bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
   kill_nc
   # Observes that we tried to follow redirect, but failed due to ridiculous
   # port.
-  expect_log "Failed to connect.*port out of range"
+  expect_log "port out of range"
 }
 
 function test_http_404() {
@@ -355,20 +378,20 @@ function test_http_404() {
   cat > WORKSPACE <<EOF
 http_file(
     name = 'toto',
-    url = 'http://localhost:$nc_port/toto',
-    sha256 = 'whatever'
+    url = 'http://127.0.0.1:$nc_port/toto',
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
   bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
   kill_nc
-  expect_log "404 Not Found: Help, I'm lost!"
+  expect_log "404 Not Found"
 }
 
 # Tests downloading a file and using it as a dependency.
 function test_http_download() {
   local test_file=$TEST_TMPDIR/toto
   cat > $test_file <<EOF
-#!/bin/bash
+#!/bin/sh
 echo "Tra-la!"
 EOF
   local sha256=$(sha256sum $test_file | cut -f 1 -d ' ')
@@ -376,7 +399,7 @@ EOF
   cd ${WORKSPACE_DIR}
 
   cat > WORKSPACE <<EOF
-http_file(name = 'toto', url = 'http://localhost:$nc_port/toto',
+http_file(name = 'toto', url = 'http://127.0.0.1:$nc_port/toto',
     sha256 = '$sha256', executable = True)
 EOF
 
@@ -390,7 +413,7 @@ sh_binary(
 EOF
 
   cat > test/test.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 echo "symlink:"
 ls -l ../toto/file
 echo "dest:"
@@ -411,10 +434,10 @@ function test_http_redirect() {
   local sha256=$(sha256sum $test_file | cut -f 1 -d ' ')
   serve_file $test_file
   cd ${WORKSPACE_DIR}
-  serve_redirect "http://localhost:$nc_port/toto"
+  serve_redirect "http://127.0.0.1:$nc_port/toto"
 
   cat > WORKSPACE <<EOF
-http_file(name = 'toto', url = 'http://localhost:$redirect_port/toto',
+http_file(name = 'toto', url = 'http://127.0.0.1:$redirect_port/toto',
     sha256 = '$sha256')
 EOF
 
@@ -428,7 +451,7 @@ sh_binary(
 EOF
 
   cat > test/test.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../toto/file/toto
 EOF
 
@@ -448,7 +471,7 @@ function test_empty_file() {
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.tar.gz",
+    url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
     build_file = "x.BUILD",
 )
@@ -476,7 +499,7 @@ EOF
 function test_invalid_rule() {
   # http_jar with missing URL field.
   cat > WORKSPACE <<EOF
-http_jar(name = 'endangered', sha256 = 'dummy')
+http_jar(name = 'endangered', sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
 EOF
 
   bazel fetch //external:endangered >& $TEST_log && fail "Expected fetch to fail"
@@ -489,6 +512,14 @@ function test_new_remote_repo_with_build_file() {
 
 function test_new_remote_repo_with_build_file_content() {
   do_new_remote_repo_test "build_file_content"
+}
+
+function test_new_remote_repo_with_workspace_file() {
+  do_new_remote_repo_test "workspace_file"
+}
+
+function test_new_remote_repo_with_workspace_file_content() {
+  do_new_remote_repo_test "workspace_file_content"
 }
 
 function do_new_remote_repo_test() {
@@ -507,38 +538,43 @@ function do_new_remote_repo_test() {
 
   cd ${WORKSPACE_DIR}
 
-  if [ "$1" = "build_file" ] ; then
-    cat > fox.BUILD <<EOF
-filegroup(
-    name = "fox",
-    srcs = ["fox/male"],
-    visibility = ["//visibility:public"],
-)
-EOF
+  # Create the build file for the http archive based on the requested attr style.
+  local build_file_attr=""
+  local workspace_file_attr=""
 
-    cat > WORKSPACE <<EOF
-new_http_archive(
-    name = 'endangered',
-    url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = '$sha256',
-    build_file = 'fox.BUILD'
-)
-EOF
-  else
-    cat > WORKSPACE <<EOF
-new_http_archive(
-    name = 'endangered',
-    url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = '$sha256',
-    build_file_content = """
+  local build_file_content="
 filegroup(
-    name = "fox",
-    srcs = ["fox/male"],
-    visibility = ["//visibility:public"],
-)"""
+    name = \"fox\",
+    srcs = [\"fox/male\"],
+    visibility = [\"//visibility:public\"],
+)
+  "
+
+  if [ "$1" = "build_file" ] ; then
+    echo ${build_file_content} > fox.BUILD
+    build_file_attr="build_file = 'fox.BUILD'"
+  else
+    build_file_attr="build_file_content=\"\"\"${build_file_content}\"\"\""
+  fi
+
+  if [ "$1" = "workspace_file" ]; then
+    cat > fox.WORKSPACE <<EOF
+workspace(name="endangered-fox")
+EOF
+    workspace_file_attr="workspace_file = 'fox.WORKSPACE'"
+  elif [ "$1" = "workspace_file_content" ]; then
+    workspace_file_attr="workspace_file_content = 'workspace(name=\"endangered-fox\")'"
+  fi
+
+  cat > WORKSPACE <<EOF
+new_http_archive(
+    name = 'endangered',
+    url = 'http://127.0.0.1:$nc_port/repo.zip',
+    sha256 = '$sha256',
+    ${build_file_attr},
+    ${workspace_file_attr}
 )
 EOF
-  fi
 
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
@@ -550,7 +586,7 @@ sh_binary(
 EOF
 
   cat > zoo/female.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../endangered/fox/male
 EOF
   chmod +x zoo/female.sh
@@ -568,7 +604,7 @@ function test_fetch() {
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$nc_port/',
+    repository = 'http://127.0.0.1:$nc_port/',
     sha1 = '$sha1',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -606,7 +642,7 @@ function test_prefix_stripping_tar_gz() {
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.tar.gz",
+    url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
     build_file = "x.BUILD",
@@ -635,7 +671,7 @@ function test_prefix_stripping_zip() {
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.zip",
+    url = "http://127.0.0.1:$nc_port/x.zip",
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
     build_file = "x.BUILD",
@@ -673,7 +709,7 @@ EOF
   cat > WORKSPACE <<EOF
 http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.zip",
+    url = "http://127.0.0.1:$nc_port/x.zip",
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
 )
@@ -692,7 +728,7 @@ function test_moving_build_file() {
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.tar.gz",
+    url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
     build_file = "x.BUILD",
 )
@@ -728,7 +764,7 @@ function test_changing_build_file() {
   cat > WORKSPACE <<EOF
 new_http_archive(
     name = "x",
-    url = "http://localhost:$nc_port/x.tar.gz",
+    url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
     build_file = "x.BUILD",
 )
@@ -761,31 +797,6 @@ EOF
   assert_contains "def" bazel-genfiles/external/x/catter.out
 }
 
-function test_truncated() {
-  http_response="$TEST_TMPDIR/http_response"
-  cat > "$http_response" <<EOF
-HTTP/1.0 200 OK
-Content-length: 200
-
-EOF
-  echo "foo"  >> "$http_response"
-  echo ${nc_port:=$(pick_random_unused_tcp_port)} > /dev/null
-  nc_log="$TEST_TMPDIR/nc.log"
-  nc_l "$nc_port" < "$http_response" >& "$nc_log" &
-  nc_pid=$!
-
-  cat > WORKSPACE <<EOF
-http_archive(
-    name = "foo",
-    url = "http://localhost:$nc_port",
-    sha256 = "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c",
-)
-EOF
-  bazel build @foo//bar &> $TEST_log || echo "Build failed, as expected"
-  expect_log "Expected 200B, got 4B"
-}
-
-
 function test_android_sdk_basic_load() {
   cat >> WORKSPACE <<'EOF' || fail "Couldn't cat"
 android_sdk_repository(
@@ -800,6 +811,27 @@ EOF
       || fail "Expected success"
   cat "$TEST_TMPDIR/queryout" > "$TEST_log"
   expect_log "//external:androidsdk"
+}
+
+function test_use_bind_as_repository() {
+  cat > WORKSPACE <<'EOF'
+local_repository(name = 'foobar', path = 'foo')
+bind(name = 'foo', actual = '@foobar//:test')
+EOF
+  mkdir foo
+  touch foo/WORKSPACE
+  touch foo/test
+  echo 'exports_files(["test"])' > foo/BUILD
+  cat > BUILD <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["@foo//:test"],
+    cmd = "echo $< | tee $@",
+    outs = ["foo.txt"],
+)
+EOF
+  bazel build :foo &> "$TEST_log" && fail "Expected failure" || true
+  expect_log "no such package '@foo//'"
 }
 
 function test_flip_flopping() {
@@ -823,7 +855,7 @@ EOF
   cat > remote_ws <<EOF
 http_archive(
     name = "repo",
-    url = "http://localhost:$fileserver_port/repo.zip",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
 )
 EOF
   external_dir=$(bazel info output_base)/external

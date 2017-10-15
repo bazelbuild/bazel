@@ -20,8 +20,8 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -34,13 +34,11 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
-import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -68,31 +66,33 @@ final class BundleSupport {
     }
   }
 
+  // TODO(cparsons): Take restricted interfaces of RuleContext instead of RuleContext (such as
+  // RuleErrorConsumer).
   private final RuleContext ruleContext;
+  private final AppleConfiguration appleConfiguration;
+  private final ApplePlatform platform;
   private final ExtraActoolArgs extraActoolArgs;
   private final Bundling bundling;
   private final Attributes attributes;
 
   /**
-   * Creates a new bundle support with no special {@code actool} arguments.
-   *
-   * @param ruleContext context this bundle is constructed in
-   * @param bundling bundle information as configured for this rule
-   */
-  public BundleSupport(RuleContext ruleContext, Bundling bundling) {
-    this(ruleContext, bundling, new ExtraActoolArgs());
-  }
-
-  /**
    * Creates a new bundle support.
    *
    * @param ruleContext context this bundle is constructed in
+   * @param appleConfiguration the configuration this bundle is constructed in
+   * @param platform the platform this bundle is built for
    * @param bundling bundle information as configured for this rule
    * @param extraActoolArgs any additional parameters to be used for invoking {@code actool}
    */
-  public BundleSupport(RuleContext ruleContext,
-      Bundling bundling, ExtraActoolArgs extraActoolArgs) {
+  public BundleSupport(
+      RuleContext ruleContext,
+      AppleConfiguration appleConfiguration,
+      ApplePlatform platform,
+      Bundling bundling,
+      ExtraActoolArgs extraActoolArgs) {
     this.ruleContext = ruleContext;
+    this.appleConfiguration = appleConfiguration;
+    this.platform = platform;
     this.extraActoolArgs = extraActoolArgs;
     this.bundling = bundling;
     this.attributes = new Attributes(ruleContext);
@@ -122,33 +122,33 @@ final class BundleSupport {
   }
 
   /**
-   * Adds any Xcode settings related to this bundle to the given provider builder.
+   * Validates the platform for this build is either simulator or device, and does not
+   * contain architectures for both platforms.
    *
    * @return this bundle support
    */
-  BundleSupport addXcodeSettings(Builder xcodeProviderBuilder) {
-    if (bundling.getBundleInfoplist().isPresent()) {
-      xcodeProviderBuilder.setBundleInfoplist(bundling.getBundleInfoplist().get());
-    }
-    return this;
-  }
-
-  private void validatePlatform() {
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    Platform platform = null;
+  public BundleSupport validatePlatform() {
+    ApplePlatform platform = null;
     for (String architecture : appleConfiguration.getIosMultiCpus()) {
       if (platform == null) {
-        platform = Platform.forTarget(PlatformType.IOS, architecture);
-      } else if (platform != Platform.forTarget(PlatformType.IOS, architecture)) {
+        platform = ApplePlatform.forTarget(PlatformType.IOS, architecture);
+      } else if (platform != ApplePlatform.forTarget(PlatformType.IOS, architecture)) {
         ruleContext.ruleError(
             String.format("In builds which require bundling, --ios_multi_cpus does not currently "
                 + "allow values for both simulator and device builds. Flag was %s",
                 appleConfiguration.getIosMultiCpus()));
       }
     }
+    return this;
   }
 
-  private void validateResources(ObjcProvider objcProvider) {
+  /**
+   * Validates that resources defined in this rule and its dependencies and written to this
+   * bundle are legal (for example that they are not mapped to the same bundle location).
+   *
+   * @return this bundle support
+   */
+  public BundleSupport validateResources(ObjcProvider objcProvider) {
     Map<String, Artifact> bundlePathToFile = new HashMap<>();
     NestedSet<Artifact> artifacts = objcProvider.get(STRINGS);
 
@@ -190,25 +190,8 @@ final class BundleSupport {
         bundlePathToFile.put(bundlePath, bundled);
       }
     }
-
     // TODO(bazel-team): Do the same validation for storyboards and datamodels which could also be
     // generated by genrules or doubly defined.
-  }
-
-  /**
-   * Validates bundle support.
-   * <ul>
-   * <li>Validates that resources defined in this rule and its dependencies and written to this
-   *     bundle are legal (for example that they are not mapped to the same bundle location)
-   * <li>Validates the platform for this build is either simulator or device, and does not
-   *     contain architectures for both platforms
-   * </ul>
-   *
-   * @return this bundle support
-   */
-  BundleSupport validate(ObjcProvider objcProvider) {
-    validatePlatform();
-    validateResources(objcProvider);
 
     return this;
   }
@@ -225,13 +208,13 @@ final class BundleSupport {
    * Returns true if this bundle is targeted to {@link TargetDeviceFamily#WATCH}, false otherwise.
    */
   boolean isBuildingForWatch() {
-    return Iterables.any(targetDeviceFamilies(),
-        new Predicate<TargetDeviceFamily>() {
-      @Override
-      public boolean apply(TargetDeviceFamily targetDeviceFamily) {
-        return targetDeviceFamily.name().equalsIgnoreCase(TargetDeviceFamily.WATCH.getNameInRule());
-      }
-    });
+    return targetDeviceFamilies()
+        .stream()
+        .anyMatch(
+            targetDeviceFamily ->
+                targetDeviceFamily
+                    .name()
+                    .equalsIgnoreCase(TargetDeviceFamily.WATCH.getNameInRule()));
   }
 
   /**
@@ -254,7 +237,7 @@ final class BundleSupport {
           .compiledStoryboardZip(storyboardInput);
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("StoryboardCompile")
               .setExecutable(attributes.ibtoolWrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
@@ -284,46 +267,44 @@ final class BundleSupport {
       Artifact storyboardInput) {
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
-            // The next three arguments are positional, i.e. they don't have flags before them.
             .addPath(zipOutput.getExecPath())
-            .add(archiveRoot)
-            .add("--minimum-deployment-target")
-            .add(bundling.getMinimumOsVersion().toString())
-            .add("--module")
-            .add(ruleContext.getLabel().getName());
+            .addDynamicString(archiveRoot)
+            .add("--minimum-deployment-target", bundling.getMinimumOsVersion().toString())
+            .add("--module", ruleContext.getLabel().getName());
 
     for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamiliesForResources()) {
-      commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
+      commandLine.add("--target-device", targetDeviceFamily.name().toLowerCase(Locale.US));
     }
 
-    return commandLine
-        .addPath(storyboardInput.getExecPath())
-        .build();
+    return commandLine.addPath(storyboardInput.getExecPath()).build();
   }
 
   private void registerMomczipActions(ObjcProvider objcProvider) {
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Iterable<Xcdatamodel> xcdatamodels = Xcdatamodels.xcdatamodels(
         bundling.getIntermediateArtifacts(), objcProvider.get(ObjcProvider.XCDATAMODEL));
     for (Xcdatamodel datamodel : xcdatamodels) {
       Artifact outputZip = datamodel.getOutputZip();
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("MomCompile")
               .setExecutable(attributes.momcWrapper())
               .addOutput(outputZip)
               .addInputs(datamodel.getInputs())
-              .setCommandLine(CustomCommandLine.builder()
-                  .addPath(outputZip.getExecPath())
-                  .add(datamodel.archiveRootForMomczip())
-                  .add("-XD_MOMC_SDKROOT=" + AppleToolchain.sdkDir())
-                  .add("-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
-                  .add("-MOMC_PLATFORMS")
-                  .add(appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
-                      .getLowerCaseNameInPlist())
-                  .add("-XD_MOMC_TARGET_VERSION=10.6")
-                  .add(datamodel.getContainer().getSafePathString())
-                  .build())
+              .setCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath(outputZip)
+                      .addDynamicString(datamodel.archiveRootForMomczip())
+                      .addDynamicString("-XD_MOMC_SDKROOT=" + AppleToolchain.sdkDir())
+                      .addDynamicString(
+                          "-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
+                      .add("-MOMC_PLATFORMS")
+                      .addDynamicString(
+                          appleConfiguration
+                              .getMultiArchPlatform(PlatformType.IOS)
+                              .getLowerCaseNameInPlist())
+                      .add("-XD_MOMC_TARGET_VERSION=10.6")
+                      .addPath(datamodel.getContainer())
+                      .build())
               .build(ruleContext));
     }
   }
@@ -335,12 +316,14 @@ final class BundleSupport {
           FileSystemUtils.replaceExtension(original.getExecPath(), ".nib"));
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("XibCompile")
               .setExecutable(attributes.ibtoolWrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
               .addOutput(zipOutput)
               .addInput(original)
+              // Disable sandboxing due to Bazel issue #2189.
+              .disableSandboxing()
               .build(ruleContext));
     }
   }
@@ -348,19 +331,22 @@ final class BundleSupport {
   private void registerConvertStringsActions(ObjcProvider objcProvider) {
     for (Artifact strings : objcProvider.get(ObjcProvider.STRINGS)) {
       Artifact bundled = bundling.getIntermediateArtifacts().convertedStringsFile(strings);
-      ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
-          .setMnemonic("ConvertStringsPlist")
-          .setExecutable(new PathFragment("/usr/bin/plutil"))
-          .setCommandLine(CustomCommandLine.builder()
-              .add("-convert").add("binary1")
-              .addExecPath("-o", bundled)
-              .add("--")
-              .addPath(strings.getExecPath())
-              .build())
-          .addInput(strings)
-          .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
-          .addOutput(bundled)
-          .build(ruleContext));
+      ruleContext.registerAction(
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
+              .setMnemonic("ConvertStringsPlist")
+              .setExecutable(PathFragment.create("/usr/bin/plutil"))
+              .setCommandLine(
+                  CustomCommandLine.builder()
+                      .add("-convert")
+                      .add("binary1")
+                      .addExecPath("-o", bundled)
+                      .add("--")
+                      .addPath(strings.getExecPath())
+                      .build())
+              .addInput(strings)
+              .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
+              .addOutput(bundled)
+              .build(ruleContext));
     }
   }
 
@@ -388,10 +374,13 @@ final class BundleSupport {
         new SpawnAction.Builder()
             .setMnemonic("MergeInfoPlistFiles")
             .setExecutable(attributes.plmerge())
-            .addArgument("--control")
-            .addInputArgument(plMergeControlArtifact)
             .addTransitiveInputs(mergingContentArtifacts)
             .addOutput(bundling.getIntermediateArtifacts().mergedInfoplist())
+            .addInput(plMergeControlArtifact)
+            .setCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath("--control", plMergeControlArtifact)
+                    .build())
             .build(ruleContext));
   }
 
@@ -425,7 +414,7 @@ final class BundleSupport {
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
             .setMnemonic("AssetCatalogCompile")
             .setExecutable(attributes.actoolWrapper())
             .addTransitiveInputs(objcProvider.get(ASSET_CATALOG))
@@ -441,7 +430,6 @@ final class BundleSupport {
 
   private CommandLine actoolzipCommandLine(ObjcProvider provider, Artifact zipOutput,
       Artifact partialInfoPlist) {
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     PlatformType platformType = PlatformType.IOS;
     // watchOS 1 and 2 use different platform arguments. It is likely that versions 2 and later will
     // use the watchos platform whereas watchOS 1 uses the iphone platform.
@@ -450,22 +438,20 @@ final class BundleSupport {
     }
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
-            // The next three arguments are positional, i.e. they don't have flags before them.
             .addPath(zipOutput.getExecPath())
-            .add("--platform")
-            .add(appleConfiguration.getMultiArchPlatform(platformType)
-                .getLowerCaseNameInPlist())
+            .add(
+                "--platform",
+                appleConfiguration.getMultiArchPlatform(platformType).getLowerCaseNameInPlist())
             .addExecPath("--output-partial-info-plist", partialInfoPlist)
-            .add("--minimum-deployment-target")
-            .add(bundling.getMinimumOsVersion().toString());
+            .add("--minimum-deployment-target", bundling.getMinimumOsVersion().toString());
 
     for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamiliesForResources()) {
-      commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
+      commandLine.add("--target-device", targetDeviceFamily.name().toLowerCase(Locale.US));
     }
 
     return commandLine
-        .add(PathFragment.safePathStrings(provider.get(XCASSETS_DIR)))
-        .add(extraActoolArgs)
+        .addAll(ImmutableList.copyOf(PathFragment.safePathStrings(provider.get(XCASSETS_DIR))))
+        .addAll(ImmutableList.copyOf(extraActoolArgs))
         .build();
   }
 

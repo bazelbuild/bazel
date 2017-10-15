@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.Builder;
-
 import java.util.List;
 
 /**

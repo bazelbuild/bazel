@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
-import com.google.devtools.build.lib.skyframe.TestsInSuiteValue.TestsInSuite;
+import com.google.devtools.build.lib.skyframe.TestsInSuiteValue.TestsInSuiteKey;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
 final class TestsInSuiteFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
-    TestsInSuite expansion = (TestsInSuite) key.argument();
+    TestsInSuiteKey expansion = (TestsInSuiteKey) key.argument();
     ResolvedTargets<Target> result =
         computeTestsInSuite(env, expansion.getTestSuite(), expansion.isStrict());
     if (env.valuesMissing()) {
@@ -75,9 +75,6 @@ final class TestsInSuiteFunction implements SkyFunction {
     // Note that testsAndSuites can contain input file targets; the test_suite rule does not
     // restrict the set of targets that can appear in tests or suites.
     builder.mergeError(getPrerequisites(env, testSuite, "tests", testsAndSuites));
-    if (testSuite.getRuleClassObject().hasAttr("suites", BuildType.LABEL_LIST)) {
-      builder.mergeError(getPrerequisites(env, testSuite, "suites", testsAndSuites));
-    }
 
     // 1. Add all tests
     for (Target test : testsAndSuites) {

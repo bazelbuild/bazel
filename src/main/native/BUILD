@@ -4,10 +4,13 @@ genrule(
         "//src:darwin": ["//tools/jdk:jni_md_header-darwin"],
         "//src:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
         "//src:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
+        "//src:windows": ["//tools/jdk:jni_md_header-windows"],
+        "//src:windows_msvc": ["//tools/jdk:jni_md_header-windows"],
         "//conditions:default": ["//tools/jdk:jni_md_header-linux"],
     }),
     outs = ["jni_md.h"],
     cmd = "cp -f $< $@",
+    visibility = ["//src/main/native:__subpackages__"],
 )
 
 genrule(
@@ -15,6 +18,7 @@ genrule(
     srcs = ["//tools/jdk:jni_header"],
     outs = ["jni.h"],
     cmd = "cp -f $< $@",
+    visibility = ["//src/main/native:__subpackages__"],
 )
 
 filegroup(
@@ -62,19 +66,6 @@ cc_binary(
     ],
 )
 
-genrule(
-    name = "windows_jni",
-    srcs = glob([
-        "windows_*.cc",
-        "windows_*.h",
-    ]),
-    outs = ["windows_jni.dll"],
-    cmd = "$(location build_windows_jni.sh) $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["build_windows_jni.sh"],
-    visibility = ["//src:__subpackages__"],
-)
-
 # TODO(bazel-team): Come up with a way to support platform-specific dynamic
 # library extensions.  This is issue #914.
 genrule(
@@ -88,6 +79,20 @@ genrule(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/native/windows:srcs",
+    ],
     visibility = ["//src:__pkg__"],
+)
+
+# TODO(laszlocsomor): move the common parts needed both by the Windows JNI lib
+# and the Bazel client into a separate library, and only copy those to the
+# embedded tools folder.
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["*.cc"]) + glob(["*.h"]) + [
+        "BUILD",
+        "//src/main/native/windows:embedded_tools",
+    ],
+    visibility = ["//visibility:public"],
 )

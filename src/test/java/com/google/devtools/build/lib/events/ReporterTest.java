@@ -14,10 +14,9 @@
 package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
-
+import com.google.common.eventbus.EventBus;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,7 +34,7 @@ public class ReporterTest extends EventTestTemplate {
 
   @Before
   public final void initializeOutput() throws Exception  {
-    reporter = new Reporter();
+    reporter = new Reporter(new EventBus());
     out = new StringBuilder();
     outAppender = new AbstractEventHandler(EventKind.ERRORS) {
       @Override
@@ -55,7 +54,7 @@ public class ReporterTest extends EventTestTemplate {
     reporter.handle(interesting);
     reporter.handle(Event.warn(null, "ignore-me").withTag("good"));
 
-    assertEquals(ImmutableList.copyOf(collector), ImmutableList.of(interesting));
+    assertThat(ImmutableList.of(interesting)).isEqualTo(ImmutableList.copyOf(collector));
   }
 
   @Test
@@ -67,7 +66,7 @@ public class ReporterTest extends EventTestTemplate {
       reporter.handle(e);
     }
     ImmutableList<Event> got = ImmutableList.copyOf(collector);
-    assertEquals(got, want);
+    assertThat(want).isEqualTo(got);
   }
 
   @Test
@@ -79,10 +78,10 @@ public class ReporterTest extends EventTestTemplate {
     reporter.addHandler(outAppender);
     reporter.addHandler(outAppender); // Should have 4 handlers now.
     copiedReporter.handle(Event.error(location, "."));
-    assertEquals("...", out.toString()); // The copied reporter has 3 handlers.
+    assertThat(out.toString()).isEqualTo("..."); // The copied reporter has 3 handlers.
     out = new StringBuilder();
     reporter.handle(Event.error(location, "."));
-    assertEquals("....", out.toString()); // The old reporter has 4 handlers.
+    assertThat(out.toString()).isEqualTo("...."); // The old reporter has 4 handlers.
   }
 
   @Test
@@ -90,7 +89,7 @@ public class ReporterTest extends EventTestTemplate {
     assertThat(out.toString()).isEmpty();
     reporter.addHandler(outAppender);
     reporter.handle(Event.error(location, "Event gets registered."));
-    assertEquals("Event gets registered.", out.toString());
+    assertThat(out.toString()).isEqualTo("Event gets registered.");
     out = new StringBuilder();
     reporter.removeHandler(outAppender);
     reporter.handle(Event.error(location, "Event gets ignored."));

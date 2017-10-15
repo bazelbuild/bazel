@@ -14,24 +14,26 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Tests {@link BlazeCommand}.
  */
@@ -39,15 +41,33 @@ import java.util.List;
 public class AbstractCommandTest {
 
   public static class FooOptions extends OptionsBase {
-    @Option(name = "foo", category = "one", defaultValue = "0")
+    @Option(
+      name = "foo",
+      category = "one",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "0"
+    )
     public int foo;
   }
 
   public static class BarOptions extends OptionsBase {
-    @Option(name = "bar", category = "two", defaultValue = "42")
+    @Option(
+      name = "bar",
+      category = "two",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "42"
+    )
     public int foo;
 
-    @Option(name = "baz", category = "one", defaultValue = "oops")
+    @Option(
+      name = "baz",
+      category = "one",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "oops"
+    )
     public String baz;
   }
 
@@ -58,7 +78,7 @@ public class AbstractCommandTest {
     }
 
     @Override
-    public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
+    public void editOptions(OptionsParser optionsParser) {}
   }
 
   @Command(name = "test_name",
@@ -70,8 +90,8 @@ public class AbstractCommandTest {
 
   @Test
   public void testGetNameYieldsAnnotatedName() {
-    assertEquals("test_name",
-        new TestCommand().getClass().getAnnotation(Command.class).name());
+    assertThat(new TestCommand().getClass().getAnnotation(Command.class).name())
+        .isEqualTo("test_name");
   }
 
   @Test
@@ -118,6 +138,7 @@ public class AbstractCommandTest {
     Collections.addAll(result, optionClasses);
     result.add(BlazeCommandEventHandler.Options.class);
     result.add(CommonCommandOptions.class);
+    result.add(SkylarkSemanticsOptions.class);
     return result;
   }
 }

@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -51,17 +52,18 @@ public final class CcToolchainRule implements RuleDefinition {
   private static final LateBoundLabel<BuildConfiguration> LIBC_TOP =
       new LateBoundLabel<BuildConfiguration>(CppConfiguration.class) {
         @Override
-        public Label resolve(
-            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getLibcLabel();
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration.getFragment(CppConfiguration.class).getSysrootLabel();
         }
       };
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    final Label zipper = env.getToolsLabel("//tools/zip:zipper");
     return builder
         .setUndocumented()
         .requiresConfigurationFragments(CppConfiguration.class)
+        .advertiseProvider(MakeVariableInfo.class)
         .add(attr("output_licenses", LICENSE))
         .add(attr("cpu", STRING).mandatory())
         .add(attr("all_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
@@ -70,16 +72,41 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("objcopy_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
         .add(attr("linker_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
         .add(attr("dwp_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
+        .add(attr("coverage_files", LABEL).legacyAllowAnyFileType().cfg(HOST))
         .add(attr("static_runtime_libs", LABEL_LIST).legacyAllowAnyFileType().mandatory())
         .add(attr("dynamic_runtime_libs", LABEL_LIST).legacyAllowAnyFileType().mandatory())
         .add(attr("module_map", LABEL).legacyAllowAnyFileType().cfg(HOST))
         .add(attr("supports_param_files", BOOLEAN).value(true))
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
         .add(
+            attr("$interface_library_builder", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .value(env.getToolsLabel("//tools/cpp:interface_library_builder")))
+        .add(
             attr("$link_dynamic_library_tool", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
-        // TODO(bazel-team): Should be using the TARGET configuration.
-        .add(attr(":libc_top", LABEL).cfg(HOST).value(LIBC_TOP))
+        .add(
+            attr(":zipper", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .value(
+                    new LateBoundLabel<BuildConfiguration>() {
+                      @Override
+                      public Label resolve(
+                          Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+                        CppConfiguration cppConfiguration =
+                            configuration.getFragment(CppConfiguration.class);
+                        if (cppConfiguration.isLLVMOptimizedFdo()) {
+                          return zipper;
+                        } else {
+                          return null;
+                        }
+                      }
+                    }))
+        .add(attr(":libc_top", LABEL).value(LIBC_TOP))
         .add(
             attr(":lipo_context_collector", LABEL)
                 .cfg(LipoTransition.LIPO_COLLECTOR)

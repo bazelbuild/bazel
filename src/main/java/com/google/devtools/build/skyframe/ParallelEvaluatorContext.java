@@ -19,7 +19,8 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -44,12 +45,14 @@ class ParallelEvaluatorContext {
   private final QueryableGraph graph;
   private final Version graphVersion;
   private final ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions;
-  private final EventHandler reporter;
+  private final ExtendedEventHandler reporter;
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
+  private final NestedSetVisitor<Postable> replayingNestedSetPostableVisitor;
   private final boolean keepGoing;
-  private final boolean storeErrorsAlongsideValues;
   private final DirtyTrackingProgressReceiver progressReceiver;
   private final EventFilter storedEventFilter;
+  private final ErrorInfoManager errorInfoManager;
+
   /**
    * The visitor managing the thread pool. Used to enqueue parents when an entry is finished, and,
    * during testing, to block until an exception is thrown if a node builder requests that.
@@ -62,12 +65,12 @@ class ParallelEvaluatorContext {
       QueryableGraph graph,
       Version graphVersion,
       ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
-      EventHandler reporter,
+      ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
       boolean keepGoing,
-      boolean storeErrorsAlongsideValues,
       final DirtyTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
+      ErrorInfoManager errorInfoManager,
       final Function<SkyKey, Runnable> runnableMaker,
       final int threadCount) {
     this.graph = graph;
@@ -75,11 +78,14 @@ class ParallelEvaluatorContext {
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.replayingNestedSetEventVisitor =
-        new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
+        new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState.eventState);
+    this.replayingNestedSetPostableVisitor =
+        new NestedSetVisitor<>(
+            new NestedSetPostableReceiver(reporter), emittedEventState.postableState);
     this.keepGoing = keepGoing;
-    this.storeErrorsAlongsideValues = storeErrorsAlongsideValues;
     this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
+    this.errorInfoManager = errorInfoManager;
     visitorSupplier =
         Suppliers.memoize(
             new Supplier<NodeEntryVisitor>() {
@@ -95,12 +101,12 @@ class ParallelEvaluatorContext {
       QueryableGraph graph,
       Version graphVersion,
       ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
-      EventHandler reporter,
+      ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
       boolean keepGoing,
-      boolean storeErrorsAlongsideValues,
       final DirtyTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
+      ErrorInfoManager errorInfoManager,
       final Function<SkyKey, Runnable> runnableMaker,
       final ForkJoinPool forkJoinPool) {
     this.graph = graph;
@@ -108,11 +114,14 @@ class ParallelEvaluatorContext {
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.replayingNestedSetEventVisitor =
-        new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
+        new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState.eventState);
+    this.replayingNestedSetPostableVisitor =
+        new NestedSetVisitor<>(
+            new NestedSetPostableReceiver(reporter), emittedEventState.postableState);
     this.keepGoing = keepGoing;
-    this.storeErrorsAlongsideValues = storeErrorsAlongsideValues;
     this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
+    this.errorInfoManager = errorInfoManager;
     visitorSupplier =
         Suppliers.memoize(
             new Supplier<NodeEntryVisitor>() {
@@ -191,7 +200,11 @@ class ParallelEvaluatorContext {
     return replayingNestedSetEventVisitor;
   }
 
-  EventHandler getReporter() {
+  NestedSetVisitor<Postable> getReplayingNestedSetPostableVisitor() {
+    return replayingNestedSetPostableVisitor;
+  }
+
+  ExtendedEventHandler getReporter() {
     return reporter;
   }
 
@@ -203,16 +216,16 @@ class ParallelEvaluatorContext {
     return storedEventFilter;
   }
 
-  boolean storeErrorsAlongsideValues() {
-    return storeErrorsAlongsideValues;
+  ErrorInfoManager getErrorInfoManager() {
+    return errorInfoManager;
   }
 
   /** Receives the events from the NestedSet and delegates to the reporter. */
   private static class NestedSetEventReceiver implements NestedSetVisitor.Receiver<TaggedEvents> {
 
-    private final EventHandler reporter;
+    private final ExtendedEventHandler reporter;
 
-    public NestedSetEventReceiver(EventHandler reporter) {
+    public NestedSetEventReceiver(ExtendedEventHandler reporter) {
       this.reporter = reporter;
     }
 
@@ -222,6 +235,21 @@ class ParallelEvaluatorContext {
       for (Event e : events.getEvents()) {
         reporter.handle(e.withTag(tag));
       }
+    }
+  }
+
+  /** Receives the postables from the NestedSet and delegates to the reporter. */
+  private static class NestedSetPostableReceiver implements NestedSetVisitor.Receiver<Postable> {
+
+    private final ExtendedEventHandler reporter;
+
+    public NestedSetPostableReceiver(ExtendedEventHandler reporter) {
+      this.reporter = reporter;
+    }
+
+    @Override
+    public void accept(Postable post) {
+      reporter.post(post);
     }
   }
 }

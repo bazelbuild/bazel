@@ -18,16 +18,13 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsS
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainSublist;
 import static org.junit.Assert.fail;
 
+import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-import java.util.List;
-
-/**
- * Tests {@link com.google.devtools.build.lib.testutil.MoreAsserts}.
- */
+/** Tests {@link com.google.devtools.build.lib.testutil.MoreAsserts}. */
 @RunWith(JUnit4.class)
 public class MoreAssertsTest {
 
@@ -56,21 +53,21 @@ public class MoreAssertsTest {
       assertContainsSublist(actual, "d");
       fail("no exception thrown");
     } catch (AssertionError e) {
-      assertThat(e.getMessage()).startsWith("Did not find [d] as a sublist of [a, b, c]");
+      assertThat(e).hasMessageThat().startsWith("Did not find [d] as a sublist of [a, b, c]");
     }
 
     try {
       assertContainsSublist(actual, "a", "c");
       fail("no exception thrown");
     } catch (AssertionError e) {
-      assertThat(e.getMessage()).startsWith("Did not find [a, c] as a sublist of [a, b, c]");
+      assertThat(e).hasMessageThat().startsWith("Did not find [a, c] as a sublist of [a, b, c]");
     }
 
     try {
       assertContainsSublist(actual, "b", "c", "d");
       fail("no exception thrown");
     } catch (AssertionError e) {
-      assertThat(e.getMessage()).startsWith("Did not find [b, c, d] as a sublist of [a, b, c]");
+      assertThat(e).hasMessageThat().startsWith("Did not find [b, c, d] as a sublist of [a, b, c]");
     }
   }
 

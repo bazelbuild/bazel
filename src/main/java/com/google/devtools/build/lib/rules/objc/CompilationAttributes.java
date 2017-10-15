@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.List;
 
 /**
@@ -48,14 +47,13 @@ final class CompilationAttributes {
     private final NestedSetBuilder<Artifact> textualHdrs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<PathFragment> includes = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<PathFragment> sdkIncludes = NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<String> copts = NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<String> linkopts = NestedSetBuilder.stableOrder();
+    private final ImmutableList.Builder<String> copts = ImmutableList.builder();
+    private final ImmutableList.Builder<String> linkopts = ImmutableList.builder();
     private final NestedSetBuilder<CppModuleMap> moduleMapsForDirectDeps =
         NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<SdkFramework> sdkFrameworks = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<SdkFramework> weakSdkFrameworks = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<String> sdkDylibs = NestedSetBuilder.stableOrder();
-    private Optional<Artifact> bridgingHeader = Optional.absent();
     private Optional<PathFragment> packageFragment = Optional.absent();
     private boolean enableModules;
 
@@ -109,16 +107,16 @@ final class CompilationAttributes {
     /**
      * Adds compile-time options.
      */
-    public Builder addCopts(NestedSet<String> copts) {
-      this.copts.addTransitive(copts);
+    public Builder addCopts(Iterable<String> copts) {
+      this.copts.addAll(copts);
       return this;
     }
 
     /**
      * Adds link-time options.
      */
-    public Builder addLinkopts(NestedSet<String> linkopts) {
-      this.linkopts.addTransitive(linkopts);
+    public Builder addLinkopts(Iterable<String> linkopts) {
+      this.linkopts.addAll(linkopts);
       return this;
     }
 
@@ -156,18 +154,6 @@ final class CompilationAttributes {
     }
 
     /**
-     * Sets the bridging header to be used when compiling Swift sources.
-     */
-    public Builder setBridgingHeader(Artifact bridgingHeader) {
-      Preconditions.checkState(
-          !this.bridgingHeader.isPresent(),
-          "bridgingHeader is already set to %s",
-          this.bridgingHeader);
-      this.bridgingHeader = Optional.of(bridgingHeader);
-      return this;
-    }
-
-    /**
      * Sets the package path from which to base the header search paths.
      */
     public Builder setPackageFragment(PathFragment packageFragment) {
@@ -194,7 +180,6 @@ final class CompilationAttributes {
       return new CompilationAttributes(
           this.hdrs.build(),
           this.textualHdrs.build(),
-          this.bridgingHeader,
           this.includes.build(),
           this.sdkIncludes.build(),
           this.sdkFrameworks.build(),
@@ -220,13 +205,6 @@ final class CompilationAttributes {
         builder.addTextualHdrs(
             PrerequisiteArtifacts.nestedSet(ruleContext, "textual_hdrs", Mode.TARGET));
       }
-
-      if (ruleContext.attributes().has("bridging_header", BuildType.LABEL)) {
-        Artifact header = ruleContext.getPrerequisiteArtifact("bridging_header", Mode.TARGET);
-        if (header != null) {
-          builder.setBridgingHeader(header);
-        }
-      }
     }
 
     private static void addIncludesFromRuleContext(Builder builder, RuleContext ruleContext) {
@@ -234,8 +212,7 @@ final class CompilationAttributes {
         NestedSetBuilder<PathFragment> includes = NestedSetBuilder.stableOrder();
         includes.addAll(
             Iterables.transform(
-                ruleContext.attributes().get("includes", Type.STRING_LIST),
-                PathFragment.TO_PATH_FRAGMENT));
+                ruleContext.attributes().get("includes", Type.STRING_LIST), PathFragment::create));
         builder.addIncludes(includes.build());
       }
 
@@ -244,7 +221,7 @@ final class CompilationAttributes {
         sdkIncludes.addAll(
             Iterables.transform(
                 ruleContext.attributes().get("sdk_includes", Type.STRING_LIST),
-                PathFragment.TO_PATH_FRAGMENT));
+                PathFragment::create));
         builder.addSdkIncludes(sdkIncludes.build());
       }
     }
@@ -252,8 +229,6 @@ final class CompilationAttributes {
     private static void addSdkAttributesFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("sdk_frameworks", Type.STRING_LIST)) {
         NestedSetBuilder<SdkFramework> frameworks = NestedSetBuilder.stableOrder();
-        // TODO(bazel-team): Move the inclusion of the default frameworks to CompilationSupport.
-        frameworks.addAll(ObjcRuleClasses.AUTOMATIC_SDK_FRAMEWORKS);
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
           frameworks.add(new SdkFramework(explicit));
         }
@@ -278,15 +253,11 @@ final class CompilationAttributes {
 
     private static void addCompileOptionsFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("copts", Type.STRING_LIST)) {
-        NestedSetBuilder<String> copts = NestedSetBuilder.stableOrder();
-        copts.addAll(ruleContext.getTokenizedStringListAttr("copts"));
-        builder.addCopts(copts.build());
+        builder.addCopts(ruleContext.getTokenizedStringListAttr("copts"));
       }
 
       if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
-        NestedSetBuilder<String> linkopts = NestedSetBuilder.stableOrder();
-        linkopts.addAll(ruleContext.getTokenizedStringListAttr("linkopts"));
-        builder.addLinkopts(linkopts.build());
+        builder.addLinkopts(ruleContext.getTokenizedStringListAttr("linkopts"));
       }
     }
 
@@ -298,14 +269,15 @@ final class CompilationAttributes {
         // missing, its private headers will be treated as public!
         if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
           Iterable<ObjcProvider> providers =
-              ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class);
+              ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
           for (ObjcProvider provider : providers) {
             moduleMaps.addTransitive(provider.get(TOP_LEVEL_MODULE_MAP));
           }
         }
         if (ruleContext.attributes().has("non_propagated_deps", BuildType.LABEL_LIST)) {
           Iterable<ObjcProvider> providers =
-              ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class);
+              ruleContext.getPrerequisites(
+                  "non_propagated_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
           for (ObjcProvider provider : providers) {
             moduleMaps.addTransitive(provider.get(TOP_LEVEL_MODULE_MAP));
           }
@@ -329,35 +301,32 @@ final class CompilationAttributes {
 
   private final NestedSet<Artifact> hdrs;
   private final NestedSet<Artifact> textualHdrs;
-  private final Optional<Artifact> bridgingHeader;
   private final NestedSet<PathFragment> includes;
   private final NestedSet<PathFragment> sdkIncludes;
   private final NestedSet<SdkFramework> sdkFrameworks;
   private final NestedSet<SdkFramework> weakSdkFrameworks;
   private final NestedSet<String> sdkDylibs;
   private final Optional<PathFragment> packageFragment;
-  private final NestedSet<String> copts;
-  private final NestedSet<String> linkopts;
+  private final ImmutableList<String> copts;
+  private final ImmutableList<String> linkopts;
   private final NestedSet<CppModuleMap> moduleMapsForDirectDeps;
   private final boolean enableModules;
 
   private CompilationAttributes(
       NestedSet<Artifact> hdrs,
       NestedSet<Artifact> textualHdrs,
-      Optional<Artifact> bridgingHeader,
       NestedSet<PathFragment> includes,
       NestedSet<PathFragment> sdkIncludes,
       NestedSet<SdkFramework> sdkFrameworks,
       NestedSet<SdkFramework> weakSdkFrameworks,
       NestedSet<String> sdkDylibs,
       Optional<PathFragment> packageFragment,
-      NestedSet<String> copts,
-      NestedSet<String> linkopts,
+      ImmutableList<String> copts,
+      ImmutableList<String> linkopts,
       NestedSet<CppModuleMap> moduleMapsForDirectDeps,
       boolean enableModules) {
     this.hdrs = hdrs;
     this.textualHdrs = textualHdrs;
-    this.bridgingHeader = bridgingHeader;
     this.includes = includes;
     this.sdkIncludes = sdkIncludes;
     this.sdkFrameworks = sdkFrameworks;
@@ -382,13 +351,6 @@ final class CompilationAttributes {
    */
   public NestedSet<Artifact> textualHdrs() {
     return this.textualHdrs;
-  }
-
-  /**
-   * Returns the bridging header to be used when compiling Swift sources.
-   */
-  public Optional<Artifact> bridgingHeader() {
-    return this.bridgingHeader;
   }
 
   /**
@@ -438,7 +400,7 @@ final class CompilationAttributes {
               packageFragment.get(), genfilesFragment.getRelative(packageFragment.get()));
 
       Iterable<PathFragment> relativeIncludes =
-          Iterables.filter(includes(), Predicates.not(PathFragment.IS_ABSOLUTE));
+          Iterables.filter(includes(), Predicates.not(PathFragment::isAbsolute));
       for (PathFragment include : relativeIncludes) {
         for (PathFragment rootFragment : rootFragments) {
           paths.add(rootFragment.getRelative(include).normalize());
@@ -451,14 +413,14 @@ final class CompilationAttributes {
   /**
    * Returns the compile-time options.
    */
-  public NestedSet<String> copts() {
+  public ImmutableList<String> copts() {
     return this.copts;
   }
 
   /**
    * Returns the link-time options.
    */
-  public NestedSet<String> linkopts() {
+  public ImmutableList<String> linkopts() {
     return this.linkopts;
   }
 

@@ -21,15 +21,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 
 /**
  * Represents a container for the {@link ResourceContainer}s for a given library. This is
  * abstraction simplifies the process of managing and exporting the direct and transitive resource
  * dependencies of an android rule, as well as providing type safety.
  *
- * <p>The transitive and direct dependencies are not guaranteed to be disjoint. If a 
+ * <p>The transitive and direct dependencies are not guaranteed to be disjoint. If a
  * library is included in both the transitive and direct dependencies, it will appear twice. This
  * requires consumers to manage duplicated resources gracefully.
  */
@@ -42,7 +42,7 @@ public final class ResourceDependencies {
   private final NestedSet<ResourceContainer> transitiveResources;
   /**
    * Contains all the direct dependencies of the current target. Since a given direct dependency can
-   * act as a "forwarding" library, collecting all the direct resource from it's dependencies 
+   * act as a "forwarding" library, collecting all the direct resource from it's dependencies
    * and providing them as "direct" dependencies to maintain merge order, this uses a NestedSet to
    * properly maintain ordering and ease of merging.
    */
@@ -98,11 +98,12 @@ public final class ResourceDependencies {
         transitiveDependencies.build(), directDependencies.build());
   }
 
-  private static void extractFromAttributes(Iterable<String> attributes,
+  private static void extractFromAttributes(Iterable<String> attributeNames,
       RuleContext ruleContext, NestedSetBuilder<ResourceContainer> builderForTransitive,
       NestedSetBuilder<ResourceContainer> builderForDirect) {
-    for (String attr : attributes) {
-      if (ruleContext.getAttribute(attr) == null) {
+    AttributeMap attributes = ruleContext.attributes();
+    for (String attr : attributeNames) {
+      if (!attributes.has(attr, BuildType.LABEL_LIST) && !attributes.has(attr, BuildType.LABEL)) {
         continue;
       }
       for (AndroidResourcesProvider resources :
@@ -151,21 +152,33 @@ public final class ResourceDependencies {
     this.directResources = directResources;
   }
 
+  /** Returns a copy of this instance with filtered resources. The original object is unchanged. */
+  public ResourceDependencies filter(RuleContext ruleContext, ResourceFilter filter) {
+    return new ResourceDependencies(
+        neverlink,
+        filter.filterDependencies(ruleContext, transitiveResources),
+        filter.filterDependencies(ruleContext, directResources));
+  }
+
   /**
    * Creates a new AndroidResourcesProvider with the supplied ResourceContainer as the direct dep.
    *
    * <p>When a library produces a new resource container the AndroidResourcesProvider should use
-   * that container as a the direct dependency for that library. This makes the consuming rule
-   * to identify the new container and merge appropriately. The  previous direct dependencies are
-   * then added to the transitive dependencies.
+   * that container as a the direct dependency for that library. This makes the consuming rule to
+   * identify the new container and merge appropriately. The previous direct dependencies are then
+   * added to the transitive dependencies.
    *
    * @param label The label of the library exporting this provider.
    * @param newDirectResource The new direct dependency for AndroidResourcesProvider
+   * @param isResourcesOnly if the direct dependency is either an android_resources
+   *     target or an android_library target with no fields that android_resources targets do not
+   *     provide.
    * @return A provider with the current resources and label.
    */
-  public AndroidResourcesProvider toProvider(Label label, ResourceContainer newDirectResource) {
+  public AndroidResourcesProvider toProvider(
+      Label label, ResourceContainer newDirectResource, boolean isResourcesOnly) {
     if (neverlink) {
-      return ResourceDependencies.empty().toProvider(label);
+      return ResourceDependencies.empty().toProvider(label, isResourcesOnly);
     }
     return AndroidResourcesProvider.create(
         label,
@@ -173,7 +186,8 @@ public final class ResourceDependencies {
             .addTransitive(transitiveResources)
             .addTransitive(directResources)
             .build(),
-        NestedSetBuilder.<ResourceContainer>naiveLinkOrder().add(newDirectResource).build());
+        NestedSetBuilder.<ResourceContainer>naiveLinkOrder().add(newDirectResource).build(),
+        isResourcesOnly);
   }
 
   /**
@@ -184,19 +198,21 @@ public final class ResourceDependencies {
    * the resource merging as if this library didn't exist.
    *
    * @param label The label of the library exporting this provider.
+   * @param isResourcesOnly if the direct dependency is either an android_resources
+   *     target or an android_library target with no fields that android_resources targets do not
+   *     provide.
    * @return A provider with the current resources and label.
    */
-  public AndroidResourcesProvider toProvider(Label label) {
+  public AndroidResourcesProvider toProvider(Label label, boolean isResourcesOnly) {
     if (neverlink) {
-      return ResourceDependencies.empty().toProvider(label);
+      return ResourceDependencies.empty().toProvider(label, isResourcesOnly);
     }
-    return AndroidResourcesProvider.create(label, transitiveResources, directResources);
+    return AndroidResourcesProvider.create(
+        label, transitiveResources, directResources, isResourcesOnly);
   }
 
-  /**
-   * Provides an NestedSet of the direct and transitive resources.
-   */
-  public Iterable<ResourceContainer> getResources() {
+  /** Provides an NestedSet of the direct and transitive resources. */
+  public NestedSet<ResourceContainer> getResources() {
     return NestedSetBuilder.<ResourceContainer>naiveLinkOrder()
         .addTransitive(directResources)
         .addTransitive(transitiveResources)

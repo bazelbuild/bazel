@@ -54,12 +54,15 @@ def RunJ2ObjC(java, jvm_flags, j2objc, main_class, output_file_path,
   Returns:
     None.
   """
-  source_file_manifest_content = ' '.join(files_to_translate)
+  j2objc_args.extend(['-sourcepath', ':'.join(source_paths)])
+  j2objc_args.extend(['-d', output_file_path])
+  j2objc_args.extend(files_to_translate)
+  param_file_content = ' '.join(j2objc_args)
   fd = None
   param_filename = None
   try:
     fd, param_filename = tempfile.mkstemp(text=True)
-    os.write(fd, source_file_manifest_content)
+    os.write(fd, param_file_content)
   finally:
     if fd:
       os.close(fd)
@@ -67,9 +70,6 @@ def RunJ2ObjC(java, jvm_flags, j2objc, main_class, output_file_path,
     j2objc_cmd = [java]
     j2objc_cmd.extend(filter(None, jvm_flags.split(',')))
     j2objc_cmd.extend(['-cp', j2objc, main_class])
-    j2objc_cmd.extend(j2objc_args)
-    j2objc_cmd.extend(['-sourcepath', ':'.join(source_paths)])
-    j2objc_cmd.extend(['-d', output_file_path])
     j2objc_cmd.extend(['@%s' % param_filename])
     subprocess.check_call(j2objc_cmd, stderr=subprocess.STDOUT)
   finally:
@@ -142,17 +142,20 @@ def _ReadDepMapping(input_file_queue, output_dep_mapping_queue,
       return
 
     try:
-      deps = []
-      entry = os.path.relpath(os.path.splitext(input_file)[0], output_root)
-      with file_open(input_file, 'r') as f:
-        for line in f:
-          include = _INCLUDE_RE.match(line)
-          if include:
-            include_path = include.group(2)
-            dep = os.path.splitext(include_path)[0]
-            if dep != entry:
-              deps.append(dep)
-      output_dep_mapping_queue.put((entry, deps))
+      deps = set()
+      input_file_name = os.path.splitext(input_file)[0]
+      entry = os.path.relpath(input_file_name, output_root)
+      for file_ext in ['.m', '.h']:
+        with file_open(input_file_name + file_ext, 'r') as f:
+          for line in f:
+            include = _INCLUDE_RE.match(line)
+            if include:
+              include_path = include.group(2)
+              dep = os.path.splitext(include_path)[0]
+              if dep != entry:
+                deps.add(dep)
+
+      output_dep_mapping_queue.put((entry, sorted(deps)))
     except Exception as e:  # pylint: disable=broad-except
       error_message_queue.put(str(e))
     finally:
@@ -215,28 +218,32 @@ def _J2ObjcOutputObjcFiles(java_files):
   return [os.path.splitext(java_file)[0] + '.m' for java_file in java_files]
 
 
-def UnzipGenJarSources(gen_src_jar):
-  """Unzips the gen srcjar containing outputs from Java annotation processors.
+def UnzipSourceJarSources(source_jars):
+  """Unzips the source jars containing Java source files.
 
   Args:
-    gen_src_jar: The path of the gen srcjar.
+    source_jars: The list of input Java source jars.
   Returns:
     A tuple of the temporary output root and a list of root-relative paths of
     unzipped Java files
   """
-  genjar_java_files = []
-  if gen_src_jar:
+  srcjar_java_files = []
+  if source_jars:
     tmp_input_root = tempfile.mkdtemp()
-    zip_ref = zipfile.ZipFile(gen_src_jar, 'r')
+    for source_jar in source_jars:
+      zip_ref = zipfile.ZipFile(source_jar, 'r')
+      zip_entries = []
 
-    for file_entry in zip_ref.namelist():
-      # We only care about Java source files.
-      if file_entry.endswith('.java'):
-        genjar_java_files.append(file_entry)
+      for file_entry in zip_ref.namelist():
+        # We only care about Java source files.
+        if file_entry.endswith('.java'):
+          zip_entries.append(file_entry)
 
-    zip_ref.extractall(tmp_input_root, genjar_java_files)
-    zip_ref.close()
-    return (tmp_input_root, genjar_java_files)
+      zip_ref.extractall(tmp_input_root, zip_entries)
+      zip_ref.close()
+      srcjar_java_files.extend(zip_entries)
+
+    return (tmp_input_root, srcjar_java_files)
   else:
     return None
 
@@ -281,19 +288,19 @@ def RenameGenJarObjcFileRootInFileContent(tmp_objc_file_root,
     execute(cmd, stderr=subprocess.STDOUT)
 
 
-def CopyObjcFileToFinalOutputRoot(objc_files,
+def MoveObjcFileToFinalOutputRoot(objc_files,
                                   tmp_objc_file_root,
                                   final_objc_file_root,
                                   suffix,
                                   os_module=os,
                                   shutil_module=shutil):
-  """Copies ObjC files from temporary location to the final output location.
+  """Moves ObjC files from temporary location to the final output location.
 
   Args:
-    objc_files: The list of objc files to copy
+    objc_files: The list of objc files to move.
     tmp_objc_file_root: The temporary output root containing ObjC sources.
     final_objc_file_root: The final output root.
-    suffix: The suffix of the files to copy.
+    suffix: The suffix of the files to move.
     os_module: The os python module.
     shutil_module: The shutil python module.
   Returns:
@@ -312,7 +319,7 @@ def CopyObjcFileToFinalOutputRoot(objc_files,
         if e.errno != errno.EEXIST or not os_module.path.isdir(dest_path_dir):
           raise
 
-    shutil_module.copyfile(
+    shutil_module.move(
         os_module.path.join(tmp_objc_file_root, file_with_suffix),
         dest_path)
 
@@ -341,24 +348,24 @@ def PostJ2ObjcFileProcessing(normal_objc_files, genjar_objc_files,
                                         j2objc_source_paths,
                                         gen_src_jar,
                                         genjar_objc_files)
-  CopyObjcFileToFinalOutputRoot(normal_objc_files,
+  MoveObjcFileToFinalOutputRoot(normal_objc_files,
                                 tmp_objc_file_root,
                                 final_objc_file_root,
                                 '.m')
-  CopyObjcFileToFinalOutputRoot(normal_objc_files,
+  MoveObjcFileToFinalOutputRoot(normal_objc_files,
                                 tmp_objc_file_root,
                                 final_objc_file_root,
                                 '.h')
 
   if output_gen_source_dir:
-    CopyObjcFileToFinalOutputRoot(
+    MoveObjcFileToFinalOutputRoot(
         genjar_objc_files,
         tmp_objc_file_root,
         output_gen_source_dir,
         '.m')
 
   if output_gen_header_dir:
-    CopyObjcFileToFinalOutputRoot(
+    MoveObjcFileToFinalOutputRoot(
         genjar_objc_files,
         tmp_objc_file_root,
         output_gen_header_dir,
@@ -402,7 +409,7 @@ def main():
       help='The path to the Java executable.')
   parser.add_argument(
       '--jvm_flags',
-      default='',
+      default='-Xss4m,-XX:+UseParallelGC',
       help='A comma-separated list of flags to pass to the JVM.')
   parser.add_argument(
       '--j2objc',
@@ -415,7 +422,7 @@ def main():
   # TODO(rduan): Remove, no longer needed.
   parser.add_argument(
       '--translated_source_files',
-      required=True,
+      required=False,
       help=('A comma-separated list of file paths where J2ObjC will write the '
             'translated files to.'))
   parser.add_argument(
@@ -438,10 +445,15 @@ def main():
       required=False,
       help=('The archive file path that will be produced by ObjC compile action'
             ' later'))
+  # TODO(rduan): Remove this flag once it is fully replaced by flag --src_jars.
   parser.add_argument(
       '--gen_src_jar',
       required=False,
       help='The jar containing Java sources generated by annotation processor.')
+  parser.add_argument(
+      '--src_jars',
+      required=False,
+      help='The list of Java source jars containg Java sources to translate.')
   parser.add_argument(
       '--output_gen_source_dir',
       required=False,
@@ -455,20 +467,34 @@ def main():
 
   args, pass_through_args = parser.parse_known_args()
   normal_java_files, j2objc_flags = _ParseArgs(pass_through_args)
-  genjar_java_files = []
+  srcjar_java_files = []
   j2objc_source_paths = [os.getcwd()]
 
-  # Unzip the gen jar, so J2ObjC can translate the contained sources.
+  # Unzip the source jars, so J2ObjC can translate the contained sources.
   # Also add the temporary directory containing the unzipped sources as a source
   # path for J2ObjC, so it can find these sources.
-  genjar_source_tuple = UnzipGenJarSources(args.gen_src_jar)
-  if genjar_source_tuple:
-    j2objc_source_paths.append(genjar_source_tuple[0])
-    genjar_java_files = genjar_source_tuple[1]
+  source_jars = []
+  if args.gen_src_jar:
+    source_jars.append(args.gen_src_jar)
+  if args.src_jars:
+    source_jars.extend(args.src_jars.split(','))
+
+  srcjar_source_tuple = UnzipSourceJarSources(source_jars)
+  if srcjar_source_tuple:
+    j2objc_source_paths.append(srcjar_source_tuple[0])
+    srcjar_java_files = srcjar_source_tuple[1]
 
   # Run J2ObjC over the normal input Java files and unzipped gen jar Java files.
   # The output is stored in a temporary directory.
   tmp_objc_file_root = tempfile.mkdtemp()
+
+  # If we do not generate the header mapping from J2ObjC, we still
+  # need to specify --output-header-mapping, as it signals to J2ObjC that we
+  # are using source paths as import paths, not package paths.
+  # TODO(rduan): Make another flag in J2ObjC to specify using source paths.
+  if '--output-header-mapping' not in j2objc_flags:
+    j2objc_flags.extend(['--output-header-mapping', '/dev/null'])
+
   RunJ2ObjC(args.java,
             args.jvm_flags,
             args.j2objc,
@@ -476,11 +502,11 @@ def main():
             tmp_objc_file_root,
             j2objc_flags,
             j2objc_source_paths,
-            normal_java_files + genjar_java_files)
+            normal_java_files + srcjar_java_files)
 
   # Calculate the relative paths of generated objc files.
   normal_objc_files = _J2ObjcOutputObjcFiles(normal_java_files)
-  genjar_objc_files = _J2ObjcOutputObjcFiles(genjar_java_files)
+  genjar_objc_files = _J2ObjcOutputObjcFiles(srcjar_java_files)
 
   # Generate J2ObjC mapping files needed for distributed builds.
   GenerateJ2objcMappingFiles(normal_objc_files,
@@ -490,7 +516,7 @@ def main():
                              args.output_archive_source_mapping_file,
                              args.compiled_archive_file_path)
 
-  # Post J2ObjC-run processing, involving file editing, zipping and copying
+  # Post J2ObjC-run processing, involving file editing, zipping and moving
   # files to their final output locations.
   PostJ2ObjcFileProcessing(
       normal_objc_files,

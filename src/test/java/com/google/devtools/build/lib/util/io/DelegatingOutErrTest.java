@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
-import static org.junit.Assert.assertEquals;
 
 import org.junit.After;
 import org.junit.Before;
@@ -56,7 +56,7 @@ public class DelegatingOutErrTest {
     delegate.printOutLn("... and alone again ...");
     delegate.addSink(sink);
     delegate.printOutLn("How are things?");
-    assertEquals("Hello, sink.\nHow are things?\n", sink.outAsLatin1());
+    assertThat(sink.outAsLatin1()).isEqualTo("Hello, sink.\nHow are things?\n");
   }
 
   @Test
@@ -74,9 +74,8 @@ public class DelegatingOutErrTest {
     delegate.addSink(left);
     delegate.addSink(right);
     delegate.printOutLn("left and right");
-    assertEquals(joinLines("left only", "both", "left and right", ""),
-                 left.outAsLatin1());
-    assertEquals(joinLines("both", "right only", "left and right", ""),
-                 right.outAsLatin1());
+    assertThat(left.outAsLatin1()).isEqualTo(joinLines("left only", "both", "left and right", ""));
+    assertThat(right.outAsLatin1())
+        .isEqualTo(joinLines("both", "right only", "left and right", ""));
   }
 }

@@ -13,17 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 
 /**
  * This event is fired after the loading phase is complete.
  */
-public final class LoadingPhaseCompleteEvent {
+public final class LoadingPhaseCompleteEvent implements ExtendedEventHandler.Postable {
   private final ImmutableSet<Target> targets;
   private final ImmutableSet<Target> filteredTargets;
   private final PackageManager.PackageManagerStatistics pkgManagerStats;
@@ -64,7 +64,7 @@ public final class LoadingPhaseCompleteEvent {
    *         targets we attempted to load.
    */
   public Iterable<Label> getLabels() {
-    return Iterables.transform(targets, TO_LABEL);
+    return Iterables.transform(targets, Target::getLabel);
   }
   
   public long getTimeInMs() {
@@ -72,16 +72,9 @@ public final class LoadingPhaseCompleteEvent {
   }
 
   /**
-   * Returns the PackageCache statistics.
+   * Returns package manager statistics.
    */
   public PackageManager.PackageManagerStatistics getPkgManagerStats() {
     return pkgManagerStats;
   }
-
-  private static final Function<Target, Label> TO_LABEL = new Function<Target, Label>() {
-    @Override
-    public Label apply(Target input) {
-      return input.getLabel();
-    }
-  };
 }

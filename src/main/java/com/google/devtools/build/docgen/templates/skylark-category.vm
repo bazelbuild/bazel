@@ -10,7 +10,7 @@ ${category.description}
 <ul>
 #foreach ($module in $modules)
 
-<li><a href="{{ page.version_prefix }}/docs/skylark/lib/${module.name}.html">${module.title}</a></li>
+<li><a href="/versions/{{ site.version }}/skylark/lib/${module.name}.html">${module.title}</a></li>
 #end
 </ul>
 </div>

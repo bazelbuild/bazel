@@ -8,15 +8,16 @@ import org.checkerframework.dataflow.analysis.AbstractValue;
 import org.checkerframework.dataflow.analysis.Analysis;
 import org.checkerframework.dataflow.analysis.Store;
 import org.checkerframework.dataflow.analysis.TransferFunction;
+
 import org.checkerframework.javacutil.BasicTypeProcessor;
 import org.checkerframework.javacutil.TreeUtils;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Map.Entry;
 
 import javax.lang.model.element.ExecutableElement;
@@ -100,7 +101,7 @@ public class JavaSource2CFGDOT {
         System.out
                 .println("Generate the control flow graph of a Java method, represented as a DOT graph.");
         System.out
-                .println("Parameters: <inputfile> <outputdir> [-method <name>] [-class <name>] [-pdf]");
+                .println("Parameters: <inputfile> <outputfile> [-method <name>] [-class <name>] [-pdf]");
         System.out
                 .println("    -pdf:    Also generate the PDF by invoking 'dot'.");
         System.out
@@ -110,9 +111,9 @@ public class JavaSource2CFGDOT {
     }
 
     /** Just like method above but without analysis. */
-    public static void generateDOTofCFG(String inputFile, String outputDir,
+    public static void generateDOTofCFG(String inputFile, String outputFile,
             String method, String clas, boolean pdf) {
-        generateDOTofCFG(inputFile, outputDir, method, clas, pdf, null);
+        generateDOTofCFG(inputFile, outputFile, method, clas, pdf, null);
     }
 
     /**
@@ -120,29 +121,25 @@ public class JavaSource2CFGDOT {
      *
      * @param inputFile
      *            Java source input file.
-     * @param outputDir
-     *            Source output directory.
+     * @param outputFile
+     *            Source output file (without file extension)
      * @param method
      *            Method name to generate the CFG for.
      * @param pdf
      *            Also generate a PDF?
      * @param analysis
      *            Analysis to perform befor the visualization (or
-     *            {@code null} if no analysis is to be performed).
+     *            <code>null</code> if no analysis is to be performed).
      */
-    public static
-    <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
-    void generateDOTofCFG(
-            String inputFile, String outputDir, String method, String clas,
+    public static <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>> void generateDOTofCFG(
+            String inputFile, String outputFile, String method, String clas,
             boolean pdf, /*@Nullable*/ Analysis<A, S, T> analysis) {
         Entry<MethodTree, CompilationUnitTree> m = getMethodTreeAndCompilationUnit(inputFile, method, clas);
-        generateDOTofCFG(inputFile, outputDir, method, clas, pdf, analysis, m.getKey(), m.getValue());
+        generateDOTofCFG(inputFile, outputFile, method, clas, pdf, analysis, m.getKey(), m.getValue());
     }
 
-    public static
-    <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
-    void generateDOTofCFG(
-            String inputFile, String outputDir, String method, String clas,
+    public static <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>> void generateDOTofCFG(
+            String inputFile, String outputFile, String method, String clas,
             boolean pdf, /*@Nullable*/ Analysis<A, S, T> analysis, MethodTree m,
             CompilationUnitTree r) {
         String fileName = (new File(inputFile)).getName();
@@ -157,18 +154,21 @@ public class JavaSource2CFGDOT {
         if (analysis != null) {
             analysis.performAnalysis(cfg);
         }
+        String s = CFGDOTVisualizer.visualize(cfg, cfg.getEntryBlock(), analysis, false);
 
-        Map<String, Object> args = new HashMap<>();
-        args.put("outdir", outputDir);
-        args.put("checkerName", "");
-
-        CFGVisualizer<A, S, T> viz = new DOTCFGVisualizer<A, S, T>();
-        viz.init(args);
-        Map<String, Object> res = viz.visualize(cfg, cfg.getEntryBlock(), analysis);
-        viz.shutdown();
+        try {
+            FileWriter fstream = new FileWriter(outputFile + ".txt");
+            BufferedWriter out = new BufferedWriter(fstream);
+            out.write(s);
+            System.out.println("Finished " + fileName + ".");
+            out.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
 
         if (pdf) {
-            producePDF((String) res.get("dotFileName"));
+            producePDF(outputFile);
         }
     }
 
@@ -188,8 +188,8 @@ public class JavaSource2CFGDOT {
     }
 
     /**
-     * @return the AST of a specific method in a specific class in a specific
-     *         file (or null if no such method exists)
+     * @return The AST of a specific method in a specific class in a specific
+     *         file (or null if no such method exists).
      */
     public static /*@Nullable*/ MethodTree getMethodTree(String file,
             final String method, String clas) {
@@ -197,7 +197,7 @@ public class JavaSource2CFGDOT {
     }
 
     /**
-     * @return the AST of a specific method in a specific class as well as the
+     * @return The AST of a specific method in a specific class as well as the
      *         {@link CompilationUnitTree} in a specific file (or null they do
      *         not exist).
      */

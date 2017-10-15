@@ -78,7 +78,11 @@ public final class JavacOptions {
   }
 
   private static boolean isBazelSpecificFlag(String opt) {
-    return opt.startsWith("-Werror:") || opt.startsWith("-Xep");
+    return opt.startsWith("-Werror:")
+        || opt.startsWith("-Xep")
+        // TODO(b/36228287): delete this once the migration to -XepDisableAllChecks is complete
+        || opt.equals("-extra_checks")
+        || opt.startsWith("-extra_checks:");
   }
 
   private static final XlintOptionNormalizer XLINT_OPTION_NORMALIZER = new XlintOptionNormalizer();
@@ -104,7 +108,7 @@ public final class JavacOptions {
     /**
      * Add the normalized versions of the options handled by {@link #processOption(String)} to the
      * {@code normalized} list
-     **/
+     */
     void normalize(List<String> normalized);
   }
 
@@ -120,8 +124,8 @@ public final class JavacOptions {
 
     /**
      * This type models a starting selection from which lint options can be added or removed. E.g.,
-     * {@code -Xlint} indicates we start with the set of recommended checks enabled, and
-     * {@code -Xlint:none} means we start without any checks enabled.
+     * {@code -Xlint} indicates we start with the set of recommended checks enabled, and {@code
+     * -Xlint:none} means we start without any checks enabled.
      */
     private static enum BasisXlintSelection {
       /** {@code -Xlint:none} */
@@ -234,8 +238,8 @@ public final class JavacOptions {
    * @param normalizers the list of normalizers to apply
    * @return a new cleaned up javac option list
    */
-  public static List<String> normalizeOptionsWithNormalizers(List<String> javacopts,
-        JavacOptionNormalizer... normalizers) {
+  public static List<String> normalizeOptionsWithNormalizers(
+      List<String> javacopts, JavacOptionNormalizer... normalizers) {
     List<String> normalized = new ArrayList<>();
 
     for (JavacOptionNormalizer normalizer : normalizers) {

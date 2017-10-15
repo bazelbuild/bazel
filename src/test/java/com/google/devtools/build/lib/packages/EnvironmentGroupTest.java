@@ -14,16 +14,12 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.Path;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -62,25 +58,25 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
 
   @Test
   public void testGroupMembership() throws Exception {
-    assertEquals(
-        ImmutableSet.of(
-            Label.parseAbsolute("//pkg:foo"),
-            Label.parseAbsolute("//pkg:bar"),
-            Label.parseAbsolute("//pkg:baz")),
-        group.getEnvironments());
+    assertThat(group.getEnvironments())
+        .isEqualTo(
+            ImmutableSet.of(
+                Label.parseAbsolute("//pkg:foo"),
+                Label.parseAbsolute("//pkg:bar"),
+                Label.parseAbsolute("//pkg:baz")));
   }
 
   @Test
   public void testDefaultsMembership() throws Exception {
-    assertEquals(ImmutableSet.of(Label.parseAbsolute("//pkg:foo")), group.getDefaults());
+    assertThat(group.getDefaults()).isEqualTo(ImmutableSet.of(Label.parseAbsolute("//pkg:foo")));
   }
 
   @Test
   public void testIsDefault() throws Exception {
-    assertTrue(group.isDefault(Label.parseAbsolute("//pkg:foo")));
-    assertFalse(group.isDefault(Label.parseAbsolute("//pkg:bar")));
-    assertFalse(group.isDefault(Label.parseAbsolute("//pkg:baz")));
-    assertFalse(group.isDefault(Label.parseAbsolute("//pkg:not_in_group")));
+    assertThat(group.isDefault(Label.parseAbsolute("//pkg:foo"))).isTrue();
+    assertThat(group.isDefault(Label.parseAbsolute("//pkg:bar"))).isFalse();
+    assertThat(group.isDefault(Label.parseAbsolute("//pkg:baz"))).isFalse();
+    assertThat(group.isDefault(Label.parseAbsolute("//pkg:not_in_group"))).isFalse();
   }
 
   @Test

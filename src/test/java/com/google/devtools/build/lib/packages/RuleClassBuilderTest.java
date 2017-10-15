@@ -19,14 +19,12 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,18 +53,18 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .add(attr("X", com.google.devtools.build.lib.syntax.Type.INTEGER).mandatory())
             .build();
 
-    assertEquals("ruleA", ruleClassA.getName());
-    assertEquals(3, ruleClassA.getAttributeCount());
-    assertTrue(ruleClassA.hasBinaryOutput());
+    assertThat(ruleClassA.getName()).isEqualTo("ruleA");
+    assertThat(ruleClassA.getAttributeCount()).isEqualTo(3);
+    assertThat(ruleClassA.hasBinaryOutput()).isTrue();
 
-    assertEquals(0, (int) ruleClassA.getAttributeIndex("srcs"));
-    assertEquals(ruleClassA.getAttribute(0), ruleClassA.getAttributeByName("srcs"));
+    assertThat((int) ruleClassA.getAttributeIndex("srcs")).isEqualTo(0);
+    assertThat(ruleClassA.getAttributeByName("srcs")).isEqualTo(ruleClassA.getAttribute(0));
 
-    assertEquals(1, (int) ruleClassA.getAttributeIndex("tags"));
-    assertEquals(ruleClassA.getAttribute(1), ruleClassA.getAttributeByName("tags"));
+    assertThat((int) ruleClassA.getAttributeIndex("tags")).isEqualTo(1);
+    assertThat(ruleClassA.getAttributeByName("tags")).isEqualTo(ruleClassA.getAttribute(1));
 
-    assertEquals(2, (int) ruleClassA.getAttributeIndex("X"));
-    assertEquals(ruleClassA.getAttribute(2), ruleClassA.getAttributeByName("X"));
+    assertThat((int) ruleClassA.getAttributeIndex("X")).isEqualTo(2);
+    assertThat(ruleClassA.getAttributeByName("X")).isEqualTo(ruleClassA.getAttribute(2));
   }
 
   @Test
@@ -81,7 +79,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .add(attr("shard_count", INTEGER).value(-1))
             .add(attr("local", BOOLEAN))
             .build();
-    assertTrue(ruleClassA.hasBinaryOutput());
+    assertThat(ruleClassA.hasBinaryOutput()).isTrue();
   }
 
   @Test
@@ -92,7 +90,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .setOutputToGenfiles()
             .add(attr("tags", STRING_LIST))
             .build();
-    assertFalse(ruleClassA.hasBinaryOutput());
+    assertThat(ruleClassA.hasBinaryOutput()).isFalse();
   }
 
   @Test
@@ -181,9 +179,9 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
         new RuleClass.Builder("c", RuleClassType.NORMAL, false, a)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY);
     RuleClass c = builder.removeAttribute("a").add(attr("a", INTEGER)).removeAttribute("b").build();
-    assertFalse(c.hasAttr("a", STRING));
-    assertTrue(c.hasAttr("a", INTEGER));
-    assertFalse(c.hasAttr("b", STRING));
+    assertThat(c.hasAttr("a", STRING)).isFalse();
+    assertThat(c.hasAttr("a", INTEGER)).isTrue();
+    assertThat(c.hasAttr("b", STRING)).isFalse();
 
     try {
       builder.removeAttribute("c");
@@ -191,5 +189,21 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     } catch (IllegalStateException e) {
       // Expected exception.
     }
+  }
+
+  @Test
+  public void testRequiredToolchainsAreInherited() throws Exception {
+    Label mockToolchainType = Label.parseAbsoluteUnchecked("//mock_toolchain_type");
+    RuleClass parent =
+        new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
+            .add(attr("tags", STRING_LIST))
+            .addRequiredToolchains(ImmutableList.of(mockToolchainType))
+            .build();
+    RuleClass child =
+        new RuleClass.Builder("child", RuleClassType.NORMAL, false, parent)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("attr", STRING))
+            .build();
+    assertThat(child.getRequiredToolchains()).contains(mockToolchainType);
   }
 }

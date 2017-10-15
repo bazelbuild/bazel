@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import org.junit.Test;
@@ -36,6 +39,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    cpu = 'cherry',",
         "    compiler_files = 'compile-a',",
         "    dwp_files = 'dwp-a',",
+        "    coverage_files = 'gcov-a',",
         "    linker_files = 'link-a',",
         "    strip_files = 'strip-a',",
         "    objcopy_files = 'objcopy-a',",
@@ -62,6 +66,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    cpu = 'cherry',",
         "    compiler_files = 'compile-cherry',",
         "    dwp_files = 'dwp-cherry',",
+        "    coverage_files = 'gcov-cherry',",
         "    linker_files = 'link-cherry',",
         "    strip_files = ':every-file',",
         "    objcopy_files = 'objcopy-cherry',",
@@ -96,11 +101,19 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    cpu = 'cherry',",
         "    compiler_files = 'compile-cherry',",
         "    dwp_files = 'dwp-cherry',",
+        "    coverage_files = 'gcov-cherry',",
         "    linker_files = 'link-cherry',",
         "    strip_files = ':every-file',",
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
         "    dynamic_runtime_libs = ['dynamic-runtime-libs-cherry'],",
         "    static_runtime_libs = ['static-runtime-libs-cherry'])");
+  }
+
+  @Test
+  public void testToolchainAlias() throws Exception {
+    ConfiguredTarget reference = scratchConfiguredTarget("a", "ref",
+        "cc_toolchain_alias(name='ref')");
+    assertThat(reference.get(CcToolchainProvider.PROVIDER.getKey())).isNotNull();
   }
 }

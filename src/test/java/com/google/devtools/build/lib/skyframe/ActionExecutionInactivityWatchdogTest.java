@@ -15,17 +15,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog.InactivityMonitor;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog.InactivityReporter;
-
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /** Tests for ActionExecutionInactivityWatchdog. */
 @RunWith(JUnit4.class)
@@ -144,7 +141,7 @@ public class ActionExecutionInactivityWatchdogTest {
       watchdog.stop();
     }
 
-    assertEquals(shouldReport, didReportInactivity[0]);
+    assertThat(didReportInactivity[0]).isEqualTo(shouldReport);
     assertThat(sleepsAndWaits)
         .containsExactly(
             "wait:5",

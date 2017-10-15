@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>  // strerror
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -30,7 +31,6 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_posix.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 
@@ -38,16 +38,17 @@ namespace blaze {
 
 using blaze_util::die;
 using blaze_util::pdie;
+using blaze_util::PrintWarning;
 using std::string;
 using std::vector;
 
 string GetOutputRoot() {
-  char buf[2048];
   string base;
-  const char* home = getenv("HOME");
-  if (home != NULL) {
+  string home = GetHomeDir();
+  if (!home.empty()) {
     base = home;
   } else {
+    char buf[2048];
     struct passwd pwbuf;
     struct passwd *pw = NULL;
     int uid = getuid();
@@ -57,7 +58,7 @@ string GetOutputRoot() {
     }
   }
 
-  if (base != "") {
+  if (!base.empty()) {
     return blaze_util::JoinPath(base, ".cache/bazel");
   }
 
@@ -67,16 +68,16 @@ string GetOutputRoot() {
 void WarnFilesystemType(const string& output_base) {
   struct statfs buf = {};
   if (statfs(output_base.c_str(), &buf) < 0) {
-    fprintf(stderr,
-            "WARNING: couldn't get file system type information for '%s': %s\n",
-            output_base.c_str(), strerror(errno));
+    PrintWarning("couldn't get file system type information for '%s': %s",
+                 output_base.c_str(), strerror(errno));
     return;
   }
 
   if (buf.f_type == NFS_SUPER_MAGIC) {
-    fprintf(stderr, "WARNING: Output base '%s' is on NFS. This may lead "
-            "to surprising failures and undetermined behavior.\n",
-            output_base.c_str());
+    PrintWarning(
+        "Output base '%s' is on NFS. This may lead "
+        "to surprising failures and undetermined behavior.",
+        output_base.c_str());
   }
 }
 
@@ -95,16 +96,16 @@ string GetSelfPath() {
   return string(buffer);
 }
 
-uint64_t MonotonicClock() {
+uint64_t GetMillisecondsMonotonic() {
   struct timespec ts = {};
   clock_gettime(CLOCK_MONOTONIC, &ts);
-  return ts.tv_sec * 1000000000LL + ts.tv_nsec;
+  return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
 }
 
-uint64_t ProcessClock() {
+uint64_t GetMillisecondsSinceProcessStart() {
   struct timespec ts = {};
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
-  return ts.tv_sec * 1000000000LL + ts.tv_nsec;
+  return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
@@ -143,15 +144,39 @@ bool IsSharedLibrary(const string &filename) {
   return blaze_util::ends_with(filename, ".so");
 }
 
+static string Which(const string &executable) {
+  string path(GetEnv("PATH"));
+  if (path.empty()) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Could not get PATH to find %s", executable.c_str());
+  }
+
+  vector<string> pieces = blaze_util::Split(path, ':');
+  for (auto piece : pieces) {
+    if (piece.empty()) {
+      piece = ".";
+    }
+
+    struct stat file_stat;
+    string candidate = blaze_util::JoinPath(piece, executable);
+    if (access(candidate.c_str(), X_OK) == 0 &&
+        stat(candidate.c_str(), &file_stat) == 0 &&
+        S_ISREG(file_stat.st_mode)) {
+      return candidate;
+    }
+  }
+  return "";
+}
+
 string GetDefaultHostJavabase() {
   // if JAVA_HOME is defined, then use it as default.
-  const char *javahome = getenv("JAVA_HOME");
-  if (javahome != NULL) {
-    return string(javahome);
+  string javahome = GetEnv("JAVA_HOME");
+  if (!javahome.empty()) {
+    return javahome;
   }
 
   // which javac
-  string javac_dir = blaze_util::Which("javac");
+  string javac_dir = Which("javac");
   if (javac_dir.empty()) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "Could not find javac");
   }
@@ -173,7 +198,7 @@ static bool GetStartTime(const string& pid, string* start_time) {
   string statfile = "/proc/" + pid + "/stat";
   string statline;
 
-  if (!ReadFile(statfile, &statline)) {
+  if (!blaze_util::ReadFile(statfile, &statline)) {
     return false;
   }
 
@@ -189,17 +214,18 @@ static bool GetStartTime(const string& pid, string* start_time) {
   return true;
 }
 
-void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
-  string pid = ToString(getpid());
+void WriteSystemSpecificProcessIdentifier(
+    const string& server_dir, pid_t server_pid) {
+  string pid_string = ToString(server_pid);
 
   string start_time;
-  if (!GetStartTime(pid, &start_time)) {
+  if (!GetStartTime(pid_string, &start_time)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "Cannot get start time of process %s", pid.c_str());
+         "Cannot get start time of process %s", pid_string.c_str());
   }
 
   string start_time_file = blaze_util::JoinPath(server_dir, "server.starttime");
-  if (!WriteFile(start_time, start_time_file)) {
+  if (!blaze_util::WriteFile(start_time, start_time_file)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "Cannot write start time in server dir %s", server_dir.c_str());
   }
@@ -208,8 +234,7 @@ void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
 // On Linux we use a combination of PID and start time to identify the server
 // process. That is supposed to be unique unless one can start more processes
 // than there are PIDs available within a single jiffy.
-bool VerifyServerProcess(
-    int pid, const string& output_base, const string& install_base) {
+bool VerifyServerProcess(int pid, const string& output_base) {
   string start_time;
   if (!GetStartTime(ToString(pid), &start_time)) {
     // Cannot read PID file from /proc . Process died meantime, all is good. No
@@ -218,33 +243,21 @@ bool VerifyServerProcess(
   }
 
   string recorded_start_time;
-  bool file_present = ReadFile(
+  bool file_present = blaze_util::ReadFile(
       blaze_util::JoinPath(output_base, "server/server.starttime"),
       &recorded_start_time);
 
-  // If start time file got deleted, but PID file didn't, assume taht this is an
+  // If start time file got deleted, but PID file didn't, assume that this is an
   // old Blaze process that doesn't know how to write start time files yet.
   return !file_present || recorded_start_time == start_time;
 }
 
-bool KillServerProcess(int pid) {
-  // Kill the process and make sure it's dead before proceeding.
-  killpg(pid, SIGKILL);
-  int check_killed_retries = 10;
-  while (killpg(pid, 0) == 0) {
-    if (check_killed_retries-- > 0) {
-      sleep(1);
-    } else {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "Attempted to kill stale blaze server process (pid=%d) using "
-          "SIGKILL, but it did not die in a timely fashion.", pid);
-    }
-  }
-  return true;
-}
-
 // Not supported.
 void ExcludePathFromBackup(const string &path) {
+}
+
+int32_t GetExplicitSystemLimit(const int resource) {
+  return -1;
 }
 
 }  // namespace blaze

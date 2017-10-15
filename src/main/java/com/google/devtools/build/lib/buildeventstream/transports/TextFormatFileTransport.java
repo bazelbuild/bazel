@@ -14,38 +14,51 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
+import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.protobuf.TextFormat;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 /**
  * A simple {@link BuildEventTransport} that writes the text representation of the protocol-buffer
- * representation of the events to a file. This is mainly useful for debugging.
+ * representation of the events to a file.
+ *
+ * <p>This class is used for debugging.
  */
-public final class TextFormatFileTransport implements BuildEventTransport {
-  private FileOutputStream out;
+public final class TextFormatFileTransport extends FileTransport {
 
-  public TextFormatFileTransport(String path) throws IOException {
-    this.out = new FileOutputStream(new File(path));
+  private final PathConverter pathConverter;
+
+  TextFormatFileTransport(String path, PathConverter pathConverter) throws IOException {
+    super(path);
+    this.pathConverter = pathConverter;
   }
 
   @Override
-  public synchronized void sendBuildEvent(BuildEvent event) throws IOException {
-    if (out != null) {
-      String protoTextRepresentation = TextFormat.printToString(event.asStreamProto());
-      out.write(("event {\n" + protoTextRepresentation + "}\n\n").getBytes(StandardCharsets.UTF_8));
-      out.flush();
-    }
+  public String name() {
+    return this.getClass().getSimpleName();
   }
 
   @Override
-  public void close() throws IOException {
-    if (out != null) {
-      out.close();
-    }
+  public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
+    BuildEventConverters converters =
+        new BuildEventConverters() {
+          @Override
+          public PathConverter pathConverter() {
+            return pathConverter;
+          }
+
+          @Override
+          public ArtifactGroupNamer artifactGroupNamer() {
+            return namer;
+          }
+        };
+    String protoTextRepresentation = TextFormat.printToString(event.asStreamProto(converters));
+    String line = "event {\n" + protoTextRepresentation + "}\n\n";
+    writeData(line.getBytes(StandardCharsets.UTF_8));
   }
 }

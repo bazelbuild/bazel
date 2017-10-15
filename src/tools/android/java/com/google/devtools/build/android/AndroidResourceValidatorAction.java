@@ -23,12 +23,15 @@ import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOption
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
@@ -55,6 +58,8 @@ public class AndroidResourceValidatorAction {
       defaultValue = "null",
       converter = ExistingPathConverter.class,
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path to the read merged resources archive."
     )
     public Path mergedResources;
@@ -64,6 +69,8 @@ public class AndroidResourceValidatorAction {
       defaultValue = "null",
       converter = ExistingPathConverter.class,
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path for the AndroidManifest.xml."
     )
     public Path manifest;
@@ -72,6 +79,8 @@ public class AndroidResourceValidatorAction {
       name = "packageForR",
       defaultValue = "null",
       category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Custom java package to generate the R symbols files."
     )
     public String packageForR;
@@ -81,6 +90,8 @@ public class AndroidResourceValidatorAction {
       defaultValue = "null",
       converter = PathConverter.class,
       category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path for the generated java source jar."
     )
     public Path srcJarOutput;
@@ -90,15 +101,30 @@ public class AndroidResourceValidatorAction {
       defaultValue = "null",
       converter = PathConverter.class,
       category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path to where the R.txt should be written."
     )
     public Path rOutput;
+
+    @Option(
+        name = "packagePath",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the write the archive."
+    )
+    // TODO(b/30307842): Remove this once it is no longer needed for resources migration.
+    public Path packagePath;
   }
 
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
         OptionsParser.newOptionsParser(Options.class, AaptConfigOptions.class);
+    optionsParser.enableParamsFileSupport(FileSystems.getDefault());
     optionsParser.parseAndExitUponError(args);
     AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
@@ -124,6 +150,7 @@ public class AndroidResourceValidatorAction {
       resourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
 
       resourceProcessor.runAapt(
+          tmp,
           aaptConfigOptions.aapt,
           aaptConfigOptions.androidJar,
           aaptConfigOptions.buildToolsVersion,
@@ -137,16 +164,16 @@ public class AndroidResourceValidatorAction {
           resources,
           assets,
           generatedSources,
-          null, /* packageOut */
+          options.packagePath,
           null, /* proguardOut */
           null, /* mainDexProguardOut */
           null /* publicResourcesOut */);
       logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      resourceProcessor.copyRToOutput(
+      AndroidResourceOutputs.copyRToOutput(
           generatedSources, options.rOutput, VariantType.LIBRARY == packageType);
 
-      resourceProcessor.createSrcJar(
+      AndroidResourceOutputs.createSrcJar(
           generatedSources, options.srcJarOutput, VariantType.LIBRARY == packageType);
     } catch (Exception e) {
       logger.log(java.util.logging.Level.SEVERE, "Unexpected", e);

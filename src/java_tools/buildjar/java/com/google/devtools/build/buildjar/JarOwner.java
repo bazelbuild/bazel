@@ -21,7 +21,7 @@ import javax.annotation.Nullable;
 /**
  * Holds information about the Bazel rule that created a certain jar.
  *
- * <p>Rules that use Aspects (http://www.bazel.io/docs/skylark/aspects.html) to compile jars will
+ * <p>Rules that use Aspects (http://www.bazel.build/docs/skylark/aspects.html) to compile jars will
  * result in 'aspect()' being populated.
  */
 @AutoValue

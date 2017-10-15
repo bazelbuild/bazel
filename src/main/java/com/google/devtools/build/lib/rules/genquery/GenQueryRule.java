@@ -73,7 +73,7 @@ public final class GenQueryRule implements RuleDefinition {
 
   <p>
   <code>genquery()</code> runs a query specified in the
-    <a href="../blaze-query-v2.html">Blaze query language</a> and dumps the result
+    <a href="../query.html">Blaze query language</a> and dumps the result
     into a file.
   </p>
   <p>

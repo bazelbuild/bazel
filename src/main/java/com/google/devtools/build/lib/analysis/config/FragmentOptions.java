@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
@@ -32,18 +30,6 @@ import java.util.Set;
  * Command-line build options for a Blaze module.
  */
 public abstract class FragmentOptions extends OptionsBase implements Cloneable, Serializable {
-
-  /**
-   * Adds all labels defined by the options to a multimap. See {@code BuildOptions.getAllLabels()}.
-   *
-   * <p>There should generally be no code duplication between this code and DefaultsPackage. Either
-   * the labels are loaded unconditionally using this method, or they are added as magic labels
-   * using the tools/defaults package, but not both.
-   *
-   * @param labelMap a mutable multimap to which the labels of this fragment should be added
-   */
-  public void addAllLabels(Multimap<String, Label> labelMap) {
-  }
 
   /**
    * Returns the labels contributed to the defaults package by this fragment.
@@ -77,6 +63,18 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
     return ImmutableList.of();
   }
 
+  /**
+   * Returns true if actions should be enabled for this configuration. If <b>any</b> fragment
+   * sets this to false, <i>all</i> actions are disabled for the configuration.
+   *
+   * <p>Disabling actions is unusual behavior that should only be triggered under exceptionally
+   * special circumstances. In practice this only exists to support LIPO in C++. Don't override
+   * this method for any other purpose.
+   */
+  public boolean enableActions() {
+    return true;
+  }
+
   @Override
   public FragmentOptions clone() {
     try {
@@ -102,27 +100,5 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
   @SuppressWarnings("unused")
   public FragmentOptions getHost(boolean fallback) {
     return getDefault();
-  }
-
-  protected void addOptionalLabel(Multimap<String, Label> map, String key, String value) {
-    Label label = parseOptionalLabel(value);
-    if (label != null) {
-      map.put(key, label);
-    }
-  }
-
-  private static Label parseOptionalLabel(String value) {
-    if (value != null) {
-      try {
-        return Label.parseAbsolute(value);
-      } catch (LabelSyntaxException e) {
-        // We ignore this exception here - it will cause an error message at a later time.
-        // TODO(bazel-team): We can use a Converter to check the validity of the crosstoolTop
-        // earlier.
-        return null;
-      }
-    } else {
-      return null;
-    }
   }
 }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -36,6 +37,16 @@ public class ContainingPackageLookupFunction implements SkyFunction {
 
     if (pkgLookupValue.packageExists()) {
       return ContainingPackageLookupValue.withContainingPackage(dir, pkgLookupValue.getRoot());
+    }
+
+    // Does the requested package cross into a sub-repository, which we should report via the
+    // correct package identifier?
+    if (pkgLookupValue instanceof IncorrectRepositoryReferencePackageLookupValue) {
+      IncorrectRepositoryReferencePackageLookupValue incorrectPackageLookupValue =
+          (IncorrectRepositoryReferencePackageLookupValue) pkgLookupValue;
+      PackageIdentifier correctPackageIdentifier =
+          incorrectPackageLookupValue.getCorrectedPackageIdentifier();
+      return env.getValue(ContainingPackageLookupValue.key(correctPackageIdentifier));
     }
 
     PathFragment parentDir = dir.getPackageFragment().getParentDirectory();

@@ -15,6 +15,8 @@
 #ifndef BAZEL_SRC_TOOLS_SINGLEJAR_INPUT_JAR_H_
 #define BAZEL_SRC_TOOLS_SINGLEJAR_INPUT_JAR_H_ 1
 
+#define __STDC_FORMAT_MACROS 1
+
 #include <inttypes.h>
 #include <stdlib.h>
 
@@ -26,11 +28,11 @@
 
 /*
  * An input jar. The usage pattern is:
- *   InputJar input_jar("path/to/file");
- *   if (!input_jar.Open()) { fail...}
+ *   InputJar input_jar;
+ *   if (!input_jar.Open("path/to/file")) { fail...}
  *   CDH *dir_entry;
  *   LH *local_header;
- *   while (dir_entry = input_jar.NextExtry(&local_header)) {
+ *   while (dir_entry = input_jar.NextEntry(&local_header)) {
  *     // process entry.
  *   }
  *   input_jar.Close(); // actually, called by destructor, too.
@@ -55,7 +57,7 @@ class InputJar {
       return nullptr;
     }
     const CDH *current_cdh = cdh_;
-    const uint8_t *new_cdr = byte_ptr(cdh_) + cdh_->size();
+    const uint8_t *new_cdr = ziph::byte_ptr(cdh_) + cdh_->size();
     if (!mapped_file_.mapped(new_cdr)) {
       diag_errx(
           1,

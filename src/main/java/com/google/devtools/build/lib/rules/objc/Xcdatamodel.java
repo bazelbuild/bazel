@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -61,20 +60,6 @@ class Xcdatamodel extends Value<Xcdatamodel> {
     this.container = container;
   }
 
-  /**
-   * Returns the files that should be supplied to Xcodegen when generating a project that includes
-   * all of the given xcdatamodel source files.
-   */
-  public static Iterable<Artifact> inputsToXcodegen(Iterable<Artifact> datamodelFiles) {
-    ImmutableSet.Builder<Artifact> inputs = new ImmutableSet.Builder<>();
-    for (Artifact generalInput : datamodelFiles) {
-      if (generalInput.getExecPath().getBaseName().equals(".xccurrentversion")) {
-        inputs.add(generalInput);
-      }
-    }
-    return inputs.build();
-  }
-
   public Artifact getOutputZip() {
     return outputZip;
   }
@@ -110,11 +95,6 @@ class Xcdatamodel extends Value<Xcdatamodel> {
   }
 
   public static Iterable<Artifact> outputZips(Iterable<Xcdatamodel> models) {
-    return Iterables.transform(models, new Function<Xcdatamodel, Artifact>() {
-      @Override
-      public Artifact apply(Xcdatamodel model) {
-        return model.getOutputZip();
-      }
-    });
+    return Iterables.transform(models, Xcdatamodel::getOutputZip);
   }
 }

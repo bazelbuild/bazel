@@ -25,8 +25,7 @@ if [ "${PLATFORM}" != "darwin" ]; then
 fi
 
 function test_build_xcrunwrapper() {
-  rm WORKSPACE
-  ln -sv ${workspace_file} WORKSPACE
+  use_bazel_workspace_file
 
   bazel build //external:xcrunwrapper || fail "should build xcrunwrapper"
 }

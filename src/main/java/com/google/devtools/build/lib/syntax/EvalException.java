@@ -51,6 +51,16 @@ public class EvalException extends Exception {
     this.dueToIncompleteAST = false;
   }
 
+  public EvalException(Location location, String message, String url) {
+    this.location = location;
+    this.dueToIncompleteAST = false;
+    this.message =
+        Preconditions.checkNotNull(message)
+            + "\n"
+            + "Need help? See "
+            + Preconditions.checkNotNull(url);
+  }
+
   /**
    * @param location the location where evaluation/execution failed.
    * @param message the error message.

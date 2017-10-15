@@ -24,16 +24,14 @@ import com.google.common.testing.NullPointerTester;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternList;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.common.options.Options;
-
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import javax.annotation.Nullable;
-
-/** Tests for {@link TargetPatternList}. */
+/** Tests for {@link TargetPatternPhaseKey}. */
 @RunWith(JUnit4.class)
 public class TargetPatternPhaseKeyTest {
   static enum Flag {
@@ -50,24 +48,48 @@ public class TargetPatternPhaseKeyTest {
        .addEqualityGroup(of(ImmutableList.of("b"), ""))
        .addEqualityGroup(of(ImmutableList.of("c"), ""))
        .addEqualityGroup(of(ImmutableList.<String>of(), ""))
-       .addEqualityGroup(of(ImmutableList.<String>of(), "", null, COMPILE_ONE_DEPENDENCY))
-       .addEqualityGroup(of(ImmutableList.<String>of(), "", emptyTestFilter(), BUILD_TESTS_ONLY))
-       .addEqualityGroup(of(ImmutableList.<String>of(), "", emptyTestFilter(), DETERMINE_TESTS))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), false, null,
+           COMPILE_ONE_DEPENDENCY))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), true, null,
+           COMPILE_ONE_DEPENDENCY))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), false,
+           emptyTestFilter(),
+           BUILD_TESTS_ONLY))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), true,
+           emptyTestFilter(),
+           BUILD_TESTS_ONLY))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), false,
+           emptyTestFilter(),
+           DETERMINE_TESTS))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), true,
+           emptyTestFilter(),
+           DETERMINE_TESTS))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of("a"), false, null))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of("a"), true, null))
        .testEquals();
   }
 
-  private TargetPatternList of(ImmutableList<String> targetPatterns, String offset,
-      @Nullable TestFilter testFilter, Flag... flags) {
+  private TargetPatternPhaseKey of(ImmutableList<String> targetPatterns, String offset,
+      ImmutableList<String> buildTagFilter,
+      boolean includeManualTests, @Nullable TestFilter testFilter, Flag... flags) {
     ImmutableSet<Flag> set = ImmutableSet.copyOf(flags);
     boolean compileOneDependency = set.contains(Flag.COMPILE_ONE_DEPENDENCY);
     boolean buildTestsOnly = set.contains(Flag.BUILD_TESTS_ONLY);
     boolean determineTests = set.contains(Flag.DETERMINE_TESTS);
-    return new TargetPatternList(targetPatterns, offset, compileOneDependency, buildTestsOnly,
-        determineTests, testFilter);
+    return new TargetPatternPhaseKey(targetPatterns, offset, compileOneDependency, buildTestsOnly,
+        determineTests, buildTagFilter, includeManualTests, testFilter);
   }
 
-  private TargetPatternList of(ImmutableList<String> targetPatterns, String offset) {
-    return of(targetPatterns, offset, null);
+  private TargetPatternPhaseKey of(ImmutableList<String> targetPatterns, String offset) {
+    return of(targetPatterns, offset, ImmutableList.<String>of(), false, null);
   }
 
   private TestFilter emptyTestFilter() {
@@ -78,6 +100,6 @@ public class TargetPatternPhaseKeyTest {
   @Test
   public void testNull() throws Exception {
     new NullPointerTester()
-        .testAllPublicConstructors(TargetPatternList.class);
+        .testAllPublicConstructors(TargetPatternPhaseKey.class);
   }
 }

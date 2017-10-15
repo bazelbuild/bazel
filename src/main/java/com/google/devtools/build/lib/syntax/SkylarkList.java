@@ -19,108 +19,37 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableCollection;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.SkylarkMutable.BaseMutableList;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.RandomAccess;
 import javax.annotation.Nullable;
 
-/** A class to handle lists and tuples in Skylark. */
+/**
+ * A Skylark list or tuple.
+ *
+ * <p>Although this implements the {@link List} interface, it is not mutable via that interface's
+ * methods. Instead, use the mutators that take in a {@link Mutability} object.
+ */
 @SkylarkModule(
   name = "sequence",
   documented = false,
   category = SkylarkModuleCategory.BUILTIN,
-  doc = "common type of lists and tuples"
+  doc = "common type of lists and tuples."
 )
-public abstract class SkylarkList<E> extends MutableCollection<E> implements List<E>, RandomAccess,
-    SkylarkIndexable {
+public abstract class SkylarkList<E> extends BaseMutableList<E>
+    implements List<E>, RandomAccess, SkylarkIndexable {
+
+  /** Returns true if this list is a Skylark tuple. */
+  public abstract boolean isTuple();
 
   /**
    * Returns an ImmutableList object with the current underlying contents of this SkylarkList.
    */
   public abstract ImmutableList<E> getImmutableList();
-
-  /**
-   * Returns a List object with the current underlying contents of this SkylarkList.
-   * This object must not be mutated, but need not be an {@link ImmutableList}.
-   * Indeed it can sometimes be a {@link GlobList}.
-   */
-  // TODO(bazel-team): move GlobList out of Skylark, into an extension.
-  public abstract List<E> getContents();
-
-  /**
-   * The underlying contents are a (usually) mutable data structure.
-   * Read access is forwarded to these contents.
-   * This object must not be modified outside an {@link Environment}
-   * with a correct matching {@link Mutability},
-   * which should be checked beforehand using {@link #checkMutable}.
-   * it need not be an instance of {@link com.google.common.collect.ImmutableList}.
-   */
-  @Override
-  protected abstract List<E> getContentsUnsafe();
-
-  /**
-   * Returns true if this list is a tuple.
-   */
-  public abstract boolean isTuple();
-
-  // A SkylarkList forwards all read-only access to the getContentsUnsafe().
-  @Override
-  public final E get(int i) {
-    return getContentsUnsafe().get(i);
-  }
-
-  @Override
-  public int indexOf(Object element) {
-    return getContentsUnsafe().indexOf(element);
-  }
-
-  @Override
-  public int lastIndexOf(Object element) {
-    return getContentsUnsafe().lastIndexOf(element);
-  }
-
-  @Override
-  public ListIterator<E> listIterator() {
-    return getContentsUnsafe().listIterator();
-  }
-
-  @Override
-  public ListIterator<E> listIterator(int index) {
-    return getContentsUnsafe().listIterator(index);
-  }
-
-  // For subList, use the immutable getContents() rather than getContentsUnsafe,
-  // to prevent subsequent mutation. To get a mutable SkylarkList,
-  // use a method that takes an Environment into account.
-  @Override
-  public List<E> subList(int fromIndex, int toIndex) {
-    return getContents().subList(fromIndex, toIndex);
-  }
-
-  // A SkylarkList disables all direct mutation methods.
-  @Override
-  public void add(int index, E element) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public boolean addAll(int index, Collection<? extends E> elements) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public E remove(int index) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public E set(int index, E element) {
-    throw new UnsupportedOperationException();
-  }
 
   /**
    * Retrieve an entry from a SkylarkList.
@@ -130,14 +59,14 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
    * @throws EvalException if the key is invalid
    */
   @Override
-  public final E getIndex(Object key, Location loc) throws EvalException {
+  public E getIndex(Object key, Location loc) throws EvalException {
     List<E> list = getContentsUnsafe();
-    int index = MethodLibrary.getListIndex(key, list.size(), loc);
+    int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
     return list.get(index);
   }
 
   @Override
-  public final boolean containsKey(Object key, Location loc) throws EvalException {
+  public boolean containsKey(Object key, Location loc) throws EvalException {
     for (Object obj : this) {
       if (obj.equals(key)) {
         return true;
@@ -147,43 +76,68 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
   }
 
   /**
-   * Retrieve a sublist from a SkylarkList.
-   * @param start start value
-   * @param end end value
-   * @param step step value
-   * @param loc a {@link Location} in case of error
-   * @throws EvalException if the key is invalid
+   * Constructs an {@link ImmutableList} containing the items in a slice of the given {@code
+   * SkylarkList}.
+   *
+   * @see EvalUtils#getSliceIndices
+   * @throws EvalException if the key is invalid; uses {@code loc} for error reporting
    */
-  public List<E> getSlice(Object start, Object end, Object step, Location loc)
+  protected static <T> ImmutableList<T> getSliceContents(
+      SkylarkList<T> list, Object start, Object end, Object step, Location loc)
       throws EvalException {
-    List<E> list = getContentsUnsafe();
     int length = list.size();
-    ImmutableList.Builder<E> slice = ImmutableList.builder();
-    for (int pos : MethodLibrary.getSliceIndices(start, end, step, length, loc)) {
-      slice.add(list.get(pos));
+    ImmutableList.Builder<T> items = ImmutableList.builder();
+    for (int pos : EvalUtils.getSliceIndices(start, end, step, length, loc)) {
+      items.add(list.get(pos));
     }
-    return slice.build();
+    return items.build();
   }
 
   /**
-   * Put an entry into a SkylarkList.
-   * @param key the index
-   * @param value the associated value
-   * @param loc a {@link Location} in case of error
-   * @param env an {@link Environment}, to check Mutability
-   * @throws EvalException if the key is invalid
+   * Constructs a version of this {@code SkylarkList} containing just the items in a slice.
+   *
+   * <p>{@code mutability} will be used for the resulting list. If it is null, the list will be
+   * immutable. For {@code Tuple}s, which are always immutable, this argument is ignored.
+   *
+   * @see EvalUtils#getSliceIndices
+   * @throws EvalException if the key is invalid; uses {@code loc} for error reporting
    */
-  public void set(Object key, E value, Location loc, Environment env) throws EvalException {
-    checkMutable(loc, env);
-    List list = getContentsUnsafe();
-    int index = MethodLibrary.getListIndex(key, list.size(), loc);
-    list.set(index, value);
+  public abstract SkylarkList<E> getSlice(
+      Object start, Object end, Object step, Location loc, Mutability mutability)
+      throws EvalException;
+
+  /**
+   * Constructs an {@link ImmutableList} containing the items in a repetition of the given {@code
+   * SkylarkList}.
+   *
+   * <p>A repetition is produced by concatenating the list with itself {@code times - 1} many times.
+   * If {@code times} is 1, the new list's contents are the same as the original list. If {@code
+   * times} is <= 0, an empty list is returned.
+   */
+  public static <T> ImmutableList<T> repeatContents(SkylarkList<? extends T> list, int times) {
+    ImmutableList.Builder<T> builder = ImmutableList.builder();
+    for (int i = 0; i < times; i++) {
+      builder.addAll(list);
+    }
+    return builder.build();
   }
 
-  // Other methods
+  /**
+   * Constructs a repetition of this {@code SkylarkList}.
+   *
+   * <p>{@code mutability} will be used for the resulting list. If it is null, the list will be
+   * immutable. For {@code Tuple}s, which are always immutable, this argument is ignored.
+   */
+  public abstract SkylarkList<E> repeat(int times, Mutability mutability);
+
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.printList(buffer, getContentsUnsafe(), isTuple(), quotationMark);
+  public void repr(SkylarkPrinter printer) {
+    printer.printList(getContentsUnsafe(), isTuple());
+  }
+
+  @Override
+  public String toString() {
+    return Printer.repr(this);
   }
 
   // Note that the following two functions slightly violate the Java List protocol,
@@ -203,31 +157,41 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
   }
 
   /**
-   * Cast a {@code List<?>} to a {@code List<T>} after checking its current contents.
-   * @param list the List to cast
-   * @param type the expected class of elements
+   * Casts a {@code List<?>} to an unmodifiable {@code List<T>}, after checking that its contents
+   * all have type {@code type}.
+   *
+   * <p>The returned list may or may not be a view that is affected by updates to the original list.
+   *
+   * @param list the original list to cast
+   * @param type the expected type of all the list's elements
    * @param description a description of the argument being converted, or null, for debugging
    */
+  // We could have used bounded generics to ensure that only downcasts are possible (i.e. cast
+  // List<S> to List<T extends S>), but this would be less convenient for some callers, and it would
+  // disallow casting an empty list to any type.
   @SuppressWarnings("unchecked")
-  public static <TYPE> List<TYPE> castList(
-      List<?> list, Class<TYPE> type, @Nullable String description)
+  public static <T> List<T> castList(List<?> list, Class<T> type, @Nullable String description)
       throws EvalException {
     Object desc = description == null ? null : Printer.formattable("'%s' element", description);
     for (Object value : list) {
       SkylarkType.checkType(value, type, desc);
     }
-    return (List<TYPE>) list;
+    return Collections.unmodifiableList((List<T>) list);
   }
 
   /**
-   * Cast a SkylarkList to a {@code List<T>} after checking its current contents.
-   * Treat None as meaning the empty List.
-   * @param obj the Object to cast. null and None are treated as an empty list.
-   * @param type the expected class of elements
+   * If {@code obj} is a {@code SkylarkList}, casts it to an unmodifiable {@code List<T>} after
+   * checking that each element has type {@code type}. If {@code obj} is {@code None} or null,
+   * treats it as an empty list. For all other values, throws an {@link EvalException}.
+   *
+   * <p>The returned list may or may not be a view that is affected by updates to the original list.
+   *
+   * @param obj the object to cast. null and None are treated as an empty list.
+   * @param type the expected type of all the list's elements
    * @param description a description of the argument being converted, or null, for debugging
    */
-  public static <TYPE> List<TYPE> castSkylarkListOrNoneToList(
-      Object obj, Class<TYPE> type, @Nullable String description)
+  public static <T> List<T> castSkylarkListOrNoneToList(
+      Object obj, Class<T> type, @Nullable String description)
       throws EvalException {
     if (EvalUtils.isNullOrNone(obj)) {
       return ImmutableList.of();
@@ -236,28 +200,39 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
       return ((SkylarkList<?>) obj).getContents(type, description);
     }
     throw new EvalException(null,
-        Printer.format("Illegal argument: %s is not of expected type list or NoneType",
+        String.format("Illegal argument: %s is not of expected type list or NoneType",
             description == null ? Printer.repr(obj) : String.format("'%s'", description)));
   }
 
   /**
-   * Cast the SkylarkList object into a List of the given type.
-   * @param type the expected class of elements
+   * Casts this list as an unmodifiable {@code List<T>}, after checking that each element has
+   * type {@code type}.
+   *
+   * @param type the expected type of all the list's elements
    * @param description a description of the argument being converted, or null, for debugging
    */
-  public <TYPE> List<TYPE> getContents(Class<TYPE> type, @Nullable String description)
+  public <T> List<T> getContents(Class<T> type, @Nullable String description)
       throws EvalException {
     return castList(getContentsUnsafe(), type, description);
   }
 
   /**
-   * Creates immutable SkylarkList with given elements.
+   * Creates an immutable Skylark list with the given elements.
+   *
+   * It is unspecified whether this is a Skylark list or tuple. For more control, use one of the
+   * factory methods in {@link MutableList} or {@link Tuple}.
    */
+  // TODO(bazel-team): Eliminate this function in favor of a new MutableList factory method. With
+  // such a method, we may no longer need to take null as a possible value for the Mutability or
+  // Environment. That in turn would allow us to overload MutableList#of to take either a Mutability
+  // or Environment.
   public static <E> SkylarkList<E> createImmutable(Iterable<? extends E> contents) {
-    return new MutableList<E>(contents, Mutability.IMMUTABLE);
+    return new MutableList<>(contents, Mutability.IMMUTABLE);
   }
 
-  /** A class for mutable lists. */
+  /**
+   * A Skylark list, i.e., the value represented by {@code [1, 2, 3]}. Lists are mutable datatypes.
+   */
   @SkylarkModule(
     name = "list",
     category = SkylarkModuleCategory.BUILTIN,
@@ -284,172 +259,104 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     // TODO(bazel-team): make data structures *and binary operators* extensible
     // (via e.g. interface classes for each binary operator) so that GlobList
     // can be implemented outside of the core of Skylark.
+    // TODO(bazel-team): move GlobList out of Skylark, into an extension.
     @Nullable private GlobList<E> globList;
 
     private final Mutability mutability;
 
     /**
-     * Creates a MutableList from contents and a Mutability.
-     * @param contents the contents of the list
-     * @param mutability a Mutability context
-     * @return a MutableList containing the elements
+     * Constructs from the given items and {@link Mutability}.
+     *
+     * @param contents the contents of the new list. If this is a {@link GlobList}, it is also
+     *     stored in {@code globList}.
+     * @param capacity an size to pre-allocate the array to. Use 0 if unsure. This is unnecessary if
+     *     {@code contents} is a {@link Collection}.
+     * @param mutability the {@code Mutability} to use for the new list. If null, the new list is
+     *     immutable.
      */
+    // Suppress warning for cast guarded by instanceof.
     @SuppressWarnings("unchecked")
-    private MutableList(Iterable<? extends E> contents, Mutability mutability) {
-      super();
+    private MutableList(
+        Iterable<? extends E> contents, int capacity, @Nullable Mutability mutability) {
+      this.contents.ensureCapacity(capacity);
       addAllUnsafe(contents);
       if (contents instanceof GlobList) {
         globList = (GlobList<E>) contents;
       }
-      this.mutability = mutability;
+      this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
     }
 
-    /** Specialized constructor for concat. */
-    private MutableList(
-        MutableList<? extends E> lhs,
-        MutableList<? extends E> rhs,
-        @Nullable Environment env) {
-      super();
-      this.contents.ensureCapacity(lhs.size() + rhs.size());
-      this.contents.addAll(lhs);
-      this.contents.addAll(rhs);
-      this.mutability = env == null ? Mutability.IMMUTABLE : env.mutability();
+    private MutableList(Iterable<? extends E> contents, @Nullable Mutability mutability) {
+      this(contents, 0, mutability);
     }
 
     /**
-     * Creates a MutableList from contents and an Environment.
-     * @param contents the contents of the list
-     * @param env an Environment from which to inherit Mutability, or null for immutable
-     * @return a MutableList containing the elements
+     * Constructs from the given items and the {@link Mutability} belonging to the given {@link
+     * Environment}. If {@code env} is null, the list is immutable.
+     *
+     * @deprecated prefer using {@link #copyOf}
      */
+    @Deprecated
     public MutableList(Iterable<? extends E> contents, @Nullable Environment env) {
-      this(contents, env == null ? Mutability.IMMUTABLE : env.mutability());
+      this(contents, 0, env == null ? null : env.mutability());
     }
 
     /**
-     * Creates a mutable or immutable MutableList depending on the given {@link Mutability}.
+     * A shared instance for the empty list with immutable mutability.
+     *
+     * <p>Other immutable empty list objects can exist, e.g. lists that were once mutable but whose
+     * environments were then frozen. This instance is for empty lists that were always frozen from
+     * the beginning.
      */
-    public MutableList(Mutability mutability) {
-      this(Collections.EMPTY_LIST, mutability);
-    }
+    private static final MutableList<?> EMPTY =
+        new MutableList<>(ImmutableList.of(), Mutability.IMMUTABLE);
 
-    /**
-     * Builds a Skylark list from a variable number of arguments.
-     * @param env an Environment from which to inherit Mutability, or null for immutable
-     * @param contents the contents of the list
-     * @return a Skylark list containing the specified arguments as elements.
-     */
-    public static <E> MutableList<E> of(@Nullable Environment env, E... contents) {
-      return new MutableList(ImmutableList.copyOf(contents), env);
-    }
-
-    /**
-     * Adds all the elements at the end of the MutableList.
-     * @param elements the elements to add
-     * Assumes that you already checked for Mutability.
-     */
-    private void addAllUnsafe(Iterable<? extends E> elements) {
-      Iterables.addAll(contents, elements);
-    }
-
-    @Override
-    protected void checkMutable(Location loc, Environment env) throws EvalException {
-      super.checkMutable(loc, env);
-      globList = null; // If you're going to mutate it, invalidate the underlying GlobList.
-    }
-
-    @Nullable public GlobList<E> getGlobList() {
-      return globList;
-    }
-
-    /**
-     * @return the GlobList if there is one, otherwise an Immutable copy of the regular contents.
-     */
-    @Override
+    /** Returns an empty frozen list, cast to have an arbitrary content type. */
     @SuppressWarnings("unchecked")
-    public List<E> getContents() {
-      if (globList != null) {
-        return globList;
-      }
-      return getImmutableList();
-    }
-
-    @Override
-    protected List<E> getContentsUnsafe() {
-      return contents;
+    public static <T> MutableList<T> empty() {
+      return (MutableList<T>) EMPTY;
     }
 
     /**
-     * @return the GlobList if there is one, otherwise the regular contents.
+     * Returns a {@code MutableList} whose items are given by an iterable and which has the given
+     * {@link Mutability}. If {@code mutability} is null, the list is immutable.
      */
-    private List<?> getGlobListOrContentsUnsafe() {
-      if (globList != null) {
-        return globList;
-      }
-      return contents;
+    public static <T> MutableList<T> copyOf(
+        @Nullable Mutability mutability, Iterable<? extends T> contents) {
+      return new MutableList<>(contents, mutability);
     }
 
     /**
-     * Concatenate two MutableList
-     * @param left the start of the new list
-     * @param right the end of the new list
-     * @param env the Environment in which to create a new list
-     * @return a new MutableList
+     * Returns a {@code MutableList} whose items are given by an iterable and which has the {@link
+     * Mutability} belonging to the given {@link Environment}. If {@code env} is null, the list is
+     * immutable.
      */
-    public static <E> MutableList<E> concat(
-        MutableList<? extends E> left,
-        MutableList<? extends E> right,
-        Environment env) {
-      if (left.getGlobList() == null && right.getGlobList() == null) {
-        return new MutableList<>(left, right, env);
-      }
-      return new MutableList(GlobList.concat(
-          left.getGlobListOrContentsUnsafe(), right.getGlobListOrContentsUnsafe()), env);
+    public static <T> MutableList<T> copyOf(
+        @Nullable Environment env, Iterable<? extends T> contents) {
+      return new MutableList<>(contents, env.mutability());
     }
 
     /**
-     * Adds one element at the end of the MutableList.
-     * @param element the element to add
-     * @param loc the Location at which to report any error
-     * @param env the Environment requesting the modification
+     * Returns a {@code MutableList} with the given items and the {@link Mutability} of the given
+     * {@link Environment}. If {@code env} is null, the list is immutable.
      */
-    public void add(E element, Location loc, Environment env) throws EvalException {
-      checkMutable(loc, env);
-      contents.add(element);
+    public static <T> MutableList<T> of(@Nullable Environment env, T... contents) {
+      return new MutableList<>(
+          ImmutableList.copyOf(contents), env == null ? null : env.mutability());
     }
 
     /**
-     * Inserts an item at a given position to the MutableList.
-     * @param index the index of the given position
-     * @param element the element to add
-     * @param loc the Location at which to report any error
-     * @param env the Environment requesting the modification
+     * Appends the given elements to the end of the list, without calling {@link #checkMutable}.
+     *
+     * <p><em>Warning:</em> This method should never be used by a caller that cares about respecting
+     * mutability restrictions. Such callers should instead use the safe {@link #addAll(Iterable,
+     * Location, Mutability)} method below. This unsafe variant is only public in order to provide
+     * an "escape hatch" for when ordinary mutability restrictions are inapplicable, e.g. for
+     * constructing lists from outside a Skylark environment and where it's impossible for multiple
+     * threads to observe the value at once.
      */
-    public void add(int index, E element, Location loc, Environment env) throws EvalException {
-      checkMutable(loc, env);
-      contents.add(index, element);
-    }
-
-    public void remove(int index, Location loc, Environment env) throws EvalException {
-      checkMutable(loc, env);
-      contents.remove(index);
-    }
-
-    /**
-     * Adds all the elements at the end of the MutableList.
-     * @param elements the elements to add
-     * @param loc the Location at which to report any error
-     * @param env the Environment requesting the modification
-     */
-    public void addAll(Iterable<? extends E> elements, Location loc, Environment env)
-        throws EvalException {
-      checkMutable(loc, env);
-      addAllUnsafe(elements);
-    }
-
-    @Override
-    public ImmutableList<E> getImmutableList() {
-      return ImmutableList.copyOf(contents);
+    public void addAllUnsafe(Iterable<? extends E> elements) {
+      Iterables.addAll(contents, elements);
     }
 
     @Override
@@ -458,17 +365,156 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     }
 
     @Override
+    protected void checkMutable(Location loc, Mutability mutability) throws EvalException {
+      super.checkMutable(loc, mutability);
+      globList = null; // If you're going to mutate it, invalidate the underlying GlobList.
+    }
+
+    /** Returns the {@link GlobList} if there is one, or else null. */
+    @Nullable public GlobList<E> getGlobList() {
+      return globList;
+    }
+
+    @Override
     public boolean isTuple() {
       return false;
     }
 
+    @Override
+    public ImmutableList<E> getImmutableList() {
+      return ImmutableList.copyOf(contents);
+    }
+
+    @Override
+    protected List<E> getContentsUnsafe() {
+      return contents;
+    }
+
+    /** Returns the {@link GlobList} if there is one, otherwise the regular contents. */
+    private List<E> getGlobListOrContentsUnsafe() {
+      return globList != null ? globList : contents;
+    }
+
     /**
-     * An empty IMMUTABLE MutableList.
+     * Returns a new {@code MutableList} that is the concatenation of two {@code MutableList}s. The
+     * new list will have the given {@link Mutability}.
      */
-    public static final MutableList EMPTY = new MutableList(Tuple.EMPTY, Mutability.IMMUTABLE);
+    public static <T> MutableList<T> concat(
+        MutableList<? extends T> left,
+        MutableList<? extends T> right,
+        Mutability mutability) {
+      if (left.getGlobList() == null && right.getGlobList() == null) {
+        return new MutableList<>(
+            Iterables.concat(left, right),
+            left.size() + right.size(),
+            mutability);
+      } else {
+        // Preserve glob criteria.
+        return new MutableList<>(
+            GlobList.concat(
+                left.getGlobListOrContentsUnsafe(),
+                right.getGlobListOrContentsUnsafe()),
+            mutability);
+      }
+    }
+
+    @Override
+    public MutableList<E> repeat(int times, Mutability mutability) {
+      if (getGlobList() == null) {
+        return new MutableList<>(repeatContents(this, times), mutability);
+      } else {
+        if (times <= 0) {
+          return new MutableList<>(ImmutableList.of(), mutability);
+        } else {
+          // Preserve glob criteria.
+          List<? extends E> globs = getGlobListOrContentsUnsafe();
+          List<? extends E> original = globs;
+          for (int i = 1; i < times; i++) {
+            globs = GlobList.concat(globs, original);
+          }
+          return new MutableList<>(globs, mutability);
+        }
+      }
+    }
+
+    @Override
+    public MutableList<E> getSlice(
+        Object start, Object end, Object step, Location loc, Mutability mutability)
+        throws EvalException {
+      return new MutableList<>(getSliceContents(this, start, end, step, loc), mutability);
+    }
+
+    /**
+     * Appends an element to the end of the list, after validating that mutation is allowed.
+     *
+     * @param element the element to add
+     * @param loc the location to use for error reporting
+     * @param mutability the {@link Mutability} associated with the operation
+     */
+    public void add(E element, Location loc, Mutability mutability) throws EvalException {
+      checkMutable(loc, mutability);
+      contents.add(element);
+    }
+
+    /**
+     * Inserts an element at a given position to the list.
+     *
+     * @param index the new element's index
+     * @param element the element to add
+     * @param loc the location to use for error reporting
+     * @param mutability the {@link Mutability} associated with the operation
+     */
+    public void add(int index, E element, Location loc, Mutability mutability)
+        throws EvalException {
+      checkMutable(loc, mutability);
+      contents.add(index, element);
+    }
+
+    /**
+     * Appends all the elements to the end of the list.
+     *
+     * @param elements the elements to add
+     * @param loc the location to use for error reporting
+     * @param mutability the {@link Mutability} associated with the operation
+     */
+    public void addAll(Iterable<? extends E> elements, Location loc, Mutability mutability)
+        throws EvalException {
+      checkMutable(loc, mutability);
+      addAllUnsafe(elements);
+    }
+
+    /**
+     * Removes the element at a given index. The index must already have been validated to be in
+     * range.
+     *
+     * @param index the index of the element to remove
+     * @param loc the location to use for error reporting
+     * @param mutability the {@link Mutability} associated with the operation
+     */
+    public void remove(int index, Location loc, Mutability mutability) throws EvalException {
+      checkMutable(loc, mutability);
+      contents.remove(index);
+    }
+
+    /**
+     * Sets the position at the given index to contain the given value. The index must already have
+     * been validated to be in range.
+     *
+     * @param index the position to change
+     * @param value the new value
+     * @param loc the location to use for error reporting
+     * @param mutability the {@link Mutability} associated with the operation
+     */
+    public void set(int index, E value, Location loc, Mutability mutability) throws EvalException {
+      checkMutable(loc, mutability);
+      contents.set(index, value);
+    }
   }
 
-  /** An immutable tuple, e.g. in (1, 2, 3) */
+  /**
+   * A Skylark tuple, i.e. the value represented by {@code (1, 2, 3)}. Tuples are always immutable
+   * (regardless of the {@link Environment} they are created in).
+   */
   @SkylarkModule(
     name = "tuple",
     category = SkylarkModuleCategory.BUILTIN,
@@ -492,83 +538,41 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     private final ImmutableList<E> contents;
 
     private Tuple(ImmutableList<E> contents) {
-      super();
       this.contents = contents;
     }
 
-    @Override
-    public Mutability mutability() {
-      return Mutability.IMMUTABLE;
-    }
-
     /**
-     * THE empty Skylark tuple.
+     * A shared instance for the empty tuple.
+     *
+     * <p>This instance should be the only empty tuple.
      */
     private static final Tuple<?> EMPTY = new Tuple<>(ImmutableList.of());
 
+    /** Returns the empty tuple, cast to have an arbitrary content type. */
     @SuppressWarnings("unchecked")
-    public static final <E> Tuple<E> empty() {
-      return (Tuple<E>) EMPTY;
+    public static <T> Tuple<T> empty() {
+      return (Tuple<T>) EMPTY;
     }
 
     /**
-     * Creates a Tuple from an ImmutableList.
+     * Creates a {@code Tuple} from an {@link ImmutableList}, reusing the empty instance if
+     * applicable.
      */
-    public static<E> Tuple<E> create(ImmutableList<E> contents) {
+    private static<T> Tuple<T> create(ImmutableList<T> contents) {
       if (contents.isEmpty()) {
         return empty();
       }
-      return new Tuple(contents);
+      return new Tuple<>(contents);
     }
 
-    /**
-     * Creates a Tuple from an Iterable.
-     */
-    public static <E> Tuple<E> copyOf(Iterable<? extends E> contents) {
-      return create(ImmutableList.<E>copyOf(contents));
+    /** Returns a {@code Tuple} whose items are given by an iterable. */
+    public static <T> Tuple<T> copyOf(Iterable<? extends T> contents) {
+      return create(ImmutableList.<T>copyOf(contents));
     }
 
-    /**
-     * Builds a Skylark tuple from a variable number of arguments.
-     * @param elements a variable number of arguments (or an Array of Object-s)
-     * @return a Skylark tuple containing the specified arguments as elements.
-     */
-    public static <E> Tuple<E> of(E... elements) {
+    /** Returns a {@code Tuple} with the given items. */
+    public static <T> Tuple<T> of(T... elements) {
       return Tuple.create(ImmutableList.copyOf(elements));
-    }
-
-    /**
-     * Retrieve a sublist from a SkylarkList.
-     * @param start start value
-     * @param end end value
-     * @param step step value
-     * @param loc a {@link Location} in case of error
-     * @throws EvalException if the key is invalid
-     */
-    @Override
-    public final Tuple<E> getSlice(Object start, Object end, Object step, Location loc)
-        throws EvalException {
-      return copyOf(super.getSlice(start, end, step, loc));
-    }
-
-    @Override
-    public ImmutableList<E> getImmutableList() {
-      return contents;
-    }
-
-    @Override
-    public List<E> getContents() {
-      return contents;
-    }
-
-    @Override
-    protected List<E> getContentsUnsafe() {
-      return contents;
-    }
-
-    @Override
-    public boolean isTuple() {
-      return true;
     }
 
     @Override
@@ -579,6 +583,48 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
         }
       }
       return true;
+    }
+
+    @Override
+    public Mutability mutability() {
+      return Mutability.IMMUTABLE;
+    }
+
+    @Override
+    public boolean isTuple() {
+      return true;
+    }
+
+    @Override
+    public ImmutableList<E> getImmutableList() {
+      return contents;
+    }
+
+    @Override
+    protected List<E> getContentsUnsafe() {
+      return contents;
+    }
+
+    /** Returns a {@code Tuple} that is the concatenation of two {@code Tuple}s. */
+    public static <T> Tuple<T> concat(Tuple<? extends T> left, Tuple<? extends T> right) {
+      // Build the ImmutableList directly rather than use Iterables.concat, to avoid unnecessary
+      // array resizing.
+      return create(ImmutableList.<T>builder()
+          .addAll(left)
+          .addAll(right)
+          .build());
+    }
+
+    @Override
+    public Tuple<E> getSlice(
+        Object start, Object end, Object step, Location loc, Mutability mutability)
+        throws EvalException {
+      return copyOf(getSliceContents(this, start, end, step, loc));
+    }
+
+    @Override
+    public Tuple<E> repeat(int times, Mutability mutability) {
+      return copyOf(repeatContents(this, times));
     }
   }
 }

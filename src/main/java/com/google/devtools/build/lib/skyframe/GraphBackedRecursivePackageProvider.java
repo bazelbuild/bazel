@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -65,8 +65,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   private final PathPackageLocator pkgPath;
   private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
-  private static final Logger LOGGER = Logger
-      .getLogger(GraphBackedRecursivePackageProvider.class.getName());
+  private static final Logger logger = Logger.getLogger(
+      GraphBackedRecursivePackageProvider.class.getName());
 
   public GraphBackedRecursivePackageProvider(WalkableGraph graph,
       ImmutableList<TargetPatternKey> universeTargetPatternKeys,
@@ -77,31 +77,29 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   }
 
   @Override
-  public Package getPackage(EventHandler eventHandler, PackageIdentifier packageName)
+  public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws NoSuchPackageException, InterruptedException {
     SkyKey pkgKey = PackageValue.key(packageName);
 
-    PackageValue pkgValue;
-    if (graph.exists(pkgKey)) {
-      pkgValue = (PackageValue) graph.getValue(pkgKey);
-      if (pkgValue == null) {
-        NoSuchPackageException nspe = (NoSuchPackageException) graph.getException(pkgKey);
-        if (nspe != null) {
-          throw nspe;
-        }
-        throw new NoSuchPackageException(packageName, "Package depends on a cycle");
-      }
+    PackageValue pkgValue = (PackageValue) graph.getValue(pkgKey);
+    if (pkgValue != null) {
+      return pkgValue.getPackage();
+    }
+    NoSuchPackageException nspe = (NoSuchPackageException) graph.getException(pkgKey);
+    if (nspe != null) {
+      throw nspe;
+    }
+    if (graph.isCycle(pkgKey)) {
+      throw new NoSuchPackageException(packageName, "Package depends on a cycle");
     } else {
       // If the package key does not exist in the graph, then it must not correspond to any package,
       // because the SkyQuery environment has already loaded the universe.
       throw new BuildFileNotFoundException(packageName, "BUILD file not found on package path");
     }
-    return pkgValue.getPackage();
   }
 
   @Override
-  public Map<PackageIdentifier, Package> bulkGetPackages(
-      EventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
+  public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
       throws NoSuchPackageException, InterruptedException {
     Set<SkyKey> pkgKeys = ImmutableSet.copyOf(PackageValue.keys(pkgIds));
 
@@ -115,7 +113,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
     SetView<SkyKey> unknownKeys = Sets.difference(pkgKeys, packages.keySet());
     if (!Iterables.isEmpty(unknownKeys)) {
-      LOGGER.warning("Unable to find " + unknownKeys + " in the batch lookup of " + pkgKeys
+      logger.warning("Unable to find " + unknownKeys + " in the batch lookup of " + pkgKeys
           + ". Successfully looked up " + packages.keySet());
     }
     for (Map.Entry<SkyKey, Exception> missingOrExceptionEntry :
@@ -136,25 +134,28 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
 
   @Override
-  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName)
+  public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(packageName);
-    if (!graph.exists(packageLookupKey)) {
-      // If the package lookup key does not exist in the graph, then it must not correspond to any
-      // package, because the SkyQuery environment has already loaded the universe.
-      return false;
-    }
     PackageLookupValue packageLookupValue = (PackageLookupValue) graph.getValue(packageLookupKey);
     if (packageLookupValue == null) {
-      Exception exception = Preconditions.checkNotNull(graph.getException(packageLookupKey),
-          "During package lookup for '%s', got null for exception", packageName);
-      if (exception instanceof NoSuchPackageException
-          || exception instanceof InconsistentFilesystemException) {
-        eventHandler.handle(Event.error(exception.getMessage()));
+      // Package lookups can't depend on Skyframe cycles.
+      Preconditions.checkState(!graph.isCycle(packageLookupKey), packageLookupKey);
+      Exception exception = graph.getException(packageLookupKey);
+      if (exception == null) {
+        // If the package lookup key does not exist in the graph, then it must not correspond to any
+        // package, because the SkyQuery environment has already loaded the universe.
         return false;
       } else {
-        throw new IllegalStateException("During package lookup for '" + packageName
-            + "', got unexpected exception type", exception);
+        if (exception instanceof NoSuchPackageException
+            || exception instanceof InconsistentFilesystemException) {
+          eventHandler.handle(Event.error(exception.getMessage()));
+          return false;
+        } else {
+          throw new IllegalStateException(
+              "During package lookup for '" + packageName + "', got unexpected exception type",
+              exception);
+        }
       }
     }
     return packageLookupValue.packageExists();
@@ -162,20 +163,26 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
   @Override
   public Iterable<PathFragment> getPackagesUnderDirectory(
+      ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
+    PathFragment.checkAllPathsAreUnder(blacklistedSubdirectories, directory);
     PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory);
+
+    if (excludedSubdirectories.contains(directory)) {
+      return ImmutableList.of();
+    }
 
     // Check that this package is covered by at least one of our universe patterns.
     boolean inUniverse = false;
     for (TargetPatternKey patternKey : universeTargetPatternKeys) {
       TargetPattern pattern = patternKey.getParsedPattern();
       boolean isTBD = pattern.getType().equals(Type.TARGETS_BELOW_DIRECTORY);
-      PackageIdentifier packageIdentifier = PackageIdentifier.create(
-          repository, directory);
-      if (isTBD && pattern.containsBelowDirectory(packageIdentifier)) {
+      PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
+      if (isTBD && pattern.containsAllTransitiveSubdirectoriesForTBD(packageIdentifier)) {
         inUniverse = true;
         break;
       }
@@ -190,8 +197,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       roots.addAll(pkgPath.getPathEntries());
     } else {
       RepositoryDirectoryValue repositoryValue =
-            (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
-      if (repositoryValue == null) {
+          (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
+      if (repositoryValue == null || !repositoryValue.repositoryExists()) {
         // If this key doesn't exist, the repository is outside the universe, so we return
         // "nothing".
         return ImmutableList.of();
@@ -205,13 +212,15 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
     for (Path root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
-      TraversalInfo info = new TraversalInfo(rootedDir, excludedSubdirectories);
-      collectPackagesUnder(repository, ImmutableSet.of(info), builder);
+      TraversalInfo info =
+          new TraversalInfo(rootedDir, blacklistedSubdirectories, excludedSubdirectories);
+      collectPackagesUnder(eventHandler, repository, ImmutableSet.of(info), builder);
     }
     return builder.build();
   }
 
   private void collectPackagesUnder(
+      ExtendedEventHandler eventHandler,
       final RepositoryName repository,
       Set<TraversalInfo> traversals,
       ImmutableList.Builder<PathFragment> builder)
@@ -223,7 +232,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
               @Override
               public SkyKey apply(TraversalInfo traversalInfo) {
                 return CollectPackagesUnderDirectoryValue.key(
-                    repository, traversalInfo.rootedDir, traversalInfo.excludedSubdirectories);
+                    repository, traversalInfo.rootedDir, traversalInfo.blacklistedSubdirectories);
               }
             });
     Map<SkyKey, SkyValue> values = graph.getSuccessfulValues(traversalToKeyMap.values());
@@ -240,16 +249,28 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
           builder.add(info.rootedDir.getRelativePath());
         }
 
+        if (collectPackagesValue.getErrorMessage() != null) {
+          eventHandler.handle(Event.error(collectPackagesValue.getErrorMessage()));
+        }
+
         ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages =
-            collectPackagesValue.getSubdirectoryTransitivelyContainsPackages();
+            collectPackagesValue.getSubdirectoryTransitivelyContainsPackagesOrErrors();
         for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
           if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
             PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
+            ImmutableSet<PathFragment> blacklistedSubdirectoriesBeneathThisSubdirectory =
+                PathFragment.filterPathsStartingWith(
+                    info.blacklistedSubdirectories, subdirectoryRelativePath);
             ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
                 PathFragment.filterPathsStartingWith(
                     info.excludedSubdirectories, subdirectoryRelativePath);
-            subdirTraversalBuilder.add(
-                new TraversalInfo(subdirectory, excludedSubdirectoriesBeneathThisSubdirectory));
+            if (!excludedSubdirectoriesBeneathThisSubdirectory.contains(subdirectoryRelativePath)) {
+              subdirTraversalBuilder.add(
+                  new TraversalInfo(
+                      subdirectory,
+                      blacklistedSubdirectoriesBeneathThisSubdirectory,
+                      excludedSubdirectoriesBeneathThisSubdirectory));
+            }
           }
         }
       }
@@ -257,28 +278,40 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
     ImmutableSet<TraversalInfo> subdirTraversals = subdirTraversalBuilder.build();
     if (!subdirTraversals.isEmpty()) {
-      collectPackagesUnder(repository, subdirTraversals, builder);
+      collectPackagesUnder(eventHandler, repository, subdirTraversals, builder);
     }
   }
 
   @Override
-  public Target getTarget(EventHandler eventHandler, Label label)
+  public Target getTarget(ExtendedEventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
   }
 
   private static final class TraversalInfo {
     private final RootedPath rootedDir;
+    // Set of blacklisted directories. The graph is assumed to be prepopulated with
+    // CollectPackagesUnderDirectoryValue nodes whose keys have blacklisted packages embedded in
+    // them. Therefore, we need to be careful to request and use the same sort of keys here in our
+    // traversal.
+    private final ImmutableSet<PathFragment> blacklistedSubdirectories;
+    // Set of directories, targets under which should be excluded from the traversal results.
+    // Excluded directory information isn't part of the graph keys in the prepopulated graph, so we
+    // need to perform the filtering ourselves.
     private final ImmutableSet<PathFragment> excludedSubdirectories;
 
-    private TraversalInfo(RootedPath rootedDir, ImmutableSet<PathFragment> excludedSubdirectories) {
+    private TraversalInfo(
+        RootedPath rootedDir,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> excludedSubdirectories) {
       this.rootedDir = rootedDir;
+      this.blacklistedSubdirectories = blacklistedSubdirectories;
       this.excludedSubdirectories = excludedSubdirectories;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(rootedDir, excludedSubdirectories);
+      return Objects.hashCode(rootedDir, blacklistedSubdirectories, excludedSubdirectories);
     }
 
     @Override
@@ -289,6 +322,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       if (obj instanceof TraversalInfo) {
         TraversalInfo otherTraversal = (TraversalInfo) obj;
         return Objects.equal(rootedDir, otherTraversal.rootedDir)
+            && Objects.equal(blacklistedSubdirectories, otherTraversal.blacklistedSubdirectories)
             && Objects.equal(excludedSubdirectories, otherTraversal.excludedSubdirectories);
       }
       return false;

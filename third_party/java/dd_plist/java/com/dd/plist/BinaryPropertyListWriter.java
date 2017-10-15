@@ -29,7 +29,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -143,7 +143,7 @@ public class BinaryPropertyListWriter {
     private long count;
 
     // map from object to its ID
-    private Map<NSObject, Integer> idMap = new HashMap<NSObject, Integer>();
+    private Map<NSObject, Integer> idMap = new LinkedHashMap<NSObject, Integer>();
     private int idSizeInBytes;
 
     /**

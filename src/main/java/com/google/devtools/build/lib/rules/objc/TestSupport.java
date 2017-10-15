@@ -26,16 +26,16 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SimulatorRule;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.rules.test.TestEnvironmentProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -76,7 +76,10 @@ public class TestSupport {
     String runMemleaks =
         ruleContext.getFragment(ObjcConfiguration.class).runMemleaks() ? "true" : "false";
 
-    ImmutableMap<String, String> testEnv = ruleContext.getConfiguration().getTestEnv();
+    // TODO(ulfjack): This is missing the action environment, and the inherited parts from both. Is
+    // that intentional? We should either fix it, or clearly document why we're doing that.
+    ImmutableMap<String, String> testEnv =
+        ruleContext.getConfiguration().getTestActionEnvironment().getFixedEnv();
 
     // The substitutions below are common for simulator and lab device.
     ImmutableList.Builder<Substitution> substitutions =
@@ -84,6 +87,7 @@ public class TestSupport {
             .add(Substitution.of("%(memleaks)s", runMemleaks))
             .add(Substitution.of("%(test_app_ipa)s", testBundleIpa.getRootRelativePathString()))
             .add(Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testBundleIpa)))
+            .add(Substitution.of("%(test_bundle_path)s", testBundleIpa.getRootRelativePathString()))
             .add(
                 Substitution.of("%(plugin_jars)s", Artifact.joinRootRelativePaths(":", plugins())));
 
@@ -95,11 +99,20 @@ public class TestSupport {
       substitutions
           .add(Substitution.of("%(xctest_app_ipa)s",
               testHarnessIpa.get().getRootRelativePathString()))
-          .add(Substitution.of("%(xctest_app_name)s", baseNameWithoutIpa(testHarnessIpa.get())));
+          .add(Substitution.of("%(xctest_app_name)s", baseNameWithoutIpa(testHarnessIpa.get())))
+          .add(Substitution.of("%(test_host_path)s",
+              testHarnessIpa.get().getRootRelativePathString()));
     } else {
       substitutions
           .add(Substitution.of("%(xctest_app_ipa)s", ""))
-          .add(Substitution.of("%(xctest_app_name)s", ""));
+          .add(Substitution.of("%(xctest_app_name)s", ""))
+          .add(Substitution.of("%(test_host_path)s", ""));
+    }
+
+    if (ruleContext.attributes().get(IosTest.IS_XCTEST_ATTR, Type.BOOLEAN)) {
+      substitutions.add(Substitution.of("%(test_type)s", "XCTEST"));
+    } else {
+      substitutions.add(Substitution.of("%(test_type)s", "KIF"));
     }
 
     Artifact template;
@@ -242,9 +255,10 @@ public class TestSupport {
    * Returns any additional providers that need to be exported to the rule context to the passed
    * builder.
    */
-  public TransitiveInfoProviderMap getExtraProviders() {
+  public Iterable<Info> getExtraProviders() {
     IosDeviceProvider deviceProvider =
-        ruleContext.getPrerequisite(IosTest.TARGET_DEVICE, Mode.TARGET, IosDeviceProvider.class);
+        ruleContext.getPrerequisite(
+            IosTest.TARGET_DEVICE, Mode.TARGET, IosDeviceProvider.SKYLARK_CONSTRUCTOR);
     DottedVersion xcodeVersion = deviceProvider.getXcodeVersion();
     AppleConfiguration configuration = ruleContext.getFragment(AppleConfiguration.class);
 
@@ -260,7 +274,7 @@ public class TestSupport {
       envBuilder.put("APPLE_COVERAGE", "1");
     }
 
-    return TransitiveInfoProviderMap.of(new TestEnvironmentProvider(envBuilder.build()));
+    return ImmutableList.<Info>of(new TestEnvironmentInfo(envBuilder.build()));
   }
 
   /**

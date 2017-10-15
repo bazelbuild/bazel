@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.skyframe.RecursivePkgValue.RecursivePkgKey;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -61,7 +61,7 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(RepositoryName repository, RootedPath rootedPath,
       ImmutableSet<PathFragment> excludedPaths, FilteringPolicy filteringPolicy) {
-    return SkyKey.create(
+    return LegacySkyKey.create(
         SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
         new PrepareDepsOfTargetsUnderDirectoryKey(
             new RecursivePkgKey(repository, rootedPath, excludedPaths), filteringPolicy));

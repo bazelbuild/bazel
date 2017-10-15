@@ -18,17 +18,16 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.util.List;
 
 /**
@@ -39,6 +38,7 @@ import java.util.List;
          builds = true,
          options = { BuildRequestOptions.class,
                      ExecutionOptions.class,
+                     LocalExecutionOptions.class,
                      PackageCacheOptions.class,
                      BuildView.Options.class,
                      LoadingOptions.class,
@@ -51,15 +51,13 @@ import java.util.List;
 public final class BuildCommand implements BlazeCommand {
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser)
-      throws AbruptExitException {
-    ProjectFileSupport.handleProjectFiles(env, optionsParser, "build");
+  public void editOptions(OptionsParser optionsParser) {
   }
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
     BlazeRuntime runtime = env.getRuntime();
-    List<String> targets = ProjectFileSupport.getTargets(runtime, options);
+    List<String> targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
 
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,

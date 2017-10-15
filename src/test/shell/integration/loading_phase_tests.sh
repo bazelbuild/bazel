@@ -110,13 +110,14 @@ function test_bazelrc_option() {
     cp ${bazelrc} ${new_workspace_dir}/.${PRODUCT_NAME}rc
 
     echo "build --cpu=armeabi-v7a" >>.${PRODUCT_NAME}rc    # default bazelrc
-    $PATH_TO_BAZEL_BIN info >/dev/null 2>$TEST_log
+    $PATH_TO_BAZEL_BIN info --announce_rc >/dev/null 2>$TEST_log
     expect_log "Reading.*$(pwd)/.${PRODUCT_NAME}rc:
 .*--cpu=armeabi-v7a"
 
     cp .${PRODUCT_NAME}rc foo
     echo "build --cpu=armeabi-v7a"   >>foo         # non-default bazelrc
-    $PATH_TO_BAZEL_BIN --${PRODUCT_NAME}rc=foo info >/dev/null 2>$TEST_log
+    $PATH_TO_BAZEL_BIN --${PRODUCT_NAME}rc=foo info --announce_rc >/dev/null \
+      2>$TEST_log
     expect_log "Reading.*$(pwd)/foo:
 .*--cpu=armeabi-v7a"
 }
@@ -313,6 +314,39 @@ function test_incremental_deleting_package_roots() {
       || fail "Expected success"
   expect_log "//a:internal"
   expect_not_log "//a:external"
+}
+
+function test_no_package_loading_on_benign_workspace_file_changes() {
+  mkdir foo
+
+  echo 'workspace(name="wsname1")' > WORKSPACE
+  echo 'sh_library(name="shname1")' > foo/BUILD
+  # TODO(b/37617303): make tests UI-independent
+  bazel query --noexperimental_ui //foo:all >& "$TEST_log" \
+      || fail "Expected success"
+  expect_log "//foo:shname1"
+
+  echo 'sh_library(name="shname2")' > foo/BUILD
+  # TODO(b/37617303): make tests UI-independent
+  bazel query --noexperimental_ui //foo:all >& "$TEST_log" \
+      || fail "Expected success"
+  expect_log "Loading package: foo"
+  expect_log "//foo:shname2"
+
+  echo 'workspace(name="wsname1")' > WORKSPACE
+  echo '#benign comment' >> WORKSPACE
+  # TODO(b/37617303): make tests UI-independent
+  bazel query --noexperimental_ui //foo:all >& "$TEST_log" \
+      || fail "Expected success"
+  expect_not_log "Loading package: foo"
+  expect_log "//foo:shname2"
+
+  echo 'workspace(name="wsname2")' > WORKSPACE
+  # TODO(b/37617303): make tests UI-independent
+  bazel query --noexperimental_ui //foo:all >& "$TEST_log" \
+      || fail "Expected success"
+  expect_log "Loading package: foo"
+  expect_log "//foo:shname2"
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

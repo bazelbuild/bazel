@@ -14,12 +14,8 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.io.BaseEncoding;
@@ -27,6 +23,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -124,7 +121,7 @@ public abstract class FileSystemTest {
   @SuppressWarnings("unused") // Subclasses may throw.
   protected void expectNotFound(Path path) throws IOException {
     try {
-      assertNull(path.statIfFound());
+      assertThat(path.statIfFound()).isNull();
     } catch (IOException e) {
       // May be because of a non-directory path component. Parse exception to check this.
       Matcher matcher = STAT_SUBDIR_ERROR.matcher(e.getMessage());
@@ -255,25 +252,25 @@ public abstract class FileSystemTest {
   @Test
   public void testIsFileForNonexistingPath() {
     Path nonExistingPath = testFS.getPath("/something/strange");
-    assertFalse(nonExistingPath.isFile());
+    assertThat(nonExistingPath.isFile()).isFalse();
   }
 
   @Test
   public void testIsDirectoryForNonexistingPath() {
     Path nonExistingPath = testFS.getPath("/something/strange");
-    assertFalse(nonExistingPath.isDirectory());
+    assertThat(nonExistingPath.isDirectory()).isFalse();
   }
 
   @Test
   public void testIsLinkForNonexistingPath() {
     Path nonExistingPath = testFS.getPath("/something/strange");
-    assertFalse(nonExistingPath.isSymbolicLink());
+    assertThat(nonExistingPath.isSymbolicLink()).isFalse();
   }
 
   @Test
   public void testExistsForNonexistingPath() throws Exception {
     Path nonExistingPath = testFS.getPath("/something/strange");
-    assertFalse(nonExistingPath.exists());
+    assertThat(nonExistingPath.exists()).isFalse();
     expectNotFound(nonExistingPath);
   }
 
@@ -284,7 +281,7 @@ public abstract class FileSystemTest {
     Path child = inaccessible.getChild("child");
     FileSystemUtils.createEmptyFile(child);
     inaccessible.setExecutable(false);
-    assertFalse(child.exists());
+    assertThat(child.exists()).isFalse();
     try {
       child.statIfFound();
       fail();
@@ -299,29 +296,29 @@ public abstract class FileSystemTest {
     foo.createDirectory();
     Path nonDir = foo.getRelative("bar");
     FileSystemUtils.createEmptyFile(nonDir);
-    assertNull(nonDir.getRelative("file").statIfFound());
+    assertThat(nonDir.getRelative("file").statIfFound()).isNull();
   }
 
   // The following tests check the handling of the current working directory.
   @Test
   public void testCreatePathRelativeToWorkingDirectory() {
     Path relativeCreatedPath = absolutize("some-file");
-    Path expectedResult = workingDir.getRelative(new PathFragment("some-file"));
+    Path expectedResult = workingDir.getRelative(PathFragment.create("some-file"));
 
-    assertEquals(expectedResult, relativeCreatedPath);
+    assertThat(relativeCreatedPath).isEqualTo(expectedResult);
   }
 
   // The following tests check the handling of the root directory
   @Test
   public void testRootIsDirectory() {
     Path rootPath = testFS.getPath("/");
-    assertTrue(rootPath.isDirectory());
+    assertThat(rootPath.isDirectory()).isTrue();
   }
 
   @Test
   public void testRootHasNoParent() {
     Path rootPath = testFS.getPath("/");
-    assertNull(rootPath.getParentDirectory());
+    assertThat(rootPath.getParentDirectory()).isNull();
   }
 
   // The following functions test the creation of files/links/directories.
@@ -329,58 +326,58 @@ public abstract class FileSystemTest {
   public void testFileExists() throws Exception {
     Path someFile = absolutize("some-file");
     FileSystemUtils.createEmptyFile(someFile);
-    assertTrue(someFile.exists());
-    assertNotNull(someFile.statIfFound());
+    assertThat(someFile.exists()).isTrue();
+    assertThat(someFile.statIfFound()).isNotNull();
   }
 
   @Test
   public void testFileIsFile() throws Exception {
     Path someFile = absolutize("some-file");
     FileSystemUtils.createEmptyFile(someFile);
-    assertTrue(someFile.isFile());
+    assertThat(someFile.isFile()).isTrue();
   }
 
   @Test
   public void testFileIsNotDirectory() throws Exception {
     Path someFile = absolutize("some-file");
     FileSystemUtils.createEmptyFile(someFile);
-    assertFalse(someFile.isDirectory());
+    assertThat(someFile.isDirectory()).isFalse();
   }
 
   @Test
   public void testFileIsNotSymbolicLink() throws Exception {
     Path someFile = absolutize("some-file");
     FileSystemUtils.createEmptyFile(someFile);
-    assertFalse(someFile.isSymbolicLink());
+    assertThat(someFile.isSymbolicLink()).isFalse();
   }
 
   @Test
   public void testDirectoryExists() throws Exception {
     Path someDirectory = absolutize("some-dir");
     someDirectory.createDirectory();
-    assertTrue(someDirectory.exists());
-    assertNotNull(someDirectory.statIfFound());
+    assertThat(someDirectory.exists()).isTrue();
+    assertThat(someDirectory.statIfFound()).isNotNull();
   }
 
   @Test
   public void testDirectoryIsDirectory() throws Exception {
     Path someDirectory = absolutize("some-dir");
     someDirectory.createDirectory();
-    assertTrue(someDirectory.isDirectory());
+    assertThat(someDirectory.isDirectory()).isTrue();
   }
 
   @Test
   public void testDirectoryIsNotFile() throws Exception {
     Path someDirectory = absolutize("some-dir");
     someDirectory.createDirectory();
-    assertFalse(someDirectory.isFile());
+    assertThat(someDirectory.isFile()).isFalse();
   }
 
   @Test
   public void testDirectoryIsNotSymbolicLink() throws Exception {
     Path someDirectory = absolutize("some-dir");
     someDirectory.createDirectory();
-    assertFalse(someDirectory.isSymbolicLink());
+    assertThat(someDirectory.isSymbolicLink()).isFalse();
   }
 
   @Test
@@ -388,8 +385,8 @@ public abstract class FileSystemTest {
     if (supportsSymlinks) {
       Path someLink = absolutize("some-link");
       someLink.createSymbolicLink(xFile);
-      assertTrue(someLink.exists());
-      assertNotNull(someLink.statIfFound());
+      assertThat(someLink.exists()).isTrue();
+      assertThat(someLink.statIfFound()).isNotNull();
     }
   }
 
@@ -398,7 +395,7 @@ public abstract class FileSystemTest {
     if (supportsSymlinks) {
       Path someLink = absolutize("some-link");
       someLink.createSymbolicLink(xFile);
-      assertTrue(someLink.isSymbolicLink());
+      assertThat(someLink.isSymbolicLink()).isTrue();
     }
   }
 
@@ -407,7 +404,7 @@ public abstract class FileSystemTest {
     if (supportsSymlinks) {
       Path someLink = absolutize("some-link");
       someLink.createSymbolicLink(xFile);
-      assertTrue(someLink.isFile());
+      assertThat(someLink.isFile()).isTrue();
     }
   }
 
@@ -416,7 +413,7 @@ public abstract class FileSystemTest {
     if (supportsSymlinks) {
       Path someLink = absolutize("some-link");
       someLink.createSymbolicLink(xFile);
-      assertFalse(someLink.isDirectory());
+      assertThat(someLink.isDirectory()).isFalse();
     }
   }
 
@@ -425,8 +422,8 @@ public abstract class FileSystemTest {
     if (supportsSymlinks) {
       Path someLink = absolutize("some-link");
       someLink.createSymbolicLink(xEmptyDirectory);
-      assertTrue(someLink.exists());
-      assertNotNull(someLink.statIfFound());
+      assertThat(someLink.exists()).isTrue();
+      assertThat(someLink.statIfFound()).isNotNull();
     }
   }
 
@@ -435,7 +432,7 @@ public abstract class FileSystemTest {
     if (supportsSymlinks) {
       Path someLink = absolutize("some-link");
       someLink.createSymbolicLink(xEmptyDirectory);
-      assertTrue(someLink.isSymbolicLink());
+      assertThat(someLink.isSymbolicLink()).isTrue();
     }
   }
 
@@ -444,7 +441,7 @@ public abstract class FileSystemTest {
     if (supportsSymlinks) {
       Path someLink = absolutize("some-link");
       someLink.createSymbolicLink(xEmptyDirectory);
-      assertTrue(someLink.isDirectory());
+      assertThat(someLink.isDirectory()).isTrue();
     }
   }
 
@@ -453,7 +450,7 @@ public abstract class FileSystemTest {
     if (supportsSymlinks) {
       Path someLink = absolutize("some-link");
       someLink.createSymbolicLink(xEmptyDirectory);
-      assertFalse(someLink.isFile());
+      assertThat(someLink.isFile()).isFalse();
     }
   }
 
@@ -462,7 +459,7 @@ public abstract class FileSystemTest {
     Path somePath = absolutize("file-name");
     FileSystemUtils.createEmptyFile(somePath);
     Path childOfNonDir = somePath.getChild("child");
-    assertFalse(childOfNonDir.exists());
+    assertThat(childOfNonDir.exists()).isFalse();
     expectNotFound(childOfNonDir);
   }
 
@@ -470,7 +467,7 @@ public abstract class FileSystemTest {
   public void testCreateDirectoryIsEmpty() throws Exception {
     Path newPath = xEmptyDirectory.getChild("new-dir");
     newPath.createDirectory();
-    assertEquals(newPath.getDirectoryEntries().size(), 0);
+    assertThat(newPath.getDirectoryEntries()).isEmpty();
   }
 
   @Test
@@ -484,35 +481,35 @@ public abstract class FileSystemTest {
   @Test
   public void testCreateDirectories() throws Exception {
     Path newPath = absolutize("new-dir/sub/directory");
-    assertTrue(FileSystemUtils.createDirectoryAndParents(newPath));
+    assertThat(FileSystemUtils.createDirectoryAndParents(newPath)).isTrue();
   }
 
   @Test
   public void testCreateDirectoriesIsDirectory() throws Exception {
     Path newPath = absolutize("new-dir/sub/directory");
     FileSystemUtils.createDirectoryAndParents(newPath);
-    assertTrue(newPath.isDirectory());
+    assertThat(newPath.isDirectory()).isTrue();
   }
 
   @Test
   public void testCreateDirectoriesIsNotFile() throws Exception {
     Path newPath = absolutize("new-dir/sub/directory");
     FileSystemUtils.createDirectoryAndParents(newPath);
-    assertFalse(newPath.isFile());
+    assertThat(newPath.isFile()).isFalse();
   }
 
   @Test
   public void testCreateDirectoriesIsNotSymbolicLink() throws Exception {
     Path newPath = absolutize("new-dir/sub/directory");
     FileSystemUtils.createDirectoryAndParents(newPath);
-    assertFalse(newPath.isSymbolicLink());
+    assertThat(newPath.isSymbolicLink()).isFalse();
   }
 
   @Test
   public void testCreateDirectoriesIsEmpty() throws Exception {
     Path newPath = absolutize("new-dir/sub/directory");
     FileSystemUtils.createDirectoryAndParents(newPath);
-    assertEquals(newPath.getDirectoryEntries().size(), 0);
+    assertThat(newPath.getDirectoryEntries()).isEmpty();
   }
 
   @Test
@@ -528,7 +525,7 @@ public abstract class FileSystemTest {
     Path newPath = xEmptyDirectory.getChild("new-file");
     FileSystemUtils.createEmptyFile(newPath);
 
-    assertEquals(newPath.getFileSize(), 0);
+    assertThat(newPath.getFileSize()).isEqualTo(0);
   }
 
   @Test
@@ -543,7 +540,7 @@ public abstract class FileSystemTest {
   // creation of files/links/directories.
   @Test
   public void testCreateDirectoryWhereDirectoryAlreadyExists() throws Exception {
-    assertFalse(xEmptyDirectory.createDirectory());
+    assertThat(xEmptyDirectory.createDirectory()).isFalse();
   }
 
   @Test
@@ -563,7 +560,7 @@ public abstract class FileSystemTest {
       newPath.createDirectory();
       fail();
     } catch (FileNotFoundException e) {
-      assertThat(e.getMessage()).endsWith(" (No such file or directory)");
+      assertThat(e).hasMessageThat().endsWith(" (No such file or directory)");
     }
   }
 
@@ -586,7 +583,7 @@ public abstract class FileSystemTest {
       FileSystemUtils.createEmptyFile(newPath);
       fail();
     } catch (FileNotFoundException e) {
-      assertThat(e.getMessage()).endsWith(" (No such file or directory)");
+      assertThat(e).hasMessageThat().endsWith(" (No such file or directory)");
     }
   }
 
@@ -611,7 +608,7 @@ public abstract class FileSystemTest {
       FileSystemUtils.createEmptyFile(wrongPath);
       fail();
     } catch (IOException e) {
-      assertThat(e.getMessage()).endsWith(" (Not a directory)");
+      assertThat(e).hasMessageThat().endsWith(" (Not a directory)");
     }
   }
 
@@ -624,7 +621,7 @@ public abstract class FileSystemTest {
       wrongPath.createDirectory();
       fail();
     } catch (IOException e) {
-      assertThat(e.getMessage()).endsWith(" (Not a directory)");
+      assertThat(e).hasMessageThat().endsWith(" (Not a directory)");
     }
   }
 
@@ -671,38 +668,38 @@ public abstract class FileSystemTest {
   // Test the removal of items
   @Test
   public void testDeleteDirectory() throws Exception {
-    assertTrue(xEmptyDirectory.delete());
+    assertThat(xEmptyDirectory.delete()).isTrue();
   }
 
   @Test
   public void testDeleteDirectoryIsNotDirectory() throws Exception {
     xEmptyDirectory.delete();
-    assertFalse(xEmptyDirectory.isDirectory());
+    assertThat(xEmptyDirectory.isDirectory()).isFalse();
   }
 
   @Test
   public void testDeleteDirectoryParentSize() throws Exception {
     int parentSize = workingDir.getDirectoryEntries().size();
     xEmptyDirectory.delete();
-    assertEquals(workingDir.getDirectoryEntries().size(), parentSize - 1);
+    assertThat(parentSize - 1).isEqualTo(workingDir.getDirectoryEntries().size());
   }
 
   @Test
   public void testDeleteFile() throws Exception {
-    assertTrue(xFile.delete());
+    assertThat(xFile.delete()).isTrue();
   }
 
   @Test
   public void testDeleteFileIsNotFile() throws Exception {
     xFile.delete();
-    assertFalse(xEmptyDirectory.isFile());
+    assertThat(xEmptyDirectory.isFile()).isFalse();
   }
 
   @Test
   public void testDeleteFileParentSize() throws Exception {
     int parentSize = workingDir.getDirectoryEntries().size();
     xFile.delete();
-    assertEquals(workingDir.getDirectoryEntries().size(), parentSize - 1);
+    assertThat(parentSize - 1).isEqualTo(workingDir.getDirectoryEntries().size());
   }
 
   @Test
@@ -715,20 +712,20 @@ public abstract class FileSystemTest {
     FileSystemUtils.createEmptyFile(newPath2);
     FileSystemUtils.createEmptyFile(newPath3);
 
-    assertTrue(newPath2.delete());
+    assertThat(newPath2.delete()).isTrue();
     assertThat(xEmptyDirectory.getDirectoryEntries()).containsExactly(newPath1, newPath3);
   }
 
   @Test
   public void testDeleteNonExistingDir() throws Exception {
     Path path = xEmptyDirectory.getRelative("non-existing-dir");
-    assertFalse(path.delete());
+    assertThat(path.delete()).isFalse();
   }
 
   @Test
   public void testDeleteNotADirectoryPath() throws Exception {
     Path path = xFile.getChild("new-file");
-    assertFalse(path.delete());
+    assertThat(path.delete()).isFalse();
   }
 
   // Here we test the situations where delete should throw exceptions.
@@ -751,7 +748,7 @@ public abstract class FileSystemTest {
       // Expected
     }
 
-    assertTrue(xNonEmptyDirectory.isDirectory());
+    assertThat(xNonEmptyDirectory.isDirectory()).isTrue();
   }
 
   @Test
@@ -763,7 +760,7 @@ public abstract class FileSystemTest {
       // Expected
     }
 
-    assertTrue(xNonEmptyDirectoryFoo.isFile());
+    assertThat(xNonEmptyDirectoryFoo.isFile()).isTrue();
   }
 
   @Test
@@ -774,10 +771,12 @@ public abstract class FileSystemTest {
       fail();
     } catch (IOException e) {
       String msg = e.getMessage();
-      assertTrue(String.format("got %s want EBUSY or ENOTEMPTY", msg),
-          msg.endsWith(" (Directory not empty)")
-          || msg.endsWith(" (Device or resource busy)")
-          || msg.endsWith(" (Is a directory)"));  // Happens on OS X.
+      assertWithMessage(String.format("got %s want EBUSY or ENOTEMPTY", msg))
+          .that(
+              msg.endsWith(" (Directory not empty)")
+                  || msg.endsWith(" (Device or resource busy)")
+                  || msg.endsWith(" (Is a directory)"))
+          .isTrue(); // Happens on OS X.
     }
   }
 
@@ -787,7 +786,7 @@ public abstract class FileSystemTest {
     storeReferenceTime(workingDir.getLastModifiedTime());
     Path newPath = absolutize("new-file");
     FileSystemUtils.createEmptyFile(newPath);
-    assertTrue(isLaterThanreferenceTime(workingDir.getLastModifiedTime()));
+    assertThat(isLaterThanreferenceTime(workingDir.getLastModifiedTime())).isTrue();
   }
 
   @Test
@@ -796,7 +795,7 @@ public abstract class FileSystemTest {
     FileSystemUtils.createEmptyFile(newPath);
     storeReferenceTime(workingDir.getLastModifiedTime());
     newPath.delete();
-    assertTrue(isLaterThanreferenceTime(workingDir.getLastModifiedTime()));
+    assertThat(isLaterThanreferenceTime(workingDir.getLastModifiedTime())).isTrue();
   }
 
   // This test is a little bit strange, as we cannot test the progression
@@ -811,7 +810,7 @@ public abstract class FileSystemTest {
     Path newFile = absolutize("new-file");
     storeReferenceTime(syncFile.getLastModifiedTime());
     FileSystemUtils.createEmptyFile(newFile);
-    assertTrue(isLaterThanreferenceTime(newFile.getLastModifiedTime()));
+    assertThat(isLaterThanreferenceTime(newFile.getLastModifiedTime())).isTrue();
   }
 
   @Test
@@ -821,15 +820,15 @@ public abstract class FileSystemTest {
 
     Path newPath = absolutize("new-dir");
     storeReferenceTime(syncFile.getLastModifiedTime());
-    assertTrue(newPath.createDirectory());
-    assertTrue(isLaterThanreferenceTime(newPath.getLastModifiedTime()));
+    assertThat(newPath.createDirectory()).isTrue();
+    assertThat(isLaterThanreferenceTime(newPath.getLastModifiedTime())).isTrue();
   }
 
   @Test
   public void testWriteChangesModifiedTime() throws Exception {
     storeReferenceTime(xFile.getLastModifiedTime());
     FileSystemUtils.writeContentAsLatin1(xFile, "abc19");
-    assertTrue(isLaterThanreferenceTime(xFile.getLastModifiedTime()));
+    assertThat(isLaterThanreferenceTime(xFile.getLastModifiedTime())).isTrue();
   }
 
   @Test
@@ -860,7 +859,7 @@ public abstract class FileSystemTest {
     String testData = "abc19";
 
     FileSystemUtils.writeContentAsLatin1(xFile, testData);
-    assertEquals(testData.length(), xFile.getFileSize());
+    assertThat(xFile.getFileSize()).isEqualTo(testData.length());
   }
 
   // Testing the input/output routines
@@ -871,7 +870,7 @@ public abstract class FileSystemTest {
     FileSystemUtils.writeContentAsLatin1(xFile, testData);
     String resultData = new String(FileSystemUtils.readContentAsLatin1(xFile));
 
-    assertEquals(testData,resultData);
+    assertThat(resultData).isEqualTo(testData);
   }
 
   @Test
@@ -882,7 +881,7 @@ public abstract class FileSystemTest {
 
     try (InputStream inStream = xFile.getInputStream()) {
       inStream.read();
-    assertEquals(-1, inStream.read());
+      assertThat(inStream.read()).isEqualTo(-1);
     }
   }
 
@@ -897,7 +896,7 @@ public abstract class FileSystemTest {
     try (InputStream inStream = xFile.getInputStream()) {
       for (int i = 33; i < 126; i++) {
         int readValue = inStream.read();
-        assertEquals(i, readValue);
+        assertThat(readValue).isEqualTo(i);
       }
     }
   }
@@ -919,7 +918,7 @@ public abstract class FileSystemTest {
     try (InputStream inStream = xFile.getInputStream()) {
       for (int i = 33; i < 155; i++) {
         int readValue = inStream.read();
-        assertEquals(i, readValue);
+        assertThat(readValue).isEqualTo(i);
       }
     }
   }
@@ -934,7 +933,7 @@ public abstract class FileSystemTest {
     }
 
     try (InputStream inStream = xFile.getInputStream()) {
-      assertEquals(-1, inStream.read());
+      assertThat(inStream.read()).isEqualTo(-1);
     }
   }
 
@@ -946,7 +945,7 @@ public abstract class FileSystemTest {
       out.write(42);
     }
 
-    assertTrue(newFile.isFile());
+    assertThat(newFile.isFile()).isTrue();
   }
 
   @Test
@@ -973,8 +972,8 @@ public abstract class FileSystemTest {
   @Test
   public void testCanRenameToUnusedName() throws Exception {
     xFile.renameTo(xNothing);
-    assertFalse(xFile.exists());
-    assertTrue(xNothing.isFile());
+    assertThat(xFile.exists()).isFalse();
+    assertThat(xNothing.isFile()).isTrue();
   }
 
   @Test
@@ -982,15 +981,15 @@ public abstract class FileSystemTest {
     Path otherFile = absolutize("otherFile");
     FileSystemUtils.createEmptyFile(otherFile);
     xFile.renameTo(otherFile); // succeeds
-    assertFalse(xFile.exists());
-    assertTrue(otherFile.isFile());
+    assertThat(xFile.exists()).isFalse();
+    assertThat(otherFile.isFile()).isTrue();
   }
 
   @Test
   public void testCanRenameDirToExistingEmptyDir() throws Exception {
     xNonEmptyDirectory.renameTo(xEmptyDirectory); // succeeds
-    assertFalse(xNonEmptyDirectory.exists());
-    assertTrue(xEmptyDirectory.isDirectory());
+    assertThat(xNonEmptyDirectory.exists()).isFalse();
+    assertThat(xEmptyDirectory.isDirectory()).isTrue();
     assertThat(xEmptyDirectory.getDirectoryEntries()).isNotEmpty();
   }
 
@@ -1000,7 +999,7 @@ public abstract class FileSystemTest {
       xEmptyDirectory.renameTo(xNonEmptyDirectory);
       fail();
     } catch (IOException e) {
-      assertThat(e.getMessage()).endsWith(" (Directory not empty)");
+      assertThat(e).hasMessageThat().endsWith(" (Directory not empty)");
     }
   }
 
@@ -1013,8 +1012,8 @@ public abstract class FileSystemTest {
       // Expected
     }
 
-    assertTrue(xNonEmptyDirectory.isDirectory());
-    assertTrue(xEmptyDirectory.isDirectory());
+    assertThat(xNonEmptyDirectory.isDirectory()).isTrue();
+    assertThat(xEmptyDirectory.isDirectory()).isTrue();
     assertThat(xEmptyDirectory.getDirectoryEntries()).isEmpty();
     assertThat(xNonEmptyDirectory.getDirectoryEntries()).isNotEmpty();
   }
@@ -1038,8 +1037,8 @@ public abstract class FileSystemTest {
       // Expected
     }
 
-    assertTrue(xEmptyDirectory.isDirectory());
-    assertTrue(xFile.isFile());
+    assertThat(xEmptyDirectory.isDirectory()).isTrue();
+    assertThat(xFile.isFile()).isTrue();
   }
 
   @Test
@@ -1061,8 +1060,8 @@ public abstract class FileSystemTest {
       // Expected
     }
 
-    assertTrue(xEmptyDirectory.isDirectory());
-    assertTrue(xFile.isFile());
+    assertThat(xEmptyDirectory.isDirectory()).isTrue();
+    assertThat(xFile.isFile()).isTrue();
   }
 
   @Test
@@ -1073,7 +1072,7 @@ public abstract class FileSystemTest {
       nonExistingPath.renameTo(targetPath);
       fail();
     } catch (FileNotFoundException e) {
-      assertThat(e.getMessage()).endsWith(" (No such file or directory)");
+      assertThat(e).hasMessageThat().endsWith(" (No such file or directory)");
     }
   }
 
@@ -1091,7 +1090,7 @@ public abstract class FileSystemTest {
   @Test
   public void testGetPathOnlyAcceptsAbsolutePathFragment() {
     try {
-      testFS.getPath(new PathFragment("not-absolute"));
+      testFS.getPath(PathFragment.create("not-absolute"));
       fail("The expected Exception was not thrown.");
     } catch (IllegalArgumentException ex) {
       assertThat(ex).hasMessage("not-absolute (not an absolute path)");
@@ -1101,27 +1100,27 @@ public abstract class FileSystemTest {
   // Test the access permissions
   @Test
   public void testNewFilesAreWritable() throws Exception {
-    assertTrue(xFile.isWritable());
+    assertThat(xFile.isWritable()).isTrue();
   }
 
   @Test
   public void testNewFilesAreReadable() throws Exception {
-    assertTrue(xFile.isReadable());
+    assertThat(xFile.isReadable()).isTrue();
   }
 
   @Test
   public void testNewDirsAreWritable() throws Exception {
-    assertTrue(xEmptyDirectory.isWritable());
+    assertThat(xEmptyDirectory.isWritable()).isTrue();
   }
 
   @Test
   public void testNewDirsAreReadable() throws Exception {
-    assertTrue(xEmptyDirectory.isReadable());
+    assertThat(xEmptyDirectory.isReadable()).isTrue();
   }
 
   @Test
   public void testNewDirsAreExecutable() throws Exception {
-    assertTrue(xEmptyDirectory.isExecutable());
+    assertThat(xEmptyDirectory.isExecutable()).isTrue();
   }
 
   @Test
@@ -1167,25 +1166,25 @@ public abstract class FileSystemTest {
   @Test
   public void testSetReadableOnFile() throws Exception {
     xFile.setReadable(false);
-    assertFalse(xFile.isReadable());
+    assertThat(xFile.isReadable()).isFalse();
     xFile.setReadable(true);
-    assertTrue(xFile.isReadable());
+    assertThat(xFile.isReadable()).isTrue();
   }
 
   @Test
   public void testSetWritableOnFile() throws Exception {
     xFile.setWritable(false);
-    assertFalse(xFile.isWritable());
+    assertThat(xFile.isWritable()).isFalse();
     xFile.setWritable(true);
-    assertTrue(xFile.isWritable());
+    assertThat(xFile.isWritable()).isTrue();
   }
 
   @Test
   public void testSetExecutableOnFile() throws Exception {
     xFile.setExecutable(true);
-    assertTrue(xFile.isExecutable());
+    assertThat(xFile.isExecutable()).isTrue();
     xFile.setExecutable(false);
-    assertFalse(xFile.isExecutable());
+    assertThat(xFile.isExecutable()).isFalse();
   }
 
   @Test
@@ -1197,7 +1196,7 @@ public abstract class FileSystemTest {
       xNonEmptyDirectoryFoo.isWritable(); // i.e. stat
       fail();
     } catch (IOException e) {
-      assertThat(e.getMessage()).endsWith(" (Permission denied)");
+      assertThat(e).hasMessageThat().endsWith(" (Permission denied)");
     }
   }
 
@@ -1259,7 +1258,7 @@ public abstract class FileSystemTest {
       xFile.renameTo(xNonEmptyDirectoryBar);
       fail("No exception thrown.");
     } catch (IOException e) {
-      assertThat(e.getMessage()).endsWith(" (Permission denied)");
+      assertThat(e).hasMessageThat().endsWith(" (Permission denied)");
     }
   }
 
@@ -1271,7 +1270,7 @@ public abstract class FileSystemTest {
       xNonEmptyDirectoryFoo.renameTo(xNothing);
       fail("No exception thrown.");
     } catch (IOException e) {
-      assertThat(e.getMessage()).endsWith(" (Permission denied)");
+      assertThat(e).hasMessageThat().endsWith(" (Permission denied)");
     }
   }
 
@@ -1306,8 +1305,8 @@ public abstract class FileSystemTest {
   public void testGetMD5DigestForEmptyFile() throws Exception {
     Fingerprint fp = new Fingerprint();
     fp.addBytes(new byte[0]);
-    assertEquals(BaseEncoding.base16().lowerCase().encode(xFile.getMD5Digest()),
-        fp.hexDigestAndReset());
+    assertThat(fp.hexDigestAndReset())
+        .isEqualTo(BaseEncoding.base16().lowerCase().encode(xFile.getDigest(HashFunction.MD5)));
   }
 
   @Test
@@ -1319,8 +1318,8 @@ public abstract class FileSystemTest {
     FileSystemUtils.writeContent(xFile, buffer);
     Fingerprint fp = new Fingerprint();
     fp.addBytes(buffer);
-    assertEquals(BaseEncoding.base16().lowerCase().encode(xFile.getMD5Digest()),
-        fp.hexDigestAndReset());
+    assertThat(fp.hexDigestAndReset())
+        .isEqualTo(BaseEncoding.base16().lowerCase().encode(xFile.getDigest(HashFunction.MD5)));
   }
 
   @Test
@@ -1335,7 +1334,7 @@ public abstract class FileSystemTest {
 
   @Test
   public void testStatNullableFailsFastOnNonExistingFiles() throws Exception {
-    assertNull(xNothing.statNullable());
+    assertThat(xNothing.statNullable()).isNull();
   }
 
   @Test
@@ -1343,8 +1342,8 @@ public abstract class FileSystemTest {
     if (supportsSymlinks) {
       createSymbolicLink(xLink, xFile);
       FileSystemUtils.createEmptyFile(xFile);
-      assertEquals(xFile.asFragment(), testFS.resolveOneLink(xLink));
-      assertEquals(xFile, xLink.resolveSymbolicLinks());
+      assertThat(testFS.resolveOneLink(xLink)).isEqualTo(xFile.asFragment());
+      assertThat(xLink.resolveSymbolicLinks()).isEqualTo(xFile);
     }
   }
 
@@ -1352,7 +1351,7 @@ public abstract class FileSystemTest {
   public void testResolveDanglingSymlinks() throws Exception {
     if (supportsSymlinks) {
       createSymbolicLink(xLink, xNothing);
-      assertEquals(xNothing.asFragment(), testFS.resolveOneLink(xLink));
+      assertThat(testFS.resolveOneLink(xLink)).isEqualTo(xNothing.asFragment());
       try {
         xLink.resolveSymbolicLinks();
         fail();
@@ -1364,8 +1363,8 @@ public abstract class FileSystemTest {
   @Test
   public void testResolveNonSymlinks() throws Exception {
     if (supportsSymlinks) {
-      assertNull(testFS.resolveOneLink(xFile));
-      assertEquals(xFile, xFile.resolveSymbolicLinks());
+      assertThat(testFS.resolveOneLink(xFile)).isNull();
+      assertThat(xFile.resolveSymbolicLinks()).isEqualTo(xFile);
     }
   }
 
@@ -1375,11 +1374,11 @@ public abstract class FileSystemTest {
       return;
     }
     xFile.createHardLink(xLink);
-    assertTrue(xFile.exists());
-    assertTrue(xLink.exists());
-    assertTrue(xFile.isFile());
-    assertTrue(xLink.isFile());
-    assertTrue(isHardLinked(xFile, xLink));
+    assertThat(xFile.exists()).isTrue();
+    assertThat(xLink.exists()).isTrue();
+    assertThat(xFile.isFile()).isTrue();
+    assertThat(xLink.isFile()).isTrue();
+    assertThat(isHardLinked(xFile, xLink)).isTrue();
   }
 
   @Test
@@ -1396,8 +1395,8 @@ public abstract class FileSystemTest {
     } catch (FileNotFoundException expected) {
       assertThat(expected).hasMessage("File \"xFile\" linked from \"xLink\" does not exist");
     }
-    assertFalse(xFile.exists());
-    assertFalse(xLink.exists());
+    assertThat(xFile.exists()).isFalse();
+    assertThat(xLink.exists()).isFalse();
   }
 
   @Test
@@ -1417,8 +1416,8 @@ public abstract class FileSystemTest {
     } catch (FileNotFoundException expected) {
       assertThat(expected).hasMessage("File \"xFile\" linked from \"xLink\" does not exist");
     }
-    assertFalse(xFile.exists());
-    assertTrue(xLink.exists());
+    assertThat(xFile.exists()).isFalse();
+    assertThat(xLink.exists()).isTrue();
   }
 
   @Test
@@ -1436,9 +1435,9 @@ public abstract class FileSystemTest {
     } catch (FileAlreadyExistsException expected) {
       assertThat(expected).hasMessage("New link file \"xLink\" already exists");
     }
-    assertTrue(xFile.exists());
-    assertTrue(xLink.exists());
-    assertFalse(isHardLinked(xFile, xLink));
+    assertThat(xFile.exists()).isTrue();
+    assertThat(xLink.exists()).isTrue();
+    assertThat(isHardLinked(xFile, xLink)).isFalse();
   }
 
   protected boolean isHardLinked(Path a, Path b) throws IOException {

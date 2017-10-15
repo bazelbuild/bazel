@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.server;
 
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.CommandExecutor;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
@@ -28,8 +28,8 @@ public interface RPCServer {
    * Present so that we don't need to invoke a constructor with multiple arguments by reflection.
    */
   interface Factory {
-    RPCServer create(CommandExecutor commandExecutor, Clock clock, int port, Path serverDirectory,
-        int maxIdleSeconds) throws IOException;
+    RPCServer create(CommandExecutor commandExecutor, Clock clock, int port,
+        Path workspace, Path serverDirectory, int maxIdleSeconds) throws IOException;
   }
 
   /**
@@ -41,4 +41,12 @@ public interface RPCServer {
    * Called when the server receives a SIGINT.
    */
   void interrupt();
+
+  /**
+   * Prepares for the server shutting down prematurely.
+   *
+   * <p>Used in <code>clean --expunge</code> where the server state is deleted from the disk and
+   * we need to make sure that everything works during such an drastic measure.
+   */
+  void prepareForAbruptShutdown();
 }

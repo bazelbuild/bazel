@@ -13,19 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests the command class with large inputs
@@ -58,56 +57,59 @@ public class CommandLargeInputsTest {
   }
 
   @Test
-  public void testCatRandomBinary() throws Exception {
-    final Command command = new Command(new String[] {"cat"});
-    byte[] randomBytes = getRandomBytes();
-    final CommandResult result = command.execute(randomBytes);
-    assertEquals(0, result.getTerminationStatus().getRawResult());
-    TestUtil.assertArrayEquals(randomBytes, result.getStdout());
-    assertEquals(0, result.getStderr().length);
-   }
-
-  @Test
   public void testCatRandomBinaryToOutputStream() throws Exception {
     final Command command = new Command(new String[] {"cat"});
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ByteArrayOutputStream err = new ByteArrayOutputStream();
     byte[] randomBytes = getRandomBytes();
-    final CommandResult result = command.execute(randomBytes,
-                                                 Command.NO_OBSERVER, out, err);
-    assertEquals(0, result.getTerminationStatus().getRawResult());
-    TestUtil.assertArrayEquals(randomBytes, out.toByteArray());
-    assertEquals(0, err.toByteArray().length);
-    assertOutAndErrNotAvailable(result);
-  }
+    ByteArrayInputStream in = new ByteArrayInputStream(randomBytes);
+
+    CommandResult result =
+        command.executeAsync(in, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
+    assertThat(result.getTerminationStatus().getRawExitCode()).isEqualTo(0);
+    TestUtil.assertArrayEquals(randomBytes, result.getStdout());
+    assertThat(result.getStderr()).isEmpty();
+   }
 
   @Test
   public void testCatRandomBinaryToErrorStream() throws Exception {
     final Command command = new Command(new String[] {"/bin/sh", "-c", "cat >&2"});
+    byte[] randomBytes = getRandomBytes();
+    ByteArrayInputStream in = new ByteArrayInputStream(randomBytes);
+
+    CommandResult result =
+        command.executeAsync(in, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
+    assertThat(result.getTerminationStatus().getRawExitCode()).isEqualTo(0);
+    TestUtil.assertArrayEquals(randomBytes, result.getStderr());
+    assertThat(result.getStdout()).isEmpty();
+   }
+
+  @Test
+  public void testCatRandomBinaryFromInputStreamToOutputStream() throws Exception {
+    final Command command = new Command(new String[] {"cat"});
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ByteArrayOutputStream err = new ByteArrayOutputStream();
     byte[] randomBytes = getRandomBytes();
-    final CommandResult result = command.execute(randomBytes,
-                                                 Command.NO_OBSERVER, out, err);
-    assertEquals(0, result.getTerminationStatus().getRawResult());
-    assertEquals(0, out.toByteArray().length);
-    TestUtil.assertArrayEquals(randomBytes, err.toByteArray());
+    ByteArrayInputStream in = new ByteArrayInputStream(randomBytes);
+
+    CommandResult result =
+        command.executeAsync(in, out, err, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
+    assertThat(result.getTerminationStatus().getRawExitCode()).isEqualTo(0);
+    assertThat(err.toByteArray()).isEmpty();
+    TestUtil.assertArrayEquals(randomBytes, out.toByteArray());
     assertOutAndErrNotAvailable(result);
   }
 
   @Test
-  public void testCatRandomBinaryFromInputStreamToErrorStream()
-  throws Exception {
+  public void testCatRandomBinaryFromInputStreamToErrorStream() throws Exception {
     final Command command = new Command(new String[] {"/bin/sh", "-c", "cat >&2"});
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ByteArrayOutputStream err = new ByteArrayOutputStream();
     byte[] randomBytes = getRandomBytes();
     ByteArrayInputStream in = new ByteArrayInputStream(randomBytes);
 
-    final CommandResult result = command.execute(in,
-                                                 Command.NO_OBSERVER, out, err);
-    assertEquals(0, result.getTerminationStatus().getRawResult());
-    assertEquals(0, out.toByteArray().length);
+    CommandResult result =
+        command.executeAsync(in, out, err, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
+    assertThat(result.getTerminationStatus().getRawExitCode()).isEqualTo(0);
+    assertThat(out.toByteArray()).isEmpty();
     TestUtil.assertArrayEquals(randomBytes, err.toByteArray());
     assertOutAndErrNotAvailable(result);
   }
@@ -119,15 +121,15 @@ public class CommandLargeInputsTest {
     });
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ByteArrayOutputStream err = new ByteArrayOutputStream();
-    command.execute(Command.NO_INPUT, Command.NO_OBSERVER, out, err);
+    command.execute(out, err);
     StringBuilder expectedOut = new StringBuilder();
     StringBuilder expectedErr = new StringBuilder();
     for (int i = 0; i < 1000; i++) {
       expectedOut.append("OUT").append(i).append("\n");
       expectedErr.append("ERR").append(i).append("\n");
     }
-    assertEquals(expectedOut.toString(), out.toString("UTF-8"));
-    assertEquals(expectedErr.toString(), err.toString("UTF-8"));
+    assertThat(out.toString("UTF-8")).isEqualTo(expectedOut.toString());
+    assertThat(err.toString("UTF-8")).isEqualTo(expectedErr.toString());
   }
 
   private void assertOutAndErrNotAvailable(final CommandResult result) {
@@ -145,10 +147,12 @@ public class CommandLargeInputsTest {
   public void testCatAllByteValues() throws Exception {
     final Command command = new Command(new String[] {"cat"});
     byte[] allByteValues = getAllByteValues();
-    final CommandResult result = command.execute(allByteValues);
-    assertEquals(0, result.getTerminationStatus().getRawResult());
-    assertEquals(0, result.getStderr().length);
+    ByteArrayInputStream in = new ByteArrayInputStream(allByteValues);
+
+    CommandResult result =
+        command.executeAsync(in, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
+    assertThat(result.getTerminationStatus().getRawExitCode()).isEqualTo(0);
+    assertThat(result.getStderr()).isEmpty();
     TestUtil.assertArrayEquals(allByteValues, result.getStdout());
   }
-
 }

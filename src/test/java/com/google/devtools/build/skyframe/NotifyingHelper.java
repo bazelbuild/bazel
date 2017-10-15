@@ -19,6 +19,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Maps.EntryTransformer;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -87,7 +88,7 @@ public class NotifyingHelper {
 
     @Override
     public Map<SkyKey, ? extends NodeEntry> getBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
         throws InterruptedException {
       return Maps.transformEntries(
           delegate.getBatch(requestor, reason, keys),
@@ -99,6 +100,11 @@ public class NotifyingHelper {
     public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key)
         throws InterruptedException {
       return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
+    }
+
+    @Override
+    public Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason) {
+      return delegate.getCurrentlyAvailableNodes(keys, reason);
     }
   }
 
@@ -130,6 +136,12 @@ public class NotifyingHelper {
       return Maps.transformEntries(
           delegate.createIfAbsentBatch(requestor, reason, keys),
           notifyingHelper.wrapEntry);
+    }
+
+    @Override
+    public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps)
+        throws InterruptedException {
+      return delegate.analyzeDepsDoneness(parent, deps);
     }
   }
 
@@ -301,7 +313,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() {
+    public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
       graphListener.accept(
           myKey, EventType.GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE, Order.BEFORE, this);
       return super.getAllDirectDepsForIncompleteNode();

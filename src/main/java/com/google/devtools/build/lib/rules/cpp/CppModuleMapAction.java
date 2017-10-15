@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -21,14 +22,13 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -77,11 +77,11 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     super(
         owner,
         ImmutableList.<Artifact>builder()
-            .addAll(Iterables.filter(privateHeaders, Artifact.IS_TREE_ARTIFACT))
-            .addAll(Iterables.filter(publicHeaders, Artifact.IS_TREE_ARTIFACT))
+            .addAll(Iterables.filter(privateHeaders, Artifact::isTreeArtifact))
+            .addAll(Iterables.filter(publicHeaders, Artifact::isTreeArtifact))
             .build(),
         cppModuleMap.getArtifact(),
-        /*makeExecutable=*/false);
+        /*makeExecutable=*/ false);
     this.cppModuleMap = cppModuleMap;
     this.moduleMapHomeIsCwd = moduleMapHomeIsCwd;
     this.privateHeaders = ImmutableList.copyOf(privateHeaders);
@@ -99,9 +99,10 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        StringBuilder content = new StringBuilder();
+        OutputStreamWriter content = new OutputStreamWriter(out, StandardCharsets.ISO_8859_1);
         PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
         int segmentsToExecPath = fragment.segmentCount() - 1;
+        Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
 
         // For details about the different header types, see:
         // http://clang.llvm.org/docs/Modules.html#header-declaration
@@ -110,22 +111,46 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         content.append("  export *\n");
 
         HashSet<PathFragment> deduper = new HashSet<>();
-        for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
-          appendHeader(
-              content, "", artifact.getExecPath(), leadingPeriods, /*canCompile=*/ true, deduper);
-        }
-        for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
+        if (umbrellaHeader.isPresent()) {
           appendHeader(
               content,
-              "private",
-              artifact.getExecPath(),
+              "",
+              umbrellaHeader.get().getExecPath(),
               leadingPeriods,
-              /*canCompile=*/ true,
-              deduper);
-        }
-        for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
-          appendHeader(
-              content, "", additionalExportedHeader, leadingPeriods, /*canCompile*/ false, deduper);
+              /*canCompile=*/ false,
+              deduper,
+              /*isUmbrellaHeader*/ true);
+        } else {
+          for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
+            appendHeader(
+                content,
+                "",
+                artifact.getExecPath(),
+                leadingPeriods,
+                /*canCompile=*/ true,
+                deduper,
+                /*isUmbrellaHeader*/ false);
+          }
+          for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
+            appendHeader(
+                content,
+                "private",
+                artifact.getExecPath(),
+                leadingPeriods,
+                /*canCompile=*/ true,
+                deduper,
+                /*isUmbrellaHeader*/ false);
+          }
+          for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
+            appendHeader(
+                content,
+                "",
+                additionalExportedHeader,
+                leadingPeriods,
+                /*canCompile*/ false,
+                deduper,
+                /*isUmbrellaHeader*/ false);
+          }
         }
         for (CppModuleMap dep : dependencies) {
           content.append("  use \"").append(dep.getName()).append("\"\n");
@@ -138,11 +163,11 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
                 .append(dep.getName())
                 .append("\" \"")
                 .append(leadingPeriods)
-                .append(dep.getArtifact().getExecPath())
+                .append(dep.getArtifact().getExecPathString())
                 .append("\"");
           }
         }
-        out.write(content.toString().getBytes(StandardCharsets.ISO_8859_1));
+        content.flush();
       }
     };
   }
@@ -161,14 +186,19 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     return ImmutableList.copyOf(expandedHeaders);
   }
 
-  private void appendHeader(StringBuilder content, String visibilitySpecifier, PathFragment path,
-      String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper) {
+  private void appendHeader(Appendable content, String visibilitySpecifier,
+      PathFragment path, String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper,
+      boolean isUmbrellaHeader) throws IOException {
     if (deduper.contains(path)) {
       return;
     }
     deduper.add(path);
+    if (isUmbrellaHeader) {
+      content.append("  umbrella header \"umbrella.h\"\n");
+      return;
+    }
     if (generateSubmodules) {
-      content.append("  module \"").append(path).append("\" {\n");
+      content.append("  module \"").append(path.toString()).append("\" {\n");
       content.append("    export *\n  ");
     }
     content.append("  ");
@@ -178,7 +208,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     if (!canCompile || !shouldCompileHeader(path)) {
       content.append("textual ");
     }
-    content.append("header \"").append(leadingPeriods).append(path).append("\"");
+    content.append("header \"").append(leadingPeriods).append(path.toString()).append("\"");
     if (generateSubmodules) {
       content.append("\n  }");
     }
@@ -215,17 +245,16 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       f.addPath(path);
     }
     f.addPath(cppModuleMap.getArtifact().getExecPath());
+    Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
+    if (umbrellaHeader.isPresent()) {
+      f.addPath(umbrellaHeader.get().getExecPath());
+    }
     f.addString(cppModuleMap.getName());
     f.addBoolean(moduleMapHomeIsCwd);
     f.addBoolean(compiledModule);
     f.addBoolean(generateSubmodules);
     f.addBoolean(externDependencies);
     return f.hexDigestAndReset();
-  }
-
-  @Override
-  public ResourceSet estimateResourceConsumptionLocal() {
-    return ResourceSet.createWithRamCpuIo(/*memoryMb=*/0, /*cpuUsage=*/0, /*ioUsage=*/0.02);
   }
 
   @VisibleForTesting

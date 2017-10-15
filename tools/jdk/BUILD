@@ -1,5 +1,13 @@
 package(default_visibility = ["//visibility:public"])
 
+# TODO(lberki): Remove this once java_toolchain_alias and java_runtime_alias are
+# in a Bazel release
+load("//tools/jdk:alias_rules.bzl", "java_runtime_alias", "java_toolchain_alias")
+
+java_runtime_alias(name = "current_java_runtime")
+
+java_toolchain_alias(name = "current_java_toolchain")
+
 config_setting(
     name = "jdk7",
     values = {"define": "JAVA_VERSION=1.7"},
@@ -9,7 +17,7 @@ genrule(
     name = "BUILD-jdk7",
     srcs = [":BUILD"],
     outs = ["BUILD.jdk7"],
-    cmd = "sed -e 's/_version = \"8\"/_version = \"7\"/' -e 's/javac_supports_workers = 1/javac_supports_workers = 0/' $< > $@",
+    cmd = "sed -e 's/_version = \"8\"/_version = \"7\"/' -e 's/javac_supports_workers = 1/javac_supports_workers = 0/' -e 's/forcibly_disable_header_compilation = 0/forcibly_disable_header_compilation = 1/g' -e 's/:JavaBuilder_deploy/:VanillaJavaBuilder_deploy/' $< > $@",
 )
 
 filegroup(
@@ -22,37 +30,42 @@ filegroup(
 
 alias(
     name = "jni_header",
-    actual = "//external:jni_header",
+    actual = "@local_jdk//:jni_header",
 )
 
 alias(
     name = "jni_md_header-darwin",
-    actual = "//external:jni_md_header-darwin",
+    actual = "@local_jdk//:jni_md_header-darwin",
 )
 
 alias(
     name = "jni_md_header-linux",
-    actual = "//external:jni_md_header-linux",
+    actual = "@local_jdk//:jni_md_header-linux",
+)
+
+alias(
+    name = "jni_md_header-windows",
+    actual = "@local_jdk//:jni_md_header-windows",
 )
 
 alias(
     name = "jni_md_header-freebsd",
-    actual = "//external:jni_md_header-freebsd",
+    actual = "@local_jdk//:jni_md_header-freebsd",
 )
 
 alias(
     name = "java",
-    actual = "//external:java",
+    actual = "@local_jdk//:java",
 )
 
 alias(
     name = "jar",
-    actual = "//external:jar",
+    actual = "@local_jdk//:jar",
 )
 
 alias(
     name = "javac",
-    actual = "//external:javac",
+    actual = "@local_jdk//:javac",
 )
 
 # On Windows, executables end in ".exe", but the label we reach it through
@@ -61,6 +74,37 @@ alias(
 filegroup(
     name = "ijar",
     srcs = glob(["ijar/*"]),
+)
+
+# On Windows, Java implementation of singlejar is used. We create a little
+# filegroup that contains the appropriate platform-dependent file.
+# Once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
+# the native singlejar is used on windows), this file group can be reused since
+# on Windows, executables end in ".exe", but the label we reach it through
+# must be platform-independent.
+filegroup(
+    name = "singlejar",
+    srcs = glob(["singlejar/*"]),
+)
+
+filegroup(
+    name = "genclass",
+    srcs = ["//tools/jdk:GenClass_deploy.jar"],
+)
+
+filegroup(
+    name = "turbine",
+    srcs = ["//tools/jdk:turbine_deploy.jar"],
+)
+
+filegroup(
+    name = "javabuilder",
+    srcs = ["//tools/jdk:JavaBuilder_deploy.jar"],
+)
+
+filegroup(
+    name = "vanillajavabuilder",
+    srcs = ["//tools/jdk:VanillaJavaBuilder_deploy.jar"],
 )
 
 BOOTCLASS_JARS = [
@@ -73,12 +117,18 @@ BOOTCLASS_JARS = [
 
 alias(
     name = "bootclasspath",
-    actual = "//external:bootclasspath",
+    actual = "@local_jdk//:bootclasspath",
 )
 
 alias(
+    name = "extclasspath",
+    actual = "@local_jdk//:extdir",
+)
+
+# TODO(cushon): migrate to extclasspath and delete
+alias(
     name = "extdir",
-    actual = "//external:extdir",
+    actual = "@local_jdk//:extdir",
 )
 
 filegroup(
@@ -94,30 +144,47 @@ java_import(
 
 alias(
     name = "jre",
-    actual = "//external:jre",
+    actual = "@local_jdk//:jre",
 )
 
 alias(
     name = "jdk",
-    actual = "//external:jdk",
+    actual = "@local_jdk//:jdk",
 )
 
 java_toolchain(
     name = "toolchain",
     bootclasspath = [":bootclasspath"],
+    compatible_javacopts = {
+        # Restrict protos to Java 7 so that they are compatible with Android.
+        "proto": [
+            "-source",
+            "7",
+            "-target",
+            "7",
+            "-XDallowBetterNullChecks=false",
+        ],
+    },
     encoding = "UTF-8",
-    extclasspath = [":extdir"],
-    genclass = ["//tools/jdk:GenClass_deploy.jar"],
-    header_compiler = ["//tools/jdk:turbine_deploy.jar"],
+    extclasspath = [":extclasspath"],
+    forcibly_disable_header_compilation = 0,
+    genclass = ["@bazel_tools//tools/jdk:genclass"],
+    header_compiler = ["@bazel_tools//tools/jdk:turbine"],
     ijar = ["@bazel_tools//tools/jdk:ijar"],
-    javabuilder = ["//tools/jdk:JavaBuilder_deploy.jar"],
+    javabuilder = ["@bazel_tools//tools/jdk:javabuilder"],
     javac = ["//third_party/java/jdk/langtools:javac_jar"],
     javac_supports_workers = 1,
     jvm_opts = [
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",
+        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
     ],
-    singlejar = ["//tools/jdk:SingleJar_deploy.jar"],
+    misc = [
+        "-XDskipDuplicateBridges=true",
+        "-g",
+        "-parameters",
+    ],
+    singlejar = ["@bazel_tools//tools/jdk:singlejar"],
     source_version = "8",
     target_version = "8",
 )
@@ -126,6 +193,7 @@ filegroup(
     name = "srcs",
     srcs = [
         "BUILD-jdk",  # Tools are build from the workspace for tests.
+        "alias_rules.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.cfg",
@@ -154,4 +222,15 @@ py_test(
     deps = [
         ":proguard_whitelister",
     ],
+)
+
+# For java coverage
+alias(
+    name = "jacoco-blaze-agent",
+    actual = "//third_party/java/jacoco:blaze-agent",
+)
+
+java_import(
+    name = "JacocoCoverage",
+    jars = [":JacocoCoverage_deploy.jar"],
 )

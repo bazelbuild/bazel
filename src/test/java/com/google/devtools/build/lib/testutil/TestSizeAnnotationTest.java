@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.Suite.getSize;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -81,58 +79,58 @@ public class TestSizeAnnotationTest {
 
   @Test
   public void testHasNoTestSpecAnnotationIsSmall() {
-    assertEquals(Suite.SMALL_TESTS, getSize(HasNoTestSpecAnnotation.class));
+    assertThat(getSize(HasNoTestSpecAnnotation.class)).isEqualTo(Suite.SMALL_TESTS);
   }
 
   @Test
   public void testHasNoSizeAnnotationElementIsSmall() {
-    assertEquals(Suite.SMALL_TESTS, getSize(HasNoSizeAnnotationElement.class));
+    assertThat(getSize(HasNoSizeAnnotationElement.class)).isEqualTo(Suite.SMALL_TESTS);
   }
 
   @Test
   public void testIsAnnotatedWithSmallSizeIsSmall() {
-    assertEquals(Suite.SMALL_TESTS, getSize(IsAnnotatedWithSmallSize.class));
+    assertThat(getSize(IsAnnotatedWithSmallSize.class)).isEqualTo(Suite.SMALL_TESTS);
   }
 
   @Test
   public void testIsAnnotatedWithMediumSizeIsMedium() {
-    assertEquals(Suite.MEDIUM_TESTS, getSize(IsAnnotatedWithMediumSize.class));
+    assertThat(getSize(IsAnnotatedWithMediumSize.class)).isEqualTo(Suite.MEDIUM_TESTS);
   }
 
   @Test
   public void testIsAnnotatedWithLargeSizeIsLarge() {
-    assertEquals(Suite.LARGE_TESTS, getSize(IsAnnotatedWithLargeSize.class));
+    assertThat(getSize(IsAnnotatedWithLargeSize.class)).isEqualTo(Suite.LARGE_TESTS);
   }
 
   @Test
   public void testSuperclassHasAnnotationButNoSizeElement() {
-    assertEquals(Suite.SMALL_TESTS, getSize(SuperclassHasAnnotationButNoSizeElement.class));
+    assertThat(getSize(SuperclassHasAnnotationButNoSizeElement.class)).isEqualTo(Suite.SMALL_TESTS);
   }
 
   @Test
   public void testHasSizeElementAndSuperclassHasAnnotationButNoSizeElement() {
-    assertEquals(Suite.LARGE_TESTS,
-        getSize(HasSizeElementAndSuperclassHasAnnotationButNoSizeElement.class));
+    assertThat(getSize(HasSizeElementAndSuperclassHasAnnotationButNoSizeElement.class))
+        .isEqualTo(Suite.LARGE_TESTS);
   }
 
   @Test
   public void testSuperclassHasAnnotationWithSizeElement() {
-    assertEquals(Suite.SMALL_TESTS, getSize(SuperclassHasAnnotationWithSizeElement.class));
+    assertThat(getSize(SuperclassHasAnnotationWithSizeElement.class)).isEqualTo(Suite.SMALL_TESTS);
   }
 
   @Test
   public void testHasSizeElementAndSuperclassHasAnnotationWithSizeElement() {
-    assertEquals(Suite.LARGE_TESTS,
-        getSize(HasSizeElementAndSuperclassHasAnnotationWithSizeElement.class));
+    assertThat(getSize(HasSizeElementAndSuperclassHasAnnotationWithSizeElement.class))
+        .isEqualTo(Suite.LARGE_TESTS);
   }
 
   @Test
   public void testIsNotFlaky() {
-    assertFalse(Suite.isFlaky(HasNoTestSpecAnnotation.class));
+    assertThat(Suite.isFlaky(HasNoTestSpecAnnotation.class)).isFalse();
   }
   
   @Test
   public void testIsFlaky() {
-    assertTrue(Suite.isFlaky(FlakyTestSpecAnnotation.class));
+    assertThat(Suite.isFlaky(FlakyTestSpecAnnotation.class)).isTrue();
   }
 }

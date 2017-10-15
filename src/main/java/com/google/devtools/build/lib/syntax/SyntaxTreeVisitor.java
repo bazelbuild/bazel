@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
-
 import java.util.List;
 
 /**
@@ -29,10 +28,23 @@ public class SyntaxTreeVisitor {
     node.accept(this);
   }
 
+  // methods dealing with sequences of nodes
   public void visitAll(List<? extends ASTNode> nodes) {
     for (ASTNode node : nodes) {
       visit(node);
     }
+  }
+
+  /**
+   * Visit a sequence ("block") of statements (e.g. an if branch, for block, function block etc.)
+   *
+   * This method allows subclasses to handle statement blocks more easily, like doing an action
+   * after every statement in a block without having to override visit(...) for all statements.
+   *
+   * @param statements list of statements in the block
+   */
+  public void visitBlock(List<Statement> statements) {
+    visitAll(statements);
   }
 
   // node specific visit methods
@@ -40,12 +52,14 @@ public class SyntaxTreeVisitor {
     visit(node.getValue());
   }
 
-  public void visit(@SuppressWarnings("unused") Parameter<?, ?> node) {
-    // leaf node (we need the function for overrides)
+  public void visit(Parameter<Expression, Expression> node) {
+    if (node.getDefaultValue() != null) {
+      visit(node.getDefaultValue());
+    }
   }
 
   public void visit(BuildFileAST node) {
-    visitAll(node.getStatements());
+    visitBlock(node.getStatements());
     visitAll(node.getComments());
   }
 
@@ -55,9 +69,6 @@ public class SyntaxTreeVisitor {
   }
 
   public void visit(FuncallExpression node) {
-    if (node.getObject() != null) {
-      visit(node.getObject());
-    }
     visit(node.getFunction());
     visitAll(node.getArguments());
   }
@@ -65,20 +76,19 @@ public class SyntaxTreeVisitor {
   public void visit(@SuppressWarnings("unused") Identifier node) {}
 
   public void visit(AbstractComprehension node) {
-    visitAll(node.getOutputExpressions());
-
     for (ListComprehension.Clause clause : node.getClauses()) {
+      visit(clause.getExpression());
       if (clause.getLValue() != null) {
         visit(clause.getLValue());
       }
-      visit(clause.getExpression());
     }
+    visitAll(node.getOutputExpressions());
   }
 
   public void visit(ForStatement node) {
-    visit(node.getVariable().getExpression());
     visit(node.getCollection());
-    visitAll(node.block());
+    visit(node.getVariable());
+    visitBlock(node.getBlock());
   }
 
   public void visit(LoadStatement node) {
@@ -98,8 +108,13 @@ public class SyntaxTreeVisitor {
   }
 
   public void visit(AssignmentStatement node) {
-    visit(node.getLValue());
     visit(node.getExpression());
+    visit(node.getLValue());
+  }
+
+  public void visit(AugmentedAssignmentStatement node) {
+    visit(node.getExpression());
+    visit(node.getLValue());
   }
 
   public void visit(ExpressionStatement node) {
@@ -108,22 +123,31 @@ public class SyntaxTreeVisitor {
 
   public void visit(IfStatement node) {
     visitAll(node.getThenBlocks());
-    visitAll(node.getElseBlock());
+    visitBlock(node.getElseBlock());
   }
 
   public void visit(ConditionalStatements node) {
     visit(node.getCondition());
-    visitAll(node.getStmts());
+    visitBlock(node.getStatements());
   }
 
   public void visit(FunctionDefStatement node) {
-    visit(node.getIdent());
-    visitAll(node.getParameters());
-    visitAll(node.getStatements());
+    visit(node.getIdentifier());
+    // Do not use visitAll for the parameters, because we would lose the type information.
+    // Inside the AST, we know that Parameters are using Expressions.
+    for (Parameter<Expression, Expression> param : node.getParameters()) {
+      visit(param);
+    }
+    visitBlock(node.getStatements());
   }
 
   public void visit(ReturnStatement node) {
-    visit(node.getReturnExpression());
+    if (node.getReturnExpression() != null) {
+      visit(node.getReturnExpression());
+    }
+  }
+
+  public void visit(FlowStatement node) {
   }
 
   public void visit(DictionaryLiteral node) {
@@ -135,12 +159,12 @@ public class SyntaxTreeVisitor {
     visit(node.getValue());
   }
 
-  public void visit(NotExpression node) {
-    visit(node.getExpression());
+  public void visit(UnaryOperatorExpression node) {
+    visit(node.getOperand());
   }
 
   public void visit(DotExpression node) {
-    visit(node.getObj());
+    visit(node.getObject());
     visit(node.getField());
   }
 
@@ -159,8 +183,8 @@ public class SyntaxTreeVisitor {
   public void visit(@SuppressWarnings("unused") Comment node) {}
 
   public void visit(ConditionalExpression node) {
-    visit(node.getThenCase());
     visit(node.getCondition());
+    visit(node.getThenCase());
     if (node.getElseCase() != null) {
       visit(node.getElseCase());
     }

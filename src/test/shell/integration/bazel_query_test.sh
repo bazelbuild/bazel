@@ -257,4 +257,47 @@ EOF
   expect_log "//peach:harken"
 }
 
+function test_location_output_not_allowed_with_buildfiles_or_loadfiles() {
+  mkdir foo
+  cat > foo/bzl.bzl <<EOF
+x = 2
+EOF
+  cat > foo/BUILD <<EOF
+load('//foo:bzl.bzl', 'x')
+sh_library(name='foo')
+EOF
+
+  bazel query 'buildfiles(//foo)' >& $TEST_log || fail "Expected success"
+  expect_log "//foo:bzl.bzl"
+  bazel query 'loadfiles(//foo)' >& $TEST_log || fail "Expected success"
+  expect_log "//foo:bzl.bzl"
+  bazel query --output=location '//foo' >& $TEST_log || fail "Expected success"
+  expect_log "//foo:foo"
+
+  local expected_error_msg="Query expressions involving 'buildfiles' or 'loadfiles' cannot be used with --output=location"
+  local expected_exit_code=2
+  for query_string in 'buildfiles(//foo)' 'loadfiles(//foo)'
+  do
+    bazel query --output=location "$query_string" >& $TEST_log \
+        && fail "Expected failure"
+    exit_code=$?
+    expect_log "$expected_error_msg"
+    assert_equals "$expected_exit_code" "$exit_code"
+  done
+}
+
+function test_subdirectory_named_external() {
+  mkdir -p foo/external foo/bar
+  cat > foo/external/BUILD <<EOF
+sh_library(name = 't1')
+EOF
+  cat > foo/bar/BUILD <<EOF
+sh_library(name = 't2')
+EOF
+
+  bazel query foo/... >& $TEST_log || fail "Expected success"
+  expect_log "//foo/external:t1"
+  expect_log "//foo/bar:t2"
+}
+
 run_suite "${PRODUCT_NAME} query tests"

@@ -17,12 +17,11 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.common.base.Objects;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.apache.maven.settings.Server;
-
 import java.util.Arrays;
+import org.apache.maven.settings.Server;
 
 /**
  * A Maven repository's identifier.
@@ -37,7 +36,7 @@ public class MavenServerValue implements SkyValue {
 
   public static SkyKey key(String serverName) {
     Preconditions.checkNotNull(serverName);
-    return SkyKey.create(MavenServerFunction.NAME, serverName);
+    return LegacySkyKey.create(MavenServerFunction.NAME, serverName);
   }
 
   public static MavenServerValue createFromUrl(String url) {

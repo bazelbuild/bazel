@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -61,11 +59,6 @@ public final class Sharder<T> implements Iterable<List<T>> {
 
   @Override
   public Iterator<List<T>> iterator() {
-    return Iterables.filter(shards, new Predicate<List<T>>() {
-      @Override
-      public boolean apply(List<T> list) {
-        return !list.isEmpty();
-      }
-    }).iterator();
+    return Iterables.filter(shards, list -> !list.isEmpty()).iterator();
   }
 }

@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -173,13 +176,12 @@ public class DeployArchiveBuilder {
     }
     args.add("--normalize");
     if (javaMainClass != null) {
-      args.add("--main_class");
-      args.add(javaMainClass);
+      args.add("--main_class", javaMainClass);
     }
 
     if (!deployManifestLines.isEmpty()) {
       args.add("--deploy_manifest_lines");
-      args.add(deployManifestLines);
+      args.addAll(deployManifestLines);
     }
 
     if (buildInfoFiles != null) {
@@ -191,12 +193,13 @@ public class DeployArchiveBuilder {
       args.add("--exclude_build_data");
     }
     if (launcher != null) {
-      args.add("--java_launcher");
-      args.add(launcher.getExecPathString());
+      args.addExecPath("--java_launcher", launcher);
     }
 
     args.addExecPaths("--classpath_resources", classpathResources);
-    args.addExecPaths("--sources", runtimeClasspath);
+    if (runtimeClasspath != null) {
+      args.addExecPaths("--sources", ImmutableList.copyOf(runtimeClasspath));
+    }
     return args;
   }
 
@@ -209,8 +212,9 @@ public class DeployArchiveBuilder {
       Function<Artifact, Artifact> derivedJarFunction) {
     IterablesChain.Builder<Artifact> inputs = IterablesChain.builder();
     inputs.add(
-        ImmutableList.copyOf(
-            Iterables.transform(attributes.getRuntimeClassPathForArchive(), derivedJarFunction)));
+        Streams.stream(attributes.getRuntimeClassPathForArchive())
+            .map(derivedJarFunction)
+            .collect(toImmutableList()));
     // TODO(bazel-team): Remove?  Resources not used as input to singlejar action
     inputs.add(ImmutableList.copyOf(attributes.getResources().values()));
     inputs.add(attributes.getClassPathResources());
@@ -237,7 +241,7 @@ public class DeployArchiveBuilder {
     IterablesChain.Builder<Artifact> inputs = IterablesChain.builder();
     inputs.add(getArchiveInputs(attributes, derivedJars));
 
-    inputs.add(ImmutableList.copyOf(Iterables.transform(runtimeJars, derivedJars)));
+    inputs.add(Streams.stream(runtimeJars).map(derivedJars).collect(toImmutableList()));
     if (runfilesMiddleman != null) {
       inputs.addElement(runfilesMiddleman);
     }
@@ -258,13 +262,13 @@ public class DeployArchiveBuilder {
         outputJar, javaStartClass, deployManifestLines, buildInfoArtifacts, classpathResources,
         runtimeClasspath, includeBuildData, compression, launcher);
 
-    List<String> jvmArgs = ImmutableList.of("-client", SINGLEJAR_MAX_MEMORY);
+    List<String> jvmArgs = ImmutableList.of(SINGLEJAR_MAX_MEMORY);
     ResourceSet resourceSet =
         ResourceSet.createWithRamCpuIo(/*memoryMb = */200.0, /*cpuUsage = */.2, /*ioUsage=*/.2);
 
     // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
-    // TODO(asmundak): once b/28640279 is fixed (that is, the native singlejar is released),
-    // eliminate this check, allowing only native singlejar.
+    // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
+    // the native singlejar is used on windows) remove support for the Java implementation
     Artifact singlejar = getSingleJar(ruleContext);
     if (singlejar.getFilename().endsWith(".jar")) {
       ruleContext.registerAction(
@@ -273,27 +277,23 @@ public class DeployArchiveBuilder {
               .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
               .addOutput(outputJar)
               .setResources(resourceSet)
-              .setJarExecutable(
-                  ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
-                  singlejar,
-                  jvmArgs)
+              .setJarExecutable(JavaCommon.getHostJavaExecutable(ruleContext), singlejar, jvmArgs)
               .setCommandLine(commandLine)
               .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
-              .setProgressMessage("Building deploy jar " + outputJar.prettyPrint())
+              .setProgressMessage("Building deploy jar %s", outputJar.prettyPrint())
               .setMnemonic("JavaDeployJar")
-              .setExecutionInfo(ImmutableMap.of("supports-workers", "1"))
+              .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
               .build(ruleContext));
     } else {
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .addInputs(inputs.build())
-              .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
               .addOutput(outputJar)
               .setResources(resourceSet)
               .setExecutable(singlejar)
               .setCommandLine(commandLine)
               .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
-              .setProgressMessage("Building deploy jar " + outputJar.prettyPrint())
+              .setProgressMessage("Building deploy jar %s", outputJar.prettyPrint())
               .setMnemonic("JavaDeployJar")
               .build(ruleContext));
     }

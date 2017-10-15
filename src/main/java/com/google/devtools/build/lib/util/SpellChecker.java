@@ -83,7 +83,7 @@ public final class SpellChecker {
   public static String suggest(String input, Iterable<String> words) {
     String best = null;
     // Heuristic: the expected number of typos depends on the length of the word.
-    int bestDistance = Math.min(5, input.length() / 2 + 1);
+    int bestDistance = Math.min(5, (input.length() + 1) / 2);
     input = input.toLowerCase();
     for (String candidate : words) {
       int d = editDistance(input, candidate.toLowerCase(), bestDistance);
@@ -93,5 +93,18 @@ public final class SpellChecker {
       }
     }
     return best;
+  }
+
+  /**
+   * Return a string to be used at the end of an error message. It is either an empty string, or a
+   * spelling suggestion, e.g. " (did you mean 'x'?)".
+   */
+  public static String didYouMean(String input, Iterable<String> words) {
+    String suggestion = suggest(input, words);
+    if (suggestion == null) {
+      return "";
+    } else {
+      return " (did you mean '" + suggestion + "'?)";
+    }
   }
 }

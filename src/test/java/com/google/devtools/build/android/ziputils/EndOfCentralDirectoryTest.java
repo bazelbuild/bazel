@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.ziputils;
 
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDDCD;
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDDSK;
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDOFF;
@@ -21,19 +22,15 @@ import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.E
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDSUB;
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDTOT;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.zip.ZipInputStream;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link EndOfCentralDirectory}.
- */
+/** Unit tests for {@link EndOfCentralDirectory}. */
 @RunWith(JUnit4.class)
 public class EndOfCentralDirectoryTest {
   @Test
@@ -52,10 +49,10 @@ public class EndOfCentralDirectoryTest {
     int expMark = (int) ZipInputStream.ENDSIG;
     int expSize = ZipInputStream.ENDHDR + comLength; // fixed + comment
     int expPos = 0;
-    assertEquals("not based at current position", expMark, view.get(ENDSIG));
-    assertEquals("Not slice with position 0", expPos, view.buffer.position());
-    assertEquals("Not sized with comment", expSize, view.getSize());
-    assertEquals("Not limited to size", expSize, view.buffer.limit());
+    assertWithMessage("not based at current position").that(view.get(ENDSIG)).isEqualTo(expMark);
+    assertWithMessage("Not slice with position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Not sized with comment").that(view.getSize()).isEqualTo(expSize);
+    assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
   }
 
   @Test
@@ -66,12 +63,12 @@ public class EndOfCentralDirectoryTest {
       String expComment = comment != null ? comment : "";
       EndOfCentralDirectory view = EndOfCentralDirectory.allocate(comment);
       String commentResult = view.getComment();
-      assertEquals("Incorrect comment", expComment, commentResult);
+      assertWithMessage("Incorrect comment").that(commentResult).isEqualTo(expComment);
       int expSize = ZipInputStream.ENDHDR + (comment != null ? comment.getBytes(UTF_8).length : 0);
       int expPos = 0;
-      assertEquals("Not at position 0", expPos, view.buffer.position());
-      assertEquals("Not sized correctly", expSize, view.getSize());
-      assertEquals("Not limited to size", expSize, view.buffer.limit());
+      assertWithMessage("Not at position 0").that(view.buffer.position()).isEqualTo(expPos);
+      assertWithMessage("Not sized correctly").that(view.getSize()).isEqualTo(expSize);
+      assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
     }
   }
 
@@ -88,11 +85,11 @@ public class EndOfCentralDirectoryTest {
     int expMark = (int) ZipInputStream.ENDSIG;
     int expSize = ZipInputStream.ENDHDR + comment.length();
     int expPos = 0;
-    assertEquals("not based at current position", expMark, view.get(ENDSIG));
-    assertEquals("Not slice with position 0", expPos, view.buffer.position());
-    assertEquals("Not sized with comment", expSize, view.getSize());
-    assertEquals("Not limited to size", expSize, view.buffer.limit());
-    assertEquals("Incorrect comment", comment, view.getComment());
+    assertWithMessage("not based at current position").that(view.get(ENDSIG)).isEqualTo(expMark);
+    assertWithMessage("Not slice with position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Not sized with comment").that(view.getSize()).isEqualTo(expSize);
+    assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
+    assertWithMessage("Incorrect comment").that(view.getComment()).isEqualTo(comment);
   }
 
   @Test
@@ -101,11 +98,11 @@ public class EndOfCentralDirectoryTest {
     EndOfCentralDirectory view = EndOfCentralDirectory.allocate("comment");
     view.copy(buffer);
     int expSize = view.getSize();
-    assertEquals("buffer not advanced as expected", expSize, buffer.position());
+    assertWithMessage("buffer not advanced as expected").that(buffer.position()).isEqualTo(expSize);
     buffer.position(0);
     EndOfCentralDirectory clone = EndOfCentralDirectory.viewOf(buffer);
-    assertEquals("Fail to copy mark", view.get(ENDSIG), clone.get(ENDSIG));
-    assertEquals("Fail to copy comment", view.getComment(), clone.getComment());
+    assertWithMessage("Fail to copy mark").that(clone.get(ENDSIG)).isEqualTo(view.get(ENDSIG));
+    assertWithMessage("Fail to copy comment").that(clone.getComment()).isEqualTo(view.getComment());
   }
 
   @Test
@@ -123,11 +120,13 @@ public class EndOfCentralDirectoryTest {
         .set(ENDDSK, disk)
         .set(ENDSUB, local)
         .set(ENDTOT, total);
-    assertEquals("Central directory start disk", cdDisk, view.get(ENDDCD));
-    assertEquals("Central directory file offset", cdOffset, view.get(ENDOFF));
-    assertEquals("Central directory size", cdSize, view.get(ENDSIZ));
-    assertEquals("This disk number", disk, view.get(ENDDSK));
-    assertEquals("Number of records on this disk", local, view.get(ENDSUB));
-    assertEquals("Total number of central directory records", total, view.get(ENDTOT));
+    assertWithMessage("Central directory start disk").that(view.get(ENDDCD)).isEqualTo(cdDisk);
+    assertWithMessage("Central directory file offset").that(view.get(ENDOFF)).isEqualTo(cdOffset);
+    assertWithMessage("Central directory size").that(view.get(ENDSIZ)).isEqualTo(cdSize);
+    assertWithMessage("This disk number").that(view.get(ENDDSK)).isEqualTo(disk);
+    assertWithMessage("Number of records on this disk").that(view.get(ENDSUB)).isEqualTo(local);
+    assertWithMessage("Total number of central directory records")
+        .that(view.get(ENDTOT))
+        .isEqualTo(total);
   }
 }

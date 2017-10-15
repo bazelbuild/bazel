@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 
 /**
  * Static singleton holder for the string interning pool.  Doesn't use {@link String#intern}
@@ -23,15 +22,7 @@ import com.google.common.collect.Interners;
  */
 public final class StringCanonicalizer {
 
-  private static final Interner<String> interner = Interners.newWeakInterner();
-
-  /** Functional interface, for use with e.g. transform */
-  public static final Function<String, String> INTERN = new Function<String, String>() {
-    @Override
-    public String apply(String x) {
-      return intern(x);
-    }
-  };
+  private static final Interner<String> interner = BlazeInterners.newWeakInterner();
 
   private StringCanonicalizer() {
   }

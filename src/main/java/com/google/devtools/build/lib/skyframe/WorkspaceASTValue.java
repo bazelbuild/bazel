@@ -17,9 +17,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.List;
 
 /**
@@ -57,7 +57,7 @@ public class WorkspaceASTValue implements SkyValue {
   }
 
   public static SkyKey key(RootedPath path) {
-    return SkyKey.create(SkyFunctions.WORKSPACE_AST, path);
+    return LegacySkyKey.create(SkyFunctions.WORKSPACE_AST, path);
   }
 }
 

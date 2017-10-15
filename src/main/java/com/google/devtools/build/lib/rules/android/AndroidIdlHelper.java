@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
+import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -125,6 +127,11 @@ public class AndroidIdlHelper {
     return getIdlParcelables(ruleContext);
   }
 
+  /** Returns the idl_preprocessed. */
+  public Collection<Artifact> getIdlPreprocessed() {
+    return getIdlPreprocessed(ruleContext);
+  }
+
   /**
    * Returns the generated Java sources created from the idl_srcs.
    */
@@ -150,6 +157,44 @@ public class AndroidIdlHelper {
   @Nullable
   public Artifact getIdlSourceJar() {
     return idlSourceJar;
+  }
+
+  public static boolean hasIdlSrcs(RuleContext ruleContext) {
+    return !getIdlSrcs(ruleContext).isEmpty();
+  }
+
+  /**
+   * Returns a new list with the idl libs added to the given list if necessary, or the same list.
+   */
+  public static ImmutableList<TransitiveInfoCollection> maybeAddSupportLibs(RuleContext ruleContext,
+      ImmutableList<TransitiveInfoCollection> deps) {
+    if (!hasIdlSrcs(ruleContext)) {
+      return deps;
+    }
+    TransitiveInfoCollection aidlLib = AndroidSdkProvider.fromRuleContext(ruleContext).getAidlLib();
+    if (aidlLib == null) {
+      return deps;
+    }
+    return ImmutableList.<TransitiveInfoCollection>builder()
+        .addAll(deps)
+        .add(aidlLib)
+        .build();
+  }
+
+  public static void maybeAddSupportLibProguardConfigs(RuleContext ruleContext,
+      NestedSetBuilder<Artifact> proguardConfigsBuilder) {
+    if (!hasIdlSrcs(ruleContext)) {
+      return;
+    }
+    TransitiveInfoCollection aidlLib = AndroidSdkProvider.fromRuleContext(ruleContext).getAidlLib();
+    if (aidlLib == null) {
+      return;
+    }
+    ProguardSpecProvider provider = aidlLib.getProvider(ProguardSpecProvider.class);
+    if (provider == null) {
+      return;
+    }
+    proguardConfigsBuilder.addTransitive(provider.getTransitiveProguardSpecs());
   }
 
   /**
@@ -216,7 +261,7 @@ public class AndroidIdlHelper {
       // Reconstruct the package tree under <rule>_aidl to avoid a name conflict
       // if the same AIDL files are used in multiple targets.
       PathFragment javaOutputPath = FileSystemUtils.replaceExtension(
-          new PathFragment(ruleName + "_aidl").getRelative(idl.getRootRelativePath()),
+          PathFragment.create(ruleName + "_aidl").getRelative(idl.getRootRelativePath()),
           ".java");
       Artifact output = ruleContext.getGenfilesArtifact(javaOutputPath.getPathString());
       outputJavaSources.put(idl, output);
@@ -243,8 +288,11 @@ public class AndroidIdlHelper {
     for (String idlImport : transitiveIdlImportData.getTransitiveIdlImportRoots()) {
       preprocessedArgs.add("-I" + idlImport);
     }
-
+    // add preprocessed aidl files
     preprocessedArgs.add("-p" + sdk.getFrameworkAidl().getExecPathString());
+    for (Artifact idlPreprocessed : transitiveIdlImportData.getTransitiveIdlPreprocessed()) {
+      preprocessedArgs.add("-p" + idlPreprocessed.getExecPathString());
+    }
 
     for (Entry<Artifact, Artifact> entry : translatedIdlSources.entrySet()) {
       createAndroidIdlAction(ruleContext, entry.getKey(),
@@ -277,25 +325,28 @@ public class AndroidIdlHelper {
         .getExecPath()
         .getRelative(ruleContext.getUniqueDirectory("_idl"))
         .getRelative(basename + "_temp");
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInput(manifestProtoOutput)
-        .addInput(classJar)
-        .addInputs(generatedIdlJavaFiles)
-        .addOutput(idlClassJar)
-        .addOutput(idlSourceJar)
-        .setExecutable(ruleContext.getExecutablePrerequisite("$idlclass", Mode.HOST))
-        .setCommandLine(CustomCommandLine.builder()
-            .addExecPath("--manifest_proto", manifestProtoOutput)
-            .addExecPath("--class_jar", classJar)
-            .addExecPath("--output_class_jar", idlClassJar)
-            .addExecPath("--output_source_jar", idlSourceJar)
-            .add("--temp_dir").addPath(idlTempDir)
-            .addExecPaths(generatedIdlJavaFiles)
-            .build())
-        .useParameterFile(ParameterFileType.SHELL_QUOTED)
-        .setProgressMessage("Building idl jars " + idlClassJar.prettyPrint())
-        .setMnemonic("AndroidIdlJars")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(manifestProtoOutput)
+            .addInput(classJar)
+            .addInputs(generatedIdlJavaFiles)
+            .addOutput(idlClassJar)
+            .addOutput(idlSourceJar)
+            .setExecutable(ruleContext.getExecutablePrerequisite("$idlclass", Mode.HOST))
+            .setCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath("--manifest_proto", manifestProtoOutput)
+                    .addExecPath("--class_jar", classJar)
+                    .addExecPath("--output_class_jar", idlClassJar)
+                    .addExecPath("--output_source_jar", idlSourceJar)
+                    .add("--temp_dir")
+                    .addPath(idlTempDir)
+                    .addExecPaths(ImmutableList.copyOf(generatedIdlJavaFiles))
+                    .build())
+            .useParameterFile(ParameterFileType.SHELL_QUOTED)
+            .setProgressMessage("Building idl jars %s", idlClassJar.prettyPrint())
+            .setMnemonic("AndroidIdlJars")
+            .build(ruleContext));
   }
 
   /**
@@ -311,19 +362,24 @@ public class AndroidIdlHelper {
       Artifact idl, NestedSet<Artifact> idlImports,
       Artifact output, List<String> importArgs) {
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .setExecutable(sdk.getAidl())
-        .addInput(idl)
-        .addTransitiveInputs(idlImports)
-        .addInput(sdk.getFrameworkAidl())
-        .addOutput(output)
-        .addArgument("-b") // Fail if trying to compile a parcelable.
-        .addArguments(importArgs)
-        .addArgument(idl.getExecPathString())
-        .addArgument(output.getExecPathString())
-        .setProgressMessage("Android IDL generation")
-        .setMnemonic("AndroidIDLGnerate")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .setExecutable(sdk.getAidl())
+            .addInput(idl)
+            .addTransitiveInputs(idlImports)
+            .addInput(sdk.getFrameworkAidl())
+            .addInputs(getIdlPreprocessed(ruleContext))
+            .addOutput(output)
+            .setProgressMessage("Android IDL generation")
+            .setMnemonic("AndroidIDLGenerate")
+            .setCommandLine(
+                CustomCommandLine.builder()
+                    .add("-b") // Fail if trying to compile a parcelable.
+                    .addAll(importArgs)
+                    .addExecPath(idl)
+                    .addExecPath(output)
+                    .build())
+            .build(ruleContext));
   }
 
   /**
@@ -334,6 +390,7 @@ public class AndroidIdlHelper {
     return ImmutableList.<Artifact>builder()
         .addAll(getIdlParcelables(ruleContext))
         .addAll(getIdlSrcs(ruleContext))
+        .addAll(getIdlPreprocessed(ruleContext))
         .build();
   }
 
@@ -353,6 +410,7 @@ public class AndroidIdlHelper {
     NestedSetBuilder<String> rootsBuilder = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> importsBuilder = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> jarsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> preprocessedBuilder = NestedSetBuilder.naiveLinkOrder();
     if (idlClassJar != null) {
       jarsBuilder.add(idlClassJar);
     }
@@ -364,6 +422,7 @@ public class AndroidIdlHelper {
         ruleContext, Mode.TARGET, AndroidIdlProvider.class)) {
       rootsBuilder.addTransitive(dep.getTransitiveIdlImportRoots());
       importsBuilder.addTransitive(dep.getTransitiveIdlImports());
+      preprocessedBuilder.addTransitive(dep.getTransitiveIdlPreprocessed());
       jarsBuilder.addTransitive(dep.getTransitiveIdlJars());
     }
 
@@ -392,8 +451,14 @@ public class AndroidIdlHelper {
     }
     importsBuilder.addAll(idlImports);
 
+    Collection<Artifact> idlPreprocessed = getIdlPreprocessed(ruleContext);
+    preprocessedBuilder.addAll(idlPreprocessed);
+
     return AndroidIdlProvider.create(
-        rootsBuilder.build(), importsBuilder.build(), jarsBuilder.build());
+        rootsBuilder.build(),
+        importsBuilder.build(),
+        jarsBuilder.build(),
+        preprocessedBuilder.build());
   }
 
   /**
@@ -419,5 +484,15 @@ public class AndroidIdlHelper {
 
   private static String getIdlImportRoot(RuleContext ruleContext) {
     return ruleContext.attributes().get("idl_import_root", Type.STRING);
+  }
+
+  /** Returns the idl_preprocessed defined on the given rule. */
+  private static Collection<Artifact> getIdlPreprocessed(RuleContext ruleContext) {
+    return ruleContext.isAttrDefined("idl_preprocessed", BuildType.LABEL_LIST)
+        ? ruleContext
+            .getPrerequisiteArtifacts("idl_preprocessed", Mode.TARGET)
+            .filter(AndroidRuleClasses.ANDROID_IDL)
+            .list()
+        : ImmutableList.<Artifact>of();
   }
 }

@@ -12,40 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef LINUX_SANDBOX_OPTIONS_H__
-#define LINUX_SANDBOX_OPTIONS_H__
+#ifndef SRC_MAIN_TOOLS_LINUX_SANDBOX_OPTIONS_H_
+#define SRC_MAIN_TOOLS_LINUX_SANDBOX_OPTIONS_H_
 
 #include <stdbool.h>
 #include <stddef.h>
-
+#include <string>
 #include <vector>
 
 // Options parsing result.
 struct Options {
-  // Temporary root directory (-S)
-  const char *sandbox_root_dir;
   // Working directory (-W)
-  const char *working_dir;
+  std::string working_dir;
   // How long to wait before killing the child (-T)
   int timeout_secs;
   // How long to wait before sending SIGKILL in case of timeout (-t)
   int kill_delay_secs;
   // Where to redirect stdout (-l)
-  const char *stdout_path;
+  std::string stdout_path;
   // Where to redirect stderr (-L)
-  const char *stderr_path;
+  std::string stderr_path;
   // Files or directories to make writable for the sandboxed process (-w)
-  std::vector<const char *> writable_files;
-  // Files or directories to make inaccessible for the sandboxed process (-i)
-  std::vector<const char *> inaccessible_files;
+  std::vector<std::string> writable_files;
   // Directories where to mount an empty tmpfs (-e)
-  std::vector<const char *> tmpfs_dirs;
-  // Files or directories to explicitly bind mount into the sandbox (-b)
-  std::vector<const char *> bind_mounts;
+  std::vector<std::string> tmpfs_dirs;
+  // Source of files or directories to explicitly bind mount in the sandbox (-M)
+  std::vector<std::string> bind_mount_sources;
+  // Target of files or directories to explicitly bind mount in the sandbox (-m)
+  std::vector<std::string> bind_mount_targets;
+  // Set the hostname inside the sandbox to 'localhost' (-H)
+  bool fake_hostname;
   // Create a new network namespace (-N)
   bool create_netns;
   // Pretend to be root inside the namespace (-R)
   bool fake_root;
+  // Set the username inside the sandbox to 'nobody' (-U)
+  bool fake_username;
   // Print debugging messages (-D)
   bool debug;
   // Command to run (--)
@@ -54,6 +56,7 @@ struct Options {
 
 extern struct Options opt;
 
+// Handles parsing all command line flags and populates the global opt struct.
 void ParseOptions(int argc, char *argv[]);
 
 #endif

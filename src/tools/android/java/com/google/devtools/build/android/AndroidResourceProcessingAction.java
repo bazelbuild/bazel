@@ -19,10 +19,11 @@ import com.android.ide.common.internal.LoggedErrorException;
 import com.android.ide.common.internal.PngCruncher;
 import com.android.ide.common.process.DefaultProcessExecutor;
 import com.android.ide.common.process.LoggedProcessOutputHandler;
-import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOptions;
 import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
@@ -30,13 +31,18 @@ import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.TriState;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -71,136 +77,250 @@ public class AndroidResourceProcessingAction {
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
-    @Option(name = "primaryData",
-        defaultValue = "null",
-        converter = UnvalidatedAndroidDataConverter.class,
-        category = "input",
-        help = "The directory containing the primary resource directory. The contents will override"
-            + " the contents of any other resource directories during merging. The expected format"
-            + " is " + UnvalidatedAndroidData.EXPECTED_FORMAT)
+    @Option(
+      name = "primaryData",
+      defaultValue = "null",
+      converter = UnvalidatedAndroidDataConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The directory containing the primary resource directory. The contents will override "
+              + "the contents of any other resource directories during merging. The expected "
+              + "format is "
+              + UnvalidatedAndroidData.EXPECTED_FORMAT
+    )
     public UnvalidatedAndroidData primaryData;
 
-    @Option(name = "data",
-        defaultValue = "",
-        converter = DependencyAndroidDataListConverter.class,
-        category = "input",
-        help = "Transitive Data dependencies. These values will be used if not defined in the "
-            + "primary resources. The expected format is "
-            + DependencyAndroidData.EXPECTED_FORMAT
-            + "[,...]")
+    @Option(
+      name = "data",
+      defaultValue = "",
+      converter = DependencyAndroidDataListConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Transitive Data dependencies. These values will be used if not defined in the "
+              + "primary resources. The expected format is "
+              + DependencyAndroidData.EXPECTED_FORMAT
+              + "[,...]"
+    )
     public List<DependencyAndroidData> transitiveData;
 
-    @Option(name = "directData",
-        defaultValue = "",
-        converter = DependencyAndroidDataListConverter.class,
-        category = "input",
-        help = "Direct Data dependencies. These values will be used if not defined in the "
-            + "primary resources. The expected format is "
-            + DependencyAndroidData.EXPECTED_FORMAT
-            + "[,...]")
+    @Option(
+      name = "directData",
+      defaultValue = "",
+      converter = DependencyAndroidDataListConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Direct Data dependencies. These values will be used if not defined in the "
+              + "primary resources. The expected format is "
+              + DependencyAndroidData.EXPECTED_FORMAT
+              + "[,...]"
+    )
     public List<DependencyAndroidData> directData;
 
-    @Option(name = "rOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to where the R.txt should be written.")
+    @Option(
+      name = "rOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where the R.txt should be written."
+    )
     public Path rOutput;
 
-    @Option(name = "symbolsTxtOut",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to where the symbolsTxt should be written.")
-    public Path symbolsTxtOut;
+    @Option(
+      name = "symbolsOut",
+      oldName = "symbolsTxtOut",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where the symbols should be written."
+    )
+    public Path symbolsOut;
 
-    @Option(name = "dataBindingInfoOut",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to where data binding's layout info output should be written.")
+    @Option(
+      name = "dataBindingInfoOut",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where data binding's layout info output should be written."
+    )
     public Path dataBindingInfoOut;
 
-    @Option(name = "packagePath",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to the write the archive.")
+    @Option(
+      name = "packagePath",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the write the archive."
+    )
     public Path packagePath;
 
-    @Option(name = "resourcesOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to the write merged resources archive.")
+    @Option(
+      name = "resourcesOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the write merged resources archive."
+    )
     public Path resourcesOutput;
 
-    @Option(name = "proguardOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the proguard file.")
+    @Option(
+      name = "proguardOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the proguard file."
+    )
     public Path proguardOutput;
 
-    @Option(name = "mainDexProguardOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the main dex proguard file.")
+    @Option(
+      name = "mainDexProguardOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the main dex proguard file."
+    )
     public Path mainDexProguardOutput;
 
-    @Option(name = "manifestOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the modified manifest.")
+    @Option(
+      name = "manifestOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the modified manifest."
+    )
     public Path manifestOutput;
 
-    @Option(name = "srcJarOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the generated java source jar.")
+    @Option(
+      name = "srcJarOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the generated java source jar."
+    )
     public Path srcJarOutput;
 
-    @Option(name = "packageType",
-        defaultValue = "DEFAULT",
-        converter = VariantTypeConverter.class,
-        category = "config",
-        help = "Variant configuration type for packaging the resources."
-            + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
+    @Option(
+      name = "packageType",
+      defaultValue = "DEFAULT",
+      converter = VariantTypeConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Variant configuration type for packaging the resources."
+              + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST"
+    )
     public VariantType packageType;
 
-    @Option(name = "densities",
-        defaultValue = "",
-        converter = CommaSeparatedOptionListConverter.class,
-        category = "config",
-        help = "A list of densities to filter the resource drawables by.")
+    @Option(
+      name = "densities",
+      defaultValue = "",
+      converter = CommaSeparatedOptionListConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A list of densities to filter the resource drawables by."
+    )
     public List<String> densities;
 
-    @Option(name = "packageForR",
-        defaultValue = "null",
-        category = "config",
-        help = "Custom java package to generate the R symbols files.")
+    @Option(
+      name = "densitiesForManifest",
+      defaultValue = "",
+      converter = CommaSeparatedOptionListConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Densities to specify in the manifest. If 'densities' is specified, that value will be"
+              + " used instead and this flag will be ignored. However, if resources were filtered"
+              + " in analysis, this flag can be used to specify densities in the manifest without"
+              + " repeating the filtering process."
+    )
+    public List<String> densitiesForManifest;
+
+    @Option(
+      name = "packageForR",
+      defaultValue = "null",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Custom java package to generate the R symbols files."
+    )
     public String packageForR;
 
-    @Option(name = "applicationId",
-        defaultValue = "null",
-        category = "config",
-        help = "Custom application id (package manifest) for the packaged manifest.")
+    @Option(
+      name = "applicationId",
+      defaultValue = "null",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Custom application id (package manifest) for the packaged manifest."
+    )
     public String applicationId;
 
-    @Option(name = "versionName",
-        defaultValue = "null",
-        category = "config",
-        help = "Version name to stamp into the packaged manifest.")
+    @Option(
+      name = "versionName",
+      defaultValue = "null",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Version name to stamp into the packaged manifest."
+    )
     public String versionName;
 
-    @Option(name = "versionCode",
-        defaultValue = "-1",
-        category = "config",
-        help = "Version code to stamp into the packaged manifest.")
+    @Option(
+      name = "versionCode",
+      defaultValue = "-1",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Version code to stamp into the packaged manifest."
+    )
     public int versionCode;
+
+    @Option(
+      name = "prefilteredResources",
+      defaultValue = "",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A list of resources that were filtered out in analysis."
+    )
+    public List<String> prefilteredResources;
+
+    @Option(
+      name = "throwOnResourceConflict",
+      defaultValue = "false",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
+    )
+    public boolean throwOnResourceConflict;
   }
 
   private static AaptConfigOptions aaptConfigOptions;
@@ -210,6 +330,7 @@ public class AndroidResourceProcessingAction {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser = OptionsParser.newOptionsParser(
         Options.class, AaptConfigOptions.class);
+    optionsParser.enableParamsFileSupport(FileSystems.getDefault());
     optionsParser.parseAndExitUponError(args);
     aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     options = optionsParser.getOptions(Options.class);
@@ -228,7 +349,7 @@ public class AndroidResourceProcessingAction {
       Path generatedSources = null;
       if (options.srcJarOutput != null
           || options.rOutput != null
-          || options.symbolsTxtOut != null) {
+          || options.symbolsOut != null) {
         generatedSources = tmp.resolve("generated_resources");
       }
 
@@ -242,7 +363,7 @@ public class AndroidResourceProcessingAction {
               .asList();
 
       final MergedAndroidData mergedData =
-          resourceProcessor.mergeData(
+          AndroidResourceMerger.mergeData(
               options.primaryData,
               options.directData,
               options.transitiveData,
@@ -250,33 +371,45 @@ public class AndroidResourceProcessingAction {
               mergedAssets,
               selectPngCruncher(),
               options.packageType,
-              options.symbolsTxtOut);
+              options.symbolsOut,
+              options.prefilteredResources,
+              options.throwOnResourceConflict);
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+
+      final List<String> densitiesToFilter =
+          options.prefilteredResources.isEmpty()
+              ? options.densities
+              : Collections.<String>emptyList();
+      final List<String> densitiesForManifest =
+          densitiesToFilter.isEmpty()
+              ? options.densitiesForManifest
+              : densitiesToFilter;
 
       final DensityFilteredAndroidData filteredData =
           mergedData.filter(
               new DensitySpecificResourceFilter(
-                  options.densities, filteredResources, mergedResources),
-              new DensitySpecificManifestProcessor(options.densities, densityManifest));
+                  densitiesToFilter, filteredResources, mergedResources),
+              new DensitySpecificManifestProcessor(densitiesForManifest, densityManifest));
 
       logger.fine(
           String.format(
               "Density filtering finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       MergedAndroidData processedData =
-          resourceProcessor.processManifest(
-              options.packageType,
-              options.packageForR,
-              options.applicationId,
-              options.versionCode,
-              options.versionName,
-              filteredData,
-              processedManifest);
+          AndroidManifestProcessor.with(STD_LOGGER)
+              .processManifest(
+                  options.packageType,
+                  options.packageForR,
+                  options.applicationId,
+                  options.versionCode,
+                  options.versionName,
+                  filteredData,
+                  processedManifest);
 
       // Write manifestOutput now before the dummy manifest is created.
       if (options.manifestOutput != null) {
-        resourceProcessor.copyManifestToOutput(processedData, options.manifestOutput);
+        AndroidResourceOutputs.copyManifestToOutput(processedData, options.manifestOutput);
       }
 
       if (options.packageType == VariantType.LIBRARY) {
@@ -288,6 +421,7 @@ public class AndroidResourceProcessingAction {
       }
 
       resourceProcessor.processResources(
+          tmp,
           aaptConfigOptions.aapt,
           aaptConfigOptions.androidJar,
           aaptConfigOptions.buildToolsVersion,
@@ -310,19 +444,15 @@ public class AndroidResourceProcessingAction {
       logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       if (options.srcJarOutput != null) {
-        resourceProcessor.createSrcJar(
-            generatedSources,
-            options.srcJarOutput,
-            VariantType.LIBRARY == options.packageType);
+        AndroidResourceOutputs.createSrcJar(
+            generatedSources, options.srcJarOutput, VariantType.LIBRARY == options.packageType);
       }
       if (options.rOutput != null) {
-        resourceProcessor.copyRToOutput(
-            generatedSources,
-            options.rOutput,
-            VariantType.LIBRARY == options.packageType);
+        AndroidResourceOutputs.copyRToOutput(
+            generatedSources, options.rOutput, VariantType.LIBRARY == options.packageType);
       }
       if (options.resourcesOutput != null) {
-        resourceProcessor.createResourcesZip(
+        AndroidResourceOutputs.createResourcesZip(
             processedData.getResourceDir(),
             processedData.getAssetDir(),
             options.resourcesOutput,
@@ -330,6 +460,9 @@ public class AndroidResourceProcessingAction {
       }
       logger.fine(
           String.format("Packaging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+    } catch (MergeConflictException e) {
+      logger.severe(e.getMessage());
+      System.exit(1);
     } catch (MergingException e) {
       logger.log(java.util.logging.Level.SEVERE, "Error during merging resources", e);
       throw e;
@@ -339,6 +472,8 @@ public class AndroidResourceProcessingAction {
         | UnrecognizedSplitsException e) {
       logger.log(java.util.logging.Level.SEVERE, "Error during processing resources", e);
       throw e;
+    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
+      System.exit(1);
     } catch (Exception e) {
       logger.log(java.util.logging.Level.SEVERE, "Unexpected", e);
       throw e;

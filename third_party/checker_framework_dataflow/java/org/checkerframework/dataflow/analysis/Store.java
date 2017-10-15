@@ -1,7 +1,5 @@
 package org.checkerframework.dataflow.analysis;
 
-import org.checkerframework.dataflow.cfg.CFGVisualizer;
-
 /**
  * A store is used to keep track of the information that the org.checkerframework.dataflow analysis
  * has accumulated at any given point in time.
@@ -26,7 +24,7 @@ public interface Store<S extends Store<S>> {
         BOTH
     }
 
-    /** A flow rule describes how stores flow along one edge between basic blocks. */
+    // A flow rule describes how stores flow along one edge between basic blocks.
     public static enum FlowRule {
         EACH_TO_EACH,       // The normal case, then store flows to the then store
                             // and else store flows to the else store.
@@ -36,7 +34,7 @@ public interface Store<S extends Store<S>> {
         ELSE_TO_ELSE,       // Else store flows to the else of successor.  Then store is ignored.
     }
 
-    /** @return an exact copy of this store. */
+    /** @return An exact copy of this store. */
     S copy();
 
     /**
@@ -64,10 +62,9 @@ public interface Store<S extends Store<S>> {
     boolean canAlias(FlowExpressions.Receiver a,
                      FlowExpressions.Receiver b);
 
-    /**
-     * Delegate visualization responsibility to a visualizer.
-     *
-     * @param viz the visualizer to visualize this store
-     */
-    void visualize(CFGVisualizer<?, S, ?> viz);
+    /** @return Whether the Store supports DOT graph output. */
+    boolean hasDOToutput();
+
+    /** @return The store encoded as a DOT graph for visualization. */
+    String toDOToutput();
 }

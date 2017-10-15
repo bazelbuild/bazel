@@ -21,12 +21,12 @@ import org.checkerframework.dataflow.cfg.node.Node;
 public interface RegularBlock extends SingleSuccessorBlock {
 
     /**
-     * @return the unmodifiable sequence of {@link Node}s.
+     * @return The unmodifiable sequence of {@link Node}s.
      */
     List<Node> getContents();
 
     /**
-     * @return the regular successor block
+     * @return The regular successor block.
      */
     Block getRegularSuccessor();
 

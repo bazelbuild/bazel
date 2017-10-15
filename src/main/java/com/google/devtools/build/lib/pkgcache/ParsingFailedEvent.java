@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+
 /**
  * This event is fired when a target or target pattern fails to parse.
  * In some cases (not all) this happens before targets are created,
  * and thus in these cases there are no status lines.
  * Therefore, the parse failure is reported separately.
  */
-public class ParsingFailedEvent {
+public class ParsingFailedEvent implements ExtendedEventHandler.Postable {
   private final String targetPattern;
   private final String message;
 

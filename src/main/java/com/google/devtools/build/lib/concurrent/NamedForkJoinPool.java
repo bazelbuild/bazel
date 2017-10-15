@@ -50,9 +50,7 @@ public class NamedForkJoinPool extends ForkJoinPool {
     private final String nameFormat;
     private final AtomicLong nextUnusedThreadIndex = new AtomicLong(0L);
 
-    public NamedForkJoinWorkerThreadFactory(String nameFormat) {
-      // Fail fast if nameFormat is bad.
-      String ignored = String.format(nameFormat, 0L);
+    NamedForkJoinWorkerThreadFactory(String nameFormat) {
       this.nameFormat = nameFormat;
     }
 

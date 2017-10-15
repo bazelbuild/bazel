@@ -13,38 +13,36 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import static com.google.devtools.common.options.OptionsParserImpl.findConverter;
-
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableList;
 import com.google.common.escape.Escaper;
-
-import java.lang.reflect.Field;
 import java.text.BreakIterator;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
-/**
- * A renderer for usage messages. For now this is very simple.
- */
+/** A renderer for usage messages for any combination of options classes. */
 class OptionsUsage {
 
   private static final Splitter NEWLINE_SPLITTER = Splitter.on('\n');
   private static final Joiner COMMA_JOINER = Joiner.on(",");
 
   /**
-   * Given an options class, render the usage string into the usage,
-   * which is passed in as an argument.
+   * Given an options class, render the usage string into the usage, which is passed in as an
+   * argument. This will not include information about expansions for options using expansion
+   * functions (it would be unsafe to report this as we cannot know what options from other {@link
+   * OptionsBase} subclasses they depend on until a complete parser is constructed).
    */
   static void getUsage(Class<? extends OptionsBase> optionsClass, StringBuilder usage) {
-    List<Field> optionFields =
-        Lists.newArrayList(OptionsParser.getAllAnnotatedFields(optionsClass));
-    Collections.sort(optionFields, BY_NAME);
-    for (Field optionField : optionFields) {
-      getUsage(optionField, usage, OptionsParser.HelpVerbosity.LONG);
+    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
+    List<OptionDefinition> optionDefinitions =
+        new ArrayList<>(OptionsData.getAllOptionDefinitionsForClass(optionsClass));
+    optionDefinitions.sort(OptionDefinition.BY_OPTION_NAME);
+    for (OptionDefinition optionDefinition : optionDefinitions) {
+      getUsage(optionDefinition, usage, OptionsParser.HelpVerbosity.LONG, data);
     }
   }
 
@@ -57,6 +55,8 @@ class OptionsUsage {
     StringBuilder out = new StringBuilder();
     String sep = "";
     for (String paragraph : NEWLINE_SPLITTER.split(in)) {
+      // TODO(ccalvarin) break iterators expect hyphenated words to be line-breakable, which looks
+      // funny for --flag
       BreakIterator boundary = BreakIterator.getLineInstance(); // (factory)
       boundary.setText(paragraph);
       out.append(sep).append(indentString);
@@ -79,32 +79,49 @@ class OptionsUsage {
   }
 
   /**
-   * Append the usage message for a single option-field message to 'usage'.
+   * Returns the expansion for an option, if any, regardless of if the expansion is from a function
+   * or is statically declared in the annotation.
    */
-  static void getUsage(Field optionField, StringBuilder usage,
-                       OptionsParser.HelpVerbosity helpVerbosity) {
-    String flagName = getFlagName(optionField);
-    String typeDescription = getTypeDescription(optionField);
-    Option annotation = optionField.getAnnotation(Option.class);
-    usage.append("  --" + flagName);
+  private static @Nullable ImmutableList<String> getExpansionIfKnown(
+      OptionDefinition optionDefinition, OptionsData optionsData) {
+    Preconditions.checkNotNull(optionDefinition);
+    try {
+      return optionsData.getEvaluatedExpansion(optionDefinition, null);
+    } catch (ExpansionNeedsValueException e) {
+      return null;
+    } catch (OptionsParsingException e) {
+      throw new IllegalStateException("Error expanding void expansion function: ", e);
+    }
+
+  }
+
+  /** Appends the usage message for a single option-field message to 'usage'. */
+  static void getUsage(
+      OptionDefinition optionDefinition,
+      StringBuilder usage,
+      OptionsParser.HelpVerbosity helpVerbosity,
+      OptionsData optionsData) {
+    String flagName = getFlagName(optionDefinition);
+    String typeDescription = getTypeDescription(optionDefinition);
+    usage.append("  --").append(flagName);
     if (helpVerbosity == OptionsParser.HelpVerbosity.SHORT) { // just the name
       usage.append('\n');
       return;
     }
-    if (annotation.abbrev() != '\0') {
-      usage.append(" [-").append(annotation.abbrev()).append(']');
+    if (optionDefinition.getAbbreviation() != '\0') {
+      usage.append(" [-").append(optionDefinition.getAbbreviation()).append(']');
     }
     if (!typeDescription.equals("")) {
-      usage.append(" (" + typeDescription + "; ");
-      if (annotation.allowMultiple()) {
+      usage.append(" (").append(typeDescription).append("; ");
+      if (optionDefinition.allowsMultiple()) {
         usage.append("may be used multiple times");
       } else {
         // Don't call the annotation directly (we must allow overrides to certain defaults)
-        String defaultValueString = OptionsParserImpl.getDefaultOptionString(optionField);
-        if (OptionsParserImpl.isSpecialNullDefault(defaultValueString, optionField)) {
+        String defaultValueString = optionDefinition.getUnparsedDefaultValue();
+        if (optionDefinition.isSpecialNullDefault()) {
           usage.append("default: see description");
         } else {
-          usage.append("default: \"" + defaultValueString + "\"");
+          usage.append("default: \"").append(defaultValueString).append("\"");
         }
       }
       usage.append(")");
@@ -113,33 +130,45 @@ class OptionsUsage {
     if (helpVerbosity == OptionsParser.HelpVerbosity.MEDIUM) { // just the name and type.
       return;
     }
-    if (!annotation.help().equals("")) {
-      usage.append(paragraphFill(annotation.help(), 4, 80)); // (indent, width)
+    if (!optionDefinition.getHelpText().isEmpty()) {
+      usage.append(paragraphFill(optionDefinition.getHelpText(), /*indent=*/ 4, /*width=*/ 80));
       usage.append('\n');
     }
-    if (annotation.expansion().length > 0) {
+    ImmutableList<String> expansion = getExpansionIfKnown(optionDefinition, optionsData);
+    if (expansion == null) {
+      usage.append(paragraphFill("Expands to unknown options.", /*indent=*/ 6, /*width=*/ 80));
+      usage.append('\n');
+    } else if (!expansion.isEmpty()) {
       StringBuilder expandsMsg = new StringBuilder("Expands to: ");
-      for (String exp : annotation.expansion()) {
+      for (String exp : expansion) {
         expandsMsg.append(exp).append(" ");
       }
-      usage.append(paragraphFill(expandsMsg.toString(), 4, 80)); // (indent, width)
+      usage.append(paragraphFill(expandsMsg.toString(), /*indent=*/ 6, /*width=*/ 80));
+      usage.append('\n');
+    }
+    if (optionDefinition.getImplicitRequirements().length > 0) {
+      StringBuilder requiredMsg = new StringBuilder("Using this option will also add: ");
+      for (String req : optionDefinition.getImplicitRequirements()) {
+        requiredMsg.append(req).append(" ");
+      }
+      usage.append(paragraphFill(requiredMsg.toString(), /*indent=*/ 6, /*width=*/ 80));
       usage.append('\n');
     }
   }
 
-  /**
-   * Append the usage message for a single option-field message to 'usage'.
-   */
-  static void getUsageHtml(Field optionField, StringBuilder usage, Escaper escaper) {
-    String plainFlagName = optionField.getAnnotation(Option.class).name();
-    String flagName = getFlagName(optionField);
-    String valueDescription = optionField.getAnnotation(Option.class).valueHelp();
-    String typeDescription = getTypeDescription(optionField);
-    Option annotation = optionField.getAnnotation(Option.class);
+  /** Append the usage message for a single option-field message to 'usage'. */
+  static void getUsageHtml(
+      OptionDefinition optionDefinition,
+      StringBuilder usage,
+      Escaper escaper,
+      OptionsData optionsData) {
+    String plainFlagName = optionDefinition.getOptionName();
+    String flagName = getFlagName(optionDefinition);
+    String valueDescription = optionDefinition.getValueTypeHelpText();
+    String typeDescription = getTypeDescription(optionDefinition);
     usage.append("<dt><code><a name=\"flag--").append(plainFlagName).append("\"></a>--");
     usage.append(flagName);
-    if (OptionsParserImpl.isBooleanField(optionField)
-        || OptionsParserImpl.isVoidField(optionField)) {
+    if (optionDefinition.isBooleanField() || optionDefinition.isVoidField()) {
       // Nothing for boolean, tristate, boolean_or_enum, or void options.
     } else if (!valueDescription.isEmpty()) {
       usage.append("=").append(escaper.escape(valueDescription));
@@ -148,18 +177,18 @@ class OptionsUsage {
       usage.append("=&lt;").append(escaper.escape(typeDescription)).append("&gt");
     }
     usage.append("</code>");
-    if (annotation.abbrev() != '\0') {
-      usage.append(" [<code>-").append(annotation.abbrev()).append("</code>]");
+    if (optionDefinition.getAbbreviation() != '\0') {
+      usage.append(" [<code>-").append(optionDefinition.getAbbreviation()).append("</code>]");
     }
-    if (annotation.allowMultiple()) {
+    if (optionDefinition.allowsMultiple()) {
       // Allow-multiple options can't have a default value.
       usage.append(" multiple uses are accumulated");
     } else {
       // Don't call the annotation directly (we must allow overrides to certain defaults).
-      String defaultValueString = OptionsParserImpl.getDefaultOptionString(optionField);
-      if (OptionsParserImpl.isVoidField(optionField)) {
+      String defaultValueString = optionDefinition.getUnparsedDefaultValue();
+      if (optionDefinition.isVoidField()) {
         // Void options don't have a default.
-      } else if (OptionsParserImpl.isSpecialNullDefault(defaultValueString, optionField)) {
+      } else if (optionDefinition.isSpecialNullDefault()) {
         usage.append(" default: see description");
       } else {
         usage.append(" default: \"").append(escaper.escape(defaultValueString)).append("\"");
@@ -167,23 +196,35 @@ class OptionsUsage {
     }
     usage.append("</dt>\n");
     usage.append("<dd>\n");
-    if (!annotation.help().isEmpty()) {
-      usage.append(paragraphFill(escaper.escape(annotation.help()), 0, 80)); // (indent, width)
+    if (!optionDefinition.getHelpText().isEmpty()) {
+      usage.append(
+          paragraphFill(
+              escaper.escape(optionDefinition.getHelpText()), /*indent=*/ 0, /*width=*/ 80));
       usage.append('\n');
     }
-    if (annotation.expansion().length > 0) {
+
+    if (!optionsData.getExpansionDataForField(optionDefinition).isEmpty()) {
+      // If this is an expansion option, list the expansion if known, or at least specify that we
+      // don't know.
       usage.append("<br/>\n");
-      StringBuilder expandsMsg = new StringBuilder("Expands to:<br/>\n");
-      for (String exp : annotation.expansion()) {
-        // TODO(ulfjack): Can we link to the expanded flags here?
-        expandsMsg
-            .append("&nbsp;&nbsp;<code>")
-            .append(escaper.escape(exp))
-            .append("</code><br/>\n");
+      ImmutableList<String> expansion = getExpansionIfKnown(optionDefinition, optionsData);
+      StringBuilder expandsMsg;
+      if (expansion == null) {
+        expandsMsg = new StringBuilder("Expands to unknown options.<br/>\n");
+      } else {
+        Preconditions.checkArgument(!expansion.isEmpty());
+        expandsMsg = new StringBuilder("Expands to:<br/>\n");
+        for (String exp : expansion) {
+          // TODO(ulfjack): Can we link to the expanded flags here?
+          expandsMsg
+              .append("&nbsp;&nbsp;<code>")
+              .append(escaper.escape(exp))
+              .append("</code><br/>\n");
+        }
       }
-      usage.append(expandsMsg.toString()); // (indent, width)
-      usage.append('\n');
+      usage.append(expandsMsg.toString());
     }
+
     usage.append("</dd>\n");
   }
 
@@ -207,13 +248,13 @@ class OptionsUsage {
    *   --void_flag
    * </pre>
    *
-   * @param field The field to return completion for
+   * @param optionDefinition The field to return completion for
    * @param builder the string builder to store the completion values
    */
-  static void getCompletion(Field field, StringBuilder builder) {
+  static void getCompletion(OptionDefinition optionDefinition, StringBuilder builder) {
     // Return the list of possible completions for this option
-    String flagName = field.getAnnotation(Option.class).name();
-    Class<?> fieldType = field.getType();
+    String flagName = optionDefinition.getOptionName();
+    Class<?> fieldType = optionDefinition.getType();
     builder.append("--").append(flagName);
     if (fieldType.equals(boolean.class)) {
       builder.append("\n");
@@ -238,33 +279,12 @@ class OptionsUsage {
     }
   }
 
-  private static final Comparator<Field> BY_NAME = new Comparator<Field>() {
-    @Override
-    public int compare(Field left, Field right) {
-      return left.getName().compareTo(right.getName());
-    }
-  };
-
-  /**
-   * An ordering relation for option-field fields that first groups together
-   * options of the same category, then sorts by name within the category.
-   */
-  static final Comparator<Field> BY_CATEGORY = new Comparator<Field>() {
-    @Override
-    public int compare(Field left, Field right) {
-      int r = left.getAnnotation(Option.class).category().compareTo(
-              right.getAnnotation(Option.class).category());
-      return r == 0 ? BY_NAME.compare(left, right) : r;
-    }
-  };
-
-  private static String getTypeDescription(Field optionsField) {
-    return findConverter(optionsField).getTypeDescription();
+  private static String getTypeDescription(OptionDefinition optionsDefinition) {
+    return optionsDefinition.getConverter().getTypeDescription();
   }
 
-  static String getFlagName(Field field) {
-    String name = field.getAnnotation(Option.class).name();
-    return OptionsParserImpl.isBooleanField(field) ? "[no]" + name : name;
+  static String getFlagName(OptionDefinition optionDefinition) {
+    String name = optionDefinition.getOptionName();
+    return optionDefinition.isBooleanField() ? "[no]" + name : name;
   }
-
 }

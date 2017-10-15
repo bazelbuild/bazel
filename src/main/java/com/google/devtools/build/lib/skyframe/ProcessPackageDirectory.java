@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -198,6 +199,10 @@ public class ProcessPackageDirectory {
         continue;
       }
       PathFragment subdirectory = rootRelativePath.getRelative(basename);
+      if (subdirectory.equals(Label.EXTERNAL_PACKAGE_NAME)) {
+        // Not a real package.
+        continue;
+      }
 
       // If this subdirectory is one of the excluded paths, don't recurse into it.
       if (excludedPaths.contains(subdirectory)) {

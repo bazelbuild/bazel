@@ -36,17 +36,12 @@ public final class JavaRunfilesProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns a function that gets the Java runfiles from a {@link TransitiveInfoCollection} or
-   * the empty runfiles instance if it does not contain that provider.
+   * Returns a function that gets the Java runfiles from a {@link TransitiveInfoCollection} or the
+   * empty runfiles instance if it does not contain that provider.
    */
   public static final Function<TransitiveInfoCollection, Runfiles> TO_RUNFILES =
-      new Function<TransitiveInfoCollection, Runfiles>() {
-        @Override
-        public Runfiles apply(TransitiveInfoCollection input) {
-          JavaRunfilesProvider provider = input.getProvider(JavaRunfilesProvider.class);
-          return provider == null
-              ? Runfiles.EMPTY
-              : provider.getRunfiles();
-        }
+      (TransitiveInfoCollection input) -> {
+        JavaRunfilesProvider provider = JavaInfo.getProvider(JavaRunfilesProvider.class, input);
+        return provider == null ? Runfiles.EMPTY : provider.getRunfiles();
       };
 }

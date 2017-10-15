@@ -14,34 +14,28 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-
+import java.util.Collection;
+import java.util.EnumSet;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Collection;
-import java.util.EnumSet;
 
 @RunWith(JUnit4.class)
 public class TestTargetUtilsTest extends PackageLoadingTestCase {
@@ -88,13 +82,13 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
   public void testFilterBySize() throws Exception {
     Predicate<Target> sizeFilter =
         TestTargetUtils.testSizeFilter(EnumSet.of(TestSize.SMALL, TestSize.LARGE));
-    assertTrue(sizeFilter.apply(test1));
-    assertTrue(sizeFilter.apply(test2));
-    assertTrue(sizeFilter.apply(test1b));
+    assertThat(sizeFilter.apply(test1)).isTrue();
+    assertThat(sizeFilter.apply(test2)).isTrue();
+    assertThat(sizeFilter.apply(test1b)).isTrue();
     sizeFilter = TestTargetUtils.testSizeFilter(EnumSet.of(TestSize.SMALL));
-    assertTrue(sizeFilter.apply(test1));
-    assertTrue(sizeFilter.apply(test2));
-    assertFalse(sizeFilter.apply(test1b));
+    assertThat(sizeFilter.apply(test1)).isTrue();
+    assertThat(sizeFilter.apply(test2)).isTrue();
+    assertThat(sizeFilter.apply(test1b)).isFalse();
   }
 
   @Test
@@ -118,40 +112,9 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
 
     Predicate<Target> timeoutFilter =
         TestTargetUtils.testTimeoutFilter(EnumSet.of(TestTimeout.SHORT, TestTimeout.LONG));
-    assertTrue(timeoutFilter.apply(longTest));
-    assertTrue(timeoutFilter.apply(shortTest));
-    assertFalse(timeoutFilter.apply(moderateTest));
-  }
-
-  @Test
-  public void testFilterByTag() throws Exception {
-    Predicate<Target> tagFilter = TestTargetUtils.tagFilter(Lists.<String>newArrayList());
-    assertTrue(tagFilter.apply(test1));
-    assertTrue(tagFilter.apply(test2));
-    assertTrue(tagFilter.apply(test1b));
-    tagFilter = TestTargetUtils.tagFilter(Lists.newArrayList("tag1", "tag2"));
-    assertTrue(tagFilter.apply(test1));
-    assertTrue(tagFilter.apply(test2));
-    assertTrue(tagFilter.apply(test1b));
-    tagFilter = TestTargetUtils.tagFilter(Lists.newArrayList("tag1"));
-    assertTrue(tagFilter.apply(test1));
-    assertFalse(tagFilter.apply(test2));
-    assertTrue(tagFilter.apply(test1b));
-    tagFilter = TestTargetUtils.tagFilter(Lists.newArrayList("-tag2"));
-    assertTrue(tagFilter.apply(test1));
-    assertFalse(tagFilter.apply(test2));
-    assertTrue(tagFilter.apply(test1b));
-    // Applying same tag as positive and negative filter produces an empty
-    // result because the negative filter is applied first and positive filter will
-    // not match anything.
-    tagFilter = TestTargetUtils.tagFilter(Lists.newArrayList("tag2", "-tag2"));
-    assertFalse(tagFilter.apply(test1));
-    assertFalse(tagFilter.apply(test2));
-    assertFalse(tagFilter.apply(test1b));
-    tagFilter = TestTargetUtils.tagFilter(Lists.newArrayList("tag2", "-tag1"));
-    assertFalse(tagFilter.apply(test1));
-    assertTrue(tagFilter.apply(test2));
-    assertFalse(tagFilter.apply(test1b));
+    assertThat(timeoutFilter.apply(longTest)).isTrue();
+    assertThat(timeoutFilter.apply(shortTest)).isTrue();
+    assertThat(timeoutFilter.apply(moderateTest)).isFalse();
   }
 
   @Test
@@ -190,7 +153,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
             Sets.newHashSet(getTarget("//broken")), /*strict=*/
             false, /*keep_going=*/
             true);
-    assertTrue(actual.hasError());
+    assertThat(actual.hasError()).isTrue();
     assertThat(actual.getTargets()).isEmpty();
   }
 
@@ -199,7 +162,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     ResolvedTargets<Target> actual =
         TestTargetUtils.expandTestSuites(
             getPackageManager(), reporter, suites, /*strict=*/ false, /*keep_going=*/ true);
-    assertFalse(actual.hasError());
+    assertThat(actual.hasError()).isFalse();
     assertThat(actual.getTargets()).containsExactlyElementsIn(expected);
   }
 
@@ -220,7 +183,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
             .getDriverForTesting()
             .evaluate(ImmutableList.of(key), false, 1, reporter);
     ResolvedTargets<Target> actual = result.get(key).getTargets();
-    assertFalse(actual.hasError());
+    assertThat(actual.hasError()).isFalse();
     assertThat(actual.getTargets()).containsExactlyElementsIn(expected);
   }
 
@@ -232,7 +195,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
       TestTargetUtils.expandTestSuites(
           new TargetProvider() {
             @Override
-            public Target getTarget(EventHandler eventHandler, Label label)
+            public Target getTarget(ExtendedEventHandler eventHandler, Label label)
                 throws InterruptedException {
               throw new InterruptedException();
             }
@@ -242,8 +205,8 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
           false, /*keep_going=*/
           true);
     } catch (TargetParsingException e) {
-      assertNotNull(e.getMessage());
+      assertThat(e).hasMessageThat().isNotNull();
     }
-    assertTrue(Thread.currentThread().isInterrupted());
+    assertThat(Thread.currentThread().isInterrupted()).isTrue();
   }
 }

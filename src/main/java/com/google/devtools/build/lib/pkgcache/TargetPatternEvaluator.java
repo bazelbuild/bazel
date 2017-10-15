@@ -19,10 +19,9 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -46,27 +45,28 @@ public interface TargetPatternEvaluator {
   static FilteringPolicy DEFAULT_FILTERING_POLICY = FilteringPolicies.NO_FILTER;
 
   /**
-   * Attempts to parse an ordered list of target patterns, computing the union
-   * of the set of targets represented by each pattern, unless it is preceded by
-   * "-", in which case the set difference is computed.  Implements the
-   * specification described in the class-level comment.
+   * Attempts to parse an ordered list of target patterns, computing the union of the set of targets
+   * represented by each pattern, unless it is preceded by "-", in which case the set difference is
+   * computed. Implements the specification described in the class-level comment.
    */
-  ResolvedTargets<Target> parseTargetPatternList(EventHandler eventHandler,
-      List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
+  ResolvedTargets<Target> parseTargetPatternList(
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      FilteringPolicy policy,
+      boolean keepGoing)
       throws TargetParsingException, InterruptedException;
 
   /**
-  * Attempts to parse a single target pattern while consulting the package
-   * cache to check for the existence of packages and directories and the build
-   * targets in them.  Implements the specification described in the
-   * class-level comment.  Returns a {@link ResolvedTargets} object.
+   * Attempts to parse a single target pattern while consulting the package cache to check for the
+   * existence of packages and directories and the build targets in them. Implements the
+   * specification described in the class-level comment. Returns a {@link ResolvedTargets} object.
    *
-   * <p>If an error is encountered, a {@link TargetParsingException} is thrown,
-   * unless {@code keepGoing} is set to true. In that case, the returned object
-   * will have its error bit set.
+   * <p>If an error is encountered, a {@link TargetParsingException} is thrown, unless {@code
+   * keepGoing} is set to true. In that case, the returned object will have its error bit set.
    */
-  ResolvedTargets<Target> parseTargetPattern(EventHandler eventHandler, String pattern,
-      boolean keepGoing) throws TargetParsingException, InterruptedException;
+  ResolvedTargets<Target> parseTargetPattern(
+      ExtendedEventHandler eventHandler, String pattern, boolean keepGoing)
+      throws TargetParsingException, InterruptedException;
 
   /**
    * Attempts to parse and load the given collection of patterns; the returned map contains the
@@ -76,9 +76,9 @@ public interface TargetPatternEvaluator {
    * keepGoing} is set to true. In that case, the patterns that failed to load have the error flag
    * set.
    */
-  Map<String, ResolvedTargets<Target>> preloadTargetPatterns(EventHandler eventHandler,
-      Collection<String> patterns, boolean keepGoing)
-          throws TargetParsingException, InterruptedException;
+  Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
+      ExtendedEventHandler eventHandler, Collection<String> patterns, boolean keepGoing)
+      throws TargetParsingException, InterruptedException;
 
   /**
    * Update the parser's offset, given the workspace and working directory.

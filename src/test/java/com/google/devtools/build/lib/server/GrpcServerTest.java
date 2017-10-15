@@ -169,7 +169,7 @@ public class GrpcServerTest {
   @Test
   public void testSendingSimpleMessage() {
     MockObserver observer = new MockObserver();
-    GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink(observer, executor);
+    GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink("Dummy", observer, executor);
 
     assertThat(sink.offer(runResponse())).isTrue();
     assertThat(sink.finish()).isFalse();
@@ -179,7 +179,7 @@ public class GrpcServerTest {
   @Test
   public void testSurvivesLateOnCancelHandler() {
     MockObserver observer = new MockObserver();
-    GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink(observer, executor);
+    GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink("Dummy", observer, executor);
     // First make the observer cancelled...
     observer.cancelled.set(true);
 
@@ -197,7 +197,7 @@ public class GrpcServerTest {
   @Test
   public void testCancellationTurnsSinkIntoBlackHole() {
     MockObserver observer = new MockObserver();
-    GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink(observer, executor);
+    GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink("Dummy", observer, executor);
 
     observer.cancelled.set(true);
     observer.onCancelHandler.run();
@@ -226,7 +226,7 @@ public class GrpcServerTest {
     victim.start();
 
     MockObserver observer = new MockObserver();
-    GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink(observer, executor);
+    GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink("Dummy", observer, executor);
     sink.setCommandThread(victim);
     observer.cancelled.set(true);
     observer.onCancelHandler.run();
@@ -240,7 +240,7 @@ public class GrpcServerTest {
   @Test
   public void testObeysReadySignal() throws Exception {
     MockObserver observer = new MockObserver();
-    final GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink(observer, executor);
+    final GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink("Dummy", observer, executor);
 
     // First check if we can send a simple message
     assertThat(sink.offer(runResponse())).isTrue();
@@ -273,7 +273,7 @@ public class GrpcServerTest {
   @Test
   public void testDeadlockWhenDisconnectedWithQueueFull() throws Exception {
     MockObserver observer = new MockObserver();
-    final GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink(observer, executor);
+    final GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink("Dummy", observer, executor);
 
     observer.ready.set(false);
     TestThread sender = new TestThread() {

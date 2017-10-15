@@ -104,6 +104,9 @@ message TestResultData {
   // Total time in ms.
   optional int64 run_duration_millis = 12;
 
+  // Start time of the test action in ms since the epoch.
+  optional int64 start_time_millis_epoch = 15;
+
   // Additional build info
   optional TestCase test_case = 13;
   optional FailedTestCasesStatus failed_status = 14;

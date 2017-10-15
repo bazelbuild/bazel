@@ -21,27 +21,20 @@
 //
 
 #include <errno.h>
-#include <fcntl.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+
 #include <memory>
 #include <set>
 #include <string>
 
+#include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
 
 namespace devtools_ijar {
-
-#define SYSCALL(expr)  do { \
-                         if ((expr) < 0) { \
-                           perror(#expr); \
-                           abort(); \
-                         } \
-                       } while (0)
 
 //
 // A ZipExtractorProcessor that extract files in the ZIP file.
@@ -52,9 +45,11 @@ class UnzipProcessor : public ZipExtractorProcessor {
   // into output_root if "extract" is set to true and will print the list of
   // files and their unix modes if "verbose" is set to true.
   UnzipProcessor(const char *output_root, char **files, bool verbose,
-                 bool extract) : output_root_(output_root),
-                                 verbose_(verbose),
-                                 extract_(extract) {
+                 bool extract, bool flatten)
+      : output_root_(output_root),
+        verbose_(verbose),
+        extract_(extract),
+        flatten_(flatten) {
     if (files != NULL) {
       for (int i = 0; files[i] != NULL; i++) {
         file_names.insert(std::string(files[i]));
@@ -80,6 +75,7 @@ class UnzipProcessor : public ZipExtractorProcessor {
   const char *output_root_;
   const bool verbose_;
   const bool extract_;
+  const bool flatten_;
   std::set<std::string> file_names;
 };
 
@@ -101,60 +97,36 @@ void concat_path(char* out, const size_t size,
   }
 }
 
-// Do a recursive mkdir of all folders of path except the last path
-// segment (if path ends with a / then the last path segment is empty).
-// All folders are created using "mode" for creation mode.
-void mkdirs(const char *path, mode_t mode) {
-  char path_[PATH_MAX];
-  struct stat statst;
-  strncpy(path_, path, PATH_MAX);
-  path_[PATH_MAX-1] = 0;
-  char *pointer = path_;
-  while ((pointer = strchr(pointer, '/')) != NULL) {
-    if (path_ != pointer) {  // skip leading slash
-      *pointer = 0;
-      if (stat(path_, &statst) != 0) {
-        if (mkdir(path_, mode) < 0) {
-          fprintf(stderr, "Cannot create folder %s: %s\n",
-                  path_, strerror(errno));
-          abort();
-        }
-      }
-      *pointer = '/';
-    }
-    pointer++;
-  }
-}
-
 void UnzipProcessor::Process(const char* filename, const u4 attr,
                              const u1* data, const size_t size) {
-  mode_t mode = zipattr_to_mode(attr);
-  mode_t perm = mode & 0777;
-  bool isdir = (mode & S_IFDIR) != 0;
+  mode_t perm = zipattr_to_perm(attr);
+  bool isdir = zipattr_is_dir(attr);
+  const char *output_file_name = filename;
   if (attr == 0) {
     // Fallback when the external attribute is not set.
     isdir = filename[strlen(filename)-1] == '/';
     perm = 0777;
   }
+
+  if (flatten_) {
+    if (isdir) {
+      return;
+    }
+    const char *p = strrchr(filename, '/');
+    if (p != NULL) {
+      output_file_name = p + 1;
+    }
+  }
+
   if (verbose_) {
-    printf("%c %o %s\n", isdir ? 'd' : 'f', perm, filename);
+    printf("%c %o %s\n", isdir ? 'd' : 'f', perm, output_file_name);
   }
   if (extract_) {
     char path[PATH_MAX];
-    int fd;
-    concat_path(path, PATH_MAX, output_root_, filename);
-    // Directories created must have executable bit set and be owner writeable.
-    // Otherwise, we cannot write or create any file inside.
-    mkdirs(path, perm | S_IWUSR | S_IXUSR);
-    if (!isdir) {
-      fd = open(path, O_CREAT | O_WRONLY, perm);
-      if (fd < 0) {
-        fprintf(stderr, "Cannot open file %s for writing: %s\n",
-                path, strerror(errno));
-        abort();
-      }
-      SYSCALL(write(fd, data, size));
-      SYSCALL(close(fd));
+    concat_path(path, PATH_MAX, output_root_, output_file_name);
+    if (!make_dirs(path, perm) ||
+        (!isdir && !write_file(path, perm, data, size))) {
+      abort();
     }
   }
 }
@@ -172,40 +144,22 @@ void basename(const char *path, char *output, size_t output_size) {
   output[output_size-1] = 0;
 }
 
-// copy size bytes from file descriptor fd into buffer.
-int copy_file_to_buffer(int fd, size_t size, void *buffer) {
-  size_t nb_read = 0;
-  while (nb_read < size) {
-    size_t to_read = size - nb_read;
-    if (to_read > 16384 /* 16K */) {
-      to_read = 16384;
-    }
-    ssize_t r = read(fd, static_cast<uint8_t *>(buffer) + nb_read, to_read);
-    if (r < 0) {
-      return -1;
-    }
-    nb_read += r;
-  }
-  return 0;
-}
-
 // Execute the extraction (or just listing if just v is provided)
-int extract(char *zipfile, char* exdir, char **files, bool verbose,
-            bool extract) {
-  char cwd[PATH_MAX];
-  if (getcwd(cwd, PATH_MAX) == NULL) {
-    fprintf(stderr, "getcwd() failed: %s.\n", strerror(errno));
+int extract(char *zipfile, char *exdir, char **files, bool verbose,
+            bool extract, bool flatten) {
+  std::string cwd = get_cwd();
+  if (cwd.empty()) {
     return -1;
   }
 
   char output_root[PATH_MAX];
   if (exdir != NULL) {
-    concat_path(output_root, PATH_MAX, cwd, exdir);
+    concat_path(output_root, PATH_MAX, cwd.c_str(), exdir);
   } else {
-    strncpy(output_root, cwd, PATH_MAX);
+    strncpy(output_root, cwd.c_str(), PATH_MAX);
   }
 
-  UnzipProcessor processor(output_root, files, verbose, extract);
+  UnzipProcessor processor(output_root, files, verbose, extract, flatten);
   std::unique_ptr<ZipExtractor> extractor(ZipExtractor::Create(zipfile,
                                                                &processor));
   if (extractor.get() == NULL) {
@@ -224,18 +178,16 @@ int extract(char *zipfile, char* exdir, char **files, bool verbose,
 // add a file to the zip
 int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
              char *zip_path, bool flatten, bool verbose, bool compress) {
-  struct stat statst;
-  statst.st_size = 0;
-  statst.st_mode = 0666;
+  Stat file_stat = {0, 0666, false};
   if (file != NULL) {
-    if (stat(file, &statst) < 0) {
-      fprintf(stderr, "Cannot stat file %s: %s.\n", file, strerror(errno));
+    if (!stat_file(file, &file_stat)) {
+      fprintf(stderr, "Cannot stat file %s: %s\n", file, strerror(errno));
       return -1;
     }
   }
   char *final_path = zip_path != NULL ? zip_path : file;
 
-  bool isdir = (statst.st_mode & S_IFDIR) != 0;
+  bool isdir = file_stat.is_directory;
 
   if (flatten && isdir) {
     return 0;
@@ -261,28 +213,18 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
   }
 
   if (verbose) {
-    mode_t perm = statst.st_mode & 0777;
+    mode_t perm = file_stat.file_mode & 0777;
     printf("%c %o %s\n", isdir ? 'd' : 'f', perm, path);
   }
 
-  u1 *buffer = builder->NewFile(path, mode_to_zipattr(statst.st_mode));
-  if (isdir || statst.st_size == 0) {
+  u1 *buffer = builder->NewFile(path, stat_to_zipattr(file_stat));
+  if (isdir || file_stat.total_size == 0) {
     builder->FinishFile(0);
   } else {
-    // read the input file
-    int fd = open(file, O_RDONLY);
-    if (fd < 0) {
-      fprintf(stderr, "Can't open file %s for reading: %s.\n", file,
-              strerror(errno));
+    if (!read_file(file, buffer, file_stat.total_size)) {
       return -1;
     }
-    if (copy_file_to_buffer(fd, statst.st_size, buffer) < 0) {
-      fprintf(stderr, "Can't read file %s: %s.\n", file, strerror(errno));
-      close(fd);
-      return -1;
-    }
-    close(fd);
-    builder->FinishFile(statst.st_size, compress, true);
+    builder->FinishFile(file_stat.total_size, compress, true);
   }
   return 0;
 }
@@ -290,47 +232,38 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
 // Read a list of files separated by newlines. The resulting array can be
 // freed using the free method.
 char **read_filelist(char *filename) {
-  struct stat statst;
-  int fd = open(filename, O_RDONLY);
-  if (fd < 0) {
-    fprintf(stderr, "Can't open file %s for reading: %s.\n", filename,
-            strerror(errno));
-    return NULL;
-  }
-  if (fstat(fd, &statst) < 0) {
-    fprintf(stderr, "Cannot stat file %s: %s.\n", filename, strerror(errno));
+  Stat file_stat;
+  if (!stat_file(filename, &file_stat)) {
+    fprintf(stderr, "Cannot stat file %s: %s\n", filename, strerror(errno));
     return NULL;
   }
 
-  char *data = static_cast<char *>(malloc(statst.st_size));
-  if (copy_file_to_buffer(fd, statst.st_size, data) < 0) {
-    fprintf(stderr, "Can't read file %s: %s.\n", filename, strerror(errno));
-    close(fd);
+  char *data = static_cast<char *>(malloc(file_stat.total_size));
+  if (!read_file(filename, data, file_stat.total_size)) {
     return NULL;
   }
-  close(fd);
 
   int nb_entries = 1;
-  for (int i = 0; i < statst.st_size; i++) {
+  for (int i = 0; i < file_stat.total_size; i++) {
     if (data[i] == '\n') {
       nb_entries++;
     }
   }
 
   size_t sizeof_array = sizeof(char *) * (nb_entries + 1);
-  void *result = malloc(sizeof_array + statst.st_size);
+  void *result = malloc(sizeof_array + file_stat.total_size);
   // copy the content
   char **filelist = static_cast<char **>(result);
   char *content = static_cast<char *>(result) + sizeof_array;
-  memcpy(content, data, statst.st_size);
+  memcpy(content, data, file_stat.total_size);
   free(data);
   // Create the corresponding array
   int j = 1;
   filelist[0] = content;
-  for (int i = 0; i < statst.st_size; i++) {
+  for (int i = 0; i < file_stat.total_size; i++) {
     if (content[i] == '\n') {
       content[i] = 0;
-      if (i + 1 < statst.st_size) {
+      if (i + 1 < file_stat.total_size) {
         filelist[j] = content + i + 1;
         j++;
       }
@@ -428,7 +361,9 @@ static void usage(char *progname) {
           "    an optional directory relative to the current directory "
           "    specified through -d option\n");
   fprintf(stderr, "  c create  - add files to x.zip\n");
-  fprintf(stderr, "  f flatten - flatten files to use with create operation\n");
+  fprintf(stderr,
+          "  f flatten - flatten files to use with create or "
+          "extract operation\n");
   fprintf(stderr,
           "  C compress - compress files when using the create operation\n");
   fprintf(stderr, "x and c cannot be used in the same command-line.\n");
@@ -520,16 +455,13 @@ int main(int argc, char **argv) {
     // Create a zip
     return devtools_ijar::create(argv[2], filelist, flatten, verbose, compress);
   } else {
-    if (flatten) {
-      usage(argv[0]);
-    }
-
     char* exdir = NULL;
     if (argc > 3 && strcmp(argv[3], "-d") == 0) {
       exdir = argv[4];
     }
 
     // Extraction / list mode
-    return devtools_ijar::extract(argv[2], exdir, filelist, verbose, extract);
+    return devtools_ijar::extract(argv[2], exdir, filelist, verbose, extract,
+                                  flatten);
   }
 }

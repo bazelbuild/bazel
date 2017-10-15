@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
@@ -30,8 +31,9 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -140,7 +142,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
   private <T> ConfigKeyAndValue<T> resolveSelector(String attributeName, Selector<T> selector)
       throws EvalException {
-    ConfigMatchingProvider matchingCondition = null;
+    Map<ConfigMatchingProvider, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
     Set<Label> conditionLabels = new LinkedHashSet<>();
     ConfigKeyAndValue<T> matchingResult = null;
 
@@ -160,25 +162,44 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       conditionLabels.add(curCondition.label());
 
       if (curCondition.matches()) {
-        if (matchingCondition == null || curCondition.refines(matchingCondition)) {
-          // A match is valid if either this is the *only* condition that matches or this is a
-          // more "precise" specification of another matching condition (in which case we choose
-          // the most precise one).
-          matchingCondition = curCondition;
-          matchingResult = new ConfigKeyAndValue<>(selectorKey, entry.getValue());
-        } else if (matchingCondition.refines(curCondition)) {
-          // The originally matching conditions is more precise, so keep that one.
-        } else {
-          throw new EvalException(rule.getAttributeLocation(attributeName),
-              "Both " + matchingCondition.label() + " and " + curCondition.label()
-              + " match configurable attribute \"" + attributeName + "\" in " + getLabel()
-              + ". Multiple matches are not allowed unless one is a specialization of the other");
+        // We keep track of all matches which are more precise than any we have found so far.
+        // Therefore, we remove any previous matches which are strictly less precise than this
+        // one, and only add this one if none of the previous matches are more precise.
+        // It is an error if we do not end up with only one most-precise match.
+        boolean suppressed = false;
+        Iterator<ConfigMatchingProvider> it = matchingConditions.keySet().iterator();
+        while (it.hasNext()) {
+          ConfigMatchingProvider existingMatch = it.next();
+          if (curCondition.refines(existingMatch)) {
+            it.remove();
+          } else if (existingMatch.refines(curCondition)) {
+            suppressed = true;
+            break;
+          }
+        }
+        if (!suppressed) {
+          matchingConditions.put(
+              curCondition, new ConfigKeyAndValue<>(selectorKey, entry.getValue()));
         }
       }
     }
 
+    if (matchingConditions.size() > 1) {
+      throw new EvalException(
+          rule.getAttributeLocation(attributeName),
+          "Illegal ambiguous match on configurable attribute \""
+              + attributeName
+              + "\" in "
+              + getLabel()
+              + ":\n"
+              + Joiner.on("\n").join(matchingConditions.keySet())
+              + "\nMultiple matches are not allowed unless one is unambiguously more specialized.");
+    } else if (matchingConditions.size() == 1) {
+      matchingResult = Iterables.getOnlyElement(matchingConditions.values());
+    }
+
     // If nothing matched, choose the default condition.
-    if (matchingCondition == null) {
+    if (matchingResult == null) {
       if (!selector.hasDefault()) {
         String noMatchMessage =
             "Configurable attribute \"" + attributeName + "\" doesn't match this configuration";

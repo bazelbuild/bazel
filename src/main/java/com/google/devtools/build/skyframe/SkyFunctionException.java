@@ -78,7 +78,7 @@ public abstract class SkyFunctionException extends Exception {
   }
 
   @Nullable
-  final SkyKey getRootCauseSkyKey() {
+  public final SkyKey getRootCauseSkyKey() {
     return rootCause;
   }
 
@@ -124,9 +124,17 @@ public abstract class SkyFunctionException extends Exception {
     private final boolean isCatastrophic;
 
     public ReifiedSkyFunctionException(SkyFunctionException e, SkyKey key) {
-      super(e.getCause(), e.transience, Preconditions.checkNotNull(e.getRootCauseSkyKey() == null
-          ? key : e.getRootCauseSkyKey()));
-      this.isCatastrophic = e.isCatastrophic();
+      this(e.getCause(), e.transience, key, e.getRootCauseSkyKey(), e.isCatastrophic());
+    }
+
+    protected ReifiedSkyFunctionException(
+        Exception cause,
+        Transience transience,
+        SkyKey key,
+        @Nullable SkyKey rootCauseSkyKey,
+        boolean isCatastrophic) {
+      super(cause, transience, rootCauseSkyKey == null ? key : rootCauseSkyKey);
+      this.isCatastrophic = isCatastrophic;
     }
 
     @Override

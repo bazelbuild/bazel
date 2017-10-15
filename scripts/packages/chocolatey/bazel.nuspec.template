@@ -25,7 +25,7 @@ This is a nuspec. It mostly adheres to https://docs.nuget.org/create/Nuspec-Refe
     <!-- version should MATCH as closely as possible with the underlying software -->
     <!-- Is the version a prerelease of a version? https://docs.nuget.org/create/versioning#creating-prerelease-packages -->
     <!-- Note that unstable versions like 0.0.1 can be considered a released version, but it's possible that one can release a 0.0.1-beta before you release a 0.0.1 version. If the version number is final, that is considered a released version and not a prerelease. -->
-    <version>$tvVersion</version>
+    <version>$($tvVersion)$($tvPackageFixVersion)</version>
     <!-- <packageSourceUrl>Where is this Chocolatey package located (think GitHub)? packageSourceUrl is highly recommended for the community feed</packageSourceUrl>-->
     <packageSourceUrl>https://github.com/bazelbuild/bazel/tree/master/scripts/packages/chocolatey</packageSourceUrl>
     <!-- owners is a poor name for maintainers of the package. It sticks around by this name for compatibility reasons. It basically means you. -->
@@ -38,14 +38,14 @@ This is a nuspec. It mostly adheres to https://docs.nuget.org/create/Nuspec-Refe
     <title>bazel (Install)</title>
     <authors>The Bazel Authors</authors>
     <!-- projectUrl is required for the community feed -->
-    <projectUrl>https://bazel.io</projectUrl>
+    <projectUrl>https://bazel.build</projectUrl>
     <iconUrl>https://cdn.rawgit.com/bazelbuild/bazel/master/site/images/bazel-logo.png</iconUrl>
     <copyright>Copyright 2016 The Bazel Authors. All rights reserved.</copyright>
     <!-- If there is a license Url available, it is is required for the community feed -->
-    <licenseUrl>https://github.com/bazelbuild/bazel/tree/master/LICENSE.txt</licenseUrl>
+    <licenseUrl>https://github.com/bazelbuild/bazel/tree/master/LICENSE</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>
     <projectSourceUrl>https://github.com/bazelbuild/bazel.git</projectSourceUrl>
-    <docsUrl>https://www.bazel.io/versions/master/docs/getting-started.html</docsUrl>
+    <docsUrl>https://www.bazel.build/versions/master/docs/getting-started.html</docsUrl>
     <mailingListUrl>https://groups.google.com/forum/#!forum/bazel-discuss</mailingListUrl>
     <bugTrackerUrl>https://github.com/bazelbuild/bazel/issues</bugTrackerUrl>
     <tags>bazel build automation</tags>
@@ -58,11 +58,11 @@ Bazel has built-in support for building both client and server software, includi
 
 ## Package parameters
 
-Supply like `--params="/option:value ..."` ([see docs for --params](https://github.com/chocolatey/choco/wiki/CommandsInstall#options-and-switches))
+Supply like `--params="/option:'value' ..."` ([see docs for --params](https://github.com/chocolatey/choco/wiki/CommandsInstall#options-and-switches))
 
 * `msys2Path` (optional, defaults to c:\tools\msys64) - override this if msys2 is installed elsewhere.
 </description>
-    <releaseNotes>https://github.com/bazelbuild/bazel/releases/tag/$tvVersion</releaseNotes>
+    <releaseNotes>$tvReleaseNotesUri</releaseNotes>
     <!-- =============================== -->
 
     <!-- Specifying dependencies and version ranges? https://docs.nuget.org/create/versioning#specifying-version-ranges-in-.nuspec-files -->
@@ -75,8 +75,8 @@ Supply like `--params="/option:value ..."` ([see docs for --params](https://gith
       <dependency id="chocolatey-uninstall.extension" />
     </dependencies>-->
     <dependencies>
-      <dependency id="jdk8" version="[8.0.102,)"/>
-      <dependency id="msys2" version="[20160719.1,)"/>
+      <dependency id="chocolatey-core.extension" version="1.0.7"/>
+      <dependency id="msys2" version="[20160719.1.0,20160719.1.1]"/>
       <dependency id="python2" version="[2.7.11,3.0)"/>
     </dependencies>
     <!-- chocolatey-uninstall.extension - If supporting 0.9.9.x (or below) and including a chocolateyUninstall.ps1 file to uninstall an EXE/MSI, you probably want to include chocolatey-uninstall.extension as a dependency. Please verify whether you are using a helper function from that package. -->

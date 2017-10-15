@@ -14,18 +14,16 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -42,28 +40,20 @@ import java.util.List;
  * to identify these proto files and avoid linking in their associated generated files.
  */
 public class ProtoSourceFileBlacklist {
-  private static final PathFragment BAZEL_TOOLS_PREFIX = new PathFragment("external/bazel_tools/");
+  private static final PathFragment BAZEL_TOOLS_PREFIX =
+      PathFragment.create("external/bazel_tools/");
   private final RuleContext ruleContext;
   private final ImmutableSet<PathFragment> blacklistProtoFilePaths;
 
-  private final Predicate<Artifact> isBlacklistProto =
-      new Predicate<Artifact>() {
-        @Override
-        public boolean apply(Artifact protoFile) {
-          return isBlacklisted(protoFile);
-        }
-      };
-
   /**
    * Creates a proto source file blacklist.
+   *
    * @param ruleContext the proto rule context.
-   * @param blacklistAttribute the attribute that points to a filegroup containing the blacklisted
+   * @param blacklistProtoFiles a list of blacklisted .proto files. The list will be iterated.
    *     protos.
    */
-  public ProtoSourceFileBlacklist(RuleContext ruleContext, String blacklistAttribute) {
+  public ProtoSourceFileBlacklist(RuleContext ruleContext, Iterable<Artifact> blacklistProtoFiles) {
     this.ruleContext = ruleContext;
-    Iterable<Artifact> blacklistProtoFiles =
-        ruleContext.getPrerequisiteArtifacts(blacklistAttribute, Mode.HOST).list();
     ImmutableSet.Builder<PathFragment> blacklistProtoFilePathsBuilder =
         new ImmutableSet.Builder<>();
     for (Artifact blacklistProtoFile : blacklistProtoFiles) {
@@ -84,7 +74,7 @@ public class ProtoSourceFileBlacklist {
    * Filters the blacklisted protos from the given protos.
    */
   public Iterable<Artifact> filter(Iterable<Artifact> protoFiles) {
-    return ImmutableSet.copyOf(Iterables.filter(protoFiles, Predicates.not(isBlacklistProto)));
+    return Streams.stream(protoFiles).filter(f -> !isBlacklisted(f)).collect(toImmutableSet());
   }
 
   /**
@@ -116,13 +106,6 @@ public class ProtoSourceFileBlacklist {
     }
 
     return blacklisted.isEmpty();
-  }
-
-  /**
-   * Returns blacklisted protos from the given protos.
-   */
-  private Iterable<Artifact> blacklisted(Iterable<Artifact> protoFiles) {
-    return ImmutableSet.copyOf(Iterables.filter(protoFiles, isBlacklistProto));
   }
 
   /**

@@ -45,6 +45,37 @@ public class BallPit {
 EOF
 }
 
+# This function takes an optional url argument: mirror. If one is passed, a
+# mirror of maven central will be set for the url. It also creates a `BUILD`
+# file in the same directory as $local_maven_settings so that it can be used as
+# a label in WORKSPACE.
+function setup_local_maven_settings_xml() {
+  local_maven_settings_xml=settings.xml
+  touch $(pwd)/BUILD
+  cat > $local_maven_settings_xml <<EOF
+<!-- # DO NOT EDIT: automatically generated settings.xml for maven_dependency_plugin -->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+    https://maven.apache.org/xsd/settings-1.0.0.xsd">
+  <localRepository>$TEST_SRCDIR/m2/repository</localRepository>
+EOF
+  if [ "$#" -eq 1 ]; then
+    cat >> $local_maven_settings_xml <<EOF
+  <mirrors>
+    <mirror>
+      <id>central</id>
+      <url>$1</url>
+      <mirrorOf>*,default</mirrorOf>
+    </mirror>
+  </mirrors>
+EOF
+  fi
+  cat >> $local_maven_settings_xml <<EOF
+</settings>
+EOF
+}
+
 function tear_down() {
   shutdown_server
 }
@@ -53,22 +84,15 @@ function test_maven_jar_skylark() {
   setup_zoo
   version="1.21"
   serve_artifact com.example.carnivore carnivore $version
+  setup_local_maven_settings_xml "http://localhost:$fileserver_port"
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_jar")
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:$version",
-    repository = 'http://localhost:$fileserver_port/',
     sha1 = '$sha1',
-    local_repository = "@m2//:BUILD",
-)
-
-# Make use of the pre-downloaded maven-dependency-plugin because there's no
-# internet connection at this stage.
-local_repository(
-  name = "m2",
-  path = "$TEST_SRCDIR/m2",
+    settings = '//:$local_maven_settings_xml',
 )
 
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -78,11 +102,83 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_maven_jar_with_classifier_skylark() {
+  setup_zoo
+  version="1.21"
+  packaging = "jar"
+  classifier = "sources"
+  serve_artifact com.example.carnivore carnivore $version $packaging $classifier
+  setup_local_maven_settings_xml "http://localhost:$fileserver_port"
+
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_jar")
+maven_jar(
+    name = 'bar_sources',
+    artifact = "com.example.foo:bar:$version:jar:sources",
+    sha1 = '$sha1',
+    settings = '//:$local_maven_settings_xml',
+)
+
+bind(name = 'baz_sources', actual = '@bar_sources//jar')
+EOF
+
+  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  expect_log "Tra-la!"
+}
+
+function setup_android_binary() {
+  mkdir -p java/com/app
+  cat > java/com/app/BUILD <<EOF
+android_binary(
+    name = "app",
+    manifest = "AndroidManifest.xml",
+    deps = ["@herbivore//aar"],
+)
+EOF
+  cat > java/com/app/AndroidManifest.xml <<EOF
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.app"
+    android:versionCode="1"
+    android:versionName="1.0" >
+    <application />
+    <uses-sdk
+        android:minSdkVersion="9"
+        android:targetSdkVersion="20" />
+</manifest>
+EOF
+}
+
+function test_maven_aar_skylark() {
+  setup_android_sdk_support
+  if [ -z "$ANDROID_NDK_API_LEVEL" ] || [ -z "$ANDROID_SDK_API_LEVEL" ]; then
+    fail "This test cannot run without Android repositories set up," \
+      "see the WORKSPACE file for instructions"
+  fi
+  setup_android_binary
+  serve_artifact com.example.carnivore herbivore 1.21 aar
+  setup_local_maven_settings_xml "http://localhost:$fileserver_port"
+  cat >> WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_aar")
+maven_aar(
+    name = "herbivore",
+    artifact = "com.example.carnivore:herbivore:1.21",
+    sha1 = "$sha1",
+    settings = "//:$local_maven_settings_xml",
+)
+EOF
+  bazel build //java/com/app || fail "Expected build to succeed"
+  unzip -l bazel-bin/java/com/app/app.apk > $TEST_log
+  expect_log_once "res/layout/my_view.xml"
+  unzip -l bazel-bin/java/com/app/app_deploy.jar > $TEST_log
+  expect_log_once "com/herbivore/Stegosaurus.class"
+}
+
 # Same as test_maven_jar, except omit sha1 implying "we don't care".
 function test_maven_jar_no_sha1_skylark() {
   setup_zoo
   version="1.22"
   serve_artifact com.example.carnivore carnivore $version
+  setup_local_maven_settings_xml "http://localhost:$fileserver_port/"
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_jar")
@@ -90,13 +186,7 @@ load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_jar")
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:$version",
-    repository = 'http://localhost:$fileserver_port/',
-    local_repository = "@m2//:BUILD",
-)
-
-local_repository(
-  name = "m2",
-  path = "$TEST_SRCDIR/m2",
+    settings = '//:$local_maven_settings_xml',
 )
 
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -110,19 +200,14 @@ function test_maven_jar_404_skylark() {
   setup_zoo
   version="1.23"
   serve_not_found
+  setup_local_maven_settings_xml "http://localhost:$nc_port/",
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_jar")
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:$version",
-    repository = 'http://localhost:$nc_port/',
-    local_repository = "@m2//:BUILD",
-)
-
-local_repository(
-  name = "m2",
-  path = "$TEST_SRCDIR/m2",
+    settings = '//:$local_maven_settings_xml',
 )
 
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -138,6 +223,7 @@ function test_maven_jar_mismatched_sha1_skylark() {
   setup_zoo
   version="1.24"
   serve_artifact com.example.carnivore carnivore 1.24
+  setup_local_maven_settings_xml "http://localhost:$fileserver_port/"
 
   wrong_sha1="0123456789012345678901234567890123456789"
   cat > WORKSPACE <<EOF
@@ -146,14 +232,8 @@ load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_jar")
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.24",
-    repository = 'http://localhost:$fileserver_port/',
     sha1 = '$wrong_sha1',
-    local_repository = "@m2//:BUILD",
-)
-
-local_repository(
-  name = "m2",
-  path = "$TEST_SRCDIR/m2",
+    settings = '//:$local_maven_settings_xml',
 )
 
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -167,6 +247,7 @@ function test_unimplemented_server_attr_skylark() {
   setup_zoo
   version="1.25"
   serve_jar
+  setup_local_maven_settings_xml
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_jar")
@@ -175,12 +256,7 @@ maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:$version",
     server = "attr_not_implemented",
-    local_repository = "@m2//:BUILD"
-)
-
-local_repository(
-  name = "m2",
-  path = "$TEST_SRCDIR/m2",
+    settings = "//:$local_maven_settings_xml",
 )
 
 bind(name = 'mongoose', actual = '@endangered//jar')

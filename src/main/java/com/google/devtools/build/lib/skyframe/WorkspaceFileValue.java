@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Map;
 import java.util.Objects;
 
@@ -135,7 +135,7 @@ public class WorkspaceFileValue implements SkyValue {
   }
 
   static SkyKey key(RootedPath path, int idx) {
-    return SkyKey.create(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileKey(path, idx));
+    return LegacySkyKey.create(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileKey(path, idx));
   }
 
   public static SkyKey key(RootedPath path) {

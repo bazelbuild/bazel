@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,22 +28,22 @@ public class CppFileTypesTest {
 
   @Test
   public void testTwoDotExtensions() {
-    assertTrue(CppFileTypes.OBJECT_FILE.matches("test.o"));
-    assertTrue(CppFileTypes.PIC_OBJECT_FILE.matches("test.pic.o"));
-    assertFalse(CppFileTypes.OBJECT_FILE.matches("test.pic.o"));
+    assertThat(CppFileTypes.OBJECT_FILE.matches("test.o")).isTrue();
+    assertThat(CppFileTypes.PIC_OBJECT_FILE.matches("test.pic.o")).isTrue();
+    assertThat(CppFileTypes.OBJECT_FILE.matches("test.pic.o")).isFalse();
   }
 
   @Test
   public void testVersionedSharedLibraries() {
-    assertTrue(CppFileTypes.SHARED_LIBRARY.matches("somelibrary.so"));
-    assertTrue(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.2"));
-    assertTrue(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.20"));
-    assertTrue(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.20.2"));
-    assertTrue(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("a/somelibrary.so.2"));
-    assertFalse(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.e"));
-    assertFalse(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.2e"));
-    assertFalse(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.e2"));
-    assertFalse(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.20.e2"));
-    assertFalse(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.a.2"));
+    assertThat(CppFileTypes.SHARED_LIBRARY.matches("somelibrary.so")).isTrue();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.2")).isTrue();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.20")).isTrue();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.20.2")).isTrue();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("a/somelibrary.so.2")).isTrue();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.e")).isFalse();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.2e")).isFalse();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.e2")).isFalse();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.20.e2")).isFalse();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.a.2")).isFalse();
   }
 }

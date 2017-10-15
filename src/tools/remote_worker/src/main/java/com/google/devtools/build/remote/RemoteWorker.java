@@ -14,201 +14,157 @@
 
 package com.google.devtools.build.remote;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.logging.Level.FINE;
+import static java.util.logging.Level.INFO;
+import static java.util.logging.Level.SEVERE;
+
+import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.remote.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.ConcurrentMapActionCache;
-import com.google.devtools.build.lib.remote.ConcurrentMapFactory;
-import com.google.devtools.build.lib.remote.ContentDigests;
-import com.google.devtools.build.lib.remote.ExecuteServiceGrpc.ExecuteServiceImplBase;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.RemoteOptions;
-import com.google.devtools.build.lib.remote.RemoteProtocol;
-import com.google.devtools.build.lib.remote.RemoteProtocol.Action;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasStatus;
-import com.google.devtools.build.lib.remote.RemoteProtocol.Command.EnvironmentEntry;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
-import com.google.devtools.build.lib.shell.AbnormalTerminationException;
+import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
+import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
+import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
+import com.google.devtools.build.lib.util.SingleLineFormatter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.UnixFileSystem;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
+import com.google.devtools.remoteexecution.v1test.ActionResult;
+import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
+import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
+import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
-import io.grpc.stub.StreamObserver;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
+import io.grpc.netty.NettyServerBuilder;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.nio.file.FileAlreadyExistsException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.io.InputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * Implements a remote worker that accepts work items as protobufs. The server implementation is
- * based on grpc.
+ * based on gRPC.
  */
-public class RemoteWorker extends ExecuteServiceImplBase {
-  private static final Logger LOG = Logger.getLogger(RemoteWorker.class.getName());
-  private static final boolean LOG_FINER = LOG.isLoggable(Level.FINER);
-  private final Path workPath;
-  private final RemoteOptions remoteOptions;
-  private final RemoteWorkerOptions options;
-  private final ConcurrentMapActionCache cache;
+public final class RemoteWorker {
+  // We need to keep references to the root and netty loggers to prevent them from being garbage
+  // collected, which would cause us to loose their configuration.
+  private static final Logger rootLogger = Logger.getLogger("");
+  private static final Logger nettyLogger = Logger.getLogger("io.grpc.netty");
+  private static final Logger logger = Logger.getLogger(RemoteWorker.class.getName());
+
+  private final RemoteWorkerOptions workerOptions;
+  private final ActionCacheImplBase actionCacheServer;
+  private final ByteStreamImplBase bsServer;
+  private final ContentAddressableStorageImplBase casServer;
+  private final WatcherImplBase watchServer;
+  private final ExecutionImplBase execServer;
+
+  static FileSystem getFileSystem() {
+    return OS.getCurrent() == OS.WINDOWS ? new JavaIoFileSystem() : new UnixFileSystem();
+  }
 
   public RemoteWorker(
-      Path workPath,
-      RemoteOptions remoteOptions,
-      RemoteWorkerOptions options,
-      ConcurrentMapActionCache cache) {
-    this.workPath = workPath;
-    this.remoteOptions = remoteOptions;
-    this.options = options;
-    this.cache = cache;
-  }
-
-  private Map<String, String> getEnvironmentVariables(RemoteProtocol.Command command) {
-    HashMap<String, String> result = new HashMap<>();
-    for (EnvironmentEntry entry : command.getEnvironmentList()) {
-      result.put(entry.getVariable(), entry.getValue());
+      FileSystem fs, RemoteWorkerOptions workerOptions, SimpleBlobStoreActionCache cache,
+      Path sandboxPath)
+      throws IOException {
+    this.workerOptions = workerOptions;
+    this.actionCacheServer = new ActionCacheServer(cache);
+    Path workPath;
+    if (workerOptions.workPath != null) {
+      workPath = fs.getPath(workerOptions.workPath);
+    } else {
+      // TODO(ulfjack): The plan is to make the on-disk storage the default, so we always need to
+      // provide a path to the remote worker, and we can then also use that as the work path. E.g.:
+      // /given/path/cas/
+      // /given/path/upload/
+      // /given/path/work/
+      // We could technically use a different path for temporary files and execution, but we want
+      // the cas/ directory to be on the same file system as the upload/ and work/ directories so
+      // that we can atomically move files between them, and / or use hard-links for the exec
+      // directories.
+      // For now, we use a temporary path if no work path was provided.
+      workPath = fs.getPath("/tmp/remote-worker");
     }
-    return result;
-  }
+    this.bsServer = new ByteStreamServer(cache, workPath);
+    this.casServer = new CasServer(cache);
 
-  public ExecuteReply execute(Action action, Path execRoot)
-      throws IOException, InterruptedException {
-    ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-    ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-    try {
-      RemoteProtocol.Command command =
-          RemoteProtocol.Command.parseFrom(cache.downloadBlob(action.getCommandDigest()));
-      cache.downloadTree(action.getInputRootDigest(), execRoot);
-
-      List<Path> outputs = new ArrayList<>(action.getOutputPathList().size());
-      for (String output : action.getOutputPathList()) {
-        Path file = execRoot.getRelative(output);
-        if (file.exists()) {
-          throw new FileAlreadyExistsException("Output file already exists: " + file);
-        }
-        FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
-        outputs.add(file);
-      }
-
-      // TODO(olaola): time out after specified server-side deadline.
-      Command cmd =
-          new Command(
-              command.getArgvList().toArray(new String[] {}),
-              getEnvironmentVariables(command),
-              new File(execRoot.getPathString()));
-      cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdout, stderr, true);
-
-      // Execute throws a CommandException on non-zero return values, so action has succeeded.
-      ImmutableList<ContentDigest> outErrDigests =
-          cache.uploadBlobs(ImmutableList.of(stdout.toByteArray(), stderr.toByteArray()));
-      ActionResult.Builder result =
-          ActionResult.newBuilder()
-              .setReturnCode(0)
-              .setStdoutDigest(outErrDigests.get(0))
-              .setStderrDigest(outErrDigests.get(1));
-      cache.uploadAllResults(execRoot, outputs, result);
-      cache.setCachedActionResult(ContentDigests.computeActionKey(action), result.build());
-      return ExecuteReply.newBuilder()
-          .setResult(result)
-          .setStatus(ExecutionStatus.newBuilder().setExecuted(true).setSucceeded(true))
-          .build();
-    } catch (CommandException e) {
-      ImmutableList<ContentDigest> outErrDigests =
-          cache.uploadBlobs(ImmutableList.of(stdout.toByteArray(), stderr.toByteArray()));
-      final int returnCode =
-          e instanceof AbnormalTerminationException
-              ? ((AbnormalTerminationException) e).getResult().getTerminationStatus().getExitCode()
-              : -1;
-      return ExecuteReply.newBuilder()
-          .setResult(
-              ActionResult.newBuilder()
-                  .setReturnCode(returnCode)
-                  .setStdoutDigest(outErrDigests.get(0))
-                  .setStderrDigest(outErrDigests.get(1)))
-          .setStatus(
-              ExecutionStatus.newBuilder()
-                  .setExecuted(true)
-                  .setSucceeded(false)
-                  .setError(ExecutionStatus.ErrorCode.EXEC_FAILED)
-                  .setErrorDetail(e.toString()))
-          .build();
-    } catch (CacheNotFoundException e) {
-      LOG.warning("Cache miss on " + ContentDigests.toString(e.getMissingDigest()));
-      return ExecuteReply.newBuilder()
-          .setCasError(
-              CasStatus.newBuilder()
-                  .setSucceeded(false)
-                  .addMissingDigest(e.getMissingDigest())
-                  .setError(CasStatus.ErrorCode.MISSING_DIGEST)
-                  .setErrorDetail(e.toString()))
-          .setStatus(
-              ExecutionStatus.newBuilder()
-                  .setExecuted(false)
-                  .setSucceeded(false)
-                  .setError(
-                      e.getMissingDigest() == action.getCommandDigest()
-                          ? ExecutionStatus.ErrorCode.MISSING_COMMAND
-                          : ExecutionStatus.ErrorCode.MISSING_INPUT)
-                  .setErrorDetail(e.toString()))
-          .build();
+    if (workerOptions.workPath != null) {
+      ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache =
+          new ConcurrentHashMap<>();
+      FileSystemUtils.createDirectoryAndParents(workPath);
+      watchServer = new WatcherServer(operationsCache);
+      execServer =
+          new ExecutionServer(workPath, sandboxPath, workerOptions, cache, operationsCache);
+    } else {
+      watchServer = null;
+      execServer = null;
     }
   }
 
-  @Override
-  public void execute(ExecuteRequest request, StreamObserver<ExecuteReply> responseObserver) {
-    Path tempRoot = workPath.getRelative("build-" + UUID.randomUUID().toString());
-    try {
-      tempRoot.createDirectory();
-      if (LOG_FINER) {
-        LOG.fine(
-            "Work received has "
-                + request.getTotalInputFileCount()
-                + " input files and "
-                + request.getAction().getOutputPathCount()
-                + " output files.");
-      }
-      ExecuteReply reply = execute(request.getAction(), tempRoot);
-      responseObserver.onNext(reply);
-      if (options.debug) {
-        if (!reply.getStatus().getSucceeded()) {
-          LOG.warning("Work failed. Request: " + request.toString() + ".");
-        } else if (LOG_FINER) {
-          LOG.fine("Work completed.");
-        }
-      }
-      if (!options.debug) {
-        FileSystemUtils.deleteTree(tempRoot);
-      } else {
-        LOG.warning("Preserving work directory " + tempRoot.toString() + ".");
-      }
-    } catch (IOException | InterruptedException e) {
-      ExecuteReply.Builder reply = ExecuteReply.newBuilder();
-      reply.getStatusBuilder().setSucceeded(false).setErrorDetail(e.toString());
-      responseObserver.onNext(reply.build());
-      if (e instanceof InterruptedException) {
-        Thread.currentThread().interrupt();
-      }
-    } finally {
-      responseObserver.onCompleted();
+  public Server startServer() throws IOException {
+    NettyServerBuilder b =
+        NettyServerBuilder.forPort(workerOptions.listenPort)
+            .addService(actionCacheServer)
+            .addService(bsServer)
+            .addService(casServer);
+
+    if (execServer != null) {
+      b.addService(execServer);
+      b.addService(watchServer);
+    } else {
+      logger.info("Execution disabled, only serving cache requests.");
     }
+
+    Server server = b.build();
+    logger.log(INFO, "Starting gRPC server on port {0,number,#}.", workerOptions.listenPort);
+    server.start();
+
+    return server;
+  }
+
+  private void createPidFile() throws IOException {
+    if (workerOptions.pidFile == null) {
+      return;
+    }
+
+    final Path pidFile = getFileSystem().getPath(workerOptions.pidFile);
+    try (Writer writer =
+        new OutputStreamWriter(pidFile.getOutputStream(), StandardCharsets.UTF_8)) {
+      writer.write(Integer.toString(ProcessUtils.getpid()));
+      writer.write("\n");
+    }
+
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread() {
+              @Override
+              public void run() {
+                try {
+                  pidFile.delete();
+                } catch (IOException e) {
+                  System.err.println("Cannot remove pid file: " + pidFile);
+                }
+              }
+            });
   }
 
   public static void main(String[] args) throws Exception {
@@ -218,65 +174,108 @@ public class RemoteWorker extends ExecuteServiceImplBase {
     RemoteOptions remoteOptions = parser.getOptions(RemoteOptions.class);
     RemoteWorkerOptions remoteWorkerOptions = parser.getOptions(RemoteWorkerOptions.class);
 
-    if (remoteWorkerOptions.workPath == null) {
-      printUsage(parser);
+    rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
+    if (remoteWorkerOptions.debug) {
+      rootLogger.getHandlers()[0].setLevel(FINE);
+    }
+
+    // Only log severe log messages from Netty. Otherwise it logs warnings that look like this:
+    //
+    // 170714 08:16:28.552:WT 18 [io.grpc.netty.NettyServerHandler.onStreamError] Stream Error
+    // io.netty.handler.codec.http2.Http2Exception$StreamException: Received DATA frame for an
+    // unknown stream 11369
+    //
+    // As far as we can tell, these do not indicate any problem with the connection. We believe they
+    // happen when the local side closes a stream, but the remote side hasn't received that
+    // notification yet, so there may still be packets for that stream en-route to the local
+    // machine. The wording 'unknown stream' is misleading - the stream was previously known, but
+    // was recently closed. I'm told upstream discussed this, but didn't want to keep information
+    // about closed streams around.
+    nettyLogger.setLevel(Level.SEVERE);
+
+    FileSystem fs = getFileSystem();
+    Path sandboxPath = null;
+    if (remoteWorkerOptions.sandboxing) {
+      sandboxPath = prepareSandboxRunner(fs, remoteWorkerOptions);
+    }
+
+    logger.info("Initializing in-memory cache server.");
+    boolean usingRemoteCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
+    if (!usingRemoteCache) {
+      logger.warning("Not using remote cache. This should be used for testing only!");
+    }
+    if ((remoteWorkerOptions.casPath != null)
+        && (!PathFragment.create(remoteWorkerOptions.casPath).isAbsolute()
+            || !fs.getPath(remoteWorkerOptions.casPath).exists())) {
+      logger.severe("--cas_path must refer to an existing, absolute path!");
+      System.exit(1);
       return;
     }
 
-    System.out.println("*** Starting Hazelcast server.");
-    ConcurrentMapActionCache cache =
-        new ConcurrentMapActionCache(ConcurrentMapFactory.createHazelcast(remoteOptions));
+    SimpleBlobStore blobStore =
+        usingRemoteCache
+            ? SimpleBlobStoreFactory.create(remoteOptions)
+            : remoteWorkerOptions.casPath != null
+                ? new OnDiskBlobStore(fs.getPath(remoteWorkerOptions.casPath))
+                : new ConcurrentMapBlobStore(new ConcurrentHashMap<String, byte[]>());
 
-    System.out.println(
-        "*** Starting grpc server on all locally bound IPs on port "
-            + remoteWorkerOptions.listenPort
-            + ".");
-    Path workPath = getFileSystem().getPath(remoteWorkerOptions.workPath);
-    FileSystemUtils.createDirectoryAndParents(workPath);
-    RemoteWorker worker = new RemoteWorker(workPath, remoteOptions, remoteWorkerOptions, cache);
-    final Server server =
-        ServerBuilder.forPort(remoteWorkerOptions.listenPort).addService(worker).build();
-    server.start();
+    RemoteWorker worker =
+        new RemoteWorker(
+            fs, remoteWorkerOptions, new SimpleBlobStoreActionCache(blobStore), sandboxPath);
 
-    final Path pidFile;
-    if (remoteWorkerOptions.pidFile != null) {
-      pidFile = getFileSystem().getPath(remoteWorkerOptions.pidFile);
-      PrintWriter writer = new PrintWriter(pidFile.getOutputStream());
-      writer.append(Integer.toString(ProcessUtils.getpid()));
-      writer.append("\n");
-      writer.close();
-    } else {
-      pidFile = null;
-    }
-
-    Runtime.getRuntime()
-        .addShutdownHook(
-            new Thread() {
-              @Override
-              public void run() {
-                System.err.println("*** Shutting down grpc server.");
-                server.shutdown();
-                if (pidFile != null) {
-                  try {
-                    pidFile.delete();
-                  } catch (IOException e) {
-                    System.err.println("Cannot remove pid file: " + pidFile.toString());
-                  }
-                }
-                System.err.println("*** Server shut down.");
-              }
-            });
+    final Server server = worker.startServer();
+    worker.createPidFile();
     server.awaitTermination();
   }
 
-  public static void printUsage(OptionsParser parser) {
-    System.out.println("Usage: remote_worker \n\n" + "Starts a worker that runs a RPC service.");
-    System.out.println(
-        parser.describeOptions(
-            Collections.<String, String>emptyMap(), OptionsParser.HelpVerbosity.LONG));
-  }
+  private static Path prepareSandboxRunner(FileSystem fs, RemoteWorkerOptions remoteWorkerOptions) {
+    if (OS.getCurrent() != OS.LINUX) {
+      logger.severe("Sandboxing requested, but it is currently only available on Linux.");
+      System.exit(1);
+    }
 
-  static FileSystem getFileSystem() {
-    return OS.getCurrent() == OS.WINDOWS ? new JavaIoFileSystem() : new UnixFileSystem();
+    if (remoteWorkerOptions.workPath == null) {
+      logger.severe("Sandboxing requested, but --work_path was not specified.");
+      System.exit(1);
+    }
+
+    InputStream sandbox = RemoteWorker.class.getResourceAsStream("/main/tools/linux-sandbox");
+    if (sandbox == null) {
+      logger.severe(
+          "Sandboxing requested, but could not find bundled linux-sandbox binary. "
+              + "Please rebuild a remote_worker_deploy.jar on Linux to make this work.");
+      System.exit(1);
+    }
+
+    Path sandboxPath = null;
+    try {
+      sandboxPath = fs.getPath(remoteWorkerOptions.workPath).getChild("linux-sandbox");
+      try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathString())) {
+        ByteStreams.copy(sandbox, fos);
+      }
+      sandboxPath.setExecutable(true);
+    } catch (IOException e) {
+      logger.log(SEVERE, "Could not extract the bundled linux-sandbox binary to " + sandboxPath, e);
+      System.exit(1);
+    }
+
+    CommandResult cmdResult = null;
+    Command cmd =
+        new Command(
+            ImmutableList.of(sandboxPath.getPathString(), "--", "true").toArray(new String[0]),
+            ImmutableMap.<String, String>of(),
+            sandboxPath.getParentDirectory().getPathFile());
+    try {
+      cmdResult = cmd.execute();
+    } catch (CommandException e) {
+      logger.log(
+          SEVERE,
+          "Sandboxing requested, but it failed to execute 'true' as a self-check: "
+              + new String(cmdResult.getStderr(), UTF_8),
+          e);
+      System.exit(1);
+    }
+
+    return sandboxPath;
   }
 }

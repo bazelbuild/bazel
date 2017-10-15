@@ -24,30 +24,34 @@ add_to_bazelrc "test --nocache_test_results"
 # End of preamble.
 
 function create_test_files() {
-  # We use hardlinks to this file as a communication mechanism between
-  # test runs.
-  touch $TEST_TMPDIR/counter
+  # We use this directory as a communication mechanism between test runs. Each
+  # test adds a unique file to the directory and then removes it.
+  mkdir -p $TEST_TMPDIR/testfiles
 
   mkdir dir
 
   cat <<EOF > dir/test.sh
 #!/bin/sh
-# hard link
-z=$TEST_TMPDIR/\$(basename \$(mktemp -u))
-ln $TEST_TMPDIR/counter \${z}
 
-# Make sure other test runs have started too.
+z=\$(mktemp $TEST_TMPDIR/testfiles/tmp.XXXXXXXX)
+
+# Try to ensure other test runs have started too.
 sleep 1
-nlink=\$(ls -l $TEST_TMPDIR/counter | awk '{print \$2}')
 
-# 4 links = 3 jobs + $TEST_TMPDIR/counter
-if [[ "\$nlink" -gt 4 ]] ; then
-  echo found "\$nlink" hard links to file, want 4 max.
+numtestfiles=\$(ls -1 $TEST_TMPDIR/testfiles/ | wc -l)
+
+# The tests below are configured to prevent more than 3 tests from running at
+# once. This block returns an error code from this script if it observes more
+# than 3 files in the testfiles/ directory.
+if [[ "\${numtestfiles}" -gt 3 ]] ; then
+  echo "Found \${numtestfiles} test files, but there should be 3 at max."
   exit 1
 fi
 
-# Ensure that we don't remove before other runs have inspected the file.
+# Try to ensure that we don't remove the test file before other runs have a
+# chance to inspect the file.
 sleep 1
+
 rm \${z}
 
 EOF
@@ -68,21 +72,21 @@ function test_local_test_jobs_constrains_test_execution() {
   create_test_files
   # 3 local test jobs, so no more than 3 tests in parallel.
   bazel test --local_test_jobs=3 --local_resources=10000,10,100 --runs_per_test=10 \
-      //dir:test
+      //dir:test >& $TEST_log || fail "Expected success"
 }
 
 function test_no_local_test_jobs_causes_local_resources_to_constrain_test_execution() {
   create_test_files
   # unlimited local test jobs, so local resources enforces 3 tests in parallel.
   bazel test --local_resources=10000,3,100 --runs_per_test=10 \
-      //dir:test
+      //dir:test >& $TEST_log || fail "Expected success"
 }
 
 function test_local_test_jobs_exceeds_jobs_causes_warning() {
   create_test_files
   # 10 local test jobs, but only 3 jobs, so warning is printed, and only 3 tests run concurrently
   bazel test --jobs=3 --local_test_jobs=10 --local_resources=10000,10,100 --runs_per_test=10 \
-      //dir:test >& $TEST_log
+      //dir:test >& $TEST_log || fail "Expected success"
 
   expect_log 'High value for --local_test_jobs'
 }

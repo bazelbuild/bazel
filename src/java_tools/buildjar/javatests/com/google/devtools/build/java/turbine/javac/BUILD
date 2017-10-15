@@ -16,8 +16,6 @@ java_test(
     ],
     tags = ["jdk8"],
     deps = [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:javac_turbine",
         "//src/main/protobuf:deps_java_proto",
         "//third_party:asm",
@@ -25,6 +23,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party:turbine",
         "//third_party/java/jdk/langtools:javac",
     ],
 )
@@ -32,6 +31,13 @@ java_test(
 java_test(
     name = "TreePrunerTest",
     srcs = ["TreePrunerTest.java"],
+    data = [
+        "//third_party/java/jdk/langtools:javac_jar",
+    ],
+    jvm_flags = [
+        # Simulates how Bazel invokes turbine
+        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
+    ],
     tags = ["jdk8"],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:tree_pruner",

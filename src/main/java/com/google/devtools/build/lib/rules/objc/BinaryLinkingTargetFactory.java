@@ -25,51 +25,49 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import java.util.Map;
+import java.util.TreeMap;
 
-/** Implementation for rules that link binaries. */
+/**
+ * Implementation for rules that link binaries.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
+ */
+@Deprecated
 abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory {
   /**
    * Indicates whether this binary generates an application bundle. If so, it causes the {@code
    * infoplist} attribute to be read and a bundle to be added to the files-to-build.
    */
   enum HasReleaseBundlingSupport {
-    YES, NO;
-  }
-
-  /** Indicates whether this binary uses the c++ rules backend, including the crosstool. */
-  enum UsesCrosstool {
-    EXPERIMENTAL, // use the crosstool if --experimental_use_crosstool_for_binary is given
+    YES,
     NO;
   }
-  
-  private final HasReleaseBundlingSupport hasReleaseBundlingSupport;
-  private final XcodeProductType productType;
-  private final UsesCrosstool usesCrosstool;
 
-  protected BinaryLinkingTargetFactory(
-      HasReleaseBundlingSupport hasReleaseBundlingSupport,
-      XcodeProductType productType,
-      UsesCrosstool usesCrosstool) {
+  private final HasReleaseBundlingSupport hasReleaseBundlingSupport;
+
+  protected BinaryLinkingTargetFactory(HasReleaseBundlingSupport hasReleaseBundlingSupport) {
     this.hasReleaseBundlingSupport = hasReleaseBundlingSupport;
-    this.productType = productType;
-    this.usesCrosstool = usesCrosstool;
   }
 
   /**
-   * Returns extra linker arguments. Default implementation returns empty list.
-   * Subclasses can override and customize.
+   * Returns extra linker arguments. Default implementation returns empty list. Subclasses can
+   * override and customize.
    */
   protected ExtraLinkArgs getExtraLinkArgs(RuleContext ruleContext) {
     return new ExtraLinkArgs();
@@ -82,19 +80,29 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    ruleContext.ruleWarning(
+        "This rule is deprecated. Please use the new Apple build rules "
+            + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");
+
+    Iterable<ObjcProtoProvider> objcProtoProviders =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+
     ProtobufSupport protoSupport =
-        new ProtobufSupport(ruleContext).registerGenerationActions().registerCompilationActions();
+        new ProtobufSupport(
+                ruleContext,
+                ruleContext.getConfiguration(),
+                ImmutableList.<ProtoSourcesProvider>of(),
+                objcProtoProviders,
+                ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders))
+            .registerGenerationActions()
+            .registerCompilationActions();
 
     Optional<ObjcProvider> protosObjcProvider = protoSupport.getObjcProvider();
-    Optional<XcodeProvider> protosXcodeProvider = protoSupport.getXcodeProvider();
 
     ObjcCommon common = common(ruleContext, protosObjcProvider);
 
     ObjcProvider objcProvider = common.getObjcProvider();
     assertLibraryOrSources(objcProvider, ruleContext);
-
-    XcodeProvider.Builder xcodeProviderBuilder =
-        new XcodeProvider.Builder().addPropagatedDependencies(protosXcodeProvider.asSet());
 
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
@@ -103,51 +111,39 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         NestedSetBuilder.<Artifact>stableOrder()
             .add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-    new ResourceSupport(ruleContext)
-        .validateAttributes()
-        .addXcodeSettings(xcodeProviderBuilder);
+    new ResourceSupport(ruleContext).validateAttributes();
 
     ruleContext.assertNoErrors();
 
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
-        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
-    J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
-        .addTransitive(
-            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
-        .build();
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
+        J2ObjcMappingFileProvider.union(
+            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+    J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
+        new J2ObjcEntryClassProvider.Builder()
+            .addTransitive(
+                ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
+            .build();
 
+    Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     CompilationSupport compilationSupport =
-        new CompilationSupport(ruleContext)
-            .addXcodeSettings(xcodeProviderBuilder, common)
-            .registerLinkActions(
-                objcProvider,
-                j2ObjcMappingFileProvider,
-                j2ObjcEntryClassProvider,
-                getExtraLinkArgs(ruleContext),
-                ImmutableList.<Artifact>of(),
-                DsymOutputType.APP)
-            .validateAttributes();
+        new CompilationSupport.Builder()
+            .setRuleContext(ruleContext)
+            .setOutputGroupCollector(outputGroupCollector)
+            .build();
 
-    TransitiveInfoProviderMap compilationProviders;
-    if (usesCrosstool == UsesCrosstool.EXPERIMENTAL
-        && ruleContext.getFragment(ObjcConfiguration.class).useCrosstoolForBinary()) {
-      CrosstoolSupport crosstoolSupport = new CrosstoolSupport(ruleContext, objcProvider);
-      CompilationArtifacts compilationArtifacts =
-          CompilationSupport.compilationArtifacts(ruleContext);
-      if (compilationArtifacts.getArchive().isPresent()) {
-        compilationProviders = crosstoolSupport.registerCompileAndArchiveActions(common);
-      } else {
-        compilationProviders = crosstoolSupport.registerCompileActions(common);
-      }
-      crosstoolSupport.registerFullyLinkAction(common);
-    } else {
-      compilationProviders = null;
-      compilationSupport
-          .registerCompileAndArchiveActions(common)
-          .registerFullyLinkAction(
-              common.getObjcProvider(),
-              ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
-    }
+    compilationSupport
+        .validateAttributes()
+        .registerCompileAndArchiveActions(common)
+        .registerFullyLinkAction(
+            common.getObjcProvider(),
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
+        .registerLinkActions(
+            objcProvider,
+            j2ObjcMappingFileProvider,
+            j2ObjcEntryClassProvider,
+            getExtraLinkArgs(ruleContext),
+            ImmutableList.<Artifact>of(),
+            DsymOutputType.APP);
 
     Optional<XcTestAppProvider> xcTestAppProvider;
     Optional<RunfilesSupport> maybeRunfilesSupport = Optional.absent();
@@ -161,17 +157,17 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
                 objcProvider,
                 LinkedBinary.LOCAL_AND_DEPENDENCIES,
                 ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT,
-                appleConfiguration.getMinimumOsForPlatformType(PlatformType.IOS),
+                XcodeConfig.getMinimumOsForPlatformType(ruleContext, PlatformType.IOS),
                 appleConfiguration.getSingleArchPlatform());
         releaseBundlingSupport
             .registerActions(DsymOutputType.APP)
-            .addXcodeSettings(xcodeProviderBuilder)
             .addFilesToBuild(filesToBuild, Optional.of(DsymOutputType.APP))
             .validateResources()
             .validateAttributes();
 
         xcTestAppProvider = Optional.of(releaseBundlingSupport.xcTestAppProvider());
-        if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS) == Platform.IOS_SIMULATOR) {
+        if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
+            == ApplePlatform.IOS_SIMULATOR) {
           Artifact runnerScript = intermediateArtifacts.runnerScript();
           Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
           releaseBundlingSupport.registerGenerateRunnerScriptAction(runnerScript, ipaFile);
@@ -185,40 +181,23 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         throw new AssertionError();
     }
 
-    XcodeSupport xcodeSupport = new XcodeSupport(ruleContext)
-        // TODO(bazel-team): Use LIBRARY_STATIC as parameter instead of APPLICATION once objc_binary
-        // no longer creates an application bundle
-        .addXcodeSettings(xcodeProviderBuilder, objcProvider, productType)
-        .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
-        .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
-        .addNonPropagatedDependencies(
-            xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
-        .addFilesToBuild(filesToBuild);
-
-    if (productType != XcodeProductType.LIBRARY_STATIC) {
-        xcodeSupport.generateCompanionLibXcodeTarget(xcodeProviderBuilder);
-    }
-    XcodeProvider xcodeProvider = xcodeProviderBuilder.build();
-    xcodeSupport.registerActions(xcodeProvider);
-
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-            .addProvider(XcodeProvider.class, xcodeProvider)
-            .addProvider(ObjcProvider.class, objcProvider)
+            .addNativeDeclaredProvider(objcProvider)
+            .addNativeDeclaredProvider(objcProvider)
             .addProvider(
                 InstrumentedFilesProvider.class,
-                compilationSupport.getInstrumentedFilesProvider(common));
+                compilationSupport.getInstrumentedFilesProvider(common))
+            .addOutputGroups(outputGroupCollector);
+
     if (xcTestAppProvider.isPresent()) {
       // TODO(bazel-team): Stop exporting an XcTestAppProvider once objc_binary no longer creates an
       // application bundle.
-      targetBuilder.addProvider(XcTestAppProvider.class, xcTestAppProvider.get());
+      targetBuilder.addNativeDeclaredProvider(xcTestAppProvider.get());
     }
     if (maybeRunfilesSupport.isPresent()) {
       RunfilesSupport runfilesSupport = maybeRunfilesSupport.get();
       targetBuilder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
-    }
-    if (compilationProviders != null) {
-      targetBuilder.addProviders(compilationProviders);
     }
     configureTarget(targetBuilder, ruleContext);
     return targetBuilder.build();
@@ -251,7 +230,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .addDepObjcProviders(protosObjcProvider.asSet())
             .addNonPropagatedDepObjcProviders(
                 ruleContext.getPrerequisites(
-                    "non_propagated_deps", Mode.TARGET, ObjcProvider.class))
+                    "non_propagated_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
             .setIntermediateArtifacts(intermediateArtifacts)
             .setAlwayslink(false)
             .setHasModuleMap()

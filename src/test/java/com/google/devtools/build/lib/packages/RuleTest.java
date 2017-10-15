@@ -14,17 +14,13 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -47,26 +43,26 @@ public class RuleTest {
     Package pkg = packages.createPackage("x", buildFile);
     Rule rule = pkg.getRule("x");
 
-    assertEquals(new LineAndColumn(1, 1), rule.getLocation().getStartLineAndColumn());
+    assertThat(rule.getLocation().getStartLineAndColumn()).isEqualTo(new LineAndColumn(1, 1));
 
     // Special "name" attribute always has same location as rule:
-    assertEquals(new LineAndColumn(1, 1),
-                 rule.getAttributeLocation("name").getStartLineAndColumn());
+    assertThat(rule.getAttributeLocation("name").getStartLineAndColumn())
+        .isEqualTo(new LineAndColumn(1, 1));
 
     // User-provided attributes have precise locations:
-    assertEquals(new LineAndColumn(2, 18),
-                 rule.getAttributeLocation("srcs").getStartLineAndColumn());
-    assertEquals(new LineAndColumn(3, 21),
-                 rule.getAttributeLocation("defines").getStartLineAndColumn());
+    assertThat(rule.getAttributeLocation("srcs").getStartLineAndColumn())
+        .isEqualTo(new LineAndColumn(2, 18));
+    assertThat(rule.getAttributeLocation("defines").getStartLineAndColumn())
+        .isEqualTo(new LineAndColumn(3, 21));
 
     // Default attributes have same location as rule:
-    assertEquals(new LineAndColumn(1, 1),
-                 rule.getAttributeLocation("malloc").getStartLineAndColumn());
+    assertThat(rule.getAttributeLocation("malloc").getStartLineAndColumn())
+        .isEqualTo(new LineAndColumn(1, 1));
 
     // Attempts to locate non-existent attributes don't fail;
     // the rule location is returned:
-    assertEquals(new LineAndColumn(1, 1),
-                 rule.getAttributeLocation("no-such-attr").getStartLineAndColumn());
+    assertThat(rule.getAttributeLocation("no-such-attr").getStartLineAndColumn())
+        .isEqualTo(new LineAndColumn(1, 1));
   }
 
   @Test
@@ -80,7 +76,7 @@ public class RuleTest {
 
     Package pkg = packages.createPackage("namecollide", buildFile);
     Rule genRule = pkg.getRule("hello_world");
-    assertFalse(genRule.containsErrors()); // TODO: assertTrue
+    assertThat(genRule.containsErrors()).isFalse(); // TODO: assertTrue
     events.assertContainsWarning("target 'hello_world' is both a rule and a file; please choose "
                                + "another name for the rule");
   }
@@ -96,9 +92,9 @@ public class RuleTest {
         "          local = 1)");
     Package pkg = packages.createPackage("x", buildFile);
     Rule y = pkg.getRule("y");
-    assertFalse(TargetUtils.isLocalTestRule(y));
+    assertThat(TargetUtils.isLocalTestRule(y)).isFalse();
     Rule z = pkg.getRule("z");
-    assertTrue(TargetUtils.isLocalTestRule(z));
+    assertThat(TargetUtils.isLocalTestRule(z)).isTrue();
   }
 
   @Test
@@ -108,9 +104,9 @@ public class RuleTest {
         "cc_test(name = 'z', deprecation = 'Foo')");
     Package pkg = packages.createPackage("x", buildFile);
     Rule y = pkg.getRule("y");
-    assertNull(TargetUtils.getDeprecation(y));
+    assertThat(TargetUtils.getDeprecation(y)).isNull();
     Rule z = pkg.getRule("z");
-    assertEquals("Foo", TargetUtils.getDeprecation(z));
+    assertThat(TargetUtils.getDeprecation(z)).isEqualTo("Foo");
   }
 
   @Test
@@ -123,9 +119,7 @@ public class RuleTest {
         "cc_binary(name = 'cu',",
         "          visibility = ['//a:b'])"));
 
-    assertEquals(ConstantRuleVisibility.PUBLIC,
-        pkg.getRule("pu").getVisibility());
-    assertEquals(ConstantRuleVisibility.PRIVATE,
-        pkg.getRule("pr").getVisibility());
+    assertThat(pkg.getRule("pu").getVisibility()).isEqualTo(ConstantRuleVisibility.PUBLIC);
+    assertThat(pkg.getRule("pr").getVisibility()).isEqualTo(ConstantRuleVisibility.PRIVATE);
   }
 }

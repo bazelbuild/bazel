@@ -40,7 +40,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
   private BazelMockCcSupport() {}
 
   private static final ImmutableList<String> CROSSTOOL_ARCHS =
-      ImmutableList.of("piii", "k8", "armeabi-v7a");
+      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc");
 
   protected static void createBasePackage(MockToolsConfig config) throws IOException {
     config.create(
@@ -86,11 +86,19 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "      'k8|compiler': ':cc-compiler-k8',",
         "      'piii|compiler': ':cc-compiler-piii',",
         "      'darwin|compiler': ':cc-compiler-darwin',",
+        "      'ios_x86_64|compiler': ':cc-compiler-ios_x86_64',",
         "      'armeabi-v7a|compiler': ':cc-compiler-armeabi-v7a',",
         "      'x64_windows|windows_msys64': ':cc-compiler-x64_windows',",
+        "      'ppc|compiler': ':cc-compiler-ppc',",
         "    })",
         "cc_toolchain(name = 'cc-compiler-k8', all_files = ':empty', compiler_files = ':empty',",
         "    cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
+        "    linker_files = ':empty',",
+        "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
+        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        ")",
+        "cc_toolchain(name = 'cc-compiler-ppc', all_files = ':empty', compiler_files = ':empty',",
+        "    cpu = 'ppc', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
         "    linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
@@ -102,6 +110,13 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
         ")",
         "cc_toolchain(name = 'cc-compiler-darwin', all_files = ':empty', ",
+        "    compiler_files = ':empty',",
+        "    cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
+        "    linker_files = ':empty',",
+        "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
+        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        ")",
+        "cc_toolchain(name = 'cc-compiler-ios_x86_64', all_files = ':empty', ",
         "    compiler_files = ':empty',",
         "    cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
         "    linker_files = ':empty',",
@@ -123,10 +138,33 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
         ")",
         "filegroup(",
+        "    name = 'interface_library_builder',",
+        "    srcs = ['build_interface_so'],",
+        ")",
+        "filegroup(",
         "    name = 'link_dynamic_library',",
         "    srcs = ['link_dynamic_library.sh'],",
-        ")");
-
+        ")",
+        "toolchain_type(name = 'toolchain_type')",
+        "toolchain(",
+        "   name = 'toolchain_cc-compiler-piii',",
+        "   toolchain_type = ':toolchain_type',",
+        "   toolchain = '//third_party/crosstool/mock:cc-compiler-piii',",
+        "   target_compatible_with = [':mock_value'],",
+        ")",
+        "toolchain(",
+        "   name = 'dummy_cc_toolchain',",
+        "   toolchain_type = ':toolchain_type',",
+        "   toolchain = ':dummy_cc_toolchain_impl',",
+        ")",
+        "load(':dummy_toolchain.bzl', 'dummy_toolchain')",
+        "dummy_toolchain(name = 'dummy_cc_toolchain_impl')");
+    config.create(
+        "/bazel_tools_workspace/tools/cpp/dummy_toolchain.bzl",
+        "def _dummy_toolchain_impl(ctx):",
+        "   toolchain = platform_common.ToolchainInfo()",
+        "   return [toolchain]",
+        "dummy_toolchain = rule(_dummy_toolchain_impl, attrs = {})");
     config.create(
         "/bazel_tools_workspace/tools/cpp/CROSSTOOL",
         readCrosstoolFile());
@@ -135,9 +173,8 @@ public final class BazelMockCcSupport extends MockCcSupport {
     } else {
       config.create("tools/cpp/link_dynamic_library.sh", "");
     }
-    config.create(
-        "/bazel_tools_workspace/tools/objc/BUILD",
-        "xcode_config(name = 'host_xcodes')");
+    MockObjcSupport.setup(config);
+    MockPlatformSupport.setup(config, "/bazel_tools_workspace/platforms");
   }
 
   @Override

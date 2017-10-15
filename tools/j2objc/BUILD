@@ -19,6 +19,11 @@ filegroup(
 )
 
 filegroup(
+    name = "j2objc_header_map",
+    srcs = ["j2objc_header_map.py"],
+)
+
+filegroup(
     name = "j2objc_proto_blacklist",
     srcs = ["dummy.proto"],
 )

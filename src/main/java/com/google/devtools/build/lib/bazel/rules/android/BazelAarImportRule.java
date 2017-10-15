@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.JavaBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.rules.android.AarImport;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 
 /**
@@ -28,7 +27,10 @@ public final class BazelAarImportRule implements RuleDefinition {
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-    return builder.build();
+    return builder
+        .removeAttribute("javacopts")
+        .removeAttribute("plugins")
+        .build();
   }
 
   @Override
@@ -36,7 +38,33 @@ public final class BazelAarImportRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("aar_import")
         .ancestors(AarImportBaseRule.class, JavaBaseRule.class)
-        .factoryClass(AarImport.class)
+        .factoryClass(BazelAarImport.class)
         .build();
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME = aar_import, TYPE = LIBRARY, FAMILY = Android) -->
+
+<p>
+  This rule allows the use of <code>.aar</code> files as libraries for
+  <code><a href="${link android_library}">android_library</a></code> and
+  <code><a href="${link android_binary}">android_binary</a></code> rules.
+</p>
+
+<h4 id="aar_import_examples">Examples</h4>
+
+<pre class="code">
+    aar_import(
+        name = "google-vr-sdk",
+        aar = "gvr-android-sdk/libraries/sdk-common-1.10.0.aar",
+    )
+
+    android_binary(
+        name = "app",
+        manifest = "AndroidManifest.xml",
+        srcs = glob(["**.java"]),
+        deps = [":google-vr-sdk"],
+    )
+</pre>
+
+<!-- #END_BLAZE_RULE -->*/

@@ -13,17 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import static com.google.common.util.concurrent.Futures.addCallback;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import javax.annotation.Nullable;
 
 /**
@@ -76,21 +77,24 @@ public class MoreFutures {
   public static <V> ListenableFuture<List<V>> allAsListOrCancelAll(
       final Iterable<? extends ListenableFuture<? extends V>> futures) {
     ListenableFuture<List<V>> combinedFuture = Futures.allAsList(futures);
-    Futures.addCallback(combinedFuture, new FutureCallback<List<V>>() {
-      @Override
-      public void onSuccess(@Nullable List<V> vs) {}
+    addCallback(
+        combinedFuture,
+        new FutureCallback<List<V>>() {
+          @Override
+          public void onSuccess(@Nullable List<V> vs) {}
 
-      /**
-       * In case of a failure of any of the futures (that gets propagated to combinedFuture) we
-       * cancel all the futures in the list.
-       */
-      @Override
-      public void onFailure(Throwable ignore) {
-        for (ListenableFuture<? extends V> future : futures) {
-          future.cancel(true);
-        }
-      }
-    });
+          /**
+           * In case of a failure of any of the futures (that gets propagated to combinedFuture) we
+           * cancel all the futures in the list.
+           */
+          @Override
+          public void onFailure(Throwable ignore) {
+            for (ListenableFuture<? extends V> future : futures) {
+              future.cancel(true);
+            }
+          }
+        },
+        directExecutor());
     return combinedFuture;
   }
 }

@@ -1,5 +1,10 @@
 package(default_visibility = ["//visibility:public"])
 
+# TODO(lberki): Remove this once cc_toolchain_alias is in a Bazel release
+load("//tools/cpp:alias_rules.bzl", "cc_toolchain_alias")
+
+cc_toolchain_alias(name = "current_cc_toolchain")
+
 cc_library(
     name = "malloc",
 )
@@ -38,6 +43,8 @@ cc_toolchain_suite(
         "local|compiler": ":cc-compiler-local",
         "x64_windows|compiler": ":cc-compiler-x64_windows",
         "x64_windows_msvc|compiler": ":cc-compiler-x64_windows_msvc",
+        "ppc|compiler": ":cc-compiler-ppc",
+        "ios_x86_64|compiler": ":cc-compiler-ios_x86_64",
     },
 )
 
@@ -46,6 +53,20 @@ cc_toolchain(
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+    supports_param_files = 1,
+)
+
+cc_toolchain(
+    name = "cc-compiler-ppc",
+    all_files = ":empty",
+    compiler_files = ":empty",
+    cpu = "ppc",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
@@ -139,6 +160,20 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
+cc_toolchain(
+    name = "cc-compiler-ios_x86_64",
+    all_files = ":empty",
+    compiler_files = ":empty",
+    cpu = "local",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+    supports_param_files = 0,
+)
+
 filegroup(
     name = "every-file-x64_windows",
     srcs = [
@@ -156,10 +191,31 @@ filegroup(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//tools/cpp/test:srcs"],
+    srcs = glob(["**"]),
+)
+
+filegroup(
+    name = "interface_library_builder",
+    srcs = ["build_interface_so"],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "link_dynamic_library",
     srcs = ["link_dynamic_library.sh"],
 )
+
+toolchain_type(name = "toolchain_type")
+
+# A dummy toolchain is necessary to satisfy toolchain resolution until platforms
+# are used in c++ by default.
+# TODO(b/64754003): Remove once platforms are used in c++ by default.
+toolchain(
+    name = "dummy_cc_toolchain",
+    toolchain = "dummy_cc_toolchain_impl",
+    toolchain_type = ":toolchain_type",
+)
+
+load(":dummy_toolchain.bzl", "dummy_toolchain")
+
+dummy_toolchain(name = "dummy_cc_toolchain_impl")

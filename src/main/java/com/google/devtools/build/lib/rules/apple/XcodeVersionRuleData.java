@@ -15,11 +15,12 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.Type;
-
 import java.util.List;
 
 /**
@@ -32,7 +33,8 @@ import java.util.List;
  * "7.0" aliases. This official version of xcode may have a default supported iOS SDK of
  * 9.0.
  */
-public class XcodeVersionRuleData {
+@Immutable
+public class XcodeVersionRuleData implements TransitiveInfoProvider {
   private final Label label;
   private final DottedVersion version;
   private final XcodeVersionProperties xcodeVersionProperties;
@@ -52,7 +54,7 @@ public class XcodeVersionRuleData {
     String tvosSdkVersionString =
         attrMapper.get(XcodeVersionRule.DEFAULT_TVOS_SDK_VERSION_ATTR_NAME, Type.STRING);
     String macosxSdkVersionString =
-        attrMapper.get(XcodeVersionRule.DEFAULT_MACOSX_SDK_VERSION_ATTR_NAME, Type.STRING);
+        attrMapper.get(XcodeVersionRule.DEFAULT_MACOS_SDK_VERSION_ATTR_NAME, Type.STRING);
     this.version = xcodeVersion;
     this.xcodeVersionProperties = new XcodeVersionProperties(xcodeVersion, iosSdkVersionString,
         watchosSdkVersionString, tvosSdkVersionString, macosxSdkVersionString);

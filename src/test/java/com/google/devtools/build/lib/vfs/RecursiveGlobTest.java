@@ -18,27 +18,23 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
-
-/**
- * Tests {@link UnixGlob} recursive globs.
- */
+/** Tests {@link UnixGlob} recursive globs. */
 @RunWith(JUnit4.class)
 public class RecursiveGlobTest {
 
   private Path tmpPath;
   private FileSystem fileSystem;
-  
+
   @Before
   public final void initializeFileSystem() throws Exception  {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance());
@@ -161,7 +157,7 @@ public class RecursiveGlobTest {
           .globInterruptible();
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).containsMatch("recursive wildcard must be its own segment");
+      assertThat(e).hasMessageThat().containsMatch("recursive wildcard must be its own segment");
     }
   }
 

@@ -20,10 +20,13 @@ public final class ActionCompletionEvent {
 
   private final long relativeActionStartTime;
   private final Action action;
+  private final ActionLookupData actionLookupData;
 
-  public ActionCompletionEvent(long relativeActionStartTime, Action action) {
+  public ActionCompletionEvent(
+      long relativeActionStartTime, Action action, ActionLookupData actionLookupData) {
     this.relativeActionStartTime = relativeActionStartTime;
     this.action = action;
+    this.actionLookupData = actionLookupData;
   }
 
   /**
@@ -35,5 +38,9 @@ public final class ActionCompletionEvent {
 
   public long getRelativeActionStartTime() {
     return relativeActionStartTime;
+  }
+
+  public ActionLookupData getActionLookupData() {
+    return actionLookupData;
   }
 }

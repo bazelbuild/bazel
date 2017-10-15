@@ -72,7 +72,7 @@ a minimal set of extra dependencies.
 
 ## [asm](https://asm.ow2.org)
 
-* Version: 5.0.4
+* Version: 5.1
 * License: 3-clause revised BSD
 
 
@@ -90,16 +90,15 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
-## [Google's Dagger](https://github.com/google/dagger)
-
-* Version: 2.5
-* License: Apache License 2.0
-
 ## [Error Prone](https://github.com/google/error-prone)
 
-* Version: 2.0.13
+* Version: 2.1.1
 * License: Apache License 2.0
 
+## [Hungarian Algorithm](https://github.com/KevinStern/software-and-algorithms)
+
+* Version 1.0
+* License: MIT
 
 ## [JCIP Annotations](https://github.com/stephenc/jcip-annotations/)
 
@@ -134,21 +133,15 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
-## [d3](http://d3js.org/)
-
-* Version: 3.4.12
-* License: BSD license
-
-
 ## [dd_plist](http://plist.googlecode.com/svn-history/r111/trunk/)
 
 * Version: r111
 * License: MIT license
 
 
-## [protobuf-java](https://code.google.com/p/protobuf/)
+## [protobuf](https://code.google.com/p/protobuf/)
 
-* Version: 2.5.0
+* Version: 3.0.0
 * License: New BSD License
 
 
@@ -164,15 +157,15 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
-## [guava](https://code.google.com/p/guava-libraries/)
+## [guava](https://github.com/google/guava)
 
-* Version: 19.0
+* Version: 21.0
 * License: Apache License 2.0
 
 
 ## [javac](https://github.com/google/error-prone-javac)
 
-* Version: 1.9.0-dev-r2973-2 (javac7.jar) and 1.9.0-dev-r2644-2 (javac.jar)
+* Version: 9-dev-r4023-3 (javac-9-dev-r4023-3.jar)
 * License: GNU GPL v2 with Classpath exception (plus other licenses, see third_party/java/jdk/langtools/LICENSE file).
 
 ## [jarjar](https://code.google.com/p/jarjar/)
@@ -189,7 +182,7 @@ a minimal set of extra dependencies.
 
 ## [JimFS](https://github.com/google/jimfs)
 
-* Version: 1.1-rc1
+* Version: 1.1
 * License: Apache License 2.0
 
 
@@ -221,12 +214,6 @@ a minimal set of extra dependencies.
 
 * Version: 1
 * License: Apache License 2.0
-
-
-## [jquery](http://jquery.com)
-
-* Version: v2_0_3
-* License: MIT license
 
 
 ## [maven](http://mvnrepository.com/artifact/org.apache.maven)
@@ -269,6 +256,11 @@ a minimal set of extra dependencies.
 * Version: 3.6.4
 * License: Apache License 2.0
 
+## [turbine](https://github.com/google/turbine)
+
+* Version: 0.1-20170828
+* License: Apache License 2.0
+
 
 # Testing
 
@@ -292,7 +284,7 @@ a minimal set of extra dependencies.
 
 ## [truth](http://google.github.io/truth/)
 
-* Version: 0.28
+* Version: 0.32
 * License: Apache License 2.0
 
 ## [xz](http://tukaani.org/xz/java.html)

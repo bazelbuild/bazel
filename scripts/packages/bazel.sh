@@ -21,23 +21,6 @@ set -eu
 # file and runs that. If that's not found, it runs the real Bazel binary which
 # is installed next to this script as bazel-real.
 
-WORKSPACE_DIR="${PWD}"
-while [[ "${WORKSPACE_DIR}" != / ]]; do
-    if [[ -e "${WORKSPACE_DIR}/WORKSPACE" ]]; then
-      break;
-    fi
-    WORKSPACE_DIR="$(dirname "${WORKSPACE_DIR}")"
-done
-readonly WORKSPACE_DIR
-
-if [[ -e "${WORKSPACE_DIR}/WORKSPACE" ]]; then
-  readonly WRAPPER="${WORKSPACE_DIR}/tools/bazel"
-
-  if [[ -x "${WRAPPER}" ]]; then
-    exec -a "$0" "${WRAPPER}" "$@"
-  fi
-fi
-
 # `readlink -f` that works on OSX too.
 function get_realpath() {
     if [ "$(uname -s)" == "Darwin" ]; then
@@ -78,7 +61,24 @@ function get_realpath() {
     fi
 }
 
-BAZEL_REAL="$(dirname "$(get_realpath "${BASH_SOURCE[0]}")")/bazel-real"
+export BAZEL_REAL="$(dirname "$(get_realpath "${BASH_SOURCE[0]}")")/bazel-real"
+
+WORKSPACE_DIR="${PWD}"
+while [[ "${WORKSPACE_DIR}" != / ]]; do
+    if [[ -e "${WORKSPACE_DIR}/WORKSPACE" ]]; then
+      break;
+    fi
+    WORKSPACE_DIR="$(dirname "${WORKSPACE_DIR}")"
+done
+readonly WORKSPACE_DIR
+
+if [[ -e "${WORKSPACE_DIR}/WORKSPACE" ]]; then
+  readonly WRAPPER="${WORKSPACE_DIR}/tools/bazel"
+
+  if [[ -x "${WRAPPER}" ]]; then
+    exec -a "$0" "${WRAPPER}" "$@"
+  fi
+fi
 
 if [[ ! -x "${BAZEL_REAL}" ]]; then
     echo "Failed to find underlying Bazel executable at ${BAZEL_REAL}" >&2

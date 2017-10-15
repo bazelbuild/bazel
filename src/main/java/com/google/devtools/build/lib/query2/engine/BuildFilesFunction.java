@@ -15,14 +15,12 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * A buildfiles(x) query expression, which computes the set of BUILD files and
@@ -32,7 +30,7 @@ import java.util.concurrent.ForkJoinPool;
  *
  * <pre>expr ::= BUILDFILES '(' expr ')'</pre>
  */
-class BuildFilesFunction implements QueryFunction {
+public class BuildFilesFunction implements QueryFunction {
   BuildFilesFunction() {
   }
 
@@ -42,38 +40,27 @@ class BuildFilesFunction implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(
+  public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
       VariableContext<T> context,
       final QueryExpression expression,
       List<Argument> args,
-      final Callback<T> callback)
-      throws QueryException, InterruptedException {
-    env.eval(
+      final Callback<T> callback) {
+    final Uniquifier<T> uniquifier = env.createUniquifier();
+    return env.eval(
         args.get(0).getExpression(),
         context,
         new Callback<T>() {
           @Override
           public void process(Iterable<T> partialResult)
               throws QueryException, InterruptedException {
-            Set<T> result = CompactHashSet.create();
+            ThreadSafeMutableSet<T> result = env.createThreadSafeMutableSet();
             Iterables.addAll(result, partialResult);
-            callback.process(
+            callback.process(uniquifier.unique(
                 env.getBuildFiles(
-                    expression, result, /* BUILD */ true, /* subinclude */ true, /* load */ true));
+                    expression, result, /* BUILD */ true, /* subinclude */ true, /* load */ true)));
           }
         });
-  }
-
-  @Override
-  public <T> void parEval(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      ThreadSafeCallback<T> callback,
-      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    eval(env, context, expression, args, callback);
   }
 
   @Override

@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -38,7 +39,7 @@ public abstract class BugReport {
 
   private BugReport() {}
 
-  private static Logger LOG = Logger.getLogger(BugReport.class.getName());
+  private static final Logger logger = Logger.getLogger(BugReport.class.getName());
 
   private static BlazeVersionInfo versionInfo = BlazeVersionInfo.instance();
 
@@ -52,6 +53,10 @@ public abstract class BugReport {
     runtime = newRuntime;
   }
 
+  private static String getProductName() {
+    return runtime != null ? runtime.getProductName() : "<unknown>";
+  }
+
   /**
    * Logs the unhandled exception with a special prefix signifying that this was a crash.
    *
@@ -61,7 +66,7 @@ public abstract class BugReport {
    */
   public static void sendBugReport(Throwable exception, List<String> args, String... values) {
     if (!versionInfo.isReleasedBlaze()) {
-      LOG.info("(Not a released binary; not logged.)");
+      logger.info("(Not a released binary; not logged.)");
       return;
     }
 
@@ -69,9 +74,10 @@ public abstract class BugReport {
   }
 
   private static void logCrash(Throwable throwable, String... args) {
+    logger.severe("Crash: " + Throwables.getStackTraceAsString(throwable));
     BugReport.sendBugReport(throwable, Arrays.asList(args));
     BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable);
-    System.err.println(runtime.getProductName() + " crash in async thread:");
+    System.err.println("ERROR: " + getProductName() + " crash in async thread:");
     throwable.printStackTrace();
   }
 
@@ -94,6 +100,7 @@ public abstract class BugReport {
             // to do as a best-effort operation.
             runtime.shutdownOnCrash();
           }
+          CustomExitCodePublisher.maybeWriteExitStatusFile(exitCode);
         } finally {
           // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
           // trigger our Blaze crash handler (this method). Calling System#exit() here, would
@@ -107,10 +114,10 @@ public abstract class BugReport {
       }
     } catch (Throwable t) {
       System.err.println(
-          "An crash occurred while "
-              + runtime.getProductName()
+          "ERROR: An crash occurred while "
+              + getProductName()
               + " was trying to handle a crash! Please file a bug against "
-              + runtime.getProductName()
+              + getProductName()
               + " and include the information below.");
 
       System.err.println("Original uncaught exception:");
@@ -134,7 +141,7 @@ public abstract class BugReport {
     PrintStream err = new PrintStream(outErr.getErrorStream());
     e.printStackTrace(err);
     err.flush();
-    LOG.log(Level.SEVERE, runtime.getProductName() + " crashed", e);
+    logger.log(Level.SEVERE, getProductName() + " crashed", e);
   }
 
   /**
@@ -146,7 +153,7 @@ public abstract class BugReport {
   public static void printBug(OutErr outErr, Throwable e) {
     if (e instanceof OutOfMemoryError) {
       outErr.printErr(
-          e.getMessage() + "\n\n" + runtime.getProductName() + " ran out of memory and crashed.\n");
+          e.getMessage() + "\n\nERROR: " + getProductName() + " ran out of memory and crashed.\n");
     } else {
       printThrowableTo(outErr, e);
     }
@@ -175,9 +182,10 @@ public abstract class BugReport {
   // Log the exception.  Because this method is only called in a blaze release,
   // this will result in a report being sent to a remote logging service.
   private static void logException(Throwable exception, List<String> args, String... values) {
+    logger.severe("Exception: " + Throwables.getStackTraceAsString(exception));
     // The preamble is used in the crash watcher, so don't change it
     // unless you know what you're doing.
-    String preamble = runtime.getProductName()
+    String preamble = getProductName()
         + (exception instanceof OutOfMemoryError ? " OOMError: " : " crashed with args: ");
 
     LoggingUtil.logToRemote(Level.SEVERE, preamble + Joiner.on(' ').join(args), exception,

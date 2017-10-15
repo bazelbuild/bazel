@@ -15,10 +15,11 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProviderImpl;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProviderImpl;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -35,7 +36,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
       TransitiveInfoCollection generatingRule, Artifact outputArtifact) {
     super(targetContext, outputArtifact);
     Preconditions.checkArgument(targetContext.getTarget() == outputFile);
-    this.generatingRule = generatingRule;
+    this.generatingRule = Preconditions.checkNotNull(generatingRule);
   }
 
   @Override
@@ -52,6 +53,19 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
     return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
         .getTransitiveLicenses();
   }
+
+  @Override
+  public TargetLicense getOutputLicenses() {
+    return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
+        .getOutputLicenses();
+  }
+
+  @Override
+  public boolean hasOutputLicenses() {
+    return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
+        .hasOutputLicenses();
+  }
+
 
   @Override
   public NestedSet<Artifact> getInstrumentedFiles() {
@@ -101,5 +115,10 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
       }
     }
     return defaultValue;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<output file target " + getTarget().getLabel() + ">");
   }
 }

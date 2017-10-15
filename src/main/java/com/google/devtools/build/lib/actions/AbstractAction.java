@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -27,21 +26,25 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.Collection;
-import javax.annotation.Nullable;
+import java.util.Map;
+import java.util.Map.Entry;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
@@ -51,8 +54,12 @@ import javax.annotation.Nullable;
 @Immutable @ThreadSafe
 @SkylarkModule(
     name = "Action",
-    doc = "Base class for actions.",
-    documented = false)
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "An action created on a <a href=\"ctx.html\">ctx</a> object. You can retrieve these "
+        + "using the <a href=\"globals.html#Actions\">Actions</a> provider. Some fields are only "
+        + "applicable for certain kinds of actions. Fields that are inapplicable are set to "
+        + "<code>None</code>."
+)
 public abstract class AbstractAction implements Action, SkylarkValue {
 
   /**
@@ -87,9 +94,14 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    */
   private final Iterable<Artifact> tools;
 
+  @GuardedBy("this")
+  private boolean inputsDiscovered = false;  // Only used when discoversInputs() returns true
+
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
+  @GuardedBy("this")
   private Iterable<Artifact> inputs;
-  private final Iterable<String> clientEnvironmentVariables;
+
+  protected final ActionEnvironment env;
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableSet<Artifact> outputs;
 
@@ -129,22 +141,22 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       Iterable<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Iterable<Artifact> outputs) {
-    this(owner, tools, inputs, ImmutableList.<String>of(), runfilesSupplier, outputs);
+    this(owner, tools, inputs, runfilesSupplier, outputs, ActionEnvironment.EMPTY);
   }
 
   protected AbstractAction(
       ActionOwner owner,
       Iterable<Artifact> tools,
       Iterable<Artifact> inputs,
-      Iterable<String> clientEnvironmentVariables,
       RunfilesSupplier runfilesSupplier,
-      Iterable<Artifact> outputs) {
+      Iterable<Artifact> outputs,
+      ActionEnvironment env) {
     Preconditions.checkNotNull(owner);
     // TODO(bazel-team): Use RuleContext.actionOwner here instead
     this.owner = owner;
     this.tools = CollectionUtils.makeImmutable(tools);
     this.inputs = CollectionUtils.makeImmutable(inputs);
-    this.clientEnvironmentVariables = clientEnvironmentVariables;
+    this.env = env;
     this.outputs = ImmutableSet.copyOf(outputs);
     this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier,
         "runfilesSupplier may not be null");
@@ -157,15 +169,36 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public boolean inputsKnown() {
-    return true;
+  public final synchronized boolean inputsDiscovered() {
+    return discoversInputs() ? inputsDiscovered : true;
   }
 
+  /**
+   * Should be overridden by actions that do input discovery.
+   *
+   * <p>The value returned by each instance should be constant over the lifetime of that instance.
+   *
+   * <p>If this returns true, {@link #discoverInputs(ActionExecutionContext)} must also be
+   * implemented.
+   */
   @Override
   public boolean discoversInputs() {
     return false;
   }
 
+  /**
+   * Run input discovery on the action.
+   *
+   * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of
+   * input artifacts that were not known at analysis time. May also call
+   * {@link #updateInputs(Iterable<Artifact>)}; if it doesn't, the action itself must arrange for
+   * the newly discovered artifacts to be available during action execution, probably by keeping
+   * state in the action instance and using a custom action execution context and for
+   * {@code #updateInputs()} to be called during the execution of the action.
+   *
+   * <p>Since keeping state within an action bad, don't do that unless there is a very good reason
+   * to do so.
+   */
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -173,21 +206,33 @@ public abstract class AbstractAction implements Action, SkylarkValue {
         + " since it does not discover inputs");
   }
 
-  @Nullable
   @Override
-  public Iterable<Artifact> resolveInputsFromCache(
-      ArtifactResolver artifactResolver,
-      PackageRootResolver resolver,
-      Collection<PathFragment> inputPaths)
-      throws PackageRootResolutionException, InterruptedException {
+  public Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
+      throws ActionExecutionException, InterruptedException {
+    return null;
+  }
+
+  @Override
+  public Iterable<Artifact> getAllowedDerivedInputs() {
     throw new IllegalStateException(
         "Method must be overridden for actions that may have unknown inputs.");
   }
 
+  /**
+   * Should be called when the inputs of the action become known, that is, either during
+   * {@link #discoverInputs(ActionExecutionContext)} or during
+   * {@link #execute(ActionExecutionContext)}.
+   *
+   * <p>When an action discovers inputs, it must have been called by the time {@code #execute()}
+   * returns. It can be called both during {@code discoverInputs} and during {@code execute()}.
+   *
+   * <p>In addition to being called from action implementations, it will also be called by Bazel
+   * itself when an action is loaded from the on-disk action cache.
+   */
   @Override
-  public void updateInputs(Iterable<Artifact> inputs) {
-    throw new IllegalStateException(
-        "Method must be overridden for actions that may have unknown inputs.");
+  public final synchronized void updateInputs(Iterable<Artifact> inputs) {
+    this.inputs = CollectionUtils.makeImmutable(inputs);
+    inputsDiscovered = true;
   }
 
   @Override
@@ -196,32 +241,21 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   /**
-   * Should only be overridden by actions that need to optionally insert inputs. Actions that
-   * discover their inputs should use {@link #setInputs} to set the new iterable of inputs when they
-   * know it.
+   * Should not be overridden (it's non-final only for tests)
    */
   @Override
-  public Iterable<Artifact> getInputs() {
+  public synchronized Iterable<Artifact> getInputs() {
     return inputs;
   }
 
   @Override
   public Iterable<String> getClientEnvironmentVariables() {
-    return clientEnvironmentVariables;
+    return env.getInheritedEnv();
   }
 
   @Override
   public RunfilesSupplier getRunfilesSupplier() {
     return runfilesSupplier;
-  }
-
-  /**
-   * Set the inputs of the action. May only be used by an action that {@link #discoversInputs()}.
-   * The iterable passed in is automatically made immutable.
-   */
-  protected void setInputs(Iterable<Artifact> inputs) {
-    Preconditions.checkState(discoversInputs(), this);
-    this.inputs = CollectionUtils.makeImmutable(inputs);
   }
 
   @Override
@@ -251,7 +285,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   @Override
   public String toString() {
     return prettyPrint() + " (" + getMnemonic() + "[" + ImmutableList.copyOf(getInputs())
-        + (inputsKnown() ? " -> " : ", unknown inputs -> ")
+        + (inputsDiscovered() ? " -> " : ", unknown inputs -> ")
         + getOutputs() + "]" + ")";
   }
 
@@ -259,16 +293,20 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   public abstract String getMnemonic();
 
   /**
-   * See the javadoc for {@link com.google.devtools.build.lib.actions.Action} and
-   * {@link com.google.devtools.build.lib.actions.ActionExecutionMetadata#getKey()} for the contract
-   * for {@link #computeKey()}.
+   * See the javadoc for {@link com.google.devtools.build.lib.actions.Action} and {@link
+   * com.google.devtools.build.lib.actions.ActionExecutionMetadata#getKey()} for the contract for
+   * {@link #computeKey()}.
    */
-  protected abstract String computeKey();
+  protected abstract String computeKey() throws CommandLineExpansionException;
 
   @Override
   public final synchronized String getKey() {
     if (cachedKey == null) {
-      cachedKey = computeKey();
+      try {
+        cachedKey = computeKey();
+      } catch (CommandLineExpansionException e) {
+        cachedKey = KEY_ERROR;
+      }
     }
     return cachedKey;
   }
@@ -326,13 +364,8 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public boolean isImmutable() {
-    return false;
-  }
-
-  @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, prettyPrint()); // TODO(bazel-team): implement a readable representation
+  public void repr(SkylarkPrinter printer) {
+    printer.append(prettyPrint()); // TODO(bazel-team): implement a readable representation
   }
 
   /**
@@ -358,11 +391,22 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       // Optimize for the common case: output artifacts are files.
       path.delete();
     } catch (IOException e) {
-      // Only try to recursively delete a directory if the output root is known. This is just a
-      // sanity check so that we do not start deleting random files on disk.
-      // TODO(bazel-team): Strengthen this test by making sure that the output is part of the
-      // output tree.
-      if (path.isDirectory(Symlinks.NOFOLLOW) && output.getRoot() != null) {
+      // Handle a couple of scenarios where the output can still be deleted, but make sure we're not
+      // deleting random files on the filesystem.
+      if (output.getRoot() == null) {
+        throw e;
+      }
+      String outputRootDir = output.getRoot().getPath().getPathString();
+      if (!path.getPathString().startsWith(outputRootDir)) {
+        throw e;
+      }
+
+      Path parentDir = path.getParentDirectory();
+      if (!parentDir.isWritable() && parentDir.getPathString().startsWith(outputRootDir)) {
+        // Retry deleting after making the parent writable.
+        parentDir.setWritable(true);
+        deleteOutput(output);
+      } else if (path.isDirectory(Symlinks.NOFOLLOW)) {
         FileSystemUtils.deleteTree(path);
       } else {
         throw e;
@@ -374,16 +418,20 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    * If the action might read directories as inputs in a way that is unsound wrt dependency
    * checking, this method must be called.
    */
-  protected void checkInputsForDirectories(EventHandler eventHandler,
-                                           MetadataHandler metadataHandler) {
+  protected void checkInputsForDirectories(
+      EventHandler eventHandler, ActionInputFileCache metadataHandler) throws ExecException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
     for (Artifact input : getMandatoryInputs()) {
       // Assume that if the file did not exist, we would not have gotten here.
-      if (input.isSourceArtifact() && !metadataHandler.isRegularFile(input)) {
-        eventHandler.handle(Event.warn(getOwner().getLocation(), "input '"
-            + input.prettyPrint() + "' to " + getOwner().getLabel()
-            + " is a directory; dependency checking of directories is unsound"));
+      try {
+        if (input.isSourceArtifact() && !metadataHandler.getMetadata(input).isFile()) {
+          eventHandler.handle(Event.warn(getOwner().getLocation(), "input '"
+              + input.prettyPrint() + "' to " + getOwner().getLabel()
+              + " is a directory; dependency checking of directories is unsound"));
+        }
+      } catch (IOException e) {
+        throw new UserExecException(e);
       }
     }
   }
@@ -391,6 +439,11 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   @Override
   public MiddlemanType getActionType() {
     return MiddlemanType.NORMAL;
+  }
+
+  @Override
+  public boolean canRemoveAfterExecution() {
+    return true;
   }
 
   /**
@@ -433,11 +486,42 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() {
-    return ExtraActionInfo.newBuilder()
-        .setOwner(getOwner().getLabel().toString())
-        .setId(getKey())
-        .setMnemonic(getMnemonic());
+  public ExtraActionInfo.Builder getExtraActionInfo() throws CommandLineExpansionException {
+    ActionOwner owner = getOwner();
+    ExtraActionInfo.Builder result =
+        ExtraActionInfo.newBuilder()
+            .setOwner(owner.getLabel().toString())
+            .setId(getKey())
+            .setMnemonic(getMnemonic());
+    Iterable<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
+    AspectDescriptor lastAspect = null;
+
+    for (AspectDescriptor aspectDescriptor : aspectDescriptors) {
+      ExtraActionInfo.AspectDescriptor.Builder builder =
+          ExtraActionInfo.AspectDescriptor.newBuilder()
+            .setAspectName(aspectDescriptor.getAspectClass().getName());
+      for (Entry<String, Collection<String>> entry :
+          aspectDescriptor.getParameters().getAttributes().asMap().entrySet()) {
+          builder.putAspectParameters(
+            entry.getKey(),
+            ExtraActionInfo.AspectDescriptor.StringList.newBuilder()
+                .addAllValue(entry.getValue())
+                .build()
+          );
+      }
+      lastAspect = aspectDescriptor;
+    }
+    if (lastAspect != null) {
+      result.setAspectName(lastAspect.getAspectClass().getName());
+
+      for (Map.Entry<String, Collection<String>> entry :
+          lastAspect.getParameters().getAttributes().asMap().entrySet()) {
+        result.putAspectParameters(
+            entry.getKey(),
+            ExtraActionInfo.StringList.newBuilder().addAllValue(entry.getValue()).build());
+      }
+    }
+    return result;
   }
 
   @Override
@@ -450,20 +534,19 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    * correctly when run remotely. This is at least the normal inputs of the action, but may include
    * other files as well. For example C(++) compilation may perform include file header scanning.
    * This needs to be mirrored by the extra_action rule. Called by
-   * {@link com.google.devtools.build.lib.rules.extra.ExtraAction} at execution time.
-   *
-   * <p>As this method is called from the ExtraAction, make sure it is ok to call
-   * this method from a different thread than the one this action is executed on.
+   * {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions
+   * that return true for {link #discoversInputs()}.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
    * @throws ActionExecutionException only when code called from this method
    *     throws that exception.
    * @throws InterruptedException if interrupted
    */
+  @Override
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    return getInputs();
+    return ImmutableList.of();
   }
 
   @SkylarkCallable(
@@ -485,20 +568,25 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @SkylarkCallable(
-      name = "argv",
-      doc = "For actions created by <a href=\"ctx.html#action\">ctx.action()</a>, an immutable "
-          + "list of the command line arguments. For all other actions, None.",
-      structField = true,
-      allowReturnNones = true)
-  public SkylarkList<String> getSkylarkArgv() {
+    name = "argv",
+    doc =
+        "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
+            + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
+            + "list of the arguments for the command line to be executed. Note that "
+            + "for shell actions the first two arguments will be the shell path "
+            + "and <code>\"-c\"</code>.",
+    structField = true,
+    allowReturnNones = true
+  )
+  public SkylarkList<String> getSkylarkArgv() throws CommandLineExpansionException {
     return null;
   }
 
   @SkylarkCallable(
       name = "content",
-      doc = "For actions created by <a href=\"ctx.html#file_action\">ctx.file_action()</a> or "
-          + "<a href=\"ctx.html#template_action\">ctx.template_action()</a>, the contents of the "
-          + "file to be written. For all other actions, None.",
+      doc = "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
+          + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
+          + " the contents of the file to be written.",
       structField = true,
       allowReturnNones = true)
   public String getSkylarkContent() throws IOException {
@@ -507,8 +595,9 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   @SkylarkCallable(
       name = "substitutions",
-      doc = "For actions created by <a href=\"ctx#template_action\">ctx.template_action()</a>, "
-          + "an immutable dict holding the substitution mapping. For all other actions, None.",
+      doc = "For actions created by "
+          + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
+          + " an immutable dict holding the substitution mapping.",
       structField = true,
       allowReturnNones = true)
   public SkylarkDict<String, String> getSkylarkSubstitutions() {

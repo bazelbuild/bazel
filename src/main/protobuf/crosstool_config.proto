@@ -49,28 +49,41 @@ message CToolchain {
 
   // A group of correlated flags. Supports parametrization via variable
   // expansion.
-  // If a variable of list type is expanded, all flags in the flag group
-  // will be expanded for each element of the list.
-  // Only a single variable of list type may be referenced in a single flag
-  // group; the same variable may be referenced multiple times.
+  //
+  // To expand a variable of list type, flag_group has to be annotated with
+  // `iterate_over` message. Then all nested flags or flag_groups will be
+  // expanded repeatedly for each element of the list.
   //
   // For example:
   // flag_group {
+  //   iterate_over: 'include_path'
   //   flag: '-I'
   //   flag: '%{include_path}'
   // }
   // ... will get expanded to -I /to/path1 -I /to/path2 ... for each
   // include_path /to/pathN.
   //
+  // To expand a variable of structure type, use dot-notation, e.g.:
+  //    flag_group {
+  //      iterate_over: "libraries_to_link"
+  //      flag_group {
+  //        iterate_over: "libraries_to_link.libraries"
+  //        flag: "-L%{libraries_to_link.libraries.directory}"
+  //      }
+  //    }
+  //
   // Flag groups can be nested; if they are, the flag group must only contain
   // other flag groups (no flags) so the order is unambiguously specified.
-  // Nested flag groups require build variables of nested list types, and
-  // will be expanded recursively.
+  // In order to expand a variable of nested lists, 'iterate_over' can be used.
   //
   // For example:
   // flag_group {
+  //   iterate_over: 'object_files'
   //   flag_group { flag: '--start-lib' }
-  //   flag_group { flag: '%{object_files}' }
+  //   flag_group {
+  //     iterate_over: 'object_files'
+  //     flag: '%{object_files}'
+  //   }
   //   flag_group { flag: '--end-lib' }
   // }
   // ... will get expanded to
@@ -83,6 +96,24 @@ message CToolchain {
     repeated string flag = 1;
 
     repeated FlagGroup flag_group = 2;
+
+    optional string iterate_over = 3;
+
+    repeated string expand_if_all_available = 4;
+
+    repeated string expand_if_none_available = 5;
+
+    optional string expand_if_true = 6;
+
+    optional string expand_if_false = 7;
+
+    optional VariableWithValue expand_if_equal = 8;
+  }
+
+  message VariableWithValue {
+    required string variable = 1;
+
+    required string value = 2;
   }
 
   // A key/value pair to be added as an environment variable. The value of
@@ -147,13 +178,18 @@ message CToolchain {
   }
 
   // Contains all flag specifications for one feature.
-  // Next ID: 7
+  // Next ID: 8
   message Feature {
     // The feature's name. Feature names are generally defined by Bazel; it is
     // possible to introduce a feature without a change to Bazel by adding a
     // 'feature' section to the toolchain and adding the corresponding string as
     // feature in the BUILD file.
     optional string name = 1;
+
+    // If 'true', this feature is enabled unless a rule type explicitly marks it
+    // as unsupported. Such features cannot be turned off from within a BUILD
+    // file or the command line.
+    optional bool enabled = 7;
 
     // If the given feature is enabled, the flag sets will be applied for the
     // actions in the modes that they are specified for.
@@ -348,6 +384,7 @@ message CToolchain {
   repeated string ld_embed_flag = 23;
   // Ar flags for combining object files into archives. If this is not set, it
   // defaults to "rcsD".
+  // TODO(b/37271982): Remove after blaze with ar action_config release
   repeated string ar_flag = 47;
   // Legacy field, ignored by Bazel.
   repeated string ar_thin_archives_flag = 48;
@@ -418,7 +455,10 @@ message CToolchain {
   // why they are recorded here.
   repeated string debian_extra_requires = 33;
 
-  // Next free id: 55
+  // Unused, for compatibility with things internal to Google.
+  optional string cc_target_os = 55;
+
+  // Next free id: 56
 }
 
 message ToolPath {
@@ -446,6 +486,7 @@ enum LinkingMode {
   FULLY_STATIC = 1;
   MOSTLY_STATIC = 2;
   DYNAMIC = 3;
+  MOSTLY_STATIC_LIBRARIES = 4;
 }
 
 message LinkingModeFlags {
@@ -474,6 +515,7 @@ message MakeVariable {
 message DefaultCpuToolchain {
   required string cpu = 1;
   required string toolchain_identifier = 2;
+  optional bool supports_lipo = 3 [default = true];
 }
 
 // An entire crosstool release, containing the version number, a default target
@@ -489,7 +531,9 @@ message CrosstoolRelease {
   required string major_version = 1;
   required string minor_version = 2;
 
-  // The default cpu to use if none was specified.
+  // Deprecated. Used to be the default CPU if not otherwise specified, but it's
+  // not used for that purpose (or anything else) anymore. Please also don't add
+  // new uses of this field.
   required string default_target_cpu = 3;
   // The default toolchain to use for each given cpu.
   repeated DefaultCpuToolchain default_toolchain = 4;

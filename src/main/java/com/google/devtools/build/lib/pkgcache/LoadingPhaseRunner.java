@@ -15,13 +15,10 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
-import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -38,9 +35,6 @@ import javax.annotation.Nullable;
  * <ul>
  *   <li>target pattern evaluation
  *   <li>test suite expansion
- *   <li>loading the labels needed to construct the build configuration
- *   <li>loading the labels needed for the analysis with the build configuration
- *   <li>loading the transitive closure of the targets and the configuration labels
  * </ul>
  *
  * <p>In order to ensure correctness of incremental loading and of full cache hits, this class is
@@ -52,18 +46,12 @@ import javax.annotation.Nullable;
  * maximize caching, it is vital that these change as rarely as possible.
  */
 public abstract class LoadingPhaseRunner {
-  /**
-   * Performs target pattern evaluation, test suite expansion (if requested), and loads the
-   * transitive closure of the resulting targets as well as of the targets needed to use the given
-   * build configuration provider.
-   */
+  /** Performs target pattern evaluation and test suite expansion (if requested). */
   public abstract LoadingResult execute(
-      EventHandler eventHandler,
-      EventBus eventBus,
+      ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
       PathFragment relativeWorkingDirectory,
       LoadingOptions options,
-      ListMultimap<String, Label> labelsToLoadUnconditionally,
       boolean keepGoing,
       boolean determineTests,
       @Nullable LoadingCallback callback)
@@ -90,7 +78,8 @@ public abstract class LoadingPhaseRunner {
    * <i>wanting</i> to build it are different things.
    */
   // Public for use by skyframe.TargetPatternPhaseFunction until this class goes away.
-  public static void maybeReportDeprecation(EventHandler eventHandler, Collection<Target> targets) {
+  public static void maybeReportDeprecation(
+      ExtendedEventHandler eventHandler, Collection<Target> targets) {
     for (Rule rule : Iterables.filter(targets, Rule.class)) {
       if (rule.isAttributeValueExplicitlySpecified("deprecation")) {
         eventHandler.handle(Event.warn(rule.getLocation(), String.format(

@@ -26,26 +26,10 @@ filegroup(
     visibility = ["//third_party:__pkg__"],
 )
 
-java_library(
-    name = "annotations",
-    exports = ["@bazel_j2objc//:annotations"],
-)
-
-genrule(
-    name = "jre_emul_jar",
-    srcs = ["@bazel_j2objc//:jre_emul.jar"],
-    outs = ["jre_emul.jar"],
-    cmd = "cp $< $@",
-)
-
-objc_library(
-    name = "jre_emul_lib",
-    sdk_dylibs = [
-        "libicucore",
-        "libz",
+filegroup(
+    name = "embedded_tools_srcs",
+    srcs = [
+        "BUILD.remote",
+        "BUILD.tools",
     ],
-    sdk_frameworks = [
-        "Security",
-    ],
-    deps = ["@bazel_j2objc//:jre_emul_archive"],
 )

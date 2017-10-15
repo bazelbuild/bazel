@@ -14,14 +14,12 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -32,20 +30,17 @@ import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
-
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @RunWith(JUnit4.class)
 public class RuleFactoryTest extends PackageLoadingTestCase {
 
   private ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
-  private RuleFactory ruleFactory =
-      new RuleFactory(provider, AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
+  private RuleFactory ruleFactory = new RuleFactory(provider, AttributeContainer::new);
 
   public static final Location LOCATION_42 = Location.fromFileAndOffsets(null, 42, 42);
 
@@ -67,32 +62,32 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
-            new Reporter(),
+            new Reporter(new EventBus()),
             /*ast=*/ null,
             LOCATION_42,
             /*env=*/ null,
             new AttributeContainer(ruleClass));
 
-    assertSame(rule, rule.getAssociatedRule());
+    assertThat(rule.getAssociatedRule()).isSameAs(rule);
 
     // pkg.getRules() = [rule]
     Package pkg = pkgBuilder.build();
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class))).hasSize(1);
-    assertEquals(rule, pkg.getTargets(Rule.class).iterator().next());
+    assertThat(pkg.getTargets(Rule.class).iterator().next()).isEqualTo(rule);
 
-    assertSame(rule, pkg.getTarget("foo"));
+    assertThat(pkg.getTarget("foo")).isSameAs(rule);
 
-    assertEquals(Label.parseAbsolute("//mypkg:foo"), rule.getLabel());
-    assertEquals("foo", rule.getName());
+    assertThat(rule.getLabel()).isEqualTo(Label.parseAbsolute("//mypkg:foo"));
+    assertThat(rule.getName()).isEqualTo("foo");
 
-    assertEquals("cc_library", rule.getRuleClass());
-    assertEquals("cc_library rule", rule.getTargetKind());
-    assertEquals(42, rule.getLocation().getStartOffset());
-    assertFalse(rule.containsErrors());
+    assertThat(rule.getRuleClass()).isEqualTo("cc_library");
+    assertThat(rule.getTargetKind()).isEqualTo("cc_library rule");
+    assertThat(rule.getLocation().getStartOffset()).isEqualTo(42);
+    assertThat(rule.containsErrors()).isFalse();
 
     // Attr with explicitly-supplied value:
     AttributeMap attributes = RawAttributeMapper.of(rule);
-    assertTrue(attributes.get("alwayslink", Type.BOOLEAN));
+    assertThat(attributes.get("alwayslink", Type.BOOLEAN)).isTrue();
     try {
       attributes.get("alwayslink", Type.STRING); // type error: boolean, not string!
       fail();
@@ -108,8 +103,8 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
 
     // Attrs with default values:
     // cc_library linkstatic default=0 according to build encyc.
-    assertFalse(attributes.get("linkstatic", Type.BOOLEAN));
-    assertFalse(attributes.get("testonly", Type.BOOLEAN));
+    assertThat(attributes.get("linkstatic", Type.BOOLEAN)).isFalse();
+    assertThat(attributes.get("testonly", Type.BOOLEAN)).isFalse();
     assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
   }
 
@@ -128,12 +123,12 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
-            new Reporter(),
+            new Reporter(new EventBus()),
             /*ast=*/ null,
             Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
             /*env=*/ null,
             new AttributeContainer(ruleClass));
-    assertFalse(rule.containsErrors());
+    assertThat(rule.containsErrors()).isFalse();
   }
 
   @Test
@@ -154,14 +149,14 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
           pkgBuilder,
           ruleClass,
           new BuildLangTypedAttributeValuesMap(attributeValues),
-          new Reporter(),
+          new Reporter(new EventBus()),
           /*ast=*/ null,
           LOCATION_42,
           /*env=*/ null,
           new AttributeContainer(ruleClass));
       fail();
     } catch (RuleFactory.InvalidRuleException e) {
-      assertThat(e.getMessage()).contains("must be in the WORKSPACE file");
+      assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
     }
   }
 
@@ -183,27 +178,28 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
           pkgBuilder,
           ruleClass,
           new BuildLangTypedAttributeValuesMap(attributeValues),
-          new Reporter(),
+          new Reporter(new EventBus()),
           /*ast=*/ null,
           Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
           /*env=*/ null,
           new AttributeContainer(ruleClass));
       fail();
     } catch (RuleFactory.InvalidRuleException e) {
-      assertThat(e.getMessage()).contains("cannot be in the WORKSPACE file");
+      assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
     }
   }
 
   private void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) throws Exception {
-    assertTrue(
-        "Rule class '"
-            + ruleClass.getName()
-            + "' should have attribute '"
-            + attrName
-            + "' of type '"
-            + type
-            + "'",
-        ruleClass.hasAttr(attrName, type));
+    assertWithMessage(
+            "Rule class '"
+                + ruleClass.getName()
+                + "' should have attribute '"
+                + attrName
+                + "' of type '"
+                + type
+                + "'")
+        .that(ruleClass.hasAttr(attrName, type))
+        .isTrue();
   }
 
   @Test
@@ -223,14 +219,16 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
           pkgBuilder,
           ruleClass,
           new BuildLangTypedAttributeValuesMap(attributeValues),
-          new Reporter(),
+          new Reporter(new EventBus()),
           /*ast=*/ null,
           Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
           /*env=*/ null,
           new AttributeContainer(ruleClass));
       fail();
     } catch (RuleFactory.InvalidRuleException e) {
-      assertTrue(e.getMessage(), e.getMessage().contains("output file name can't be equal '.'"));
+      assertWithMessage(e.getMessage())
+          .that(e.getMessage().contains("output file name can't be equal '.'"))
+          .isTrue();
     }
   }
 

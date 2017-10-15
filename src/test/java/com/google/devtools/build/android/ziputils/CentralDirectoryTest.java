@@ -13,19 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.android.ziputils;
 
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENTIM;
-import static org.junit.Assert.assertEquals;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-
-/**
- * Unit tests for {@link CentralDirectory}.
- */
+/** Unit tests for {@link CentralDirectory}. */
 @RunWith(JUnit4.class)
 public class CentralDirectoryTest {
 
@@ -44,10 +41,10 @@ public class CentralDirectoryTest {
     int expPos = 0;
     int expLimit = 90;
     // expect the buffer to have been reset to 0 (CentralDirectory does NOT slice).
-    assertEquals("View not at position 0", expPos, view.buffer.position());
-    assertEquals("Buffer not at position 0", expPos, buffer.position());
-    assertEquals("Buffer limit changed", expLimit, view.buffer.limit());
-    assertEquals("Buffer limit changed", expLimit, buffer.limit());
+    assertWithMessage("View not at position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Buffer not at position 0").that(buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Buffer limit changed").that(view.buffer.limit()).isEqualTo(expLimit);
+    assertWithMessage("Buffer limit changed").that(buffer.limit()).isEqualTo(expLimit);
   }
 
   /**
@@ -73,12 +70,12 @@ public class CentralDirectoryTest {
     }
     // Parse the entries.
     CentralDirectory cdir = CentralDirectory.viewOf(inputBuffer).at(0).parse();
-    assertEquals("Count", 20, cdir.getCount());
-    assertEquals("Position after parse", expSize, cdir.buffer.position());
-    assertEquals("Limit after parse", 10000, cdir.buffer.limit());
+    assertWithMessage("Count").that(cdir.getCount()).isEqualTo(20);
+    assertWithMessage("Position after parse").that(cdir.buffer.position()).isEqualTo(expSize);
+    assertWithMessage("Limit after parse").that(cdir.buffer.limit()).isEqualTo(10000);
     cdir.buffer.flip();
-    assertEquals("Position after finish", 0, cdir.buffer.position());
-    assertEquals("Limit after finish", expSize, cdir.buffer.limit());
+    assertWithMessage("Position after finish").that(cdir.buffer.position()).isEqualTo(0);
+    assertWithMessage("Limit after finish").that(cdir.buffer.limit()).isEqualTo(expSize);
   }
 
   /**
@@ -105,20 +102,20 @@ public class CentralDirectoryTest {
       extra = new byte[extra.length + 1];
       comment = comment + "," + i;
     }
-    assertEquals("Count", 20, cdir.getCount());
-    assertEquals("Position after build", expSize, cdir.buffer.position());
-    assertEquals("Limit after build", 10000, cdir.buffer.limit());
+    assertWithMessage("Count").that(cdir.getCount()).isEqualTo(20);
+    assertWithMessage("Position after build").that(cdir.buffer.position()).isEqualTo(expSize);
+    assertWithMessage("Limit after build").that(cdir.buffer.limit()).isEqualTo(10000);
     cdir.buffer.flip();
-    assertEquals("Position after finish build", 0, cdir.buffer.position());
-    assertEquals("Limit after finish build", expSize, cdir.buffer.limit());
+    assertWithMessage("Position after finish build").that(cdir.buffer.position()).isEqualTo(0);
+    assertWithMessage("Limit after finish build").that(cdir.buffer.limit()).isEqualTo(expSize);
 
     // now try to parse the directory we just created.
     cdir.at(0).parse();
-    assertEquals("Count", 20, cdir.getCount());
-    assertEquals("Position after re-parse", expSize, cdir.buffer.position());
-    assertEquals("Limit after re-parse", expSize, cdir.buffer.limit());
+    assertWithMessage("Count").that(cdir.getCount()).isEqualTo(20);
+    assertWithMessage("Position after re-parse").that(cdir.buffer.position()).isEqualTo(expSize);
+    assertWithMessage("Limit after re-parse").that(cdir.buffer.limit()).isEqualTo(expSize);
     cdir.buffer.flip();
-    assertEquals("Position after finish parse", 0, cdir.buffer.position());
-    assertEquals("Limit after finish parse", expSize, cdir.buffer.limit());
+    assertWithMessage("Position after finish parse").that(cdir.buffer.position()).isEqualTo(0);
+    assertWithMessage("Limit after finish parse").that(cdir.buffer.limit()).isEqualTo(expSize);
   }
 }

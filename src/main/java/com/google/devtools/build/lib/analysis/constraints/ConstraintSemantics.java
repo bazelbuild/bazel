@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.LabelClass;
+import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
@@ -533,53 +535,103 @@ public class ConstraintSemantics {
     DepsToCheck depsToCheck = getConstraintCheckedDependencies(ruleContext);
 
     for (TransitiveInfoCollection dep : depsToCheck.allDeps()) {
-      SupportedEnvironmentsProvider depEnvironments =
-          dep.getProvider(SupportedEnvironmentsProvider.class);
       if (!depsToCheck.isSelectOnly(dep)) {
         // TODO(bazel-team): support static constraint checking for selects. A selectable constraint
         // is valid if the union of all deps in the select includes all of this rule's static
         // environments. Determining that requires following the select paths that don't get chosen,
         // which means we won't have ConfiguredTargets for those deps and need to find another
         // way to get their environments.
-        Collection<Label> unsupportedEnvironments =
-            getUnsupportedEnvironments(depEnvironments.getStaticEnvironments(), staticEnvironments);
-
-        if (!unsupportedEnvironments.isEmpty()) {
-          ruleContext.ruleError("dependency " + dep.getLabel()
-              + " doesn't support expected environment"
-              + (unsupportedEnvironments.size() == 1 ? "" : "s")
-              + ": " + Joiner.on(", ").join(unsupportedEnvironments));
-        }
+        checkStaticConstraints(ruleContext, staticEnvironments, dep);
       }
-
-      // Refine this rule's environments by intersecting with the dep's refined environments:
-      for (Label refinedEnvironmentToPrune : getUnsupportedEnvironments(
-          depEnvironments.getRefinedEnvironments(), staticEnvironments)) {
-        EnvironmentWithGroup envToPrune = labelsToEnvironments.get(refinedEnvironmentToPrune);
-        if (envToPrune == null) {
-          // If we have no record of this environment, that means the current rule implicitly uses
-          // the defaults for this group. So explicitly opt that group's defaults into the refined
-          // set before trying to remove specific items.
-          for (EnvironmentWithGroup defaultEnv :
-              getDefaults(refinedEnvironmentToPrune, depEnvironments.getRefinedEnvironments())) {
-            refinedEnvironmentsSoFar.add(defaultEnv);
-            labelsToEnvironments.put(defaultEnv.environment(), defaultEnv);
-          }
-          envToPrune = Verify.verifyNotNull(labelsToEnvironments.get(refinedEnvironmentToPrune));
-        }
-        refinedEnvironmentsSoFar.remove(envToPrune);
-        groupsWithEnvironmentsRemoved.add(envToPrune.group());
-        removedEnvironmentCulprits.put(envToPrune.environment(),
-            findOriginalRefiner(ruleContext, depEnvironments, envToPrune));
-      }
+      refineEnvironmentsForDep(ruleContext, staticEnvironments, dep, labelsToEnvironments,
+          refinedEnvironmentsSoFar, groupsWithEnvironmentsRemoved, removedEnvironmentCulprits);
     }
 
-    checkRefinedEnvironmentConstraints(ruleContext, groupsWithEnvironmentsRemoved,
+    checkRefinedConstraints(ruleContext, groupsWithEnvironmentsRemoved,
         refinedEnvironmentsSoFar, refinedEnvironments, removedEnvironmentCulprits);
   }
 
   /**
-   * Helper method for checkConstraints: performs refined environment constraint checking.
+   * Performs static constraint checking against the given dep.
+   *
+   * @param ruleContext the rule being analyzed
+   * @param staticEnvironments the static environments of the rule being analyzed
+   * @param dep the dep to check
+   */
+  private static void checkStaticConstraints(RuleContext ruleContext,
+      EnvironmentCollection staticEnvironments, TransitiveInfoCollection dep) {
+    SupportedEnvironmentsProvider depEnvironments =
+        dep.getProvider(SupportedEnvironmentsProvider.class);
+    Collection<Label> unsupportedEnvironments =
+        getUnsupportedEnvironments(depEnvironments.getStaticEnvironments(), staticEnvironments);
+    if (!unsupportedEnvironments.isEmpty()) {
+      ruleContext.ruleError("dependency " + dep.getLabel()
+          + " doesn't support expected environment"
+          + (unsupportedEnvironments.size() == 1 ? "" : "s")
+          + ": " + Joiner.on(", ").join(unsupportedEnvironments));
+    }
+  }
+
+  /**
+   * Helper method for {@link #checkConstraints}: refines a rule's environments with the given dep.
+   *
+   * <p>A rule's <b>complete</b> refined set applies this process to every dep.
+   */
+  private static void refineEnvironmentsForDep(
+      RuleContext ruleContext,
+      EnvironmentCollection staticEnvironments,
+      TransitiveInfoCollection dep,
+      Map<Label, EnvironmentWithGroup> labelsToEnvironments,
+      Set<EnvironmentWithGroup> refinedEnvironmentsSoFar,
+      Set<EnvironmentGroup> groupsWithEnvironmentsRemoved,
+      Map<Label, Target> removedEnvironmentCulprits) {
+
+    SupportedEnvironmentsProvider depEnvironments =
+        dep.getProvider(SupportedEnvironmentsProvider.class);
+
+    // Stores the environments that are pruned from the refined set because of this dep. Even
+    // though they're removed, some subset of the environments they fulfill may belong in the
+    // refined set. For example, if environment "both" fulfills "a" and "b" and "lib" statically
+    // sets restricted_to = ["both"] and "dep" sets restricted_to = ["a"], then lib's refined set
+    // excludes "both". But rather than be emptied out it can be reduced to "a".
+    Set<Label> prunedEnvironmentsFromThisDep = new LinkedHashSet<>();
+
+    // Refine this rule's environments by intersecting with the dep's refined environments:
+    for (Label refinedEnvironmentToPrune : getUnsupportedEnvironments(
+        depEnvironments.getRefinedEnvironments(), staticEnvironments)) {
+      EnvironmentWithGroup envToPrune = labelsToEnvironments.get(refinedEnvironmentToPrune);
+      if (envToPrune == null) {
+        // If we have no record of this environment, that means the current rule implicitly uses
+        // the defaults for this group. So explicitly opt that group's defaults into the refined
+        // set before trying to remove specific items.
+        for (EnvironmentWithGroup defaultEnv :
+            getDefaults(refinedEnvironmentToPrune, depEnvironments.getRefinedEnvironments())) {
+          refinedEnvironmentsSoFar.add(defaultEnv);
+          labelsToEnvironments.put(defaultEnv.environment(), defaultEnv);
+        }
+        envToPrune = Verify.verifyNotNull(labelsToEnvironments.get(refinedEnvironmentToPrune));
+      }
+      refinedEnvironmentsSoFar.remove(envToPrune);
+      groupsWithEnvironmentsRemoved.add(envToPrune.group());
+      removedEnvironmentCulprits.put(envToPrune.environment(),
+          findOriginalRefiner(ruleContext, depEnvironments, envToPrune));
+      prunedEnvironmentsFromThisDep.add(envToPrune.environment());
+    }
+
+    // Add in any dep environment that one of the environments we removed fulfills. In other
+    // words, the removed environment is no good, but some subset of it may be.
+    for (EnvironmentWithGroup depEnv :
+        depEnvironments.getRefinedEnvironments().getGroupedEnvironments()) {
+      for (Label fulfiller : depEnv.group().getFulfillers(depEnv.environment())) {
+        if (prunedEnvironmentsFromThisDep.contains(fulfiller)) {
+          refinedEnvironmentsSoFar.add(depEnv);
+        }
+      }
+    }
+  }
+
+  /**
+   * Helper method for {@link #checkConstraints}: performs refined environment constraint checking.
    *
    * <p>Refined environment expectations: no environment group should be emptied out due to
    * refining. This reflects the idea that some of the static declared environments get pruned
@@ -587,7 +639,7 @@ public class ConstraintSemantics {
    *
    * <p>Violations of this expectation trigger rule analysis errors.
    */
-  private static void checkRefinedEnvironmentConstraints(
+  private static void checkRefinedConstraints(
       RuleContext ruleContext,
       Set<EnvironmentGroup> groupsWithEnvironmentsRemoved,
       Set<EnvironmentWithGroup> refinedEnvironmentsSoFar,
@@ -739,16 +791,14 @@ public class ConstraintSemantics {
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : attributes.getAttributeNames()) {
       Attribute attrDef = attributes.getAttributeDefinition(attr);
-      Type<?> attrType = attributes.getAttributeType(attr);
-
-      // TODO(bazel-team): support a user-definable API for choosing which attributes are checked
+      if (attrDef.getType().getLabelClass() != LabelClass.DEPENDENCY
+          || attrDef.skipConstraintsOverride()) {
+        continue;
+      }
       if (!attrDef.checkConstraintsOverride()) {
-        if ((attrType != BuildType.LABEL && attrType != BuildType.LABEL_LIST)
-            || RuleClass.isConstraintAttribute(attr)
-            || attr.equals("visibility")
-            // Use the same implicit deps check that query uses. This facilitates running queries to
-            // determine exactly which rules need to be constraint-annotated for depot migrations.
-            || !DependencyFilter.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
+        // Use the same implicit deps check that query uses. This facilitates running queries to
+        // determine exactly which rules need to be constraint-annotated for depot migrations.
+        if (!DependencyFilter.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
             // We can't identify host deps by calling BuildConfiguration.isHostConfiguration()
             // because --nodistinct_host_configuration subverts that call.
             || attrDef.getConfigurationTransition() == Attribute.ConfigurationTransition.HOST) {
@@ -756,7 +806,8 @@ public class ConstraintSemantics {
         }
       }
 
-      Set<Label> selectOnlyDepsForThisAttribute = getDepsOnlyInSelects(ruleContext, attr, attrType);
+      Set<Label> selectOnlyDepsForThisAttribute =
+          getDepsOnlyInSelects(ruleContext, attr, attributes.getAttributeType(attr));
       for (TransitiveInfoCollection dep :
           ruleContext.getPrerequisites(attr, RuleConfiguredTarget.Mode.DONT_CHECK)) {
         // Output files inherit the environment spec of their generating rule.
@@ -820,21 +871,22 @@ public class ConstraintSemantics {
    * Adds all label values from the given select to the given set. Automatically handles different
    * value types (e.g. labels vs. label lists).
    */
-  private static void addSelectValuesToSet(BuildType.Selector<?> select, Set<Label> set) {
+  private static void addSelectValuesToSet(BuildType.Selector<?> select, final Set<Label> set) {
     Type<?> type = select.getOriginalType();
-    if (type == BuildType.LABEL || type == BuildType.NODEP_LABEL) {
-      set.addAll(((BuildType.Selector<Label>) select).getEntries().values());
-    } else if (type == BuildType.LABEL_LIST ||  type == BuildType.NODEP_LABEL_LIST) {
-      for (List<Label> labels : ((BuildType.Selector<List<Label>>) select).getEntries().values()) {
-        set.addAll(labels);
+    LabelVisitor<?> visitor = new LabelVisitor<Object>() {
+      @Override
+      public void visit(Label label, Object dummy) {
+        set.add(label);
       }
-    } else if (type == BuildType.LABEL_DICT_UNARY) {
-      for (Map<String, Label> mapEntry :
-          ((BuildType.Selector<Map<String, Label>>) select).getEntries().values()) {
-        set.addAll(mapEntry.values());
+    };
+    for (Object value : select.getEntries().values()) {
+      try {
+        type.visitLabels(visitor, value, /*context=*/ null);
+      } catch (InterruptedException ex) {
+        // Because the LabelVisitor does not throw InterruptedException, it should not be thrown
+        // by visitLabels here.
+        throw new AssertionError(ex);
       }
-    } else {
-      throw new IllegalStateException("Expected a label-based type for this select");
     }
   }
 }

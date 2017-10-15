@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,8 +43,8 @@ FLAGS = gflags.FLAGS
 MANIFEST_TEMPLATE = """<?xml version="1.0" encoding="utf-8"?>
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:versionCode="%(version_code)s"
-    android:versionName="%(version_name)s"
+    %(version_code_attribute)s
+    %(version_name_attribute)s
     package="%(package)s"
     split="%(split)s">
   <application android:hasCode="%(hascode)s">
@@ -80,8 +81,10 @@ def BuildSplitManifest(main_manifest, override_package, split, hascode):
   version_name = manifest.get(android_namespace_prefix + "versionName")
 
   return MANIFEST_TEMPLATE % {
-      "version_code": version_code,
-      "version_name": version_name,
+      "version_code_attribute":
+          'android:versionCode="%s"' % version_code if version_code else "",
+      "version_name_attribute":
+          'android:versionName="%s"' % version_name if version_name else "",
       "package": package,
       "split": split,
       "hascode": str(hascode).lower()
@@ -90,12 +93,10 @@ def BuildSplitManifest(main_manifest, override_package, split, hascode):
 
 def main():
   split_manifest = BuildSplitManifest(
-      file(FLAGS.main_manifest).read(),
-      FLAGS.override_package,
-      FLAGS.split,
-      FLAGS.hascode)
+      open(FLAGS.main_manifest, "rb").read(), FLAGS.override_package,
+      FLAGS.split, FLAGS.hascode)
 
-  with file(FLAGS.split_manifest, "w") as output_xml:
+  with open(FLAGS.split_manifest, "wb") as output_xml:
     output_xml.write(split_manifest)
 
 

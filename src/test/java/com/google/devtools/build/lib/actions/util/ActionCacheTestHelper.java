@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions.util;
 
 import com.google.devtools.build.lib.actions.cache.ActionCache;
-
 import java.io.PrintStream;
 
 /**
@@ -23,18 +22,29 @@ import java.io.PrintStream;
 public class ActionCacheTestHelper {
   private ActionCacheTestHelper() {}
 
-  /** A cache which does not remember anything.  Causes perpetual rebuilds! */
+  /** A cache which does not remember anything. Causes perpetual rebuilds! */
   public static final ActionCache AMNESIAC_CACHE =
-    new ActionCache() {
-      @Override
-      public void put(String fingerprint, Entry entry) {}
-      @Override
-      public Entry get(String fingerprint) { return null; }
-      @Override
-      public void remove(String key) {}
-      @Override
-      public long save() { return -1; }
-      @Override
-      public void dump(PrintStream out) { }
-    };
+      new ActionCache() {
+        @Override
+        public void put(String fingerprint, Entry entry) {}
+
+        @Override
+        public Entry get(String fingerprint) {
+          return null;
+        }
+
+        @Override
+        public void remove(String key) {}
+
+        @Override
+        public long save() {
+          return -1;
+        }
+
+        @Override
+        public void clear() {}
+
+        @Override
+        public void dump(PrintStream out) {}
+      };
 }

@@ -13,13 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.common.options.OptionsParser;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,8 +36,8 @@ public class BuildOptionsTest {
     BuildOptions b = BuildOptions.of(TEST_OPTIONS, OptionsParser.newOptionsParser(TEST_OPTIONS));
     // The cache keys of the OptionSets must be equal even if these are
     // different objects, if they were created with the same options (no options in this case).
-    assertEquals(a.toString(), b.toString());
-    assertEquals(a.computeCacheKey(), b.computeCacheKey());
+    assertThat(b.toString()).isEqualTo(a.toString());
+    assertThat(b.computeCacheKey()).isEqualTo(a.computeCacheKey());
   }
 
   @Test
@@ -48,7 +46,7 @@ public class BuildOptionsTest {
     String[] options = new String[] { "--run_under=//run_under" };
     BuildOptions a = BuildOptions.of(TEST_OPTIONS, options);
     BuildOptions b = BuildOptions.of(TEST_OPTIONS, options);
-    assertEquals(a.toString(), b.toString());
+    assertThat(b.toString()).isEqualTo(a.toString());
   }
 
   @Test
@@ -56,23 +54,20 @@ public class BuildOptionsTest {
     String[] options1 = new String[] { "--compilation_mode=opt" };
     String[] options2 = new String[] { "--compilation_mode=dbg" };
     // Distinct instances with the same values are equal:
-    assertEquals(BuildOptions.of(TEST_OPTIONS, options1), BuildOptions.of(TEST_OPTIONS, options1));
+    assertThat(BuildOptions.of(TEST_OPTIONS, options1))
+        .isEqualTo(BuildOptions.of(TEST_OPTIONS, options1));
     // Same fragments, different values aren't equal:
-    assertFalse(BuildOptions.of(TEST_OPTIONS, options1).equals(
-        BuildOptions.of(TEST_OPTIONS, options2)));
+    assertThat(
+            BuildOptions.of(TEST_OPTIONS, options1).equals(BuildOptions.of(TEST_OPTIONS, options2)))
+        .isFalse();
     // Same values, different fragments aren't equal:
-    assertFalse(BuildOptions.of(TEST_OPTIONS, options1).equals(
-        BuildOptions.of(
-            ImmutableList.<Class<? extends FragmentOptions>>of(
-                BuildConfiguration.Options.class, CppOptions.class),
-            options1)));
-    // Same values and fragments, same original options are equal:
-    BuildOptions original1 = BuildOptions.of(TEST_OPTIONS, options1);
-    BuildOptions original2 = BuildOptions.of(TEST_OPTIONS, options2);
-    assertEquals(BuildOptions.of(TEST_OPTIONS, original1, options2),
-        BuildOptions.of(TEST_OPTIONS, original1, options2));
-    // Same values and fragments, different original options are not equal:
-    assertFalse(BuildOptions.of(TEST_OPTIONS, original1, options2).equals(
-        BuildOptions.of(TEST_OPTIONS, original2, options2)));
+    assertThat(
+            BuildOptions.of(TEST_OPTIONS, options1)
+                .equals(
+                    BuildOptions.of(
+                        ImmutableList.<Class<? extends FragmentOptions>>of(
+                            BuildConfiguration.Options.class, CppOptions.class),
+                        options1)))
+        .isFalse();
   }
 }

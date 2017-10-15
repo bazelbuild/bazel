@@ -16,12 +16,63 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/util/exit_code.h"
 
 namespace blaze {
+
+class WorkspaceLayout;
+
+// Represents a single startup flag (or startup option).
+class StartupFlag {
+ public:
+  virtual ~StartupFlag() = 0;
+  virtual bool NeedsParameter() const = 0;
+  virtual bool IsValid(const std::string& arg) const = 0;
+};
+
+// A startup flag that doesn't expect a value.
+// For instance, NullaryStartupFlag("master_bazelrc") is used to represent
+// "--master_bazelrc" and "--nomaster_bazelrc".
+class NullaryStartupFlag : public StartupFlag {
+ public:
+  NullaryStartupFlag(const std::string& name) : name_(name) {}
+  bool IsValid(const std::string& arg) const override;
+  bool NeedsParameter() const override;
+
+ private:
+  const std::string name_;
+};
+
+// A startup flag that expects a value.
+// For instance, UnaryStartupFlag("bazelrc") is used to represent
+// "--bazelrc=foo" or "--bazelrc foo".
+class UnaryStartupFlag : public StartupFlag {
+ public:
+  UnaryStartupFlag(const std::string& name) : name_(name) {}
+  bool IsValid(const std::string& arg) const override;
+  bool NeedsParameter() const override;
+
+ private:
+  const std::string name_;
+};
+
+// A startup flag tagged with its origin, either an rc file or the empty
+// string for the ones specified in the command line.
+// For instance, RcStartupFlag("somepath/.bazelrc", "--foo") is used to
+// represent that the line "startup --foo" was found when parsing
+// "somepath/.bazelrc".
+struct RcStartupFlag {
+  const std::string source;
+  const std::string value;
+  RcStartupFlag(const std::string& source_arg,
+                const std::string& value_arg)
+      : source(source_arg), value(value_arg) {}
+};
 
 // This class holds the parsed startup options for Blaze.
 // These options and their defaults must be kept in sync with those in
@@ -35,7 +86,7 @@ namespace blaze {
 // names also don't conform to the style guide.
 class StartupOptions {
  public:
-  StartupOptions();
+  explicit StartupOptions(const WorkspaceLayout* workspace_layout);
   virtual ~StartupOptions();
 
   // Parses a single argument, either from the command line or from the .blazerc
@@ -59,18 +110,16 @@ class StartupOptions {
                                        bool *is_space_separated,
                                        std::string *error);
 
+  // Process an ordered list of RcStartupFlags using ProcessArg.
+  blaze_exit_code::ExitCode ProcessArgs(
+      const std::vector<RcStartupFlag>& rcstartup_flags,
+      std::string *error);
+
   // Adds any other options needed to result.
   //
   // TODO(jmmv): Now that we support site-specific options via subclasses of
   // StartupOptions, the "ExtraOptions" concept makes no sense; remove it.
   virtual void AddExtraOptions(std::vector<std::string> *result) const;
-
-  // Checks if Blaze needs to be re-executed.  Does not return, if so.
-  //
-  // Returns the exit code after the check. "error" will contain a descriptive
-  // string for any return value other than blaze_exit_code::SUCCESS.
-  virtual blaze_exit_code::ExitCode CheckForReExecuteOptions(
-      int argc, const char *argv[], std::string *error);
 
   // Checks extra fields when processing arg.
   //
@@ -115,6 +164,16 @@ class StartupOptions {
   virtual blaze_exit_code::ExitCode AddJVMArguments(
       const std::string &host_javabase, std::vector<std::string> *result,
       const std::vector<std::string> &user_options, std::string *error) const;
+
+  // Checks whether the argument is a valid nullary option.
+  // E.g. --master_bazelrc, --nomaster_bazelrc.
+  bool IsNullary(const std::string& arg) const;
+
+  // Checks whether the argument is a valid unary option.
+  // E.g. --blazerc=foo, --blazerc foo.
+  bool IsUnary(const std::string& arg) const;
+
+  std::string GetLowercaseProductName() const;
 
   // The capitalized name of this binary.
   const std::string product_name;
@@ -186,29 +245,53 @@ class StartupOptions {
   // from a blazerc file, if a key is not present, it is the default.
   std::map<std::string, std::string> option_sources;
 
-  // Sanity check for the startup options
-  virtual blaze_exit_code::ExitCode ValidateStartupOptions(
-      const std::vector<std::string> &args, std::string *error);
-
   // Returns the GetHostJavabase. This should be called after parsing
   // the --host_javabase option.
   std::string GetHostJavabase();
 
-  // Port for gRPC command server. 0 means let the kernel choose, -1 means no
-  // gRPC command server.
+  // Returns the explicit value of the --host_javabase startup option or the
+  // empty string if it was not specified on the command line.
+  std::string GetExplicitHostJavabase() const;
+
+  // Port to start up the gRPC command server on. If 0, let the kernel choose.
   int command_port;
+
+  // Connection timeout for each gRPC connection attempt.
+  int connect_timeout_secs;
 
   // Invocation policy proto. May be NULL.
   const char *invocation_policy;
+
+  // Whether to output addition debugging information in the client.
+  bool client_debug;
+
+  // Value of the java.util.logging.FileHandler.formatter Java property.
+  std::string java_logging_formatter;
+
+  // The startup options as received from the user and rc files, tagged with
+  // their origin. This is populated by ProcessArgs.
+  std::vector<RcStartupFlag> original_startup_options_;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the
   // capitalized version of the name, as in "Bazel".
-  explicit StartupOptions(const std::string &product_name);
+  explicit StartupOptions(const std::string &product_name,
+                          const WorkspaceLayout* workspace_layout);
+
+  void RegisterUnaryStartupFlag(const std::string& flag_name);
+
+  void RegisterNullaryStartupFlag(const std::string& flag_name);
 
  private:
   std::string host_javabase;
+  std::string default_host_javabase;
+  // Contains the collection of startup flags that Bazel accepts.
+  std::set<std::unique_ptr<StartupFlag>> valid_startup_flags;
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  static std::string WindowsUnixRoot(const std::string &bazel_sh);
+#endif
 };
 
 }  // namespace blaze

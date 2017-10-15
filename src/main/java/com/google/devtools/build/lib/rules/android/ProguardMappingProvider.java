@@ -23,14 +23,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 @Immutable
 public abstract class ProguardMappingProvider implements TransitiveInfoProvider {
 
-  public static ProguardMappingProvider create(
-      Artifact proguardMapping, Artifact proguardProtoMapping) {
-    return new AutoValue_ProguardMappingProvider(proguardMapping, proguardProtoMapping);
+  public static ProguardMappingProvider create(Artifact proguardMapping) {
+    return new AutoValue_ProguardMappingProvider(proguardMapping);
   }
 
   public abstract Artifact getProguardMapping();
-
-  public abstract Artifact getProguardProtoMapping();
 
   ProguardMappingProvider() {}
 }

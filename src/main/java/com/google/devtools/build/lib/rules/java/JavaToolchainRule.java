@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
@@ -39,6 +41,11 @@ public final class JavaToolchainRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class)
+        /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(output_licenses) -->
+        See <a href="${link common-definitions#binary.output_licenses}"><code>common attributes
+        </code></a>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("output_licenses", LICENSE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(source_version) -->
         The Java source version (e.g., '6' or '7'). It specifies which set of code structures
         are allowed in the Java source code.
@@ -91,7 +98,16 @@ public final class JavaToolchainRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
         Label of the javac jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("javac", LABEL_LIST).mandatory().cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        .add(
+            attr("javac", LABEL_LIST)
+                .mandatory()
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(tools) -->
+        Labels of tools available for label-expansion in jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("tools", LABEL_LIST).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javabuilder) -->
         Label of the JavaBuilder deploy jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -99,6 +115,7 @@ public final class JavaToolchainRule implements RuleDefinition {
             attr("javabuilder", LABEL_LIST)
                 .mandatory()
                 .cfg(HOST)
+                .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(singlejar) -->
@@ -108,6 +125,7 @@ public final class JavaToolchainRule implements RuleDefinition {
             attr("singlejar", LABEL_LIST)
                 .mandatory()
                 .cfg(HOST)
+                .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(genclass) -->
@@ -116,7 +134,27 @@ public final class JavaToolchainRule implements RuleDefinition {
         .add(
             attr("genclass", LABEL_LIST)
                 .mandatory()
+                .singleArtifact()
                 .cfg(HOST)
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(resourcejar) -->
+        Label of the resource jar builder executable.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("resourcejar", LABEL_LIST)
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(timezone_data) -->
+        Label of a resource jar containing timezone data. If set, the timezone data is added as an
+        implicitly runtime dependency of all java_binary rules.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("timezone_data", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(ijar) -->
@@ -128,11 +166,38 @@ public final class JavaToolchainRule implements RuleDefinition {
                 .cfg(HOST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(header_compiler) -->
+        Label of the header compiler. Required if --java_header_compilation is enabled.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("header_compiler", LABEL_LIST)
                 .cfg(HOST)
+                .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->
+        Label of the one-version enforcement binary.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("oneversion", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion_whitelist) -->
+        Label of the one-version whitelist.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("oneversion_whitelist", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(forcibly_disable_header_compilation) -->
+        Overrides --java_header_compilation to disable header compilation on platforms that do not
+        support it, e.g. JDK 7 Bazel.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("forcibly_disable_header_compilation", BOOLEAN).value(false))
         .add(
             attr("compatible_javacopts", STRING_LIST_DICT)
                 .undocumented("internal")

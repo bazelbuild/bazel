@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.graph;
 
 import com.google.common.collect.Sets;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -86,11 +85,7 @@ public final class Node<T> {
    * Returns a duplicate-free collection of the nodes that this node links to.
    */
   public Collection<Node<T>> getSuccessors() {
-    if (succs == null) {
-      return Collections.emptyList();
-    } else {
-      return Collections.unmodifiableCollection(succs);
-    }
+    return succs == null ? Collections.emptyList() : Collections.unmodifiableCollection(succs);
   }
 
   /**
@@ -122,11 +117,7 @@ public final class Node<T> {
    * this node.
    */
   public Collection<Node<T>> getPredecessors() {
-    if (preds == null) {
-      return Collections.emptyList();
-    } else {
-      return Collections.unmodifiableCollection(preds);
-    }
+    return preds == null ? Collections.emptyList() : Collections.unmodifiableCollection(preds);
   }
 
   /**

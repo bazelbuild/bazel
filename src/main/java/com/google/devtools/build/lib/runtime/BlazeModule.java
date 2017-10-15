@@ -14,23 +14,23 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
-import com.google.devtools.build.lib.exec.OutputService;
+import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.skyframe.OutputService;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -117,33 +117,47 @@ public abstract class BlazeModule {
 
   /**
    * Sets up the configured rule class provider, which contains the built-in rule classes, aspects,
-   * configuration fragments, and other things; called during Blaze startup (after
-   * {@link #blazeStartup}).
-   * 
+   * configuration fragments, and other things; called during Blaze startup (after {@link
+   * #blazeStartup}).
+   *
    * <p>Bazel only creates one provider per server, so it is not possible to have different contents
    * for different workspaces.
    *
    * @param builder the configured rule class provider builder
    */
-  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-  }
+  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {}
 
   /**
    * Called when Bazel initializes a new workspace; this is only called after {@link #serverInit},
    * and only if the server initialization was successful. Modules can override this method to
    * affect how the workspace is configured.
    *
+   * @param runtime the blaze runtime
    * @param directories the workspace directories
    * @param builder the workspace builder
    */
-  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
   }
 
   /**
-   * Called before each command.
+   * Called to notify modules that the given command is about to be executed. This allows capturing
+   * the {@link com.google.common.eventbus.EventBus}, {@link Command}, or {@link OptionsProvider}.
+   *
+   * @param env the command
+   * @throws AbruptExitException modules can throw this exception to abort the command
+   */
+  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+  }
+
+  /**
+   * Returns additional listeners to the console output stream. Called at the beginning of each
+   * command (after #beforeCommand).
    */
   @SuppressWarnings("unused")
-  public void beforeCommand(Command command, CommandEnvironment env) throws AbruptExitException {
+  @Nullable
+  public OutErr getOutputListener() {
+    return null;
   }
 
   /**
@@ -156,24 +170,6 @@ public abstract class BlazeModule {
   public OutputService getOutputService() throws AbruptExitException {
     return null;
   }
-
-  /**
-   * Returns an implementation of {@link ActionInputPrefetcher}.
-   *
-   * <p>This method will be called at the beginning of each command (after #beforeCommand).
-   */
-  @SuppressWarnings("unused")
-  public ActionInputPrefetcher getPrefetcher() throws AbruptExitException {
-    return null;
-  }
-
-  /**
-   * Does any handling of options needed by the command.
-   *
-   * <p>This method will be called at the beginning of each command (after #beforeCommand).
-   */
-  @SuppressWarnings("unused")
-  public void handleOptions(OptionsProvider optionsProvider) {}
 
   /**
    * Returns extra options this module contributes to a specific command. Note that option
@@ -213,24 +209,15 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns the action context providers the module contributes to Blaze, if any.
+   * Called when Bazel initializes the action execution subsystem. This is called once per build if
+   * action execution is enabled. Modules can override this method to affect how execution is
+   * performed.
    *
-   * <p>This method will be called at the beginning of the execution phase, e.g. of the
-   * "blaze build" command.
+   * @param env the command environment
+   * @param request the build request
+   * @param builder the builder to add action context providers and consumers to
    */
-  public Iterable<ActionContextProvider> getActionContextProviders() {
-    return ImmutableList.of();
-  }
-
-  /**
-   * Returns the action context consumers that pulls in action contexts required by this module,
-   * if any.
-   *
-   * <p>This method will be called at the beginning of the execution phase, e.g. of the
-   * "blaze build" command.
-   */
-  public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    return ImmutableList.of();
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
   }
 
   /**
@@ -264,21 +251,6 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Optionally specializes the cache that ensures source files are looked at just once during
-   * a build. Only one module may do so.
-   */
-  public ActionInputFileCache createActionInputCache(String cwd, FileSystem fs) {
-    return null;
-  }
-
-  /**
-   * Returns the extensions this module contributes to the global namespace of the BUILD language.
-   */
-  public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
-    return new PackageFactory.EmptyEnvironmentExtension();
-  }
-
-  /**
    * Returns a helper that the {@link PackageFactory} will use during package loading. If the module
    * does not provide any helper, it should return null. Note that only one helper per Bazel/Blaze
    * runtime is allowed.
@@ -299,7 +271,7 @@ public abstract class BlazeModule {
 
   /**
    * Optionally returns a factory to create coverage report actions; this is called once per build,
-   * such that it can be affected by command options. 
+   * such that it can be affected by command options.
    *
    * <p>It is an error if multiple modules return non-null values.
    *
@@ -325,5 +297,9 @@ public abstract class BlazeModule {
      * Exits Blaze as early as possible by sending an interrupt to the command's main thread.
      */
     void exit(AbruptExitException exception);
+  }
+
+  public ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
+    return ImmutableList.of();
   }
 }

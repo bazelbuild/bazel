@@ -13,13 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
 
 /**
  * Tests {@link LineWrappingAnsiTerminalWriter}.
@@ -35,14 +34,14 @@ public class LineWrappingAnsiTerminalWriterTest {
   public void testSimpleLineWrapping() throws IOException {
     LoggingTerminalWriter terminal = new LoggingTerminalWriter();
     (new LineWrappingAnsiTerminalWriter(terminal, 5, '+')).append("abcdefghij");
-    assertEquals("abcd+" + NL + "efgh+" + NL + "ij", terminal.getTranscript());
+    assertThat(terminal.getTranscript()).isEqualTo("abcd+" + NL + "efgh+" + NL + "ij");
   }
 
   @Test
   public void testAlwaysWrap() throws IOException {
     LoggingTerminalWriter terminal = new LoggingTerminalWriter();
     (new LineWrappingAnsiTerminalWriter(terminal, 5, '+')).append("12345").newline();
-    assertEquals("1234+" + NL + "5" + NL, terminal.getTranscript());
+    assertThat(terminal.getTranscript()).isEqualTo("1234+" + NL + "5" + NL);
   }
 
   @Test
@@ -52,14 +51,14 @@ public class LineWrappingAnsiTerminalWriterTest {
     // Lines are only wrapped, once a character is written that cannot fit in the current line, and
     // not already once the last usable character of a line is used. Hence, in this example, we do
     // not want to see the continuation character.
-    assertEquals("1234", terminal.getTranscript());
+    assertThat(terminal.getTranscript()).isEqualTo("1234");
   }
 
   @Test
   public void testNewlineTranslated() throws IOException {
     LoggingTerminalWriter terminal = new LoggingTerminalWriter();
     (new LineWrappingAnsiTerminalWriter(terminal, 80, '+')).append("foo\nbar\n");
-    assertEquals("foo" + NL + "bar" + NL, terminal.getTranscript());
+    assertThat(terminal.getTranscript()).isEqualTo("foo" + NL + "bar" + NL);
   }
 
   @Test
@@ -72,7 +71,8 @@ public class LineWrappingAnsiTerminalWriterTest {
         .newline()
         .append("ABC\nABC")
         .newline();
-    assertEquals("123" + NL + "abc" + NL + "ABC" + NL + "ABC" + NL, terminal.getTranscript());
+    assertThat(terminal.getTranscript())
+        .isEqualTo("123" + NL + "abc" + NL + "ABC" + NL + "ABC" + NL);
   }
 
   @Test
@@ -85,6 +85,6 @@ public class LineWrappingAnsiTerminalWriterTest {
         .append("fail")
         .normal()
         .append("normal");
-    assertEquals(OK + "ok" + FAIL + "fail" + NORMAL + "normal", terminal.getTranscript());
+    assertThat(terminal.getTranscript()).isEqualTo(OK + "ok" + FAIL + "fail" + NORMAL + "normal");
   }
 }

@@ -25,7 +25,7 @@ import java.util.Objects;
  */
 public class EvalExceptionWithStackTrace extends EvalException {
 
-  private StackTraceElement mostRecentElement;
+  private StackFrame mostRecentElement;
 
   public EvalExceptionWithStackTrace(Exception original, ASTNode culprit) {
     super(extractLocation(original, culprit), getNonEmptyMessage(original), getCause(original));
@@ -119,7 +119,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
     if (mostRecentElement != null && isSameLocation(location, mostRecentElement.getLocation())) {
       return;
     }
-    mostRecentElement = new StackTraceElement(label, location, mostRecentElement, canPrint);
+    mostRecentElement = new StackFrame(label, location, mostRecentElement, canPrint);
   }
 
   /**
@@ -130,7 +130,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
   private boolean isSameLocation(Location first, Location second) {
     try {
       return Objects.equals(first.getPath(), second.getPath())
-          && Objects.equals(first.getStartOffset(), second.getStartOffset());
+          && first.getStartOffset() == second.getStartOffset();
     } catch (NullPointerException ex) {
       return first == second;
     }
@@ -178,13 +178,13 @@ public class EvalExceptionWithStackTrace extends EvalException {
    * An element in the stack trace which contains the name of the offending function / rule /
    * statement and its location.
    */
-  protected static final class StackTraceElement {
+  protected static final class StackFrame {
     private final String label;
     private final Location location;
-    private final StackTraceElement cause;
+    private final StackFrame cause;
     private final boolean canPrint;
 
-    StackTraceElement(String label, Location location, StackTraceElement cause, boolean canPrint) {
+    StackFrame(String label, Location location, StackFrame cause, boolean canPrint) {
       this.label = label;
       this.location = location;
       this.cause = cause;
@@ -199,7 +199,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
       return location;
     }
 
-    StackTraceElement getCause() {
+    StackFrame getCause() {
       return cause;
     }
 
@@ -223,11 +223,11 @@ public class EvalExceptionWithStackTrace extends EvalException {
     /**
      * Turns the given message and StackTraceElements into a string.
      */
-    public final String print(String message, StackTraceElement mostRecentElement) {
+    public final String print(String message, StackFrame mostRecentElement) {
       Deque<String> output = new LinkedList<>();
 
       // Adds dummy element for the rule call that uses the location of the top-most function.
-      mostRecentElement = new StackTraceElement("", mostRecentElement.getLocation(),
+      mostRecentElement = new StackFrame("", mostRecentElement.getLocation(),
           (mostRecentElement.getCause() == null) ? null : mostRecentElement, true);
 
       while (mostRecentElement != null) {
@@ -248,14 +248,14 @@ public class EvalExceptionWithStackTrace extends EvalException {
     /**
      * Returns the location of the given element or Location.BUILTIN if the element is null.
      */
-    private Location getLocation(StackTraceElement element) {
+    private Location getLocation(StackFrame element) {
       return (element == null) ? Location.BUILTIN : element.getLocation();
     }
 
     /**
      * Returns the string representation of the given element.
      */
-    protected String print(StackTraceElement element) {
+    protected String print(StackFrame element) {
       // Similar to Python, the first (most-recent) entry in the stack frame is printed only once.
       // Consequently, we skip it here.
       if (element.getCause() == null) {

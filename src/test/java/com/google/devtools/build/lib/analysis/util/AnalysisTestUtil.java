@@ -28,11 +28,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -47,7 +45,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -109,7 +108,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public EventHandler getEventHandler() {
+    public ExtendedEventHandler getEventHandler() {
       return original.getEventHandler();
     }
 
@@ -139,11 +138,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-      return original.getEmbeddedToolArtifact(embeddedPath);
-    }
-
-    @Override
     public MiddlemanFactory getMiddlemanFactory() {
       return original.getMiddlemanFactory();
     }
@@ -154,13 +148,18 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Iterable<ActionAnalysisMetadata> getRegisteredActions() {
+    public List<ActionAnalysisMetadata> getRegisteredActions() {
       return original.getRegisteredActions();
     }
 
     @Override
     public SkyFunction.Environment getSkyframeEnv() {
       return null;
+    }
+
+    @Override
+    public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
+      return original.getSkylarkSemantics();
     }
 
     @Override
@@ -225,11 +224,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ResourceSet estimateResourceConsumption(Executor executor) {
-      return ResourceSet.ZERO;
-    }
-
-    @Override
     public String computeKey() {
       return "";
     }
@@ -252,6 +246,11 @@ public final class AnalysisTestUtil {
 
       DummyWorkspaceStatusAction that = (DummyWorkspaceStatusAction) o;
       return that.key.equals(this.key);
+    }
+
+    @Override
+    public int hashCode() {
+      return key.hashCode();
     }
   }
 
@@ -289,10 +288,10 @@ public final class AnalysisTestUtil {
         ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, Supplier<UUID> buildId,
         String workspaceName) {
       Artifact stableStatus = artifactFactory.getDerivedArtifact(
-          new PathFragment("build-info.txt"),
+          PathFragment.create("build-info.txt"),
           directories.getBuildDataDirectory(workspaceName), artifactOwner);
       Artifact volatileStatus = artifactFactory.getConstantMetadataArtifact(
-          new PathFragment("build-changelist.txt"),
+          PathFragment.create("build-changelist.txt"),
           directories.getBuildDataDirectory(workspaceName), artifactOwner);
       return new DummyWorkspaceStatusAction(key, stableStatus, volatileStatus);
     }
@@ -316,11 +315,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-      return null;
-    }
-
-    @Override
     public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, Root root) {
       return null;
     }
@@ -331,7 +325,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public EventHandler getEventHandler() {
+    public ExtendedEventHandler getEventHandler() {
       return null;
     }
 
@@ -346,12 +340,17 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Iterable<ActionAnalysisMetadata> getRegisteredActions() {
+    public List<ActionAnalysisMetadata> getRegisteredActions() {
       return ImmutableList.of();
     }
 
     @Override
     public SkyFunction.Environment getSkyframeEnv() {
+      return null;
+    }
+
+    @Override
+    public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
       return null;
     }
 
@@ -413,9 +412,10 @@ public final class AnalysisTestUtil {
     rootMap.put(
         targetConfiguration.getBinDirectory(RepositoryName.MAIN).getPath().toString(),
         "bin");
+    // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
     rootMap.put(
         targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString(),
-        "genfiles");
+        "bin");
     rootMap.put(
         targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getPath().toString(),
         "internal");
@@ -424,27 +424,25 @@ public final class AnalysisTestUtil {
     rootMap.put(
         hostConfiguration.getBinDirectory(RepositoryName.MAIN).getPath().toString(),
         "bin(host)");
+    // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
     rootMap.put(
         hostConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString(),
-        "genfiles(host)");
+        "bin(host)");
     rootMap.put(
         hostConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getPath().toString(),
         "internal(host)");
 
-    if (targetConfiguration.useDynamicConfigurations()) {
-      // With dynamic configurations, the output paths that bin, genfiles, etc. refer to may
-      // or may not include the C++-contributed pieces. e.g. they may be
-      // bazel-out/gcc-X-glibc-Y-k8-fastbuild/ or they may be bazel-out/fastbuild/. This code
-      // adds support for the non-C++ case, too.
-      Map<String, String> prunedRootMap = new HashMap<>();
-      for (Map.Entry<String, String> root : rootMap.entrySet()) {
-        prunedRootMap.put(
-            OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(root.getKey()).replaceFirst(""),
-            root.getValue()
-        );
-      }
-      rootMap.putAll(prunedRootMap);
+    // The output paths that bin, genfiles, etc. refer to may or may not include the C++-contributed
+    // pieces. e.g. they may be bazel-out/gcc-X-glibc-Y-k8-fastbuild/ or they may be
+    // bazel-out/fastbuild/. This code adds support for the non-C++ case, too.
+    Map<String, String> prunedRootMap = new HashMap<>();
+    for (Map.Entry<String, String> root : rootMap.entrySet()) {
+      prunedRootMap.put(
+          OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(root.getKey()).replaceFirst(""),
+          root.getValue()
+      );
     }
+    rootMap.putAll(prunedRootMap);
 
     Set<String> files = new LinkedHashSet<>();
     for (Artifact artifact : artifacts) {

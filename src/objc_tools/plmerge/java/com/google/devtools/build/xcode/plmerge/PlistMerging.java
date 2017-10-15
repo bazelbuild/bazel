@@ -14,6 +14,12 @@
 
 package com.google.devtools.build.xcode.plmerge;
 
+import com.dd.plist.BinaryPropertyListWriter;
+import com.dd.plist.NSDictionary;
+import com.dd.plist.NSObject;
+import com.dd.plist.NSString;
+import com.dd.plist.PropertyListFormatException;
+import com.dd.plist.PropertyListParser;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -26,16 +32,6 @@ import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos.Control;
 import com.google.devtools.build.xcode.util.Equaling;
 import com.google.devtools.build.xcode.util.Mapping;
 import com.google.devtools.build.xcode.util.Value;
-
-import com.dd.plist.BinaryPropertyListWriter;
-import com.dd.plist.NSDictionary;
-import com.dd.plist.NSObject;
-import com.dd.plist.NSString;
-import com.dd.plist.PropertyListFormatException;
-import com.dd.plist.PropertyListParser;
-
-import org.xml.sax.SAXException;
-
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,12 +43,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.ParseException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-
 import javax.xml.parsers.ParserConfigurationException;
+import org.xml.sax.SAXException;
 
 /**
  * Utility code for merging project files.
@@ -89,7 +86,7 @@ public class PlistMerging extends Value<PlistMerging> {
    * one of these formats: ASCII, Binary, or XML) that contains an NSDictionary.
    */
   @VisibleForTesting
-  static NSDictionary merge(Iterable<? extends Path> sourceFilePaths) throws IOException {
+  static NSDictionary merge(Collection<? extends Path> sourceFilePaths) throws IOException {
     NSDictionary result = new NSDictionary();
     for (Path sourceFilePath : sourceFilePaths) {
       result.putAll(readPlistFile(sourceFilePath));

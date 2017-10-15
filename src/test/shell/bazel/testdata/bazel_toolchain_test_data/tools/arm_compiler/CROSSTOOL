@@ -127,10 +127,6 @@ toolchain {
   # Keep stack frames for debugging, even in opt mode.
   compiler_flag: "-fno-omit-frame-pointer"
 
-  # Stamp the binary with a unique identifier.
-  linker_flag: "-Wl,--build-id=md5"
-  linker_flag: "-Wl,--hash-style=gnu"
-
   compilation_mode_flags {
     mode: DBG
     # Enable debug symbols.
@@ -191,8 +187,6 @@ toolchain {
   linker_flag: "-B/usr/bin"
   linker_flag: "-B/usr/bin"
   linker_flag: "-pass-exit-codes"
-  linker_flag: "-Wl,--build-id=md5"
-  linker_flag: "-Wl,--hash-style=gnu"
   needsPic: true
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
@@ -237,4 +231,3 @@ toolchain {
   }
   linking_mode_flags { mode: DYNAMIC }
 }
-

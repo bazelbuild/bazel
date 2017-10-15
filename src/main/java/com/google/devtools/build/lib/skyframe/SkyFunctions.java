@@ -24,6 +24,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName PRECOMPUTED = SkyFunctionName.create("PRECOMPUTED");
   public static final SkyFunctionName CLIENT_ENVIRONMENT_VARIABLE =
       SkyFunctionName.create("CLIENT_ENVIRONMENT_VARIABLE");
+  public static final SkyFunctionName ACTION_ENVIRONMENT_VARIABLE =
+      SkyFunctionName.create("ACTION_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName FILE_STATE = SkyFunctionName.create("FILE_STATE");
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
       SkyFunctionName.create("DIRECTORY_LISTING_STATE");
@@ -65,8 +67,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.create("RECURSIVE_PKG");
   public static final SkyFunctionName TRANSITIVE_TARGET =
       SkyFunctionName.create("TRANSITIVE_TARGET");
-  public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
-      SkyFunctionName.create("TRANSITIVE_TRAVERSAL");
   public static final SkyFunctionName CONFIGURED_TARGET =
       SkyFunctionName.create("CONFIGURED_TARGET");
   public static final SkyFunctionName POST_CONFIGURED_TARGET =
@@ -83,8 +83,6 @@ public final class SkyFunctions {
       SkyFunctionName.create("BUILD_CONFIGURATION");
   public static final SkyFunctionName CONFIGURATION_FRAGMENT =
       SkyFunctionName.create("CONFIGURATION_FRAGMENT");
-  public static final SkyFunctionName CONFIGURATION_COLLECTION =
-      SkyFunctionName.create("CONFIGURATION_COLLECTION");
   public static final SkyFunctionName ARTIFACT = SkyFunctionName.create("ARTIFACT");
   public static final SkyFunctionName ACTION_EXECUTION =
       SkyFunctionName.create("ACTION_EXECUTION");
@@ -95,6 +93,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName BUILD_INFO_COLLECTION =
       SkyFunctionName.create("BUILD_INFO_COLLECTION");
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.create("BUILD_INFO");
+  public static final SkyFunctionName WORKSPACE_NAME = SkyFunctionName.create("WORKSPACE_NAME");
   public static final SkyFunctionName WORKSPACE_FILE = SkyFunctionName.create("WORKSPACE_FILE");
   public static final SkyFunctionName COVERAGE_REPORT = SkyFunctionName.create("COVERAGE_REPORT");
   public static final SkyFunctionName REPOSITORY = SkyFunctionName.create("REPOSITORY");
@@ -104,6 +103,12 @@ public final class SkyFunctions {
   public static final SkyFunctionName EXTERNAL_PACKAGE = SkyFunctionName.create("EXTERNAL_PACKAGE");
   public static final SkyFunctionName ACTION_TEMPLATE_EXPANSION =
       SkyFunctionName.create("ACTION_TEMPLATE_EXPANSION");
+  public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
+      SkyFunctionName.create("LOCAL_REPOSITORY_LOOKUP");
+  public static final SkyFunctionName REGISTERED_TOOLCHAINS =
+      SkyFunctionName.create("REGISTERED_TOOLCHAINS");
+  public static final SkyFunctionName TOOLCHAIN_RESOLUTION =
+      SkyFunctionName.create("TOOLCHAIN_RESOLUTION");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

@@ -15,26 +15,25 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.IllegalFormatException;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  *  Test properties of the evaluator's datatypes and utility functions
@@ -47,41 +46,37 @@ public class PrinterTest {
   public void testPrinter() throws Exception {
     // Note that prettyPrintValue and printValue only differ on behaviour of
     // labels and strings at toplevel.
-    assertEquals("foo\nbar", Printer.str("foo\nbar"));
-    assertEquals("\"foo\\nbar\"", Printer.repr("foo\nbar"));
-    assertEquals("'", Printer.str("'"));
-    assertEquals("\"'\"", Printer.repr("'"));
-    assertEquals("\"", Printer.str("\""));
-    assertEquals("\"\\\"\"", Printer.repr("\""));
-    assertEquals("3", Printer.str(3));
-    assertEquals("3", Printer.repr(3));
-    assertEquals("None", Printer.repr(Runtime.NONE));
+    assertThat(Printer.str("foo\nbar")).isEqualTo("foo\nbar");
+    assertThat(Printer.repr("foo\nbar")).isEqualTo("\"foo\\nbar\"");
+    assertThat(Printer.str("'")).isEqualTo("'");
+    assertThat(Printer.repr("'")).isEqualTo("\"'\"");
+    assertThat(Printer.str("\"")).isEqualTo("\"");
+    assertThat(Printer.repr("\"")).isEqualTo("\"\\\"\"");
+    assertThat(Printer.str(3)).isEqualTo("3");
+    assertThat(Printer.repr(3)).isEqualTo("3");
+    assertThat(Printer.repr(Runtime.NONE)).isEqualTo("None");
 
-    assertEquals("//x:x", Printer.str(
-        Label.parseAbsolute("//x")));
-    assertEquals("\"//x:x\"", Printer.repr(
-        Label.parseAbsolute("//x")));
+    assertThat(Printer.str(Label.parseAbsolute("//x"))).isEqualTo("//x:x");
+    assertThat(Printer.repr(Label.parseAbsolute("//x"))).isEqualTo("Label(\"//x:x\")");
 
     List<?> list = MutableList.of(null, "foo", "bar");
     List<?> tuple = Tuple.of("foo", "bar");
 
-    assertEquals("(1, [\"foo\", \"bar\"], 3)",
-                 Printer.str(Tuple.of(1, list, 3)));
-    assertEquals("(1, [\"foo\", \"bar\"], 3)",
-                 Printer.repr(Tuple.of(1, list, 3)));
-    assertEquals("[1, (\"foo\", \"bar\"), 3]",
-                 Printer.str(MutableList.of(null, 1, tuple, 3)));
-    assertEquals("[1, (\"foo\", \"bar\"), 3]",
-                 Printer.repr(MutableList.of(null, 1, tuple, 3)));
+    assertThat(Printer.str(Tuple.of(1, list, 3))).isEqualTo("(1, [\"foo\", \"bar\"], 3)");
+    assertThat(Printer.repr(Tuple.of(1, list, 3))).isEqualTo("(1, [\"foo\", \"bar\"], 3)");
+    assertThat(Printer.str(MutableList.of(null, 1, tuple, 3)))
+        .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
+    assertThat(Printer.repr(MutableList.of(null, 1, tuple, 3)))
+        .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
 
     Map<Object, Object> dict = ImmutableMap.<Object, Object>of(
         1, tuple,
         2, list,
         "foo", MutableList.of(null));
-    assertEquals("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}",
-                Printer.str(dict));
-    assertEquals("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}",
-                Printer.repr(dict));
+    assertThat(Printer.str(dict))
+        .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
+    assertThat(Printer.repr(dict))
+        .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
   }
 
   private void checkFormatPositionalFails(String errorMessage, String format, Object... arguments) {
@@ -94,38 +89,39 @@ public class PrinterTest {
   }
 
   @Test
-  public void testSortedOutputOfUnsortedMap() throws Exception {
-    Map<Integer, Integer> map = new HashMap<>();
-    int[] data = {5, 7, 3};
-
-    for (int current : data) {
-      map.put(current, current);
-    }
-    assertThat(Printer.str(map)).isEqualTo("{3: 3, 5: 5, 7: 7}");
+  public void testOutputOrderOfMap() throws Exception {
+    Map<Object, Object> map = new LinkedHashMap<>();
+    map.put(5, 5);
+    map.put(3, 3);
+    map.put("foo", 42);
+    map.put(7, "bar");
+    assertThat(Printer.str(map)).isEqualTo("{5: 5, 3: 3, \"foo\": 42, 7: \"bar\"}");
   }
 
   @Test
   public void testFormatPositional() throws Exception {
-    assertEquals("foo 3", Printer.formatToString("%s %d", Tuple.of("foo", 3)));
-    assertEquals("foo 3", Printer.format("%s %d", "foo", 3));
+    assertThat(Printer.formatWithList("%s %d", Tuple.of("foo", 3))).isEqualTo("foo 3");
+    assertThat(Printer.format("%s %d", "foo", 3)).isEqualTo("foo 3");
+
+    assertThat(Printer.format("%s %s %s", 1, null, 3)).isEqualTo("1 null 3");
 
     // Note: formatToString doesn't perform scalar x -> (x) conversion;
     // The %-operator is responsible for that.
-    assertThat(Printer.formatToString("", Tuple.of())).isEmpty();
-    assertEquals("foo", Printer.format("%s", "foo"));
-    assertEquals("3.14159", Printer.format("%s", 3.14159));
+    assertThat(Printer.formatWithList("", Tuple.of())).isEmpty();
+    assertThat(Printer.format("%s", "foo")).isEqualTo("foo");
+    assertThat(Printer.format("%s", 3.14159)).isEqualTo("3.14159");
     checkFormatPositionalFails("not all arguments converted during string formatting",
         "%s", 1, 2, 3);
-    assertEquals("%foo", Printer.format("%%%s", "foo"));
+    assertThat(Printer.format("%%%s", "foo")).isEqualTo("%foo");
     checkFormatPositionalFails("not all arguments converted during string formatting",
         "%%s", "foo");
     checkFormatPositionalFails("unsupported format character \" \" at index 1 in \"% %s\"",
         "% %s", "foo");
-    assertEquals("[1, 2, 3]", Printer.format("%s", MutableList.of(null, 1, 2, 3)));
-    assertEquals("(1, 2, 3)", Printer.format("%s", Tuple.of(1, 2, 3)));
-    assertEquals("[]", Printer.format("%s", MutableList.of(null)));
-    assertEquals("()", Printer.format("%s", Tuple.of()));
-    assertEquals("% 1 \"2\" 3", Printer.format("%% %d %r %s", 1, "2", "3"));
+    assertThat(Printer.format("%s", MutableList.of(null, 1, 2, 3))).isEqualTo("[1, 2, 3]");
+    assertThat(Printer.format("%s", Tuple.of(1, 2, 3))).isEqualTo("(1, 2, 3)");
+    assertThat(Printer.format("%s", MutableList.of(null))).isEqualTo("[]");
+    assertThat(Printer.format("%s", Tuple.of())).isEqualTo("()");
+    assertThat(Printer.format("%% %d %r %s", 1, "2", "3")).isEqualTo("% 1 \"2\" 3");
 
     checkFormatPositionalFails(
         "invalid argument \"1\" for format pattern %d",
@@ -136,34 +132,6 @@ public class PrinterTest {
         "%.3g", 1, 2);
     checkFormatPositionalFails("unsupported format character \".\" at index 1 in \"%.s\"",
         "%.s");
-  }
-
-  @Test
-  public void testSingleQuotes() throws Exception {
-    assertThat(Printer.str("test", '\'')).isEqualTo("test");
-    assertThat(Printer.repr("test", '\'')).isEqualTo("'test'");
-
-    assertEquals("'\\''", Printer.repr("'", '\''));
-    assertEquals("\"", Printer.str("\"", '\''));
-    assertEquals("'\"'", Printer.repr("\"", '\''));
-
-    List<?> list = MutableList.of(null, "foo", "bar");
-    List<?> tuple = Tuple.of("foo", "bar");
-
-    assertThat(Printer.str(Tuple.of(1, list, 3), '\'')).isEqualTo("(1, ['foo', 'bar'], 3)");
-    assertThat(Printer.repr(Tuple.of(1, list, 3), '\'')).isEqualTo("(1, ['foo', 'bar'], 3)");
-    assertThat(Printer.str(MutableList.of(null, 1, tuple, 3), '\''))
-        .isEqualTo("[1, ('foo', 'bar'), 3]");
-    assertThat(Printer.repr(MutableList.of(null, 1, tuple, 3), '\''))
-        .isEqualTo("[1, ('foo', 'bar'), 3]");
-
-    Map<Object, Object> dict =
-        ImmutableMap.<Object, Object>of(1, tuple, 2, list, "foo", MutableList.of(null));
-
-    assertThat(Printer.str(dict, '\''))
-        .isEqualTo("{1: ('foo', 'bar'), 2: ['foo', 'bar'], 'foo': []}");
-    assertThat(Printer.repr(dict, '\''))
-        .isEqualTo("{1: ('foo', 'bar'), 2: ['foo', 'bar'], 'foo': []}");
   }
 
   @Test
@@ -251,15 +219,45 @@ public class PrinterTest {
     assertThat(Printer.str(list)).isEqualTo(String.format("[%s]", Joiner.on(", ").join(list)));
   }
 
+  @Test
+  public void testLegacyPrinter() throws Exception {
+    assertThat(new Printer.LegacyPrinter().str(createObjWithStr()).toString())
+        .isEqualTo("<str legacy marker>");
+    assertThat(new Printer.LegacyPrinter().repr(createObjWithStr()).toString())
+        .isEqualTo("<repr legacy marker>");
+  }
+
   private String printListWithLimit(List<?> list) {
     return printList(list, Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
   }
 
   private String printList(List<?> list, int criticalElementsCount, int criticalStringLength) {
-    StringBuilder builder = new StringBuilder();
-    Printer.printList(
-        builder, list, "[", ", ", "]", "", '"', criticalElementsCount, criticalStringLength);
-    return builder.toString();
+    return Printer.printAbbreviatedList(
+        list, "[", ", ", "]", "", criticalElementsCount, criticalStringLength);
+  }
+
+  private SkylarkValue createObjWithStr() {
+    return new SkylarkValue() {
+      @Override
+      public void repr(SkylarkPrinter printer) {
+        printer.append("<repr marker>");
+      }
+
+      @Override
+      public void reprLegacy(SkylarkPrinter printer) {
+        printer.append("<repr legacy marker>");
+      }
+
+      @Override
+      public void str(SkylarkPrinter printer) {
+        printer.append("<str marker>");
+      }
+
+      @Override
+      public void strLegacy(SkylarkPrinter printer) {
+        printer.append("<str legacy marker>");
+      }
+    };
   }
 }

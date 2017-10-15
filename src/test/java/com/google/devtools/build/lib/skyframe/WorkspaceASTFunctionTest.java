@@ -60,7 +60,7 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
     Path workspacePath = scratch.overwriteFile("WORKSPACE", contents);
     fakeWorkspaceFileValue.setSize(workspacePath.getFileSize());
     return RootedPath.toRootedPath(
-        workspacePath.getParentDirectory(), new PathFragment(workspacePath.getBaseName()));
+        workspacePath.getParentDirectory(), PathFragment.create(workspacePath.getBaseName()));
   }
 
   private SkyFunction.Environment getEnv() throws InterruptedException {

@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.errorprone;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.errorprone.ErrorProneAnalyzer;
 import com.google.errorprone.ErrorProneError;
 import com.google.errorprone.ErrorProneOptions;
-import com.google.errorprone.ErrorPronePlugins;
 import com.google.errorprone.InvalidCommandLineOptionException;
 import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
 import com.google.errorprone.scanner.ScannerSupplier;
@@ -29,7 +29,6 @@ import com.sun.source.util.TaskEvent.Kind;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
-import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.JavacMessages;
 import com.sun.tools.javac.util.Log;
@@ -43,20 +42,22 @@ import java.util.List;
 public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
 
   private final ScannerSupplier scannerSupplier;
+  private final boolean testOnly;
 
   /**
    * Constructs an {@link ErrorPronePlugin} instance with the set of checks that are enabled as
    * errors in open-source Error Prone.
    */
-  public ErrorPronePlugin() {
-    this.scannerSupplier = BuiltInCheckerSuppliers.errorChecks();
+  public ErrorPronePlugin(boolean testOnly) {
+    this(testOnly, BuiltInCheckerSuppliers.errorChecks());
   }
 
   /**
    * Constructs an {@link ErrorPronePlugin} with the set of checks that are enabled in {@code
    * scannerSupplier}.
    */
-  public ErrorPronePlugin(ScannerSupplier scannerSupplier) {
+  public ErrorPronePlugin(boolean testOnly, ScannerSupplier scannerSupplier) {
+    this.testOnly = testOnly;
     this.scannerSupplier = scannerSupplier;
   }
 
@@ -90,20 +91,10 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
 
     setupMessageBundle(context);
 
-    // load Error Prone plugins from the annotation processor classpath
-    ScannerSupplier result = ErrorPronePlugins.loadPlugins(scannerSupplier, context);
-
-    if (epOptions != null) {
-      try {
-        result = result.applyOverrides(epOptions);
-      } catch (InvalidCommandLineOptionException e) {
-        throwError(Result.CMDERR, e.getMessage());
-      }
-    } else {
+    if (epOptions == null) {
       epOptions = ErrorProneOptions.empty();
     }
-
-    errorProneAnalyzer = ErrorProneAnalyzer.create(result.get()).init(context, epOptions);
+    errorProneAnalyzer = new ErrorProneAnalyzer(scannerSupplier, epOptions, context);
   }
 
   /** Run Error Prone analysis after performing dataflow checks. */
@@ -117,5 +108,10 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
       // terminate with Result.ABNORMAL
       throw e;
     }
+  }
+  
+  @VisibleForTesting
+  public boolean testOnly() {
+    return testOnly;
   }
 }

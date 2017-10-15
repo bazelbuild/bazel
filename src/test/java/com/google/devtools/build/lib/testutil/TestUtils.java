@@ -50,7 +50,7 @@ public class TestUtils {
   }
 
   public static String tmpDir() {
-    return tmpDirFile().getAbsolutePath();
+    return tmpDirFile().getAbsolutePath().replaceAll("\\\\", "/");
   }
 
   static String getUserValue(String key) {

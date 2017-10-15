@@ -127,13 +127,14 @@ sh_test(name='test',
 EOF
 
   cat >foo/bar/test.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 exit 0
 EOF
 
   chmod +x foo/bar/test.sh
 
-  bazel test --output_filter="dummy" foo/bar:test 2> stderr.txt
+  # TODO(b/37617303): make tests UI-independent
+  bazel test --noexperimental_ui --output_filter="dummy" foo/bar:test 2> stderr.txt
   grep "PASS: //foo/bar:test" stderr.txt || fail "no PASSED message"
 }
 
@@ -225,13 +226,13 @@ sh_test(name='hummingbird', srcs=['hummingbird.sh'])
 EOF
 
   cat >geflugel/mockingbird.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 echo "To kill -9 a mockingbird"
 exit 1
 EOF
 
   cat >geflugel/hummingbird.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 echo "To kill -9 a hummingbird"
 exit 1
 EOF

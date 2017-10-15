@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef LINUX_SANDBOX_PID1_H__
-#define LINUX_SANDBOX_PID1_H__
+#ifndef SRC_MAIN_TOOLS_LINUX_SANDBOX_PID1_H_
+#define SRC_MAIN_TOOLS_LINUX_SANDBOX_PID1_H_
 
 int Pid1Main(void *sync_pipe_param);
 

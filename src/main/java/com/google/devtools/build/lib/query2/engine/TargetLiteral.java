@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Collection;
 import java.util.Set;
 
@@ -44,19 +44,31 @@ public final class TargetLiteral extends QueryExpression {
     return LetExpression.isValidVarReference(pattern);
   }
 
-  @Override
-  protected <T> void evalImpl(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
-          throws QueryException, InterruptedException {
-    if (isVariableReference()) {
-      String varName = LetExpression.getNameFromReference(pattern);
-      Set<T> value = context.get(varName);
-      if (value == null) {
-        throw new QueryException(this, "undefined variable '" + varName + "'");
-      }
+  private <T> QueryTaskFuture<Void> evalVarReference(
+      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+    String varName = LetExpression.getNameFromReference(pattern);
+    Set<T> value = context.get(varName);
+    if (value == null) {
+      return env.immediateFailedFuture(
+          new QueryException(this, "undefined variable '" + varName + "'"));
+    }
+    try {
       callback.process(value);
+      return env.immediateSuccessfulFuture(null);
+    } catch (QueryException e) {
+      return env.immediateFailedFuture(e);
+    } catch (InterruptedException e) {
+      return env.immediateCancelledFuture();
+    }
+  }
+
+  @Override
+  public <T> QueryTaskFuture<Void> eval(
+      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+    if (isVariableReference()) {
+      return evalVarReference(env, context, callback);
     } else {
-      env.getTargetsMatchingPattern(this, pattern, callback);
+      return env.getTargetsMatchingPattern(this, pattern, callback);
     }
   }
 
@@ -68,8 +80,8 @@ public final class TargetLiteral extends QueryExpression {
   }
 
   @Override
-  public QueryExpression getMapped(QueryExpressionMapper mapper) {
-    return mapper.map(this);
+  public <T> T accept(QueryExpressionVisitor<T> visitor) {
+    return visitor.visit(this);
   }
 
   @Override

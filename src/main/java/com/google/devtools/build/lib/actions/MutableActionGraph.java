@@ -195,8 +195,8 @@ public interface MutableActionGraph extends ActionGraph {
               && aPrimaryInput.toString().equals(bPrimaryInput.toString()))) {
         Artifact aPrimaryOutput = a.getPrimaryOutput();
         Artifact bPrimaryOutput = b.getPrimaryOutput();
-        if (aPrimaryOutput != bPrimaryOutput) {
-          sb.append("Primary outputs are different objects: ")
+        if (!aPrimaryOutput.equals(bPrimaryOutput)) {
+          sb.append("Primary outputs are different: ")
               .append(System.identityHashCode(aPrimaryOutput))
               .append(", ")
               .append(System.identityHashCode(bPrimaryOutput))

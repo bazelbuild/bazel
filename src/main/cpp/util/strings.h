@@ -14,6 +14,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_STRINGS_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_STRINGS_H_
 
+#include <memory>  // unique_ptr
 #include <string>
 #include <vector>
 
@@ -31,6 +32,8 @@ static inline bool ascii_isspace(unsigned char c) { return kApb[c] & 0x08; }
 bool starts_with(const std::string &haystack, const std::string &needle);
 
 bool ends_with(const std::string &haystack, const std::string &needle);
+
+bool ends_with(const std::wstring &haystack, const std::wstring &needle);
 
 // Matches a prefix (which must be a char* literal!) against the beginning of
 // str. Returns a pointer past the prefix, or NULL if the prefix wasn't matched.
@@ -104,6 +107,16 @@ void StringPrintf(std::string *str, const char *format, ...);
 
 // Convert str to lower case. No locale handling, this is just for ASCII.
 void ToLower(std::string *str);
+
+std::string AsLower(const std::string &str);
+
+// Convert a wchar_t string to a char string. Useful when consuming results of
+// widechar Windows API functions.
+std::unique_ptr<char[]> WstringToCstring(const wchar_t *input);
+
+// Convert a char string to a wchar_t string. Useful when passing arguments to
+// widechar Windows API functions.
+std::unique_ptr<wchar_t[]> CstringToWstring(const char *input);
 
 }  // namespace blaze_util
 

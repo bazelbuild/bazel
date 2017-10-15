@@ -80,8 +80,8 @@ function test_zipper() {
   # Test flatten option
   (cd ${TEST_TMPDIR}/test && $ZIPPER cf ${TEST_TMPDIR}/output.zip ${filelist})
   $ZIPPER v ${TEST_TMPDIR}/output.zip >$TEST_log
-  expect_log "file"
-  expect_log "other_file"
+  expect_log "^f .* file$"
+  expect_log "^f .* other_file$"
   expect_not_log "path"
   expect_not_log "/"
 
@@ -90,9 +90,29 @@ function test_zipper() {
   echo "abcdefghi" >${TEST_TMPDIR}/test.zip
   cat ${TEST_TMPDIR}/output.zip >>${TEST_TMPDIR}/test.zip
   $ZIPPER v ${TEST_TMPDIR}/test.zip >$TEST_log
-  expect_log "file"
-  expect_log "other_file"
+  expect_log "^f .* file$"
+  expect_log "^f .* other_file$"
   expect_not_log "path"
+}
+
+function test_zipper_junk_paths() {
+  mkdir -p ${TEST_TMPDIR}/test/path/to/some
+  mkdir -p ${TEST_TMPDIR}/test/some/other/path
+  touch ${TEST_TMPDIR}/test/path/to/some/empty_file
+  echo "toto" > ${TEST_TMPDIR}/test/path/to/some/file
+  echo "titi" > ${TEST_TMPDIR}/test/path/to/some/other_file
+  chmod +x ${TEST_TMPDIR}/test/path/to/some/other_file
+  echo "tata" > ${TEST_TMPDIR}/test/file
+  filelist="$(cd ${TEST_TMPDIR}/test && find . | sed 's|^./||' | grep -v '^.$')"
+
+  # Test extract + flatten option
+  (cd ${TEST_TMPDIR}/test && $ZIPPER c ${TEST_TMPDIR}/output.zip ${filelist})
+  $ZIPPER vf ${TEST_TMPDIR}/output.zip >$TEST_log
+  echo $TEST_log
+  expect_log "^f .* file$"
+  expect_log "^f .* other_file$"
+  expect_not_log "path"
+  expect_not_log "/"
 }
 
 function test_zipper_unzip_selective_files() {

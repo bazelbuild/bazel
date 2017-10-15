@@ -178,12 +178,11 @@ public final class BlazeDirectories {
   }
 
   /**
-   * Returns the directory where the stdout/stderr for actions can be stored
-   * temporarily for a build. If the directory already exists, the directory
-   * is cleaned.
+   * Returns the directory where the stdout/stderr for actions can be stored temporarily for a
+   * build. If the directory already exists, the directory is cleaned.
    */
-  public Path getActionConsoleOutputDirectory() {
-    return getOutputBase().getRelative("action_outs");
+  public Path getActionConsoleOutputDirectory(Path execRoot) {
+    return execRoot.getRelative(getRelativeOutputPath()).getRelative("_tmp/action_outs");
   }
 
   /**

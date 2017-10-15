@@ -12,7 +12,7 @@ genrule(
     name = "javac-bootclasspath-locations",
     srcs = ["@bazel_tools//tools/jdk:bootclasspath"],
     outs = ["JavacBootclasspathLocations.java"],
-    cmd = "$(location javac-bootclasspath-locations.sh) $@ $(GENDIR) '' $(SRCS)",
+    cmd = "$(location javac-bootclasspath-locations.sh) $@ $(GENDIR) $(SRCS)",
     tools = ["javac-bootclasspath-locations.sh"],
 )
 
@@ -35,7 +35,7 @@ genrule(
     name = "java-langtools-location",
     srcs = ["//third_party/java/jdk/langtools:javac_jar"],
     outs = ["JavaLangtoolsLocation.java"],
-    cmd = "$(location java-langtools-location.sh) $@ $(GENDIR) io_bazel/ $(SRCS)",
+    cmd = "$(location java-langtools-location.sh) $@ $(GENDIR) $(SRCS)",
     tools = ["java-langtools-location.sh"],
 )
 
@@ -90,7 +90,6 @@ java_library(
 java_library(
     name = "JavaBuilderConfig",
     srcs = ["JavaBuilderConfig.java"],
-    data = ["@bazel_tools//tools/jdk:JavaBuilder_deploy.jar"],
     deps = [
         ":javabuilder-javacopts-lib",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javac_options",

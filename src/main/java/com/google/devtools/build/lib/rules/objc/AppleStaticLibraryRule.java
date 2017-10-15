@@ -18,11 +18,9 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -35,11 +33,23 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
  */
 public class AppleStaticLibraryRule implements RuleDefinition {
 
+  private final ObjcProtoAspect objcProtoAspect;
+
+  public AppleStaticLibraryRule(ObjcProtoAspect objcProtoAspect) {
+    this.objcProtoAspect = objcProtoAspect;
+  }
+
   /**
    * Template for the fat archive output (using Apple's "lipo" tool to combine .a archive files of
    * multiple architectures).
    */
   static final SafeImplicitOutputsFunction LIPO_ARCHIVE = fromTemplates("%{name}_lipo.a");
+
+  /**
+   * Attribute name for dependent libraries which should not be linked into the outputs of this
+   * rule.
+   */
+  static final String AVOID_DEPS_ATTR_NAME = "avoid_deps";
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -68,13 +78,13 @@ public class AppleStaticLibraryRule implements RuleDefinition {
         an application importing both X and C would have duplicate symbols for C.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
-            attr("avoid_deps", LABEL_LIST)
+            attr(AVOID_DEPS_ATTR_NAME, LABEL_LIST)
                 .direct_compile_time_input()
-                .allowedRuleClasses(ObjcRuleClasses.CompilingRule.ALLOWED_DEPS_RULE_CLASSES)
-                .mandatoryNativeProviders(
-                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
+                .allowedRuleClasses(ObjcRuleClasses.CompilingRule.ALLOWED_CC_DEPS_RULE_CLASSES)
+                .mandatoryProviders(ObjcProvider.SKYLARK_CONSTRUCTOR.id())
                 .cfg(splitTransitionProvider)
-                .allowedFileTypes())
+                .allowedFileTypes()
+                .aspect(objcProtoAspect))
         /*<!-- #BLAZE_RULE(apple_static_library).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>_lipo.a</code>: a 'lipo'ed archive file. All transitive
@@ -83,6 +93,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(LIPO_ARCHIVE))
+        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }
 

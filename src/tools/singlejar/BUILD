@@ -2,10 +2,42 @@
 #   singlejar C++ implementation.
 package(default_visibility = ["//src:__subpackages__"])
 
+JAR_TOOL_PATH_COPT_TPL = "-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar%s\\\""
+
+JAR_TOOL_PATH_COPTS = select({
+    "//src:windows": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//src:windows_msvc": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//src:windows_msys": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//conditions:default": [JAR_TOOL_PATH_COPT_TPL % ""],
+})
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = ["//src:__pkg__"],
+)
+
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD",
+        "combiners.cc",
+        "combiners.h",
+        "diag.h",
+        "input_jar.cc",
+        "input_jar.h",
+        "mapped_file.h",
+        "options.cc",
+        "options.h",
+        "output_jar.cc",
+        "output_jar.h",
+        "singlejar_main.cc",
+        "token_stream.h",
+        "transient_bytes.h",
+        "zip_headers.h",
+        "zlib_interface.h",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 cc_binary(
@@ -13,7 +45,12 @@ cc_binary(
     srcs = [
         "singlejar_main.cc",
     ],
+    linkopts = select({
+        "//src:freebsd": ["-lm"],
+        "//conditions:default": [],
+    }),
     linkstatic = 1,
+    visibility = ["//visibility:public"],
     deps = [
         "options",
         "output_jar",
@@ -76,10 +113,10 @@ cc_test(
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
     ],
-    copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
+    copts = JAR_TOOL_PATH_COPTS,
     data = [
-        "//external:jar",
-        "//external:jdk-default",
+        "@local_jdk//:jar",
+        "@local_jdk//:jdk",
     ],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
@@ -123,11 +160,11 @@ cc_test(
     srcs = [
         "options.h",
         "options_test.cc",
-        ":token_stream",
     ],
     deps = [
         ":options",
         ":test_util",
+        ":token_stream",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],
@@ -151,22 +188,21 @@ cc_test(
     srcs = [
         "output_jar_simple_test.cc",
     ],
-    copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
+    copts = JAR_TOOL_PATH_COPTS,
     data = [
         ":data1",
         ":data2",
         ":stored_jar",
         ":test1",
         ":test2",
-        "//external:jar",
-        "//external:jdk-default",
+        "@local_jdk//:jar",
+        "@local_jdk//:jdk-default",
     ],
     deps = [
         ":input_jar",
         ":options",
         ":output_jar",
         ":test_util",
-        "//src/main/cpp:blaze_util",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],
@@ -176,10 +212,10 @@ cc_test(
     name = "token_stream_test",
     srcs = [
         "token_stream_test.cc",
-        ":token_stream",
     ],
     deps = [
         ":test_util",
+        ":token_stream",
         "//third_party:gtest",
     ],
 )
@@ -231,12 +267,12 @@ sh_test(
     args = [
         "src/test/shell",
         "$(location :singlejar)",
-        "$(location //external:jar)",
+        "$(location @local_jdk//:jar)",
     ],
     data = [
         ":singlejar",
-        "//external:jar",
         "//tools/defaults:jdk",
+        "@local_jdk//:jar",
     ],
     deps = ["//src/test/shell:bashunit"],
 )
@@ -271,9 +307,11 @@ cc_library(
         "diag.h",
         "options.cc",
         "options.h",
-        ":token_stream",
     ],
     hdrs = ["options.h"],
+    deps = [
+        ":token_stream",
+    ],
 )
 
 cc_library(
@@ -300,18 +338,15 @@ cc_library(
     srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
     deps = [
-        "//src/main/cpp:blaze_util",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],
 )
 
-filegroup(
+cc_library(
     name = "token_stream",
-    srcs = [
-        "diag.h",
-        "token_stream.h",
-    ],
+    srcs = ["diag.h"],
+    hdrs = ["token_stream.h"],
 )
 
 filegroup(
@@ -377,6 +412,6 @@ genrule(
         "//tools/defaults:jdk",
     ],
     outs = ["stored.jar"],
-    cmd = "$(location //external:jar) -0cf \"$@\" $(location :output_jar.cc)",
-    tools = ["//external:jar"],
+    cmd = "$(location @local_jdk//:jar) -0cf \"$@\" $(location :output_jar.cc)",
+    tools = ["@local_jdk//:jar"],
 )

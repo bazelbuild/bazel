@@ -14,7 +14,11 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.Iterables.transform;
+
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -24,6 +28,10 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -31,7 +39,9 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -46,13 +56,14 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -135,14 +146,21 @@ public final class ConfiguredTargetFactory {
     return null;
   }
 
-  private Artifact getOutputArtifact(OutputFile outputFile, BuildConfiguration configuration,
-      boolean isFileset, ArtifactFactory artifactFactory) {
+  /**
+   * Returns the output artifact for the given file, or null if Skyframe deps are missing.
+   */
+  private Artifact getOutputArtifact(AnalysisEnvironment analysisEnvironment, OutputFile outputFile,
+      BuildConfiguration configuration, boolean isFileset, ArtifactFactory artifactFactory)
+      throws InterruptedException {
     Rule rule = outputFile.getAssociatedRule();
     Root root = rule.hasBinaryOutput()
         ? configuration.getBinDirectory(rule.getRepository())
         : configuration.getGenfilesDirectory(rule.getRepository());
-    ArtifactOwner owner =
-        new ConfiguredTargetKey(rule.getLabel(), configuration.getArtifactOwnerConfiguration());
+    ArtifactOwner owner = new ConfiguredTargetKey(rule.getLabel(),
+        getArtifactOwnerConfiguration(analysisEnvironment.getSkyframeEnv(), configuration));
+    if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
+      return null;
+    }
     PathFragment rootRelativePath =
         outputFile.getLabel().getPackageIdentifier().getSourceRoot().getRelative(
             outputFile.getLabel().getName());
@@ -155,21 +173,63 @@ public final class ConfiguredTargetFactory {
   }
 
   /**
+   * Returns the configuration's artifact owner (which may be null). Also returns null if the
+   * owning configuration isn't yet available from Skyframe.
+   */
+  public static BuildConfiguration getArtifactOwnerConfiguration(SkyFunction.Environment env,
+      BuildConfiguration fromConfig) throws InterruptedException {
+    if (fromConfig == null) {
+      return null;
+    }
+    PatchTransition ownerTransition = fromConfig.getArtifactOwnerTransition();
+    if (ownerTransition == null) {
+      return fromConfig;
+    }
+    try {
+      BuildConfigurationValue ownerConfig = (BuildConfigurationValue) env.getValueOrThrow(
+          BuildConfigurationValue.key(
+              fromConfig.fragmentClasses(), ownerTransition.apply(fromConfig.getOptions())),
+          InvalidConfigurationException.class);
+      return ownerConfig == null ? null : ownerConfig.getConfiguration();
+    } catch (InvalidConfigurationException e) {
+      // We don't expect to have to handle an invalid configuration because in practice the owning
+      // configuration should already exist. For example, the main user of this feature, the LIPO
+      // context collector, expects the owning configuration to be the top-level target config.
+      throw new IllegalStateException(
+          "this method should only return a pre-existing valid configuration");
+    }
+  }
+
+  /**
    * Invokes the appropriate constructor to create a {@link ConfiguredTarget} instance.
+   *
    * <p>For use in {@code ConfiguredTargetFunction}.
    *
    * <p>Returns null if Skyframe deps are missing or upon certain errors.
    */
   @Nullable
-  public final ConfiguredTarget createConfiguredTarget(AnalysisEnvironment analysisEnvironment,
-      ArtifactFactory artifactFactory, Target target, BuildConfiguration config,
+  public final ConfiguredTarget createConfiguredTarget(
+      AnalysisEnvironment analysisEnvironment,
+      ArtifactFactory artifactFactory,
+      Target target,
+      BuildConfiguration config,
       BuildConfiguration hostConfig,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions)
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext)
       throws InterruptedException {
     if (target instanceof Rule) {
-      return createRule(analysisEnvironment, (Rule) target, config, hostConfig,
-          prerequisiteMap, configConditions);
+      Preconditions.checkArgument(
+          toolchainContext != null,
+          "ToolchainContext should never be null when creating a ConfiguredTarget for a Rule");
+      return createRule(
+          analysisEnvironment,
+          (Rule) target,
+          config,
+          hostConfig,
+          prerequisiteMap,
+          configConditions,
+          toolchainContext);
     }
 
     // Visibility, like all package groups, doesn't have a configuration
@@ -180,7 +240,11 @@ public final class ConfiguredTargetFactory {
     if (target instanceof OutputFile) {
       OutputFile outputFile = (OutputFile) target;
       boolean isFileset = outputFile.getGeneratingRule().getRuleClass().equals("Fileset");
-      Artifact artifact = getOutputArtifact(outputFile, config, isFileset, artifactFactory);
+      Artifact artifact =
+          getOutputArtifact(analysisEnvironment, outputFile, config, isFileset, artifactFactory);
+      if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
+        return null;
+      }
       TransitiveInfoCollection rule = targetContext.findDirectPrerequisite(
           outputFile.getGeneratingRule().getLabel(), config);
       if (isFileset) {
@@ -218,16 +282,24 @@ public final class ConfiguredTargetFactory {
    */
   @Nullable
   private ConfiguredTarget createRule(
-      AnalysisEnvironment env, Rule rule, BuildConfiguration configuration,
+      AnalysisEnvironment env,
+      Rule rule,
+      BuildConfiguration configuration,
       BuildConfiguration hostConfiguration,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions) throws InterruptedException {
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ToolchainContext toolchainContext)
+      throws InterruptedException {
+
+    // Load the requested toolchains into the ToolchainContext.
+    toolchainContext.resolveToolchains(prerequisiteMap);
+
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
         new RuleContext.Builder(
                 env,
                 rule,
-                null,
+                ImmutableList.<AspectDescriptor>of(),
                 configuration,
                 hostConfiguration,
                 ruleClassProvider.getPrerequisiteValidator(),
@@ -236,7 +308,7 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(prerequisiteMap)
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
-            .setSkylarkProvidersRegistry(ruleClassProvider.getRegisteredSkylarkProviders())
+            .setToolchainContext(toolchainContext)
             .build();
     if (ruleContext.hasErrors()) {
       return null;
@@ -259,10 +331,10 @@ public final class ConfiguredTargetFactory {
 
     if (rule.getRuleClassObject().isSkylark()) {
       // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-      return SkylarkRuleConfiguredTargetBuilder.buildRule(
+      return SkylarkRuleConfiguredTargetUtil.buildRule(
           ruleContext,
           rule.getRuleClassObject().getConfiguredTargetFunction(),
-          ruleClassProvider.getRegisteredSkylarkProviders());
+          env.getSkylarkSemantics());
     } else {
       RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> factory =
           rule.getRuleClassObject().<ConfiguredTarget, RuleContext>getConfiguredTargetFactory();
@@ -303,23 +375,38 @@ public final class ConfiguredTargetFactory {
     return result.toString();
   }
 
+  private static final Function<Aspect, AspectDescriptor> ASPECT_TO_DESCRIPTOR =
+      new Function<Aspect, AspectDescriptor>() {
+        @Override
+        public AspectDescriptor apply(Aspect aspect) {
+          return aspect.getDescriptor();
+        }
+      };
+
   /**
-   * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case,
-   * {@code aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
+   * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case, {@code
+   * aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
    */
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
-      RuleConfiguredTarget associatedTarget,
+      ConfiguredTarget associatedTarget,
+      ImmutableList<Aspect> aspectPath,
       ConfiguredAspectFactory aspectFactory,
       Aspect aspect,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration)
       throws InterruptedException {
-    RuleContext.Builder builder = new RuleContext.Builder(env,
-        associatedTarget.getTarget(),
-        aspect.getAspectClass().getName(),
+
+    // Load the requested toolchains into the ToolchainContext.
+    toolchainContext.resolveToolchains(prerequisiteMap);
+
+    RuleContext.Builder builder = new RuleContext.Builder(
+        env,
+        associatedTarget.getTarget().getAssociatedRule(),
+        ImmutableList.copyOf(transform(aspectPath, ASPECT_TO_DESCRIPTOR)),
         aspectConfiguration,
         hostConfiguration,
         ruleClassProvider.getPrerequisiteValidator(),
@@ -333,12 +420,56 @@ public final class ConfiguredTargetFactory {
             .setAspectAttributes(aspect.getDefinition().getAttributes())
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
+            .setToolchainContext(toolchainContext)
             .build();
     if (ruleContext.hasErrors()) {
       return null;
     }
 
-    return aspectFactory.create(associatedTarget, ruleContext, aspect.getParameters());
+    ConfiguredAspect configuredAspect = aspectFactory
+        .create(associatedTarget, ruleContext, aspect.getParameters());
+    if (configuredAspect != null) {
+      validateAdvertisedProviders(
+          configuredAspect, aspect.getDefinition().getAdvertisedProviders(),
+          associatedTarget.getTarget(),
+          env.getEventHandler()
+      );
+    }
+    return configuredAspect;
+  }
+
+  private void validateAdvertisedProviders(
+      ConfiguredAspect configuredAspect,
+      AdvertisedProviderSet advertisedProviders, Target target,
+      EventHandler eventHandler) {
+    if (advertisedProviders.canHaveAnyProvider()) {
+      return;
+    }
+    for (Class<?> aClass : advertisedProviders.getNativeProviders()) {
+      if (configuredAspect.getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) == null) {
+        eventHandler.handle(Event.error(
+            target.getLocation(),
+            String.format(
+                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                configuredAspect.getName(),
+                target.getLabel(),
+                aClass.getSimpleName()
+            )));
+      }
+    }
+
+    for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+      if (configuredAspect.getProvider(providerId) == null) {
+        eventHandler.handle(Event.error(
+            target.getLocation(),
+            String.format(
+                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                configuredAspect.getName(),
+                target.getLabel(),
+                providerId
+            )));
+      }
+    }
   }
 
   /**

@@ -14,25 +14,26 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.LabelClass;
+import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -54,34 +55,56 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class AspectDefinition {
-
-  private final String name;
-  private final ImmutableSet<Class<?>> requiredProviders;
-  private final ImmutableSet<String> requiredProviderNames;
+  private final AspectClass aspectClass;
+  private final AdvertisedProviderSet advertisedProviders;
+  private final RequiredProviders requiredProviders;
+  private final RequiredProviders requiredProvidersForAspects;
   private final ImmutableMap<String, Attribute> attributes;
-  private final PropagationFunction attributeAspects;
-  @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
+  private final ImmutableSet<Label> requiredToolchains;
 
-  private interface PropagationFunction {
-    ImmutableCollection<AspectClass> propagate(Attribute attribute);
+  /**
+   * Which attributes aspect should propagate along:
+   * <ul>
+   *  <li>A {@code null} value means propagate along all attributes</li>
+   *  <li>A (possibly empty) set means to propagate only along the attributes in a set</li>
+   * </ul>
+   */
+  @Nullable private final ImmutableSet<String> restrictToAttributes;
+  @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
+  private final boolean applyToFiles;
+
+  public AdvertisedProviderSet getAdvertisedProviders() {
+    return advertisedProviders;
   }
 
   private AspectDefinition(
-      String name,
-      ImmutableSet<Class<?>> requiredProviders,
+      AspectClass aspectClass,
+      AdvertisedProviderSet advertisedProviders,
+      RequiredProviders requiredProviders,
+      RequiredProviders requiredAspectProviders,
       ImmutableMap<String, Attribute> attributes,
-      PropagationFunction attributeAspects,
-      @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy) {
-    this.name = name;
+      ImmutableSet<Label> requiredToolchains,
+      @Nullable ImmutableSet<String> restrictToAttributes,
+      @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
+      boolean applyToFiles) {
+    this.aspectClass = aspectClass;
+    this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
-    this.requiredProviderNames = toStringSet(requiredProviders);
+    this.requiredProvidersForAspects = requiredAspectProviders;
+
     this.attributes = attributes;
-    this.attributeAspects = attributeAspects;
+    this.requiredToolchains = requiredToolchains;
+    this.restrictToAttributes = restrictToAttributes;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
+    this.applyToFiles = applyToFiles;
   }
 
   public String getName() {
-    return name;
+    return aspectClass.getName();
+  }
+
+  public AspectClass getAspectClass() {
+    return aspectClass;
   }
 
   /**
@@ -93,40 +116,39 @@ public final class AspectDefinition {
     return attributes;
   }
 
+  /** Returns the required toolchains declared by this aspect. */
+  public ImmutableSet<Label> getRequiredToolchains() {
+    return requiredToolchains;
+  }
+
   /**
-   * Returns the set of {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider}
-   * instances that must be present on a configured target so that this aspect can be applied to it.
+   * Returns {@link RequiredProviders} that a configured target must have so that
+   * this aspect can be applied to it.
    *
-   * <p>We cannot refer to that class here due to our dependency structure, so this returns a set
-   * of unconstrained class objects.
-   *
-   * <p>If a configured target does not have a required provider, the aspect is silently not created
-   * for it.
+   * <p>If a configured target does not satisfy required providers, the aspect is
+   * silently not created for it.
    */
-  public ImmutableSet<Class<?>> getRequiredProviders() {
+  public RequiredProviders getRequiredProviders() {
     return requiredProviders;
   }
 
   /**
-   * Returns the set of class names of
-   * {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider} instances that must be
-   * present on a configured target so that this aspect can be applied to it.
-   *
-   * <p>This set is a mirror of the set returned by {@link #getRequiredProviders}, but contains the
-   * names of the classes rather than the class objects themselves.
-   *
-   * <p>If a configured target does not have a required provider, the aspect is silently not created
-   * for it.
+   * Aspects do not depend on other aspects applied to the same target <em>unless</em>
+   * the other aspect satisfies the {@link RequiredProviders} this method returns
    */
-  public ImmutableSet<String> getRequiredProviderNames() {
-    return requiredProviderNames;
+  public RequiredProviders getRequiredProvidersForAspects() {
+    return requiredProvidersForAspects;
   }
 
+
   /**
-   * Returns the set of required aspects for a given atribute.
+   * Returns the set of required aspects for a given attribute.
    */
-  public ImmutableCollection<AspectClass> getAttributeAspects(Attribute attribute) {
-    return attributeAspects.propagate(attribute);
+  public boolean propagateAlong(Attribute attribute) {
+    if (restrictToAttributes != null) {
+      return restrictToAttributes.contains(attribute.getName());
+    }
+    return true;
   }
 
   /**
@@ -134,6 +156,16 @@ public final class AspectDefinition {
    */
   public ConfigurationFragmentPolicy getConfigurationFragmentPolicy() {
     return configurationFragmentPolicy;
+  }
+
+  /**
+   * Returns whether this aspect applies to (output) files.
+   *
+   * Currently only supported for top-level aspects and targets, and
+   * only for output files.
+   */
+  public boolean applyToFiles() {
+    return applyToFiles;
   }
 
   /**
@@ -147,36 +179,29 @@ public final class AspectDefinition {
       return ImmutableMultimap.of();
     }
     RuleClass ruleClass = ((Rule) to).getRuleClassObject();
-    ImmutableSet<Class<?>> providers = ruleClass.getAdvertisedProviders();
-    return visitAspectsIfRequired((Rule) from, attribute, ruleClass.canHaveAnyProvider(),
-        toStringSet(providers), dependencyFilter);
+    AdvertisedProviderSet providers = ruleClass.getAdvertisedProviders();
+    return visitAspectsIfRequired((Rule) from, attribute,
+        providers, dependencyFilter);
   }
 
   /**
    * Returns the attribute -&gt; set of labels that are provided by aspects of attribute.
    */
   public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
-      Rule from, Attribute attribute, boolean canHaveAnyProvider, Set<String> advertisedProviders,
+      Rule from, Attribute attribute,
+      AdvertisedProviderSet advertisedProviders,
       DependencyFilter dependencyFilter) {
-    LinkedHashMultimap<Attribute, Label> result = LinkedHashMultimap.create();
+    SetMultimap<Attribute, Label> result = LinkedHashMultimap.create();
     for (Aspect candidateClass : attribute.getAspects(from)) {
       // Check if target satisfies condition for this aspect (has to provide all required
       // TransitiveInfoProviders)
-      if (!canHaveAnyProvider && !advertisedProviders.containsAll(
-          candidateClass.getDefinition().getRequiredProviderNames())) {
-        continue;
+      RequiredProviders requiredProviders =
+          candidateClass.getDefinition().getRequiredProviders();
+      if (requiredProviders.isSatisfiedBy(advertisedProviders)) {
+        addAllAttributesOfAspect(from, result, candidateClass, dependencyFilter);
       }
-      addAllAttributesOfAspect(from, result, candidateClass, dependencyFilter);
     }
     return ImmutableMultimap.copyOf(result);
-  }
-
-  private static ImmutableSet<String> toStringSet(ImmutableSet<Class<?>> classes) {
-    ImmutableSet.Builder<String> classStrings = new ImmutableSet.Builder<>();
-    for (Class<?> clazz : classes) {
-      classStrings.add(clazz.getName());
-    }
-    return classStrings.build();
   }
 
   @Nullable
@@ -188,98 +213,156 @@ public final class AspectDefinition {
    * Collects all attribute labels from the specified aspectDefinition.
    */
   public static void addAllAttributesOfAspect(
-      Rule from,
-      Multimap<Attribute, Label> labelBuilder,
+      final Rule from,
+      final Multimap<Attribute, Label> labelBuilder,
       Aspect aspect,
       DependencyFilter dependencyFilter) {
+    LabelVisitor<Attribute> labelVisitor = new LabelVisitor<Attribute>() {
+      @Override
+      public void visit(Label label, Attribute aspectAttribute) {
+        Label repositoryRelative = maybeGetRepositoryRelativeLabel(from, label);
+        if (repositoryRelative == null) {
+          return;
+        }
+        labelBuilder.put(aspectAttribute, repositoryRelative);
+      }
+    };
     ImmutableMap<String, Attribute> attributes = aspect.getDefinition().getAttributes();
-    for (Attribute aspectAttribute : attributes.values()) {
+    for (final Attribute aspectAttribute : attributes.values()) {
       if (!dependencyFilter.apply(aspect, aspectAttribute)) {
         continue;
       }
-      if (aspectAttribute.getType() == BuildType.LABEL) {
-        Label label = maybeGetRepositoryRelativeLabel(
-            from, BuildType.LABEL.cast(aspectAttribute.getDefaultValue(from)));
-        if (label != null) {
-          labelBuilder.put(aspectAttribute, label);
-        }
-      } else if (aspectAttribute.getType() == BuildType.LABEL_LIST) {
-        List<Label> defaultLabels = BuildType.LABEL_LIST.cast(
-            aspectAttribute.getDefaultValue(from));
-        if (defaultLabels != null) {
-          for (Label defaultLabel : defaultLabels) {
-            Label label = maybeGetRepositoryRelativeLabel(from, defaultLabel);
-            if (label != null) {
-              labelBuilder.put(aspectAttribute, label);
-            }
-          }
-        }
+      Type<?> type = aspectAttribute.getType();
+      if (type.getLabelClass() != LabelClass.DEPENDENCY) {
+        continue;
+      }
+      try {
+        type.visitLabels(labelVisitor, aspectAttribute.getDefaultValue(from), aspectAttribute);
+      } catch (InterruptedException ex) {
+        // Because the LabelVisitor does not throw InterruptedException, it should not be thrown
+        // by visitLabels here.
+        throw new AssertionError(ex);
       }
     }
+  }
+
+  public static Builder builder(AspectClass aspectClass) {
+    return new Builder(aspectClass);
   }
 
   /**
    * Builder class for {@link AspectDefinition}.
    */
   public static final class Builder {
-    private final String name;
+    private final AspectClass aspectClass;
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
-    private final Set<Class<?>> requiredProviders = new LinkedHashSet<>();
-    private final Multimap<String, AspectClass> attributeAspects = LinkedHashMultimap.create();
-    private ImmutableCollection<AspectClass> allAttributesAspects = null;
+    private final AdvertisedProviderSet.Builder advertisedProviders =
+        AdvertisedProviderSet.builder();
+    private RequiredProviders.Builder requiredProviders = RequiredProviders.acceptAnyBuilder();
+    private RequiredProviders.Builder requiredAspectProviders =
+        RequiredProviders.acceptNoneBuilder();
+    @Nullable
+    private LinkedHashSet<String> propagateAlongAttributes = new LinkedHashSet<>();
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
+    private boolean applyToFiles = false;
+    private final List<Label> requiredToolchains = new ArrayList<>();
 
-    public Builder(String name) {
-      this.name = name;
+    public Builder(AspectClass aspectClass) {
+      this.aspectClass = aspectClass;
     }
 
     /**
-     * Asserts that this aspect can only be evaluated for rules that supply the specified provider.
+     * Asserts that this aspect can only be evaluated for rules that supply all of the providers
+     * from at least one set of required providers.
      */
-    public Builder requireProvider(Class<?> requiredProvider) {
-      this.requiredProviders.add(requiredProvider);
-      return this;
-    }
-
-    /**
-     * Declares that this aspect depends on the given aspects in {@code aspectFactories} provided
-     * by direct dependencies through attribute {@code attribute} on the target associated with this
-     * aspect.
-     *
-     * <p>Note that {@code ConfiguredAspectFactory} instances are expected in the second argument,
-     * but we cannot reference that interface here.
-     */
-    @SafeVarargs
-    public final Builder attributeAspect(String attribute, NativeAspectClass... aspectClasses) {
-      Preconditions.checkNotNull(attribute);
-      for (NativeAspectClass aspectClass : aspectClasses) {
-        this.attributeAspect(attribute, Preconditions.checkNotNull(aspectClass));
+    public Builder requireProviderSets(Iterable<ImmutableSet<Class<?>>> providerSets) {
+      for (ImmutableSet<Class<?>> providerSet : providerSets) {
+        requiredProviders.addNativeSet(providerSet);
       }
       return this;
     }
 
     /**
-     * Declares that this aspect depends on the given {@link AspectClass} provided
-     * by direct dependencies through attribute {@code attribute} on the target associated with this
-     * aspect.
+     * Asserts that this aspect can only be evaluated for rules that supply all of the specified
+     * providers.
      */
-    public final Builder attributeAspect(String attribute, AspectClass aspectClass) {
-      Preconditions.checkNotNull(attribute);
-      Preconditions.checkState(this.allAttributesAspects == null,
-          "Specify either aspects for all attributes, or for specific attributes, not both");
+    public Builder requireProviders(Class<?>... providers) {
+      requiredProviders.addNativeSet(ImmutableSet.copyOf(providers));
+      return this;
+    }
 
-      this.attributeAspects.put(attribute, Preconditions.checkNotNull(aspectClass));
+    public Builder requireAspectsWithProviders(
+        Iterable<ImmutableSet<SkylarkProviderIdentifier>> providerSets) {
+      for (ImmutableSet<SkylarkProviderIdentifier> providerSet : providerSets) {
+        if (!providerSet.isEmpty()) {
+          requiredAspectProviders.addSkylarkSet(providerSet);
+        }
+      }
+      return this;
+    }
+
+    public Builder requireAspectsWithNativeProviders(
+        Class<?>... providers) {
+      requiredAspectProviders.addNativeSet(ImmutableSet.copyOf(providers));
+      return this;
+    }
+
+    /**
+     * State that the aspect being built provides given providers.
+     */
+    public Builder advertiseProvider(Class<?>... providers) {
+      for (Class<?> provider : providers) {
+        advertisedProviders.addNative(provider);
+      }
+      return this;
+    }
+
+    /**
+     * State that the aspect being built provides given providers.
+     */
+    public Builder advertiseProvider(ImmutableList<SkylarkProviderIdentifier> providers) {
+      for (SkylarkProviderIdentifier provider : providers) {
+        advertisedProviders.addSkylark(provider);
+      }
+      return this;
+    }
+
+
+
+    /**
+     * Declares that this aspect propagates along an {@code attribute} on the target
+     * associated with this aspect.
+     *
+     * Specify multiple attributes by calling {@link #propagateAlongAttribute(String)}
+     * repeatedly.
+     *
+     * Aspect can also declare to propagate along all attributes with
+     * {@link #propagateAlongAttributes}.
+     */
+    public final Builder propagateAlongAttribute(String attribute) {
+      Preconditions.checkNotNull(attribute);
+      Preconditions.checkState(this.propagateAlongAttributes != null,
+          "Either propagate along all attributes, or along specific attributes, not both");
+
+      this.propagateAlongAttributes.add(attribute);
 
       return this;
     }
 
-    public final Builder allAttributesAspect(AspectClass... aspectClasses) {
-      Preconditions.checkState(this.attributeAspects.isEmpty(),
-          "Specify either aspects for all attributes, or for specific attributes, not both");
-      Preconditions.checkState(this.allAttributesAspects == null,
+    /**
+     * Declares that this aspect propagates along all attributes on the target
+     * associated with this aspect.
+     *
+     * Specify either this or {@link #propagateAlongAttribute(String)}, not both.
+     */
+    public final Builder propagateAlongAllAttributes() {
+      Preconditions.checkState(this.propagateAlongAttributes != null,
           "Aspects for all attributes must only be specified once");
-      this.allAttributesAspects = ImmutableList.copyOf(aspectClasses);
+
+      Preconditions.checkState(this.propagateAlongAttributes.isEmpty(),
+          "Specify either aspects for all attributes, or for specific attributes, not both");
+      this.propagateAlongAttributes = null;
       return this;
     }
 
@@ -373,47 +456,39 @@ public final class AspectDefinition {
       return this;
     }
 
-    @Immutable
-    private static final class AllAttributesPropagationFunction implements PropagationFunction {
-      private final ImmutableCollection<AspectClass> aspects;
-
-      private AllAttributesPropagationFunction(ImmutableCollection<AspectClass> aspects) {
-        this.aspects = aspects;
-      }
-
-      @Override
-      public ImmutableCollection<AspectClass> propagate(Attribute attribute) {
-        return aspects;
-      }
+    /**
+     * Sets whether this aspect should apply to files.
+     *
+     * Default is <code>false</code>.
+     * Currently only supported for top-level aspects and targets, and only for
+     * output files.
+     */
+    public Builder applyToFiles(boolean propagateOverGeneratedFiles) {
+      this.applyToFiles = propagateOverGeneratedFiles;
+      return this;
     }
 
-    @Immutable
-    private static final class PerAttributePropagationFunction implements PropagationFunction {
-      ImmutableSetMultimap<String, AspectClass> aspects;
-
-      public PerAttributePropagationFunction(
-          ImmutableSetMultimap<String, AspectClass> aspects) {
-        this.aspects = aspects;
-      }
-
-      @Override
-      public ImmutableCollection<AspectClass> propagate(Attribute attribute) {
-        return aspects.get(attribute.getName());
-      }
+    /** Adds the given toolchains as requirements for this aspect. */
+    public Builder addRequiredToolchains(List<Label> requiredToolchains) {
+      this.requiredToolchains.addAll(requiredToolchains);
+      return this;
     }
-
     /**
      * Builds the aspect definition.
      *
      * <p>The builder object is reusable afterwards.
      */
     public AspectDefinition build() {
-      return new AspectDefinition(name, ImmutableSet.copyOf(requiredProviders),
+      return new AspectDefinition(
+          aspectClass,
+          advertisedProviders.build(),
+          requiredProviders.build(),
+          requiredAspectProviders.build(),
           ImmutableMap.copyOf(attributes),
-          allAttributesAspects != null
-              ? new AllAttributesPropagationFunction(allAttributesAspects)
-              : new PerAttributePropagationFunction(ImmutableSetMultimap.copyOf(attributeAspects)),
-          configurationFragmentPolicy.build());
+          ImmutableSet.copyOf(requiredToolchains),
+          propagateAlongAttributes == null ? null : ImmutableSet.copyOf(propagateAlongAttributes),
+          configurationFragmentPolicy.build(),
+          applyToFiles);
     }
   }
 }

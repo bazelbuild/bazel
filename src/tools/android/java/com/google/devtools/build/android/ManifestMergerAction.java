@@ -15,6 +15,8 @@ package com.google.devtools.build.android;
 
 import static java.util.logging.Level.SEVERE;
 
+import com.android.manifmerger.ManifestMerger2.MergeType;
+import com.android.utils.StdLogger;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
@@ -22,18 +24,12 @@ import com.google.devtools.build.android.Converters.MergeTypeConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.StringDictionaryConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
-import com.android.manifmerger.ManifestMerger2.MergeType;
-import com.android.utils.StdLogger;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
-
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -41,7 +37,6 @@ import java.nio.file.attribute.FileTime;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
-
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -51,6 +46,10 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.TransformerFactoryConfigurationError;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 /**
  * An action to perform manifest merging using the Gradle manifest merger.
@@ -69,59 +68,88 @@ import javax.xml.transform.stream.StreamResult;
 public class ManifestMergerAction {
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
-    @Option(name = "manifest",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "input",
-        help = "Path of primary manifest.")
+    @Option(
+      name = "manifest",
+      defaultValue = "null",
+      converter = ExistingPathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path of primary manifest."
+    )
     public Path manifest;
 
-    @Option(name = "mergeeManifests",
-        defaultValue = "",
-        converter = ExistingPathStringDictionaryConverter.class,
-        category = "input",
-        help = "A dictionary of manifests, and originating target, to be merged into manifest.")
+    @Option(
+      name = "mergeeManifests",
+      defaultValue = "",
+      converter = ExistingPathStringDictionaryConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A dictionary of manifests, and originating target, to be merged into manifest."
+    )
     public Map<Path, String> mergeeManifests;
 
-    @Option(name = "mergeType",
-        defaultValue = "APPLICATION",
-        converter = MergeTypeConverter.class,
-        category = "config",
-        help = "The type of merging to perform.")
+    @Option(
+      name = "mergeType",
+      defaultValue = "APPLICATION",
+      converter = MergeTypeConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The type of merging to perform."
+    )
     public MergeType mergeType;
 
-    @Option(name = "manifestValues",
-        defaultValue = "",
-        converter = StringDictionaryConverter.class,
-        category = "config",
-        help = "A dictionary string of values to be overridden in the manifest. Any instance of "
-            + "${name} in the manifest will be replaced with the value corresponding to name in "
-            + "this dictionary. applicationId, versionCode, versionName, minSdkVersion, "
-            + "targetSdkVersion and maxSdkVersion have a dual behavior of also overriding the "
-            + "corresponding attributes of the manifest and uses-sdk tags. packageName will be "
-            + "ignored and will be set from either applicationId or the package in manifest. The "
-            + "expected format of this string is: key:value[,key:value]*. The keys and values "
-            + "may contain colons and commas as long as they are escaped with a backslash.")
+    @Option(
+      name = "manifestValues",
+      defaultValue = "",
+      converter = StringDictionaryConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A dictionary string of values to be overridden in the manifest. Any instance of "
+              + "${name} in the manifest will be replaced with the value corresponding to name in "
+              + "this dictionary. applicationId, versionCode, versionName, minSdkVersion, "
+              + "targetSdkVersion and maxSdkVersion have a dual behavior of also overriding the "
+              + "corresponding attributes of the manifest and uses-sdk tags. packageName will be "
+              + "ignored and will be set from either applicationId or the package in manifest. The "
+              + "expected format of this string is: key:value[,key:value]*. The keys and values "
+              + "may contain colons and commas as long as they are escaped with a backslash."
+    )
     public Map<String, String> manifestValues;
 
-    @Option(name = "customPackage",
-        defaultValue = "null",
-        category = "config",
-        help = "Custom java package to insert in the package attribute of the manifest tag.")
+    @Option(
+      name = "customPackage",
+      defaultValue = "null",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Custom java package to insert in the package attribute of the manifest tag."
+    )
     public String customPackage;
 
-    @Option(name = "manifestOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the merged manifest.")
+    @Option(
+      name = "manifestOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the merged manifest."
+    )
     public Path manifestOutput;
 
-    @Option(name = "log",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        help = "Path to where the merger log should be written.")
+    @Option(
+      name = "log",
+      defaultValue = "null",
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = PathConverter.class,
+      help = "Path to where the merger log should be written."
+    )
     public Path log;
   }
 
@@ -157,37 +185,33 @@ public class ManifestMergerAction {
 
   public static void main(String[] args) throws Exception {
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
+    optionsParser.enableParamsFileSupport(FileSystems.getDefault());
     optionsParser.parseAndExitUponError(args);
     options = optionsParser.getOptions(Options.class);
 
-    final AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
-
     try {
       Path mergedManifest;
-      if (options.mergeType == MergeType.APPLICATION) {
-        // Remove uses-permission tags from mergees before the merge.
-        Path tmp = Files.createTempDirectory("manifest_merge_tmp");
-        tmp.toFile().deleteOnExit();
-        ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
-        for (Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
-          mergeeManifests.put(
-              removePermissions(mergeeManifest.getKey(), tmp),
-              mergeeManifest.getValue());
-        }
+      AndroidManifestProcessor manifestProcessor = AndroidManifestProcessor.with(stdLogger);
 
-        // Ignore custom package at the binary level.
-        mergedManifest = resourceProcessor.mergeManifest(
-            options.manifest,
-            mergeeManifests.build(),
-            options.mergeType,
-            options.manifestValues,
-            options.manifestOutput,
-            options.log);
-      } else {
-        // Only need to stamp custom package into the library level.
-        mergedManifest = resourceProcessor.writeManifestPackage(
-            options.manifest, options.customPackage, options.manifestOutput);
+      // Remove uses-permission tags from mergees before the merge.
+      Path tmp = Files.createTempDirectory("manifest_merge_tmp");
+      tmp.toFile().deleteOnExit();
+      ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
+      for (Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
+        mergeeManifests.put(
+            removePermissions(mergeeManifest.getKey(), tmp),
+            mergeeManifest.getValue());
       }
+
+      mergedManifest =
+          manifestProcessor.mergeManifest(
+              options.manifest,
+              mergeeManifests.build(),
+              options.mergeType,
+              options.manifestValues,
+              options.customPackage,
+              options.manifestOutput,
+              options.log);
 
       if (!mergedManifest.equals(options.manifestOutput)) {
         Files.copy(options.manifest, options.manifestOutput, StandardCopyOption.REPLACE_EXISTING);
@@ -195,11 +219,11 @@ public class ManifestMergerAction {
 
       // Set to the epoch for caching purposes.
       Files.setLastModifiedTime(options.manifestOutput, FileTime.fromMillis(0L));
-    } catch (IOException e) {
+    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
+      System.exit(1);
+    } catch (Exception e) {
       logger.log(SEVERE, "Error during merging manifests", e);
       throw e;
-    } finally {
-      resourceProcessor.shutdown();
     }
   }
 }

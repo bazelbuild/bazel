@@ -14,25 +14,27 @@
 package com.google.devtools.build.lib.events;
 
 import com.google.common.collect.ImmutableList;
-
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Stores error and warning events, and later replays them. Thread-safe.
- */
-public class StoredEventHandler implements EventHandler {
+/** Stores error and warning events, and later replays them. Thread-safe. */
+public class StoredEventHandler implements ExtendedEventHandler {
 
   private final List<Event> events = new ArrayList<>();
+  private final List<ExtendedEventHandler.Postable> posts = new ArrayList<>();
   private boolean hasErrors;
 
   public synchronized ImmutableList<Event> getEvents() {
     return ImmutableList.copyOf(events);
   }
 
+  public synchronized ImmutableList<ExtendedEventHandler.Postable> getPosts() {
+    return ImmutableList.copyOf(posts);
+  }
+
   /** Returns true if there are no stored events. */
   public synchronized boolean isEmpty() {
-    return events.isEmpty();
+    return events.isEmpty() && posts.isEmpty();
   }
 
 
@@ -42,11 +44,17 @@ public class StoredEventHandler implements EventHandler {
     events.add(e);
   }
 
-  /**
-   * Replay all events stored in this object on the given eventHandler, in the same order.
-   */
-  public synchronized void replayOn(EventHandler eventHandler) {
+  @Override
+  public synchronized void post(ExtendedEventHandler.Postable e) {
+    posts.add(e);
+  }
+
+  /** Replay all events stored in this object on the given eventHandler, in the same order. */
+  public synchronized void replayOn(ExtendedEventHandler eventHandler) {
     Event.replayEventsOn(eventHandler, events);
+    for (ExtendedEventHandler.Postable obj : posts) {
+      eventHandler.post(obj);
+    }
   }
 
   /**
@@ -58,6 +66,7 @@ public class StoredEventHandler implements EventHandler {
 
   public synchronized void clear() {
     events.clear();
+    posts.clear();
     hasErrors = false;
   }
 }

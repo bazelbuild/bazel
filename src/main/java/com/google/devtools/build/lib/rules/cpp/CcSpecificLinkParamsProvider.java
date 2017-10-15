@@ -37,12 +37,9 @@ public final class CcSpecificLinkParamsProvider implements TransitiveInfoProvide
   }
 
   public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
-      new Function<TransitiveInfoCollection, CcLinkParamsStore>() {
-        @Override
-        public CcLinkParamsStore apply(TransitiveInfoCollection input) {
-          CcSpecificLinkParamsProvider provider = input.getProvider(
-              CcSpecificLinkParamsProvider.class);
-          return provider == null ? null : provider.getLinkParams();
-        }
+      input -> {
+        CcSpecificLinkParamsProvider provider =
+            input.getProvider(CcSpecificLinkParamsProvider.class);
+        return provider == null ? null : provider.getLinkParams();
       };
 }

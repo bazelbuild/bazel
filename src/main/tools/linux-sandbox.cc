@@ -20,35 +20,24 @@
  *  - The working directory (-W) will be made read-write, though.
  *  - Individual files or directories can be made writable (but not deletable)
  *    (-w).
- *  - Individual files or directories can be made inaccessible / unreadable
- *    (-i).
- *  - tmpfs will be mounted on /tmp.
- *  - tmpfs can be mounted on top of existing directories (-e), too.
  *  - If the process takes longer than the timeout (-T), it will be killed with
  *    SIGTERM. If it does not exit within the grace period (-t), it all of its
  *    children will be killed with SIGKILL.
+ *  - tmpfs can be mounted on top of existing directories (-e).
+ *  - If option -R is passed, the process will run as user 'root'.
+ *  - If option -U is passed, the process will run as user 'nobody'.
+ *  - Otherwise, the process runs using the current uid / gid.
  *  - If linux-sandbox itself gets killed, the process and all of its children
  *    will be killed.
  *  - If linux-sandbox's parent dies, it will kill itself, the process and all
  *    the children.
  *  - Network access is allowed, but can be disabled via -N.
- *  - The process runs as user "nobody", unless fakeroot is enabled (-R).
  *  - The hostname and domainname will be set to "sandbox".
  *  - The process runs in its own PID namespace, so other processes on the
  *    system are invisible.
  */
 
-#include "linux-sandbox-options.h"
-#include "linux-sandbox-pid1.h"
-#include "linux-sandbox-utils.h"
-
-#define DIE(args...)                                     \
-  {                                                      \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" args); \
-    fprintf(stderr, "\": ");                             \
-    perror(NULL);                                        \
-    exit(EXIT_FAILURE);                                  \
-  }
+#include "src/main/tools/linux-sandbox.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -67,13 +56,17 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
+#include <string>
 #include <vector>
+
+#include "src/main/tools/linux-sandbox-options.h"
+#include "src/main/tools/linux-sandbox-pid1.h"
+#include "src/main/tools/logging.h"
+#include "src/main/tools/process-tools.h"
 
 int global_outer_uid;
 int global_outer_gid;
 
-static char global_sandbox_root[] = "/tmp/sandbox.XXXXXX";
 static int global_child_pid;
 
 // The signal that will be sent to the child when a timeout occurs.
@@ -82,9 +75,11 @@ static volatile sig_atomic_t global_next_timeout_signal = SIGTERM;
 // The signal that caused us to kill the child (e.g. on timeout).
 static volatile sig_atomic_t global_signal;
 
+// Make sure the child process does not inherit any accidentally left open file
+// handles from our parent.
 static void CloseFds() {
   DIR *fds = opendir("/proc/self/fd");
-  if (fds == NULL) {
+  if (fds == nullptr) {
     DIE("opendir");
   }
 
@@ -92,7 +87,7 @@ static void CloseFds() {
     errno = 0;
     struct dirent *dent = readdir(fds);
 
-    if (dent == NULL) {
+    if (dent == nullptr) {
       if (errno != 0) {
         DIE("readdir");
       }
@@ -119,34 +114,6 @@ static void CloseFds() {
   }
 }
 
-static void RemoveSandboxRoot() {
-  if (rmdir(global_sandbox_root) < 0) {
-    DIE("rmdir(%s)", global_sandbox_root);
-  }
-}
-
-static void SetupSandboxRoot() {
-  if (opt.sandbox_root_dir == NULL) {
-    if (mkdtemp(global_sandbox_root) == NULL) {
-      DIE("mkdtemp(%s)", global_sandbox_root);
-    }
-    atexit(RemoveSandboxRoot);
-    opt.sandbox_root_dir = global_sandbox_root;
-  }
-}
-
-static void HandleSignal(int signum, void (*handler)(int)) {
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
-  sa.sa_handler = handler;
-  if (sigemptyset(&sa.sa_mask) < 0) {
-    DIE("sigemptyset");
-  }
-  if (sigaction(signum, &sa, NULL) < 0) {
-    DIE("sigaction");
-  }
-}
-
 static void OnTimeout(int sig) {
   global_signal = sig;
   kill(global_child_pid, global_next_timeout_signal);
@@ -165,10 +132,13 @@ static void SpawnPid1() {
     DIE("pipe");
   }
 
-  int clone_flags = CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
-                    CLONE_NEWPID | SIGCHLD;
+  int clone_flags =
+      CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWIPC | CLONE_NEWPID | SIGCHLD;
   if (opt.create_netns) {
     clone_flags |= CLONE_NEWNET;
+  }
+  if (opt.fake_hostname) {
+    clone_flags |= CLONE_NEWUTS;
   }
 
   // We use clone instead of unshare, because unshare sometimes fails with
@@ -225,39 +195,6 @@ static int WaitForPid1() {
   }
 }
 
-static void Redirect(const char *target_path, int fd, const char *name) {
-  if (target_path != NULL && strcmp(target_path, "-") != 0) {
-    const int flags = O_WRONLY | O_CREAT | O_TRUNC | O_APPEND;
-    int fd_out = open(target_path, flags, 0666);
-    if (fd_out < 0) {
-      DIE("open(%s)", target_path);
-    }
-    // If we were launched with less than 3 fds (stdin, stdout, stderr) open,
-    // but redirection is still requested via a command-line flag, something is
-    // wacky and the following code would not do what we intend to do, so let's
-    // bail.
-    if (fd_out < 3) {
-      DIE("open(%s) returned a handle that is reserved for stdin / stdout / "
-          "stderr",
-          target_path);
-    }
-    if (dup2(fd_out, fd) < 0) {
-      DIE("dup2()");
-    }
-    if (close(fd_out) < 0) {
-      DIE("close()");
-    }
-  }
-}
-
-static void RedirectStdout(const char *stdout_path) {
-  Redirect(stdout_path, STDOUT_FILENO, "stdout");
-}
-
-static void RedirectStderr(const char *stderr_path) {
-  Redirect(stderr_path, STDERR_FILENO, "stderr");
-}
-
 int main(int argc, char *argv[]) {
   // Ask the kernel to kill us with SIGKILL if our parent dies.
   if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
@@ -265,28 +202,19 @@ int main(int argc, char *argv[]) {
   }
 
   ParseOptions(argc, argv);
+  global_debug = opt.debug;
 
-  RedirectStdout(opt.stdout_path);
-  RedirectStderr(opt.stderr_path);
-
-  // This should never be called as a setuid binary, drop privileges just in
-  // case. We don't need to be root, because we use user namespaces anyway.
-  if (setuid(getuid()) < 0) {
-    DIE("setuid");
-  }
+  Redirect(opt.stdout_path, STDOUT_FILENO);
+  Redirect(opt.stderr_path, STDERR_FILENO);
 
   global_outer_uid = getuid();
   global_outer_gid = getgid();
 
-  // Make sure the sandboxed process does not inherit any accidentally left open
-  // file handles from our parent.
   CloseFds();
 
-  SetupSandboxRoot();
-
-  HandleSignal(SIGALRM, OnTimeout);
   if (opt.timeout_secs > 0) {
-    alarm(opt.timeout_secs);
+    InstallSignalHandler(SIGALRM, OnTimeout);
+    SetTimeout(opt.timeout_secs);
   }
 
   SpawnPid1();

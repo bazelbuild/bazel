@@ -13,23 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
+import java.io.IOException;
 import java.util.Map;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 /**
  * Syntax node for an import statement.
  */
 public final class LoadStatement extends Statement {
 
-  private final ImmutableMap<Identifier, String> symbols;
-  private final ImmutableList<Identifier> cachedSymbols; // to save time
+  private final ImmutableMap<Identifier, String> symbolMap;
   private final StringLiteral imp;
 
   /**
@@ -39,14 +33,17 @@ public final class LoadStatement extends Statement {
    * the bzl file that should be loaded. If aliasing is used, the value differs from its key's
    * {@code symbol.getName()}. Otherwise, both values are identical.
    */
-  LoadStatement(StringLiteral imp, Map<Identifier, String> symbols) {
+  public LoadStatement(StringLiteral imp, Map<Identifier, String> symbolMap) {
     this.imp = imp;
-    this.symbols = ImmutableMap.copyOf(symbols);
-    this.cachedSymbols = ImmutableList.copyOf(symbols.keySet());
+    this.symbolMap = ImmutableMap.copyOf(symbolMap);
+  }
+
+  public ImmutableMap<Identifier, String> getSymbolMap() {
+    return symbolMap;
   }
 
   public ImmutableList<Identifier> getSymbols() {
-    return cachedSymbols;
+    return ImmutableList.copyOf(symbolMap.keySet());
   }
 
   public StringLiteral getImport() {
@@ -54,29 +51,25 @@ public final class LoadStatement extends Statement {
   }
 
   @Override
-  public String toString() {
-    return String.format(
-        "load(\"%s\", %s)", imp.getValue(), Joiner.on(", ").join(cachedSymbols));
-  }
-
-  @Override
-  void doExec(Environment env) throws EvalException, InterruptedException {
-    for (Map.Entry<Identifier, String> entry : symbols.entrySet()) {
-      try {
-        Identifier name = entry.getKey();
-        Identifier declared = new Identifier(entry.getValue());
-
-        if (declared.isPrivate()) {
-          throw new EvalException(getLocation(),
-              "symbol '" + declared.getName() + "' is private and cannot be imported.");
-        }
-        // The key is the original name that was used to define the symbol
-        // in the loaded bzl file.
-        env.importSymbol(imp.getValue(), name, declared.getName());
-      } catch (Environment.LoadFailedException e) {
-        throw new EvalException(getLocation(), e.getMessage());
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    buffer.append("load(");
+    imp.prettyPrint(buffer);
+    for (Identifier symbol : symbolMap.keySet()) {
+      buffer.append(", ");
+      String origName = symbolMap.get(symbol);
+      if (origName.equals(symbol.getName())) {
+        buffer.append('"');
+        symbol.prettyPrint(buffer);
+        buffer.append('"');
+      } else {
+        symbol.prettyPrint(buffer);
+        buffer.append("=\"");
+        buffer.append(origName);
+        buffer.append('"');
       }
     }
+    buffer.append(")\n");
   }
 
   @Override
@@ -85,17 +78,7 @@ public final class LoadStatement extends Statement {
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    for (Identifier symbol : cachedSymbols) {
-      env.declare(symbol.getName(), getLocation());
-    }
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo) {
-    throw new UnsupportedOperationException(
-        "load statements should never appear in method bodies and"
-            + " should never be compiled in general");
+  public Kind kind() {
+    return Kind.LOAD;
   }
 }

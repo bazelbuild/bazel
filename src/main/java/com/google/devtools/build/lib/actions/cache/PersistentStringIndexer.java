@@ -14,14 +14,13 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import com.google.common.collect.MapMaker;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.util.CanonicalStringIndexer;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -74,11 +73,6 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
 
     @Override
     public Integer remove(Object object) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void clear() {
       throw new UnsupportedOperationException();
     }
 

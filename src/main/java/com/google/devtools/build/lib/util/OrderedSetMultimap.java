@@ -26,7 +26,7 @@ import com.google.common.collect.SetMultimap;
  * {@link Multimap} documentation for information common to all multimaps.
  */
 public final class OrderedSetMultimap<K, V> extends ForwardingSetMultimap<K, V> {
-  private final LinkedHashMultimap<K, V> delegate = LinkedHashMultimap.<K, V>create();
+  private final SetMultimap<K, V> delegate = LinkedHashMultimap.<K, V>create();
 
   @Override
   protected SetMultimap delegate() {

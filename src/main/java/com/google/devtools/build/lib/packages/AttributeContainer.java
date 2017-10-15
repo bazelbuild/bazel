@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.devtools.build.lib.events.Location;
 import java.util.Arrays;
+import javax.annotation.Nullable;
 
 /**
  * Provides attribute setting and retrieval for a Rule. Encapsulating attribute access
@@ -77,19 +77,25 @@ public class AttributeContainer {
   /**
    * Returns an attribute value by name, or null on no match.
    */
+  @Nullable
   public Object getAttr(String attrName) {
     Integer idx = ruleClass.getAttributeIndex(attrName);
     return idx != null ? attributeValues[idx] : null;
   }
 
   /**
-   * Returns true iff the given attribute exists for this rule and its value
-   * is explicitly set in the BUILD file (as opposed to its default value).
+   * {@see #isAttributeValueExplicitlySpecified(String)}
    */
   public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
     return isAttributeValueExplicitlySpecified(attribute.getName());
   }
 
+  /**
+   * Returns true iff the value of the specified attribute is explicitly set in the BUILD file.
+   * This returns true also if the value explicity specified in the BUILD file is the same as the
+   * attribute's default value. In addition, this method return false if the rule has no attribute
+   * with the given name.
+   */
   public boolean isAttributeValueExplicitlySpecified(String attributeName) {
     Integer idx = ruleClass.getAttributeIndex(attributeName);
     return idx != null && getExplicit(idx);
@@ -218,12 +224,4 @@ public class AttributeContainer {
     Integer index = ruleClass.getAttributeIndex(attribute.getName());
     setAttributeLocation(index, location);
   }
-
-  public static final Function<RuleClass, AttributeContainer> ATTRIBUTE_CONTAINER_FACTORY =
-      new Function<RuleClass, AttributeContainer>() {
-        @Override
-        public AttributeContainer apply(RuleClass ruleClass) {
-          return new AttributeContainer(ruleClass);
-        }
-      };
 }

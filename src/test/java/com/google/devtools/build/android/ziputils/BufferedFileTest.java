@@ -14,20 +14,16 @@
 package com.google.devtools.build.android.ziputils;
 
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link BufferedFile}.
- */
+/** Unit tests for {@link BufferedFile}. */
 @RunWith(JUnit4.class)
 public class BufferedFileTest {
 
@@ -215,7 +211,7 @@ public class BufferedFileTest {
     assertWithMessage(msg + " - capacity, ").that(buf.capacity()).isAtLeast(expectLimit);
     assertWithMessage(msg + " - capacity, ").that(buf.capacity()).isAtMost(capacityBound);
     if (len > 0 && expectLimit > 0) {
-      assertEquals(msg + " - value, ", (byte) off, buf.get(0));
+      assertWithMessage(msg + " - value, ").that(buf.get(0)).isEqualTo((byte) off);
     }
   }
 

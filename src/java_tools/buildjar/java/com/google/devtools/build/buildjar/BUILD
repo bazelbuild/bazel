@@ -26,17 +26,15 @@ java_library(
 java_library(
     name = "javac",
     srcs = glob(
-        [
-            "javac/*.java",
-        ],
+        ["javac/*.java"],
         exclude = [
             "javac/JavacOptions.java",
         ],
     ),
     deps = [
         ":invalid_command_line_exception",
-        ":javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jdk/langtools:javac",
@@ -47,10 +45,14 @@ java_library(
 java_library(
     name = "buildjar",
     srcs = glob(
-        ["*.java"],
+        [
+            "*.java",
+            "instrumentation/*.java",
+        ],
         exclude = [
             "InvalidCommandLineException.java",
             "JarOwner.java",
+            "VanillaJavaBuilder.java",
         ],
     ),
     deps = [
@@ -60,12 +62,12 @@ java_library(
         ":javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:classloader",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:errorprone",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
+        "//third_party/java/jacoco:core",
         "//third_party/java/jdk/langtools:javac",
     ],
 )
@@ -123,19 +125,16 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bo
 
 bootstrap_java_library(
     name = "skylark-deps",
+    srcs = ["//:bootstrap-derived-java-srcs"],
     jars = [
         "//third_party:auto_value-jars",
-        "//third_party:error_prone-jars",
-        "//third_party:guava-jars",
+        "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
         "//third_party/protobuf:protobuf-jars",
+        "//third_party/java/jacoco:core-jars",
+        "//third_party/grpc:bootstrap-grpc-jars",
     ],
     neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
-    srcjars = [
-        "//src/main/protobuf:deps_java_proto_srcjar",
-        "//src/main/protobuf:worker_protocol_java_proto_srcjar",
-        "//src/main/protobuf:java_compilation_java_proto_srcjar",
-    ],
 )
 
 bootstrap_java_library(
@@ -150,6 +149,7 @@ bootstrap_java_binary(
         exclude = [
             "java/com/google/devtools/build/buildjar/javac/testing/**",
             "JarOwner.java",
+            "VanillaJavaBuilder.java",
         ],
     ),
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
@@ -166,7 +166,43 @@ bootstrap_java_library(
     jars = [
         "//third_party:jsr305-jars",
         "//third_party:auto_value-jars",
-        "//third_party:guava-jars",
+        "//third_party:bootstrap_guava_and_error_prone-jars",
+    ],
+)
+
+bootstrap_java_binary(
+    name = "bootstrap_VanillaJavaBuilder",
+    srcs = [
+        "InvalidCommandLineException.java",
+        "JarOwner.java",
+        "OptionsParser.java",
+        "VanillaJavaBuilder.java",
+        "javac/JavacOptions.java",
+    ],
+    main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
+    deps = [
+        ":skylark-deps",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
+    ],
+)
+
+java_binary(
+    name = "VanillaJavaBuilder",
+    main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
+    runtime_deps = [":vanilla_java_builder"],
+)
+
+java_library(
+    name = "vanilla_java_builder",
+    srcs = ["VanillaJavaBuilder.java"],
+    deps = [
+        ":javac_options",
+        ":optionsparser",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
+        "//src/main/protobuf:deps_java_proto",
+        "//src/main/protobuf:java_compilation_java_proto",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:guava",
     ],
 )
 

@@ -14,24 +14,18 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
-
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-/**
- * A test for {@link PerLabelOptions}.
- */
+/** A test for {@link PerLabelOptions}. */
 @RunWith(JUnit4.class)
 public class PerLabelOptionsTest {
   private PerLabelOptions options = null;
@@ -43,15 +37,15 @@ public class PerLabelOptionsTest {
 
   private void assertRegexParsing(String filter) throws OptionsParsingException {
     RegexFilter regexFilter = new RegexFilter.RegexFilterConverter().convert(filter);
-    assertEquals(regexFilter.toString(), options.getRegexFilter().toString());
+    assertThat(options.getRegexFilter().toString()).isEqualTo(regexFilter.toString());
   }
 
   private void assertOptions(String pattern, String opts, List<String> expectedOptions)
       throws OptionsParsingException {
     createOptions(pattern + "@" + opts);
     assertRegexParsing(pattern);
-    assertNotNull(options.getOptions());
-    assertEquals(expectedOptions, options.getOptions());
+    assertThat(options.getOptions()).isNotNull();
+    assertThat(options.getOptions()).isEqualTo(expectedOptions);
   }
 
   @Test

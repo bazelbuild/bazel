@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static com.google.common.truth.Truth.assertThat;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,9 +27,9 @@ public class StringTrieTest {
   @Test
   public void empty() {
     StringTrie<Integer> cut = new StringTrie<>();
-    assertNull(cut.get(""));
-    assertNull(cut.get("a"));
-    assertNull(cut.get("ab"));
+    assertThat(cut.get("")).isNull();
+    assertThat(cut.get("a")).isNull();
+    assertThat(cut.get("ab")).isNull();
   }
 
   @Test
@@ -39,32 +38,32 @@ public class StringTrieTest {
     cut.put("a", 1);
     cut.put("b", 2);
 
-    assertNull(cut.get(""));
-    assertEquals(1, cut.get("a").intValue());
-    assertEquals(1, cut.get("ab").intValue());
-    assertEquals(1, cut.get("abc").intValue());
+    assertThat(cut.get("")).isNull();
+    assertThat(cut.get("a").intValue()).isEqualTo(1);
+    assertThat(cut.get("ab").intValue()).isEqualTo(1);
+    assertThat(cut.get("abc").intValue()).isEqualTo(1);
 
-    assertEquals(2, cut.get("b").intValue());
+    assertThat(cut.get("b").intValue()).isEqualTo(2);
   }
 
   @Test
   public void ancestors() {
     StringTrie<Integer> cut = new StringTrie<>();
     cut.put("abc", 3);
-    assertNull(cut.get(""));
-    assertNull(cut.get("a"));
-    assertNull(cut.get("ab"));
-    assertEquals(3, cut.get("abc").intValue());
-    assertEquals(3, cut.get("abcd").intValue());
+    assertThat(cut.get("")).isNull();
+    assertThat(cut.get("a")).isNull();
+    assertThat(cut.get("ab")).isNull();
+    assertThat(cut.get("abc").intValue()).isEqualTo(3);
+    assertThat(cut.get("abcd").intValue()).isEqualTo(3);
 
     cut.put("a", 1);
-    assertEquals(1, cut.get("a").intValue());
-    assertEquals(1, cut.get("ab").intValue());
-    assertEquals(3, cut.get("abc").intValue());
+    assertThat(cut.get("a").intValue()).isEqualTo(1);
+    assertThat(cut.get("ab").intValue()).isEqualTo(1);
+    assertThat(cut.get("abc").intValue()).isEqualTo(3);
 
     cut.put("", 0);
-    assertEquals(0, cut.get("").intValue());
-    assertEquals(0, cut.get("b").intValue());
-    assertEquals(1, cut.get("a").intValue());
+    assertThat(cut.get("").intValue()).isEqualTo(0);
+    assertThat(cut.get("b").intValue()).isEqualTo(0);
+    assertThat(cut.get("a").intValue()).isEqualTo(1);
   }
 }

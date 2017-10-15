@@ -16,21 +16,24 @@ package com.google.devtools.build.lib.syntax.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.truth.Ordered;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
+import com.google.devtools.build.lib.syntax.BazelLibrary;
+import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Environment.FailFastException;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
@@ -66,12 +69,14 @@ public class EvaluationTestCase {
    * No PythonPreprocessing, mostly empty mutable Environment.
    */
   public Environment newBuildEnvironment() {
-    return Environment.builder(mutability)
-        .setGlobals(Environment.DEFAULT_GLOBALS)
-        .setEventHandler(getEventHandler())
-        .setToolsRepository(TestConstants.TOOLS_REPOSITORY)
-        .setPhase(Phase.LOADING)
-        .build();
+    Environment env =
+        Environment.builder(mutability)
+            .setGlobals(BazelLibrary.GLOBALS)
+            .setEventHandler(getEventHandler())
+            .setPhase(Phase.LOADING)
+            .build();
+    SkylarkUtils.setToolsRepository(env, TestConstants.TOOLS_REPOSITORY);
+    return env;
   }
 
   /**
@@ -80,47 +85,53 @@ public class EvaluationTestCase {
    */
   public Environment newSkylarkEnvironment() {
     return Environment.builder(mutability)
-        .setSkylark()
-        .setGlobals(Environment.DEFAULT_GLOBALS)
+        .setGlobals(BazelLibrary.GLOBALS)
         .setEventHandler(getEventHandler())
         .build();
   }
 
   /**
-   * Creates a new Environment suitable for the test case. Subclasses may override it
-   * to fit their purpose and e.g. call newBuildEnvironment or newSkylarkEnvironment;
-   * or they may play with the testMode to run tests in either or both kinds of Environment.
-   * Note that all Environment-s may share the same Mutability, so don't close it.
+   * Creates a new Environment suitable for the test case. Subclasses may override it to fit their
+   * purpose and e.g. call newBuildEnvironment or newSkylarkEnvironment; or they may play with the
+   * testMode to run tests in either or both kinds of Environment. Note that all Environment-s may
+   * share the same Mutability, so don't close it.
+   *
    * @return a fresh Environment.
    */
   public Environment newEnvironment() throws Exception {
+    return newEnvironmentWithSkylarkOptions();
+  }
+
+  protected Environment newEnvironmentWithSkylarkOptions(String... skylarkOptions)
+      throws Exception {
     if (testMode == null) {
       throw new IllegalArgumentException(
           "TestMode is null. Please set a Testmode via setMode() or set the "
               + "Environment manually by overriding newEnvironment()");
     }
-    return testMode.createEnvironment(getEventHandler(), null);
+    return testMode.createEnvironment(getEventHandler(), skylarkOptions);
   }
 
   /**
    * Sets the specified {@code TestMode} and tries to create the appropriate {@code Environment}
+   *
    * @param testMode
    * @throws Exception
    */
-  protected void setMode(TestMode testMode) throws Exception {
+  protected void setMode(TestMode testMode, String... skylarkOptions) throws Exception {
     this.testMode = testMode;
-    env = newEnvironment();
+    env = newEnvironmentWithSkylarkOptions(skylarkOptions);
   }
 
-  protected void enableSkylarkMode() throws Exception {
-    setMode(TestMode.SKYLARK);
+  protected void enableSkylarkMode(String... skylarkOptions) throws Exception {
+    setMode(TestMode.SKYLARK, skylarkOptions);
   }
 
-  protected void enableBuildMode() throws Exception {
-    setMode(TestMode.BUILD);
+  protected void enableBuildMode(String... skylarkOptions) throws Exception {
+    setMode(TestMode.BUILD, skylarkOptions);
   }
 
-  protected EventHandler getEventHandler() {
+  public ExtendedEventHandler getEventHandler() {
     return eventCollectionApparatus.reporter();
   }
 
@@ -128,15 +139,32 @@ public class EvaluationTestCase {
     return env;
   }
 
-  protected List<Statement> parseFile(String... input) {
-    return env.parseFile(input);
+  protected BuildFileAST parseBuildFileASTWithoutValidation(String... input) {
+    return BuildFileAST.parseString(getEventHandler(), input);
   }
 
-  /** Parses an Expression from string without a supporting file */
-  @VisibleForTesting
-  public Expression parseExpression(String... input) {
-    return Parser.parseExpression(
-        ParserInputSource.create(Joiner.on("\n").join(input), null), getEventHandler());
+  protected BuildFileAST parseBuildFileAST(String... input) {
+    BuildFileAST ast = parseBuildFileASTWithoutValidation(input);
+    return ast.validate(env, getEventHandler());
+  }
+
+  protected List<Statement> parseFile(String... input) {
+    return parseBuildFileAST(input).getStatements();
+  }
+
+  /** Construct a ParserInputSource by concatenating multiple strings with newlines. */
+  private ParserInputSource makeParserInputSource(String... input) {
+    return ParserInputSource.create(Joiner.on("\n").join(input), null);
+  }
+
+  /** Parses a statement, possibly followed by newlines. */
+  protected Statement parseStatement(Parser.ParsingLevel parsingLevel, String... input) {
+    return Parser.parseStatement(makeParserInputSource(input), getEventHandler(), parsingLevel);
+  }
+
+  /** Parses an expression, possibly followed by newlines. */
+  protected Expression parseExpression(String... input) {
+    return Parser.parseExpression(makeParserInputSource(input), getEventHandler());
   }
 
   public EvaluationTestCase update(String varname, Object value) throws Exception {
@@ -149,16 +177,18 @@ public class EvaluationTestCase {
   }
 
   public Object eval(String... input) throws Exception {
-    return env.eval(input);
+    if (testMode == TestMode.SKYLARK) {
+      return BuildFileAST.eval(env, input);
+    }
+    return BuildFileAST.parseBuildString(env.getEventHandler(), input).eval(env);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {
-    setFailFast(true);
     try {
       eval(input);
       fail("Expected error '" + msg + "' but got no error");
-    } catch (IllegalArgumentException | EvalException e) {
-      assertThat(e).hasMessage(msg);
+    } catch (EvalException | FailFastException e) {
+      assertThat(e).hasMessageThat().isEqualTo(msg);
     }
   }
 
@@ -166,8 +196,16 @@ public class EvaluationTestCase {
     try {
       eval(input);
       fail("Expected error containing '" + msg + "' but got no error");
-    } catch (IllegalArgumentException | EvalException e) {
-      assertThat(e.getMessage()).contains(msg);
+    } catch (EvalException | FailFastException e) {
+      assertThat(e).hasMessageThat().contains(msg);
+    }
+  }
+
+  public void checkEvalErrorDoesNotContain(String msg, String... input) throws Exception {
+    try {
+      eval(input);
+    } catch (EvalException | FailFastException e) {
+      assertThat(e).hasMessageThat().doesNotContain(msg);
     }
   }
 
@@ -192,6 +230,10 @@ public class EvaluationTestCase {
 
   public Event assertContainsWarning(String expectedMessage) {
     return eventCollectionApparatus.assertContainsWarning(expectedMessage);
+  }
+
+  public Event assertContainsDebug(String expectedMessage) {
+    return eventCollectionApparatus.assertContainsDebug(expectedMessage);
   }
 
   public EvaluationTestCase clearEvents() {
@@ -427,10 +469,9 @@ public class EvaluationTestCase {
   }
 
   /**
-   * A simple decorator that allows the execution of setup actions before running
-   * a {@code Testable}
+   * A simple decorator that allows the execution of setup actions before running a {@code Testable}
    */
-  class TestableDecorator implements Testable {
+  static class TestableDecorator implements Testable {
     private final SetupActions setup;
     private final Testable decorated;
 
@@ -505,21 +546,25 @@ public class EvaluationTestCase {
    * A class that executes each separate test in both modes (Build and Skylark)
    */
   protected class BothModesTest extends ModalTestCase {
-    public BothModesTest() {}
+    private final String[] skylarkOptions;
+
+    public BothModesTest(String... skylarkOptions) {
+      this.skylarkOptions = skylarkOptions;
+    }
 
     /**
      * Executes the given Testable in both Build and Skylark mode
      */
     @Override
     protected void run(Testable testable) throws Exception {
-      enableSkylarkMode();
+      enableSkylarkMode(skylarkOptions);
       try {
         testable.run();
       } catch (Exception e) {
         throw new Exception("While in Skylark mode", e);
       }
 
-      enableBuildMode();
+      enableBuildMode(skylarkOptions);
       try {
         testable.run();
       } catch (Exception e) {
@@ -532,11 +577,15 @@ public class EvaluationTestCase {
    * A class that runs all tests in Build mode
    */
   protected class BuildTest extends ModalTestCase {
-    public BuildTest() {}
+    private final String[] skylarkOptions;
+
+    public BuildTest(String... skylarkOptions) {
+      this.skylarkOptions = skylarkOptions;
+    }
 
     @Override
     protected void run(Testable testable) throws Exception {
-      enableBuildMode();
+      enableBuildMode(skylarkOptions);
       testable.run();
     }
   }
@@ -545,11 +594,15 @@ public class EvaluationTestCase {
    * A class that runs all tests in Skylark mode
    */
   protected class SkylarkTest extends ModalTestCase {
-    public SkylarkTest() {}
+    private final String[] skylarkOptions;
+
+    public SkylarkTest(String... skylarkOptions) {
+      this.skylarkOptions = skylarkOptions;
+    }
 
     @Override
     protected void run(Testable testable) throws Exception {
-      enableSkylarkMode();
+      enableSkylarkMode(skylarkOptions);
       testable.run();
     }
   }

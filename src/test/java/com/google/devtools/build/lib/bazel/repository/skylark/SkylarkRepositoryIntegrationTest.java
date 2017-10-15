@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -39,7 +40,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -69,22 +69,25 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     @Override
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions() {
       // Add both the local repository and the skylark repository functions
-      // The HttpDownloader mock injected with the SkylarkRepositoryFunction
-      AtomicReference<HttpDownloader> httpDownloader =
-          new AtomicReference<>(Mockito.mock(HttpDownloader.class));
+      // The RepositoryCache mock injected with the SkylarkRepositoryFunction
+      HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
       SkylarkRepositoryFunction skylarkRepositoryFunction =
-          new SkylarkRepositoryFunction(httpDownloader);
+          new SkylarkRepositoryFunction(downloader);
       ImmutableMap<String, RepositoryFunction> repositoryHandlers =
           ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
 
+      RepositoryDelegatorFunction function =
+          new RepositoryDelegatorFunction(
+              repositoryHandlers, skylarkRepositoryFunction, new AtomicBoolean(true));
+      function.setClientEnvironment(ImmutableMap.<String, String>of());
       return ImmutableMap.of(
           SkyFunctions.REPOSITORY_DIRECTORY,
-          new RepositoryDelegatorFunction(
-              repositoryHandlers, skylarkRepositoryFunction, new AtomicBoolean(true)),
+          function,
           SkyFunctions.REPOSITORY,
           new RepositoryLoaderFunction(),
-          FdoSupportValue.SKYFUNCTION, new FdoSupportFunction());
+          FdoSupportValue.SKYFUNCTION,
+          new FdoSupportFunction());
     }
   }
 
@@ -131,10 +134,12 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    local=True,",
         "    attrs={'path': attr.string(mandatory=True)})");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "load('//:def.bzl', 'repo')",
-        "repo(name='foo', path='/repo2')");
+    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("load('//:def.bzl', 'repo')")
+            .add("repo(name='foo', path='/repo2')")
+            .build());
     invalidatePackages();
     ConfiguredTarget target = getConfiguredTarget("@foo//:bar");
     Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
@@ -156,11 +161,13 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    implementation=_impl,",
         "    local=True)");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "local_repository(name='repo2', path='/repo2')",
-        "load('//:def.bzl', 'repo')",
-        "repo(name='foo')");
+    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='repo2', path='/repo2')")
+            .add("load('//:def.bzl', 'repo')")
+            .add("repo(name='foo')")
+            .build());
     invalidatePackages();
     ConfiguredTarget target = getConfiguredTarget("@foo//:bar");
     Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
@@ -183,11 +190,13 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    implementation=_impl,",
         "    local=True)");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "local_repository(name='repo2', path='/repo2')",
-        "load('//:def.bzl', 'repo')",
-        "repo(name='foo')");
+    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='repo2', path='/repo2')")
+            .add("load('//:def.bzl', 'repo')")
+            .add("repo(name='foo')")
+            .build());
     invalidatePackages();
     ConfiguredTarget target = getConfiguredTarget("@foo//:bar");
     Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
@@ -211,11 +220,13 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    implementation=_impl,",
         "    local=True)");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "local_repository(name='repo2', path='/repo2')",
-        "load('//:def.bzl', 'repo')",
-        "repo(name='foobar')");
+    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='repo2', path='/repo2')")
+            .add("load('//:def.bzl', 'repo')")
+            .add("repo(name='foobar')")
+            .build());
     invalidatePackages();
     ConfiguredTarget target = getConfiguredTarget("@foobar//:bar");
     Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
@@ -289,10 +300,13 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       getTarget("@//:git_repo");
       fail();
     } catch (AssertionError expected) {
-      assertThat(expected.getMessage()).contains("Failed to load Skylark extension "
-          + "'@git_repo//xyz:foo.bzl'.\n"
-          + "It usually happens when the repository is not defined prior to being used.\n"
-          + "Maybe repository 'git_repo' was defined later in your WORKSPACE file?");
+      assertThat(expected)
+          .hasMessageThat()
+          .contains(
+              "Failed to load Skylark extension "
+                  + "'@git_repo//xyz:foo.bzl'.\n"
+                  + "It usually happens when the repository is not defined prior to being used.\n"
+                  + "Maybe repository 'git_repo' was defined later in your WORKSPACE file?");
     }
   }
 
@@ -303,19 +317,22 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("/repo2/BUILD", "exports_files_(['data.txt'])");
     scratch.file("/repo2/def.bzl", "def macro():", "  print('bleh')");
     scratch.file("/repo2/WORKSPACE");
-    scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "local_repository(name='bleh')",
-        "local_repository(name='foo', path='/repo2')",
-        "load('@foo//:def.bzl', 'repo')",
-        "repo(name='foobar')");
+
+    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='bleh')")
+            .add("local_repository(name='foo', path='/repo2')")
+            .add("load('@foo//:def.bzl', 'repo')")
+            .add("repo(name='foobar')")
+            .build());
     try {
       invalidatePackages();
       getTarget("@foo//:data.txt");
       fail();
     } catch (NoSuchPackageException e) {
       // This is expected
-      assertThat(e.getMessage()).contains("Could not load //external package");
+      assertThat(e).hasMessageThat().contains("Could not load //external package");
     }
     assertContainsEvent("missing value for mandatory attribute 'path' in 'local_repository' rule");
   }
@@ -323,22 +340,17 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
   @Test
   public void testLoadDoesNotHideWorkspaceFunction() throws Exception {
     scratch.file("def.bzl", "def macro():", "  print('bleh')");
-    scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "workspace(name='bleh')",
-        "local_repository(name='bazel_tools', path=__workspace_dir__)",
-        "load('//:def.bzl', 'macro')");
-    scratch.overwriteFile("tools/genrule/genrule-setup.sh");
-    scratch.overwriteFile("tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
+    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("workspace(name='bleh')")
+            .add("load('//:def.bzl', 'macro')")
+            .build());
     scratch.file("data.txt");
-    scratch.file("BUILD",
-        "genrule(",
-        "  name='data', ",
-        "  outs=['data.out'],",
-        "  srcs=['data.txt'],",
-        "  cmd='cp $< $@')");
+    scratch.file("BUILD", "filegroup(", "  name='files', ", "  srcs=['data.txt'])");
     invalidatePackages();
-    assertThat(getRuleContext(getConfiguredTarget("//:data")).getWorkspaceName()).isEqualTo("bleh");
+    assertThat(getRuleContext(getConfiguredTarget("//:files")).getWorkspaceName())
+        .isEqualTo("bleh");
   }
 
   @Test
@@ -362,22 +374,25 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       getConfiguredTarget("@foo//:bar");
       fail();
     } catch (AssertionError e) {
-      assertThat(e.getMessage()).contains("There is already a built-in attribute 'name' "
-          + "which cannot be overridden");
+      assertThat(e)
+          .hasMessageThat()
+          .contains("There is already a built-in attribute 'name' " + "which cannot be overridden");
     }
   }
 
   @Test
   public void testMultipleLoadSameExtension() throws Exception {
-    scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "load('//:def.bzl', 'f1')",
-        "f1()",
-        "load('//:def.bzl', 'f2')",
-        "f2()",
-        "load('//:def.bzl', 'f1')",
-        "f1()",
-        "local_repository(name = 'foo', path = '')");
+    scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("load('//:def.bzl', 'f1')")
+            .add("f1()")
+            .add("load('//:def.bzl', 'f2')")
+            .add("f2()")
+            .add("load('//:def.bzl', 'f1')")
+            .add("f1()")
+            .add("local_repository(name = 'foo', path = '')")
+            .build());
     scratch.file(
         rootDirectory.getRelative("BUILD").getPathString(), "filegroup(name = 'bar', srcs = [])");
     scratch.file(

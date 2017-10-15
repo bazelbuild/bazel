@@ -17,15 +17,16 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.rules.java.JavaOptions;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
@@ -44,7 +45,6 @@ import java.io.IOException;
     options = {
         PackageCacheOptions.class,
         FetchOptions.class,
-        JavaOptions.class,
     },
     help = "resource:fetch.txt",
     shortDescription = "Fetches external repositories that are prerequisites to the targets.",
@@ -58,7 +58,7 @@ public final class FetchCommand implements BlazeCommand {
   public static final String NAME = "fetch";
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) { }
+  public void editOptions(OptionsParser optionsParser) { }
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
@@ -89,14 +89,8 @@ public final class FetchCommand implements BlazeCommand {
     // Querying for all of the dependencies of the targets has the side-effect of populating the
     // Skyframe graph for external targets, which requires downloading them. The JDK is required to
     // build everything but isn't counted as a dep in the build graph so we add it manually.
-    JavaOptions javaOptions = options.getOptions(JavaOptions.class);
     ImmutableList.Builder<String> labelsToLoad = new ImmutableList.Builder<String>()
         .addAll(options.getResidue());
-
-    // TODO(kchodorow): Remove this when OS X isn't as hacky about finding the JVM. Our test
-    // framework currently doesn't set up the JDK normally on OS X, so attempting to fetch
-    // tools/jdk:jdk will cause errors.
-    labelsToLoad.add(String.valueOf(javaOptions.javaToolchain));
 
     String query = Joiner.on(" union ").join(labelsToLoad.build());
     query = "deps(" + query + ")";
@@ -115,17 +109,36 @@ public final class FetchCommand implements BlazeCommand {
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
+    env.getReporter()
+        .post(
+            new NoBuildEvent(
+                env.getCommandName(),
+                env.getCommandStartTime(),
+                true,
+                true,
+                env.getCommandId().toString()));
+
     // 2. Evaluate expression:
     try {
-      queryEnv.evaluateQuery(expr, new OutputFormatterCallback<Target>() {
+      queryEnv.evaluateQuery(expr, new ThreadSafeOutputFormatterCallback<Target>() {
         @Override
         public void processOutput(Iterable<Target> partialResult) {
           // Throw away the result.
         }
       });
-    } catch (QueryException | InterruptedException e) {
+    } catch (InterruptedException e) {
+      env.getReporter()
+          .post(
+              new NoBuildRequestFinishedEvent(
+                  ExitCode.COMMAND_LINE_ERROR, env.getRuntime().getClock().currentTimeMillis()));
+      return ExitCode.COMMAND_LINE_ERROR;
+    } catch (QueryException e) {
       // Keep consistent with reportBuildFileError()
       env.getReporter().handle(Event.error(e.getMessage()));
+      env.getReporter()
+          .post(
+              new NoBuildRequestFinishedEvent(
+                  ExitCode.COMMAND_LINE_ERROR, env.getRuntime().getClock().currentTimeMillis()));
       return ExitCode.COMMAND_LINE_ERROR;
     } catch (IOException e) {
       // Should be impossible since our OutputFormatterCallback doesn't throw IOException.
@@ -134,6 +147,10 @@ public final class FetchCommand implements BlazeCommand {
 
     env.getReporter().handle(
         Event.progress("All external dependencies fetched successfully."));
+    env.getReporter()
+        .post(
+            new NoBuildRequestFinishedEvent(
+                ExitCode.SUCCESS, env.getRuntime().getClock().currentTimeMillis()));
     return ExitCode.SUCCESS;
   }
 }

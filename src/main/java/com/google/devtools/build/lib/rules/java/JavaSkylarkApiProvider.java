@@ -15,14 +15,18 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.SkylarkApiProvider;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import javax.annotation.Nullable;
 
 /**
  * A class that exposes the Java providers to Skylark. It is intended to provide a simple and stable
@@ -34,63 +38,108 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
   category = SkylarkModuleCategory.PROVIDER,
   doc =
       "Provides access to information about Java rules. Every Java-related target provides "
-          + "this struct, accessible as a 'java' field on a Target struct."
+          + "this struct, accessible as a <code>java</code> field on a "
+          + "<a href=\"Target.html\">target</a>."
 )
 public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
   public static final String NAME = "java";
+  /** The name of the field in Skylark proto aspects used to access this class. */
+  public static final SkylarkProviderIdentifier PROTO_NAME =
+      SkylarkProviderIdentifier.forLegacy("proto_java");
+
+  @Nullable private final TransitiveInfoProviderMap transitiveInfoProviderMap;
+
+  /**
+   * Creates a Skylark API provider that reads information from its associated target's providers.
+   */
+  public static JavaSkylarkApiProvider fromRuleContext() {
+    return new JavaSkylarkApiProvider(null);
+  }
+
+  /**
+   * Creates a Skylark API provider that reads information from an explicit provider map.
+   */
+  public static JavaSkylarkApiProvider fromProviderMap(
+      TransitiveInfoProviderMap transitiveInfoProviderMap) {
+    return new JavaSkylarkApiProvider(transitiveInfoProviderMap);
+  }
+
+  private JavaSkylarkApiProvider(TransitiveInfoProviderMap transitiveInfoProviderMap) {
+    this.transitiveInfoProviderMap = transitiveInfoProviderMap;
+  }
+
+  @Nullable
+  private <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
+    if (transitiveInfoProviderMap != null) {
+      return transitiveInfoProviderMap.getProvider(provider);
+    }
+    return getInfo().getProvider(provider);
+  }
 
   @SkylarkCallable(
-      name = "source_jars",
-      doc = "Returns the Jars containing Java source files for the target",
-      structField = true)
+    name = "source_jars",
+    doc = "Returns the Jars containing Java source files for the target.",
+    structField = true
+  )
   public NestedSet<Artifact> getSourceJars() {
-    JavaSourceJarsProvider sourceJars = getInfo().getProvider(JavaSourceJarsProvider.class);
-    return NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJars.getSourceJars());
+    JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class);
+    if (sourceJarsProvider == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsProvider.getSourceJars());
   }
 
   @SkylarkCallable(
-      name = "transitive_deps",
-      doc =  "Returns the transitive set of Jars required to build the target",
-      structField = true)
+    name = "transitive_deps",
+    doc = "Returns the transitive set of Jars required to build the target.",
+    structField = true
+  )
   public NestedSet<Artifact> getTransitiveDeps() {
-    JavaCompilationArgsProvider args = getInfo().getProvider(JavaCompilationArgsProvider.class);
-    if (args == null) {
+    JavaCompilationArgsProvider compilationArgsProvider =
+        getProvider(JavaCompilationArgsProvider.class);
+    if (compilationArgsProvider == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
-    return args.getRecursiveJavaCompilationArgs().getCompileTimeJars();
+    return compilationArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars();
   }
 
   @SkylarkCallable(
-      name = "transitive_runtime_deps",
-      doc =  "Returns the transitive set of Jars required on the target's runtime classpath",
-      structField = true)
+    name = "transitive_runtime_deps",
+    doc = "Returns the transitive set of Jars required on the target's runtime classpath.",
+    structField = true
+  )
   public NestedSet<Artifact> getTransitiveRuntimeDeps() {
-    JavaCompilationArgsProvider args = getInfo().getProvider(JavaCompilationArgsProvider.class);
-    if (args == null) {
+    JavaCompilationArgsProvider compilationArgsProvider =
+        getProvider(JavaCompilationArgsProvider.class);
+    if (compilationArgsProvider == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
-    return args.getRecursiveJavaCompilationArgs().getRuntimeJars();
+    return compilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars();
   }
 
   @SkylarkCallable(
-      name = "transitive_source_jars",
-      doc =
-          "Returns the Jars containing Java source files for the target and all of its transitive "
-              + "dependencies",
-      structField = true)
+    name = "transitive_source_jars",
+    doc =
+        "Returns the Jars containing Java source files for the target and all of its transitive "
+            + "dependencies.",
+    structField = true
+  )
   public NestedSet<Artifact> getTransitiveSourceJars() {
-    JavaSourceJarsProvider sourceJars = getInfo().getProvider(JavaSourceJarsProvider.class);
-    return sourceJars.getTransitiveSourceJars();
+    JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class);
+    if (sourceJarsProvider == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    return sourceJarsProvider.getTransitiveSourceJars();
   }
 
   @SkylarkCallable(
     name = "outputs",
-    doc = "Returns information about outputs of this Java target",
+    doc = "Returns information about outputs of this Java target.",
     structField = true
   )
   public JavaRuleOutputJarsProvider getOutputJars() {
-    return getInfo().getProvider(JavaRuleOutputJarsProvider.class);
+    return getProvider(JavaRuleOutputJarsProvider.class);
   }
 
   @SkylarkCallable(
@@ -99,9 +148,9 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     doc = "Returns transitive set of labels that are being exported from this rule."
   )
   public NestedSet<Label> getTransitiveExports() {
-    JavaExportsProvider provider = getInfo().getProvider(JavaExportsProvider.class);
-    if (provider != null) {
-      return provider.getTransitiveExports();
+    JavaExportsProvider exportsProvider = getProvider(JavaExportsProvider.class);
+    if (exportsProvider != null) {
+      return exportsProvider.getTransitiveExports();
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -111,20 +160,19 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     name = "annotation_processing",
     structField = true,
     allowReturnNones = true,
-    doc = "Returns information about annotation processing for this Java target"
+    doc = "Returns information about annotation processing for this Java target."
   )
   public JavaGenJarsProvider getGenJarsProvider() {
-    return getInfo().getProvider(JavaGenJarsProvider.class);
+    return getProvider(JavaGenJarsProvider.class);
   }
 
   @SkylarkCallable(
     name = "compilation_info",
     structField = true,
     allowReturnNones = true,
-    doc = "Returns compilation information for this Java target"
+    doc = "Returns compilation information for this Java target."
   )
   public JavaCompilationInfoProvider getCompilationInfoProvider() {
-    return getInfo().getProvider(JavaCompilationInfoProvider.class);
+    return getProvider(JavaCompilationInfoProvider.class);
   }
-
 }

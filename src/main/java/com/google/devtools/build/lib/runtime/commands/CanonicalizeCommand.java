@@ -14,47 +14,116 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.FlagPolicy;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
+import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.util.Collection;
 import java.util.List;
 
-/**
- * The 'blaze canonicalize-flags' command.
- */
-@Command(name = "canonicalize-flags",
-         options = { CanonicalizeCommand.Options.class },
-         allowResidue = true,
-         mustRunInWorkspace = false,
-         shortDescription = "Canonicalizes a list of %{product} options.",
-         help = "This command canonicalizes a list of %{product} options. Don't forget to prepend "
-             + " '--' to end option parsing before the flags to canonicalize.\n"
-             + "%{options}")
+/** The 'blaze canonicalize-flags' command. */
+@Command(
+  name = "canonicalize-flags",
+  options = {CanonicalizeCommand.Options.class},
+  allowResidue = true,
+  mustRunInWorkspace = false,
+  shortDescription = "Canonicalizes a list of %{product} options.",
+  help =
+      "This command canonicalizes a list of %{product} options. Don't forget to prepend "
+          + " '--' to end option parsing before the flags to canonicalize.\n"
+          + "%{options}"
+)
 public final class CanonicalizeCommand implements BlazeCommand {
 
   public static class Options extends OptionsBase {
-    @Option(name = "for_command",
-            defaultValue = "build",
-            category = "misc",
-            help = "The command for which the options should be canonicalized.")
+    @Option(
+      name = "for_command",
+      defaultValue = "build",
+      category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The command for which the options should be canonicalized."
+    )
     public String forCommand;
 
-    @Option(name = "invocation_policy",
-        defaultValue = "",
-        help = "Applies an invocation policy to the options to be canonicalized.")
+    @Option(
+      name = "invocation_policy",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Applies an invocation policy to the options to be canonicalized."
+    )
     public String invocationPolicy;
+
+    @Option(
+      name = "canonicalize_policy",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Output the canonical policy, after expansion and filtering. To keep the output "
+              + "clean, the canonicalized command arguments will NOT be shown when this option is "
+              + "set to true. Note that the command specified by --for_command affects the "
+              + "filtered policy, and if none is specified, the default command is 'build'."
+    )
+    public boolean canonicalizePolicy;
+
+    @Option(
+      name = "show_warnings",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Output parser warnings to standard error (e.g. for conflicting flag options)."
+    )
+    public boolean showWarnings;
+  }
+
+  /**
+   * These options are used by the incompatible_changes_conflict_test.sh integration test, which
+   * confirms that the warning for conflicting expansion options is working correctly. These flags
+   * are undocumented no-ops, and are not to be used by anything outside of that test.
+   */
+  public static class FlagClashCanaryOptions extends OptionsBase {
+    @Option(
+      name = "flag_clash_canary",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN}
+    )
+    public boolean flagClashCanary;
+
+    @Option(
+      name = "flag_clash_canary_expander1",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      expansion = {"--flag_clash_canary=1"}
+    )
+    public Void flagClashCanaryExpander1;
+
+    @Option(
+      name = "flag_clash_canary_expander2",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      expansion = {"--flag_clash_canary=0"}
+    )
+    public Void flagClashCanaryExpander2;
   }
 
   @Override
@@ -69,22 +138,41 @@ public final class CanonicalizeCommand implements BlazeCommand {
       return ExitCode.COMMAND_LINE_ERROR;
     }
     Collection<Class<? extends OptionsBase>> optionsClasses =
-        BlazeCommandUtils.getOptions(
-            command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider());
+        ImmutableList.<Class<? extends OptionsBase>>builder()
+            .addAll(BlazeCommandUtils.getOptions(
+                command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider()))
+            .add(FlagClashCanaryOptions.class)
+            .build();
     try {
-      
       OptionsParser parser = OptionsParser.newOptionsParser(optionsClasses);
       parser.setAllowResidue(false);
       parser.parse(options.getResidue());
 
-      InvocationPolicyEnforcer invocationPolicyEnforcer = InvocationPolicyEnforcer.create(
-          canonicalizeOptions.invocationPolicy);
+      InvocationPolicy policy =
+          InvocationPolicyParser.parsePolicy(canonicalizeOptions.invocationPolicy);
+      InvocationPolicyEnforcer invocationPolicyEnforcer = new InvocationPolicyEnforcer(policy);
       invocationPolicyEnforcer.enforce(parser, commandName);
 
-      List<String> result = parser.canonicalize();
+      if (canonicalizeOptions.showWarnings) {
+        for (String warning : parser.getWarnings()) {
+          env.getReporter().handle(Event.warn(warning));
+        }
+      }
 
-      for (String piece : result) {
-        env.getReporter().getOutErr().printOutLn(piece);
+      // Print out the canonical invocation policy if requested.
+      if (canonicalizeOptions.canonicalizePolicy) {
+        ImmutableList<FlagPolicy> effectiveFlagPolicies =
+            InvocationPolicyEnforcer.getEffectivePolicies(policy, parser, commandName);
+        InvocationPolicy effectivePolicy =
+            InvocationPolicy.newBuilder().addAllFlagPolicies(effectiveFlagPolicies).build();
+        env.getReporter().getOutErr().printOutLn(effectivePolicy.toString());
+
+      } else {
+        // Otherwise, print out the canonical command line
+        List<String> result = parser.canonicalize();
+        for (String piece : result) {
+          env.getReporter().getOutErr().printOutLn(piece);
+        }
       }
     } catch (OptionsParsingException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
@@ -94,5 +182,5 @@ public final class CanonicalizeCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
+  public void editOptions(OptionsParser optionsParser) {}
 }

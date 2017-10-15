@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.repository;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.RootRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -42,6 +43,7 @@ public class WorkspaceBaseRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("$workspace_base_rule")
         .type(RuleClassType.ABSTRACT)
+        .ancestors(RootRule.class)
         .build();
   }
 }

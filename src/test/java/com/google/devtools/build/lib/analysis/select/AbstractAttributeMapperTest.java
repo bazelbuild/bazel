@@ -14,10 +14,6 @@
 package com.google.devtools.build.lib.analysis.select;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
@@ -32,17 +28,13 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
-
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.List;
-
-/**
- * Unit tests for {@link AbstractAttributeMapper}.
- */
+/** Unit tests for {@link AbstractAttributeMapper}. */
 @RunWith(JUnit4.class)
 public class AbstractAttributeMapperTest extends BuildViewTestCase {
 
@@ -68,8 +60,8 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
 
   @Test
   public void testRuleProperties() throws Exception {
-    assertEquals(rule.getName(), mapper.getName());
-    assertEquals(rule.getLabel(), mapper.getLabel());
+    assertThat(mapper.getName()).isEqualTo(rule.getName());
+    assertThat(mapper.getLabel()).isEqualTo(rule.getLabel());
   }
 
   @Test
@@ -78,9 +70,9 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
         "cc_binary(name = 'myrule',",
         "          srcs = ['a', 'b', 'c'])");
     Package pkg = rule.getPackage();
-    assertEquals(pkg.getDefaultHdrsCheck(), mapper.getPackageDefaultHdrsCheck());
-    assertEquals(pkg.getDefaultTestOnly(), mapper.getPackageDefaultTestOnly());
-    assertEquals(pkg.getDefaultDeprecation(), mapper.getPackageDefaultDeprecation());
+    assertThat(mapper.getPackageDefaultHdrsCheck()).isEqualTo(pkg.getDefaultHdrsCheck());
+    assertThat(mapper.getPackageDefaultTestOnly()).isEqualTo(pkg.getDefaultTestOnly());
+    assertThat(mapper.getPackageDefaultDeprecation()).isEqualTo(pkg.getDefaultDeprecation());
   }
 
   @Test
@@ -107,21 +99,21 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
 
   @Test
   public void testGetAttributeType() throws Exception {
-    assertEquals(BuildType.LABEL_LIST, mapper.getAttributeType("srcs"));
-    assertNull(mapper.getAttributeType("nonsense"));
+    assertThat(mapper.getAttributeType("srcs")).isEqualTo(BuildType.LABEL_LIST);
+    assertThat(mapper.getAttributeType("nonsense")).isNull();
   }
 
   @Test
   public void testGetAttributeDefinition() {
-    assertEquals("srcs", mapper.getAttributeDefinition("srcs").getName());
-    assertNull(mapper.getAttributeDefinition("nonsense"));
+    assertThat(mapper.getAttributeDefinition("srcs").getName()).isEqualTo("srcs");
+    assertThat(mapper.getAttributeDefinition("nonsense")).isNull();
   }
 
   @Test
   public void testIsAttributeExplicitlySpecified() throws Exception {
-    assertTrue(mapper.isAttributeValueExplicitlySpecified("srcs"));
-    assertFalse(mapper.isAttributeValueExplicitlySpecified("deps"));
-    assertFalse(mapper.isAttributeValueExplicitlySpecified("nonsense"));
+    assertThat(mapper.isAttributeValueExplicitlySpecified("srcs")).isTrue();
+    assertThat(mapper.isAttributeValueExplicitlySpecified("deps")).isFalse();
+    assertThat(mapper.isAttributeValueExplicitlySpecified("nonsense")).isFalse();
   }
 
   protected static class VisitationRecorder implements AttributeMap.AcceptsLabelAttribute {
@@ -153,6 +145,6 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
     assertThat(mapper.getComputedDefault("$stl_default", BuildType.LABEL))
         .isInstanceOf(Attribute.ComputedDefault.class);
     // Should return null since this *isn't* a computed default:
-    assertNull(mapper.getComputedDefault("srcs", BuildType.LABEL_LIST));
+    assertThat(mapper.getComputedDefault("srcs", BuildType.LABEL_LIST)).isNull();
   }
 }

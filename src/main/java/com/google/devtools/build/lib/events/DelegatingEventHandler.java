@@ -17,13 +17,13 @@ package com.google.devtools.build.lib.events;
 import com.google.devtools.build.lib.util.Preconditions;
 
 /**
- * An ErrorEventListener which delegates to another ErrorEventListener.
- * Primarily useful as a base class for extending behavior.
+ * An EventHandler which delegates to another EventHandler. Primarily useful as a base class for
+ * extending behavior.
  */
-public class DelegatingEventHandler implements EventHandler {
-  protected final EventHandler delegate;
+public class DelegatingEventHandler implements ExtendedEventHandler {
+  protected final ExtendedEventHandler delegate;
 
-  public DelegatingEventHandler(EventHandler delegate) {
+  public DelegatingEventHandler(ExtendedEventHandler delegate) {
     super();
     this.delegate = Preconditions.checkNotNull(delegate);
   }
@@ -31,5 +31,10 @@ public class DelegatingEventHandler implements EventHandler {
   @Override
   public void handle(Event e) {
     delegate.handle(e);
+  }
+
+  @Override
+  public void post(ExtendedEventHandler.Postable obj) {
+    delegate.post(obj);
   }
 }

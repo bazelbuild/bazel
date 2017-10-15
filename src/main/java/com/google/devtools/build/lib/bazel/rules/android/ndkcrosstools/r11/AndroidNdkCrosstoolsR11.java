@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -29,7 +28,9 @@ import java.util.Map.Entry;
 /**
  * Generates a CrosstoolRelease proto for the Android NDK.
  */
-public class AndroidNdkCrosstoolsR11 {
+final class AndroidNdkCrosstoolsR11 {
+  /** {@code ./ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --version} */
+  static final String CLANG_VERSION = "3.8.243773";
 
   private AndroidNdkCrosstoolsR11() {}
 
@@ -43,20 +44,14 @@ public class AndroidNdkCrosstoolsR11 {
    *
    * @return A CrosstoolRelease for the Android NDK.
    */
-  public static CrosstoolRelease create(
-      NdkPaths ndkPaths,
-      StlImpl stlImpl,
-      String hostPlatform) {
-
-    CrosstoolRelease crosstoolRelease = CrosstoolRelease.newBuilder()
+  public static CrosstoolRelease create(NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
+    return CrosstoolRelease.newBuilder()
         .setMajorVersion("android")
         .setMinorVersion("")
         .setDefaultTargetCpu("armeabi")
         .addAllDefaultToolchain(getDefaultCpuToolchains(stlImpl))
         .addAllToolchain(createToolchains(ndkPaths, stlImpl, hostPlatform))
         .build();
-
-    return crosstoolRelease;
   }
 
   private static ImmutableList<CToolchain> createToolchains(

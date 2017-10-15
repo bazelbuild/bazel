@@ -115,6 +115,24 @@ EOF
   bazel test --stamp //a:verify_scm_status --workspace_status_command=$cmd || fail "build failed"
 }
 
+function test_errmsg() {
+  create_new_workspace
+  cat > BUILD <<'EOF'
+genrule(
+    name = "a",
+    srcs = [],
+    outs = ["ao"],
+    cmd="echo whatever > $@",
+    stamp=1,
+)
+EOF
+
+  bazel build --workspace_status_command=$TEST_TMPDIR/wsc.sh --stamp //:a &> $TEST_log \
+    && fail "build succeeded"
+  expect_log "wsc.sh: No such file or directory\|wsc.sh: not found"
+}
+
+
 function test_stable_and_volatile_status() {
   create_new_workspace
   cat >$TEST_TMPDIR/wsc.sh <<EOF

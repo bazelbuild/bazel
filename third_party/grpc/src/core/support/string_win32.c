@@ -34,6 +34,7 @@
 /* Posix code for gpr snprintf support. */
 
 #include <grpc/support/port_platform.h>
+#include <grpc/support/string_util.h>
 
 #ifdef GPR_WIN32
 

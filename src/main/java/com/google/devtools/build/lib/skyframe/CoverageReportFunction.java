@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -27,7 +28,11 @@ import com.google.devtools.build.skyframe.SkyValue;
  * A Skyframe function to calculate the coverage report Action and Artifacts.
  */
 public class CoverageReportFunction implements SkyFunction {
-  CoverageReportFunction() {}
+  private final Supplier<Boolean> removeActionsAfterEvaluation;
+
+  CoverageReportFunction(Supplier<Boolean> removeActionsAfterEvaluation) {
+    this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
+  }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
@@ -46,9 +51,7 @@ public class CoverageReportFunction implements SkyFunction {
       outputs.addAll(action.getOutputs());
     }
 
-    return new CoverageReportValue(
-        outputs.build(),
-        actions);
+    return new CoverageReportValue(actions, removeActionsAfterEvaluation.get());
   }
 
   @Override

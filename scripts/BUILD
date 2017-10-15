@@ -8,19 +8,20 @@ genrule(
     name = "bash_completion",
     srcs = ["bazel-complete-template.bash"],
     outs = ["bazel-complete.bash"],
-    cmd = "cat $(SRCS) > $@\n" +
-          "touch err.log\n" +
-          "TMP=`mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXXXX`\n" +
-          "trap \"rm -fr err.log $${TMP}\" EXIT\n" +
-          "$(location //src:bazel) " +
-          "    --batch --output_user_root=$${TMP} --host_javabase=$(JAVABASE) " +
-          "    help completion 2>err.log >>$@ || { cat err.log; exit 1; }",
+    cmd = " ".join([
+        "$(location :generate_bash_completion.sh)",
+        "--bazel=$(location //src:bazel)",
+        "--javabase=$(JAVABASE)",
+        "--output=$@",
+        "--prepend=$(location bazel-complete-template.bash)",
+    ]),
     output_to_bindir = 1,
     tools = [
+        ":generate_bash_completion.sh",
         "//src:bazel",
         "//tools/defaults:jdk",
     ],
-    visibility = ["//scripts/packages:__pkg__"],
+    visibility = ["//scripts/packages:__subpackages__"],
 )
 
 sh_test(
@@ -37,8 +38,9 @@ sh_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//scripts/release:srcs",
+        "//scripts/docs:srcs",
         "//scripts/packages:srcs",
+        "//scripts/release:srcs",
     ],
     visibility = ["//:__pkg__"],
 )

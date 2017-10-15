@@ -16,15 +16,17 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
+import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -33,6 +35,26 @@ import java.util.List;
  * Builder for creating resource processing action.
  */
 public class AndroidResourcesProcessorBuilder {
+
+  private static final ResourceContainerConverter.ToArtifacts AAPT2_RESOURCE_DEP_TO_ARTIFACTS =
+      ResourceContainerConverter.builder()
+          .includeResourceRoots()
+          .includeManifest()
+          .includeAapt2RTxt()
+          .includeSymbolsBin()
+          .includeStaticLibrary()
+          .toArtifactConverter();
+
+  private static final ResourceContainerConverter.ToArg AAPT2_RESOURCE_DEP_TO_ARG =
+      ResourceContainerConverter.builder()
+          .includeResourceRoots()
+          .includeManifest()
+          .includeAapt2RTxt()
+          .includeSymbolsBin()
+          .includeStaticLibrary()
+          .withSeparator(SeparatorType.COLON_COMMA)
+          .toArgConverter();
+
   private static final ResourceContainerConverter.ToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
       ResourceContainerConverter.builder()
           .includeResourceRoots()
@@ -70,24 +92,28 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact rTxtOut;
   private Artifact sourceJarOut;
   private boolean debug = false;
-  private List<String> resourceConfigs = Collections.emptyList();
+  private ResourceFilter resourceFilter;
   private List<String> uncompressedExtensions = Collections.emptyList();
   private Artifact apkOut;
   private final AndroidSdkProvider sdk;
   private List<String> assetsToIgnore = Collections.emptyList();
   private SpawnAction.Builder spawnActionBuilder;
-  private List<String> densities = Collections.emptyList();
   private String customJavaPackage;
   private final RuleContext ruleContext;
   private String versionCode;
   private String applicationId;
   private String versionName;
-  private Artifact symbolsTxt;
+  private Artifact symbols;
+  private Artifact dataBindingInfoZip;
 
   private Artifact manifestOut;
   private Artifact mergedResourcesOut;
   private boolean isLibrary;
   private boolean crunchPng = true;
+  private Artifact featureOf;
+  private Artifact featureAfter;
+  private AndroidAaptVersion aaptVersion;
+  private boolean throwOnResourceConflict;
 
   /**
    * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
@@ -96,6 +122,7 @@ public class AndroidResourcesProcessorBuilder {
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     this.ruleContext = ruleContext;
     this.spawnActionBuilder = new SpawnAction.Builder();
+    this.resourceFilter = ResourceFilter.empty(ruleContext);
   }
 
   /**
@@ -104,6 +131,16 @@ public class AndroidResourcesProcessorBuilder {
    */
   public AndroidResourcesProcessorBuilder withPrimary(ResourceContainer primary) {
     this.primary = primary;
+    return this;
+  }
+
+  /**
+   * The output zip for resource-processed data binding expressions (i.e. a zip of .xml files).
+   * If null, data binding processing is skipped (and data binding expressions aren't allowed in
+   * layout resources).
+   */
+  public AndroidResourcesProcessorBuilder setDataBindingInfoZip(Artifact zip) {
+    this.dataBindingInfoZip = zip;
     return this;
   }
 
@@ -123,13 +160,9 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
-  public AndroidResourcesProcessorBuilder setDensities(List<String> densities) {
-    this.densities = densities;
-    return this;
-  }
-
-  public AndroidResourcesProcessorBuilder setConfigurationFilters(List<String> resourceConfigs) {
-    this.resourceConfigs = resourceConfigs;
+  public AndroidResourcesProcessorBuilder setResourceFilter(
+      ResourceFilter resourceFilter) {
+    this.resourceFilter = resourceFilter;
     return this;
   }
 
@@ -153,8 +186,8 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
-  public AndroidResourcesProcessorBuilder setSymbolsTxt(Artifact symbolsTxt) {
-    this.symbolsTxt = symbolsTxt;
+  public AndroidResourcesProcessorBuilder setSymbols(Artifact symbols) {
+    this.symbols = symbols;
     return this;
   }
 
@@ -188,32 +221,193 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
+  public AndroidResourcesProcessorBuilder setFeatureOf(Artifact featureOf) {
+    this.featureOf = featureOf;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setFeatureAfter(Artifact featureAfter) {
+    this.featureAfter = featureAfter;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder targetAaptVersion(AndroidAaptVersion aaptVersion) {
+    this.aaptVersion = aaptVersion;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setThrowOnResourceConflict(
+      boolean throwOnResourceConflict) {
+    this.throwOnResourceConflict = throwOnResourceConflict;
+    return this;
+  }
+
   public ResourceContainer build(ActionConstructionContext context) {
+    if (aaptVersion == AndroidAaptVersion.AAPT2) {
+      return createAapt2ApkAction(context);
+    }
+    return createAaptAction(context);
+  }
+
+  public AndroidResourcesProcessorBuilder setJavaPackage(String customJavaPackage) {
+    this.customJavaPackage = customJavaPackage;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setVersionCode(String versionCode) {
+    this.versionCode = versionCode;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setApplicationId(String applicationId) {
+    if (applicationId != null && !applicationId.isEmpty()) {
+      this.applicationId = applicationId;
+    }
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setVersionName(String versionName) {
+    this.versionName = versionName;
+    return this;
+  }
+
+  private ResourceContainer createAapt2ApkAction(ActionConstructionContext context) {
     List<Artifact> outs = new ArrayList<>();
+    // TODO(corysmith): Convert to an immutable list builder, as there is no benefit to a NestedSet
+    // here, as it will already have been flattened.
+    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
 
-    if (!Strings.isNullOrEmpty(sdk.getBuildToolsVersion())) {
-      builder.add("--buildToolsVersion").add(sdk.getBuildToolsVersion());
+    // Set the busybox tool.
+    builder.add("--tool").add("AAPT2_PACKAGE").add("--");
+
+    builder.addExecPath("--aapt2", sdk.getAapt2().getExecutable());
+    ResourceContainerConverter.convertDependencies(
+        dependencies, builder, inputs, AAPT2_RESOURCE_DEP_TO_ARG, AAPT2_RESOURCE_DEP_TO_ARTIFACTS);
+
+    configureCommonFlags(outs, inputs, builder);
+
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+      // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+      // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+      // file.
+      // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+      // list-type and list-of-list-type flags that use such problematic separators in favor of
+      // multi-value flags (to remove one level of listing) and by changing all list separators to a
+      // platform-safe character (= comma).
+      this.spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
+    } else {
+      this.spawnActionBuilder.useParameterFile(ParameterFileType.UNQUOTED);
     }
 
-    builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
-    // Use a FluentIterable to avoid flattening the NestedSets
+    // Create the spawn action.
+    ruleContext.registerAction(
+        this.spawnActionBuilder
+            .useDefaultShellEnvironment()
+            .useDefaultShellEnvironment()
+            .addTool(sdk.getAapt2())
+            .addTransitiveInputs(inputs.build())
+            .addOutputs(ImmutableList.<Artifact>copyOf(outs))
+            .setCommandLine(builder.build())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage("Processing Android resources for %s", ruleContext.getLabel())
+            .setMnemonic("AndroidAapt2")
+            .build(context));
+
+    // Return the full set of processed transitive dependencies.
+    ResourceContainer.Builder result =
+        primary.toBuilder().setJavaSourceJar(sourceJarOut).setRTxt(rTxtOut).setSymbols(symbols);
+    // If there is an apk to be generated, use it, else reuse the apk from the primary resources.
+    // All android_binary ResourceContainers have to have an apk, but if a new one is not
+    // requested to be built for this resource processing action (in case of just creating an
+    // R.txt or proguard merging), reuse the primary resource from the dependencies.
+    if (apkOut != null) {
+      result.setApk(apkOut);
+    }
+    if (manifestOut != null) {
+      result.setManifest(manifestOut);
+    }
+    return result.build();
+  }
+
+  private ResourceContainer createAaptAction(ActionConstructionContext context) {
+    List<Artifact> outs = new ArrayList<>();
+    // TODO(corysmith): Convert to an immutable list builder, as there is no benefit to a NestedSet
+    // here, as it will already have been flattened.
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
-    inputs.addAll(ruleContext.getExecutablePrerequisite("$android_resources_processor", Mode.HOST)
-            .getRunfilesSupport()
-            .getRunfilesArtifactsWithoutMiddlemen());
+    CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
+
+    // Set the busybox tool.
+    builder.add("--tool").add("PACKAGE").add("--");
+
+    ResourceContainerConverter.convertDependencies(
+        dependencies, builder, inputs, RESOURCE_DEP_TO_ARG, RESOURCE_DEP_TO_ARTIFACTS);
+    builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
+    configureCommonFlags(outs, inputs, builder);
+
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+      // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+      // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+      // file.
+      // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+      // list-type and list-of-list-type flags that use such problematic separators in favor of
+      // multi-value flags (to remove one level of listing) and by changing all list separators to a
+      // platform-safe character (= comma).
+      this.spawnActionBuilder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
+    } else {
+      this.spawnActionBuilder.useParameterFile(ParameterFileType.UNQUOTED);
+    }
+
+    // Create the spawn action.
+    ruleContext.registerAction(
+        this.spawnActionBuilder
+            .useDefaultShellEnvironment()
+            .useDefaultShellEnvironment()
+            .addTool(sdk.getAapt())
+            .addTransitiveInputs(inputs.build())
+            .addOutputs(ImmutableList.copyOf(outs))
+            .setCommandLine(builder.build())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage("Processing Android resources for %s", ruleContext.getLabel())
+            .setMnemonic("AaptPackage")
+            .build(context));
+
+    // Return the full set of processed transitive dependencies.
+    ResourceContainer.Builder result =
+        primary.toBuilder().setJavaSourceJar(sourceJarOut).setRTxt(rTxtOut).setSymbols(symbols);
+    // If there is an apk to be generated, use it, else reuse the apk from the primary resources.
+    // All android_binary ResourceContainers have to have an apk, but if a new one is not
+    // requested to be built for this resource processing action (in case of just creating an
+    // R.txt or proguard merging), reuse the primary resource from the dependencies.
+    if (apkOut != null) {
+      result.setApk(apkOut);
+    }
+    if (manifestOut != null) {
+      result.setManifest(manifestOut);
+    }
+    return result.build();
+  }
+
+  private void configureCommonFlags(
+      List<Artifact> outs, NestedSetBuilder<Artifact> inputs, Builder builder) {
+
+    // Add data
+    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.apply(primary));
+    inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
+
+    if (!Strings.isNullOrEmpty(sdk.getBuildToolsVersion())) {
+      builder.add("--buildToolsVersion", sdk.getBuildToolsVersion());
+    }
 
     builder.addExecPath("--annotationJar", sdk.getAnnotationsJar());
     inputs.add(sdk.getAnnotationsJar());
 
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
-
-    builder.add("--primaryData").add(RESOURCE_CONTAINER_TO_ARG.apply(primary));
-    inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
-
-    ResourceContainerConverter.convertDependencies(
-        dependencies, builder, inputs, RESOURCE_DEP_TO_ARG, RESOURCE_DEP_TO_ARTIFACTS);
 
     if (isLibrary) {
       builder.add("--packageType").add("LIBRARY");
@@ -224,9 +418,9 @@ public class AndroidResourcesProcessorBuilder {
       outs.add(rTxtOut);
     }
 
-    if (symbolsTxt != null) {
-      builder.addExecPath("--symbolsTxtOut", symbolsTxt);
-      outs.add(symbolsTxt);
+    if (symbols != null) {
+      builder.addExecPath("--symbolsOut", symbols);
+      outs.add(symbols);
     }
     if (sourceJarOut != null) {
       builder.addExecPath("--srcJarOutput", sourceJarOut);
@@ -256,97 +450,70 @@ public class AndroidResourcesProcessorBuilder {
       builder.addExecPath("--packagePath", apkOut);
       outs.add(apkOut);
     }
-    if (!resourceConfigs.isEmpty()) {
-      builder.addJoinStrings("--resourceConfigs", ",", resourceConfigs);
+    if (resourceFilter.shouldPropagateConfigs(ruleContext)) {
+      builder.add("--resourceConfigs", resourceFilter.getConfigurationFilterString());
     }
-    if (!densities.isEmpty()) {
-      builder.addJoinStrings("--densities", ",", densities);
+    if (resourceFilter.hasDensities()) {
+      // If we did not filter by density in analysis, filter in execution. Otherwise, don't filter
+      // in execution, but still pass the densities so they can be added to the manifest.
+      if (resourceFilter.isPrefiltering()) {
+        builder.add("--densitiesForManifest", resourceFilter.getDensityString());
+      } else {
+        builder.add("--densities", resourceFilter.getDensityString());
+      }
+    }
+    ImmutableList<String> filteredResources = resourceFilter.getResourcesToIgnoreInExecution();
+    if (!filteredResources.isEmpty()) {
+      builder.addJoined("--prefilteredResources", ",", filteredResources);
     }
     if (!uncompressedExtensions.isEmpty()) {
-      builder.addJoinStrings("--uncompressedExtensions", ",", uncompressedExtensions);
+      builder.addJoined("--uncompressedExtensions", ",", uncompressedExtensions);
     }
     if (!crunchPng) {
       builder.add("--useAaptCruncher=no");
     }
     if (!assetsToIgnore.isEmpty()) {
-      builder.addJoinStrings("--assetsToIgnore", ",", assetsToIgnore);
+      builder.addJoined("--assetsToIgnore", ",", assetsToIgnore);
     }
     if (debug) {
       builder.add("--debug");
     }
 
     if (versionCode != null) {
-      builder.add("--versionCode").add(versionCode);
+      builder.add("--versionCode", versionCode);
     }
 
     if (versionName != null) {
-      builder.add("--versionName").add(versionName);
+      builder.add("--versionName", versionName);
     }
 
     if (applicationId != null) {
-      builder.add("--applicationId").add(applicationId);
+      builder.add("--applicationId", applicationId);
+    }
+
+    if (dataBindingInfoZip != null) {
+      builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
+      outs.add(dataBindingInfoZip);
     }
 
     if (!Strings.isNullOrEmpty(customJavaPackage)) {
       // Sets an alternative java package for the generated R.java
       // this allows android rules to generate resources outside of the java{,tests} tree.
-      builder.add("--packageForR").add(customJavaPackage);
+      builder.add("--packageForR", customJavaPackage);
     }
 
-    // Create the spawn action.
-    ruleContext.registerAction(
-        this.spawnActionBuilder
-            .addTool(sdk.getAapt())
-            .addTransitiveInputs(inputs.build())
-            .addOutputs(ImmutableList.<Artifact>copyOf(outs))
-            .setCommandLine(builder.build())
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resources_processor", Mode.HOST))
-            .setProgressMessage("Processing Android resources for " + ruleContext.getLabel())
-            .setMnemonic("AndroidAapt")
-            .build(context));
-
-    // Return the full set of processed transitive dependencies.
-    return ResourceContainer.create(primary.getLabel(),
-        primary.getJavaPackage(),
-        primary.getRenameManifestPackage(),
-        primary.getConstantsInlined(),
-        // If there is no apk to be generated, use the apk from the primary resources.
-        // All android_binary ResourceContainers have to have an apk, but if a new one is not
-        // requested to be built for this resource processing action (in case of just creating an
-        // R.txt or proguard merging), reuse the primary resource from the dependencies.
-        apkOut != null ? apkOut : primary.getApk(),
-        manifestOut != null ? manifestOut : primary.getManifest(),
-        sourceJarOut,
-        primary.getJavaClassJar(),
-        primary.getArtifacts(ResourceType.ASSETS),
-        primary.getArtifacts(ResourceType.RESOURCES),
-        primary.getRoots(ResourceType.ASSETS),
-        primary.getRoots(ResourceType.RESOURCES),
-        primary.isManifestExported(),
-        rTxtOut,
-        symbolsTxt);
-  }
-
-  public AndroidResourcesProcessorBuilder setJavaPackage(String customJavaPackage) {
-    this.customJavaPackage = customJavaPackage;
-    return this;
-  }
-
-  public AndroidResourcesProcessorBuilder setVersionCode(String versionCode) {
-    this.versionCode = versionCode;
-    return this;
-  }
-
-  public AndroidResourcesProcessorBuilder setApplicationId(String applicationId) {
-    if (applicationId != null && !applicationId.isEmpty()) {
-      this.applicationId = applicationId;
+    if (featureOf != null) {
+      builder.addExecPath("--featureOf", featureOf);
+      inputs.add(featureOf);
     }
-    return this;
-  }
 
-  public AndroidResourcesProcessorBuilder setVersionName(String versionName) {
-    this.versionName = versionName;
-    return this;
+    if (featureAfter != null) {
+      builder.addExecPath("--featureAfter", featureAfter);
+      inputs.add(featureAfter);
+    }
+
+    if (throwOnResourceConflict) {
+      builder.add("--throwOnResourceConflict");
+    }
   }
 }

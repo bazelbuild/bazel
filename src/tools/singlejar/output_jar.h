@@ -15,8 +15,9 @@
 #ifndef SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_
 #define SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_
 
-#include <stdint.h>
 #include <stdio.h>
+
+#include <cinttypes>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -73,8 +74,13 @@ class OutputJar {
   void WriteEntry(void *local_header_and_payload);
   // Write META_INF/ entry (the first entry on output).
   void WriteMetaInf();
-  // Append given Central Directory Header to CEN (Central Directory) buffer.
-  CDH *AppendToDirectoryBuffer(const CDH *cdh);
+  // Write a directory entry.
+  void WriteDirEntry(const std::string &name, const uint8_t *extra_fields,
+                     const uint16_t n_extra_fields);
+  // Create output Central Directory Header for the given input entry and
+  // append it to CEN (Central Directory) buffer.
+  void AppendToDirectoryBuffer(const CDH *cdh, off_t local_header_offset,
+                               uint16_t normalized_time, bool fix_timestamp);
   // Reserve space in CEN buffer.
   uint8_t *ReserveCdr(size_t chunk_size);
   // Reserve space for the Central Directory Header in CEN buffer.

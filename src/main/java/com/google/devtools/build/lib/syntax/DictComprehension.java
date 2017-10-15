@@ -13,76 +13,80 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
-import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.Duplication;
-
-import java.util.ArrayList;
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.events.Location;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Syntax node for dictionary comprehension expressions.
  */
-public class DictComprehension extends AbstractComprehension {
+public final class DictComprehension extends AbstractComprehension {
   private final Expression keyExpression;
   private final Expression valueExpression;
 
-  public DictComprehension(Expression keyExpression, Expression valueExpression) {
-    super('{', '}', keyExpression, valueExpression);
+  public DictComprehension(
+      List<Clause> clauses, Expression keyExpression, Expression valueExpression) {
+    super(clauses, keyExpression, valueExpression);
     this.keyExpression = keyExpression;
     this.valueExpression = valueExpression;
   }
 
   @Override
-  String printExpressions() {
-    return String.format("%s: %s", keyExpression, valueExpression);
+  protected char openingBracket() {
+    return '{';
+  }
+
+  @Override
+  protected char closingBracket() {
+    return '}';
+  }
+
+  public Expression getKeyExpression() {
+    return keyExpression;
+  }
+
+  public Expression getValueExpression() {
+    return valueExpression;
+  }
+
+  @Override
+  protected void printExpressions(Appendable buffer) throws IOException {
+    keyExpression.prettyPrint(buffer);
+    buffer.append(": ");
+    valueExpression.prettyPrint(buffer);
+  }
+
+  /** Builder for {@link DictComprehension}. */
+  public static class Builder extends AbstractBuilder {
+
+    private Expression keyExpression;
+    private Expression valueExpression;
+
+    public Builder setKeyExpression(Expression keyExpression) {
+      this.keyExpression = keyExpression;
+      return this;
+    }
+
+    public Builder setValueExpression(Expression valueExpression) {
+      this.valueExpression = valueExpression;
+      return this;
+    }
+
+    @Override
+    public DictComprehension build() {
+      Preconditions.checkState(!clauses.isEmpty());
+      return new DictComprehension(
+          clauses,
+          Preconditions.checkNotNull(keyExpression),
+          Preconditions.checkNotNull(valueExpression));
+    }
   }
 
   @Override
   OutputCollector createCollector(Environment env) {
     return new DictOutputCollector(env);
-  }
-
-  @Override
-  InternalVariable compileInitialization(VariableScope scope, List<ByteCodeAppender> code) {
-    InternalVariable dict = scope.freshVariable(ImmutableMap.class);
-    append(code, scope.loadEnvironment(), ByteCodeMethodCalls.BCSkylarkDict.of);
-    code.add(dict.store());
-    return dict;
-  }
-
-  @Override
-  ByteCodeAppender compileCollector(
-      VariableScope scope,
-      InternalVariable collection,
-      DebugInfo debugInfo,
-      AstAccessors debugAccessors)
-      throws EvalException {
-    List<ByteCodeAppender> code = new ArrayList<>();
-    append(code, collection.load());
-    code.add(keyExpression.compile(scope, debugInfo));
-    append(code, Duplication.SINGLE, EvalUtils.checkValidDictKey);
-    code.add(valueExpression.compile(scope, debugInfo));
-    append(code,
-        debugInfo.add(this).loadLocation,
-        scope.loadEnvironment(),
-        ByteCodeMethodCalls.BCSkylarkDict.put);
-    return ByteCodeUtils.compoundAppender(code);
-  }
-
-  @Override
-  ByteCodeAppender compileBuilding(VariableScope scope, InternalVariable collection) {
-    return new ByteCodeAppender.Simple(collection.load());
   }
 
   /**
@@ -94,7 +98,17 @@ public class DictComprehension extends AbstractComprehension {
 
     DictOutputCollector(Environment env) {
       // We want to keep the iteration order
-      result = SkylarkDict.<Object, Object>of(env);
+      result = SkylarkDict.of(env);
+    }
+
+    @Override
+    public Location getLocation() {
+      return DictComprehension.this.getLocation();
+    }
+
+    @Override
+    public List<Clause> getClauses() {
+      return DictComprehension.this.getClauses();
     }
 
     @Override

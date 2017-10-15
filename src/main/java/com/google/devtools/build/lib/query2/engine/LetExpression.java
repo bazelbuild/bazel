@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Function;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.Collection;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -64,15 +66,22 @@ class LetExpression extends QueryExpression {
   }
 
   @Override
-  protected <T> void evalImpl(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
-          throws QueryException, InterruptedException {
+  public <T> QueryTaskFuture<Void> eval(
+      final QueryEnvironment<T> env,
+      final VariableContext<T> context,
+      final Callback<T> callback) {
     if (!NAME_PATTERN.matcher(varName).matches()) {
-      throw new QueryException(this, "invalid variable name '" + varName + "' in let expression");
+      return env.immediateFailedFuture(
+          new QueryException(this, "invalid variable name '" + varName + "' in let expression"));
     }
-    Set<T> varValue = QueryUtil.evalAll(env, context, varExpr);
-    VariableContext<T> bodyContext = VariableContext.with(context, varName, varValue);
-    env.eval(bodyExpr, bodyContext, callback);
+    QueryTaskFuture<ThreadSafeMutableSet<T>> varValueFuture =
+        QueryUtil.evalAll(env, context, varExpr);
+    Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> evalBodyAsyncFunction =
+        varValue -> {
+          VariableContext<T> bodyContext = VariableContext.with(context, varName, varValue);
+          return env.eval(bodyExpr, bodyContext, callback);
+        };
+    return env.transformAsync(varValueFuture, evalBodyAsyncFunction);
   }
 
   @Override
@@ -82,8 +91,8 @@ class LetExpression extends QueryExpression {
   }
 
   @Override
-  public QueryExpression getMapped(QueryExpressionMapper mapper) {
-    return mapper.map(this);
+  public <T> T accept(QueryExpressionVisitor<T> visitor) {
+    return visitor.visit(this);
   }
 
   @Override

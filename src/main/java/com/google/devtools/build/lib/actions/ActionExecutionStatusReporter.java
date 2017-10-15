@@ -13,17 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static java.util.Comparator.comparing;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.util.BlazeClock;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,7 +34,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-
 import javax.annotation.Nullable;
 
 /**
@@ -116,10 +116,6 @@ public final class ActionExecutionStatusReporter {
     updateStatus(ActionStatusMessage.preparingStrategy(action));
   }
 
-  public void setRunningFromBuildData(ActionExecutionMetadata action) {
-    updateStatus(ActionStatusMessage.runningStrategy(action, "unknown"));
-  }
-
   @Subscribe
   public void updateStatus(ActionStatusMessage statusMsg) {
     String message = statusMsg.getMessage();
@@ -143,7 +139,7 @@ public final class ActionExecutionStatusReporter {
     if (actions.isEmpty()) {
       return;
     }
-    Collections.sort(actions, Pair.<Long, ActionExecutionMetadata>compareByFirst());
+    Collections.sort(actions, comparing(arg -> arg.first));
 
     buffer.append("\n      " + status + ":");
 

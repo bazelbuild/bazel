@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
-
 import javax.annotation.Nullable;
 
 /**

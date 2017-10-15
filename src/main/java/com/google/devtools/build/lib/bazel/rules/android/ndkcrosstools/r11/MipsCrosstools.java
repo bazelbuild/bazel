@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationMode;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationModeFlags;
-
 import java.util.List;
 
 /**
@@ -49,10 +48,7 @@ class MipsCrosstools {
   }
 
   private List<CToolchain.Builder> createMips64Toolchains() {
-
-    ImmutableList.Builder<CToolchain.Builder> toolchainsListBuilder = ImmutableList.builder();
-    
-    toolchainsListBuilder.add(createBaseMipsToolchain()
+    CToolchain.Builder mips64Gcc = createBaseMipsToolchain()
         .setToolchainIdentifier("mips64el-linux-android-4.9")
         .setTargetSystemName("mips64el-linux-android")
         .setTargetCpu("mips64")
@@ -62,10 +58,12 @@ class MipsCrosstools {
             "mips64el-linux-android-4.9", "mips64el-linux-android",
             // mips64 toolchain doesn't have the dwp tool.
             CppConfiguration.Tool.DWP))
+        .addAllCxxBuiltinIncludeDirectory(
+            ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                "mips64el-linux-android-4.9", "mips64el-linux-android", "4.9"))
+        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips64"));
 
-        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips64")));
-
-    toolchainsListBuilder.add(createBaseMipsClangToolchain("mips64el")
+    CToolchain.Builder mips64Clang = createBaseMipsClangToolchain("mips64el")
         .setToolchainIdentifier("mips64el-linux-android-clang3.8")
         .setTargetSystemName("mips64el-linux-android")
         .setTargetCpu("mips64")
@@ -76,11 +74,9 @@ class MipsCrosstools {
             null,
             CppConfiguration.Tool.DWP))
 
-        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips64")));
+        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips64"));
 
-    List<CToolchain.Builder> toolchains = toolchainsListBuilder.build();
-    ndkPaths.addToolchainIncludePaths(
-        toolchains, "mips64el-linux-android-4.9", "mips64el-linux-android", "4.9");
+    List<CToolchain.Builder> toolchains = ImmutableList.of(mips64Gcc, mips64Clang);
     stlImpl.addStlImpl(toolchains, "4.9");
     return toolchains;
   }
@@ -97,20 +93,18 @@ class MipsCrosstools {
         .setToolchainIdentifier("mipsel-linux-android-clang3.8")
         .setTargetSystemName("mipsel-linux-android")
         .setTargetCpu("mips")
-  
+
         .addAllToolPath(ndkPaths.createClangToolpaths(
             "mipsel-linux-android-4.9",
             "mipsel-linux-android",
             null,
             CppConfiguration.Tool.DWP, CppConfiguration.Tool.GCOVTOOL))
-  
+
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips"));
 
-    ndkPaths.addToolchainIncludePaths(
-        mipsClang, "mipsel-linux-android-4.9", "mipsel-linux-android", "4.9");
     stlImpl.addStlImpl(mipsClang, "4.9");
     toolchainsListBuilder.add(mipsClang);
-    
+
     return toolchainsListBuilder.build();
   }
 
@@ -121,19 +115,19 @@ class MipsCrosstools {
         .setTargetSystemName("mipsel-linux-android")
         .setTargetCpu("mips")
         .setCompiler("gcc-4.9")
-    
+
         .addAllToolPath(ndkPaths.createToolpaths(
             "mipsel-linux-android-4.9", "mipsel-linux-android",
             CppConfiguration.Tool.DWP))
-    
+        .addAllCxxBuiltinIncludeDirectory(
+            ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                "mipsel-linux-android-4.9", "mipsel-linux-android", "4.9"))
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips"));
 
-    ndkPaths.addToolchainIncludePaths(
-        toolchain, "mipsel-linux-android-4.9", "mipsel-linux-android", "4.9");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
-  
+
   private CToolchain.Builder createBaseMipsToolchain() {
     return CToolchain.newBuilder()
         // Compiler flags
@@ -149,10 +143,10 @@ class MipsCrosstools {
         .addCompilerFlag("-frename-registers")
         .addCompilerFlag("-no-canonical-prefixes")
         .addCompilerFlag("-fno-canonical-system-headers")
-  
+
         // Linker flags
         .addLinkerFlag("-no-canonical-prefixes")
-  
+
         // Additional release flags
         .addCompilationModeFlags(CompilationModeFlags.newBuilder()
             .setMode(CompilationMode.OPT)
@@ -162,7 +156,7 @@ class MipsCrosstools {
             .addCompilerFlag("-fomit-frame-pointer")
             .addCompilerFlag("-funswitch-loops")
             .addCompilerFlag("-finline-limit=300"))
-  
+
         // Additional debug flags
         .addCompilationModeFlags(CompilationModeFlags.newBuilder()
             .setMode(CompilationMode.DBG)
@@ -175,11 +169,15 @@ class MipsCrosstools {
 
     String gccToolchain = ndkPaths.createGccToolchainPath(
         String.format("%s-linux-android-4.9", mipsArch));
-  
+
     String llvmTriple = mipsArch + "-none-linux-android";
-    
+
     return CToolchain.newBuilder()
         .setCompiler("clang3.8")
+
+        .addCxxBuiltinIncludeDirectory(
+            ndkPaths.createClangToolchainBuiltinIncludeDirectory(
+                AndroidNdkCrosstoolsR11.CLANG_VERSION))
 
         // Compiler flags
         .addCompilerFlag("-gcc-toolchain")
@@ -195,14 +193,14 @@ class MipsCrosstools {
         .addCompilerFlag("-Wno-invalid-command-line-argument")
         .addCompilerFlag("-Wno-unused-command-line-argument")
         .addCompilerFlag("-no-canonical-prefixes")
-  
+
         // Linker flags
         .addLinkerFlag("-gcc-toolchain")
         .addLinkerFlag(gccToolchain)
         .addLinkerFlag("-target")
         .addLinkerFlag(llvmTriple)
         .addLinkerFlag("-no-canonical-prefixes")
-  
+
         // Additional release flags
         .addCompilationModeFlags(CompilationModeFlags.newBuilder()
             .setMode(CompilationMode.OPT)
@@ -210,7 +208,7 @@ class MipsCrosstools {
             .addCompilerFlag("-g")
             .addCompilerFlag("-DNDEBUG")
             .addCompilerFlag("-fomit-frame-pointer"))
-  
+
         // Additional debug flags
         .addCompilationModeFlags(CompilationModeFlags.newBuilder()
             .setMode(CompilationMode.DBG)

@@ -19,13 +19,11 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.WindowsFileSystem;
-
+import com.google.devtools.build.lib.windows.WindowsFileSystem;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Set;
 
 @RunWith(JUnit4.class)
 public class DependencySetWindowsTest {

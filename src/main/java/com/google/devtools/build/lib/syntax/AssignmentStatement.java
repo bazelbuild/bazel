@@ -14,12 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Optional;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+import java.io.IOException;
 
 /**
  * Syntax node for an assignment statement.
@@ -33,8 +28,8 @@ public final class AssignmentStatement extends Statement {
   /**
    *  Constructs an assignment: "lvalue := value".
    */
-  AssignmentStatement(Expression lvalue, Expression expression) {
-    this.lvalue = new LValue(lvalue);
+  public AssignmentStatement(LValue lvalue, Expression expression) {
+    this.lvalue = lvalue;
     this.expression = expression;
   }
 
@@ -53,14 +48,12 @@ public final class AssignmentStatement extends Statement {
   }
 
   @Override
-  public String toString() {
-    return lvalue + " = " + expression + '\n';
-  }
-
-  @Override
-  void doExec(Environment env) throws EvalException, InterruptedException {
-    Object rvalue = expression.eval(env);
-    lvalue.assign(env, getLocation(), rvalue);
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    lvalue.prettyPrint(buffer, indentLevel);
+    buffer.append(" = ");
+    expression.prettyPrint(buffer, indentLevel);
+    buffer.append('\n');
   }
 
   @Override
@@ -69,17 +62,7 @@ public final class AssignmentStatement extends Statement {
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    expression.validate(env);
-    lvalue.validate(env, getLocation());
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-      throws EvalException {
-    return new ByteCodeAppender.Compound(
-        expression.compile(scope, debugInfo),
-        lvalue.compileAssignment(this, debugInfo.add(this), scope));
+  public Kind kind() {
+    return Kind.ASSIGNMENT;
   }
 }

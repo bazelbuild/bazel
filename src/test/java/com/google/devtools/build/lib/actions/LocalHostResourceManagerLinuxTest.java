@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -88,10 +87,13 @@ public class LocalHostResourceManagerLinuxTest {
             "HugePages_Rsvd:      0",
             "Hugepagesize:     2048 kB");
     String meminfoFile = scratch.file("test_meminfo_nonht", meminfoContent).getPathString();
-    assertEquals(1, LocalHostResourceManagerLinux.getLogicalCpuCountHelper(cpuinfoContent));
-    assertEquals(1, LocalHostResourceManagerLinux.getPhysicalCpuCountHelper(1, cpuinfoContent));
+    assertThat(LocalHostResourceManagerLinux.getLogicalCpuCountHelper(cpuinfoContent)).isEqualTo(1);
+    assertThat(LocalHostResourceManagerLinux.getPhysicalCpuCountHelper(1, cpuinfoContent))
+        .isEqualTo(1);
     // +/- 0.1MB
-    assertEquals(3091.732, LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile), 0.1);
+    assertThat(LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile))
+        .isWithin(0.1)
+        .of(3091.732);
   }
 
   @Test
@@ -181,10 +183,13 @@ public class LocalHostResourceManagerLinuxTest {
             "HugePages_Rsvd:      0",
             "Hugepagesize:     2048 kB");
     String meminfoFile = scratch.file("test_meminfo_ht", meminfoContent).getPathString();
-    assertEquals(2, LocalHostResourceManagerLinux.getLogicalCpuCountHelper(cpuinfoContent));
-    assertEquals(1, LocalHostResourceManagerLinux.getPhysicalCpuCountHelper(2, cpuinfoContent));
+    assertThat(LocalHostResourceManagerLinux.getLogicalCpuCountHelper(cpuinfoContent)).isEqualTo(2);
+    assertThat(LocalHostResourceManagerLinux.getPhysicalCpuCountHelper(2, cpuinfoContent))
+        .isEqualTo(1);
     // +/- 0.1MB
-    assertEquals(3092.004, LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile), 0.1);
+    assertThat(LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile))
+        .isWithin(0.1)
+        .of(3092.004);
   }
 
   @Test
@@ -332,9 +337,12 @@ public class LocalHostResourceManagerLinuxTest {
             "HugePages_Rsvd:      0",
             "Hugepagesize:     2048 kB");
     String meminfoFile = scratch.file("test_meminfo_amd", meminfoContent).getPathString();
-    assertEquals(4, LocalHostResourceManagerLinux.getLogicalCpuCountHelper(cpuinfoContent));
-    assertEquals(4, LocalHostResourceManagerLinux.getPhysicalCpuCountHelper(4, cpuinfoContent));
+    assertThat(LocalHostResourceManagerLinux.getLogicalCpuCountHelper(cpuinfoContent)).isEqualTo(4);
+    assertThat(LocalHostResourceManagerLinux.getPhysicalCpuCountHelper(4, cpuinfoContent))
+        .isEqualTo(4);
     // +/- 0.1MB
-    assertEquals(8223.956, LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile), 0.1);
+    assertThat(LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile))
+        .isWithin(0.1)
+        .of(8223.956);
   }
 }

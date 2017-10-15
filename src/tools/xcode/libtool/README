@@ -1,9 +1,0 @@
-libtool.sh runs the command passed to it using "xcrun libtool".
-
-It creates symbolic links for all input files with a content-hash appended
-to their original name (foo.o becomes foo_{md5sum}.o). This is to circumvent
-a bug in the original tool that arises when two input files have the same
-base name (even if they are in different directories).
-
-xcrun only runs on Darwin, so libtool.sh only runs on Darwin.
-

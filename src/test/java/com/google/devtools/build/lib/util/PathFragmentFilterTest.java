@@ -13,12 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,11 +32,11 @@ public class PathFragmentFilterTest {
   }
 
   protected void assertIncluded(String path) {
-    assertTrue(filter.isIncluded(new PathFragment(path)));
+    assertThat(filter.isIncluded(PathFragment.create(path))).isTrue();
   }
 
   protected void assertExcluded(String path) {
-    assertFalse(filter.isIncluded(new PathFragment(path)));
+    assertThat(filter.isIncluded(PathFragment.create(path))).isFalse();
   }
 
   @Test
@@ -89,7 +86,7 @@ public class PathFragmentFilterTest {
     assertExcluded("e");
     // When converted back to string, inclusion entries will be put first, followed by exclusion
     // entries.
-    assertEquals("a,d,a/b/c,a/b/d,-c,-a/b", filter.toString());
+    assertThat(filter.toString()).isEqualTo("a,d,a/b/c,a/b/d,-c,-a/b");
   }
 
 }

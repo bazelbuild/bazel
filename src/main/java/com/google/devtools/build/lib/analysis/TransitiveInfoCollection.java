@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
@@ -29,14 +27,14 @@ import javax.annotation.Nullable;
  *
  * <p>Represents the information made available by a {@link ConfiguredTarget} to other ones that
  * depend on it. For more information about the analysis phase, see {@link
- * com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ * com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  *
  * <p>Implementations of build rules should <b>not</b> hold on to references to the {@link
  * TransitiveInfoCollection}s representing their direct prerequisites in order to reduce their
  * memory footprint (otherwise, the referenced object could refer one of its direct dependencies in
  * turn, thereby making the size of the objects reachable from a single instance unbounded).
  *
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see TransitiveInfoProvider
  */
 @SkylarkModule(
@@ -44,18 +42,25 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.BUILTIN,
   doc =
       "A BUILD target. It is essentially a <code>struct</code> with the following fields:"
-    + "<ul>"
-    + "<li><h3 id=\"modules.Target.label\">label</h3><code><a class=\"anchor\" "
-    + "href=\"Label.html\">Label</a> Target.label</code><br>The identifier of the target.</li>"
-    + "<li><h3 id=\"modules.Target.files\">files</h3><code><a class=\"anchor\" "
-    + "href=\"set.html\">set</a> Target.files </code><br>The (transitive) set of <a "
-    + "class=\"anchor\" href=\"File.html\">File</a>s produced by this target.</li>"
-    + "<li><h3 id=\"modules.Target.extraproviders\">Extra providers</h3>For rule targets all "
-    + "additional providers provided by this target are accessible as <code>struct</code> fields. "
-    + "These extra providers are defined in the <code>struct</code> returned by the rule "
-    + "implementation function.</li>"
-    + "</ul>")
-public interface TransitiveInfoCollection extends SkylarkIndexable {
+          + "<ul>"
+          + "<li><h3 id=\"modules.Target.label\">label</h3><code><a class=\"anchor\" "
+          + "href=\"Label.html\">Label</a> Target.label</code><br>The identifier of the "
+          + "target.</li>"
+          + "<li><h3 id=\"modules.Target.files\">files</h3><code><a class=\"anchor\" "
+          + "href=\"depset.html\">depset</a> Target.files </code><br>The set of "
+          + "<a class=\"anchor\" href=\"File.html\">File</a>s produced directly by this "
+          + "target.</li>"
+          + "<li><h3 id=\"modules.Target.aspect_ids\">aspect_ids</h3><code><a class=\"anchor\""
+          + "href=\"list.html\">list</a> Target.aspect_ids </code><br>The list of "
+          + "<a class=\"anchor\" href=\"ctx.html#aspect_id\">aspect_id</a>s applied to this "
+          + "target.</li>"
+          + "<li><h3 id=\"modules.Target.extraproviders\">Extra providers</h3>For rule targets all "
+          + "additional providers provided by this target are accessible as <code>struct</code> "
+          + "fields. These extra providers are defined in the <code>struct</code> returned by the "
+          + "rule implementation function.</li>"
+          + "</ul>"
+)
+public interface TransitiveInfoCollection extends SkylarkIndexable, SkylarkProviderCollection {
 
   /**
    * Returns the transitive information provider requested, or null if the provider is not found.
@@ -77,24 +82,23 @@ public interface TransitiveInfoCollection extends SkylarkIndexable {
   @Nullable BuildConfiguration getConfiguration();
 
   /**
-   * Returns the transitive information requested or null, if the information is not found.
-   * The transitive information has to have been added using the Skylark framework.
+   * Checks whether this {@link TransitiveInfoCollection} satisfies given {@link RequiredProviders}.
    */
-  @Nullable Object get(String providerKey);
+  default boolean satisfies(RequiredProviders providers) {
+    return providers.isSatisfiedBy(
+        aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
+        id -> this.get(id) != null);
+  }
 
   /**
-   * Returns the declared provider requested, or null, if the information is not found.
-   * The transitive information has to have been added using the Skylark framework.
-   */
-  @Nullable SkylarkClassObject get(SkylarkClassObjectConstructor.Key providerKey);
-
-  /**
-   * Returns the provider defined in Skylark, or null, if the information is not found.
-   * The transitive information has to have been added using the Skylark framework.
+   * Returns providers that this {@link TransitiveInfoCollection} misses from a given {@link
+   * RequiredProviders}.
    *
-   * This method dispatches to either {@link #get(SkylarkClassObjectConstructor.Key)} or
-   * {@link #get(String)} depending on whether {@link SkylarkProviderIdentifier} is for
-   * legacy or for declared provider.
+   * <p>If none are missing, returns {@link RequiredProviders} that accept any set of providers.
    */
-  @Nullable Object get(SkylarkProviderIdentifier id);
+  default RequiredProviders missingProviders(RequiredProviders providers) {
+    return providers.getMissing(
+        aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
+        id -> this.get(id) != null);
+  }
 }

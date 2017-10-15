@@ -32,6 +32,10 @@ struct JNIEventsDiffAwareness {
   // The former is called inside the FsEvents run loop and the latter
   // from Java threads.
   pthread_mutex_t mutex;
+
+  JNIEventsDiffAwareness() { pthread_mutex_init(&mutex, nullptr); }
+
+  ~JNIEventsDiffAwareness() { pthread_mutex_destroy(&mutex); }
 };
 
 // Callback called when an event is reported by the FSEvents API
@@ -64,7 +68,7 @@ Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_create(
     JNIEnv *env, jobject fsEventsDiffAwareness, jobjectArray paths,
     jdouble latency) {
   // Create a FSEventStreamContext to pass around (env, fsEventsDiffAwareness)
-  JNIEventsDiffAwareness *info = new JNIEventsDiffAwareness;
+  JNIEventsDiffAwareness *info = new JNIEventsDiffAwareness();
 
   FSEventStreamContext context;
   context.version = 0;

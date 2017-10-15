@@ -19,7 +19,6 @@ import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -39,20 +38,23 @@ import java.util.Set;
 public class BuildConfigurationFunction implements SkyFunction {
 
   private final BlazeDirectories directories;
-  private final RuleClassProvider ruleClassProvider;
-  private final ConfigurationCollectionFactory collectionFactory;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
 
   public BuildConfigurationFunction(BlazeDirectories directories,
       RuleClassProvider ruleClassProvider) {
     this.directories = directories;
-    this.ruleClassProvider = ruleClassProvider;
-    collectionFactory =
-        ((ConfiguredRuleClassProvider) ruleClassProvider).getConfigurationCollectionFactory();
+    this.ruleClassProvider = (ConfiguredRuleClassProvider) ruleClassProvider;
   }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, BuildConfigurationFunctionException {
+    WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue) env
+        .getValue(WorkspaceNameValue.key());
+    if (workspaceNameValue == null) {
+      return null;
+    }
+
     BuildConfigurationValue.Key key = (BuildConfigurationValue.Key) skyKey.argument();
     Set<Fragment> fragments;
     try {
@@ -69,16 +71,12 @@ public class BuildConfigurationFunction implements SkyFunction {
       fragmentsMap.put(fragment.getClass(), fragment);
     }
 
-    BuildConfiguration config = new BuildConfiguration(directories, fragmentsMap,
-        key.getBuildOptions(), !key.actionsEnabled());
-    // Unlike static configurations, dynamic configurations don't need to embed transition logic
-    // within the configuration itself. However we still use this interface to provide a mapping
-    // between Transition types (e.g. HOST) and the dynamic transitions that apply those
-    // transitions. Once static configurations are cleaned out we won't need this interface
-    // any more (all the centralized logic that maintains the transition logic can be distributed
-    // to the actual rule code that uses it).
-    config.setConfigurationTransitions(collectionFactory.getDynamicTransitionLogic(config));
-
+    BuildConfiguration config =
+        new BuildConfiguration(
+            directories,
+            fragmentsMap,
+            key.getBuildOptions(),
+            workspaceNameValue.getName());
     return new BuildConfigurationValue(config);
   }
 

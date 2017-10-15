@@ -19,18 +19,18 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.QueryExpressionEvalListener;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.StreamedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
@@ -67,7 +67,7 @@ import java.util.Set;
 public final class QueryCommand implements BlazeCommand {
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) { }
+  public void editOptions(OptionsParser optionsParser) { }
 
   /**
    * Exit codes:
@@ -138,7 +138,6 @@ public final class QueryCommand implements BlazeCommand {
           queryOptions.universeScope,
           queryOptions.loadingPhaseThreads,
           settings);
-    // 1. Parse and transform query:
     QueryExpression expr;
     try {
       expr = QueryExpression.parse(query, queryEnv);
@@ -147,21 +146,27 @@ public final class QueryCommand implements BlazeCommand {
           .handle(Event.error(null, "Error while parsing '" + query + "': " + e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;
     }
+
+    try {
+      formatter.verifyCompatible(queryEnv, expr);
+    } catch (QueryException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+
     expr = queryEnv.transformParsedQuery(expr);
 
     OutputStream out = env.getReporter().getOutErr().getOutputStream();
-    OutputFormatterCallback<Target> callback;
+    ThreadSafeOutputFormatterCallback<Target> callback;
     if (streamResults) {
       disableAnsiCharactersFiltering(env);
-
-      // 2. Evaluate expression:
       StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
       streamedFormatter.setOptions(
           queryOptions,
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
       callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
     } else {
-      callback = QueryUtil.newAggregateAllOutputFormatterCallback();
+      callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
     }
     boolean catastrophe = true;
     try {
@@ -201,14 +206,12 @@ public final class QueryCommand implements BlazeCommand {
       }
     }
 
-    env.getEventBus().post(new NoBuildEvent());
+    env.getEventBus().post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime(), true));
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
-
-      // 3. Output results:
       try {
         Set<Target> targets =
-            ((AggregateAllOutputFormatterCallback<Target>) callback).getResult();
+            ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
         QueryOutputUtils.output(
             queryOptions,
             result,
@@ -237,7 +240,10 @@ public final class QueryCommand implements BlazeCommand {
       env.getReporter().handle(Event.info("Empty results"));
     }
 
-    return result.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;
+    ExitCode exitCode = result.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;
+    env.getEventBus()
+        .post(new NoBuildRequestFinishedEvent(exitCode, runtime.getClock().currentTimeMillis()));
+    return exitCode;
   }
 
   /**
@@ -277,7 +283,7 @@ public final class QueryCommand implements BlazeCommand {
             env.getReporter(),
             settings,
             env.getRuntime().getQueryFunctions(),
-            QueryExpressionEvalListener.NullListener.<Target>instance(),
-            env.getPackageManager().getPackagePath());
+            env.getPackageManager().getPackagePath(),
+            /*blockUniverseEvaluationErrors=*/ false);
   }
 }

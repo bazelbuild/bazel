@@ -13,29 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
-import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.OUTPUT;
-import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER_LIST;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
-import static com.google.devtools.build.lib.syntax.Type.STRING_DICT_UNARY;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
-
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -45,15 +24,15 @@ import com.google.devtools.build.lib.packages.Attribute.ComputationLimiter;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
+import com.google.devtools.build.lib.syntax.Type.ListType;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -63,11 +42,6 @@ import javax.annotation.Nullable;
  * values an attribute might take.
  */
 public class AggregatingAttributeMapper extends AbstractAttributeMapper {
-
-  @SuppressWarnings("unchecked")
-  private static final ImmutableSet<Type<?>> scalarTypes =
-      ImmutableSet.of(INTEGER, STRING, LABEL, NODEP_LABEL, OUTPUT, BOOLEAN, TRISTATE, LICENSE);
-
   private final Rule rule;
 
   private AggregatingAttributeMapper(Rule rule) {
@@ -98,13 +72,13 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * path whenever actual value iteration isn't specifically needed.
    */
   @Override
-  protected void visitLabels(Attribute attribute, AcceptsLabelAttribute observer)
+  protected void visitLabels(Attribute attribute, Type.LabelVisitor<Attribute> visitor)
       throws InterruptedException {
-    visitLabels(attribute, true, observer);
+    visitLabels(attribute, true, visitor);
   }
 
   private void visitLabels(
-      final Attribute attribute, boolean includeSelectKeys, final AcceptsLabelAttribute observer)
+      Attribute attribute, boolean includeSelectKeys, Type.LabelVisitor<Attribute> visitor)
       throws InterruptedException {
     Type<?> type = attribute.getType();
     SelectorList<?> selectorList = getSelectorList(attribute.getName(), type);
@@ -114,57 +88,41 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         // (computed) values and look for labels.
         for (Object value : visitAttribute(attribute.getName(), attribute.getType())) {
           if (value != null) {
-            type.visitLabels(new Type.LabelVisitor() {
-              @Override
-              public void visit(@Nullable Label label) throws InterruptedException {
-                if (label != null) {
-                  observer.acceptLabelAttribute(
-                      getLabel().resolveRepositoryRelative(label), attribute);
-                }
-              }
-            }, value);
+            type.visitLabels(visitor, value, attribute);
           }
         }
       } else {
-        super.visitLabels(attribute, observer);
+        super.visitLabels(attribute, visitor);
       }
     } else {
       for (Selector<?> selector : selectorList.getSelectors()) {
         for (Map.Entry<Label, ?> selectorEntry : selector.getEntries().entrySet()) {
           if (includeSelectKeys && !BuildType.Selector.isReservedLabel(selectorEntry.getKey())) {
-            observer.acceptLabelAttribute(
-                getLabel().resolveRepositoryRelative(selectorEntry.getKey()), attribute);
+            visitor.visit(selectorEntry.getKey(), attribute);
           }
           Object value = selector.isValueSet(selectorEntry.getKey())
               ? selectorEntry.getValue()
               : attribute.getDefaultValue(null);
-          type.visitLabels(new Type.LabelVisitor() {
-            @Override
-            public void visit(@Nullable Label label) throws InterruptedException {
-              if (label != null) {
-                observer.acceptLabelAttribute(
-                    getLabel().resolveRepositoryRelative(label), attribute);
-              }
-            }
-          }, value);
+          type.visitLabels(visitor, value, attribute);
         }
       }
     }
   }
 
   /**
-   * Returns all labels reachable via the given attribute. If a label is listed multiple times, each
-   * instance appears in the returned list.
+   * Returns all labels reachable via the given attribute, with duplicate instances removed.
    *
    * @param includeSelectKeys whether to include config_setting keys for configurable attributes
    */
-  public List<Label> getReachableLabels(String attributeName, boolean includeSelectKeys)
+  public Set<Label> getReachableLabels(String attributeName, boolean includeSelectKeys)
       throws InterruptedException {
-    final ImmutableList.Builder<Label> builder = ImmutableList.builder();
-    visitLabels(getAttributeDefinition(attributeName), includeSelectKeys,
-        new AcceptsLabelAttribute() {
+    final ImmutableSet.Builder<Label> builder = ImmutableSet.<Label>builder();
+    visitLabels(
+        getAttributeDefinition(attributeName),
+        includeSelectKeys,
+        new LabelVisitor<Attribute>() {
           @Override
-          public void acceptLabelAttribute(Label label, Attribute attribute) {
+          public void visit(Label label, Attribute attribute) {
             builder.add(label);
           }
         });
@@ -251,71 +209,30 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Coerces the list {@param possibleValues} of values of type {@param attrType} to a single
-   * value of that type, in the following way:
+   * If the attribute is a selector list of list type, then this method returns a list with number
+   * of elements equal to the number of select statements in the selector list. Each element of this
+   * list is equal to concatenating every possible attribute value in a single select statement.
+   * The conditions themselves in the select statements are completely ignored. Returns {@code null}
+   * if the attribute isn't of the desired format.
    *
-   * <p>If the list contains a single value, return that value.
-   *
-   * <p>If the list contains zero or multiple values and the type is a scalar type, return {@code
-   * null}.
-   *
-   * <p>If the list contains zero or multiple values and the type is a collection or map type,
-   * merge the collections/maps in the list and return the merged collection/map.
+   * As an example, if we have select({a: ["a"], b: ["a", "b"]}) + select({a: ["c", "d"], c: ["e"])
+   * The output will be [["a", "a", "b"], ["c", "d", "e"]]. The idea behind this structure is that
+   * at least some of the structure in the original selector list is preserved and we know any
+   * possible attribute value is the result of concatenating some sublist of each element.
    */
   @Nullable
-  @SuppressWarnings("unchecked")
-  public static Object flattenAttributeValues(Type<?> attrType, Iterable<Object> possibleValues) {
-    // If there is only one possible value, return it.
-    if (Iterables.size(possibleValues) == 1) {
-      return Iterables.getOnlyElement(possibleValues);
-    }
+  public <T> Iterable<T> getConcatenatedSelectorListsOfListType(
+      String attributeName, Type<T> type) {
+    SelectorList<T> selectorList = getSelectorList(attributeName, type);
+    if (selectorList != null && type instanceof ListType) {
+      List<T> selectList = new ArrayList<>();
 
-    // Otherwise, there are multiple possible values. To conform to the message shape expected by
-    // query output's clients, we must transform the list of possible values. This transformation
-    // will be lossy, but this is the best we can do.
-
-    // If the attribute's type is not a collection type, return null. Query output's clients do
-    // not support list values for scalar attributes.
-    if (scalarTypes.contains(attrType)) {
-      return null;
-    }
-
-    // If the attribute's type is a collection type, merge the list of collections into a single
-    // collection. This is a sensible solution for query output's clients, which are happy to get
-    // the union of possible values.
-    if (attrType == STRING_LIST
-        || attrType == LABEL_LIST
-        || attrType == NODEP_LABEL_LIST
-        || attrType == OUTPUT_LIST
-        || attrType == DISTRIBUTIONS
-        || attrType == INTEGER_LIST
-        || attrType == FILESET_ENTRY_LIST) {
-      Builder<Object> builder = ImmutableList.builder();
-      for (Object possibleValue : possibleValues) {
-        Collection<Object> collection = (Collection<Object>) possibleValue;
-        for (Object o : collection) {
-          builder.add(o);
-        }
+      for (Selector<T> selector : selectorList.getSelectors()) {
+        selectList.add(type.concat(selector.getEntries().values()));
       }
-      return builder.build();
+      return ImmutableList.copyOf(selectList);
     }
-
-    // Same for maps as for collections.
-    if (attrType == STRING_DICT
-        || attrType == STRING_DICT_UNARY
-        || attrType == STRING_LIST_DICT
-        || attrType == LABEL_DICT_UNARY) {
-      Map<Object, Object> mergedDict = new HashMap<>();
-      for (Object possibleValue : possibleValues) {
-        Map<Object, Object> stringDict = (Map<Object, Object>) possibleValue;
-        for (Entry<Object, Object> entry : stringDict.entrySet()) {
-          mergedDict.put(entry.getKey(), entry.getValue());
-        }
-      }
-      return mergedDict;
-    }
-
-    throw new AssertionError("Unknown type: " + attrType);
+    return null;
   }
 
   /**
@@ -555,8 +472,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       }
 
       @Override
-      public <T> boolean isConfigurable(String attributeName, Type<T> type) {
-        return owner.isConfigurable(attributeName, type);
+      public boolean isConfigurable(String attributeName) {
+        return owner.isConfigurable(attributeName);
       }
 
       @Override
@@ -620,7 +537,12 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       }
 
       @Override
-      public boolean has(String attrName, Type<?> type) {
+      public boolean has(String attrName) {
+        return owner.has(attrName);
+      }
+
+      @Override
+      public <T> boolean has(String attrName, Type<T> type) {
         return owner.has(attrName, type);
       }
     };
@@ -629,14 +551,17 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   private static ImmutableList<Label> extractLabels(Type<?> type, Object value) {
     try {
       final ImmutableList.Builder<Label> result = ImmutableList.builder();
-      type.visitLabels(new Type.LabelVisitor() {
-        @Override
-        public void visit(@Nullable Label label) {
-          if (label != null) {
-            result.add(label);
-          }
-        }
-      }, value);
+      type.visitLabels(
+          new Type.LabelVisitor<Object>() {
+            @Override
+            public void visit(@Nullable Label label, Object dummy) {
+              if (label != null) {
+                result.add(label);
+              }
+            }
+          },
+          value,
+          /*context=*/ null);
       return result.build();
     } catch (InterruptedException e) {
       throw new IllegalStateException("Unexpected InterruptedException", e);

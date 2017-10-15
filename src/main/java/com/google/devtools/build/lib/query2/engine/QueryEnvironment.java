@@ -13,18 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Callable;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * The environment of a Blaze query. Implementations do not need to be thread-safe. The generic type
  * T represents a node of the graph on which the query runs; as such, there is no restriction on T.
  * However, query assumes a certain graph model, and the {@link TargetAccessor} class is used to
- * access properties of these nodes.
+ * access properties of these nodes. Also, the query engine doesn't assume T's
+ * {@link Object#hashCode} and {@link Object#equals} are meaningful and instead uses
+ * {@link QueryEnvironment#createUniquifier}, {@link QueryEnvironment#createThreadSafeMutableSet()},
+ * and {@link QueryEnvironment#createMutableMap()} when appropriate.
  *
  * @param <T> the node type of the dependency graph
  */
@@ -50,15 +56,15 @@ public interface QueryEnvironment<T> {
       this.integer = integer;
     }
 
-    static Argument of(QueryExpression expression) {
+    public static Argument of(QueryExpression expression) {
       return new Argument(ArgumentType.EXPRESSION, expression, null, 0);
     }
 
-    static Argument of(String word) {
+    public static Argument of(String word) {
       return new Argument(ArgumentType.WORD, null, word, 0);
     }
 
-    static Argument of(int integer) {
+    public static Argument of(int integer) {
       return new Argument(ArgumentType.INTEGER, null, null, integer);
     }
 
@@ -91,16 +97,14 @@ public interface QueryEnvironment<T> {
 
   /** A user-defined query function. */
   interface QueryFunction {
-    /**
-     * Name of the function as it appears in the query language.
-     */
+    /** Name of the function as it appears in the query language. */
     String getName();
 
     /**
      * The number of arguments that are required. The rest is optional.
      *
-     * <p>This should be greater than or equal to zero and at smaller than or equal to the length
-     * of the list returned by {@link #getArgumentTypes}.
+     * <p>This should be greater than or equal to zero and at smaller than or equal to the length of
+     * the list returned by {@link #getArgumentTypes}.
      */
     int getMandatoryArguments();
 
@@ -108,34 +112,21 @@ public interface QueryEnvironment<T> {
     Iterable<ArgumentType> getArgumentTypes();
 
     /**
-     * Called when a user-defined function is to be evaluated.
+     * Returns a {@link QueryTaskFuture} representing the asynchronous application of this
+     * {@link QueryFunction} to the given {@code args}, feeding the results to the given
+     * {@code callback}.
      *
      * @param env the query environment this function is evaluated in.
      * @param expression the expression being evaluated.
-     * @param args the input arguments. These are type-checked against the specification returned
-     *     by {@link #getArgumentTypes} and {@link #getMandatoryArguments}
+     * @param args the input arguments. These are type-checked against the specification returned by
+     *     {@link #getArgumentTypes} and {@link #getMandatoryArguments}
      */
-    <T> void eval(
+    <T> QueryTaskFuture<Void> eval(
         QueryEnvironment<T> env,
         VariableContext<T> context,
         QueryExpression expression,
         List<Argument> args,
-        Callback<T> callback) throws QueryException, InterruptedException;
-
-    /**
-     * Same as {@link #eval(QueryEnvironment, VariableContext, QueryExpression, List, Callback)},
-     * except that this {@link QueryFunction} may use {@code forkJoinPool} to achieve
-     * parallelism.
-     *
-     * <p>The caller must ensure that {@code env} is thread safe.
-     */
-    <T> void parEval(
-        QueryEnvironment<T> env,
-        VariableContext<T> context,
-        QueryExpression expression,
-        List<Argument> args,
-        ThreadSafeCallback<T> callback,
-        ForkJoinPool forkJoinPool) throws QueryException, InterruptedException;
+        Callback<T> callback);
   }
 
   /**
@@ -152,12 +143,15 @@ public interface QueryEnvironment<T> {
     }
   }
 
+  /** Returns all of the targets in <code>target</code>'s package, in some stable order. */
+  Collection<T> getSiblingTargetsInPackage(T target);
+
   /**
    * Invokes {@code callback} with the set of target nodes in the graph for the specified target
    * pattern, in 'blaze build' syntax.
    */
-  void getTargetsMatchingPattern(QueryExpression owner, String pattern, Callback<T> callback)
-      throws QueryException, InterruptedException;
+  QueryTaskFuture<Void> getTargetsMatchingPattern(
+      QueryExpression owner, String pattern, Callback<T> callback);
 
   /** Ensures the specified target exists. */
   // NOTE(bazel-team): this method is left here as scaffolding from a previous refactoring. It may
@@ -165,16 +159,17 @@ public interface QueryEnvironment<T> {
   T getOrCreate(T target);
 
   /** Returns the direct forward dependencies of the specified targets. */
-  Collection<T> getFwdDeps(Iterable<T> targets) throws InterruptedException;
+  Iterable<T> getFwdDeps(Iterable<T> targets) throws InterruptedException;
 
   /** Returns the direct reverse dependencies of the specified targets. */
-  Collection<T> getReverseDeps(Iterable<T> targets) throws InterruptedException;
+  Iterable<T> getReverseDeps(Iterable<T> targets) throws InterruptedException;
 
   /**
    * Returns the forward transitive closure of all of the targets in "targets". Callers must ensure
    * that {@link #buildTransitiveClosure} has been called for the relevant subgraph.
    */
-  Set<T> getTransitiveClosure(Set<T> targets) throws InterruptedException;
+  ThreadSafeMutableSet<T> getTransitiveClosure(ThreadSafeMutableSet<T> targets)
+      throws InterruptedException;
 
   /**
    * Construct the dependency graph for a depth-bounded forward transitive closure
@@ -186,28 +181,216 @@ public interface QueryEnvironment<T> {
    * after it is built anyway.
    */
   void buildTransitiveClosure(QueryExpression caller,
-                              Set<T> targetNodes,
+                              ThreadSafeMutableSet<T> targetNodes,
                               int maxDepth) throws QueryException, InterruptedException;
 
-  /** Returns the set of nodes on some path from "from" to "to". */
-  Set<T> getNodesOnPath(T from, T to) throws InterruptedException;
+  /** Returns the ordered sequence of nodes on some path from "from" to "to". */
+  Iterable<T> getNodesOnPath(T from, T to) throws InterruptedException;
 
   /**
-   * Eval an expression {@code expr} and pass the results to the {@code callback}.
+   * Returns a {@link QueryTaskFuture} representing the asynchronous evaluation of the given
+   * {@code expr} and passing of the results to the given {@code callback}.
    *
    * <p>Note that this method should guarantee that the callback does not see repeated elements.
+   *
    * @param expr The expression to evaluate
    * @param callback The caller callback to notify when results are available
    */
-  void eval(QueryExpression expr, VariableContext<T> context, Callback<T> callback)
-      throws QueryException, InterruptedException;
+  QueryTaskFuture<Void> eval(
+      QueryExpression expr, VariableContext<T> context, Callback<T> callback);
 
   /**
-   * Creates a Uniquifier for use in a {@code QueryExpression}. Note that the usage of this an
+   * An asynchronous computation of part of a query evaluation.
+   *
+   * <p>A {@link QueryTaskFuture} can only be produced from scratch via {@link #eval},
+   * {@link #executeAsync}, {@link #immediateSuccessfulFuture}, {@link #immediateFailedFuture}, and
+   * {@link #immediateCancelledFuture}.
+   *
+   * <p>Combined with the helper methods like {@link #whenSucceedsCall} below, this is very similar
+   * to Guava's {@link ListenableFuture}.
+   *
+   * <p>This class is deliberately opaque; the only ways to compose/use {@link #QueryTaskFuture}
+   * instances are the helper methods like {@link #whenSucceedsCall} below. A crucial consequence of
+   * this is there is no way for a {@link QueryExpression} or {@link QueryFunction} implementation
+   * to block on the result of a {@link #QueryTaskFuture}. This eliminates a large class of
+   * deadlocks by design!
+   */
+  @ThreadSafe
+  public abstract class QueryTaskFuture<T> {
+    // We use a public abstract class with a private constructor so that this type is visible to all
+    // the query codebase, but yet the only possible implementation is under our control in this
+    // file.
+    private QueryTaskFuture() {}
+
+    /**
+     * If this {@link QueryTasksFuture}'s encapsulated computation is currently complete and
+     * successful, returns the result. This method is intended to be used in combination with
+     * {@link #whenSucceedsCall}.
+     *
+     * <p>See the javadoc for the various helper methods that produce {@link QueryTasksFuture} for
+     * the precise definition of "successful".
+     */
+    public abstract T getIfSuccessful();
+  }
+
+  /**
+   * Returns a {@link QueryTaskFuture} representing the successful computation of {@code value}.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
+   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
+   * {@link QueryTaskFuture#getIfSuccessful}.
+   */
+  abstract <R> QueryTaskFuture<R> immediateSuccessfulFuture(R value);
+
+  /**
+   * Returns a {@link QueryTaskFuture} representing a computation that was unsuccessful because of
+   * {@code e}.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "unsuccessful" for purposes of
+   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
+   * {@link QueryTaskFuture#getIfSuccessful}.
+   */
+  abstract <R> QueryTaskFuture<R> immediateFailedFuture(QueryException e);
+
+  /**
+   * Returns a {@link QueryTaskFuture} representing a cancelled computation.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "unsuccessful" for purposes of
+   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
+   * {@link QueryTaskFuture#getIfSuccessful}.
+   */
+  abstract <R> QueryTaskFuture<R> immediateCancelledFuture();
+
+  /** A {@link ThreadSafe} {@link Callable} for computations during query evaluation. */
+  @ThreadSafe
+  public interface QueryTaskCallable<T> extends Callable<T> {
+    /**
+     * Returns the computed value or throws a {@link QueryException} on failure or a
+     * {@link InterruptedException} on interruption.
+     */
+    @Override
+    T call() throws QueryException, InterruptedException;
+  }
+
+  /**
+   * Returns a {@link QueryTaskFuture} representing the given computation {@code callable} being
+   * performed asynchronously.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
+   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
+   * {@link QueryTaskFuture#getIfSuccessful} iff {@code callable#call} does not throw an exception.
+   */
+  <R> QueryTaskFuture<R> executeAsync(QueryTaskCallable<R> callable);
+
+  /**
+   * Returns a {@link QueryTaskFuture} representing the given computation {@code callable} being
+   * performed after the successful completion of the computation encapsulated by the given
+   * {@code future} has completed successfully.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
+   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
+   * {@link QueryTaskFuture#getIfSuccessful} iff {@code future} is successful and
+   * {@code callable#call} does not throw an exception.
+   */
+  <R> QueryTaskFuture<R> whenSucceedsCall(QueryTaskFuture<?> future, QueryTaskCallable<R> callable);
+
+  /**
+   * Returns a {@link QueryTaskFuture} representing the successful completion of all the
+   * computations encapsulated by the given {@code futures}.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
+   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
+   * {@link QueryTaskFuture#getIfSuccessful} iff all of the given computations are "successful".
+   */
+  QueryTaskFuture<Void> whenAllSucceed(Iterable<? extends QueryTaskFuture<?>> futures);
+
+  /**
+   * Returns a {@link QueryTaskFuture} representing the given computation {@code callable} being
+   * performed after the successful completion of all the computations encapsulated by the given
+   * {@code futures}.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
+   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
+   * {@link QueryTaskFuture#getIfSuccessful} iff all of the given computations are "successful" and
+   * {@code callable#call} does not throw an exception.
+   */
+  <R> QueryTaskFuture<R> whenAllSucceedCall(
+      Iterable<? extends QueryTaskFuture<?>> futures, QueryTaskCallable<R> callable);
+
+  /**
+   * Returns a {@link QueryTaskFuture} representing the asynchronous application of the given
+   * {@code function} to the value produced by the computation encapsulated by the given
+   * {@code future}.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
+   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
+   * {@link QueryTaskFuture#getIfSuccessful} iff {@code} future is "successful".
+   */
+  <T1, T2> QueryTaskFuture<T2> transformAsync(
+      QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function);
+
+  /**
+   * The sole package-protected subclass of {@link QueryTaskFuture}.
+   *
+   * <p>Do not subclass this class; it's an implementation detail. {@link QueryExpression} and
+   * {@link QueryFunction} implementations should use {@link #eval} and {@link #executeAsync} to get
+   * access to {@link QueryTaskFuture} instances and the then use the helper methods like
+   * {@link #whenSucceedsCall} to transform them.
+   */
+  abstract class QueryTaskFutureImplBase<T> extends QueryTaskFuture<T> {
+    protected QueryTaskFutureImplBase() {
+    }
+  }
+
+  /**
+   * A mutable {@link ThreadSafe} {@link Set} that uses proper equality semantics for {@code T}.
+   * {@link QueryExpression}/{@link QueryFunction} implementations should use
+   * {@code ThreadSafeMutableSet<T>} they need a set-like data structure for {@code T}.
+   */
+  @ThreadSafe
+  interface ThreadSafeMutableSet<T> extends Set<T> {
+  }
+
+  /** Returns a fresh {@link ThreadSafeMutableSet} instance for the type {@code T}. */
+  ThreadSafeMutableSet<T> createThreadSafeMutableSet();
+
+  /**
+   * A simple map-like interface that uses proper equality semantics for the key type.
+   * {@link QueryExpression}/{@link QueryFunction} implementations should use
+   * {@code ThreadSafeMutableSet<T, V>} they need a map-like data structure for {@code T}.
+   */
+  interface MutableMap<K, V> {
+    /**
+     * Returns the value {@code value} associated with the given key by the most recent call to
+     * {@code put(key, value)}, or {@code null} if there was no such call.
+     */
+    @Nullable
+    V get(K key);
+
+    /**
+     * Associates the given key with the given value and returns the previous value associated with
+     * the key, or {@code null} if there wasn't one.
+     */
+    V put(K key, V value);
+  }
+
+  /** Returns a fresh {@link MutableMap} instance with key type {@code T}. */
+  <V> MutableMap<T, V> createMutableMap();
+
+  /**
+   * Creates a Uniquifier for use in a {@code QueryExpression}. Note that the usage of this
    * uniquifier should not be used for returning unique results to the parent callback. It should
    * only be used to avoid processing the same elements multiple times within this QueryExpression.
    */
   Uniquifier<T> createUniquifier();
+
+  /**
+   * Creates a {@link MinDepthUniquifier} for use in a {@code QueryExpression}. Note that the usage
+   * of this uniquifier should not be used for returning unique results to the parent callback. It
+   * should only be used to try to avoid processing the same elements multiple times at the same
+   * depth bound within this QueryExpression.
+   */
+  MinDepthUniquifier<T> createMinDepthUniquifier();
 
   void reportBuildFileError(QueryExpression expression, String msg) throws QueryException;
 
@@ -215,9 +398,9 @@ public interface QueryEnvironment<T> {
    * Returns the set of BUILD, and optionally sub-included and Skylark files that define the given
    * set of targets. Each such file is itself represented as a target in the result.
    */
-  Set<T> getBuildFiles(
-      QueryExpression caller, Set<T> nodes, boolean buildFiles, boolean subincludes, boolean loads)
-      throws QueryException, InterruptedException;
+  ThreadSafeMutableSet<T> getBuildFiles(
+      QueryExpression caller, ThreadSafeMutableSet<T> nodes, boolean buildFiles,
+      boolean subincludes, boolean loads) throws QueryException, InterruptedException;
 
   /**
    * Returns an object that can be used to query information about targets. Implementations should
@@ -362,23 +545,21 @@ public interface QueryEnvironment<T> {
     Set<QueryVisibility<T>> getVisibility(T from) throws QueryException, InterruptedException;
   }
 
-  /** Returns the {@link QueryExpressionEvalListener} that this {@link QueryEnvironment} uses. */
-  QueryExpressionEvalListener<T> getEvalListener();
-
   /** List of the default query functions. */
-  List<QueryFunction> DEFAULT_QUERY_FUNCTIONS =
+  ImmutableList<QueryFunction> DEFAULT_QUERY_FUNCTIONS =
       ImmutableList.of(
           new AllPathsFunction(),
-          new BuildFilesFunction(),
-          new LoadFilesFunction(),
           new AttrFunction(),
+          new BuildFilesFunction(),
+          new DepsFunction(),
           new FilterFunction(),
-          new LabelsFunction(),
           new KindFunction(),
+          new LabelsFunction(),
+          new LoadFilesFunction(),
+          new RdepsFunction(),
+          new SiblingsFunction(),
           new SomeFunction(),
           new SomePathFunction(),
           new TestsFunction(),
-          new DepsFunction(),
-          new RdepsFunction(),
           new VisibleFunction());
 }

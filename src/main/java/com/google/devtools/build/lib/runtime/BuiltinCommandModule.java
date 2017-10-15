@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.runtime;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.CanonicalizeCommand;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand;
+import com.google.devtools.build.lib.runtime.commands.CoverageCommand;
 import com.google.devtools.build.lib.runtime.commands.DumpCommand;
 import com.google.devtools.build.lib.runtime.commands.HelpCommand;
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
-import com.google.devtools.build.lib.runtime.commands.MobileInstallCommand;
+import com.google.devtools.build.lib.runtime.commands.LicenseCommand;
+import com.google.devtools.build.lib.runtime.commands.PrintActionCommand;
 import com.google.devtools.build.lib.runtime.commands.ProfileCommand;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.runtime.commands.RunCommand;
@@ -38,15 +40,20 @@ public final class BuiltinCommandModule extends BlazeModule {
         new BuildCommand(),
         new CanonicalizeCommand(),
         new CleanCommand(),
+        new CoverageCommand(),
         new DumpCommand(),
         new HelpCommand(),
         new InfoCommand(),
-        new MobileInstallCommand(),
+        new PrintActionCommand(),
         new ProfileCommand(),
         new QueryCommand(),
         new RunCommand(),
         new ShutdownCommand(),
         new TestCommand(),
         new VersionCommand());
+    // Only enable the "license" command when this binary has an embedded LICENSE file.
+    if (LicenseCommand.isSupported()) {
+      builder.addCommands(new LicenseCommand());
+    }
   }
 }

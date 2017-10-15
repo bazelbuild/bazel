@@ -36,12 +36,8 @@ public final class PyCcLinkParamsProvider implements TransitiveInfoProvider {
   }
 
   public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
-      new Function<TransitiveInfoCollection, CcLinkParamsStore>() {
-        @Override
-        public CcLinkParamsStore apply(TransitiveInfoCollection input) {
-          PyCcLinkParamsProvider provider = input.getProvider(
-              PyCcLinkParamsProvider.class);
-          return provider == null ? null : provider.getLinkParams();
-        }
+      input -> {
+        PyCcLinkParamsProvider provider = input.getProvider(PyCcLinkParamsProvider.class);
+        return provider == null ? null : provider.getLinkParams();
       };
 }

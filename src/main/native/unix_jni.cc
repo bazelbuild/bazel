@@ -137,10 +137,12 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
       exception_classname = "java/io/FileNotFoundException";
       break;
     case EACCES:  // Permission denied
-      exception_classname = "com/google/devtools/build/lib/unix/FileAccessException";
+      exception_classname =
+          "com/google/devtools/build/lib/vfs/FileAccessException";
       break;
     case EPERM:   // Operation not permitted
-      exception_classname = "com/google/devtools/build/lib/unix/FilePermissionException";
+      exception_classname =
+          "com/google/devtools/build/lib/unix/FilePermissionException";
       break;
     case EINTR:   // Interrupted system call
       exception_classname = "java/io/InterruptedIOException";
@@ -813,7 +815,7 @@ static int md5sumAsBytes(const char *file,
   Md5Digest digest;
   // OPT: Using a 32k buffer would give marginally better performance,
   // but what is the stack size here?
-  jbyte buf[4096];
+  jbyte buf[8192];
   int fd;
   while ((fd = open(file, O_RDONLY)) == -1 && errno == EINTR) { }
   if (fd == -1) {

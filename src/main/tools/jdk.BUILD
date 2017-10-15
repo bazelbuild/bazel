@@ -21,27 +21,41 @@ filegroup(
 )
 
 filegroup(
+    name = "jni_md_header-windows",
+    srcs = ["include/win32/jni_md.h"],
+)
+
+filegroup(
     name = "java",
     srcs = select({
        ":windows" : ["bin/java.exe"],
+       ":windows_msys" : ["bin/java.exe"],
+       ":windows_msvc" : ["bin/java.exe"],
        "//conditions:default" : ["bin/java"],
     }),
+    data = [":jdk"],
 )
 
 filegroup(
     name = "jar",
     srcs = select({
        ":windows" : ["bin/jar.exe"],
+       ":windows_msys" : ["bin/jar.exe"],
+       ":windows_msvc" : ["bin/jar.exe"],
        "//conditions:default" : ["bin/jar"],
     }),
+    data = [":jdk"],
 )
 
 filegroup(
     name = "javac",
     srcs = select({
         ":windows" : ["bin/javac.exe"],
+        ":windows_msys" : ["bin/javac.exe"],
+        ":windows_msvc" : ["bin/javac.exe"],
         "//conditions:default" : ["bin/javac"],
     }),
+    data = [":jdk"],
 )
 
 
@@ -68,8 +82,14 @@ filegroup(
     srcs = ["jre/lib/%s" % jar for jar in BOOTCLASS_JARS],
 )
 
+# TODO(cushon): migrate to extclasspath and delete
 filegroup(
     name = "extdir",
+    srcs = glob(["jre/lib/ext/*.jar"]),
+)
+
+filegroup(
+    name = "extclasspath",
     srcs = glob(["jre/lib/ext/*.jar"]),
 )
 
@@ -80,6 +100,8 @@ filegroup(
         # common antivirus software blocks access to npjp2.dll interfering with Bazel,
         # so do not include it in JRE on Windows.
         ":windows" : glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
+        ":windows_msys" : glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
+        ":windows_msvc" : glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
         "//conditions:default" : glob(["jre/bin/**"])
     }),
 )
@@ -126,15 +148,13 @@ filegroup(
         ]),
 )
 
-# Bazel looks for a label ending in -<cpu>, or -default if it can't find one.
-filegroup(
+java_runtime_suite(
     name = "jdk",
-    srcs = [
-        ":jdk-default",
-    ],
+    runtimes = {},
+    default = ":jdk-default",
 )
 
-filegroup(
+java_runtime(
     name = "jdk-default",
     srcs = [
         ":jdk-bin",
@@ -158,5 +178,17 @@ java_import(
 config_setting(
     name = "windows",
     values = {"cpu": "x64_windows"},
+    visibility = ["//visibility:private"],
+)
+
+config_setting(
+    name = "windows_msys",
+    values = {"cpu": "x64_windows_msys"},
+    visibility = ["//visibility:private"],
+)
+
+config_setting(
+    name = "windows_msvc",
+    values = {"cpu": "x64_windows_msvc"},
     visibility = ["//visibility:private"],
 )

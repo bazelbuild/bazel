@@ -13,18 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import static com.google.common.truth.Truth.assertThat;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.util.Random;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link StreamDemultiplexer}.
@@ -58,7 +56,7 @@ public class StreamDemultiplexerTest {
     try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out)) {
       demux.write(multiplexed);
     }
-    assertEquals("Hello, world.", out.toString("ISO-8859-1"));
+    assertThat(out.toString("ISO-8859-1")).isEqualTo("Hello, world.");
   }
 
   @Test
@@ -67,9 +65,9 @@ public class StreamDemultiplexerTest {
     try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out, err, ctl)) {
       demux.write(multiplexed);
     }
-    assertEquals("out", toAnsi(out));
-    assertEquals("err", toAnsi(err));
-    assertEquals("ctl", toAnsi(ctl));
+    assertThat(toAnsi(out)).isEqualTo("out");
+    assertThat(toAnsi(err)).isEqualTo("err");
+    assertThat(toAnsi(ctl)).isEqualTo("ctl");
   }
 
   @Test
@@ -78,7 +76,7 @@ public class StreamDemultiplexerTest {
     try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out)) {
       demux.write(multiplexed);
     }
-    assertEquals("just one line", out.toString("ISO-8859-1"));
+    assertThat(out.toString("ISO-8859-1")).isEqualTo("just one line");
   }
 
   @Test
@@ -88,7 +86,7 @@ public class StreamDemultiplexerTest {
     OutputStream out = mux.createStdout();
     out.write(inAnsi("Hello, world."));
     out.flush();
-    assertEquals("Hello, world.", toAnsi(this.out));
+    assertThat(toAnsi(this.out)).isEqualTo("Hello, world.");
   }
 
   @Test
@@ -109,9 +107,9 @@ public class StreamDemultiplexerTest {
       muxOuts[streamId].write(buffer);
       muxOuts[streamId].flush();
     }
-    assertArrayEquals(expectedOuts[0].toByteArray(), out.toByteArray());
-    assertArrayEquals(expectedOuts[1].toByteArray(), err.toByteArray());
-    assertArrayEquals(expectedOuts[2].toByteArray(), ctl.toByteArray());
+    assertThat(out.toByteArray()).isEqualTo(expectedOuts[0].toByteArray());
+    assertThat(err.toByteArray()).isEqualTo(expectedOuts[1].toByteArray());
+    assertThat(ctl.toByteArray()).isEqualTo(expectedOuts[2].toByteArray());
   }
 
   private static byte[] chunk(int stream, String payload) {

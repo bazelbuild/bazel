@@ -27,7 +27,21 @@ cc_library(
         "mapped_file.h",
         "zip.h",
     ],
-    deps = [":zlib_client"],
+    deps = [
+        ":platform_utils",
+        ":zlib_client",
+    ] + select({
+        "//src:windows": [
+            "//src/main/cpp/util:errors",
+            "//src/main/cpp/util:file",
+        ],
+        "//src:windows_msvc": [
+            "//src/main/cpp/util:errors",
+            "//src/main/cpp/util:file",
+        ],
+        "//conditions:default": [
+        ],
+    }),
 )
 
 cc_library(
@@ -38,6 +52,20 @@ cc_library(
         "zlib_client.h",
     ],
     deps = ["//third_party/zlib"],
+)
+
+cc_library(
+    name = "platform_utils",
+    srcs = ["platform_utils.cc"],
+    hdrs = [
+        "common.h",
+        "platform_utils.h",
+    ],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:file",
+    ],
 )
 
 cc_binary(
@@ -61,4 +89,10 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + ["//third_party/ijar/test:srcs"],
     visibility = ["//third_party:__pkg__"],
+)
+
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
 )

@@ -15,14 +15,12 @@ package com.google.devtools.build.lib.util.io;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link LinePrefixingOutputStream}.
@@ -52,22 +50,20 @@ public class LinePrefixingOutputStreamTest {
   public void testOutputIfFlushed() throws IOException {
     prefixOut.write(bytes("We'll flush after this line."));
     prefixOut.flush();
-    assertEquals("Prefix: We'll flush after this line.\n",
-                 string(out.toByteArray()));
+    assertThat(string(out.toByteArray())).isEqualTo("Prefix: We'll flush after this line.\n");
   }
 
   @Test
   public void testAutoflushUponNewline() throws IOException {
     prefixOut.write(bytes("Hello, newline.\n"));
-    assertEquals("Prefix: Hello, newline.\n", string(out.toByteArray()));
+    assertThat(string(out.toByteArray())).isEqualTo("Prefix: Hello, newline.\n");
   }
 
   @Test
   public void testAutoflushUponEmbeddedNewLine() throws IOException {
     prefixOut.write(bytes("Hello line1.\nHello line2.\nHello line3.\n"));
-    assertEquals(
-        "Prefix: Hello line1.\nPrefix: Hello line2.\nPrefix: Hello line3.\n",
-        string(out.toByteArray()));
+    assertThat(string(out.toByteArray()))
+        .isEqualTo("Prefix: Hello line1.\nPrefix: Hello line2.\nPrefix: Hello line3.\n");
   }
 
   @Test
@@ -82,8 +78,7 @@ public class LinePrefixingOutputStreamTest {
     prefixOut.write(bytes(junk + junk));
     prefixOut.write(bytes(junk + junk));
     prefixOut.write(bytes("x"));
-    assertEquals("Prefix: " + junk + "\n" + "Prefix: " + junk + "\n"
-        + "Prefix: " + junk + "\n" + "Prefix: " + junk + "\n",
-        string(out.toByteArray()));
+    assertThat(string(out.toByteArray())).isEqualTo("Prefix: " + junk + "\nPrefix: " + junk
+        + "\nPrefix: " + junk + "\nPrefix: " + junk + "\n");
   }
 }

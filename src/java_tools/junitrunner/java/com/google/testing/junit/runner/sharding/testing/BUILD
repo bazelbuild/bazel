@@ -1,10 +1,3 @@
-DEFAULT_VISIBILITY = [
-    "//java/com/google/testing/junit/runner:__subpackages__",
-    "//javatests/com/google/testing/junit/runner:__subpackages__",
-    "//third_party/bazel/src/java_tools/junitrunner/java/com/google/testing/junit/runner:__subpackages__",
-    "//third_party/bazel/src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:__subpackages__",
-]
-
 package(default_visibility = ["//src:__subpackages__"])
 
 java_library(
@@ -14,6 +7,7 @@ java_library(
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -21,6 +15,5 @@ java_library(
 
 filegroup(
     name = "srcs",
-    testonly = 0,  # All srcs should be not test only, overwrite package default.
-    srcs = glob(["**"]),
+    srcs = glob(["**/*.java"]) + ["BUILD"],
 )

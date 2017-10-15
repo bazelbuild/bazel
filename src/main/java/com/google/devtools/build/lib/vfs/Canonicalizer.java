@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 
 /**
  * Static singleton holder for certain interning pools.
@@ -22,7 +22,7 @@ import com.google.common.collect.Interners;
 public final class Canonicalizer<E> {
 
   private static final Interner<PathFragment> FRAGMENT_INTERNER =
-      Interners.newWeakInterner();
+      BlazeInterners.newWeakInterner();
 
   /**
    * Creates an instance of Canonicalizer tracking path fragments.

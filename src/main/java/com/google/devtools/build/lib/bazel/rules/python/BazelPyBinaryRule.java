@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBinaryBaseRule;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 
@@ -37,6 +38,10 @@ public final class BazelPyBinaryRule implements RuleDefinition {
     minus the extension.  For example, if your entry point is called
     <code>main.py</code>, then your name should be <code>main</code>.
     <!-- #END_BLAZE_RULE.NAME --> */
+    Label launcher = env.getLauncherLabel();
+    if (launcher != null) {
+      builder.add(attr("$launcher", LABEL).cfg(HOST).value(launcher));
+    }
     return builder
         .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
         .add(attr("$zipper", LABEL).cfg(HOST).exec().value(env.getToolsLabel("//tools/zip:zipper")))

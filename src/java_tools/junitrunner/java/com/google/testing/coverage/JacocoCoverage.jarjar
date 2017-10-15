@@ -1,0 +1,2 @@
+rule org.apache.commons.** com.google.testing.coverage.jarjar.@0
+rule org.objectweb.asm.** com.google.testing.coverage.jarjar.@0

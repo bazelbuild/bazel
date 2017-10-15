@@ -1,0 +1,20 @@
+plugindev {
+	pluginImplementationClass 'org.anarres.gradle.plugin.jarjar.JarjarPlugin'
+	pluginDescription "Jarjar Links makes it easy to repackage Java libraries."
+	pluginLicenses 'Apache-2.0'
+	pluginTags 'gradle', 'plugin', 'jarjar', 'links', 'asm'
+	authorId 'shevek'
+	authorName 'Shevek'
+	authorEmail 'github@anarres.org'
+	projectUrl "https://github.com/shevek/${rootProject.githubProjectName}"
+	projectIssuesUrl "https://github.com/shevek/${rootProject.githubProjectName}/issues"
+	projectVcsUrl "https://github.com/shevek/${rootProject.githubProjectName}.git"
+	projectInceptionYear '2014'
+	done()
+}
+
+bintray {
+	user = rootProject.hasProperty('bintrayUsername')?rootProject.bintrayUsername:''
+	key = rootProject.hasProperty('bintrayApiKey')?rootProject.bintrayApiKey:''
+	pkg.repo = 'gradle-plugins'
+}

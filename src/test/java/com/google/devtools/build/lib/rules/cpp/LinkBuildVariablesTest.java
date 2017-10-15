@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -23,7 +24,10 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.LibraryToLinkValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.util.OsUtils;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,24 +61,47 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     return (CppLinkAction) getGeneratingAction(linkerOutput);
   }
 
-  private Variables getLinkBuildVariables(ConfiguredTarget target, Link.LinkTargetType type) {
+  /** Returns active build variables for a link action of given type for given target. */
+  protected Variables getLinkBuildVariables(ConfiguredTarget target, Link.LinkTargetType type) {
     return getCppLinkAction(target, type).getLinkCommandLine().getBuildVariables();
   }
 
-  private List<String> getVariableValue(Variables variables, String variable) throws Exception {
+  /** Returns the value of a given sequence variable in context of the given Variables instance. */
+  protected List<String> getSequenceVariableValue(Variables variables, String variable)
+      throws Exception {
     FeatureConfiguration mockFeatureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
                 "feature {",
-                "   name: 'a'",
-                "   flag_set {",
-                "   action: 'foo'",
-                "      flag_group {",
-                "         flag: '%{" + variable + "}'",
-                "      }",
-                "   }",
+                "  name: 'a'",
+                "  flag_set {",
+                "  action: 'foo'",
+                "    flag_group {",
+                "      iterate_over: '" + variable + "'",
+                "      flag: '%{" + variable + "}'",
+                "    }",
+                "  }",
                 "}")
-            .getFeatureConfiguration("a");
+            .getFeatureConfiguration(
+                FeatureSpecification.create(ImmutableSet.of("a"), ImmutableSet.<String>of()));
     return mockFeatureConfiguration.getCommandLine("foo", variables);
+  }
+
+  /** Returns the value of a given string variable in context of the given Variables instance. */
+  protected String getVariableValue(Variables variables, String variable) throws Exception {
+    FeatureConfiguration mockFeatureConfiguration =
+        CcToolchainFeaturesTest.buildFeatures(
+                "feature {",
+                "  name: 'a'",
+                "  flag_set {",
+                "  action: 'foo'",
+                "    flag_group {",
+                "      flag: '%{" + variable + "}'",
+                "    }",
+                "  }",
+                "}")
+            .getFeatureConfiguration(
+                FeatureSpecification.create(ImmutableSet.of("a"), ImmutableSet.<String>of()));
+    return Iterables.getOnlyElement(mockFeatureConfiguration.getCommandLine("foo", variables));
   }
 
   @Test
@@ -98,69 +125,79 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     List<String> variableValue =
-        getVariableValue(variables, CppLinkActionBuilder.LINKSTAMP_PATHS_VARIABLE);
+        getSequenceVariableValue(variables, CppLinkActionBuilder.LINKSTAMP_PATHS_VARIABLE);
     assertThat(Iterables.getOnlyElement(variableValue)).contains("c.o");
   }
 
   @Test
   public void testForcePicBuildVariable() throws Exception {
     useConfiguration("--force_pic");
-    scratch.file("x/BUILD", "cc_binary(", "   name = 'bin',", "   srcs = ['a.cc'],", ")");
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    List<String> variableValue =
-        getVariableValue(variables, CppLinkActionBuilder.FORCE_PIC_VARIABLE);
+    String variableValue = getVariableValue(variables, CppLinkActionBuilder.FORCE_PIC_VARIABLE);
     assertThat(variableValue).contains("");
   }
 
   @Test
-  public void testWholeArchiveBuildVariables() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "cc_binary(",
-        "   name = 'bin.so',",
-        "   srcs = ['a.cc'],",
-        "   linkopts = ['-shared'],",
-        "   linkstatic = 1",
-        ")");
+  public void testLibrariesToLinkAreExported() throws Exception {
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
-    ConfiguredTarget target = getConfiguredTarget("//x:bin.so");
-    Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    List<String> variableValue =
-        getVariableValue(variables, CppLinkActionBuilder.GLOBAL_WHOLE_ARCHIVE_VARIABLE);
-    assertThat(variableValue).contains("");
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.DYNAMIC_LIBRARY);
+    VariableValue librariesToLinkSequence =
+        variables.getVariable(CppLinkActionBuilder.LIBRARIES_TO_LINK_VARIABLE);
+    assertThat(librariesToLinkSequence).isNotNull();
+    Iterable<? extends VariableValue> librariesToLink =
+        librariesToLinkSequence.getSequenceValue(CppLinkActionBuilder.LIBRARIES_TO_LINK_VARIABLE);
+    assertThat(librariesToLink).hasSize(1);
+    VariableValue nameValue =
+        librariesToLink
+            .iterator()
+            .next()
+            .getFieldValue(
+                CppLinkActionBuilder.LIBRARIES_TO_LINK_VARIABLE,
+                LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(nameValue).isNotNull();
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(name).matches(".*a\\..*o");
   }
 
-  /**
-   * Tests that "--whole_archive" is not propagated twice through whole archive inputs and global
-   * whole archive.
-   */
   @Test
-  public void testGlobalWholeArchiveOrWholeArchiveBuildVariables() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "cc_binary(",
-        "   name = 'bin',",
-        "   srcs = ['a.cc', 'b.lo'],",
-        "   linkopts = ['-shared'],",
-        "   linkstatic = 1,",
-        ")");
-    scratch.file("x/a.cc");
-    scratch.file("x/b.lo");
+  public void testLibrarySearchDirectoriesAreExported() throws Exception {
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['some-dir/bar.so'])");
+    scratch.file("x/some-dir/bar.so");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    List<String> globalWholeArchiveVariableValue =
-        getVariableValue(variables, CppLinkActionBuilder.GLOBAL_WHOLE_ARCHIVE_VARIABLE);
-    List<String> wholeArchiveInputVariableValue =
-        getVariableValue(
-            variables, CppLinkActionBuilder.WHOLE_ARCHIVE_LINKER_INPUT_PARAMS_VARIABLE);
-    assertThat(globalWholeArchiveVariableValue).contains("");
-    assertThat(wholeArchiveInputVariableValue).isEmpty();
-    ;
+    List<String> variableValue =
+        getSequenceVariableValue(
+            variables, CppLinkActionBuilder.LIBRARY_SEARCH_DIRECTORIES_VARIABLE);
+    assertThat(Iterables.getOnlyElement(variableValue)).contains("some-dir");
+  }
+
+  @Test
+  public void testLinkerParamFileIsExported() throws Exception {
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['some-dir/bar.so'])");
+    scratch.file("x/some-dir/bar.so");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin");
+    Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
+    String variableValue =
+        getVariableValue(variables, CppLinkActionBuilder.LINKER_PARAM_FILE_VARIABLE);
+    assertThat(variableValue).matches(".*bin/x/bin" + OsUtils.executableExtension() + "-2.params$");
   }
 
   @Test
@@ -172,24 +209,20 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
         .setupCrosstool(mockToolsConfig, "supports_interface_shared_objects: true");
     useConfiguration();
 
-    scratch.file("x/BUILD", "cc_library(", "   name = 'foo',", "   srcs = ['a.cc'],", ")");
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Variables variables = getLinkBuildVariables(target, LinkTargetType.DYNAMIC_LIBRARY);
 
     String interfaceLibraryBuilder =
-        Iterables.getOnlyElement(
-            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_BUILDER_VARIABLE));
+        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_BUILDER_VARIABLE);
     String interfaceLibraryInput =
-        Iterables.getOnlyElement(
-            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_INPUT_VARIABLE));
+        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_INPUT_VARIABLE);
     String interfaceLibraryOutput =
-        Iterables.getOnlyElement(
-            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_OUTPUT_VARIABLE));
+        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_OUTPUT_VARIABLE);
     String generateInterfaceLibrary =
-        Iterables.getOnlyElement(
-            getVariableValue(variables, CppLinkActionBuilder.GENERATE_INTERFACE_LIBRARY_VARIABLE));
+        getVariableValue(variables, CppLinkActionBuilder.GENERATE_INTERFACE_LIBRARY_VARIABLE);
 
     assertThat(generateInterfaceLibrary).isEqualTo("yes");
     assertThat(interfaceLibraryInput).endsWith("libfoo.so");
@@ -206,28 +239,90 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
         .setupCrosstool(mockToolsConfig, "supports_interface_shared_objects: true");
     useConfiguration();
 
-    scratch.file("x/BUILD", "cc_library(", "   name = 'foo',", "   srcs = ['a.cc'],", ")");
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Variables variables = getLinkBuildVariables(target, LinkTargetType.STATIC_LIBRARY);
 
     String interfaceLibraryBuilder =
-        Iterables.getOnlyElement(
-            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_BUILDER_VARIABLE));
+        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_BUILDER_VARIABLE);
     String interfaceLibraryInput =
-        Iterables.getOnlyElement(
-            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_INPUT_VARIABLE));
+        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_INPUT_VARIABLE);
     String interfaceLibraryOutput =
-        Iterables.getOnlyElement(
-            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_OUTPUT_VARIABLE));
+        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_OUTPUT_VARIABLE);
     String generateInterfaceLibrary =
-        Iterables.getOnlyElement(
-            getVariableValue(variables, CppLinkActionBuilder.GENERATE_INTERFACE_LIBRARY_VARIABLE));
+        getVariableValue(variables, CppLinkActionBuilder.GENERATE_INTERFACE_LIBRARY_VARIABLE);
 
     assertThat(generateInterfaceLibrary).isEqualTo("no");
     assertThat(interfaceLibraryInput).endsWith("ignored");
     assertThat(interfaceLibraryOutput).endsWith("ignored");
     assertThat(interfaceLibraryBuilder).endsWith("ignored");
+  }
+
+  @Test
+  public void testIsCcTestLinkActionBuildVariable() throws Exception {
+    scratch.file("x/BUILD",
+        "cc_test(name = 'foo_test', srcs = ['a.cc'])",
+        "cc_binary(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//x:foo_test");
+    Variables testVariables = getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
+
+    assertThat(testVariables.getVariable(CppLinkActionBuilder.IS_CC_TEST_VARIABLE).isTruthy())
+        .isTrue();
+
+    ConfiguredTarget binaryTarget = getConfiguredTarget("//x:foo");
+    Variables binaryVariables = getLinkBuildVariables(binaryTarget, LinkTargetType.EXECUTABLE);
+
+    assertThat(binaryVariables.getVariable(CppLinkActionBuilder.IS_CC_TEST_VARIABLE).isTruthy())
+        .isFalse();
+  }
+
+  @Test
+  public void testStripBinariesIsEnabledWhenStripModeIsAlwaysNoMatterWhat() throws Exception {
+    scratch.file("x/BUILD", "cc_binary(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    assertStripBinaryVariableIsPresent("always", "opt", true);
+    assertStripBinaryVariableIsPresent("always", "fastbuild", true);
+    assertStripBinaryVariableIsPresent("always", "dbg", true);
+    assertStripBinaryVariableIsPresent("sometimes", "opt", false);
+    assertStripBinaryVariableIsPresent("sometimes", "fastbuild", true);
+    assertStripBinaryVariableIsPresent("sometimes", "dbg", false);
+    assertStripBinaryVariableIsPresent("never", "opt", false);
+    assertStripBinaryVariableIsPresent("never", "fastbuild", false);
+    assertStripBinaryVariableIsPresent("never", "dbg", false);
+  }
+
+  private void assertStripBinaryVariableIsPresent(
+      String stripMode, String compilationMode, boolean isEnabled) throws Exception {
+    useConfiguration("--strip=" + stripMode, "--compilation_mode=" + compilationMode);
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    assertThat(variables.isAvailable(CppLinkActionBuilder.STRIP_DEBUG_SYMBOLS_VARIABLE))
+        .isEqualTo(isEnabled);
+  }
+
+  @Test
+  public void testIsUsingFissionVariable() throws Exception {
+    scratch.file("x/BUILD",
+        "cc_binary(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file("x/foo.cc");
+
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, "supports_fission: true");
+
+    useConfiguration("--fission=no");
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    assertThat(variables.isAvailable(CppLinkActionBuilder.IS_USING_FISSION_VARIABLE)).isFalse();
+
+    useConfiguration("--fission=yes");
+    ConfiguredTarget fissionTarget = getConfiguredTarget("//x:foo");
+    Variables fissionVariables = getLinkBuildVariables(fissionTarget, LinkTargetType.EXECUTABLE);
+    assertThat(fissionVariables.isAvailable(CppLinkActionBuilder.IS_USING_FISSION_VARIABLE)).isTrue();
   }
 }

@@ -409,7 +409,7 @@ test_basic_subcommand_expansion() {
 test_common_options() {
     # 'Test common option completion'
     assert_expansion '--h' \
-                     '--host_jvm_'
+                     '--host_j'
     assert_expansion '--host_jvm_a' \
                      '--host_jvm_args='
 }

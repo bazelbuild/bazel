@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
 import com.google.common.base.MoreObjects;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -29,19 +29,21 @@ import java.util.Objects;
  */
 public class DataValueFile implements DataResource, DataAsset {
 
-  private final Path source;
+  private final DataSource source;
 
-  private DataValueFile(Path source) {
+  private DataValueFile(DataSource source) {
     this.source = source;
   }
 
   public static DataValueFile of(Path source) {
+    return of(DataSource.of(source));
+  }
+
+  public static DataValueFile of(DataSource source) {
     return new DataValueFile(source);
   }
 
-  /**
-   * Creates a {@link DataValueFile} from a {@link SerializeFormat.DataValue}.
-   */
+  /** Creates a {@link DataValueFile} from a {@link SerializeFormat#DataValue}. */
   public static DataValueFile from(Path source) {
     return of(source);
   }
@@ -66,20 +68,20 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   @Override
-  public Path source() {
+  public DataSource source() {
     return source;
   }
 
   @Override
   public void writeAsset(RelativeAssetPath key, AndroidDataWritingVisitor mergedDataWriter)
       throws IOException {
-    mergedDataWriter.copyAsset(source, key.toPathString());
+    mergedDataWriter.copyAsset(source.getPath(), key.toPathString());
   }
 
   @Override
   public void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
-      throws IOException, MergingException {
-    mergedDataWriter.copyResource(source, key.toPathString(source));
+      throws MergingException {
+    mergedDataWriter.copyResource(source.getPath(), key.toPathString(source.getPath()));
   }
 
   @Override
@@ -98,9 +100,38 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key,
-      AndroidResourceClassWriter resourceClassWriter) {
-    resourceClassWriter.writeSimpleResource(key.type(), key.name());
+  public DataResource overwrite(DataResource resource) {
+    if (equals(resource)) {
+      return this;
+    }
+    return of(source.overwrite(resource.source()));
   }
 
+  @Override
+  public DataAsset overwrite(DataAsset asset) {
+    if (equals(asset)) {
+      return this;
+    }
+    return of(source.overwrite(asset.source()));
+  }
+
+  @Override
+  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    sink.acceptSimpleResource(key.type(), key.name());
+  }
+
+  @Override
+  public DataValue update(DataSource source) {
+    return of(source);
+  }
+
+  @Override
+  public String asConflictString() {
+    return source.asConflictString();
+  }
+
+  @Override
+  public boolean valueEquals(DataValue value) {
+    return equals(value);
+  }
 }

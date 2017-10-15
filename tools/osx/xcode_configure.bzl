@@ -50,17 +50,22 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
   """Returns a string containing an xcode_version build target."""
   build_contents = ""
   decorated_aliases = []
+  error_msg = ""
   for alias in aliases:
     decorated_aliases.append("'%s'" % alias)
-  xcodebuild_result = repository_ctx.execute(["xcodebuild", "-version", "-sdk"], 5, {"DEVELOPER_DIR": developer_dir})
+  xcodebuild_result = repository_ctx.execute(["xcrun", "xcodebuild", "-version", "-sdk"], 30,
+                                             {"DEVELOPER_DIR": developer_dir})
   if (xcodebuild_result.return_code != 0):
-    print(
-        "Invoking xcodebuild failed, return code {code}, stderr: {err}".format(
+    error_msg = (
+        "Invoking xcodebuild failed, developer dir: {devdir} ," +
+        "return code {code}, stderr: {err}, stdout: {out}").format(
+            devdir=developer_dir,
             code=xcodebuild_result.return_code,
-            err=xcodebuild_result.stderr))
+            err=xcodebuild_result.stderr,
+            out=xcodebuild_result.stdout)
   ios_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "iphoneos")
   tvos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "appletvos")
-  macosx_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "macosx")
+  macos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "macosx")
   watchos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "watchos")
   build_contents += "xcode_version(\n  name = '%s'," % name
   build_contents += "\n  version = '%s'," % version
@@ -70,56 +75,122 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
     build_contents += "\n  default_ios_sdk_version = '%s'," % ios_sdk_version
   if tvos_sdk_version:
     build_contents += "\n  default_tvos_sdk_version = '%s'," % tvos_sdk_version
-  if macosx_sdk_version:
-    build_contents += "\n  default_macosx_sdk_version = '%s'," % macosx_sdk_version
+  if macos_sdk_version:
+    build_contents += "\n  default_macos_sdk_version = '%s'," % macos_sdk_version
   if watchos_sdk_version:
     build_contents += "\n  default_watchos_sdk_version = '%s'," % watchos_sdk_version
   build_contents += "\n)\n"
+  if error_msg:
+    build_contents += "\n# Error: " + error_msg.replace("\n", " ") + "\n"
+    print(error_msg)
   return build_contents
 
 
 VERSION_CONFIG_STUB = "xcode_config(name = 'host_xcodes')"
 
 
-def _darwin_build_file(repository_ctx):
-  """Evaluates local system state to create xcode_config and xcode_version targets."""
-  xcodebuild_result = repository_ctx.execute(["xcodebuild", "-version"])
-  # "xcodebuild -version" failing may be indicative of no versions of xcode
-  # installed, which is an acceptable machine configuration to have for using
-  # bazel. Thus no warning should be emitted here.
-  if (xcodebuild_result.return_code != 0):
-    return VERSION_CONFIG_STUB
+def run_xcode_locator(repository_ctx, xcode_locator_src_label):
+  """Generates xcode-locator from source and runs it.
 
-  xcodeloc_src_path = str(repository_ctx.path(Label(repository_ctx.attr.xcode_locator)))
-  repository_ctx.execute(["xcrun", "clang", "-fobjc-arc", "-framework", "CoreServices", "-framework", "Foundation", "-o", "xcode-locator-bin", xcodeloc_src_path])
+  Builds xcode-locator in the current repository directory.
+  Returns the standard output of running xcode-locator with -v, which will
+  return information about locally installed Xcode toolchains and the versions
+  they are associated with.
 
-  xcode_locator_result = repository_ctx.execute(["./xcode-locator-bin", "-v"])
+  This should only be invoked on a darwin OS, as xcode-locator cannot be built
+  otherwise.
+
+  Args:
+    repository_ctx: The repository context.
+    xcode_locator_src_label: The label of the source file for xcode-locator.
+  Returns:
+    A 2-tuple containing:
+    output: A list representing installed xcode toolchain information. Each
+        element of the list is a struct containing information for one installed
+        toolchain. This is an empty list if there was an error building or
+        running xcode-locator.
+    err: An error string describing the error that occurred when attempting
+        to build and run xcode-locator, or None if the run was successful.
+  """
+  xcodeloc_src_path = str(repository_ctx.path(xcode_locator_src_label))
+  xcrun_result = repository_ctx.execute(["env", "-i", "xcrun", "clang", "-fobjc-arc", "-framework",
+                                         "CoreServices", "-framework", "Foundation", "-o",
+                                         "xcode-locator-bin", xcodeloc_src_path], 30)
+
+  if (xcrun_result.return_code != 0):
+    suggestion = ""
+    if "Agreeing to the Xcode/iOS license" in xcrun_result.stderr:
+      suggestion = ("(You may need to sign the xcode license." +
+                    " Try running 'sudo xcodebuild -license')")
+    error_msg = (
+        "Generating xcode-locator-bin failed. {suggestion} " +
+        "return code {code}, stderr: {err}, stdout: {out}").format(
+            suggestion=suggestion,
+            code=xcrun_result.return_code,
+            err=xcrun_result.stderr,
+            out=xcrun_result.stdout)
+    return ([], error_msg.replace("\n", " "))
+
+  xcode_locator_result = repository_ctx.execute(["./xcode-locator-bin", "-v"], 30)
   if (xcode_locator_result.return_code != 0):
-    print(
-        "Invoking xcode-locator failed, return code {code}, stderr: {err}".format(
+    error_msg = (
+        "Invoking xcode-locator failed, " +
+        "return code {code}, stderr: {err}, stdout: {out}").format(
             code=xcode_locator_result.return_code,
-            err=xcode_locator_result.stderr))
-    return VERSION_CONFIG_STUB
-
-  default_xcode_version = _search_string(xcodebuild_result.stdout, "Xcode ", "\n")
-  default_xcode_target = ""
-  target_names = []
-  buildcontents = ""
-
+            err=xcode_locator_result.stderr,
+            out=xcode_locator_result.stdout)
+    return ([], error_msg.replace("\n", " "))
+  xcode_toolchains = []
   # xcode_dump is comprised of newlines with different installed xcode versions,
   # each line of the form <version>:<comma_separated_aliases>:<developer_dir>.
   xcode_dump = xcode_locator_result.stdout
   for xcodeversion in xcode_dump.split("\n"):
     if ":" in xcodeversion:
       infosplit = xcodeversion.split(":")
-      version = infosplit[0]
-      aliases = infosplit[1].split(",")
-      developer_dir = infosplit[2]
-      target_name = "version%s" % version.replace(".", "_")
-      buildcontents += _xcode_version_output(repository_ctx, target_name, version, aliases, developer_dir)
-      target_names.append("':%s'" % target_name)
-      if (version == default_xcode_version or default_xcode_version in aliases):
-        default_xcode_target = target_name
+      toolchain = struct(
+          version = infosplit[0],
+          aliases = infosplit[1].split(","),
+          developer_dir = infosplit[2]
+      )
+      xcode_toolchains.append(toolchain)
+  return (xcode_toolchains, None)
+
+
+def _darwin_build_file(repository_ctx):
+  """Evaluates local system state to create xcode_config and xcode_version targets."""
+  xcodebuild_result = repository_ctx.execute(["env", "-i", "xcrun", "xcodebuild", "-version"], 30)
+  # "xcodebuild -version" failing may be indicative of no versions of xcode
+  # installed, which is an acceptable machine configuration to have for using
+  # bazel. Thus no print warning should be emitted here.
+  if (xcodebuild_result.return_code != 0):
+    error_msg = (
+        "Running xcodebuild -version failed, " +
+        "return code {code}, stderr: {err}, stdout: {out}").format(
+            code=xcodebuild_result.return_code,
+            err=xcodebuild_result.stderr,
+            out=xcodebuild_result.stdout)
+    return VERSION_CONFIG_STUB + "\n# Error: " + error_msg.replace("\n", " ") + "\n"
+
+  (toolchains, xcodeloc_err) = run_xcode_locator(repository_ctx,
+                                                 Label(repository_ctx.attr.xcode_locator))
+
+  if xcodeloc_err:
+    return VERSION_CONFIG_STUB + "\n# Error: " + xcodeloc_err + "\n"
+
+  default_xcode_version = _search_string(xcodebuild_result.stdout, "Xcode ", "\n")
+  default_xcode_target = ""
+  target_names = []
+  buildcontents = ""
+
+  for toolchain in toolchains:
+    version = toolchain.version
+    aliases = toolchain.aliases
+    developer_dir = toolchain.developer_dir
+    target_name = "version%s" % version.replace(".", "_")
+    buildcontents += _xcode_version_output(repository_ctx, target_name, version, aliases, developer_dir)
+    target_names.append("':%s'" % target_name)
+    if (version == default_xcode_version or default_xcode_version in aliases):
+      default_xcode_target = target_name
   buildcontents += "xcode_config(name = 'host_xcodes',"
   if target_names:
     buildcontents += "\n  versions = [%s]," % ", ".join(target_names)

@@ -117,6 +117,11 @@ public abstract class JavaCompilationArgs {
       return this;
     }
 
+    public Builder addTransitiveRuntimeJars(NestedSet<Artifact> runtimeJars) {
+      this.runtimeJarsBuilder.addTransitive(runtimeJars);
+      return this;
+    }
+
     public Builder addCompileTimeJar(Artifact compileTimeJar) {
       this.compileTimeJarsBuilder.add(compileTimeJar);
       return this;
@@ -124,6 +129,11 @@ public abstract class JavaCompilationArgs {
 
     public Builder addCompileTimeJars(Iterable<Artifact> compileTimeJars) {
       this.compileTimeJarsBuilder.addAll(compileTimeJars);
+      return this;
+    }
+
+    public Builder addTransitiveCompileTimeJars(NestedSet<Artifact> compileTimeJars) {
+      this.compileTimeJarsBuilder.addTransitive(compileTimeJars);
       return this;
     }
 
@@ -151,7 +161,8 @@ public abstract class JavaCompilationArgs {
      */
     public Builder addTransitiveTarget(TransitiveInfoCollection dep, boolean recursive,
         ClasspathType type) {
-      JavaCompilationArgsProvider provider = dep.getProvider(JavaCompilationArgsProvider.class);
+      JavaCompilationArgsProvider provider =
+          JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
       if (provider != null) {
         addTransitiveCompilationArgs(provider, recursive, type);
         return this;

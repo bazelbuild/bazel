@@ -17,47 +17,41 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.shell.ShellUtils.prettyPrintArgv;
 import static com.google.devtools.build.lib.shell.ShellUtils.shellEscape;
 import static com.google.devtools.build.lib.shell.ShellUtils.tokenize;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
-
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-/**
- * Tests for ShellUtils.
- */
+/** Tests for ShellUtils. */
 @RunWith(JUnit4.class)
 public class ShellUtilsTest {
 
   @Test
   public void testShellEscape() throws Exception {
-    assertEquals("''", shellEscape(""));
-    assertEquals("foo", shellEscape("foo"));
-    assertEquals("'foo bar'", shellEscape("foo bar"));
-    assertEquals("''\\''foo'\\'''", shellEscape("'foo'"));
-    assertEquals("'\\'\\''foo\\'\\'''", shellEscape("\\'foo\\'"));
-    assertEquals("'${filename%.c}.o'", shellEscape("${filename%.c}.o"));
-    assertEquals("'<html!>'", shellEscape("<html!>"));
+    assertThat(shellEscape("")).isEqualTo("''");
+    assertThat(shellEscape("foo")).isEqualTo("foo");
+    assertThat(shellEscape("foo bar")).isEqualTo("'foo bar'");
+    assertThat(shellEscape("'foo'")).isEqualTo("''\\''foo'\\'''");
+    assertThat(shellEscape("\\'foo\\'")).isEqualTo("'\\'\\''foo\\'\\'''");
+    assertThat(shellEscape("${filename%.c}.o")).isEqualTo("'${filename%.c}.o'");
+    assertThat(shellEscape("<html!>")).isEqualTo("'<html!>'");
   }
 
   @Test
   public void testPrettyPrintArgv() throws Exception {
-    assertEquals("echo '$US' 100",
-                 prettyPrintArgv(Arrays.asList("echo", "$US", "100")));
+    assertThat(prettyPrintArgv(Arrays.asList("echo", "$US", "100"))).isEqualTo("echo '$US' 100");
   }
 
   private void assertTokenize(String copts, String... expectedTokens)
       throws Exception {
     List<String> actualTokens = new ArrayList<>();
     tokenize(actualTokens, copts);
-    assertEquals(Arrays.asList(expectedTokens), actualTokens);
+    assertThat(actualTokens).isEqualTo(Arrays.asList(expectedTokens));
   }
 
   @Test
@@ -167,7 +161,7 @@ public class ShellUtilsTest {
       words.add(stdout.substring(0, index));
       stdout = stdout.substring(index + 1);
     }
-    assertEquals(in, words);
+    assertThat(words).isEqualTo(in);
 
     // Assert that tokenize is dual to pretty-print:
     List<String> out = new ArrayList<>();
@@ -178,7 +172,7 @@ public class ShellUtilsTest {
         System.err.println(in);
       }
     }
-    assertEquals(in, out);
+    assertThat(out).isEqualTo(in);
   }
 
   @Test

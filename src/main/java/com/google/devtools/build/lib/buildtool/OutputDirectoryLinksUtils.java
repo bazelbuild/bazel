@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -22,11 +25,9 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -38,12 +39,20 @@ public class OutputDirectoryLinksUtils {
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
 
-  public static String getOutputSymlinkName(String productName) {
-    return productName + "-out";
+  public static ImmutableList<String> getOutputSymlinkNames(String productName,
+      String symlinkPrefix) {
+    ImmutableList.Builder<String> builder = ImmutableList.<String>builder();
+    // TODO(b/35234395): This symlink is created for backwards compatiblity, remove it once
+    // we're sure it won't cause any other issues.
+    builder.add(productName + "-out");
+    if (!productName.equals(symlinkPrefix)) {
+      builder.add(symlinkPrefix + "out");
+    }
+    return builder.build();
   }
 
-  private static String execRootSymlink(String productName, String workspaceName) {
-    return productName + "-" + workspaceName;
+  private static String execRootSymlink(String symlinkPrefix, String workspaceName) {
+    return symlinkPrefix + workspaceName;
   }
   /**
    * Attempts to create convenience symlinks in the workspaceDirectory and in
@@ -62,19 +71,22 @@ public class OutputDirectoryLinksUtils {
 
     // Make the two non-specific links from the workspace to the output area,
     // and the configuration-specific links in both the workspace and the execution root dirs.
-    // NB!  Keep in sync with removeOutputDirectoryLinks below.
-    createLink(workspace, getOutputSymlinkName(productName), outputPath, failures);
+    // IMPORTANT: Keep in sync with removeOutputDirectoryLinks below.
+    for (String outputSymlinkName : getOutputSymlinkNames(productName, symlinkPrefix)) {
+      createLink(workspace, outputSymlinkName, outputPath, failures);
+    }
 
     // Points to execroot
-    createLink(workspace, execRootSymlink(productName, workspaceName), execRoot, failures);
-
+    createLink(workspace, execRootSymlink(
+        symlinkPrefix, workspace.getBaseName()), execRoot, failures);
+    RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
     if (targetConfig != null) {
       createLink(workspace, symlinkPrefix + "bin",
-          targetConfig.getBinDirectory(RepositoryName.MAIN).getPath(), failures);
+          targetConfig.getBinDirectory(repositoryName).getPath(), failures);
       createLink(workspace, symlinkPrefix + "testlogs",
-          targetConfig.getTestLogsDirectory(RepositoryName.MAIN).getPath(), failures);
+          targetConfig.getTestLogsDirectory(repositoryName).getPath(), failures);
       createLink(workspace, symlinkPrefix + "genfiles",
-          targetConfig.getGenfilesDirectory(RepositoryName.MAIN).getPath(), failures);
+          targetConfig.getGenfilesDirectory(repositoryName).getPath(), failures);
     }
 
     if (!failures.isEmpty()) {
@@ -102,12 +114,14 @@ public class OutputDirectoryLinksUtils {
     }
 
     PathFragment result = relativize(file, workspaceDirectory,
-        execRootSymlink(productName, workspaceName));
+        execRootSymlink(symlinkPrefix, workspaceName));
     if (result != null) {
       return result;
     }
 
-    result = relativize(file, workspaceDirectory, getOutputSymlinkName(productName));
+    ImmutableList<String> outputSymlinkNames = getOutputSymlinkNames(productName, symlinkPrefix);
+    checkArgument(!outputSymlinkNames.isEmpty());
+    result = relativize(file, workspaceDirectory, outputSymlinkNames.get(0));
     if (result != null) {
       return result;
     }
@@ -118,7 +132,7 @@ public class OutputDirectoryLinksUtils {
   // Helper to getPrettyPath.  Returns file, relativized w.r.t. the referent of
   // "linkname", or null if it was a not a child.
   private static PathFragment relativize(Path file, Path workspaceDirectory, String linkname) {
-    PathFragment link = new PathFragment(linkname);
+    PathFragment link = PathFragment.create(linkname);
     try {
       Path dir = workspaceDirectory.getRelative(link);
       PathFragment levelOneLinkTarget = dir.readSymbolicLink();
@@ -150,12 +164,15 @@ public class OutputDirectoryLinksUtils {
     }
     List<String> failures = new ArrayList<>();
 
-    removeLink(workspace, getOutputSymlinkName(productName), failures);
-    removeLink(workspace, execRootSymlink(productName, workspaceName), failures);
+    for (String outputSymlinkName : getOutputSymlinkNames(productName, symlinkPrefix)) {
+      removeLink(workspace, outputSymlinkName, failures);
+    }
+    removeLink(workspace, execRootSymlink(symlinkPrefix, workspaceName), failures);
+    removeLink(workspace, execRootSymlink(symlinkPrefix, workspace.getBaseName()), failures);
     removeLink(workspace, symlinkPrefix + "bin", failures);
     removeLink(workspace, symlinkPrefix + "testlogs", failures);
     removeLink(workspace, symlinkPrefix + "genfiles", failures);
-    FileSystemUtils.removeDirectoryAndParents(workspace, new PathFragment(symlinkPrefix));
+    FileSystemUtils.removeDirectoryAndParents(workspace, PathFragment.create(symlinkPrefix));
     if (!failures.isEmpty()) {
       eventHandler.handle(Event.warn(String.format(
           "failed to remove one or more convenience symlinks for prefix '%s':\n  %s", symlinkPrefix,
@@ -192,7 +209,7 @@ public class OutputDirectoryLinksUtils {
     Path link = base.getRelative(name);
     try {
       if (link.exists(Symlinks.NOFOLLOW)) {
-        ExecutionTool.log.finest("Removing " + link);
+        ExecutionTool.logger.finest("Removing " + link);
         link.delete();
       }
       return true;

@@ -70,7 +70,7 @@ public class PurityUtils {
     }
 
     /**
-     * @return the types of purity of the method {@code tree}.
+     * @return The types of purity of the method {@code tree}.
      */
     public static List<Pure.Kind> getPurityKinds(AnnotationProvider provider,
             MethodTree tree) {
@@ -79,8 +79,7 @@ public class PurityUtils {
     }
 
     /**
-     * @return the types of purity of the method {@code methodElement}.
-     * TODO: should the return type be an EnumSet?
+     * @return The types of purity of the method {@code methodElement}.
      */
     public static List<Pure.Kind> getPurityKinds(AnnotationProvider provider,
             Element methodElement) {

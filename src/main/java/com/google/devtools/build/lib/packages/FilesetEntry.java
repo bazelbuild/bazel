@@ -22,17 +22,15 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -74,22 +72,20 @@ public final class FilesetEntry implements SkylarkValue {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, "FilesetEntry(srcdir = ");
-    Printer.write(buffer, getSrcLabel().toString(), quotationMark);
-    Printer.append(buffer, ", files = ");
-    Printer.write(buffer, makeStringList(getFiles()), quotationMark);
-    Printer.append(buffer, ", excludes = ");
-    Printer.write(buffer, makeList(getExcludes()), quotationMark);
-    Printer.append(buffer, ", destdir = ");
-    Printer.write(buffer, getDestDir().getPathString(), quotationMark);
-    Printer.append(buffer, ", strip_prefix = ");
-    Printer.write(buffer, getStripPrefix(), quotationMark);
-    Printer.append(buffer, ", symlinks = ");
-    Printer.append(buffer, quotationMark);
-    Printer.append(buffer, getSymlinkBehavior().toString());
-    Printer.append(buffer, quotationMark);
-    Printer.append(buffer, ")");
+  public void repr(SkylarkPrinter printer) {
+    printer.append("FilesetEntry(srcdir = ");
+    printer.repr(getSrcLabel().toString());
+    printer.append(", files = ");
+    printer.repr(makeStringList(getFiles()));
+    printer.append(", excludes = ");
+    printer.repr(makeList(getExcludes()));
+    printer.append(", destdir = ");
+    printer.repr(getDestDir().getPathString());
+    printer.append(", strip_prefix = ");
+    printer.repr(getStripPrefix());
+    printer.append(", symlinks = ");
+    printer.repr(getSymlinkBehavior().toString());
+    printer.append(")");
   }
 
   /** SymlinkBehavior decides what to do when a source file of a FilesetEntry is a symlink. */
@@ -140,7 +136,7 @@ public final class FilesetEntry implements SkylarkValue {
     this.srcLabel = Preconditions.checkNotNull(srcLabel);
     this.files = files == null ? null : ImmutableList.copyOf(files);
     this.excludes = (excludes == null || excludes.isEmpty()) ? null : ImmutableSet.copyOf(excludes);
-    this.destDir = new PathFragment((destDir == null) ? "" : destDir);
+    this.destDir = PathFragment.create((destDir == null) ? "" : destDir);
     this.symlinkBehavior = symlinkBehavior == null ? DEFAULT_SYMLINK_BEHAVIOR : symlinkBehavior;
     this.stripPrefix = stripPrefix == null ? DEFAULT_STRIP_PREFIX : stripPrefix;
   }
@@ -167,7 +163,7 @@ public final class FilesetEntry implements SkylarkValue {
   }
 
   /**
-   * @return an immutable list of excludes. Null if none specified.
+   * @return an immutable set of excludes. Null if none specified.
    */
   @Nullable
   public ImmutableSet<String> getExcludes() {
@@ -225,7 +221,7 @@ public final class FilesetEntry implements SkylarkValue {
     } else if (stripPrefix.startsWith("/")) {
       return "Cannot specify absolute strip prefix; perhaps you need to use \""
           + STRIP_PREFIX_WORKSPACE + "\"";
-    } else if (new PathFragment(stripPrefix).containsUplevelReferences()) {
+    } else if (PathFragment.create(stripPrefix).containsUplevelReferences()) {
       return "Strip prefix must not contain uplevel references";
     } else if (stripPrefix.startsWith("%") && !stripPrefix.startsWith(STRIP_PREFIX_WORKSPACE)) {
       return "If the strip_prefix starts with \"%\" then it must start with \""

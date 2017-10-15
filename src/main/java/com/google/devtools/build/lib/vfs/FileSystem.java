@@ -16,12 +16,16 @@ package com.google.devtools.build.lib.vfs;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
+import com.google.devtools.build.lib.vfs.Path.PathFactory;
+import com.google.devtools.common.options.EnumConverter;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,6 +41,75 @@ import java.util.List;
 @ThreadSafe
 public abstract class FileSystem {
 
+  /** Type of hash function to use for digesting files. */
+  // The underlying HashFunctions are immutable and thread safe.
+  @SuppressWarnings("ImmutableEnumChecker")
+  public enum HashFunction {
+    MD5(Hashing.md5()),
+    SHA1(Hashing.sha1()),
+    SHA256(Hashing.sha256());
+
+    private final com.google.common.hash.HashFunction hash;
+
+    HashFunction(com.google.common.hash.HashFunction hash) {
+      this.hash = hash;
+    }
+
+    /** Converts to {@link HashFunction}. */
+    public static class Converter extends EnumConverter<HashFunction> {
+      public Converter() {
+        super(HashFunction.class, "hash function");
+      }
+    }
+
+    public com.google.common.hash.HashFunction getHash() {
+      return hash;
+    }
+
+    public boolean isValidDigest(byte[] digest) {
+      return digest != null && digest.length * 8 == hash.bits();
+    }
+  }
+
+  // This is effectively final, should be changed only in unit-tests!
+  private static HashFunction digestFunction;
+  static {
+    try {
+      digestFunction = new HashFunction.Converter().convert(
+          System.getProperty("bazel.DigestFunction", "MD5"));
+    } catch (OptionsParsingException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  @VisibleForTesting
+  public static void setDigestFunctionForTesting(HashFunction value) {
+    digestFunction = value;
+  }
+
+  public static HashFunction getDigestFunction() {
+    return digestFunction;
+  }
+
+  private enum UnixPathFactory implements PathFactory {
+    INSTANCE {
+      @Override
+      public Path createRootPath(FileSystem filesystem) {
+        return new Path(filesystem, PathFragment.ROOT_DIR, null);
+      }
+
+      @Override
+      public Path createChildPath(Path parent, String childName) {
+        return new Path(parent.getFileSystem(), childName, parent);
+      }
+
+      @Override
+      public Path getCachedChildPathInternal(Path path, String childName) {
+        return Path.getCachedChildPathInternal(path, childName, /*cacheable=*/ true);
+      }
+    };
+  }
+
   /**
    * An exception thrown when attempting to resolve an ordinary file as a symlink.
    */
@@ -49,19 +122,12 @@ public abstract class FileSystem {
   protected final Path rootPath;
 
   protected FileSystem() {
-    this.rootPath = createRootPath();
+    this.rootPath = getPathFactory().createRootPath(this);
   }
 
-  /**
-   * Creates the root of all paths used by this filesystem. This is a hook
-   * allowing subclasses to define their own root path class. All other paths
-   * are created via the root path's {@link Path#createChildPath(String)} method.
-   * <p>
-   * Beware: this is called during the FileSystem constructor which may occur
-   * before subclasses are completely initialized.
-   */
-  protected Path createRootPath() {
-    return new Path(this);
+  /** Returns filesystem-specific path factory. */
+  protected PathFactory getPathFactory() {
+    return UnixPathFactory.INSTANCE;
   }
 
   /**
@@ -72,7 +138,7 @@ public abstract class FileSystem {
    * file system.
    */
   public Path getPath(String pathName) {
-    return getPath(new PathFragment(pathName));
+    return getPath(PathFragment.create(pathName));
   }
 
   /**
@@ -247,10 +313,11 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the type of digest that may be returned by {@link #getFastDigest}, or {@code null}
-   * if the filesystem doesn't support them.
+   * Gets a fast digest for the given path and hash function type, or {@code null} if there
+   * isn't one available or the filesystem doesn't support them. This digest should be
+   * suitable for detecting changes to the file.
    */
-  protected String getFastDigestFunctionType(Path path) {
+  protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
     return null;
   }
 
@@ -259,37 +326,43 @@ public abstract class FileSystem {
    * filesystem doesn't support them. This digest should be suitable for detecting changes to the
    * file.
    */
-  protected byte[] getFastDigest(Path path) throws IOException {
-    return null;
+  protected final byte[] getFastDigest(Path path) throws IOException {
+    return getFastDigest(path, digestFunction);
   }
 
   /**
-   * Returns the MD5 digest of the file denoted by {@code path}. See
-   * {@link Path#getMD5Digest} for specification.
+   * Returns whether the given digest is a valid digest for the default digest function.
    */
-  protected byte[] getMD5Digest(final Path path) throws IOException {
-    // Naive I/O implementation.  Subclasses may (and do) optimize.
-    // This code is only used by the InMemory or Zip or other weird FSs.
+  public boolean isValidDigest(byte[] digest) {
+    return digestFunction.isValidDigest(digest);
+  }
+
+  /**
+   * Returns the digest of the file denoted by the path, following
+   * symbolic links, for the given hash digest function.
+   *
+   * @return a new byte array containing the file's digest
+   * @throws IOException if the digest could not be computed for any reason
+   *
+   * Subclasses may (and do) optimize this computation for particular digest functions.
+   */
+  protected byte[] getDigest(final Path path, HashFunction hashFunction) throws IOException {
     return new ByteSource() {
       @Override
       public InputStream openStream() throws IOException {
         return getInputStream(path);
       }
-    }.hash(Hashing.md5()).asBytes();
+    }.hash(hashFunction.getHash()).asBytes();
   }
 
   /**
-   * Returns the MD5 digest of the file denoted by {@code path}. See
-   * {@link Path#getMD5Digest} for specification.
+   * Returns the digest of the file denoted by the path, following symbolic links.
+   *
+   * @return a new byte array containing the file's digest
+   * @throws IOException if the digest could not be computed for any reason
    */
-  protected byte[] getSHA1Digest(final Path path) throws IOException {
-    // Naive I/O implementation.  TODO(olaola): optimize!
-    return new ByteSource() {
-      @Override
-      public InputStream openStream() throws IOException {
-        return getInputStream(path);
-      }
-    }.hash(Hashing.sha1()).asBytes();
+  protected final byte[] getDigest(final Path path) throws IOException {
+    return getDigest(path, digestFunction);
   }
 
   /**
@@ -731,4 +804,12 @@ public abstract class FileSystem {
    */
   protected abstract void createFSDependentHardLink(Path linkPath, Path originalPath)
       throws IOException;
+
+  /**
+   * Prefetch all directories and symlinks within the package
+   * rooted at "path".  Enter at most "maxDirs" total directories.
+   * Specializations for high-latency remote filesystems may wish to
+   * implement this in order to warm the filesystem's internal caches.
+   */
+  protected void prefetchPackageAsync(Path path, int maxDirs) { }
 }

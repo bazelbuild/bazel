@@ -30,6 +30,39 @@ function is_windows() {
   fi
 }
 
+# Set some environment variables needed on Windows.
+if is_windows; then
+  # TODO(philwo) remove this once we have a Bazel release that includes the CL
+  # moving the Windows-specific TEST_TMPDIR into TestStrategy.
+  TEST_TMPDIR_BASENAME="$(basename "$TEST_TMPDIR")"
+  export TEST_TMPDIR="c:/temp/${TEST_TMPDIR_BASENAME}"
+
+  # Bazel (TMPDIR) and Windows (TEMP, TMP) have three envvars that specify the
+  # location of the temp directory...
+  export TMPDIR="$TEST_TMPDIR"
+  export TEMP="$TEST_TMPDIR"
+  export TMP="$TEST_TMPDIR"
+
+  export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
+  export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
+  export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC"
+  if [ ! -d "$BAZEL_VC" ]; then
+    # Maybe Visual C++ Build Tools 2017 then?
+    export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC"
+  fi
+  if [ ! -d "$BAZEL_VC" ]; then
+    # OK, well, maybe Visual C++ 2015 then?
+    export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
+  fi
+  if [ -x /c/Python27/python.exe ]; then
+    export BAZEL_PYTHON="C:/Python27/python.exe"
+    export PATH="/c/Python27:$PATH"
+  elif [ -x /c/python_27_amd64/files/python.exe ]; then
+    export BAZEL_PYTHON="C:/python_27_amd64/files/python.exe"
+    export PATH="/c/python_27_amd64/files:$PATH"
+  fi
+fi
+
 # Make the command "bazel" available for tests.
 PATH_TO_BAZEL_BIN=$(rlocation io_bazel/src/bazel)
 PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation io_bazel/src/test/shell/bin/bazel))"
@@ -81,33 +114,10 @@ langtools="$(rlocation io_bazel/src/test/shell/bazel/langtools.jar)"
 # Tools directory location
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 langtools_dir="$(dirname $(rlocation io_bazel/third_party/java/jdk/langtools/BUILD))"
-EXTRA_BAZELRC="build --ios_sdk_version=8.4"
-
-# Java tooling
-javabuilder_path="$(find ${BAZEL_RUNFILES} -name JavaBuilder_*.jar)"
-langtools_path="${BAZEL_RUNFILES}/third_party/java/jdk/langtools/javac.jar"
-singlejar_path="${BAZEL_RUNFILES}/src/java_tools/singlejar/SingleJar_deploy.jar"
-genclass_path="${BAZEL_RUNFILES}/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass/GenClass_deploy.jar"
-junitrunner_path="${BAZEL_RUNFILES}/src/java_tools/junitrunner/java/com/google/testing/junit/runner/Runner_deploy.jar"
-ijar_path="${BAZEL_RUNFILES}/third_party/ijar/ijar"
 
 # Sandbox tools
 process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"
 linux_sandbox="${BAZEL_RUNFILES}/src/main/tools/linux-sandbox"
-
-# iOS and Objective-C tooling
-iossim_path="${BAZEL_RUNFILES}/third_party/iossim/iossim"
-actoolwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/actoolwrapper/actoolwrapper.sh"
-ibtoolwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/ibtoolwrapper/ibtoolwrapper.sh"
-swiftstdlibtoolwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/swiftstdlibtoolwrapper/swiftstdlibtoolwrapper.sh"
-momcwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/momcwrapper/momcwrapper.sh"
-bundlemerge_path="${BAZEL_RUNFILES}/src/objc_tools/bundlemerge/bundlemerge_deploy.jar"
-plmerge_path="${BAZEL_RUNFILES}/src/objc_tools/plmerge/plmerge_deploy.jar"
-xcodegen_path="${BAZEL_RUNFILES}/src/objc_tools/xcodegen/xcodegen_deploy.jar"
-stdredirect_path="${BAZEL_RUNFILES}/src/tools/xcode/stdredirect/StdRedirect.dylib"
-realpath_path="${BAZEL_RUNFILES}/src/tools/xcode/realpath/realpath"
-environment_plist_path="${BAZEL_RUNFILES}/src/tools/xcode/environment/environment_plist.sh"
-xcrunwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/xcrunwrapper/xcrunwrapper.sh"
 
 # Test data
 testdata_path=${BAZEL_RUNFILES}/src/test/shell/bazel/testdata
@@ -116,7 +126,7 @@ python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
 # Third-party
 MACHINE_TYPE="$(uname -m)"
 MACHINE_IS_64BIT='no'
-if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' -o "${MACHINE_TYPE}" = 's390x' ]; then
+if [ "${MACHINE_TYPE}" = 'amd64' ] || [ "${MACHINE_TYPE}" = 'x86_64' ] || [ "${MACHINE_TYPE}" = 's390x' ]; then
   MACHINE_IS_64BIT='yes'
 fi
 
@@ -147,21 +157,44 @@ case "${PLATFORM}" in
 esac
 
 if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
-  protoc_jar="${BAZEL_RUNFILES}/third_party/protobuf/protobuf-*.jar"
   junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
   hamcrest_jar="${BAZEL_RUNFILES}/third_party/hamcrest/hamcrest-*.jar"
 else
-  protoc_jar=$(rlocation io_bazel/third_party/protobuf/protobuf-.*.jar)
   junit_jar=$(rlocation io_bazel/third_party/junit/junit-.*.jar)
   hamcrest_jar=$(rlocation io_bazel/third_party/hamcrest/hamcrest-.*.jar)
 fi
+
+
+function use_bazel_workspace_file() {
+  mkdir -p src/test/{shell/bazel,docker}
+  cat >src/test/docker/docker_repository.bzl <<EOF
+def docker_repository():
+  pass
+EOF
+  cat >src/test/docker/flavours.bzl <<EOF
+def pull_images_for_docker_tests():
+  pass
+EOF
+  touch src/test/docker/BUILD
+  cat >src/test/shell/bazel/list_source_repository.bzl <<EOF
+def list_source_repository(name):
+  pass
+EOF
+  touch src/test/shell/bazel/BUILD
+  rm -f WORKSPACE
+  ln -sf ${workspace_file} WORKSPACE
+}
 
 # This function copies the tools directory from Bazel.
 function copy_tools_directory() {
   cp -RL ${tools_dir}/* tools
   # tools/jdk/BUILD file for JDK 7 is generated.
+  # Only works if there's 0 or 1 matches.
+  # If there are multiple, the test fails.
   if [ -f tools/jdk/BUILD.* ]; then
     cp tools/jdk/BUILD.* tools/jdk/BUILD
+  fi
+  if [ -f tools/jdk/BUILD ]; then
     chmod +w tools/jdk/BUILD
   fi
   # To support custom langtools
@@ -240,7 +273,7 @@ exit 1;
 # A uniform SHA-256 commands that works accross platform
 #
 case "${PLATFORM}" in
-  darwin)
+  darwin|freebsd)
     function sha256sum() {
       cat "$1" | shasum -a 256 | cut -f 1 -d " "
     }
@@ -283,45 +316,34 @@ ${EXTRA_BAZELRC:-}
 EOF
 }
 
-function setup_android_support() {
-  ANDROID_NDK=$PWD/android_ndk
+function setup_android_sdk_support() {
   ANDROID_SDK=$PWD/android_sdk
-
-  # TODO(bazel-team): This hard-codes the name of the Android repository in
-  # the WORKSPACE file of Bazel. Change this once external repositories have
-  # their own defined names under which they are mounted.
-  NDK_SRCDIR=$TEST_SRCDIR/androidndk/ndk
   SDK_SRCDIR=$TEST_SRCDIR/androidsdk
-
-  mkdir -p $ANDROID_NDK
   mkdir -p $ANDROID_SDK
+  for i in $SDK_SRCDIR/*; do
+    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
+  done
+cat >> WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+    path = "$ANDROID_SDK",
+)
+EOF
+}
 
+function setup_android_ndk_support() {
+  ANDROID_NDK=$PWD/android_ndk
+  NDK_SRCDIR=$TEST_SRCDIR/androidndk/ndk
+  mkdir -p $ANDROID_NDK
   for i in $NDK_SRCDIR/*; do
     if [[ "$(basename $i)" != "BUILD" ]]; then
       ln -s "$i" "$ANDROID_NDK/$(basename $i)"
     fi
   done
-
-  for i in $SDK_SRCDIR/*; do
-    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
-  done
-
-
-  local ANDROID_SDK_API_LEVEL=$(ls $SDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
-  local ANDROID_NDK_API_LEVEL=$(ls $NDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
-  local ANDROID_SDK_TOOLS_VERSION=$(ls $SDK_SRCDIR/build-tools | sort -n | tail -1)
   cat >> WORKSPACE <<EOF
 android_ndk_repository(
     name = "androidndk",
     path = "$ANDROID_NDK",
-    api_level = $ANDROID_NDK_API_LEVEL,
-)
-
-android_sdk_repository(
-    name = "androidsdk",
-    path = "$ANDROID_SDK",
-    build_tools_version = "$ANDROID_SDK_TOOLS_VERSION",
-    api_level = $ANDROID_SDK_API_LEVEL,
 )
 EOF
 }
@@ -368,18 +390,6 @@ filegroup(
 EOF
 }
 
-function setup_iossim() {
-  mkdir -p third_party/iossim
-  ln -sv ${iossim_path} third_party/iossim/iossim
-
-  cat <<EOF >>third_party/iossim/BUILD
-licenses(["unencumbered"])
-package(default_visibility = ["//visibility:public"])
-
-exports_files(["iossim"])
-EOF
-}
-
 # Sets up Objective-C tools. Mac only.
 function setup_objc_test_support() {
   IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
@@ -398,8 +408,8 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  [ -e third_party/java/jdk/langtools/javac.jar ] \
-    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac.jar
+  [ -e third_party/java/jdk/langtools/javac-9-dev-r4023-3.jar ] \
+    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r4023-3.jar
 
   touch WORKSPACE
 }
@@ -435,7 +445,7 @@ function cleanup_workspace() {
     done
     touch WORKSPACE
   fi
-  for i in ${workspaces}; do
+  for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
       rm -fr $i
     fi
@@ -446,7 +456,18 @@ function cleanup_workspace() {
 # Clean-up the bazel install base
 function cleanup() {
   if [ -d "${BAZEL_INSTALL_BASE:-__does_not_exists__}" ]; then
-    rm -fr "${BAZEL_INSTALL_BASE}"
+    # Windows takes its time to shut down Bazel and we can't delete A-server.jar
+    # until then, so just give it time and keep trying for 2 minutes.
+    for i in {1..120}; do
+      if rm -fr "${BAZEL_INSTALL_BASE}" ; then
+        break
+      fi
+      if (( i == 10 )) || (( i == 30 )) || (( i == 60 )) ; then
+        echo "Test cleanup: couldn't delete ${BAZEL_INSTALL_BASE} \ after $i seconds"
+        echo "(Timeout in $((120-i)) seconds.)"
+        sleep 1
+      fi
+    done
   fi
 }
 

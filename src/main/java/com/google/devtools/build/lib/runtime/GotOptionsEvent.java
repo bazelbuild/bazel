@@ -13,16 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.Collection;
+import java.util.Objects;
 
-/**
- * An event in which the command line options
- * are discovered.
- */
-public class GotOptionsEvent {
+/** An event in which the command line options are discovered. */
+public class GotOptionsEvent implements BuildEventWithOrderConstraint {
 
   private final OptionsProvider startupOptions;
   private final OptionsProvider options;
+  private final InvocationPolicy invocationPolicy;
 
   /**
    * Construct the options event.
@@ -30,9 +39,11 @@ public class GotOptionsEvent {
    * @param startupOptions the parsed startup options
    * @param options the parsed options
    */
-  public GotOptionsEvent(OptionsProvider startupOptions, OptionsProvider options) {
+  public GotOptionsEvent(
+      OptionsProvider startupOptions, OptionsProvider options, InvocationPolicy invocationPolicy) {
     this.startupOptions = startupOptions;
     this.options = options;
+    this.invocationPolicy = invocationPolicy;
   }
 
   /**
@@ -47,5 +58,53 @@ public class GotOptionsEvent {
    */
   public OptionsProvider getOptions() {
     return options;
+  }
+
+  /** @return the invocation policy. */
+  public InvocationPolicy getInvocationPolicy() {
+    return invocationPolicy;
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.optionsParsedId();
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    return ImmutableList.of();
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    BuildEventStreamProtos.OptionsParsed.Builder optionsBuilder =
+        BuildEventStreamProtos.OptionsParsed.newBuilder();
+
+    OptionsProvider options = getStartupOptions();
+    optionsBuilder.addAllStartupOptions(OptionsUtils.asArgumentList(options));
+    optionsBuilder.addAllExplicitStartupOptions(
+        OptionsUtils.asArgumentList(
+            Iterables.filter(
+                options.asListOfExplicitOptions(),
+                input -> !Objects.equals(input.getSource(), "default"))));
+    options = getOptions();
+    optionsBuilder.addAllCmdLine(OptionsUtils.asArgumentList(options));
+    optionsBuilder.addAllExplicitCmdLine(
+        OptionsUtils.asArgumentList(
+            Iterables.filter(
+                options.asListOfExplicitOptions(),
+                input -> Objects.equals(input.getSource(), "command line options"))));
+
+    optionsBuilder.setInvocationPolicy(getInvocationPolicy());
+
+    CommonCommandOptions commonOptions = getOptions().getOptions(CommonCommandOptions.class);
+    optionsBuilder.setToolTag(commonOptions.toolTag);
+
+    return GenericBuildEvent.protoChaining(this).setOptionsParsed(optionsBuilder.build()).build();
+  }
+
+  @Override
+  public Collection<BuildEventId> postedAfter() {
+    return ImmutableList.of(BuildEventId.buildStartedId(), BuildEventId.commandlineId());
   }
 }

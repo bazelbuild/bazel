@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.nativedeps;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -22,13 +23,17 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
+import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
 import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -106,7 +111,7 @@ public abstract class NativeDepsHelper {
       return null;
     }
 
-    PathFragment labelName = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
     String libraryIdentifier = ruleContext.getUniqueDirectory(ANDROID_UNIQUE_DIR)
         .getRelative(labelName.replaceName("lib" + labelName.getBaseName()))
         .getPathString();
@@ -197,8 +202,12 @@ public abstract class NativeDepsHelper {
     } else {
       sharedLibrary = nativeDeps;
     }
+    FdoSupportProvider fdoSupport =
+        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
+    FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext, toolchain);
     CppLinkActionBuilder builder =
-        new CppLinkActionBuilder(ruleContext, sharedLibrary, configuration, toolchain);
+        new CppLinkActionBuilder(
+            ruleContext, sharedLibrary, configuration, toolchain, fdoSupport, featureConfiguration);
     if (useDynamicRuntime) {
       builder.setRuntimeInputs(ArtifactCategory.DYNAMIC_LIBRARY,
           toolchain.getDynamicRuntimeLinkMiddleman(), toolchain.getDynamicRuntimeLinkInputs());
@@ -206,19 +215,34 @@ public abstract class NativeDepsHelper {
       builder.setRuntimeInputs(ArtifactCategory.STATIC_LIBRARY,
           toolchain.getStaticRuntimeLinkMiddleman(), toolchain.getStaticRuntimeLinkInputs());
     }
-    CppLinkAction linkAction =
-        builder
-            .setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY)
-            .setCrosstoolInputs(toolchain.getLink())
-            .addLibraries(linkerInputs)
-            .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
-            .setLinkStaticness(LinkStaticness.MOSTLY_STATIC)
-            .setLibraryIdentifier(libraryIdentifier)
-            .addLinkopts(linkopts)
-            .setNativeDeps(true)
-            .addLinkstamps(linkstamps)
-            .build();
+    ImmutableMap.Builder<Artifact, Artifact> ltoBitcodeFilesMap = new ImmutableMap.Builder<>();
+    for (LibraryToLink lib : linkerInputs) {
+      if (!lib.getLtoBitcodeFiles().isEmpty()) {
+        ltoBitcodeFilesMap.putAll(lib.getLtoBitcodeFiles());
+      }
+    }
+    builder
+        .setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY)
+        .setCrosstoolInputs(toolchain.getLink())
+        .addLibraries(linkerInputs)
+        .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
+        .setLinkStaticness(LinkStaticness.MOSTLY_STATIC)
+        .setLibraryIdentifier(libraryIdentifier)
+        .addLinkopts(linkopts)
+        .setNativeDeps(true)
+        .addLinkstamps(linkstamps)
+        .addLtoBitcodeFiles(ltoBitcodeFilesMap.build());
 
+    if (!builder.getLtoBitcodeFiles().isEmpty()
+        && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
+      builder.setLtoIndexing(true);
+      builder.setUsePicForLtoBackendActions(CppHelper.usePic(ruleContext, false));
+      CppLinkAction indexAction = builder.build();
+      ruleContext.registerAction(indexAction);
+      builder.setLtoIndexing(false);
+    }
+
+    CppLinkAction linkAction = builder.build();
     ruleContext.registerAction(linkAction);
     Artifact linkerOutput = linkAction.getPrimaryOutput();
 
@@ -258,11 +282,11 @@ public abstract class NativeDepsHelper {
    * symlink for the native library for the specified rule.
    */
   private static PathFragment getRuntimeLibraryPath(RuleContext ruleContext, Artifact lib) {
-    PathFragment relativePath = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment relativePath = PathFragment.create(ruleContext.getLabel().getName());
     PathFragment libParentDir =
         relativePath.replaceName(lib.getExecPath().getParentDirectory().getBaseName());
     String libName = lib.getExecPath().getBaseName();
-    return new PathFragment(libParentDir, new PathFragment(libName));
+    return PathFragment.create(libParentDir, PathFragment.create(libName));
   }
 
   /**
@@ -301,8 +325,8 @@ public abstract class NativeDepsHelper {
       fp.addString(input.getExecPathString());
     }
     for (String feature : features) {
-      fp.addStrings(feature);
+      fp.addString(feature);
     }
-    return new PathFragment("_nativedeps/" + fp.hexDigestAndReset());
+    return PathFragment.create("_nativedeps/" + fp.hexDigestAndReset());
   }
 }

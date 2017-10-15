@@ -1,0 +1,5 @@
+cc_library(
+    name = 'cpufeatures',
+    srcs = glob(['ndk/sources/android/cpufeatures/*.c']),
+    hdrs = glob(['ndk/sources/android/cpufeatures/*.h']),
+)

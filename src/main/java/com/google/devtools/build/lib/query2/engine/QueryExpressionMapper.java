@@ -19,22 +19,25 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 /**
  * Performs an arbitrary transformation of a {@link QueryExpression}.
  *
- * <p>For each subclass of {@link QueryExpression}, there's a corresponding {@link #map} overload
- * that transforms a node of that type. By default, this method recursively applies this
- * {@link QueryExpressionMapper}'s transformation in a structure-preserving manner (trying to
- * maintain reference-equality, as an optimization). Subclasses of {@link QueryExpressionMapper} can
- * override these methods in order to implement an arbitrary transformation.
+ * <p>For each subclass of {@link QueryExpression}, there's a corresponding {@link #visit} overload
+ * that transforms a node of that type. By default, this method recursively applies this {@link
+ * QueryExpressionMapper}'s transformation in a structure-preserving manner (trying to maintain
+ * reference-equality, as an optimization). Subclasses of {@link QueryExpressionMapper} can override
+ * these methods in order to implement an arbitrary transformation.
  */
-public class QueryExpressionMapper {
-  public QueryExpression map(TargetLiteral targetLiteral) {
+public abstract class QueryExpressionMapper implements QueryExpressionVisitor<QueryExpression> {
+
+  @Override
+  public QueryExpression visit(TargetLiteral targetLiteral) {
     return targetLiteral;
   }
 
-  public QueryExpression map(BinaryOperatorExpression binaryOperatorExpression) {
+  @Override
+  public QueryExpression visit(BinaryOperatorExpression binaryOperatorExpression) {
     boolean changed = false;
     ImmutableList.Builder<QueryExpression> mappedOperandsBuilder = ImmutableList.builder();
     for (QueryExpression operand : binaryOperatorExpression.getOperands()) {
-      QueryExpression mappedOperand = operand.getMapped(this);
+      QueryExpression mappedOperand = operand.accept(this);
       if (mappedOperand != operand) {
         changed = true;
       }
@@ -46,20 +49,22 @@ public class QueryExpressionMapper {
         : binaryOperatorExpression;
   }
 
-  public QueryExpression map(FunctionExpression functionExpression) {
+  @Override
+  public QueryExpression visit(FunctionExpression functionExpression) {
     boolean changed = false;
     ImmutableList.Builder<Argument> mappedArgumentBuilder = ImmutableList.builder();
     for (Argument argument : functionExpression.getArgs()) {
       switch (argument.getType()) {
-        case EXPRESSION: {
-          QueryExpression expr = argument.getExpression();
-          QueryExpression mappedExpression = expr.getMapped(this);
-          mappedArgumentBuilder.add(Argument.of(mappedExpression));
-          if (expr != mappedExpression) {
-            changed = true;
+        case EXPRESSION:
+          {
+            QueryExpression expr = argument.getExpression();
+            QueryExpression mappedExpression = expr.accept(this);
+            mappedArgumentBuilder.add(Argument.of(mappedExpression));
+            if (expr != mappedExpression) {
+              changed = true;
+            }
+            break;
           }
-          break;
-        }
         default:
           mappedArgumentBuilder.add(argument);
           break;
@@ -70,13 +75,14 @@ public class QueryExpressionMapper {
         : functionExpression;
   }
 
-  public QueryExpression map(LetExpression letExpression) {
+  @Override
+  public QueryExpression visit(LetExpression letExpression) {
     boolean changed = false;
-    QueryExpression mappedVarExpr = letExpression.getVarExpr().getMapped(this);
+    QueryExpression mappedVarExpr = letExpression.getVarExpr().accept(this);
     if (mappedVarExpr != letExpression.getVarExpr()) {
       changed = true;
     }
-    QueryExpression mappedBodyExpr = letExpression.getBodyExpr().getMapped(this);
+    QueryExpression mappedBodyExpr = letExpression.getBodyExpr().accept(this);
     if (mappedBodyExpr != letExpression.getBodyExpr()) {
       changed = true;
     }
@@ -85,8 +91,96 @@ public class QueryExpressionMapper {
         : letExpression;
   }
 
-  public QueryExpression map(SetExpression setExpression) {
+  @Override
+  public QueryExpression visit(SetExpression setExpression) {
     return setExpression;
+  }
+
+  public static QueryExpressionMapper identity() {
+    return IdentityMapper.INSTANCE;
+  }
+
+  /**
+   * Returns a {@link QueryExpressionMapper} which applies all the mappings provided by {@code
+   * mappers}, in the reverse order of mapper array.
+   */
+  public static QueryExpressionMapper compose(QueryExpressionMapper... mappers) {
+    return new ComposedQueryExpressionMapper(mappers);
+  }
+
+  private static class ComposedQueryExpressionMapper extends QueryExpressionMapper {
+    private final QueryExpressionMapper[] mappers;
+
+    private ComposedQueryExpressionMapper(QueryExpressionMapper... mappers) {
+      this.mappers = mappers;
+    }
+
+    @Override
+    public QueryExpression visit(TargetLiteral targetLiteral) {
+      return mapAll(targetLiteral, mappers);
+    }
+
+    @Override
+    public QueryExpression visit(BinaryOperatorExpression binaryOperatorExpression) {
+      return mapAll(binaryOperatorExpression, mappers);
+    }
+
+    @Override
+    public QueryExpression visit(FunctionExpression functionExpression) {
+      return mapAll(functionExpression, mappers);
+    }
+
+    @Override
+    public QueryExpression visit(LetExpression letExpression) {
+      return mapAll(letExpression, mappers);
+    }
+
+    @Override
+    public QueryExpression visit(SetExpression setExpression) {
+      return mapAll(setExpression, mappers);
+    }
+
+    private static QueryExpression mapAll(
+        QueryExpression expression, QueryExpressionMapper[] mappers) {
+      QueryExpression expr = expression;
+      for (int i = mappers.length - 1; i >= 0; i--) {
+        expr = expr.accept(mappers[i]);
+      }
+
+      return expr;
+    }
+  }
+
+  private static class IdentityMapper extends QueryExpressionMapper {
+    private static final IdentityMapper INSTANCE = new IdentityMapper();
+
+    private IdentityMapper() {
+    }
+
+    @Override
+    public QueryExpression visit(TargetLiteral targetLiteral) {
+      return targetLiteral;
+    }
+
+    @Override
+    public QueryExpression visit(BinaryOperatorExpression binaryOperatorExpression) {
+      return binaryOperatorExpression;
+    }
+
+    @Override
+    public QueryExpression visit(FunctionExpression functionExpression) {
+      return functionExpression;
+    }
+
+    @Override
+    public QueryExpression visit(LetExpression letExpression) {
+      return letExpression;
+    }
+
+    @Override
+    public QueryExpression visit(SetExpression setExpression) {
+      return setExpression;
+    }
   }
 }
 

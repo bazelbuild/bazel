@@ -28,11 +28,25 @@ def _pkg_tar_impl(ctx):
       "--output=" + ctx.outputs.out.path,
       "--directory=" + ctx.attr.package_dir,
       "--mode=" + ctx.attr.mode,
+      "--owner=" + ctx.attr.owner,
+      "--owner_name=" + ctx.attr.ownername,
       ]
+  file_inputs = ctx.files.srcs[:]
   args += ["--file=%s=%s" % (f.path, dest_path(f, data_path))
-           for f in ctx.files.files]
+           for f in ctx.files.srcs]
+  for target, f_dest_path in ctx.attr.files.items():
+    target_files = target.files.to_list()
+    if len(target_files) != 1:
+      fail("Inputs to pkg_tar.files_map must describe exactly one file.")
+    file_inputs += [target_files[0]]
+    args += ["--file=%s=%s" % (target_files[0].path, f_dest_path)]
   if ctx.attr.modes:
     args += ["--modes=%s=%s" % (key, ctx.attr.modes[key]) for key in ctx.attr.modes]
+  if ctx.attr.owners:
+    args += ["--owners=%s=%s" % (key, ctx.attr.owners[key]) for key in ctx.attr.owners]
+  if ctx.attr.ownernames:
+    args += ["--owner_names=%s=%s" % (key, ctx.attr.ownernames[key])
+             for key in ctx.attr.ownernames]
   if ctx.attr.extension:
     dotPos = ctx.attr.extension.find('.')
     if dotPos > 0:
@@ -45,11 +59,11 @@ def _pkg_tar_impl(ctx):
   ctx.file_action(arg_file, "\n".join(args))
 
   ctx.action(
-      executable = build_tar,
-      arguments = ["--flagfile=" + arg_file.path],
-      inputs = ctx.files.files + ctx.files.deps + [arg_file],
+      command = "%s --flagfile=%s" % (build_tar.path, arg_file.path),
+      inputs = file_inputs + ctx.files.deps + [arg_file, build_tar],
       outputs = [ctx.outputs.out],
-      mnemonic="PackageTar"
+      mnemonic="PackageTar",
+      use_default_shell_env = True,
       )
 
 
@@ -145,20 +159,25 @@ def _pkg_deb_impl(ctx):
       outputs = [ctx.outputs.out])
 
 # A rule for creating a tar file, see README.md
-pkg_tar = rule(
+_real_pkg_tar = rule(
     implementation = _pkg_tar_impl,
     attrs = {
         "strip_prefix": attr.string(),
         "package_dir": attr.string(default="/"),
         "deps": attr.label_list(allow_files=tar_filetype),
-        "files": attr.label_list(allow_files=True),
+        "srcs": attr.label_list(allow_files=True),
+        "files": attr.label_keyed_string_dict(allow_files=True),
         "mode": attr.string(default="0555"),
         "modes": attr.string_dict(),
+        "owner": attr.string(default="0.0"),
+        "ownername": attr.string(default="."),
+        "owners": attr.string_dict(),
+        "ownernames": attr.string_dict(),
         "extension": attr.string(default="tar"),
         "symlinks": attr.string_dict(),
         # Implicit dependencies.
         "build_tar": attr.label(
-            default=Label("@bazel_tools//tools/build_defs/pkg:build_tar"),
+            default=Label("//tools/build_defs/pkg:build_tar"),
             cfg="host",
             executable=True,
             allow_files=True)
@@ -168,6 +187,18 @@ pkg_tar = rule(
     },
     executable = False)
 
+def pkg_tar(**kwargs):
+  # Compatibility with older versions of pkg_tar that define files as
+  # a flat list of labels.
+  if "srcs" not in kwargs:
+    if "files" in kwargs:
+      if not hasattr(kwargs["files"], "items"):
+        label = "%s//%s:%s" % (REPOSITORY_NAME, PACKAGE_NAME, kwargs["name"])
+        print("%s: you provided a non dictionary to the pkg_tar `files` attribute. " % (label,) +
+              "This attribute was renamed to `srcs`. " +
+              "Consider renaming it in your BUILD file.")
+        kwargs["srcs"] = kwargs.pop("files")
+  _real_pkg_tar(**kwargs)
 
 # A rule for creating a deb file, see README.md
 pkg_deb = rule(
@@ -202,7 +233,7 @@ pkg_deb = rule(
         "recommends": attr.string_list(default=[]),
         # Implicit dependencies.
         "make_deb": attr.label(
-            default=Label("@bazel_tools//tools/build_defs/pkg:make_deb"),
+            default=Label("//tools/build_defs/pkg:make_deb"),
             cfg="host",
             executable=True,
             allow_files=True)

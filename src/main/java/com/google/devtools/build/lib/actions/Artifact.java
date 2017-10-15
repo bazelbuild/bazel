@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Comparator.comparing;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -21,7 +24,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -29,9 +32,10 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,16 +44,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
  * An Artifact represents a file used by the build system, whether it's a source
  * file or a derived (output) file. Not all Artifacts have a corresponding
- * FileTarget object in the <code>build.packages</code> API: for example,
+ * FileTarget object in the <code>build.lib.packages</code> API: for example,
  * low-level intermediaries internal to a given rule, such as a Java class files
  * or C++ object files. However all FileTargets have a corresponding Artifact.
  *
- * <p>In any given call to Builder#buildArtifacts(), no two Artifacts in the
+ * <p>In any given call to SkyframeExecutor#buildArtifacts(), no two Artifacts in the
  * action graph may refer to the same path.
  *
  * <p>Artifacts generally fall into two classifications, source and derived, but
@@ -91,50 +96,45 @@ import javax.annotation.Nullable;
 @Immutable
 @SkylarkModule(name = "File",
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "<p>This type represents a file used by the build system. It can be "
+    doc = "<p>This type represents a file or directory used by the build system. It can be "
         + "either a source file or a derived file produced by a rule.</p>"
         + "<p>The File constructor is private, so you cannot call it directly to create new "
-        + "Files. If you have a Skylark rule that needs to create a new File, you might need to "
-        + "add the label to the attrs (if it's an input) or the outputs (if it's an output). Then "
-        + "you can access the File through the rule's <a href='ctx.html'>context</a>. You can "
-        + "also use <a href='ctx.html#new_file'>ctx.new_file</a> to create a new file in the rule "
-        + "implementation.</p>")
+        + "Files. If you have a Skylark rule that needs to create a new File, you have two options:"
+        + "<ul>"
+        + "<li>use <a href='actions.html#declare_file'>ctx.actions.declare_file</a> "
+        + "or <a href='actions.html#declare_file'>ctx.actions.declare_director</a>to "
+        + "declare a new file in the rule implementation.</li>"
+        + "<li>add the label to the attrs (if it's an input) or the outputs (if it's an output)."
+        + " Then you can access the File through the rule's "
+        + "<a href='ctx.html#outputs'>ctx.outputs</a>.")
 public class Artifact
     implements FileType.HasFilename, ActionInput, SkylarkValue, Comparable<Object> {
 
-  /**
-   * Compares artifact according to their exec paths. Sorts null values first.
-   */
-  public static final Comparator<Artifact> EXEC_PATH_COMPARATOR = new Comparator<Artifact>() {
-    @Override
-    public int compare(Artifact a, Artifact b) {
-      if (a == b) {
-        return 0;
-      } else if (a == null) {
-        return -1;
-      } else if (b == null) {
-        return -1;
-      } else {
-        return a.execPath.compareTo(b.execPath);
-      }
-    }
-  };
+  /** Compares artifact according to their exec paths. Sorts null values first. */
+  @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
+  public static final Comparator<Artifact> EXEC_PATH_COMPARATOR =
+      (a, b) -> {
+        if (a == b) {
+          return 0;
+        } else if (a == null) {
+          return -1;
+        } else if (b == null) {
+          return -1;
+        } else {
+          return a.execPath.compareTo(b.execPath);
+        }
+      };
 
   /** Compares artifacts according to their root relative paths. */
   public static final Comparator<Artifact> ROOT_RELATIVE_PATH_COMPARATOR =
-      new Comparator<Artifact>() {
-        @Override
-        public int compare(Artifact lhs, Artifact rhs) {
-          return lhs.getRootRelativePath().compareTo(rhs.getRootRelativePath());
-        }
-      };
+      comparing(Artifact::getRootRelativePath);
 
   @Override
   public int compareTo(Object o) {
     if (o instanceof Artifact) {
       return EXEC_PATH_COMPARATOR.compare(this, (Artifact) o);
     }
-    return EvalUtils.compareByClass(this, o);
+    throw new ComparisonException("Cannot compare artifact with " + EvalUtils.getDataTypeName(o));
   }
 
 
@@ -152,25 +152,8 @@ public class Artifact
 
   public static final ImmutableList<Artifact> NO_ARTIFACTS = ImmutableList.of();
 
-  /**
-   * A Predicate that evaluates to true if the Artifact is not a middleman artifact.
-   */
-  public static final Predicate<Artifact> MIDDLEMAN_FILTER = new Predicate<Artifact>() {
-    @Override
-    public boolean apply(Artifact input) {
-      return !input.isMiddlemanArtifact();
-    }
-  };
-
-  /**
-   * A Predicate that evaluates to true if the Artifact <b>is</b> a tree artifact.
-   */
-  public static final Predicate<Artifact> IS_TREE_ARTIFACT = new Predicate<Artifact>() {
-    @Override
-    public boolean apply(Artifact input) {
-      return input.isTreeArtifact();
-    }
-  };
+  /** A Predicate that evaluates to true if the Artifact is not a middleman artifact. */
+  public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
   private final int hashCode;
   private final Path path;
@@ -191,10 +174,10 @@ public class Artifact
    * </pre>
    *
    * <p>In a derived Artifact, the execPath will overlap with part of the root, which in turn will
-   * be below of the execRoot.
+   * be below the execRoot.
    * <pre>
    *  [path] == [/root][pathTail] == [/execRoot][execPath] == [/execRoot][rootPrefix][pathTail]
-   * <pre>
+   * </pre>
    */
   @VisibleForTesting
   public Artifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner) {
@@ -342,6 +325,7 @@ public class Artifact
     return root;
   }
 
+  @Override
   public final PathFragment getExecPath() {
     return execPath;
   }
@@ -357,12 +341,16 @@ public class Artifact
   }
 
   /**
-   * Returns true iff this is a source Artifact as determined by its path and
-   * root relationships. Note that this will report all Artifacts in the output
-   * tree, including in the include symlink tree, as non-source.
+   * Returns true iff this is a source Artifact as determined by its path and root relationships.
+   * Note that this will report all Artifacts in the output tree, including in the include symlink
+   * tree, as non-source.
    */
-  @SkylarkCallable(name = "is_source", structField =  true,
-      doc = "Returns true if this is a source file, i.e. it is not generated")
+  @SkylarkCallable(
+    name = "is_source",
+    structField = true,
+    doc = "Returns true if this is a source file, i.e. it is not generated."
+  )
+  @SuppressWarnings("ReferenceEquality")  // == is an optimization
   public final boolean isSourceArtifact() {
     return execPath == rootRelativePath;
   }
@@ -377,6 +365,8 @@ public class Artifact
   /**
    * Returns true iff this is a TreeArtifact representing a directory tree containing Artifacts.
    */
+  // TODO(rduan): Document this Skylark method once TreeArtifact is no longer experimental.
+  @SkylarkCallable(name = "is_directory", structField = true, documented = false)
   public boolean isTreeArtifact() {
     return false;
   }
@@ -402,7 +392,7 @@ public class Artifact
    * @see SpecialArtifact
    */
   @VisibleForTesting
-  public static enum SpecialArtifactType {
+  public enum SpecialArtifactType {
     FILESET,
     TREE,
     CONSTANT_METADATA,
@@ -502,6 +492,10 @@ public class Artifact
           "The parent of TreeFileArtifact (parent-relative path: %s) is not a TreeArtifact: %s",
           parentRelativePath,
           parent);
+      Preconditions.checkState(
+          parentRelativePath.isNormalized() && !parentRelativePath.isAbsolute(),
+          "%s is not a proper normalized relative path",
+          parentRelativePath);
       this.parentTreeArtifact = parent;
       this.parentRelativePath = parentRelativePath;
     }
@@ -531,11 +525,10 @@ public class Artifact
    */
   public final PathFragment getRunfilesPath() {
     PathFragment relativePath = rootRelativePath;
-    if (relativePath.segmentCount() > 1
-        && relativePath.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
+    if (relativePath.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
       relativePath = relativePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
-      relativePath = new PathFragment("..").getRelative(relativePath);
+      relativePath = PathFragment.create("..").getRelative(relativePath);
     }
     return relativePath;
   }
@@ -599,7 +592,7 @@ public class Artifact
     // We don't bother to check root in the equivalence relation, because we
     // assume that no root is an ancestor of another one.
     Artifact that = (Artifact) other;
-    return this.path.equals(that.path);
+    return Objects.equals(this.path, that.path);
   }
 
   @Override
@@ -612,7 +605,7 @@ public class Artifact
 
   @Override
   public final String toString() {
-    return "Artifact:" + toDetailString();
+    return "File:" + toDetailString();
   }
 
   /**
@@ -653,35 +646,12 @@ public class Artifact
     return result;
   }
 
-  //---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Static methods to assist in working with Artifacts
 
-  /**
-   * Formatter for execPath PathFragment output.
-   */
-  private static final Function<Artifact, PathFragment> EXEC_PATH_FORMATTER =
-      new Function<Artifact, PathFragment>() {
-        @Override
-        public PathFragment apply(Artifact input) {
-          return input.getExecPath();
-        }
-      };
-
+  /** Formatter for execPath PathFragment output. */
   public static final Function<Artifact, String> ROOT_RELATIVE_PATH_STRING =
-      new Function<Artifact, String>() {
-        @Override
-        public String apply(Artifact artifact) {
-          return artifact.getRootRelativePath().getPathString();
-        }
-      };
-
-  public static final Function<Artifact, String> ABSOLUTE_PATH_STRING =
-      new Function<Artifact, String>() {
-        @Override
-        public String apply(Artifact artifact) {
-          return artifact.getPath().getPathString();
-        }
-      };
+      artifact -> artifact.getRootRelativePath().getPathString();
 
   /**
    * Converts a collection of artifacts into execution-time path strings, and
@@ -713,7 +683,7 @@ public class Artifact
   public static Iterable<String> toAbsolutePaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
         Iterables.filter(artifacts, MIDDLEMAN_FILTER),
-        ABSOLUTE_PATH_STRING);
+        artifact -> artifact.getPath().getPathString());
   }
 
   /**
@@ -723,7 +693,7 @@ public class Artifact
   public static Iterable<String> toRootRelativePaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
         Iterables.filter(artifacts, MIDDLEMAN_FILTER),
-        ROOT_RELATIVE_PATH_STRING);
+        artifact -> artifact.getRootRelativePath().getPathString());
   }
 
   /**
@@ -789,7 +759,7 @@ public class Artifact
    */
   public static void addExpandedExecPaths(Iterable<Artifact> artifacts,
       Collection<PathFragment> output, ArtifactExpander artifactExpander) {
-    addExpandedArtifacts(artifacts, output, EXEC_PATH_FORMATTER, artifactExpander);
+    addExpandedArtifacts(artifacts, output, Artifact::getExecPath, artifactExpander);
   }
 
   /**
@@ -895,15 +865,14 @@ public class Artifact
    * Converts artifacts into their exec paths. Returns an immutable list.
    */
   public static List<PathFragment> asPathFragments(Iterable<? extends Artifact> artifacts) {
-    return ImmutableList.copyOf(Iterables.transform(artifacts, EXEC_PATH_FORMATTER));
+    return Streams.stream(artifacts).map(Artifact::getExecPath).collect(toImmutableList());
   }
 
   /**
    * Returns the exec paths of the input artifacts in alphabetical order.
    */
   public static ImmutableList<PathFragment> asSortedPathFragments(Iterable<Artifact> input) {
-    return Ordering.natural().immutableSortedCopy(Iterables.transform(
-        input, EXEC_PATH_FORMATTER));
+    return Streams.stream(input).map(Artifact::getExecPath).sorted().collect(toImmutableList());
   }
 
 
@@ -913,7 +882,16 @@ public class Artifact
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, toString()); // TODO(bazel-team): implement a readable representation
+  public void repr(SkylarkPrinter printer) {
+    if (isSourceArtifact()) {
+      printer.append("<source file " + rootRelativePath + ">");
+    } else {
+      printer.append("<generated file " + rootRelativePath + ">");
+    }
+  }
+
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
+    printer.append(toString());
   }
 }

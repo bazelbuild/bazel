@@ -13,22 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
@@ -36,6 +42,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -49,8 +56,12 @@ class ExperimentalStateTracker {
 
   static final long SHOW_TIME_THRESHOLD_SECONDS = 3;
   static final String ELLIPSIS = "...";
+  static final String FETCH_PREFIX = "    Fetching ";
+  static final String AND_MORE = " ...";
+
 
   static final int NANOS_PER_SECOND = 1000000000;
+  static final String URL_PROTOCOL_SEP = "://";
 
   private int sampleSize = 3;
 
@@ -70,6 +81,12 @@ class ExperimentalStateTracker {
   private final Map<String, Long> actionNanoStartTimes;
   private final Map<String, String> actionStrategy;
 
+  // running downloads are identified by the original URL they were trying to
+  // access.
+  private final Deque<String> runningDownloads;
+  private final Map<String, Long> downloadNanoStartTimes;
+  private final Map<String, FetchProgress> downloads;
+
   // For each test, the list of actions (again identified by the path of the
   // primary output) currently running for that test (identified by its label),
   // in order they got started. A key is present in the map if and only if that
@@ -82,9 +99,15 @@ class ExperimentalStateTracker {
   private TestSummary mostRecentTest;
   private int failedTests;
   private boolean ok;
+  private boolean buildComplete;
 
   private ExecutionProgressReceiver executionProgressReceiver;
   private PackageProgressReceiver packageProgressReceiver;
+
+  // Set of build event protocol transports that need yet to be closed.
+  private Set<BuildEventTransport> bepOpenTransports = new HashSet<>();
+  // The point in time when closing of BEP transports was started.
+  private long bepTransportClosingStartTimeMillis;
 
   ExperimentalStateTracker(Clock clock, int targetWidth) {
     this.runningActions = new ArrayDeque<>();
@@ -92,6 +115,9 @@ class ExperimentalStateTracker {
     this.actionNanoStartTimes = new TreeMap<>();
     this.actionStrategy = new TreeMap<>();
     this.testActions = new TreeMap<>();
+    this.runningDownloads = new ArrayDeque<>();
+    this.downloads = new TreeMap<>();
+    this.downloadNanoStartTimes = new TreeMap<>();
     this.ok = true;
     this.clock = clock;
     this.targetWidth = targetWidth;
@@ -153,6 +179,10 @@ class ExperimentalStateTracker {
   }
 
   void buildComplete(BuildCompleteEvent event, String additionalInfo) {
+    buildComplete = true;
+    // Build event protocol transports are closed right after the build complete event.
+    bepTransportClosingStartTimeMillis = clock.currentTimeMillis();
+
     if (event.getResult().getSuccess()) {
       status = "INFO";
       if (failedTests == 0) {
@@ -174,6 +204,25 @@ class ExperimentalStateTracker {
 
   void buildComplete(BuildCompleteEvent event) {
     buildComplete(event, "");
+  }
+
+  synchronized void downloadProgress(FetchProgress event) {
+    String url = event.getResourceIdentifier();
+    if (event.isFinished()) {
+      // a download is finished, clean it up
+      runningDownloads.remove(url);
+      downloadNanoStartTimes.remove(url);
+      downloads.remove(url);
+    } else if (runningDownloads.contains(url)) {
+      // a new progress update on an already known, still running download
+      downloads.put(url, event);
+    } else {
+      // Start of a new download
+      long nanoTime = clock.nanoTime();
+      runningDownloads.add(url);
+      downloads.put(url, event);
+      downloadNanoStartTimes.put(url, nanoTime);
+    }
   }
 
   synchronized void actionStarted(ActionStartedEvent event) {
@@ -227,7 +276,7 @@ class ExperimentalStateTracker {
     // informed of an action completion, we need to make sure the progress receiver is aware of the
     // completion, even though it might be called later on the event bus.
     if (executionProgressReceiver != null) {
-      executionProgressReceiver.actionCompleted(action);
+      executionProgressReceiver.actionCompleted(event.getActionLookupData());
     }
   }
 
@@ -272,6 +321,13 @@ class ExperimentalStateTracker {
       return ELLIPSIS + suffix(label.toString(), width - ELLIPSIS.length());
     }
     return label.toString();
+  }
+
+  private String shortenedString(String s, int maxWidth) {
+    if (maxWidth <= 3 * ELLIPSIS.length() || s.length() <= maxWidth) {
+      return s;
+    }
+    return s.substring(0, maxWidth - ELLIPSIS.length()) + ELLIPSIS;
   }
 
   // Describe a group of actions running for the same test.
@@ -410,11 +466,12 @@ class ExperimentalStateTracker {
         totalCount--;
         break;
       }
-      int width = (count >= sampleSize && count < actionCount) ? targetWidth - 8 : targetWidth - 4;
+      int width =
+          targetWidth - 4 - ((count >= sampleSize && count < actionCount) ? AND_MORE.length() : 0);
       terminalWriter.newline().append("    " + describeAction(action, nanoTime, width, toSkip));
     }
     if (totalCount < actionCount) {
-      terminalWriter.append(" ...");
+      terminalWriter.append(AND_MORE);
     }
   }
 
@@ -437,6 +494,18 @@ class ExperimentalStateTracker {
     }
   }
 
+  synchronized void buildEventTransportsAnnounced(AnnounceBuildEventTransportsEvent event) {
+    this.bepOpenTransports.addAll(event.transports());
+  }
+
+  synchronized void buildEventTransportClosed(BuildEventTransportClosedEvent event) {
+    bepOpenTransports.remove(event.transport());
+  }
+
+  synchronized int pendingTransports() {
+    return bepOpenTransports.size();
+  }
+
   /***
    * Predicate indicating whether the contents of the progress bar can change, if the
    * only thing that happens is that time passes; this is the case, e.g., if the progress
@@ -444,6 +513,12 @@ class ExperimentalStateTracker {
    */
   boolean progressBarTimeDependent() {
     if (packageProgressReceiver != null) {
+      return true;
+    }
+    if (runningDownloads.size() >= 1) {
+      return true;
+    }
+    if (buildComplete && !bepOpenTransports.isEmpty()) {
       return true;
     }
     if (status != null) {
@@ -484,10 +559,139 @@ class ExperimentalStateTracker {
     }
   }
 
-  synchronized void writeProgressBar(AnsiTerminalWriter rawTerminalWriter, boolean shortVersion)
+  private String shortenUrl(String url, int width) {
+
+    if (url.length() < width) {
+      return url;
+    }
+
+    // Try to shorten to the form prot://host/.../rest/path/filename
+    String prefix = "";
+    int protocolIndex = url.indexOf(URL_PROTOCOL_SEP);
+    if (protocolIndex > 0) {
+      prefix = url.substring(0, protocolIndex + URL_PROTOCOL_SEP.length() + 1);
+      url = url.substring(protocolIndex + URL_PROTOCOL_SEP.length() + 1);
+      int hostIndex = url.indexOf("/");
+      if (hostIndex > 0) {
+        prefix = prefix + url.substring(0, hostIndex + 1);
+        url = url.substring(hostIndex + 1);
+        int targetLength = width - prefix.length();
+        // accept this form of shortening, if what is left from the filename is
+        // significantly longer (twice as long) as the ellipsis symbol introduced
+        if (targetLength > 3 * ELLIPSIS.length()) {
+          String shortPath = suffix(url, targetLength - ELLIPSIS.length());
+          int slashPos = shortPath.indexOf("/");
+          if (slashPos >= 0) {
+            return prefix + ELLIPSIS + shortPath.substring(slashPos);
+          } else {
+            return prefix + ELLIPSIS + shortPath;
+          }
+        }
+      }
+    }
+
+    // Last resort: just take a suffix
+    if (width <= ELLIPSIS.length()) {
+      // No chance to shorten anyway
+      return "";
+    }
+    return ELLIPSIS + suffix(url, width - ELLIPSIS.length());
+  }
+
+  private void reportOnOneDownload(
+      String url, long nanoTime, int width, AnsiTerminalWriter terminalWriter) throws IOException {
+
+    String postfix = "";
+
+    FetchProgress download = downloads.get(url);
+    long nanoDownloadTime = nanoTime - downloadNanoStartTimes.get(url);
+    long downloadSeconds = nanoDownloadTime / NANOS_PER_SECOND;
+
+    String progress = download.getProgress();
+    if (progress.length() > 0) {
+      postfix = postfix + " " + progress;
+    }
+    if (downloadSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
+      postfix = postfix + " " + downloadSeconds + "s";
+    }
+    if (postfix.length() > 0) {
+      postfix = ";" + postfix;
+    }
+    url = shortenUrl(url, width - postfix.length());
+    terminalWriter.append(url + postfix);
+  }
+
+  private void reportOnDownloads(AnsiTerminalWriter terminalWriter) throws IOException {
+    int count = 0;
+    long nanoTime = clock.nanoTime();
+    int downloadCount = runningDownloads.size();
+    for (String url : runningDownloads) {
+      if (count >= sampleSize) {
+        break;
+      }
+      count++;
+      terminalWriter.newline().append(FETCH_PREFIX);
+      reportOnOneDownload(
+          url,
+          nanoTime,
+          targetWidth
+              - FETCH_PREFIX.length()
+              - ((count >= sampleSize && count < downloadCount) ? AND_MORE.length() : 0),
+          terminalWriter);
+    }
+    if (count < downloadCount) {
+      terminalWriter.append(AND_MORE);
+    }
+  }
+
+  /**
+   * Display any BEP transports that are still open after the build. Most likely, because
+   * uploading build events takes longer than the build itself.
+   */
+  private void maybeReportBepTransports(PositionAwareAnsiTerminalWriter terminalWriter)
+      throws IOException {
+    if (!buildComplete || bepOpenTransports.isEmpty()) {
+      return;
+    }
+    long sinceSeconds =
+        MILLISECONDS.toSeconds(clock.currentTimeMillis() - bepTransportClosingStartTimeMillis);
+    if (sinceSeconds == 0) {
+      // Special case for when bazel was interrupted, in which case we don't want to have
+      // a BEP upload message.
+      return;
+    }
+    int count = bepOpenTransports.size();
+    // Can just use targetWidth, because we always write to a new line
+    int maxWidth = targetWidth;
+
+    String waitMessage = "Waiting for build events upload: ";
+    String name = bepOpenTransports.iterator().next().name();
+    String line = waitMessage + name + " " + sinceSeconds + "s";
+
+    if (count == 1 && line.length() <= maxWidth) {
+      terminalWriter.newline().append(line);
+    } else if (count == 1) {
+      waitMessage = "Waiting for: ";
+      String waitSecs = " " + sinceSeconds + "s";
+      int maxNameWidth = maxWidth - waitMessage.length() - waitSecs.length();
+      terminalWriter.newline().append(waitMessage + shortenedString(name, maxNameWidth) + waitSecs);
+    } else {
+      terminalWriter.newline().append(waitMessage + sinceSeconds + "s");
+      for (BuildEventTransport transport : bepOpenTransports) {
+        name = "  " + transport.name();
+        terminalWriter.newline().append(shortenedString(name, maxWidth));
+      }
+    }
+  }
+
+  synchronized void writeProgressBar(
+      AnsiTerminalWriter rawTerminalWriter, boolean shortVersion, String timestamp)
       throws IOException {
     PositionAwareAnsiTerminalWriter terminalWriter =
         new PositionAwareAnsiTerminalWriter(rawTerminalWriter);
+    if (timestamp != null) {
+      terminalWriter.append(timestamp);
+    }
     if (status != null) {
       if (ok) {
         terminalWriter.okStatus();
@@ -502,6 +706,10 @@ class ExperimentalStateTracker {
           terminalWriter.newline().append("    " + progress.getSecond());
         }
       }
+      if (!shortVersion) {
+        reportOnDownloads(terminalWriter);
+        maybeReportBepTransports(terminalWriter);
+      }
       return;
     }
     if (packageProgressReceiver != null) {
@@ -509,6 +717,9 @@ class ExperimentalStateTracker {
       terminalWriter.okStatus().append("Loading:").normal().append(" " + progress.getFirst());
       if (progress.getSecond().length() > 0) {
         terminalWriter.newline().append("    " + progress.getSecond());
+      }
+      if (!shortVersion) {
+        reportOnDownloads(terminalWriter);
       }
       return;
     }
@@ -565,6 +776,15 @@ class ExperimentalStateTracker {
         sampleOldestActions(terminalWriter);
       }
     }
+    if (!shortVersion) {
+      reportOnDownloads(terminalWriter);
+      maybeReportBepTransports(terminalWriter);
+    }
+  }
+
+  void writeProgressBar(AnsiTerminalWriter terminalWriter, boolean shortVersion)
+      throws IOException {
+    writeProgressBar(terminalWriter, shortVersion, null);
   }
 
   void writeProgressBar(AnsiTerminalWriter terminalWriter) throws IOException {

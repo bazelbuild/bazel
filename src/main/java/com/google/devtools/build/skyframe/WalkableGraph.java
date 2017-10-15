@@ -14,9 +14,11 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -29,17 +31,17 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public interface WalkableGraph {
-
-  /**
-   * Returns whether the given key exists as a done node in the graph. If there is a chance that the
-   * given node does not exist, this method should be called before any others, since the others
-   * throw a {@link RuntimeException} on failure to access a node.
-   */
-  boolean exists(SkyKey key) throws InterruptedException;
-
   /**
    * Returns the value of the given key, or {@code null} if it has no value due to an error during
-   * its computation. A node with this key must exist in the graph.
+   * its computation or it is not done in the graph.
+   *
+   * <p>A node that is done in the graph must have either a non-null getValue, a non-null {@link
+   * #getException}, or a true {@link #isCycle}.
+   *
+   * <p>These three methods should all be reading the same {@link
+   * NodeEntry#getValueMaybeWithMetadata} value internally, so once that value is indirectly
+   * retrieved via one of these methods, the others can read it for free. This is relevant for graph
+   * implementations that may throw an {@link InterruptedException} on retrieving entries and value.
    */
   @Nullable
   SkyValue getValue(SkyKey key) throws InterruptedException;
@@ -62,28 +64,51 @@ public interface WalkableGraph {
 
   /**
    * Returns the exception thrown when computing the node with the given key, if any. If the node
-   * was computed successfully, returns null. A node with this key must exist and be done in the
-   * graph.
+   * was computed successfully, depends on a cycle without any other error, or is not done in the
+   * graph, returns null.
    */
   @Nullable
   Exception getException(SkyKey key) throws InterruptedException;
 
   /**
+   * Returns true if the node with the given {@code key} depends on a cycle. Returns false if the
+   * node does not depend on a cycle, or is not done in the graph.
+   */
+  boolean isCycle(SkyKey key) throws InterruptedException;
+
+  /**
    * Returns a map giving the direct dependencies of the nodes with the given keys. A node for each
-   * given key must exist and be done in the graph.
+   * given key must be done in the graph if it exists.
    */
   Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys) throws InterruptedException;
 
   /**
    * Returns a map giving the reverse dependencies of the nodes with the given keys. A node for each
-   * given key must exist and be done in the graph.
+   * given key must be done in the graph if it exists.
    */
   Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys) throws InterruptedException;
 
+  /**
+   * Examines all the given keys. Returns an iterable of keys whose corresponding nodes are
+   * currently available to be fetched.
+   *
+   * <p>Note: An unavailable node does not mean it is not in the graph. It only means it's not ready
+   * to be fetched immediately.
+   */
+  Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason);
+
   /** Provides a WalkableGraph on demand after preparing it. */
   interface WalkableGraphFactory {
-    EvaluationResult<SkyValue> prepareAndGet(Collection<String> roots, String offset,
-        int numThreads, EventHandler eventHandler) throws InterruptedException;
+    EvaluationResult<SkyValue> prepareAndGet(
+        Set<SkyKey> roots, int numThreads, ExtendedEventHandler eventHandler)
+        throws InterruptedException;
+
+    /**
+     * Returns true if this instance has already been used to {@link #prepareAndGet} {@code roots}.
+     * If so, cached results from {@link #prepareAndGet} can be re-used safely, potentially saving
+     * some processing time.
+     */
+    boolean isUpToDate(Set<SkyKey> roots);
 
     /** Returns the {@link SkyKey} that defines this universe. */
     SkyKey getUniverseKey(Collection<String> roots, String offset);

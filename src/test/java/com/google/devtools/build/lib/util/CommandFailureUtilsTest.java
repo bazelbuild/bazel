@@ -13,15 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import static com.google.common.truth.Truth.assertThat;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class CommandFailureUtilsTest {
@@ -40,28 +39,28 @@ public class CommandFailureUtilsTest {
     env.put("FOO", "foo");
     String cwd = "/my/working/directory";
     String message = CommandFailureUtils.describeCommandError(false, Arrays.asList(args), env, cwd);
-    String verboseMessage = CommandFailureUtils.describeCommandError(true, Arrays.asList(args), env,
-                                                                     cwd);
-    assertEquals(
-        "error executing command some_command arg1 "
-        + "arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
-        + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
-        + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
-        + "arg27 arg28 arg29 arg30 arg31 "
-        + "... (remaining 8 argument(s) skipped)",
-        message);
-    assertEquals(
-        "error executing command \n"
-        + "  (cd /my/working/directory && \\\n"
-        + "  exec env - \\\n"
-        + "    FOO=foo \\\n"
-        + "    PATH=/usr/bin:/bin:/sbin \\\n"
-        + "  some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
-        + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
-        + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
-        + "arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 "
-        + "arg35 arg36 arg37 arg38 arg39)",
-        verboseMessage);
+    String verboseMessage =
+        CommandFailureUtils.describeCommandError(true, Arrays.asList(args), env, cwd);
+    assertThat(message)
+        .isEqualTo(
+            "error executing command some_command arg1 "
+                + "arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
+                + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
+                + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
+                + "arg27 arg28 arg29 arg30 arg31 "
+                + "... (remaining 8 argument(s) skipped)");
+    assertThat(verboseMessage)
+        .isEqualTo(
+            "error executing command \n"
+                + "  (cd /my/working/directory && \\\n"
+                + "  exec env - \\\n"
+                + "    FOO=foo \\\n"
+                + "    PATH=/usr/bin:/bin:/sbin \\\n"
+                + "  some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
+                + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
+                + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
+                + "arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 "
+                + "arg35 arg36 arg37 arg38 arg39)");
   }
 
   @Test
@@ -74,20 +73,20 @@ public class CommandFailureUtilsTest {
     env.put("FOO", "foo");
     env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = null;
-    String message = CommandFailureUtils.describeCommandFailure(false, Arrays.asList(args),
-                                                                env, cwd);
-    String verboseMessage = CommandFailureUtils.describeCommandFailure(true, Arrays.asList(args),
-                                                                       env, cwd);
-    assertEquals(
-        "sh failed: error executing command "
-        + "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42'",
-        message);
-    assertEquals(
-        "sh failed: error executing command \n"
-        + "  (exec env - \\\n"
-        + "    FOO=foo \\\n"
-        + "    PATH=/usr/bin:/bin:/sbin \\\n"
-        + "  /bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42')",
-        verboseMessage);
+    String message =
+        CommandFailureUtils.describeCommandFailure(false, Arrays.asList(args), env, cwd);
+    String verboseMessage =
+        CommandFailureUtils.describeCommandFailure(true, Arrays.asList(args), env, cwd);
+    assertThat(message)
+        .isEqualTo(
+            "sh failed: error executing command "
+                + "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42'");
+    assertThat(verboseMessage)
+        .isEqualTo(
+            "sh failed: error executing command \n"
+                + "  (exec env - \\\n"
+                + "    FOO=foo \\\n"
+                + "    PATH=/usr/bin:/bin:/sbin \\\n"
+                + "  /bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42')");
   }
 }

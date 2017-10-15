@@ -157,6 +157,11 @@ java_test(
         ":interface_ijar_testlib",
         ":liblocal_and_anonymous_lib.jar",
         ":local_and_anonymous-interface.jar",
+        "//third_party/java/jdk/langtools:javac_jar",
+    ],
+    jvm_flags = [
+        # Simulates how Bazel invokes javac
+        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
     ],
     tags = ["zip"],
     test_class = "IjarTests",

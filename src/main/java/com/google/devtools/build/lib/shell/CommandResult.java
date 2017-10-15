@@ -26,8 +26,8 @@ import java.util.logging.Logger;
  */
 public final class CommandResult {
 
-  private static final Logger log =
-    Logger.getLogger("com.google.devtools.build.lib.shell.Command");
+  private static final Logger logger =
+      Logger.getLogger("com.google.devtools.build.lib.shell.Command");
 
   private static final byte[] NO_BYTES = new byte[0];
 
@@ -35,7 +35,7 @@ public final class CommandResult {
     new ByteArrayOutputStream() {
 
       @Override
-      public byte[] toByteArray() {
+      public synchronized byte[] toByteArray() {
         return NO_BYTES;
       }
   };
@@ -44,7 +44,7 @@ public final class CommandResult {
     new ByteArrayOutputStream(){
 
       @Override
-      public byte[] toByteArray() {
+      public synchronized byte[] toByteArray() {
         throw new IllegalStateException("Output was not collected");
       }
   };
@@ -90,16 +90,16 @@ public final class CommandResult {
   }
 
   void logThis() {
-    if (!log.isLoggable(Level.FINER)) {
+    if (!logger.isLoggable(Level.FINER)) {
       return;
     }
-    log.finer(terminationStatus.toString());
+    logger.finer(terminationStatus.toString());
 
     if (stdout == NO_OUTPUT_COLLECTED) {
       return;
     }
-    log.finer("Stdout: " + LogUtil.toTruncatedString(stdout.toByteArray()));
-    log.finer("Stderr: " + LogUtil.toTruncatedString(stderr.toByteArray()));
+    logger.finer("Stdout: " + LogUtil.toTruncatedString(stdout.toByteArray()));
+    logger.finer("Stderr: " + LogUtil.toTruncatedString(stderr.toByteArray()));
   }
 
 }

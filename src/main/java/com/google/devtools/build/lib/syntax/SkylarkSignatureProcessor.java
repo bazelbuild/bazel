@@ -50,8 +50,8 @@ public class SkylarkSignatureProcessor {
     Preconditions.checkArgument(name.equals(annotation.name()),
         "%s != %s", name, annotation.name());
     ArrayList<Parameter<Object, SkylarkType>> paramList = new ArrayList<>();
-    HashMap<String, SkylarkType> enforcedTypes = enforcedTypesList == null
-        ? null : new HashMap<String, SkylarkType>();
+    HashMap<String, SkylarkType> enforcedTypes =
+        enforcedTypesList == null ? null : new HashMap<>();
 
     HashMap<String, String> doc = new HashMap<>();
     boolean documented = annotation.documented();
@@ -89,7 +89,7 @@ public class SkylarkSignatureProcessor {
                 /*mandatory=*/false, /*star=*/false, /*starStar=*/true, /*defaultValue=*/null));
       }
       FunctionSignature.WithValues<Object, SkylarkType> signature =
-          FunctionSignature.WithValues.<Object, SkylarkType>of(paramList);
+          FunctionSignature.WithValues.of(paramList);
       for (String paramName : signature.getSignature().getNames()) {
         if (enforcedTypesList != null) {
           enforcedTypesList.add(enforcedTypes.get(paramName));
@@ -175,13 +175,14 @@ public class SkylarkSignatureProcessor {
       return Runtime.NONE;
     } else {
       try (Mutability mutability = Mutability.create("initialization")) {
-        return Environment.builder(mutability)
-            .setSkylark()
-            .setGlobals(Environment.CONSTANTS_ONLY)
-            .setEventHandler(Environment.FAIL_FAST_HANDLER)
-            .build()
-            .update("unbound", Runtime.UNBOUND)
-            .eval(param.defaultValue());
+        // Note that this Skylark environment ignores command line flags.
+        Environment env =
+            Environment.builder(mutability)
+                .setGlobals(Environment.CONSTANTS_ONLY)
+                .setEventHandler(Environment.FAIL_FAST_HANDLER)
+                .build()
+                .update("unbound", Runtime.UNBOUND);
+        return BuildFileAST.eval(env, param.defaultValue());
       } catch (Exception e) {
         throw new RuntimeException(String.format(
             "Exception while processing @SkylarkSignature.Param %s, default value %s",

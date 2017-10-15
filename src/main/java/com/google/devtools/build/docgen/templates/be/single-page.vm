@@ -12,10 +12,6 @@
 
 <hr>
 
-#parse("com/google/devtools/build/docgen/templates/be/predefined-python-variables.vm")
-
-<hr>
-
 #parse("com/google/devtools/build/docgen/templates/be/functions.vm")
 
 #foreach ($ruleFamily in $ruleFamilies)

@@ -10,6 +10,6 @@ sh_binary(
     srcs = ["momcwrapper.sh"],
     data = [
         "//src/tools/xcode/realpath",
-        "//src/tools/xcode/xcrunwrapper",
+        "//tools/objc:xcrunwrapper",
     ],
 )

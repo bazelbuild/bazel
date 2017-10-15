@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.DataResourceXml;
 import com.google.devtools.build.android.XmlResourceValue;
@@ -43,9 +44,7 @@ public class Namespaces implements Iterable<Entry<String, String>> {
   private static final Namespaces EMPTY_INSTANCE =
       new Namespaces(ImmutableMap.<String, String>of());
 
-  /**
-   * Collects prefix and uri pairs from elements.
-   */
+  /** Collects prefix and uri pairs from elements. */
   public static class Collector {
     private Map<String, String> prefixToUri = new HashMap<>();
 
@@ -98,6 +97,17 @@ public class Namespaces implements Iterable<Entry<String, String>> {
     return new Namespaces(ImmutableMap.copyOf(prefixToUri));
   }
 
+  /**
+   * Create a {@link Namespaces} containing the singular namespace used by the name, or an empty
+   * one.
+   */
+  public static Namespaces from(QName name) {
+    if (name.getPrefix().isEmpty()) {
+      return empty();
+    }
+    return new Namespaces(ImmutableMap.of(name.getPrefix(), name.getNamespaceURI()));
+  }
+
   public static Namespaces empty() {
     return EMPTY_INSTANCE;
   }
@@ -146,6 +156,11 @@ public class Namespaces implements Iterable<Entry<String, String>> {
   @Override
   public int hashCode() {
     return prefixToUri.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(getClass()).add("prefixToUri", prefixToUri).toString();
   }
 
   @Override

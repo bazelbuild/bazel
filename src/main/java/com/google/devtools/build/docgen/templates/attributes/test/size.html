@@ -6,6 +6,40 @@ default is "medium"; optional</code></p>
 <p>A classification of the test's "heaviness": how much time/resources
 it needs to run.</p>
 
-<p>Unittests are considered "small", integration tests "medium", and
-end-to-end tests "large" or "enormous". Bazel uses the size only
-to determine a default timeout.</p>
+<p>Unittests are considered "small", integration tests "medium", and end-to-end tests "large" or
+"enormous". Bazel uses the size to determine a default timeout (which can be overridden using the
+"timeout" attribute) and the amount of resources that have to be acquired for the test to run.
+The mapping of test size to resource is currently:</p>
+
+<table style="width: 100%">
+  <tr>
+    <th>size</th>
+    <th>RAM (in MB)</th>
+    <th>CPU (in CPU cores)</th>
+    <th>I/O (fraction)</th>
+  </tr>
+  <tr>
+    <td>small</td>
+    <td>20</td>
+    <td>0.9</td>
+    <td>0</td>
+  </tr>
+  <tr>
+    <td>medium</td>
+    <td>100</td>
+    <td>0.9</td>
+    <td>0.1</td>
+  </tr>
+  <tr>
+    <td>large</td>
+    <td>300</td>
+    <td>0.8</td>
+    <td>0.1</td>
+  </tr>
+  <tr>
+    <td>enormous</td>
+    <td>800</td>
+    <td>0.7</td>
+    <td>0.4</td>
+  </tr>
+</table>

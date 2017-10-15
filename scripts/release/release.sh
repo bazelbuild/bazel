@@ -44,12 +44,22 @@ RELEASE_NOTE_MESSAGE='# Editing release notes
 # empty line at the start and at the end.
 '
 
+# Fetch everything from remote repositories to avoid conflicts
+function fetch() {
+  for i in ${RELEASE_REPOSITORIES}; do
+    git fetch -f $i &>/dev/null || true
+    git fetch -f $i refs/notes/*:refs/notes/* &>/dev/null || true
+  done
+}
+
 # Set the release name $1 (and eventually the candidate number $2).
 function set_release_name() {
   git notes --ref=release remove 2>/dev/null || true
   git notes --ref=release-candidate remove 2>/dev/null || true
   git notes --ref=release append -m "$1"
-  [ -z "${2-}" ] || git notes --ref=release-candidate append -m "$2"
+  if [[ ! -z "${2-}" ]]; then
+    git notes --ref=release-candidate append -m "$2"
+  fi
 }
 
 # Trim empty lines at the beginning and the end of the buffer.
@@ -63,69 +73,50 @@ function trim_empty_lines() {
 # Launch the editor and return the edited release notes
 function release_note_editor() {
   local tmpfile="$1"
-  local origin_branch="$2"
-  local branch_name="${3-}"
+  local branch_name="${2-}"
   $EDITOR ${tmpfile} || {
     echo "Editor failed, cancelling release creation..." >&2
-    git checkout -q ${origin_branch} >/dev/null
-    [ -z "${branch_name}" ] || git branch -D ${branch_name}
-    exit 1
+    return 1
   }
   # Stripping the release notes
   local relnotes="$(cat ${tmpfile} | grep -v '^#' | trim_empty_lines)"
   if [ -z "${relnotes}" ]; then
     echo "Release notes are empty, cancelling release creation..." >&2
-    git checkout -q ${origin_branch} >/dev/null
-    [ -z "${branch_name}" ] || git branch -D ${branch_name}
-    exit 1
+    return 1
   fi
   echo "${relnotes}" >${tmpfile}
 }
 
 # Create the release commit by changing the CHANGELOG file
 function create_release_commit() {
-  local release_title="$1"
-  local release_name="$2"
-  local relnotes="$3"
-  local tmpfile="$4"
-  local baseline="$5"
-  shift 5
-  local cherrypicks=$@
+  local infos=$(generate_release_message "${1}" HEAD '```')
   local changelog_path="$PWD/CHANGELOG.md"
+  local master=$(get_master_ref)
 
-  version_info=$(create_revision_information $baseline $cherrypicks)
+  # Get the changelog from master to avoid missing release notes
+  # from release that were in-between
+  git checkout -q ${master} CHANGELOG.md || true
+
   # CHANGELOG.md
-  cat >${tmpfile} <<EOF
-## ${release_title}
-
-EOF
-  if [ -n "${version_info}" ]; then
-    cat >>${tmpfile} <<EOF
-\`\`\`
-${version_info}
-\`\`\`
-EOF
-  fi
-  cat >>${tmpfile} <<EOF
-
-${relnotes}
-EOF
-
+  local tmpfile="$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)"
+  trap "rm -f ${tmpfile}" EXIT
+  echo -n "## ${infos}" >${tmpfile}
   if [ -f "${changelog_path}" ]; then
-    echo >>${tmpfile}
-    cat "${changelog_path}" >>${tmpfile}
+    {
+      echo
+      echo
+      cat "${changelog_path}"
+      echo
+    } >> ${tmpfile}
   fi
-  cat ${tmpfile} > ${changelog_path}
+  cat "${tmpfile}" > ${changelog_path}
   git add ${changelog_path}
-  # Commit message
-  cat >${tmpfile} <<EOF
-${release_title}
+  rm -f "${tmpfile}"
+  trap - EXIT
 
-${version_info}
-
-${relnotes}
-EOF
-  git commit --no-verify -F ${tmpfile} --no-edit --author "${RELEASE_AUTHOR}"
+  # Commit
+  infos="$(echo "${infos}" | grep -Ev '^```$')"
+  git commit --no-verify -m "${infos}" --no-edit --author "${RELEASE_AUTHOR}"
 }
 
 function apply_cherry_picks() {
@@ -144,32 +135,43 @@ function apply_cherry_picks() {
         return 1
       fi
     }
+    # Add the origin of the cherry-pick in case the patch-id diverge and we cannot
+    # find the original commit.
+    git notes --ref=cherrypick add -f -m "$i"
   done
   return 0
+}
+
+# Find out the last release since the fork between "${1:-HEAD}" from master.
+function find_last_release() {
+  local branch="${1:-HEAD}"
+  local baseline="${2:-$(get_release_baseline "${branch}")}"
+  local changes="$(git log --pretty=format:%H "${baseline}~".."${branch}")"
+  for i in ${changes}; do
+    if git notes --ref=release show $i &>/dev/null; then
+      echo $i
+      return 0
+    fi
+  done
 }
 
 # Execute the create command:
 #   Create a new release named "$1" with "$2" as the baseline commit.
 function create_release() {
+  local force_rc=
+  if [[ "$1" =~ ^--force_rc=([0-9]*)$ ]]; then
+    force_rc=${BASH_REMATCH[1]}
+    shift 1
+  fi
   local release_name="$1"
   local baseline="$2"
   shift 2
   local origin_branch=$(git_get_branch)
   local branch_name="release-${release_name}"
-  local release_title="Release ${release_name} ($(date +%Y-%m-%d))"
-  local tmpfile=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
-  local tmpfile2=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
-  trap 'rm -f ${tmpfile} ${tmpfile2}' EXIT
 
-  # Get the rc number (1 by default)
-  local rc=1
-  if [ -n "$(git branch --list --column ${branch_name})" ]; then
-    rc=$(($(get_release_candidate "${branch_name}")+1))
-  fi
+  fetch
 
-  # Save the changelog so we compute the relnotes against HEAD.
-  git show master:CHANGELOG.md >${tmpfile2} 2>/dev/null || echo >${tmpfile2}
-
+  local last_release="$(git rev-parse --verify "${branch_name}" 2>/dev/null || true)"
   echo "Creating new release branch ${branch_name} for release ${release_name}"
   git checkout -B ${branch_name} ${baseline}
 
@@ -179,32 +181,117 @@ function create_release() {
     exit 1
   }
 
+  setup_git_notes "${force_rc}" "${release_name}" "${last_release}" || {
+    git checkout ${origin_branch}
+    git branch -D ${branch_name}
+    exit 1
+  }
+
+  echo "Created $(get_full_release_name) on branch ${branch_name}."
+}
+
+# Setup the git notes for a release.
+# It looks in the history since the merge base with master to find
+# the latest release candidate and create the git notes for:
+#   the release name (ref=release)
+#   the release candidate number (ref=release-candidate)
+#   the release notes (ref=release-notes)
+# Args:
+#   $1: set to a number to force the release candidate number (default
+#       is taken by increasing the previous release candidate number).
+#   $2: (optional) Specify the release name (default is taken by the
+#       last release candidate or the branch name, e.g. if the branch
+#       name is release-v1, then the name will be 'v1').
+#   $3: (optional) Specify the commit for last release.
+function setup_git_notes() {
+  local force_rc="$1"
+  local branch_name="$(git_get_branch)"
+
+  # Figure out where we are in release: find the rc, the baseline, cherrypicks
+  # and release name.
+  local rc=${force_rc:-1}
+  local baseline="$(get_release_baseline)"
+  local cherrypicks="$(get_cherrypicks "HEAD" "${baseline}")"
+  local last_release="${3-$(find_last_release "HEAD" "${baseline}")}"
+  local release_name="${2-}"
+  if [ -n "${last_release}" ]; then
+    if [ -z "${force_rc}" ]; then
+      rc=$(($(get_release_candidate "${last_release}")+1))
+    fi
+    if [ -z "${release_name}" ]; then
+      release_name="$(get_release_name "${last_release}")"
+    fi
+  elif [ -z "${release_name}" ]; then
+    if [[ "${branch_name}" =~ ^release-(.*)$ ]]; then
+      release_name="${BASH_REMATCH[1]}"
+    else
+      echo "Cannot determine the release name." >&2
+      echo "Please create a release branch with the name release-<name>." >&2
+      return 1
+    fi
+  fi
+
+  # Edit the release notes
+  local tmpfile=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
+  trap "rm -f ${tmpfile}" EXIT
+
   echo "Creating release notes"
+
+  # Save the changelog so we compute the relnotes against HEAD.
+  git show master:CHANGELOG.md >${tmpfile} 2>/dev/null || echo >${tmpfile}
+  # Compute the new release notes
+  local relnotes="$(create_release_notes "${tmpfile}" "${baseline}" ${cherrypicks})"
+
+  # Try to merge the release notes if there was a previous release
+  if [ -n "${last_release}" ]; then
+    # Compute the previous release notes
+    local last_baseline="$(get_release_baseline "${last_release}")"
+    git checkout -q "${last_release}"
+    local last_relnotes="$(create_release_notes "${tmpfile}")"
+    git checkout -q "${branch_name}"
+    local last_savedrelnotes="$(get_release_notes "${last_release}")"
+    relnotes="$(merge_release_notes "${branch_name}" "${relnotes}" \
+      "${last_relnotes}" "${last_savedrelnotes}")"
+  fi
   echo "${RELEASE_NOTE_MESSAGE}" > ${tmpfile}
-  echo "# ${release_title}" >> ${tmpfile}
+  echo "# $(get_release_title "${release_name}rc${rc}")" >> ${tmpfile}
   echo >> ${tmpfile}
-  create_release_notes "${tmpfile2}" >> ${tmpfile}
-  release_note_editor ${tmpfile} "${origin_branch}" "${branch_name}"
-  local relnotes="$(cat ${tmpfile})"
+  echo "${relnotes}" >>"${tmpfile}"
+  release_note_editor ${tmpfile} "${branch_name}" || return 1
+  relnotes="$(cat ${tmpfile})"
 
-  echo "Creating the release commit"
-  create_release_commit "${release_title}" "${release_name}" \
-      "${relnotes}" "${tmpfile}" "${baseline}" $@
+  # Add the git notes
   set_release_name "${release_name}" "${rc}"
+  git notes --ref=release-notes add -f -m "${relnotes}"
 
-  rm -f ${tmpfile} ${tmpfile2}
+  # Clean-up
+  rm -f ${tmpfile}
   trap - EXIT
+}
+
+# Force push a ref $2 to repo $1 if exists
+function push_if_exists() {
+  if git show-ref -q "${2}"; then
+    git push -f "${1}" "+${2}"
+  fi
+}
+
+# Push release notes refs but also a given ref
+function push_notes_and_ref() {
+  local ref="$1"
+  for repo in ${RELEASE_REPOSITORIES}; do
+    push_if_exists "${repo}" "${ref}"
+    push_if_exists "${repo}" "refs/notes/release"
+    push_if_exists "${repo}" "refs/notes/release-candidate"
+    push_if_exists "${repo}" "refs/notes/release-notes"
+    push_if_exists "${repo}" "refs/notes/cherrypick"
+  done
 }
 
 # Push the release branch to the release repositories so a release
 # candidate can be created.
 function push_release_candidate() {
-  local branch="$(get_release_branch)"
-  for repo in ${RELEASE_REPOSITORIES}; do
-    git push -f ${repo} +${branch}
-    git push -f ${repo} +refs/notes/release
-    git push -f ${repo} +refs/notes/release-candidate
-  done
+  push_notes_and_ref "$(get_release_branch)"
 }
 
 # Deletes the release branch after a release or abandoning the release
@@ -212,7 +299,7 @@ function cleanup_branches() {
   local tag_name=$1
   local i
   echo "Destroying the release branches for release ${tag_name}"
-  # Destroy branch, ignoring if it doesn't exists.
+  # Destroy branch, ignoring if it doesn't exist.
   git branch -D release-${tag_name} &>/dev/null || true
   for i in $RELEASE_REPOSITORIES; do
     git push -f $i :release-${tag_name} &>/dev/null || true
@@ -228,8 +315,9 @@ function do_release() {
 
   echo -n "You are about to release branch ${branch} in tag ${tag_name}, confirm? [y/N] "
   read answer
-  if [ "$answer" = "y" -o "$answer" = "Y" ]; then
-    # Remove release "candidate"
+  if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+    echo "Creating the release commit"
+    create_release_commit "${tag_name}"
     set_release_name "${tag_name}"
     echo "Creating the tag"
     git tag ${tag_name}
@@ -254,11 +342,7 @@ function do_release() {
     for i in $MASTER_REPOSITORIES; do
       git push $i +master
     done
-    for i in $RELEASE_REPOSITORIES; do
-      git push $i +refs/tags/${tag_name}
-      git push $i +refs/notes/release-candidate
-      git push $i +refs/notes/release
-    done
+    push_notes_and_ref "refs/tags/${tag_name}"
     cleanup_branches ${tag_name}
   fi
 }
@@ -270,7 +354,9 @@ function abandon_release() {
   local tag_name=$(get_release_name)
   echo -n "You are about to abandon release ${tag_name}, confirm? [y/N] "
   read answer
-  if [ "$answer" = "y" -o "$answer" = "Y" ]; then
+  if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+    git notes --ref=release remove 2>/dev/null || true
+    git notes --ref=release-candidate remove 2>/dev/null || true
     git checkout -q master >/dev/null
     cleanup_branches ${tag_name}
   fi
@@ -280,9 +366,19 @@ function usage() {
   cat >&2 <<EOF
 Usage: $1 command [arguments]
 Available commands are:
-  - create RELEASE_NAME BASELINE [COMMIT1 ... COMMITN]: creates a new
-      release branch for release named RELEASE_NAME, cutting it at
-      the commit BASELINE and cherry-picking COMMIT1 ... COMMITN.
+  - create [--force_rc=RC] RELEASE_NAME BASELINE [COMMIT1 ... COMMITN]:
+      creates a new release branch for release named RELEASE_NAME,
+      cutting it at the commit BASELINE and cherry-picking
+      COMMIT1 ... COMMITN. The release candidate number will be
+      computed from existing release branch unless --force_rc is
+      specified.
+  - generate-rc [--force_rc=RC]: generate a release candidate out of
+      the current branch, the branch should be named "release-XXX"
+      where "XXX" is the name of the release. This branch should be
+      a fork of master in which some cherry-picks where taken from
+      master. --force_rc can be used to override the RC number
+      (by default it tries to look for latest release and increment
+      the rc number).
   - push: push the current release branch to release repositories.
   - release: do the actual release of the current release branch.
   - abandon: abandon the current release branch.
@@ -329,6 +425,14 @@ case $cmd in
     ;;
   release)
     do_release
+    ;;
+  generate-rc)
+    force_rc=
+    if [[ "${1-}" =~ ^--force_rc=([0-9]*)$ ]]; then
+      force_rc=${BASH_REMATCH[1]}
+      shift 1
+    fi
+    setup_git_notes "${force_rc}"
     ;;
   abandon)
     abandon_release

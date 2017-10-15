@@ -23,12 +23,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -37,7 +39,6 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -45,7 +46,10 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -88,12 +92,21 @@ public final class ActionsTestUtil {
 
   public static ActionExecutionContext createContext(Executor executor, FileOutErr fileOutErr,
       Path execRoot, MetadataHandler metadataHandler, @Nullable ActionGraph actionGraph) {
+    return createContext(
+        executor, fileOutErr, execRoot, metadataHandler, ImmutableMap.<String, String>of(),
+        actionGraph);
+  }
+
+  public static ActionExecutionContext createContext(Executor executor, FileOutErr fileOutErr,
+      Path execRoot, MetadataHandler metadataHandler, Map<String, String> clientEnv,
+      @Nullable ActionGraph actionGraph) {
     return new ActionExecutionContext(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        ActionInputPrefetcher.NONE,
         metadataHandler,
         fileOutErr,
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.<String, String>copyOf(clientEnv),
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
@@ -105,6 +118,7 @@ public final class ActionsTestUtil {
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        ActionInputPrefetcher.NONE,
         metadataHandler,
         fileOutErr,
         ImmutableMap.<String, String>of(),
@@ -115,8 +129,8 @@ public final class ActionsTestUtil {
   public static ActionExecutionContext createContext(EventHandler eventHandler) {
     DummyExecutor dummyExecutor = new DummyExecutor(eventHandler);
     return new ActionExecutionContext(
-        dummyExecutor, null, null, null, ImmutableMap.<String, String>of(),
-        createDummyArtifactExpander());
+        dummyExecutor, null, ActionInputPrefetcher.NONE, null, null,
+        ImmutableMap.<String, String>of(), createDummyArtifactExpander());
   }
 
   private static ArtifactExpander createDummyArtifactExpander() {
@@ -144,12 +158,16 @@ public final class ActionsTestUtil {
 
     @Override
     protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-        Iterable<SkyKey> depKeys) {
+        Iterable<? extends SkyKey> depKeys) {
       EvaluationResult<SkyValue> evaluationResult;
       Map<SkyKey, ValueOrUntypedException> result = new HashMap<>();
       try {
-        evaluationResult = driver.evaluate(depKeys, /*keepGoing=*/false,
-            ResourceUsage.getAvailableProcessors(), eventHandler);
+        evaluationResult =
+            driver.evaluate(
+                depKeys, /*keepGoing=*/
+                false,
+                ResourceUsage.getAvailableProcessors(),
+                new Reporter(new EventBus(), eventHandler));
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         for (SkyKey key : depKeys) {
@@ -174,7 +192,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public EventHandler getListener() {
+    public ExtendedEventHandler getListener() {
       return null;
     }
 
@@ -185,12 +203,19 @@ public final class ActionsTestUtil {
   }
 
   public static final Artifact DUMMY_ARTIFACT = new Artifact(
-      new PathFragment("dummy"),
+      PathFragment.create("dummy"),
       Root.asSourceRoot(new InMemoryFileSystem().getRootDirectory()));
 
   public static final ActionOwner NULL_ACTION_OWNER =
-      new ActionOwner(
-          NULL_LABEL, null, "dummy-configuration-mnemonic", null, "dummy-configuration", null);
+      ActionOwner.create(
+          NULL_LABEL,
+          ImmutableList.<AspectDescriptor>of(),
+          null,
+          "dummy-configuration-mnemonic",
+          null,
+          "dummy-configuration",
+          null,
+          null);
 
   public static final ArtifactOwner NULL_ARTIFACT_OWNER =
       new ArtifactOwner() {
@@ -223,15 +248,15 @@ public final class ActionsTestUtil {
       super(NULL_ACTION_OWNER, Artifact.NO_ARTIFACTS, ImmutableList.copyOf(outputs));
     }
 
+    public NullAction(List<Artifact> inputs, Artifact... outputs) {
+      super(NULL_ACTION_OWNER, inputs, ImmutableList.copyOf(outputs));
+    }
+
     @Override
     public void execute(ActionExecutionContext actionExecutionContext) {
     }
 
     @Override protected String computeKey() { return "action"; }
-
-    @Override public ResourceSet estimateResourceConsumption(Executor executor) {
-      return ResourceSet.ZERO;
-    }
 
     @Override
     public String getMnemonic() {
@@ -536,7 +561,7 @@ public final class ActionsTestUtil {
       Artifact inputTreeArtifact, Artifact outputTreeArtifact) {
     return new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
         .setCommandLineTemplate(CustomCommandLine.builder().build())
-        .setExecutable(new PathFragment("bin/executable"))
+        .setExecutable(PathFragment.create("bin/executable"))
         .setOutputPathMapper(new OutputPathMapper() {
           @Override
           public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {

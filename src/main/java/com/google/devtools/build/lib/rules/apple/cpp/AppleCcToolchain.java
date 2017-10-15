@@ -13,16 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.apple.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import java.util.LinkedHashMap;
@@ -32,66 +34,97 @@ import java.util.Map;
  * Implementation for apple_cc_toolchain rule.
  */
 public class AppleCcToolchain extends CcToolchain {
-
-  // TODO(bazel-team): Compute default based on local Xcode instead of hardcoded 7.2.
-  private static final DottedVersion DEFAULT_XCODE_VERSION = DottedVersion.fromString("7.2");
-
   private static final String XCODE_VERSION_KEY = "xcode_version";
   private static final String IOS_SDK_VERSION_KEY = "ios_sdk_version";
-  private static final String MACOSX_SDK_VERSION_KEY = "macosx_sdk_version";
-  private static final String TVOS_SDK_VERSION_KEY = "appletvos_sdk_version";
+  private static final String MACOS_SDK_VERSION_KEY = "macos_sdk_version";
+  private static final String TVOS_SDK_VERSION_KEY = "tvos_sdk_version";
   private static final String WATCHOS_SDK_VERSION_KEY = "watchos_sdk_version";
   public static final String SDK_DIR_KEY = "sdk_dir";
   public static final String SDK_FRAMEWORK_DIR_KEY = "sdk_framework_dir";
   public static final String PLATFORM_DEVELOPER_FRAMEWORK_DIR = "platform_developer_framework_dir";
+  public static final String VERSION_MIN_KEY = "version_min";
+  
+  @VisibleForTesting
+  public static final String XCODE_VERISON_OVERRIDE_VALUE_KEY = "xcode_version_override_value";
+  
+  @VisibleForTesting
+  public static final String APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY =
+      "apple_sdk_version_override_value";
+  
+  @VisibleForTesting
+  public static final String APPLE_SDK_PLATFORM_VALUE_KEY = "apple_sdk_platform_value";
 
   @Override
-  protected Map<String, String> getBuildVariables(RuleContext ruleContext) {
+  protected Map<String, String> getBuildVariables(RuleContext ruleContext)
+      throws RuleErrorException {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    Platform platform = appleConfiguration.getSingleArchPlatform();
+
+    if (XcodeConfig.getXcodeVersion(ruleContext) == null) {
+      ruleContext.throwWithRuleError("Xcode version must be specified to use an Apple CROSSTOOL");
+    }
+
+    ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
+
+    Map<String, String> appleEnv = getEnvironmentBuildVariables(ruleContext);
 
     return ImmutableMap.<String, String>builder()
         .put(
             XCODE_VERSION_KEY,
-            appleConfiguration.getXcodeVersion().or(DEFAULT_XCODE_VERSION).toString())
+            XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2))
         .put(
             IOS_SDK_VERSION_KEY,
-            appleConfiguration.getSdkVersionForPlatform(Platform.IOS_SIMULATOR).toString())
+            XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.IOS_SIMULATOR)
+                .toStringWithMinimumComponents(2))
         .put(
-            MACOSX_SDK_VERSION_KEY,
-            appleConfiguration.getSdkVersionForPlatform(Platform.MACOS_X).toString())
+            MACOS_SDK_VERSION_KEY,
+            XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.MACOS)
+                .toStringWithMinimumComponents(2))
         .put(
             TVOS_SDK_VERSION_KEY,
-            appleConfiguration.getSdkVersionForPlatform(Platform.TVOS_SIMULATOR).toString())
+            XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.TVOS_SIMULATOR)
+                .toStringWithMinimumComponents(2))
         .put(
             WATCHOS_SDK_VERSION_KEY,
-            appleConfiguration.getSdkVersionForPlatform(Platform.WATCHOS_SIMULATOR).toString())
+            XcodeConfig.getSdkVersionForPlatform(ruleContext, ApplePlatform.WATCHOS_SIMULATOR)
+                .toStringWithMinimumComponents(2))
         .put(SDK_DIR_KEY, AppleToolchain.sdkDir())
-        .put(SDK_FRAMEWORK_DIR_KEY, AppleToolchain.sdkFrameworkDir(platform, appleConfiguration))
+        .put(SDK_FRAMEWORK_DIR_KEY, AppleToolchain.sdkFrameworkDir(platform, ruleContext))
         .put(
             PLATFORM_DEVELOPER_FRAMEWORK_DIR,
             AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
+        .put(
+            XCODE_VERISON_OVERRIDE_VALUE_KEY,
+            appleEnv.getOrDefault(AppleConfiguration.XCODE_VERSION_ENV_NAME, ""))
+        .put(
+            APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY,
+            appleEnv.getOrDefault(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, ""))
+        .put(
+            APPLE_SDK_PLATFORM_VALUE_KEY,
+            appleEnv.getOrDefault(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, ""))
+        .put(
+            VERSION_MIN_KEY,
+            XcodeConfig.getMinimumOsForPlatformType(ruleContext, platform.getType()).toString())
         .build();
   }
-  
+
   @Override
   protected NestedSet<Artifact> fullInputsForLink(
       RuleContext ruleContext, NestedSet<Artifact> link) {
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(link)
-        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top"))
+        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top", Mode.TARGET))
         .build();
   }
 
-  @Override
-  public ImmutableMap<String, String> getEnvironment(RuleContext ruleContext) {
+  private ImmutableMap<String, String> getEnvironmentBuildVariables(RuleContext ruleContext) {
     Map<String, String> builder = new LinkedHashMap<>();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     builder.putAll(appleConfiguration.getAppleHostSystemEnv());
-    if (Platform.isApplePlatform(cppConfiguration.getTargetCpu())) {
-      builder.putAll(appleConfiguration.appleTargetPlatformEnv(
-          Platform.forTargetCpu(cppConfiguration.getTargetCpu())));
+    if (ApplePlatform.isApplePlatform(cppConfiguration.getTargetCpu())) {
+      builder.putAll(
+          appleConfiguration.appleTargetPlatformEnv(
+              ApplePlatform.forTargetCpu(cppConfiguration.getTargetCpu())));
     }
     return ImmutableMap.copyOf(builder);
   }

@@ -14,15 +14,13 @@
 #include "src/main/cpp/startup_options.h"
 
 #include <assert.h>
-#include <errno.h>  // errno, ENOENT
-#include <string.h>  // strerror
-#include <unistd.h>  // access
 
 #include <cstdio>
 #include <cstdlib>
 
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/numbers.h"
@@ -34,9 +32,46 @@ namespace blaze {
 using std::string;
 using std::vector;
 
-StartupOptions::StartupOptions() : StartupOptions("Bazel") {}
+StartupFlag::~StartupFlag() {}
 
-StartupOptions::StartupOptions(const string &product_name)
+bool UnaryStartupFlag::NeedsParameter() const {
+  return true;
+}
+
+bool UnaryStartupFlag::IsValid(const std::string &arg) const {
+  // The second argument of GetUnaryOption is not relevant to determine
+  // whether the option is unary or not, hence we set it to the empty string
+  // by default.
+  //
+  // TODO(lpino): Improve GetUnaryOption to only require the arg and the
+  // option we are looking for.
+  return GetUnaryOption(arg.c_str(), "", ("--" + name_).c_str()) != NULL;
+}
+
+bool NullaryStartupFlag::NeedsParameter() const {
+  return false;
+}
+
+bool NullaryStartupFlag::IsValid(const std::string &arg) const {
+  return GetNullaryOption(arg.c_str(), ("--" + name_).c_str()) ||
+      GetNullaryOption(arg.c_str(), ("--no" + name_).c_str());
+}
+
+StartupOptions::StartupOptions(const WorkspaceLayout* workspace_layout)
+    : StartupOptions("Bazel", workspace_layout) {}
+
+void StartupOptions::RegisterNullaryStartupFlag(const std::string &flag_name) {
+  valid_startup_flags.insert(std::unique_ptr<NullaryStartupFlag>(
+      new NullaryStartupFlag(flag_name)));
+}
+
+void StartupOptions::RegisterUnaryStartupFlag(const std::string &flag_name) {
+  valid_startup_flags.insert(std::unique_ptr<UnaryStartupFlag>(
+      new UnaryStartupFlag(flag_name)));
+}
+
+StartupOptions::StartupOptions(const string &product_name,
+                               const WorkspaceLayout *workspace_layout)
     : product_name(product_name),
       deep_execroot(true),
       block_for_lock(true),
@@ -51,23 +86,90 @@ StartupOptions::StartupOptions(const string &product_name)
       allow_configurable_attributes(false),
       fatal_event_bus_exceptions(false),
       command_port(0),
-      invocation_policy(NULL) {
-  bool testing = getenv("TEST_TMPDIR") != NULL;
+      connect_timeout_secs(10),
+      invocation_policy(NULL),
+      client_debug(false),
+      java_logging_formatter(
+          "com.google.devtools.build.lib.util.SingleLineFormatter"),
+      original_startup_options_(std::vector<RcStartupFlag>()) {
+  bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
-    output_root = MakeAbsolute(getenv("TEST_TMPDIR"));
+    output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
   } else {
-    output_root = WorkspaceLayout::GetOutputRoot();
+    output_root = workspace_layout->GetOutputRoot();
   }
 
-  string product_name_lower = product_name;
-  blaze_util::ToLower(&product_name_lower);
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  string windows_unix_root = WindowsUnixRoot(blaze::GetEnv("BAZEL_SH"));
+  if (!windows_unix_root.empty()) {
+    host_jvm_args.push_back(string("-Dbazel.windows_unix_root=") +
+                            windows_unix_root);
+  }
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+
+  const string product_name_lower = GetLowercaseProductName();
   output_user_root = blaze_util::JoinPath(
       output_root, "_" + product_name_lower + "_" + GetUserName());
   // 3 hours (but only 15 seconds if used within a test)
   max_idle_secs = testing ? 15 : (3 * 3600);
+
+  // IMPORTANT: Before modifying the statements below please contact a Bazel
+  // core team member that knows the internal procedure for adding/deprecating
+  // startup flags.
+  RegisterNullaryStartupFlag("allow_configurable_attributes");
+  RegisterNullaryStartupFlag("batch");
+  RegisterNullaryStartupFlag("batch_cpu_scheduling");
+  RegisterNullaryStartupFlag("block_for_lock");
+  RegisterNullaryStartupFlag("client_debug");
+  RegisterNullaryStartupFlag("deep_execroot");
+  RegisterNullaryStartupFlag("experimental_oom_more_eagerly");
+  RegisterNullaryStartupFlag("fatal_event_bus_exceptions");
+  RegisterNullaryStartupFlag("host_jvm_debug");
+  RegisterNullaryStartupFlag("master_bazelrc");
+  RegisterNullaryStartupFlag("master_blazerc");
+  RegisterNullaryStartupFlag("watchfs");
+  RegisterNullaryStartupFlag("write_command_log");
+  RegisterUnaryStartupFlag("bazelrc");
+  RegisterUnaryStartupFlag("blazerc");
+  RegisterUnaryStartupFlag("command_port");
+  RegisterUnaryStartupFlag("connect_timeout_secs");
+  RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
+  RegisterUnaryStartupFlag("host_javabase");
+  RegisterUnaryStartupFlag("host_jvm_args");
+  RegisterUnaryStartupFlag("host_jvm_profile");
+  RegisterUnaryStartupFlag("invocation_policy");
+  RegisterUnaryStartupFlag("io_nice_level");
+  RegisterUnaryStartupFlag("install_base");
+  RegisterUnaryStartupFlag("max_idle_secs");
+  RegisterUnaryStartupFlag("output_base");
+  RegisterUnaryStartupFlag("output_user_root");
 }
 
 StartupOptions::~StartupOptions() {}
+
+string StartupOptions::GetLowercaseProductName() const {
+  string lowercase_product_name = product_name;
+  blaze_util::ToLower(&lowercase_product_name);
+  return lowercase_product_name;
+}
+
+bool StartupOptions::IsNullary(const string& arg) const {
+  for (const auto& flag : valid_startup_flags) {
+    if (!flag->NeedsParameter() && flag->IsValid(arg)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool StartupOptions::IsUnary(const string& arg) const {
+  for (const auto& flag : valid_startup_flags) {
+    if (flag->NeedsParameter() && flag->IsValid(arg)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 void StartupOptions::AddExtraOptions(vector<string> *result) const {}
 
@@ -119,25 +221,25 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     host_jvm_args.push_back(value);
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
   } else if ((value = GetUnaryOption(arg, next_arg, "--bazelrc")) != NULL) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --bazelrc in the .bazelrc file.";
       return blaze_exit_code::BAD_ARGV;
     }
   } else if ((value = GetUnaryOption(arg, next_arg, "--blazerc")) != NULL) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --blazerc in the .blazerc file.";
       return blaze_exit_code::BAD_ARGV;
     }
   } else if (GetNullaryOption(arg, "--nomaster_blazerc") ||
              GetNullaryOption(arg, "--master_blazerc")) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --[no]master_blazerc in .blazerc file.";
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["blazerc"] = rcfile;
   } else if (GetNullaryOption(arg, "--nomaster_bazelrc") ||
              GetNullaryOption(arg, "--master_bazelrc")) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --[no]master_bazelrc in .bazelrc file.";
       return blaze_exit_code::BAD_ARGV;
     }
@@ -185,9 +287,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["max_idle_secs"] = rcfile;
-  } else if (GetNullaryOption(arg, "-x")) {
-    fprintf(stderr, "WARNING: The -x startup option is now ignored "
-            "and will be removed in a future release\n");
   } else if (GetNullaryOption(arg, "--experimental_oom_more_eagerly")) {
     oom_more_eagerly = true;
     option_sources["experimental_oom_more_eagerly"] = rcfile;
@@ -219,6 +318,23 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nowatchfs")) {
     watchfs = false;
     option_sources["watchfs"] = rcfile;
+  } else if (GetNullaryOption(arg, "--client_debug")) {
+    client_debug = true;
+    option_sources["client_debug"] = rcfile;
+  } else if (GetNullaryOption(arg, "--noclient_debug")) {
+    client_debug = false;
+    option_sources["client_debug"] = rcfile;
+  } else if ((value = GetUnaryOption(
+      arg, next_arg, "--connect_timeout_secs")) != NULL) {
+    if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||
+        connect_timeout_secs < 1 || connect_timeout_secs > 120) {
+      blaze_util::StringPrintf(error,
+          "Invalid argument to --connect_timeout_secs: '%s'.\n"
+          "Must be an integer between 1 and 120.\n",
+          value);
+      return blaze_exit_code::BAD_ARGV;
+    }
+    option_sources["connect_timeout_secs"] = rcfile;
   } else if ((value = GetUnaryOption(
       arg, next_arg, "--command_port")) != NULL) {
     if (!blaze_util::safe_strto32(value, &command_port) ||
@@ -229,7 +345,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
           value);
       return blaze_exit_code::BAD_ARGV;
     }
-    option_sources["webstatusserver"] = rcfile;
+    option_sources["command_port"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--invocation_policy"))
               != NULL) {
     if (invocation_policy == NULL) {
@@ -250,14 +366,48 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     if (!extra_argument_processed) {
       blaze_util::StringPrintf(
           error,
-          "Unknown %s startup option: '%s'.\n"
+          "Unknown startup option: '%s'.\n"
           "  For more info, run '%s help startup_options'.",
-          product_name.c_str(), arg, product_name.c_str());
+          arg, GetLowercaseProductName().c_str());
       return blaze_exit_code::BAD_ARGV;
     }
   }
 
   *is_space_separated = ((value == next_arg) && (value != NULL));
+  return blaze_exit_code::SUCCESS;
+}
+
+blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
+    const std::vector<RcStartupFlag>& rcstartup_flags,
+    std::string *error) {
+  std::vector<RcStartupFlag>::size_type i = 0;
+  while (i < rcstartup_flags.size()) {
+    bool is_space_separated = false;
+    const std::string next_value =
+        (i == rcstartup_flags.size() - 1) ? "" : rcstartup_flags[i + 1].value;
+    const blaze_exit_code::ExitCode process_arg_exit_code =
+        ProcessArg(rcstartup_flags[i].value, next_value,
+                   rcstartup_flags[i].source, &is_space_separated, error);
+    // Store the provided option in --flag(=value)? form. Store these before
+    // propagating any error code, since we want to have the correct
+    // information for the output. The fact that the options aren't parseable
+    // doesn't matter for this step.
+    if (is_space_separated) {
+      const std::string combined_value =
+          rcstartup_flags[i].value + "=" + next_value;
+      original_startup_options_.push_back(
+          RcStartupFlag(rcstartup_flags[i].source, combined_value));
+      i += 2;
+    } else {
+      original_startup_options_.push_back(
+          RcStartupFlag(rcstartup_flags[i].source, rcstartup_flags[i].value));
+      i++;
+    }
+
+    if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
+      return process_arg_exit_code;
+    }
+  }
   return blaze_exit_code::SUCCESS;
 }
 
@@ -268,39 +418,54 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArgExtra(
   return blaze_exit_code::SUCCESS;
 }
 
-blaze_exit_code::ExitCode StartupOptions::CheckForReExecuteOptions(
-      int argc, const char *argv[], string *error) {
-  return blaze_exit_code::SUCCESS;
-}
-
 string StartupOptions::GetDefaultHostJavabase() const {
   return blaze::GetDefaultHostJavabase();
 }
 
 string StartupOptions::GetHostJavabase() {
+  // 1) Allow overriding the host_javabase via --host_javabase.
   if (host_javabase.empty()) {
-    host_javabase = GetDefaultHostJavabase();
+    if (default_host_javabase.empty()) {
+      string bundled_jre_path = blaze_util::JoinPath(
+          install_base, "_embedded_binaries/embedded_tools/jdk");
+      if (blaze_util::CanExecuteFile(blaze_util::JoinPath(
+              bundled_jre_path, GetJavaBinaryUnderJavabase()))) {
+        // 2) Use a bundled JVM if we have one.
+        default_host_javabase = bundled_jre_path;
+      } else {
+        // 3) Otherwise fall back to using the default system JVM.
+        default_host_javabase = GetDefaultHostJavabase();
+      }
+    }
+
+    return default_host_javabase;
+  } else {
+    return host_javabase;
   }
+}
+
+string StartupOptions::GetExplicitHostJavabase() const {
   return host_javabase;
 }
 
 string StartupOptions::GetJvm() {
-  string java_program = GetHostJavabase() + "/bin/java";
-  if (access(java_program.c_str(), X_OK) == -1) {
-    if (errno == ENOENT) {
+  string java_program =
+      blaze_util::JoinPath(GetHostJavabase(), GetJavaBinaryUnderJavabase());
+  if (!blaze_util::CanExecuteFile(java_program)) {
+    if (!blaze_util::PathExists(java_program)) {
       fprintf(stderr, "Couldn't find java at '%s'.\n", java_program.c_str());
     } else {
-      fprintf(stderr, "Couldn't access %s: %s\n", java_program.c_str(),
-          strerror(errno));
+      fprintf(stderr, "Java at '%s' exists but is not executable: %s\n",
+              java_program.c_str(), blaze_util::GetLastErrorString().c_str());
     }
     exit(1);
   }
   // If the full JDK is installed
-  string jdk_rt_jar = GetHostJavabase() + "/jre/lib/rt.jar";
+  string jdk_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "jre/lib/rt.jar");
   // If just the JRE is installed
-  string jre_rt_jar = GetHostJavabase() + "/lib/rt.jar";
-  if ((access(jdk_rt_jar.c_str(), R_OK) == 0)
-      || (access(jre_rt_jar.c_str(), R_OK) == 0)) {
+  string jre_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "lib/rt.jar");
+  if (blaze_util::CanReadFile(jdk_rt_jar) ||
+      blaze_util::CanReadFile(jre_rt_jar)) {
     return java_program;
   }
   fprintf(stderr, "Problem with java installation: "
@@ -320,26 +485,29 @@ void StartupOptions::AddJVMArgumentSuffix(const string &real_install_dir,
                                           const string &jar_path,
     std::vector<string> *result) const {
   result->push_back("-jar");
-  result->push_back(blaze::ConvertPath(
-      blaze_util::JoinPath(real_install_dir, jar_path)));
+  result->push_back(
+      blaze::PathAsJvmFlag(blaze_util::JoinPath(real_install_dir, jar_path)));
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
     const string &host_javabase, vector<string> *result,
     const vector<string> &user_options, string *error) const {
   // Configure logging
-  const string propFile = output_base + "/javalog.properties";
-  if (!WriteFile(
-      "handlers=java.util.logging.FileHandler\n"
-      ".level=INFO\n"
-      "java.util.logging.FileHandler.level=INFO\n"
-      "java.util.logging.FileHandler.pattern="
-      + output_base + "/java.log\n"
-      "java.util.logging.FileHandler.limit=50000\n"
-      "java.util.logging.FileHandler.count=1\n"
-      "java.util.logging.FileHandler.formatter="
-      "java.util.logging.SimpleFormatter\n",
-      propFile)) {
+  const string propFile =
+      blaze_util::JoinPath(output_base, "javalog.properties");
+  string java_log(
+      blaze::PathAsJvmFlag(blaze_util::JoinPath(output_base, "java.log")));
+  if (!blaze_util::WriteFile("handlers=java.util.logging.FileHandler\n"
+                             ".level=INFO\n"
+                             "java.util.logging.FileHandler.level=INFO\n"
+                             "java.util.logging.FileHandler.pattern=" +
+                                 java_log +
+                                 "\n"
+                                 "java.util.logging.FileHandler.limit=1024000\n"
+                                 "java.util.logging.FileHandler.count=1\n"
+                                 "java.util.logging.FileHandler.formatter=" +
+                                 java_logging_formatter + "\n",
+                             propFile)) {
     perror(("Couldn't write logging file " + propFile).c_str());
   } else {
     result->push_back("-Djava.util.logging.config.file=" + propFile);
@@ -347,9 +515,32 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   return blaze_exit_code::SUCCESS;
 }
 
-blaze_exit_code::ExitCode StartupOptions::ValidateStartupOptions(
-    const std::vector<string>& args, string* error) {
-  return blaze_exit_code::SUCCESS;
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+// Extract the Windows path of "/" from $BAZEL_SH.
+// $BAZEL_SH usually has the form `<prefix>/usr/bin/bash.exe` or
+// `<prefix>/bin/bash.exe`, and this method returns that `<prefix>` part.
+// If $BAZEL_SH doesn't end with "usr/bin/bash.exe" or "bin/bash.exe" then this
+// method returns an empty string.
+string StartupOptions::WindowsUnixRoot(const string &bazel_sh) {
+  if (bazel_sh.empty()) {
+    return string();
+  }
+  std::pair<string, string> split = blaze_util::SplitPath(bazel_sh);
+  if (blaze_util::AsLower(split.second) != "bash.exe") {
+    return string();
+  }
+  split = blaze_util::SplitPath(split.first);
+  if (blaze_util::AsLower(split.second) != "bin") {
+    return string();
+  }
+
+  std::pair<string, string> split2 = blaze_util::SplitPath(split.first);
+  if (blaze_util::AsLower(split2.second) == "usr") {
+    return split2.first;
+  } else {
+    return split.first;
+  }
 }
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
 }  // namespace blaze

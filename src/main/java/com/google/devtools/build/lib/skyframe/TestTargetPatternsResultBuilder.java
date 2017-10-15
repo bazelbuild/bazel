@@ -17,11 +17,10 @@ import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
-
 import java.util.ArrayList;
 
 /**
@@ -31,7 +30,7 @@ import java.util.ArrayList;
 class TestTargetPatternsResultBuilder extends TargetPatternsResultBuilder {
   private final ArrayList<ResolvedTargetsOfPattern> labelsOfPatterns = new ArrayList<>(); 
   private final TargetProvider targetProvider;
-  private final EventHandler eventHandler;
+  private final ExtendedEventHandler eventHandler;
   private final boolean keepGoing;
 
   private static class ResolvedTargetsOfPattern {
@@ -52,8 +51,8 @@ class TestTargetPatternsResultBuilder extends TargetPatternsResultBuilder {
     }
   }
 
-  TestTargetPatternsResultBuilder(TargetProvider targetProvider,
-      EventHandler eventHandler, boolean keepGoing) {
+  TestTargetPatternsResultBuilder(
+      TargetProvider targetProvider, ExtendedEventHandler eventHandler, boolean keepGoing) {
     this.targetProvider = targetProvider;
     this.eventHandler = eventHandler;
     this.keepGoing = keepGoing;

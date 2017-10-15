@@ -34,7 +34,7 @@ public abstract class ValueLiteralNode extends Node {
     protected final LiteralTree tree;
 
     /**
-     * @return the value of the literal
+     * @return The value of the literal.
      */
     abstract public /*@Nullable*/ Object getValue();
 

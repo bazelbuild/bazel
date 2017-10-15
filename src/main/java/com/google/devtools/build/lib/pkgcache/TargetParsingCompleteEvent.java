@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
@@ -35,7 +35,7 @@ public class TargetParsingCompleteEvent implements BuildEvent {
   private final ImmutableSet<Target> targets;
   private final ImmutableSet<Target> filteredTargets;
   private final ImmutableSet<Target> testFilteredTargets;
-  private final long timeInMs;
+  private final ImmutableSet<Target> expandedTargets;
 
   /**
    * Construct the event.
@@ -46,13 +46,13 @@ public class TargetParsingCompleteEvent implements BuildEvent {
       Collection<Target> targets,
       Collection<Target> filteredTargets,
       Collection<Target> testFilteredTargets,
-      long timeInMs,
-      List<String> originalTargetPattern) {
-    this.timeInMs = timeInMs;
+      List<String> originalTargetPattern,
+      Collection<Target> expandedTargets) {
     this.targets = ImmutableSet.copyOf(targets);
     this.filteredTargets = ImmutableSet.copyOf(filteredTargets);
     this.testFilteredTargets = ImmutableSet.copyOf(testFilteredTargets);
     this.originalTargetPattern = ImmutableList.copyOf(originalTargetPattern);
+    this.expandedTargets = ImmutableSet.copyOf(expandedTargets);
   }
 
   @VisibleForTesting
@@ -61,8 +61,8 @@ public class TargetParsingCompleteEvent implements BuildEvent {
         targets,
         ImmutableSet.<Target>of(),
         ImmutableSet.<Target>of(),
-        0,
-        ImmutableList.<String>of());
+        ImmutableList.<String>of(),
+        targets);
   }
 
   /**
@@ -73,12 +73,7 @@ public class TargetParsingCompleteEvent implements BuildEvent {
   }
 
   public Iterable<Label> getLabels() {
-    return Iterables.transform(targets, new Function<Target, Label>() {
-      @Override
-      public Label apply(Target input) {
-        return input.getLabel();
-      }
-    });
+    return Iterables.transform(targets, Target::getLabel);
   }
 
   /**
@@ -95,10 +90,6 @@ public class TargetParsingCompleteEvent implements BuildEvent {
     return testFilteredTargets;
   }
 
-  public long getTimeInMs() {
-    return timeInMs;
-  }
-
   @Override
   public BuildEventId getEventId() {
     return BuildEventId.targetPatternExpanded(originalTargetPattern);
@@ -106,19 +97,19 @@ public class TargetParsingCompleteEvent implements BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    ImmutableList.Builder childrenBuilder = ImmutableList.builder();
-    for (Target target : targets) {
-      // Test suits won't produce a target-complete event, so do not anounce their
-      // completion as children.
+    ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
+    for (Target target : expandedTargets) {
+      // Test suits won't produce target configuration and  target-complete events, so do not
+      // announce here completion as children.
       if (!TargetUtils.isTestSuiteRule(target)) {
-        childrenBuilder.add(BuildEventId.targetCompleted(target.getLabel()));
+        childrenBuilder.add(BuildEventId.targetConfigured(target.getLabel()));
       }
     }
     return childrenBuilder.build();
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     return GenericBuildEvent.protoChaining(this)
         .setExpanded(BuildEventStreamProtos.PatternExpanded.newBuilder().build())
         .build();

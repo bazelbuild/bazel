@@ -65,7 +65,7 @@ function get_release_notes_commits() {
   local rollback_hashes=$(echo "$rollback_commits" | cut -d " " -f 1)
   local rolledback_hashes=$(echo "$rollback_commits" | cut -d " " -f 5 | sed -E 's/^(.......).*$/\1/')
   local exclude_hashes=$(echo $cherry_picks $rollback_hashes $rolledback_hashes | xargs echo | sed 's/ /|/g')
-  git log --reverse --pretty=format:%h ${baseline}.. -E --grep='^RELNOTES(\[[^\]+\])?:' \
+  git log --reverse --pretty=format:%H ${baseline}.. -E --grep='^RELNOTES(\[[^\]+\])?:' \
       | grep -Ev "^(${exclude_hashes})"
 }
 
@@ -77,7 +77,13 @@ function get_release_notes_commits() {
 #   RELNOTES_NEW for new features changes
 #   RELNOTES for other changes
 function extract_release_note() {
-  local relnote="$(git show -s $1 --pretty=format:%B | awk '/^RELNOTES(\[[^\]]+\])?:/,/^$/')"
+  local find_relnote_awk_script="
+    BEGIN { in_relnote = 0 }
+    /^$/ { in_relnote = 0 }
+    /^PiperOrigin-RevId:.*$/ { in_relnote = 0 }
+    /^RELNOTES(\[[^\]]+\])?:/ { in_relnote = 1 }
+    { if (in_relnote) { print } }"
+  local relnote="$(git show -s $1 --pretty=format:%B | awk "${find_relnote_awk_script}")"
   local regex="^RELNOTES(\[([a-zA-Z]*)\])?:[[:space:]]*([^[:space:]].*[^[:space:]])[[:space:]]*$"
   if [[ "$relnote" =~ $regex ]]; then
       local relnote_kind=${BASH_REMATCH[2]}
@@ -90,18 +96,13 @@ function extract_release_note() {
 
 # Build release notes arrays from a list of commits ($@) and return the release
 # note in an array of array.
-function get_release_notes() {
+function generate_release_notes() {
   for i in "${RELNOTES_TYPES[@]}"; do
     eval "RELNOTES_${i}=()"
   done
   for i in $@; do
     extract_release_note $i
   done
-}
-
-# fmt behaves differently on *BSD and on GNU/Linux, use fold.
-function wrap_text() {
-  fold -s -w $1 | sed 's/ *$//'
 }
 
 # Returns the list of release notes in arguments into a list of points in
@@ -123,7 +124,7 @@ function release_notes() {
   local i
   local commits=$(get_release_notes_commits $@)
   local length="${#RELNOTES_TYPES[@]}"
-  get_release_notes "$commits"
+  generate_release_notes "$commits"
   for (( i=0; $i < $length; i=$i+1 )); do
     local relnotes_title="${RELNOTES_DESC[$i]}"
     local relnotes_type=${RELNOTES_TYPES[$i]}
@@ -145,32 +146,4 @@ function create_release_notes() {
       { echo "Initial release."; return 0; }
   [ -n "${last_release}" ] || { echo "Initial release."; return 0; }
   release_notes ${last_release}
-}
-
-# Create the revision information given a list of commits. The first
-# commit should be the baseline, and the other one are the cherry-picks.
-# The result is of the form:
-# Baseline: BASELINE_COMMIT
-#
-# Cherry picks:
-#    + CHERRY_PICK1: commit message summary of the CHERRY_PICK1. This
-#                    message will be wrapped into 70 columns.
-#    + CHERRY_PICK2: commit message summary of the CHERRY_PICK2.
-function create_revision_information() {
-  echo "Baseline: $(git rev-parse --short "${1}")"
-  first=1
-  shift
-  while [ -n "${1-}" ]; do
-    if [[ "$first" -eq 1 ]]; then
-      echo -e "\nCherry picks:"
-      first=0
-    fi
-
-    local hash="$(git rev-parse --short "${1}")"
-    local subject=$(git show -s --pretty=format:%s $hash)
-    local lines=$(echo "$subject" | wrap_text 56)  # 14 leading spaces.
-    echo "   + $hash: $lines" | head -1
-    echo "$lines" | tail -n +2 | sed 's/^/              /'
-    shift
-  done
 }

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skyframe;
 
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.OptionsClassProvider;
 import javax.annotation.Nullable;
@@ -22,12 +22,13 @@ import javax.annotation.Nullable;
 /** A BuildDriver wraps a MemoizingEvaluator, passing along the proper Version. */
 public interface BuildDriver {
   /**
-   * See {@link MemoizingEvaluator#evaluate}, which has the same semantics except for the
-   * inclusion of a {@link Version} value.
+   * See {@link MemoizingEvaluator#evaluate}, which has the same semantics except for the inclusion
+   * of a {@link Version} value.
    */
   <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<SkyKey> roots, boolean keepGoing, int numThreads, EventHandler reporter)
-      throws InterruptedException;
+      Iterable<? extends SkyKey> roots, boolean keepGoing, int numThreads,
+      ExtendedEventHandler reporter)
+          throws InterruptedException;
 
   /**
    * Retrieve metadata about the computation over the given roots. Data returned is specific to the
@@ -36,6 +37,12 @@ public interface BuildDriver {
   String meta(Iterable<SkyKey> roots, OptionsClassProvider options)
       throws AbruptExitException, InterruptedException;
 
+  /**
+   * Returns true if this {@link BuildDriver} instance has already been used to {@link #evaluate}
+   * the given {@code roots} at the Version that would be passed along to the next call to {@link
+   * MemoizingEvaluator#evaluate} in {@link #evaluate}.
+   */
+  boolean alreadyEvaluated(Iterable<SkyKey> roots);
 
   MemoizingEvaluator getGraphForTesting();
 

@@ -14,179 +14,82 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Verify;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.util.Preconditions;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-/** Provides a mapping between a TransitiveInfoProvider class and an instance. */
+/**
+ * Provides a mapping between an identifier for transitive information and its instance. (between
+ * provider identifier and provider instance)
+ *
+ * <p>We have three kinds of provider identifiers:
+ *
+ * <ul>
+ *   <li>Declared providers. They are exposed to Skylark and identified by {@link Provider.Key}.
+ *       Provider instances are {@link Info}s.
+ *   <li>Native providers. They are identified by their {@link Class} and their instances are
+ *       instances of that class. They should implement {@link TransitiveInfoProvider} marker
+ *       interface.
+ *   <li>Legacy Skylark providers (deprecated). They are identified by simple strings, and their
+ *       instances are more-less random objects.
+ * </ul>
+ */
 @Immutable
-public final class TransitiveInfoProviderMap {
-
-  private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> map;
-
-  private TransitiveInfoProviderMap(
-      ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> map) {
-    this.map = map;
-  }
-
-  /** Initializes a {@link TransitiveInfoProviderMap} from the instances provided. */
-  public static TransitiveInfoProviderMap of(TransitiveInfoProvider... providers) {
-    return builder().add(providers).build();
-  }
-
-  /** Returns the instance for the provided providerClass, or <tt>null</tt> if not present. */
+public interface TransitiveInfoProviderMap {
+  /** Returns the instance for the provided providerClass, or {@code null}  if not present. */
   @Nullable
-  public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
-    return (P) map.get(getEffectiveProviderClass(providerClass));
-  }
-
-  public ImmutableSet<Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>>
-      entrySet() {
-    return map.entrySet();
-  }
-
-  public ImmutableCollection<TransitiveInfoProvider> values() {
-    return map.values();
-  }
-
-  public Builder toBuilder() {
-    return builder().addAll(map.values());
-  }
-
-  public static Builder builder() {
-    return new Builder();
-  }
-
-  /** A builder for {@link TransitiveInfoProviderMap}. */
-  public static class Builder {
-
-    // TODO(arielb): share the instance with the outerclass and copy on write instead?
-    private final LinkedHashMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
-        providers = new LinkedHashMap();
-
-    /**
-     * Returns <tt>true</tt> if a {@link TransitiveInfoProvider} has been added for the class
-     * provided.
-     */
-    public boolean contains(Class<? extends TransitiveInfoProvider> providerClass) {
-      return providers.containsKey(providerClass);
-    }
-
-    public <T extends TransitiveInfoProvider> Builder put(
-        Class<? extends T> providerClass, T provider) {
-      Preconditions.checkNotNull(providerClass);
-      Preconditions.checkNotNull(provider);
-      // TODO(arielb): throw an exception if the providerClass is already present?
-      // This is enforced by aspects but RuleConfiguredTarget presents violations
-      // particularly around LicensesProvider
-      providers.put(providerClass, provider);
-      return this;
-    }
-
-    public Builder add(TransitiveInfoProvider provider) {
-      return put(getEffectiveProviderClass(provider), provider);
-    }
-
-    public Builder add(TransitiveInfoProvider... providers) {
-      return addAll(Arrays.asList(providers));
-    }
-
-    public Builder addAll(TransitiveInfoProviderMap providers) {
-      return addAll(providers.values());
-    }
-
-    public Builder addAll(Iterable<TransitiveInfoProvider> providers) {
-      for (TransitiveInfoProvider provider : providers) {
-        add(provider);
-      }
-      return this;
-    }
-
-    @Nullable
-    public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
-      return (P) providers.get(providerClass);
-    }
-
-    public TransitiveInfoProviderMap build() {
-      return new TransitiveInfoProviderMap(ImmutableMap.copyOf(providers));
-    }
-  }
-
-  private static final LoadingCache<
-          Class<? extends TransitiveInfoProvider>, Class<? extends TransitiveInfoProvider>>
-      EFFECTIVE_PROVIDER_CLASS_CACHE =
-          CacheBuilder.newBuilder()
-              .build(
-                  new CacheLoader<
-                      Class<? extends TransitiveInfoProvider>,
-                      Class<? extends TransitiveInfoProvider>>() {
-
-                    private Set<Class<? extends TransitiveInfoProvider>> getDirectImplementations(
-                        Class<? extends TransitiveInfoProvider> providerClass) {
-                      Set<Class<? extends TransitiveInfoProvider>> result = new LinkedHashSet<>();
-                      for (Class<?> clazz : providerClass.getInterfaces()) {
-                        if (TransitiveInfoProvider.class.equals(clazz)) {
-                          result.add(providerClass);
-                        } else if (TransitiveInfoProvider.class.isAssignableFrom(clazz)) {
-                          result.addAll(
-                              getDirectImplementations(
-                                  (Class<? extends TransitiveInfoProvider>) clazz));
-                        }
-                      }
-
-                      Class<?> superclass = providerClass.getSuperclass();
-                      if (superclass != null
-                          && TransitiveInfoProvider.class.isAssignableFrom(superclass)) {
-                        result.addAll(
-                            getDirectImplementations(
-                                (Class<? extends TransitiveInfoProvider>) superclass));
-                      }
-                      return result;
-                    }
-
-                    @Override
-                    public Class<? extends TransitiveInfoProvider> load(
-                        Class<? extends TransitiveInfoProvider> providerClass) {
-                      Set<Class<? extends TransitiveInfoProvider>> result =
-                          getDirectImplementations(providerClass);
-                      Verify.verify(!result.isEmpty()); // impossible
-                      Preconditions.checkState(
-                          result.size() == 1,
-                          "Effective provider class for %s is ambiguous (%s), specify explicitly.",
-                          providerClass,
-                          Joiner.on(',').join(result));
-                      return result.iterator().next();
-                    }
-                  });
+  <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass);
 
   /**
-   * Provides the effective class for the provider. The effective class is inferred as the sole
-   * class in the provider's inheritence hierarchy that implements {@link TransitiveInfoProvider}
-   * directly. This allows for simple subclasses such as those created by AutoValue, but will fail
-   * if there's any ambiguity as to which implementor of the {@link TransitiveInfoProvider} is
-   * intended. If the provider implements multiple TransitiveInfoProvider interfaces, prefer the
-   * explicit put builder methods.
+   * Returns the instance of declared provider with the given {@code key}, or {@code null} if not
+   * present.
    */
-  // TODO(arielb): see if these can be made private?
-  static <T extends TransitiveInfoProvider> Class<T> getEffectiveProviderClass(T provider) {
-    return getEffectiveProviderClass((Class<T>) provider.getClass());
+  @Nullable
+  Info getProvider(Provider.Key key);
+
+  /**
+   * Returns the instance of a legacy Skylark  with the given name, or {@code null} if not present.
+   *
+   * todo(dslomov,skylark): remove this as part of legacy provider removal.
+   */
+  @Nullable
+  Object getProvider(String legacyKey);
+
+  /**
+   * Helper method to access SKylark provider with a give {@code id} and validate its type.
+   */
+  @Nullable
+  default <T> T getProvider(
+      SkylarkProviderIdentifier id, Class<T> result) {
+    return result.cast(
+        id.isLegacy() ? this.getProvider(id.getLegacyId()) : this.getProvider(id.getKey())
+    );
   }
 
-  private static <T extends TransitiveInfoProvider> Class<T> getEffectiveProviderClass(
-      Class<T> providerClass) {
-    return (Class<T>) EFFECTIVE_PROVIDER_CLASS_CACHE.getUnchecked(providerClass);
-  }
+  /**
+   * Returns a count of providers.
+   *
+   * Upper bound for {@code index} in {@link #getProviderKeyAt(int index)}
+   * and {@link #getProviderInstanceAt(int index)} }.
+   *
+   * Low-level method, use with care.
+   */
+  int getProviderCount();
+
+  /**
+   * Return value is one of:
+   *
+   * <ul>
+   *   <li>{@code Class<? extends TransitiveInfoProvider>}
+   *   <li>String
+   *   <li>{@link Provider.Key}
+   * </ul>
+   *
+   * Low-level method, use with care.
+   */
+  Object getProviderKeyAt(int index);
+
+  Object getProviderInstanceAt(int index);
 }

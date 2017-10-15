@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 
 /**
@@ -36,8 +35,7 @@ public final class ExecutableSymlinkAction extends SymlinkAction {
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
-    Path inputPath = actionExecutionContext.getExecutor().getExecRoot().getRelative(
-        getInputPath());
+    Path inputPath = actionExecutionContext.getExecRoot().getRelative(getInputPath());
     try {
       // Validate that input path is a file with the executable bit is set.
       if (!inputPath.isFile()) {

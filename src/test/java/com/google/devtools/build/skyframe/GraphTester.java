@@ -15,21 +15,21 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -104,6 +104,9 @@ public class GraphTester {
         if (builder.progress != null) {
           env.getListener().handle(Event.progress(builder.progress));
         }
+        if (builder.postable != null) {
+          env.getListener().post(builder.postable);
+        }
         Map<SkyKey, SkyValue> deps = new LinkedHashMap<>();
         boolean oneMissing = false;
         for (Pair<SkyKey, SkyValue> dep : builder.deps) {
@@ -158,13 +161,11 @@ public class GraphTester {
   }
 
   public static SkyKey skyKey(String key) {
-    return SkyKey.create(NODE_TYPE, key);
+    return LegacySkyKey.create(NODE_TYPE, key);
   }
 
-  /**
-   * A value in the testing graph that is constructed in the tester.
-   */
-  public class TestFunction {
+  /** A value in the testing graph that is constructed in the tester. */
+  public static class TestFunction {
     // TODO(bazel-team): We could use a multiset here to simulate multi-pass dependency discovery.
     private final Set<Pair<SkyKey, SkyValue>> deps = new LinkedHashSet<>();
     private SkyValue value;
@@ -176,6 +177,7 @@ public class GraphTester {
 
     private String warning;
     private String progress;
+    private Postable postable;
 
     private String tag;
 
@@ -209,6 +211,11 @@ public class GraphTester {
     public TestFunction setConstantValue(SkyValue value) {
       Preconditions.checkState(this.computer == null);
       this.value = value;
+      return this;
+    }
+
+    public TestFunction unsetConstantValue() {
+      this.value = null;
       return this;
     }
 
@@ -261,18 +268,22 @@ public class GraphTester {
       return this;
     }
 
+    public TestFunction setPostable(Postable postable) {
+      this.postable = postable;
+      return this;
+    }
   }
 
-  public static SkyKey[] toSkyKeys(String... names) {
-    SkyKey[] result = new SkyKey[names.length];
+  public static ImmutableList<SkyKey> toSkyKeys(String... names) {
+    ImmutableList.Builder<SkyKey> result = ImmutableList.builder();
     for (int i = 0; i < names.length; i++) {
-      result[i] = SkyKey.create(GraphTester.NODE_TYPE, names[i]);
+      result.add(LegacySkyKey.create(GraphTester.NODE_TYPE, names[i]));
     }
-    return result;
+    return result.build();
   }
 
   public static SkyKey toSkyKey(String name) {
-    return toSkyKeys(name)[0];
+    return toSkyKeys(name).get(0);
   }
 
   private class DelegatingFunction implements SkyFunction {

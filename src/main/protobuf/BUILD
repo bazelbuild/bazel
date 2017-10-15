@@ -1,47 +1,79 @@
 package(default_visibility = ["//visibility:public"])
 
-load("//tools/build_rules:genproto.bzl", "java_proto_library", "cc_grpc_library")
-load("//third_party/protobuf:protobuf.bzl", "py_proto_library")
+load("//tools/build_rules:genproto.bzl", "cc_grpc_library")
+load("//tools/build_rules:utilities.bzl", "java_library_srcs")
+load("//third_party/protobuf/3.4.0:protobuf.bzl", "py_proto_library")
+load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 
 FILES = [
-    "build",
-    "dash",
-    "deps",
-    "java_compilation",
-    "crosstool_config",
-    "extra_actions_base",
-    "android_studio_ide_info",
-    "package_manifest",
-    "test_status",
-    "plmerge",
-    "bundlemerge",
-    "xcodegen",
-    "worker_protocol",
-    "invocation_policy",
+    "action_cache",
     "android_deploy_info",
     "apk_manifest",
+    "build",
+    "bundlemerge",
+    "command_server",
+    "crosstool_config",
+    "deps",
+    "extra_actions_base",
+    "invocation_policy",
+    "java_compilation",
+    "plmerge",
+    "test_status",
+    "worker_protocol",
 ]
+
+[proto_library(
+    name = s + "_proto",
+    srcs = [s + ".proto"],
+) for s in FILES]
 
 [java_proto_library(
     name = s + "_java_proto",
-    src = s + ".proto",
+    deps = [":" + s + "_proto"],
 ) for s in FILES]
 
+[java_library_srcs(
+    name = s + "_java_proto_srcs",
+    deps = [":" + s + "_java_proto"],
+) for s in FILES]
+
+# This new option tagging method is in flux while being applied to the options
+# in the Bazel code base. The visibility should not be changed to allow external
+# dependencies until the interface has stabilized and can commit to maintaining
+# backwards compatibility for 6 months' time.
+# TODO(bazel-team) Make these visibility:public when the interface is stable.
+proto_library(
+    name = "option_filters_proto",
+    srcs = ["option_filters.proto"],
+    visibility = ["//visibility:private"],
+)
+
 java_proto_library(
-    name = "command_server_java_proto",
-    src = "command_server.proto",
-    use_grpc_plugin = True,
+    name = "option_filters_java_proto",
+    visibility = ["//src:__subpackages__"],
+    deps = [":option_filters_proto"],
+)
+
+java_library_srcs(
+    name = "option_filters_java_proto_srcs",
+    visibility = ["//visibility:private"],
+    deps = [":option_filters_java_proto"],
+)
+
+cc_proto_library(
+    name = "worker_protocol_cc_proto",
+    deps = [":worker_protocol_proto"],
+)
+
+java_grpc_library(
+    name = "command_server_java_grpc",
+    srcs = [":command_server_proto"],
+    deps = [":command_server_java_proto"],
 )
 
 cc_grpc_library(
     name = "command_server_cc_proto",
     src = "command_server.proto",
-)
-
-java_proto_library(
-    name = "remote_protocol_java_proto",
-    src = "remote_protocol.proto",
-    use_grpc_plugin = True,
 )
 
 py_proto_library(
@@ -54,4 +86,12 @@ py_proto_library(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+)
+
+filegroup(
+    name = "dist_jars",
+    srcs = [s + "_java_proto_srcs" for s in FILES] + [
+        ":command_server_java_grpc_srcs",
+        ":option_filters_java_proto_srcs",
+    ],
 )

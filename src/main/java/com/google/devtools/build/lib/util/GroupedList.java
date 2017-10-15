@@ -17,7 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -66,12 +66,14 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     // Iterables.getFirst will return null, and null is not instanceof List.
     Preconditions.checkState(!(Iterables.getFirst(helper.elements, null) instanceof List),
         "Cannot make grouped list of lists: %s", helper);
-    Set<T> uniquifier = CompactHashSet.createWithExpectedSize(helper.groupedList.size());
+    Set<T> uniquifier = CompactHashSet.createWithExpectedSize(helper.elements.size());
     for (Object item : helper.groupedList) {
       if (item instanceof List) {
         // Optimize for the case that elements in this list are unique.
         ImmutableList.Builder<T> dedupedList = null;
         List<T> list = (List<T>) item;
+        Preconditions.checkState(
+            list.size() > 1, "Helper should have compressed small list %s properly", list);
         for (int i = 0; i < list.size(); i++) {
           T elt = list.get(i);
           if (!uniquifier.add(elt)) {
@@ -87,9 +89,7 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
           elements.add(list);
         } else {
           List<T> filteredList = dedupedList.build();
-          if (!filteredList.isEmpty()) {
-            elements.add(filteredList);
-          }
+          addItem(filteredList, elements);
         }
       } else if (uniquifier.add((T) item)) {
         elements.add(item);
@@ -430,6 +430,16 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     public void startGroup() {
       Preconditions.checkState(currentGroup == null, this);
       currentGroup = new ArrayList<>();
+    }
+
+    /**
+     * Starts a group with an initial capacity. All elements added until {@link #endGroup} will be
+     * in the same group. Each call of startGroup must be paired with a following {@link #endGroup}
+     * call. Any duplicate elements added to this group will be silently deduplicated.
+     */
+    public void startGroup(int expectedGroupSize) {
+      Preconditions.checkState(currentGroup == null, this);
+      currentGroup = new ArrayList<>(expectedGroupSize);
     }
 
     /** Ends a group started with {@link #startGroup}. */

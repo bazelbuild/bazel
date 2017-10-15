@@ -75,18 +75,21 @@ def _self_extract_binary(ctx):
 
 self_extract_binary = rule(
     _self_extract_binary,
-    executable = True,
     attrs = {
         "launcher": attr.label(
-            mandatory=True,
-            allow_files=True,
-            single_file=True),
-        "empty_files": attr.string_list(default=[]),
+            mandatory = True,
+            allow_files = True,
+            single_file = True,
+        ),
+        "empty_files": attr.string_list(default = []),
         "resources": attr.label_list(
-            default=[],
-            allow_files=True),
+            default = [],
+            allow_files = True,
+        ),
         "flatten_resources": attr.label_list(
-            default=[],
-            allow_files=True),
-        },
-    )
+            default = [],
+            allow_files = True,
+        ),
+    },
+    executable = True,
+)

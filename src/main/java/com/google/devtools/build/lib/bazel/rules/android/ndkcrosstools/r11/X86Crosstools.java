@@ -48,6 +48,8 @@ class X86Crosstools {
 
     // clang
     CToolchain.Builder x86Clang = createBaseX86ClangToolchain("x86", "i686")
+        // Workaround for https://code.google.com/p/android/issues/detail?id=220159.
+        .addCompilerFlag("-mstackrealign")
         .setToolchainIdentifier("x86-clang3.8")
         .setTargetCpu("x86")
 
@@ -56,7 +58,6 @@ class X86Crosstools {
 
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86"));
 
-    ndkPaths.addToolchainIncludePaths(x86Clang, "x86-4.9", "i686-linux-android", "4.9");
     stlImpl.addStlImpl(x86Clang, "4.9");
     toolchains.add(x86Clang);
 
@@ -71,12 +72,13 @@ class X86Crosstools {
 
         .addAllToolPath(ndkPaths.createToolpaths(
             "x86_64-4.9", "x86_64-linux-android"))
-
+        .addAllCxxBuiltinIncludeDirectory(
+            ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                "x86_64-4.9", "x86_64-linux-android", "4.9"))
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"))
 
         .addCompilerFlag("-fstack-protector-strong");
 
-    ndkPaths.addToolchainIncludePaths(x8664, "x86_64-4.9", "x86_64-linux-android", "4.9");
     stlImpl.addStlImpl(x8664, "4.9");
     toolchains.add(x8664);
 
@@ -84,13 +86,12 @@ class X86Crosstools {
         createBaseX86ClangToolchain("x86_64", "x86_64")
             .setToolchainIdentifier("x86_64-clang3.8")
             .setTargetCpu("x86_64")
-  
+
             .addAllToolPath(ndkPaths.createClangToolpaths(
                 "x86_64-4.9", "x86_64-linux-android", null))
-  
+
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"));
 
-    ndkPaths.addToolchainIncludePaths(x8664Clang, "x86_64-4.9", "x86_64-linux-android", "4.9");
     stlImpl.addStlImpl(x8664Clang, "4.9");
     toolchains.add(x8664Clang);
 
@@ -110,19 +111,19 @@ class X86Crosstools {
         .setToolchainIdentifier("x86-4.9")
         .setTargetCpu("x86")
         .setCompiler("gcc-4.9")
-    
-        .addAllToolPath(ndkPaths.createToolpaths("x86-4.9", "i686-linux-android"))
 
+        .addAllToolPath(ndkPaths.createToolpaths("x86-4.9", "i686-linux-android"))
+        .addAllCxxBuiltinIncludeDirectory(
+            ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                "x86-4.9", "i686-linux-android", "4.9"))
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86"))
-    
+
         .addCompilerFlag("-fstack-protector-strong");
 
-    ndkPaths.addToolchainIncludePaths(
-        toolchain, "x86-4.9", "i686-linux-android", "4.9");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
-  
+
   private CToolchain.Builder createBaseX86Toolchain() {
     return CToolchain.newBuilder()
         // Compiler flags
@@ -164,6 +165,10 @@ class X86Crosstools {
 
     return CToolchain.newBuilder()
         .setCompiler("clang3.8")
+
+        .addCxxBuiltinIncludeDirectory(
+            ndkPaths.createClangToolchainBuiltinIncludeDirectory(
+                AndroidNdkCrosstoolsR11.CLANG_VERSION))
 
         // Compiler flags
         .addCompilerFlag("-gcc-toolchain")

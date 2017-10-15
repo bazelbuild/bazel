@@ -15,30 +15,31 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-
-import java.util.Collection;
+import com.google.devtools.build.lib.actions.UserExecException;
 
 /**
- * A cpp strategy that simply passes everything through to the default spawn action strategy.
+ * A context for C++ compilation that calls into a {@link SpawnActionContext}.
  */
 @ExecutionStrategy(
   contextType = CppCompileActionContext.class,
   name = {"spawn"}
 )
 public class SpawnGccStrategy implements CppCompileActionContext {
-
   @Override
-  public Collection<Artifact> findAdditionalInputs(
-      CppCompileAction action, ActionExecutionContext actionExecutionContext)
+  public Iterable<Artifact> findAdditionalInputs(
+      CppCompileAction action,
+      ActionExecutionContext actionExecutionContext,
+      IncludeProcessing includeProcessing)
       throws ExecException, InterruptedException {
     return null;
   }
@@ -47,32 +48,26 @@ public class SpawnGccStrategy implements CppCompileActionContext {
   public CppCompileActionContext.Reply execWithReply(
       CppCompileAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
-    SpawnActionContext spawnActionContext = executor.getSpawnActionContext(action.getMnemonic());
-    Spawn spawn =
-        new BaseSpawn(
-            action.getArgv(),
-            action.getEnvironment(),
-            action.getExecutionInfo(),
-            action,
-            estimateResourceConsumption(action));
-    spawnActionContext.exec(spawn, actionExecutionContext);
-    return null;
-  }
+    if (action.getDotdFile() != null && action.getDotdFile().artifact() == null) {
+      throw new UserExecException("cannot execute remotely or locally: "
+          + action.getPrimaryInput().getExecPathString());
+    }
+    Iterable<Artifact> inputs = Iterables.concat(action.getInputs(), action.getAdditionalInputs());
+    Spawn spawn = new SimpleSpawn(
+        action,
+        ImmutableList.copyOf(action.getArgv()),
+        ImmutableMap.copyOf(action.getEnvironment()),
+        ImmutableMap.copyOf(action.getExecutionInfo()),
+        EmptyRunfilesSupplier.INSTANCE,
+        ImmutableList.<Artifact>copyOf(inputs),
+        /*tools=*/ImmutableList.<Artifact>of(),
+        /*filesetManifests=*/ImmutableList.<Artifact>of(),
+        action.getOutputs().asList(),
+        action.estimateResourceConsumptionLocal());
 
-  @Override
-  public ResourceSet estimateResourceConsumption(CppCompileAction action) {
-    return action.estimateResourceConsumptionLocal();
-  }
-
-  @Override
-  public Collection<Artifact> getScannedIncludeFiles(
-      CppCompileAction action, ActionExecutionContext actionExecutionContext) {
-    return ImmutableList.of();
-  }
-
-  @Override
-  public Reply getReplyFromException(ExecException e, CppCompileAction action) {
+    actionExecutionContext
+        .getSpawnActionContext(action.getMnemonic())
+        .exec(spawn, actionExecutionContext);
     return null;
   }
 }

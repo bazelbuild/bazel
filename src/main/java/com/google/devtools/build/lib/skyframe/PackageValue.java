@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,7 +55,7 @@ public class PackageValue implements NotComparableSkyValue {
 
   public static SkyKey key(PackageIdentifier pkgIdentifier) {
     Preconditions.checkArgument(!pkgIdentifier.getRepository().isDefault());
-    return SkyKey.create(SkyFunctions.PACKAGE, pkgIdentifier);
+    return LegacySkyKey.create(SkyFunctions.PACKAGE, pkgIdentifier);
   }
 
   public static List<SkyKey> keys(Iterable<PackageIdentifier> pkgIdentifiers) {

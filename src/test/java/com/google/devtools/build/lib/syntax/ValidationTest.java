@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -35,17 +35,45 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testAssignmentNotValidLValue() {
-    checkError("can only assign to variables and tuples, not to ''a''", "'a' = 1");
+    checkError("cannot assign to '\"a\"'", "'a' = 1");
   }
 
   @Test
-  public void testTopLevelForStatement() throws Exception {
-    checkError("'For' is not allowed as a top level statement", "for i in [1,2,3]: a = i\n");
+  public void testAugmentedAssignmentWithMultipleLValues() {
+    checkError("cannot perform augmented assignment on a list or tuple expression", "a, b += 2, 3");
   }
 
   @Test
   public void testReturnOutsideFunction() throws Exception {
-    checkError("Return statements must be inside a function", "return 2\n");
+    checkError("return statements must be inside a function", "return 2\n");
+  }
+
+  @Test
+  public void testLoadAfterStatement() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_bzl_disallow_load_after_statement=true");
+    checkError(
+        "load() statements must be called before any other statement",
+        "a = 5",
+        "load(':b.bzl', 'c')");
+  }
+
+  @Test
+  public void testAllowLoadAfterStatement() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions("--incompatible_bzl_disallow_load_after_statement=false");
+    parse("a = 5", "load(':b.bzl', 'c')");
+  }
+
+  @Test
+  public void testForbiddenToplevelIfStatement() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_toplevel_if_statement=true");
+    checkError("if statements are not allowed at the top level", "if True: a = 2");
+  }
+
+  @Test
+  public void testAllowedToplevelIfStatement() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_toplevel_if_statement=false");
+    parse("if True: a = 5");
   }
 
   @Test
@@ -74,6 +102,14 @@ public class ValidationTest extends EvaluationTestCase {
   @Test
   public void testFunctionParameterDoesNotEffectGlobalValidationEnv() throws Exception {
     checkError("name 'a' is not defined", "def func1(a):", "  return a", "def func2():", "  b = a");
+  }
+
+  @Test
+  public void testDefinitionByItself() throws Exception {
+    checkError("name 'a' is not defined", "a = a");
+    checkError("name 'a' is not defined", "a += a");
+    checkError("name 'a' is not defined", "[[] for a in a]");
+    checkError("name 'a' is not defined", "def f():", "  for a in a: pass");
   }
 
   @Test
@@ -108,7 +144,7 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDoesNotExist() {
-    checkError("function 'foo' does not exist", "def bar(): a = foo() + 'a'");
+    checkError("name 'foo' is not defined", "def bar(): a = foo() + 'a'");
   }
 
   @Test
@@ -152,75 +188,8 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testReadOnlyWorksForSimpleBranching() {
-    parse("if 1:", "  v = 'a'", "else:", "  v = 'b'");
-  }
-
-  @Test
-  public void testReadOnlyWorksForNestedBranching() {
-    parse(
-        "if 1:",
-        "  if 0:",
-        "    v = 'a'",
-        "  else:",
-        "    v = 'b'",
-        "else:",
-        "  if 0:",
-        "    v = 'c'",
-        "  else:",
-        "    v = 'd'\n");
-  }
-
-  @Test
-  public void testReadOnlyWorksForDifferentLevelBranches() {
-    checkError("Variable v is read only", "if 1:", "  if 1:", "    v = 'a'", "  v = 'b'\n");
-  }
-
-  @Test
-  public void testReadOnlyWorksWithinSimpleBranch() {
-    checkError(
-        "Variable v is read only", "if 1:", "  v = 'a'", "else:", "  v = 'b'", "  v = 'c'\n");
-  }
-
-  @Test
-  public void testReadOnlyWorksWithinNestedBranch() {
-    checkError(
-        "Variable v is read only",
-        "if 1:",
-        "  v = 'a'",
-        "else:",
-        "  if 1:",
-        "    v = 'b'",
-        "  else:",
-        "    v = 'c'",
-        "    v = 'd'\n");
-  }
-
-  @Test
-  public void testReadOnlyWorksAfterSimpleBranch() {
-    checkError("Variable v is read only", "if 1:", "  v = 'a'", "else:", "  w = 'a'", "v = 'b'");
-  }
-
-  @Test
-  public void testReadOnlyWorksAfterNestedBranch() {
-    checkError("Variable v is read only", "if 1:", "  if 1:", "    v = 'a'", "v = 'b'");
-  }
-
-  @Test
-  public void testReadOnlyWorksAfterNestedBranch2() {
-    checkError(
-        "Variable v is read only",
-        "if 1:",
-        "  v = 'a'",
-        "else:",
-        "  if 0:",
-        "    w = 1",
-        "v = 'b'\n");
-  }
-
-  @Test
   public void testModulesReadOnlyInFuncDefBody() {
-    parse("def func():", "  cmd_helper = set()");
+    parse("def func():", "  cmd_helper = depset()");
   }
 
   @Test
@@ -275,15 +244,16 @@ public class ValidationTest extends EvaluationTestCase {
     assertThat(EvalUtils.getSkylarkType(emptyTupleClass)).isEqualTo(Tuple.class);
     assertThat(EvalUtils.getSkylarkType(tupleClass)).isEqualTo(Tuple.class);
 
-    assertThat(EvalUtils.getSkylarkType(SkylarkClassObject.class))
-        .isEqualTo(SkylarkClassObject.class);
+    assertThat(EvalUtils.getSkylarkType(Info.class)).isEqualTo(Info.class);
     try {
       EvalUtils.getSkylarkType(ClassObject.class);
       throw new Exception("Should have raised IllegalArgumentException exception");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains(
-          "interface com.google.devtools.build.lib.syntax.ClassObject is not allowed "
-          + "as a Skylark value");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "interface com.google.devtools.build.lib.syntax.ClassObject is not allowed "
+                  + "as a Skylark value");
     }
   }
 
@@ -302,17 +272,18 @@ public class ValidationTest extends EvaluationTestCase {
       SkylarkType.of(ClassObject.class);
       throw new Exception("foo");
     } catch (Exception e) {
-      assertThat(e.getMessage()).contains(
-          "interface com.google.devtools.build.lib.syntax.ClassObject "
-          + "is not allowed as a Skylark value");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "interface com.google.devtools.build.lib.syntax.ClassObject "
+                  + "is not allowed as a Skylark value");
     }
 
     // Also test for these bazel classes, to avoid some regression.
     // TODO(bazel-team): move to some other place to remove dependency of syntax tests on Artifact?
     assertThat(SkylarkType.of(Artifact.SpecialArtifact.class))
         .isEqualTo(SkylarkType.of(Artifact.class));
-    assertThat(SkylarkType.of(RuleConfiguredTarget.class))
-        .isNotEqualTo(SkylarkType.of(SkylarkClassObject.class));
+    assertThat(SkylarkType.of(RuleConfiguredTarget.class)).isNotEqualTo(SkylarkType.of(Info.class));
   }
 
   @Test

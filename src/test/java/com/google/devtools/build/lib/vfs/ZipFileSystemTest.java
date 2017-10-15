@@ -14,9 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
@@ -24,18 +21,16 @@ import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class ZipFileSystemTest {
@@ -70,9 +65,9 @@ public class ZipFileSystemTest {
   }
 
   private void checkExists(FileSystem fs) {
-    assertTrue(fs.getPath("/dir2/dir3/dir4").exists());
-    assertTrue(fs.getPath("/dir2/dir3/dir4/file4").exists());
-    assertFalse(fs.getPath("/dir2/dir3/dir4/bogus").exists());
+    assertThat(fs.getPath("/dir2/dir3/dir4").exists()).isTrue();
+    assertThat(fs.getPath("/dir2/dir3/dir4/file4").exists()).isTrue();
+    assertThat(fs.getPath("/dir2/dir3/dir4/bogus").exists()).isFalse();
   }
 
   @Test
@@ -82,9 +77,9 @@ public class ZipFileSystemTest {
   }
 
   private void checkIsFile(FileSystem fs) {
-    assertFalse(fs.getPath("/dir2/dir3/dir4").isFile());
-    assertTrue(fs.getPath("/dir2/dir3/dir4/file4").isFile());
-    assertFalse(fs.getPath("/dir2/dir3/dir4/bogus").isFile());
+    assertThat(fs.getPath("/dir2/dir3/dir4").isFile()).isFalse();
+    assertThat(fs.getPath("/dir2/dir3/dir4/file4").isFile()).isTrue();
+    assertThat(fs.getPath("/dir2/dir3/dir4/bogus").isFile()).isFalse();
   }
 
   @Test
@@ -94,10 +89,10 @@ public class ZipFileSystemTest {
   }
 
   private void checkIsDir(FileSystem fs) {
-    assertTrue(fs.getPath("/dir2/dir3/dir4").isDirectory());
-    assertFalse(fs.getPath("/dir2/dir3/dir4/file4").isDirectory());
-    assertFalse(fs.getPath("/bogus/mobogus").isDirectory());
-    assertFalse(fs.getPath("/bogus").isDirectory());
+    assertThat(fs.getPath("/dir2/dir3/dir4").isDirectory()).isTrue();
+    assertThat(fs.getPath("/dir2/dir3/dir4/file4").isDirectory()).isFalse();
+    assertThat(fs.getPath("/bogus/mobogus").isDirectory()).isFalse();
+    assertThat(fs.getPath("/bogus").isDirectory()).isFalse();
   }
 
   @Test
@@ -124,7 +119,7 @@ public class ZipFileSystemTest {
     List<String> list = new ArrayList<>();
     listChildren(fs.getRootDirectory(), list);
     Collections.sort(list);
-    assertEquals(Lists.newArrayList(LISTING), list);
+    assertThat(list).isEqualTo(Lists.newArrayList(LISTING));
   }
 
   @Test
@@ -140,13 +135,13 @@ public class ZipFileSystemTest {
 
   private void checkFileSize(FileSystem fs, String name, long expectedSize)
       throws IOException {
-    assertEquals(expectedSize, fs.getPath(name).getFileSize());
+    assertThat(fs.getPath(name).getFileSize()).isEqualTo(expectedSize);
   }
 
   @Test
   public void testCanReadRoot() {
     Path rootDirectory = zipFS1.getRootDirectory();
-    assertTrue(rootDirectory.isDirectory());
+    assertThat(rootDirectory.isDirectory()).isTrue();
   }
 
   @Test
@@ -178,7 +173,7 @@ public class ZipFileSystemTest {
     List<String> lines = CharStreams.readLines(new InputStreamReader(is, "ISO-8859-1"));
     assertThat(lines).hasSize(expectedSize);
     for (int i = 0; i < expectedSize; i++) {
-      assertEquals("body", lines.get(i));
+      assertThat(lines.get(i)).isEqualTo("body");
     }
   }
 

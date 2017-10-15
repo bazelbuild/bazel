@@ -18,9 +18,8 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.profiler.Describable;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
-import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
@@ -152,60 +151,54 @@ public interface Action extends ActionExecutionMetadata, Describable {
       throws ActionExecutionException, InterruptedException;
 
   /**
-   * Method used to resolve action inputs based on the information contained in the action cache. It
-   * will be called iff inputsKnown() is false for the given action instance and there is a related
-   * cache entry in the action cache.
+   * Used in combination with {@link #discoverInputs} if inputs need to be found before execution in
+   * multiple steps. Returns null if two-stage input discovery isn't necessary.
+   *
+   * <p>Any deps requested here must not change unless one of the action's inputs changes.
+   * Otherwise, changes to nodes that should cause re-execution of actions might be prevented by the
+   * action cache.
+   */
+  @Nullable
+  Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
+      throws ActionExecutionException, InterruptedException;
+
+  /**
+   * Returns the set of artifacts that can possibly be inputs. It will be called iff inputsKnown()
+   * is false for the given action instance and there is a related cache entry in the action cache.
    *
    * <p>Method must be redefined for any action that may return inputsKnown() == false.
    *
-   * @param artifactResolver the artifact factory that can be used to manufacture artifacts
-   * @param resolver object which helps to resolve some of the artifacts
-   * @param inputPaths List of relative (to the execution root) input paths
-   * @return List of Artifacts corresponding to inputPaths, or null if some dependencies were
-   *     missing and we need to try again later.
-   * @throws PackageRootResolutionException on failure to determine package roots of inputPaths
+   * <p>The method is allowed to return source artifacts. They are useless, though, since exec paths
+   * in the action cache referring to source artifacts are always resolved.
    */
-  @Nullable
-  Iterable<Artifact> resolveInputsFromCache(
-      ArtifactResolver artifactResolver,
-      PackageRootResolver resolver,
-      Collection<PathFragment> inputPaths)
-      throws PackageRootResolutionException, InterruptedException;
+  Iterable<Artifact> getAllowedDerivedInputs();
 
   /**
    * Informs the action that its inputs are {@code inputs}, and that its inputs are now known. Can
    * only be called for actions that discover inputs. After this method is called,
-   * {@link ActionExecutionMetadata#inputsKnown} should return true.
+   * {@link ActionExecutionMetadata#inputsDiscovered} should return true.
    */
   void updateInputs(Iterable<Artifact> inputs);
-
-  /**
-   * Return a best-guess estimate of the operation's resource consumption on the
-   * local host itself for use in scheduling.
-   *
-   * @param executor the application-specific value passed to the
-   *   executor parameter of the top-level call to
-   *   Builder.buildArtifacts().
-   */
-  @Nullable ResourceSet estimateResourceConsumption(Executor executor);
 
   /**
    * Returns true if the output should bypass output filtering. This is used for test actions.
    */
   boolean showsOutputUnconditionally();
 
+  boolean canRemoveAfterExecution();
+
   /**
-   * Returns true if an {@link com.google.devtools.build.lib.rules.extra.ExtraAction} action can be
-   * attached to this action. If not, extra actions should not be attached to this action.
+   * Returns true if an {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} action can
+   * be attached to this action. If not, extra actions should not be attached to this action.
    */
   boolean extraActionCanAttach();
 
   /**
-   * Called by {@link com.google.devtools.build.lib.rules.extra.ExtraAction} at execution time to
+   * Called by {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time to
    * extract information from this action into a protocol buffer to be used by extra_action rules.
    *
-   * <p>As this method is called from the ExtraAction, make sure it is ok to call this method from
-   * a different thread than the one this action is executed on.
+   * <p>As this method is called from the ExtraAction, make sure it is ok to call this method from a
+   * different thread than the one this action is executed on.
    */
-  ExtraActionInfo.Builder getExtraActionInfo();
+  ExtraActionInfo.Builder getExtraActionInfo() throws CommandLineExpansionException;
 }

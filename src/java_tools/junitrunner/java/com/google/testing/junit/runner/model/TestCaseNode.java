@@ -22,6 +22,7 @@ import com.google.testing.junit.runner.util.TestIntegrationsExporter;
 import com.google.testing.junit.runner.util.TestPropertyExporter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,8 @@ import org.junit.runner.Description;
 /** A leaf in the test suite model. */
 class TestCaseNode extends TestNode
     implements TestPropertyExporter.Callback, TestIntegrationsExporter.Callback {
+  private static final Set<State> INITIAL_STATES = Collections.unmodifiableSet(
+      EnumSet.of(State.INITIAL, State.PENDING));
   private final TestSuiteNode parent;
   private final Map<String, String> properties = new ConcurrentHashMap<>();
   private final Map<String, Integer> repeatedPropertyNamesToRepetitions = new HashMap<>();
@@ -59,6 +62,12 @@ class TestCaseNode extends TestNode
     return Collections.emptyList();
   }
 
+  /**
+   * Indicates that the test represented by this node is scheduled to start.
+   */
+  void pending() {
+    compareAndSetState(State.INITIAL, State.PENDING, -1);
+  }
 
   /**
    * Indicates that the test represented by this node has started.
@@ -66,7 +75,7 @@ class TestCaseNode extends TestNode
    * @param now Time that the test started
    */
   public void started(long now) {
-    compareAndSetState(State.INITIAL, State.STARTED, now);
+    compareAndSetState(INITIAL_STATES, State.STARTED, now);
   }
 
   @Override
@@ -74,7 +83,7 @@ class TestCaseNode extends TestNode
     if (compareAndSetState(State.STARTED, State.INTERRUPTED, now)) {
       return;
     }
-    compareAndSetState(State.INITIAL, State.CANCELLED, now);
+    compareAndSetState(INITIAL_STATES, State.CANCELLED, now);
   }
 
   @Override
@@ -102,7 +111,7 @@ class TestCaseNode extends TestNode
 
   @Override
   public void testSuppressed(long now) {
-    compareAndSetState(State.INITIAL, State.SUPPRESSED, now);
+    compareAndSetState(INITIAL_STATES, State.SUPPRESSED, now);
   }
 
   /**
@@ -116,13 +125,13 @@ class TestCaseNode extends TestNode
 
   @Override
   public void testFailure(Throwable throwable, long now) {
-    compareAndSetState(State.INITIAL, State.FINISHED, now);
+    compareAndSetState(INITIAL_STATES, State.FINISHED, now);
     globalFailures.add(throwable);
   }
 
   @Override
   public void dynamicTestFailure(Description test, Throwable throwable, long now) {
-    compareAndSetState(State.INITIAL, State.FINISHED, now);
+    compareAndSetState(INITIAL_STATES, State.FINISHED, now);
     addThrowableToDynamicTestToFailures(test, throwable);
   }
 
@@ -156,15 +165,30 @@ class TestCaseNode extends TestNode
     return previousRepetitionsNr;
   }
 
-  private synchronized boolean compareAndSetState(State fromState, State toState, long now) {
-    if (fromState == null || toState == null || state == null) {
+  private boolean compareAndSetState(State fromState, State toState, long now) {
+    if (fromState == null) {
       throw new NullPointerException();
     }
+    return compareAndSetState(Collections.singleton(fromState), toState, now);
+  }
 
-    if (fromState == state && toState != state) {
+  // TODO(bazel-team): Use AtomicReference instead of a synchronized method.
+  private synchronized boolean compareAndSetState(Set<State> fromStates, State toState, long now) {
+    if (fromStates == null || toState == null || state == null) {
+      throw new NullPointerException();
+    }
+    if (fromStates.isEmpty()) {
+      throw new IllegalArgumentException();
+    }
+
+    if (fromStates.contains(state) && toState != state) {
       state = toState;
-      runTimeInterval =
-          runTimeInterval == null ? new TestInterval(now, now) : runTimeInterval.withEndMillis(now);
+      if (toState != State.PENDING) {
+        runTimeInterval =
+            runTimeInterval == null
+            ? new TestInterval(now, now)
+            : runTimeInterval.withEndMillis(now);
+      }
       return true;
     }
     return false;
@@ -247,7 +271,8 @@ class TestCaseNode extends TestNode
    * States of a TestCaseNode (see (link) for all the transitions and states descriptions).
    */
   private static enum State {
-    INITIAL(TestResult.Status.SKIPPED),
+    INITIAL(TestResult.Status.FILTERED),
+    PENDING(TestResult.Status.CANCELLED),
     STARTED(TestResult.Status.INTERRUPTED),
     SKIPPED(TestResult.Status.SKIPPED),
     SUPPRESSED(TestResult.Status.SUPPRESSED),

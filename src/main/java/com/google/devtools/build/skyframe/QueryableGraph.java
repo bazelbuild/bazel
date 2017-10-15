@@ -46,7 +46,19 @@ public interface QueryableGraph {
    * @param reason the reason the nodes are being requested.
    */
   Map<SkyKey, ? extends NodeEntry> getBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) throws InterruptedException;
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+          throws InterruptedException;
+
+  /**
+   * Examines all the given keys. Returns an iterable of keys whose corresponding nodes are
+   * currently available to be fetched.
+   *
+   * <p>Note: An unavailable node does not mean it is not in the graph. It only means it's not ready
+   * to be fetched immediately.
+   *
+   * @param reason the reason the nodes are being requested.
+   */
+  Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason);
 
   /**
    * The reason that a node is being looked up in the Skyframe graph.
@@ -86,6 +98,9 @@ public interface QueryableGraph {
 
     /** The node is being looked up so that an rdep can be removed from it. */
     RDEP_REMOVAL,
+
+    /** The node is being looked up for any graph clean-up effort that may be necessary. */
+    CLEAN_UP,
 
     /** The node is being looked up so it can be enqueued for evaluation or change pruning. */
     ENQUEUING_CHILD,

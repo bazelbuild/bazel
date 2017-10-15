@@ -20,13 +20,12 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 
 /**
@@ -36,17 +35,23 @@ public final class IosDevice implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException {
-    AppleConfiguration appleConfiguration = context.getFragment(AppleConfiguration.class);
+    context.ruleWarning(
+        "This rule is deprecated. Please use the new Apple build rules "
+            + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");
+
     String iosVersionAttribute =
         context.attributes().get(IosDeviceRule.IOS_VERSION_ATTR_NAME, STRING);
-    XcodeVersionProperties xcodeVersionProperties = context.getPrerequisite(
-        IosDeviceRule.XCODE_ATTR_NAME, Mode.TARGET, XcodeVersionProperties.class);
+    XcodeVersionProperties xcodeVersionProperties =
+            context.getPrerequisite(
+                IosDeviceRule.XCODE_ATTR_NAME,
+                Mode.TARGET,
+                XcodeVersionProperties.SKYLARK_CONSTRUCTOR);
 
     DottedVersion xcodeVersion = null;
     if (xcodeVersionProperties != null && xcodeVersionProperties.getXcodeVersion().isPresent()) {
       xcodeVersion = xcodeVersionProperties.getXcodeVersion().get();
-    } else if (appleConfiguration.getXcodeVersion().isPresent()) {
-      xcodeVersion = appleConfiguration.getXcodeVersion().get();
+    } else if (XcodeConfig.getXcodeVersion(context) != null) {
+      xcodeVersion = XcodeConfig.getXcodeVersion(context);
     }
 
     DottedVersion iosVersion;
@@ -55,7 +60,7 @@ public final class IosDevice implements RuleConfiguredTargetFactory {
     } else if (xcodeVersionProperties != null) {
       iosVersion = xcodeVersionProperties.getDefaultIosSdkVersion();
     } else {
-      iosVersion = appleConfiguration.getSdkVersionForPlatform(Platform.IOS_SIMULATOR);
+      iosVersion = XcodeConfig.getSdkVersionForPlatform(context, ApplePlatform.IOS_SIMULATOR);
     }
 
     IosDeviceProvider provider =
@@ -68,7 +73,7 @@ public final class IosDevice implements RuleConfiguredTargetFactory {
 
     return new RuleConfiguredTargetBuilder(context)
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .add(IosDeviceProvider.class, provider)
+        .addNativeDeclaredProvider(provider)
         .add(IosTestSubstitutionProvider.class, provider.iosTestSubstitutionProvider())
         .build();
   }

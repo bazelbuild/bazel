@@ -16,10 +16,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.extra.SpawnInfo;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 
 /**
@@ -45,22 +41,10 @@ public interface Spawn {
    * local vs. remote) to the execution subsystem.
    *
    * <p>String tags from {@link
-   * com.google.devtools.build.lib.rules.test.TestTargetProperties#getExecutionInfo()} can be added
+   * com.google.devtools.build.lib.analysis.test.TestTargetProperties#getExecutionInfo()} can be added
    * as keys with arbitrary values to this map too.
    */
   ImmutableMap<String, String> getExecutionInfo();
-
-  /**
-   * Returns this Spawn as a Bourne shell command.
-   *
-   * @param workingDir the initial working directory of the command
-   */
-  String asShellCommand(Path workingDir);
-
-  /**
-   * Returns the runfiles data for remote execution. Format is (directory, manifest file).
-   */
-  ImmutableMap<PathFragment, Artifact> getRunfilesManifests();
 
   /**
    * Returns the {@link RunfilesSupplier} helper encapsulating the runfiles for this spawn.
@@ -71,11 +55,6 @@ public interface Spawn {
    * Returns artifacts for filesets, so they can be scheduled on remote execution.
    */
   ImmutableList<Artifact> getFilesetManifests();
-
-  /**
-   * Returns a protocol buffer describing this spawn for use by the extra_action functionality.
-   */
-  SpawnInfo getExtraActionInfo();
 
   /**
    * Returns the command (the first element) and its arguments.
@@ -126,12 +105,6 @@ public interface Spawn {
   Collection<? extends ActionInput> getOutputFiles();
 
   /**
-   * Instructs the spawn strategy to try to fetch these optional output files in addition to the
-   * usual output artifacts. The PathFragments should be relative to the exec root.
-   */
-  Collection<PathFragment> getOptionalOutputFiles();
-
-  /**
    * Returns the resource owner for local fallback.
    */
   ActionExecutionMetadata getResourceOwner();
@@ -140,11 +113,6 @@ public interface Spawn {
    * Returns the amount of resources needed for local fallback.
    */
   ResourceSet getLocalResources();
-
-  /**
-   * Returns the owner for this action. Production code should supply a non-null owner.
-   */
-  ActionOwner getOwner();
 
   /**
    * Returns a mnemonic (string constant) for this kind of spawn.

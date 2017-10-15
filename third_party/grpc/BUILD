@@ -7,32 +7,50 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-java_import(
-    name = "grpc-jar",
-    jars = [
-        "grpc-netty-0.15.0.jar",
-        "grpc-protobuf-0.15.0.jar",
-        "grpc-protobuf-lite-0.15.0.jar",
-        "grpc-stub-0.15.0.jar",
-        "grpc-core-0.15.0.jar",
-    ],
-    runtime_deps = ["//third_party:netty"],
+config_setting(
+    name = "windows",
+    values = { "cpu": "x64_windows" },
+)
+
+config_setting(
+    name = "windows_msvc",
+    values = { "cpu": "x64_windows_msvc" },
 )
 
 filegroup(
+    name = "bootstrap-grpc-jars",
+    srcs = [
+        "grpc-auth-1.6.1.jar",
+        "grpc-netty-1.6.1.jar",
+        "grpc-protobuf-1.6.1.jar",
+        "grpc-protobuf-lite-1.6.1.jar",
+        "grpc-stub-1.6.1.jar",
+        "grpc-core-1.6.1.jar",
+        "grpc-context-1.6.1.jar",
+    ],
+)
+
+java_import(
+    name = "grpc-jar",
+    jars = [":bootstrap-grpc-jars"],
+    deps = [
+      "//third_party:guava",
+      "//third_party:instrumentation",
+    ],
+    runtime_deps = ["//third_party:netty",
+                    "//third_party:opencensus-api",
+                   ],
+)
+
+cc_binary(
     name = "grpc-java-plugin",
-    srcs = select({
-        "//third_party:windows_mingw": ["protoc-gen-grpc-java-0.15.0-windows-x86_32.exe"],
-        "//third_party:windows_msys64_mingw64": ["protoc-gen-grpc-java-0.15.0-windows-x86_64.exe"],
-        "//third_party:windows_msys64": ["protoc-gen-grpc-java-0.15.0-windows-x86_64.exe"],
-        "//third_party:windows_clang": ["protoc-gen-grpc-java-0.15.0-windows-x86_64.exe"],
-        "//third_party:darwin": ["protoc-gen-grpc-java-0.15.0-osx-x86_64.exe"],
-        "//third_party:k8": ["protoc-gen-grpc-java-0.15.0-linux-x86_64.exe"],
-        "//third_party:piii": ["protoc-gen-grpc-java-0.15.0-linux-x86_32.exe"],
-        "//third_party:arm": ["protoc-gen-grpc-java-0.15.0-linux-x86_32.exe"],
-        "//third_party:freebsd": ["protoc-gen-grpc-java-0.15.0-linux-x86_32.exe"],
-        "//third_party:s390x": ["protoc-gen-grpc-java-0.15.0-linux-s390x_64.exe"],
-    }),
+    srcs = [
+        "compiler/src/java_plugin/cpp/java_generator.cpp",
+        "compiler/src/java_plugin/cpp/java_generator.h",
+        "compiler/src/java_plugin/cpp/java_plugin.cpp",
+    ],
+    copts = ["-w"],
+    deps = ["//third_party/protobuf:protoc_lib"],
 )
 
 cc_binary(
@@ -417,10 +435,14 @@ cc_library(
         "include/grpc/support/tls_pthread.h",
         "include/grpc/support/useful.h",
     ],
-    copts = [
-        "-std=gnu99",
-        "-Wno-implicit-function-declaration",
-    ],
+    copts = select({
+        "//conditions:default": [
+            "-std=gnu99",
+            "-Wimplicit-function-declaration",
+        ],
+        ":windows": ["/we4013"],
+        ":windows_msvc": ["/we4013"],
+    }),
     includes = [
         ".",
         "include",
@@ -544,6 +566,6 @@ cc_library(
     ],
     deps = [
         ":grpc_unsecure",
-        "//third_party/protobuf:protobuf_clib",
+        "//third_party/protobuf:protobuf",
     ],
 )

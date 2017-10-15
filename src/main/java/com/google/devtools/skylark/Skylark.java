@@ -15,13 +15,19 @@ package com.google.devtools.skylark;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * Skylark is a standalone skylark intepreter. The environment doesn't
@@ -32,24 +38,29 @@ class Skylark {
   private static final String START_PROMPT = ">> ";
   private static final String CONTINUATION_PROMPT = ".. ";
 
-  public static final EventHandler PRINT_HANDLER = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        System.out.println(event.getMessage());
-      }
-    };
+  private static final EventHandler PRINT_HANDLER =
+      new EventHandler() {
+        @Override
+        public void handle(Event event) {
+          if (event.getKind() == EventKind.ERROR) {
+            System.err.println(event.getMessage());
+          } else {
+            System.out.println(event.getMessage());
+          }
+        }
+      };
 
-  private final BufferedReader reader = new BufferedReader(
-      new InputStreamReader(System.in, Charset.defaultCharset()));
+  private static final Charset CHARSET = StandardCharsets.ISO_8859_1;
+  private final BufferedReader reader =
+      new BufferedReader(new InputStreamReader(System.in, CHARSET));
   private final Mutability mutability = Mutability.create("interpreter");
   private final Environment env =
       Environment.builder(mutability)
-          .setSkylark()
           .setGlobals(Environment.DEFAULT_GLOBALS)
           .setEventHandler(PRINT_HANDLER)
           .build();
 
-  public String prompt() {
+  private String prompt() {
     StringBuilder input = new StringBuilder();
     System.out.print(START_PROMPT);
     try {
@@ -70,11 +81,12 @@ class Skylark {
     }
   }
 
+  /** Provide a REPL evaluating Skylark code. */
   public void readEvalPrintLoop() {
     String input;
     while ((input = prompt()) != null) {
       try {
-        Object result = env.eval(input);
+        Object result = BuildFileAST.eval(env, input);
         if (result != null) {
           System.out.println(Printer.repr(result));
         }
@@ -84,12 +96,32 @@ class Skylark {
     }
   }
 
-  public static void main(String[] args) {
-    if (args.length == 0) {
-       new Skylark().readEvalPrintLoop();
-    } else {
-      System.err.println("no argument expected");
-      System.exit(1);
+  /** Execute a Skylark file. */
+  public int execute(String path) {
+    String content;
+    try {
+      content = new String(Files.readAllBytes(Paths.get(path)), CHARSET);
+      BuildFileAST.eval(env, content);
+      return 0;
+    } catch (EvalException e) {
+      System.err.println(e.print());
+      return 1;
+    } catch (Exception e) {
+      e.printStackTrace(System.err);
+      return 1;
     }
+  }
+
+  public static void main(String[] args) {
+    int ret = 0;
+    if (args.length == 0) {
+      new Skylark().readEvalPrintLoop();
+    } else if (args.length == 1) {
+      ret = new Skylark().execute(args[0]);
+    } else {
+      System.err.println("too many arguments");
+      ret = 1;
+    }
+    System.exit(ret);
   }
 }

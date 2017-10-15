@@ -13,34 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.List;
-
-/**
- * Tests the {@link StoredEventHandler} class.
- */
+/** Tests the {@link StoredEventHandler} class. */
 @RunWith(JUnit4.class)
 public class StoredErrorEventHandlerTest {
 
   @Test
   public void hasErrors() {
     StoredEventHandler eventHandler = new StoredEventHandler();
-    assertFalse(eventHandler.hasErrors());
+    assertThat(eventHandler.hasErrors()).isFalse();
     eventHandler.handle(Event.warn("warning"));
-    assertFalse(eventHandler.hasErrors());
+    assertThat(eventHandler.hasErrors()).isFalse();
     eventHandler.handle(Event.info("info"));
-    assertFalse(eventHandler.hasErrors());
+    assertThat(eventHandler.hasErrors()).isFalse();
     eventHandler.handle(Event.error("error"));
-    assertTrue(eventHandler.hasErrors());
+    assertThat(eventHandler.hasErrors()).isTrue();
   }
 
   @Test
@@ -49,7 +43,7 @@ public class StoredErrorEventHandlerTest {
     StoredEventHandler sink = new StoredEventHandler();
 
     eventHandler.replayOn(sink);
-    assertTrue(sink.isEmpty());
+    assertThat(sink.isEmpty()).isTrue();
   }
 
   @Test
@@ -67,6 +61,6 @@ public class StoredErrorEventHandlerTest {
     }
 
     eventHandler.replayOn(sink);
-    assertEquals(events, sink.getEvents());
+    assertThat(sink.getEvents()).isEqualTo(events);
   }
 }

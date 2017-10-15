@@ -16,23 +16,21 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ByteStringDeterministicWriter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 
 /**
  * Writes AndroidDeployInfo proto message. This proto describes how
@@ -56,17 +54,28 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
   }
 
   private static final String GUID = "eda283ba-9000-4b80-8dc4-7939101c44ba";
-  private final ByteString byteString;
+
+  private final Artifact mergedManifest;
+  private final ImmutableList<Artifact> additionalMergedManifests;
+  private final ImmutableList<Artifact> apksToDeploy;
+  private final ImmutableList<Artifact> dataDeps;
 
   AndroidDeployInfoAction(
       ActionOwner owner,
       Artifact outputFile,
       Artifact mergedManifest,
-      Iterable<Artifact> additionalMergedManifests,
-      Iterable<Artifact> apksToDeploy,
-      Iterable<Artifact> dataDeps) {
+      ImmutableList<Artifact> additionalMergedManifests,
+      ImmutableList<Artifact> apksToDeploy,
+      ImmutableList<Artifact> dataDeps) {
     super(owner, makeInputs(mergedManifest, additionalMergedManifests, apksToDeploy, dataDeps),
         outputFile, false);
+    this.mergedManifest = mergedManifest;
+    this.additionalMergedManifests = additionalMergedManifests;
+    this.apksToDeploy = apksToDeploy;
+    this.dataDeps = dataDeps;
+  }
+
+  private ByteString getByteString() {
     AndroidDeployInfoOuterClass.AndroidDeployInfo.Builder builder =
         AndroidDeployInfoOuterClass.AndroidDeployInfo.newBuilder();
     builder.setMergedManifest(makeArtifactProto(mergedManifest));
@@ -79,16 +88,16 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
     for (Artifact dataDep : dataDeps) {
       builder.addDataToDeploy(makeArtifactProto(dataDep));
     }
-    this.byteString = builder.build().toByteString();
+    return builder.build().toByteString();
   }
 
   static void createDeployInfoAction(
       RuleContext ruleContext,
       Artifact deployInfo,
       Artifact mergedManifest,
-      Iterable<Artifact> additionalMergedManifests,
-      Iterable<Artifact> apksToDeploy,
-      Iterable<Artifact> dataDeps) {
+      ImmutableList<Artifact> additionalMergedManifests,
+      ImmutableList<Artifact> apksToDeploy,
+      ImmutableList<Artifact> dataDeps) {
     Action action = new AndroidDeployInfoAction(ruleContext.getActionOwner(),
         deployInfo, mergedManifest, additionalMergedManifests, apksToDeploy, dataDeps);
     ruleContext.registerAction(action);
@@ -96,21 +105,12 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) throws IOException {
-
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        try (InputStream in = byteString.newInput()) {
-          ByteStreams.copy(in, out);
-        }
-        out.flush();
-      }
-    };
+    return new ByteStringDeterministicWriter(getByteString());
   }
 
   @VisibleForTesting
   public AndroidDeployInfo getDeployInfo() throws InvalidProtocolBufferException {
-    return AndroidDeployInfo.parseFrom(byteString);
+    return AndroidDeployInfo.parseFrom(getByteString());
   }
 
   @Override
@@ -118,7 +118,7 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
     Fingerprint f = new Fingerprint()
         .addString(GUID);
 
-    try (InputStream in = byteString.newInput()) {
+    try (InputStream in = getByteString().newInput()) {
       byte[] buffer = new byte[512];
       int amountRead;
       while ((amountRead = in.read(buffer)) != -1) {
@@ -127,7 +127,6 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-
     return f.hexDigestAndReset();
   }
 

@@ -46,13 +46,13 @@ public class ErrorInfoSubject extends Subject<ErrorInfoSubject, ErrorInfo> {
   }
 
   public void isTransient() {
-    if (!getSubject().isTransient()) {
+    if (!getSubject().isTransitivelyTransient()) {
       fail("is transient");
     }
   }
 
   public void isNotTransient() {
-    if (getSubject().isTransient()) {
+    if (getSubject().isTransitivelyTransient()) {
       fail("is not transient");
     }
   }

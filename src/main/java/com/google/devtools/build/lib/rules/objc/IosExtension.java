@@ -25,16 +25,21 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition;
 import java.io.Serializable;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for {@code ios_extension}.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class IosExtension extends ReleaseBundlingTargetFactory {
 
   // Apple only accepts extensions starting at 8.0.
@@ -54,16 +59,15 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
           ConfigurationDistinguisher.IOS_EXTENSION);
 
   public IosExtension() {
-    super(ReleaseBundlingSupport.EXTENSION_BUNDLE_DIR_FORMAT, XcodeProductType.EXTENSION,
-        ImmutableSet.of(new Attribute("binary", Mode.SPLIT)),
-        ConfigurationDistinguisher.IOS_EXTENSION);
+    super(
+        ReleaseBundlingSupport.EXTENSION_BUNDLE_DIR_FORMAT,
+        ImmutableSet.of(new Attribute("binary", Mode.SPLIT)));
   }
 
   @Override
   protected DottedVersion bundleMinimumOsVersion(RuleContext ruleContext) {
     return determineMinimumOsVersion(
-        ruleContext.getFragment(AppleConfiguration.class)
-            .getMinimumOsForPlatformType(PlatformType.IOS),
+        XcodeConfig.getMinimumOsForPlatformType(ruleContext, PlatformType.IOS),
         EXTENSION_MINIMUM_OS_VERSION);
   }
 
@@ -91,8 +95,11 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
    * @param fromFlag the minimum OS version from command line flag
    * @param minimumOSVersion the minumum OS version the extension should be built with
    */
-  private static DottedVersion determineMinimumOsVersion(DottedVersion fromFlag,
+  private static DottedVersion determineMinimumOsVersion(@Nullable DottedVersion fromFlag,
       DottedVersion minimumOSVersion) {
+    if (fromFlag == null) {
+      return minimumOSVersion;
+    }
     return Ordering.natural().max(fromFlag, minimumOSVersion);
   }
 

@@ -19,14 +19,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
-import com.google.devtools.build.android.AndroidResourceClassWriter;
+import com.google.devtools.build.android.AndroidResourceSymbolSink;
+import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -66,7 +66,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
     ARRAY(TAG_ARRAY),
     STRING_ARRAY(TAG_STRING_ARRAY);
 
-    public QName tagName;
+    public final QName tagName;
 
     ArrayType(QName tagName) {
       this.tagName = tagName;
@@ -119,7 +119,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
 
   @Override
   public void write(
-      FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+      FullyQualifiedName key, DataSource source, AndroidDataWritingVisitor mergedDataWriter) {
     ValuesResourceDefinition definition = mergedDataWriter.define(key).derivedFrom(source)
         .startTag(arrayType.tagName)
         .named(key)
@@ -183,9 +183,8 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key,
-      AndroidResourceClassWriter resourceClassWriter) {
-    resourceClassWriter.writeSimpleResource(key.type(), key.name());
+  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    sink.acceptSimpleResource(key.type(), key.name());
   }
 
   public static XmlResourceValue parseArray(
@@ -214,5 +213,10 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
     } catch (IllegalArgumentException e) {
       throw new XMLStreamException(e.getMessage(), start.getLocation());
     }
+  }
+
+  @Override
+  public String asConflictStringWith(DataSource source) {
+    return source.asConflictString();
   }
 }

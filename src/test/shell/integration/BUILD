@@ -31,6 +31,13 @@ sh_test(
 )
 
 sh_test(
+    name = "python_test",
+    size = "medium",
+    srcs = ["python_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "loading_phase_tests",
     size = "large",
     srcs = ["loading_phase_tests.sh"],
@@ -39,16 +46,23 @@ sh_test(
 )
 
 sh_test(
+    name = "execution_phase_tests",
+    size = "large",
+    srcs = ["execution_phase_tests.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "experimental_ui_test",
     size = "large",
     srcs = ["experimental_ui_test.sh"],
     data = [":test-deps"],
-    shard_count = 6,
+    shard_count = 11,
 )
 
 sh_test(
     name = "java_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["java_integration_test.sh"],
     args = ["$(JAVABASE)"],
     data = [
@@ -135,13 +149,24 @@ sh_test(
 )
 
 sh_test(
-    name = "ide_info_generation",
-    size = "large",
-    srcs = ["ide_info_generation.sh"],
-    data = [
-        ":test-deps",
-        "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
-    ],
+    name = "force_delete_output_test",
+    size = "medium",
+    srcs = ["force_delete_output_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "incompatible_changes_conflict_test",
+    size = "small",
+    srcs = ["incompatible_changes_conflict_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "skylark_flag_test",
+    size = "medium",
+    srcs = ["skylark_flag_test.sh"],
+    data = [":test-deps"],
 )
 
 sh_test(
@@ -159,6 +184,13 @@ sh_test(
 )
 
 sh_test(
+    name = "cpp_test",
+    size = "large",
+    srcs = ["cpp_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "action_env_test",
     size = "large",
     srcs = ["action_env_test.sh"],
@@ -171,6 +203,61 @@ sh_test(
     srcs = ["discard_graph_edges_test.sh"],
     data = [":test-deps"],
     shard_count = 5,
+)
+
+sh_test(
+    name = "build_event_stream_test",
+    size = "medium",
+    srcs = ["build_event_stream_test.sh"],
+    data = [":test-deps"],
+    shard_count = 2,
+)
+
+sh_test(
+    name = "bazel_worker_test",
+    size = "large",
+    srcs = ["bazel_worker_test.sh"],
+    args = [
+        "--worker_sandboxing=no",
+        "non-sandboxed",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+    ],
+    shard_count = 3,
+    tags = ["jdk8"],
+)
+
+sh_test(
+    name = "bazel_sandboxed_worker_test",
+    size = "large",
+    srcs = ["bazel_worker_test.sh"],
+    args = [
+        "--worker_sandboxing",
+        "sandboxed",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+    ],
+    # TODO(b/34450149): remove when no longer flaky
+    flaky = 1,
+    shard_count = 3,
+    tags = ["jdk8"],
+)
+
+sh_test(
+    name = "logging_test",
+    size = "medium",
+    srcs = ["logging_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "test_test",
+    srcs = ["test_test.sh"],
+    data = [":test-deps"],
 )
 
 test_suite(

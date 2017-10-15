@@ -145,8 +145,8 @@ public abstract class AbstractTypeProcessor extends AbstractProcessor {
     public void typeProcessingStart() {}
 
     /**
-     * Processes a fully-analyzed class that contains a supported annotation
-     * (see {@link #getSupportedAnnotationTypes()}).
+     * Processes a fully analyzed class that contains a supported annotation
+     * (look {@link #getSupportedAnnotationTypes()}).
      *
      * <p>The passed class is always valid type-checked Java code.
      *
@@ -176,9 +176,8 @@ public abstract class AbstractTypeProcessor extends AbstractProcessor {
 
         @Override
         public void finished(TaskEvent e) {
-            if (e.getKind() != TaskEvent.Kind.ANALYZE) {
+            if (e.getKind() != TaskEvent.Kind.ANALYZE)
                 return;
-            }
 
             if (!hasInvokedTypeProcessingStart) {
                 typeProcessingStart();
@@ -192,16 +191,13 @@ public abstract class AbstractTypeProcessor extends AbstractProcessor {
                 hasInvokedTypeProcessingOver = true;
             }
 
-            if (e.getTypeElement() == null) {
+            if (e.getTypeElement() == null)
                 throw new AssertionError("event task without a type element");
-            }
-            if (e.getCompilationUnit() == null) {
+            if (e.getCompilationUnit() == null)
                 throw new AssertionError("event task without compilation unit");
-            }
 
-            if (!elements.remove(e.getTypeElement().getQualifiedName())) {
+            if (!elements.remove(e.getTypeElement().getQualifiedName()))
                 return;
-            }
 
             TypeElement elem = e.getTypeElement();
             TreePath p = Trees.instance(processingEnv).getPath(elem);

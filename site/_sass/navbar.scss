@@ -1,0 +1,96 @@
+// Navbar styles
+$navbar-bg-color: $bazel-green;
+$navbar-hover-bg-color: $bazel-green-light;
+$navbar-color: $color-on-bazel-green;
+$navbar-hover-color: #444;
+$navbar-input-bg-color: $bazel-green-light;
+$navbar-input-focus-bg-color: $color-on-bazel-green;
+$navbar-input-border-color: $bazel-green;
+
+.navbar-inverse {
+  margin-bottom: 0;
+  background-color: $navbar-bg-color;
+  border-bottom: 1px solid $navbar-bg-color;
+
+  .navbar-brand {
+    .navbar-logo {
+      height: 22px;
+    }
+  }
+
+  a.navbar-brand {
+    color: $navbar-color;
+
+    &:focus,
+    &:hover {
+      color: $navbar-hover-color;
+      background-color: $navbar-bg-color;
+    }
+  }
+
+  .navbar-nav > li > a {
+    color: $navbar-color;
+
+    &:focus,
+    &:hover {
+      color: $navbar-hover-color;
+      background-color: $navbar-hover-bg-color;
+    }
+
+    &.nav-icon {
+      font-size: 18px;
+    }
+  }
+
+  .navbar-nav > li.active > a {
+    background-color: $navbar-hover-bg-color;
+
+    &:focus,
+    &:hover {
+      background-color: $navbar-hover-bg-color;
+    }
+  }
+
+  .navbar-form {
+    border-color: $navbar-bg-color;
+
+    .input-sm {
+      margin-top: 2px;
+    }
+
+    input[type="search"] {
+      background-color: $navbar-input-bg-color;
+      border-color: $navbar-input-border-color;
+
+      &::placeholder {
+        color: $navbar-color;
+      }
+
+      &:focus,
+      &:active {
+        background-color: $navbar-input-focus-bg-color;
+      }
+    }
+  }
+
+  .navbar-toggle {
+    border: 1px solid $navbar-bg-color;
+
+    &.active,
+    &:focus,
+    &:hover {
+      background-color: $navbar-hover-bg-color;
+    }
+  }
+
+  .navbar-collapse {
+    border-color: $navbar-bg-color;
+  }
+}
+
+@media (max-width: 768px) {
+  #cse-search-box {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+}

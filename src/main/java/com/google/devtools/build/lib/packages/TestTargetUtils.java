@@ -20,11 +20,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -44,14 +43,11 @@ public final class TestTargetUtils {
    * given size.
    */
   public static Predicate<Target> testSizeFilter(final Set<TestSize> allowedSizes) {
-    return new Predicate<Target>() {
-      @Override
-      public boolean apply(Target target) {
-        if (!(target instanceof Rule)) {
-          return false;
-        }
-        return allowedSizes.contains(TestSize.getTestSize((Rule) target));
+    return target -> {
+      if (!(target instanceof Rule)) {
+        return false;
       }
+      return allowedSizes.contains(TestSize.getTestSize((Rule) target));
     };
   }
 
@@ -60,14 +56,11 @@ public final class TestTargetUtils {
    * the given timeout.
    **/
   public static Predicate<Target> testTimeoutFilter(final Set<TestTimeout> allowedTimeouts) {
-    return new Predicate<Target>() {
-      @Override
-        public boolean apply(Target target) {
-        if (!(target instanceof Rule)) {
-          return false;
-        }
-        return allowedTimeouts.contains(TestTimeout.getTestTimeout((Rule) target));
+    return target -> {
+      if (!(target instanceof Rule)) {
+        return false;
       }
+      return allowedTimeouts.contains(TestTimeout.getTestTimeout((Rule) target));
     };
   }
 
@@ -76,8 +69,8 @@ public final class TestTargetUtils {
    * the specified languages. The reporter and the list of rule names are only used to warn about
    * unknown languages.
    */
-  public static Predicate<Target> testLangFilter(List<String> langFilterList,
-      EventHandler reporter, Set<String> allRuleNames) {
+  public static Predicate<Target> testLangFilter(
+      List<String> langFilterList, ExtendedEventHandler reporter, Set<String> allRuleNames) {
     final Set<String> requiredLangs = new HashSet<>();
     final Set<String> excludedLangs = new HashSet<>();
 
@@ -94,13 +87,10 @@ public final class TestTargetUtils {
       }
     }
 
-    return new Predicate<Target>() {
-      @Override
-      public boolean apply(Target rule) {
-        String ruleLang = TargetUtils.getRuleLanguage(rule);
-        return (requiredLangs.isEmpty() || requiredLangs.contains(ruleLang))
-            && !excludedLangs.contains(ruleLang);
-      }
+    return rule -> {
+      String ruleLang = TargetUtils.getRuleLanguage(rule);
+      return (requiredLangs.isEmpty() || requiredLangs.contains(ruleLang))
+          && !excludedLangs.contains(ruleLang);
     };
   }
 
@@ -144,31 +134,6 @@ public final class TestTargetUtils {
   }
 
   /**
-   * Returns a predicate to be used for test tag filtering, i.e., that only accepts tests that match
-   * all of the required tags and none of the excluded tags.
-   */
-  // TODO(bazel-team): This also applies to non-test rules, so should probably be moved to
-  // TargetUtils.
-  public static Predicate<Target> tagFilter(List<String> tagFilterList) {
-    Pair<Collection<String>, Collection<String>> tagLists = sortTagsBySense(tagFilterList);
-    final Collection<String> requiredTags = tagLists.first;
-    final Collection<String> excludedTags = tagLists.second;
-    return new Predicate<Target>() {
-      @Override
-      public boolean apply(Target input) {
-        if (!(input instanceof Rule)) {
-          return false;
-        }
-        // Note that test_tags are those originating from the XX_test rule,
-        // whereas the requiredTags and excludedTags originate from the command
-        // line or test_suite rule.
-        return testMatchesFilters(((Rule) input).getRuleTags(),
-            requiredTags, excludedTags, false);
-      }
-    };
-  }
-
-  /**
    * Separates a list of text "tags" into a Pair of Collections, where
    * the first element are the required or positive tags and the second element
    * are the excluded or negative tags.
@@ -203,19 +168,22 @@ public final class TestTargetUtils {
    * Returns the (new, mutable) set of test rules, expanding all 'test_suite' rules into the
    * individual tests they group together and preserving other test target instances.
    *
-   * Method assumes that passed collection contains only *_test and test_suite rules. While, at this
-   * point it will successfully preserve non-test rules as well, there is no guarantee that this
-   * behavior will be kept in the future.
+   * <p>Method assumes that passed collection contains only *_test and test_suite rules. While, at
+   * this point it will successfully preserve non-test rules as well, there is no guarantee that
+   * this behavior will be kept in the future.
    *
    * @param targetProvider a target provider
    * @param eventHandler a failure eventHandler to report loading failures to
    * @param targets Collection of the *_test and test_suite configured targets
    * @return a duplicate-free iterable of the tests under the specified targets
    */
-  public static ResolvedTargets<Target> expandTestSuites(TargetProvider targetProvider,
-      EventHandler eventHandler, Iterable<? extends Target> targets, boolean strict,
+  public static ResolvedTargets<Target> expandTestSuites(
+      TargetProvider targetProvider,
+      ExtendedEventHandler eventHandler,
+      Iterable<? extends Target> targets,
+      boolean strict,
       boolean keepGoing)
-          throws TargetParsingException {
+      throws TargetParsingException {
     Closure closure = new Closure(targetProvider, eventHandler, strict, keepGoing);
     ResolvedTargets.Builder<Target> result = ResolvedTargets.builder();
     for (Target target : targets) {
@@ -238,7 +206,7 @@ public final class TestTargetUtils {
   private static final class Closure {
     private final TargetProvider targetProvider;
 
-    private final EventHandler eventHandler;
+    private final ExtendedEventHandler eventHandler;
 
     private final boolean keepGoing;
 
@@ -248,7 +216,10 @@ public final class TestTargetUtils {
 
     private boolean hasError;
 
-    public Closure(TargetProvider targetProvider, EventHandler eventHandler, boolean strict,
+    public Closure(
+        TargetProvider targetProvider,
+        ExtendedEventHandler eventHandler,
+        boolean strict,
         boolean keepGoing) {
       this.targetProvider = targetProvider;
       this.eventHandler = eventHandler;
@@ -282,9 +253,6 @@ public final class TestTargetUtils {
       // Note that testsAndSuites can contain input file targets; the test_suite rule does not
       // restrict the set of targets that can appear in tests or suites.
       testsAndSuites.addAll(getPrerequisites(testSuite, "tests"));
-      if (testSuite.getRuleClassObject().hasAttr("suites", BuildType.LABEL_LIST)) {
-        testsAndSuites.addAll(getPrerequisites(testSuite, "suites"));
-      }
 
       // 1. Add all tests
       for (Target test : testsAndSuites) {

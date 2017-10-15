@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -44,7 +45,7 @@ public final class FilesetEntryValue implements SkyValue {
   }
 
   public static SkyKey key(FilesetTraversalParams params) {
-    return SkyKey.create(SkyFunctions.FILESET_ENTRY, params);
+    return LegacySkyKey.create(SkyFunctions.FILESET_ENTRY, params);
   }
 
   @Override

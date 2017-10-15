@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.build.lib.util.BlazeClock;
-
+import com.google.devtools.build.lib.clock.BlazeClock;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.util.Date;

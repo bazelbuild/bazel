@@ -18,7 +18,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -81,6 +81,16 @@ public class FileOutErr extends OutErr {
     // We need this function to duplicate the single new object into both arguments
     // of the super-constructor.
     super(stream, stream);
+  }
+
+  // Set a filter for FileOutputStream
+  public void setOutputFilter(OutputFilter outputFilter) {
+    getFileOutputStream().setFilter(outputFilter);
+  }
+
+  // Set a filter for FileErrorStream
+  public void setErrorFilter(OutputFilter outputFilter) {
+    getFileErrorStream().setFilter(outputFilter);
   }
 
   /**
@@ -210,10 +220,15 @@ public class FileOutErr extends OutErr {
      */
     abstract void dumpOut(OutputStream out);
 
-    /**
-     * Closes and delets the output.
-     */
+    /** Closes and deletes the output. */
     abstract void clear() throws IOException;
+
+    /**
+     * Set a Filter for the output
+     *
+     * @param outputFilter
+     */
+    abstract void setFilter(OutputFilter outputFilter);
   }
 
   /**
@@ -254,6 +269,9 @@ public class FileOutErr extends OutErr {
     public void clear() {
     }
 
+    @Override
+    void setFilter(OutputFilter outputFilter) {}
+
 
     @Override
     public void write(byte[] b, int off, int len) {
@@ -268,20 +286,26 @@ public class FileOutErr extends OutErr {
     }
   }
 
+  /** An interface to get a filtered output stream from the original one. */
+  public interface OutputFilter {
+    FilterOutputStream getFilteredOutputStream(OutputStream outputStream);
+  }
 
   /**
-   * An output stream that captures all output into a file.
-   * The file is created only if output is received.
+   * An output stream that captures all output into a file. The file is created only if output is
+   * received.
    *
-   * The user must take care that nobody else is writing to the
-   * file that is backing the output stream.
+   * The user must take care that nobody else is writing to the file that is backing the output
+   * stream.
    *
-   * The write() methods of type are synchronized to ensure
-   * that writes from different threads are not mixed up.
+   * The write() methods of type are synchronized to ensure that writes from different threads are
+   * not mixed up. Note that this class is otherwise
+   * {@link com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible}. Only the
+   * write() methods are allowed to be concurrently, and only concurrently with each other. All
+   * other calls must be serialized.
    *
-   * The outputStream is here only for the benefit of the pumping
-   * IO we're currently using for execution - Once that is gone,
-   * we can remove this output stream and fold its code into the
+   * The outputStream is here only for the benefit of the pumping IO we're currently using for
+   * execution - Once that is gone we can remove this output stream and fold its code into the
    * FileOutErr.
    */
   @ThreadSafety.ThreadCompatible
@@ -290,6 +314,8 @@ public class FileOutErr extends OutErr {
     private final Path outputFile;
     private OutputStream outputStream;
     private String error;
+    private OutputFilter outputFilter;
+    private boolean mightHaveOutput = false;
 
     protected FileRecordingOutputStream(Path outputFile) {
       this.outputFile = outputFile;
@@ -302,13 +328,23 @@ public class FileOutErr extends OutErr {
 
     @Override
     Path getFile() {
+      // The caller is getting a reference to the filesystem path, so conservatively assume the
+      // file has been modified.
+      markDirty();
       return outputFile;
+    }
+
+    private void markDirty() {
+      mightHaveOutput = true;
     }
 
     private OutputStream getOutputStream() throws IOException {
       // you should hold the lock before you invoke this method
       if (outputStream == null) {
         outputStream = outputFile.getOutputStream();
+        if (outputFilter != null) {
+          outputStream = outputFilter.getFilteredOutputStream(outputStream);
+        }
       }
       return outputStream;
     }
@@ -322,6 +358,12 @@ public class FileOutErr extends OutErr {
       close();
       outputStream = null;
       outputFile.delete();
+      mightHaveOutput = false;
+    }
+
+    @Override
+    void setFilter(OutputFilter outputFilter) {
+      this.outputFilter = outputFilter;
     }
 
     /**
@@ -336,6 +378,9 @@ public class FileOutErr extends OutErr {
     boolean hasRecordedOutput() {
       if (hadError()) {
         return true;
+      }
+      if (!mightHaveOutput) {
+        return false;
       }
       if (!outputFile.exists()) {
         return false;
@@ -352,7 +397,7 @@ public class FileOutErr extends OutErr {
     String getRecordedOutput() {
       StringBuilder result = new StringBuilder();
       try {
-        if (getFile().exists()) {
+        if (mightHaveOutput && getFile().exists()) {
           result.append(FileSystemUtils.readContentAsLatin1(getFile()));
         }
       } catch (IOException ex) {
@@ -368,7 +413,7 @@ public class FileOutErr extends OutErr {
     @Override
     void dumpOut(OutputStream out) {
       try {
-        if (getFile().exists()) {
+        if (mightHaveOutput && getFile().exists()) {
           try (InputStream in = getFile().getInputStream()) {
             ByteStreams.copy(in, out);
           }
@@ -387,6 +432,7 @@ public class FileOutErr extends OutErr {
     @Override
     public synchronized void write(byte[] b, int off, int len) {
       if (len > 0) {
+        markDirty();
         try {
           getOutputStream().write(b, off, len);
         } catch (IOException ex) {
@@ -397,6 +443,7 @@ public class FileOutErr extends OutErr {
 
     @Override
     public synchronized void write(int b) {
+      markDirty();
       try {
         getOutputStream().write(b);
       } catch (IOException ex) {
@@ -407,6 +454,7 @@ public class FileOutErr extends OutErr {
     @Override
     public synchronized void write(byte[] b) throws IOException {
       if (b.length > 0) {
+        markDirty();
         getOutputStream().write(b);
       }
     }

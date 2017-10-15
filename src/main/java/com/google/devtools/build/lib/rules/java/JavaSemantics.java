@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryL
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -37,7 +40,10 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -77,9 +83,14 @@ public interface JavaSemantics {
       fromTemplates("%{name}_proguard.usage");
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_CONFIG =
       fromTemplates("%{name}_proguard.config");
+  SafeImplicitOutputsFunction JAVA_ONE_VERSION_ARTIFACT =
+      fromTemplates("%{name}-one-version.txt");
 
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
       fromTemplates("%{name}_deploy-src.jar");
+
+  SafeImplicitOutputsFunction JAVA_TEST_CLASSPATHS_FILE =
+      fromTemplates("%{name}_classpaths_file");
 
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
@@ -95,6 +106,10 @@ public interface JavaSemantics {
 
   /** The java_toolchain.compatible_javacopts key for Java 7 javacopts */
   public static final String JAVA7_JAVACOPTS_KEY = "java7";
+  /** The java_toolchain.compatible_javacopts key for Android javacopts */
+  public static final String ANDROID_JAVACOPTS_KEY = "android";
+  /** The java_toolchain.compatible_javacopts key for proto compilations. */
+  public static final String PROTO_JAVACOPTS_KEY = "proto";
 
   LateBoundLabel<BuildConfiguration> JAVA_TOOLCHAIN =
       new LateBoundLabel<BuildConfiguration>(JAVA_TOOLCHAIN_LABEL, JavaConfiguration.class) {
@@ -118,35 +133,32 @@ public interface JavaSemantics {
   String GENERATED_JARS_OUTPUT_GROUP =
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
+  /** Implementation for the :jvm attribute. */
+  static LateBoundLabel<BuildConfiguration> jvmAttribute(RuleDefinitionEnvironment env) {
+    return new LateBoundLabel<BuildConfiguration>(
+        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL), Jvm.class) {
+      @Override
+      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+        return configuration.getFragment(Jvm.class).getJvmLabel();
+      }
+    };
+  }
 
-  /**
-   * Implementation for the :jvm attribute.
-   */
-  LateBoundLabel<BuildConfiguration> JVM =
-      new LateBoundLabel<BuildConfiguration>(JavaImplicitAttributes.JDK_LABEL, Jvm.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return configuration.getFragment(Jvm.class).getJvmLabel();
-        }
-      };
+  /** Implementation for the :host_jdk attribute. */
+  static LateBoundLabel<BuildConfiguration> hostJdkAttribute(RuleDefinitionEnvironment env) {
+    return new LateBoundLabel<BuildConfiguration>(
+        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL), Jvm.class) {
+      @Override
+      public boolean useHostConfiguration() {
+        return true;
+      }
 
-  /**
-   * Implementation for the :host_jdk attribute.
-   */
-  LateBoundLabel<BuildConfiguration> HOST_JDK =
-      new LateBoundLabel<BuildConfiguration>(JavaImplicitAttributes.JDK_LABEL, Jvm.class) {
-        @Override
-        public boolean useHostConfiguration() {
-          return true;
-        }
-
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return configuration.getFragment(Jvm.class).getJvmLabel();
-        }
-      };
+      @Override
+      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+        return configuration.getFragment(Jvm.class).getJvmLabel();
+      }
+    };
+  }
 
   /**
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
@@ -156,9 +168,19 @@ public interface JavaSemantics {
       new LateBoundLabel<BuildConfiguration>(JavaConfiguration.class) {
         @Override
         public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          // don't read --java_launcher if this target overrides via a launcher attribute
-          if (attributes != null && attributes.isAttributeValueExplicitlySpecified("launcher")) {
-            return attributes.get("launcher", LABEL);
+          // This nullness check is purely for the sake of a test that doesn't bother to include an
+          // attribute map when calling this method.
+          if (attributes != null) {
+            // Don't depend on the launcher if we don't create an executable anyway
+            if (attributes.has("create_executable")
+                && !attributes.get("create_executable", Type.BOOLEAN)) {
+              return null;
+            }
+
+            // don't read --java_launcher if this target overrides via a launcher attribute
+            if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
+              return attributes.get("launcher", LABEL);
+            }
           }
           return configuration.getFragment(JavaConfiguration.class).getJavaLauncherLabel();
         }
@@ -195,6 +217,29 @@ public interface JavaSemantics {
         }
       };
 
+  LateBoundLabelList<BuildConfiguration> BYTECODE_OPTIMIZERS =
+      new LateBoundLabelList<BuildConfiguration>(JavaConfiguration.class) {
+        @Override
+        public List<Label> resolve(
+            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
+          JavaOptimizationMode optMode =
+              configuration.getFragment(JavaConfiguration.class).getJavaOptimizationMode();
+          boolean hasProguardSpecs = attributes.has("proguard_specs")
+              && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
+          if (optMode == JavaOptimizationMode.NOOP
+              || (optMode == JavaOptimizationMode.LEGACY && !hasProguardSpecs)) {
+            return ImmutableList.<Label>of();
+          }
+          return ImmutableList.copyOf(
+              Optional.presentInstances(
+                  configuration
+                      .getFragment(JavaConfiguration.class)
+                      .getBytecodeOptimizers()
+                      .values()));
+        }
+      };
+
   String IJAR_LABEL = "//tools/defaults:ijar";
 
   /**
@@ -211,6 +256,8 @@ public interface JavaSemantics {
    */
   void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon);
+
+  void checkProtoDeps(RuleContext ruleContext, Collection<? extends TransitiveInfoCollection> deps);
 
   /**
    * Returns the main class of a Java binary.
@@ -230,19 +277,6 @@ public interface JavaSemantics {
   ImmutableList<Artifact> collectResources(RuleContext ruleContext);
 
   /**
-   * Creates the instrumentation metadata artifact for the specified output .jar .
-   */
-  @Nullable
-  Artifact createInstrumentationMetadataArtifact(RuleContext ruleContext, Artifact outputJar);
-
-  /**
-   * May add extra command line options to the Java compile command line.
-   */
-  void buildJavaCommandLine(Collection<Artifact> outputs, BuildConfiguration configuration,
-      CustomCommandLine.Builder result, Label targetLabel);
-
-
-  /**
    * Constructs the command line to call SingleJar to join all artifacts from
    * {@code classpath} (java code) and {@code resources} into {@code output}.
    */
@@ -254,10 +288,43 @@ public interface JavaSemantics {
 
   /**
    * Creates the action that writes the Java executable stub script.
+   *
+   * <p>Returns the launcher script artifact. This may or may not be the same as {@code executable},
+   * depending on the implementation of this method. If they are the same, then this Artifact should
+   * be used when creating both the {@code RunfilesProvider} and the {@code RunfilesSupport}. If
+   * they are different, the new value should be used when creating the {@code RunfilesProvider} (so
+   * it will be the stub script executed by "bazel run" for example), and the old value should be
+   * used when creating the {@code RunfilesSupport} (so the runfiles directory will be named after
+   * it).
+   *
+   * <p>For example on Windows we use a double dispatch approach: the launcher is a batch file (and
+   * is created and returned by this method) which shells out to a shell script (the {@code
+   * executable} argument).
+   *
+   * <p>In Blaze, this method considers {@code javaExecutable} as a substitution that can be
+   * directly used to replace %javabin% in stub script, but in Bazel this method considers {@code
+   * javaExecutable} as a file path for the JVM binary (java).
    */
-  void createStubAction(RuleContext ruleContext, final JavaCommon javaCommon,
-      List<String> jvmFlags, Artifact executable, String javaStartClass,
+  Artifact createStubAction(
+      RuleContext ruleContext,
+      JavaCommon javaCommon,
+      List<String> jvmFlags,
+      Artifact executable,
+      String javaStartClass,
       String javaExecutable);
+
+  /**
+   * Returns true if {@code createStubAction} considers {@code javaExecutable} as a substitution.
+   * Returns false if {@code createStubAction} considers {@code javaExecutable} as a file path.
+   */
+  boolean isJavaExecutableSubstitution();
+
+  /**
+   * Optionally creates a file containing the relative classpaths within the runfiles tree. If
+   * {@link Optional#isPresent()}, then the caller should ensure the file appears in the runfiles.
+   */
+  Optional<Artifact> createClasspathsFile(RuleContext ruleContext, JavaCommon javaCommon)
+      throws InterruptedException;
 
   /**
    * Adds extra runfiles for a {@code java_binary} rule.
@@ -279,7 +346,9 @@ public interface JavaSemantics {
    * Add additional targets to be treated as direct dependencies.
    */
   void collectTargetsTreatedAsDeps(
-      RuleContext ruleContext, ImmutableList.Builder<TransitiveInfoCollection> builder);
+      RuleContext ruleContext,
+      ImmutableList.Builder<TransitiveInfoCollection> builder,
+      ClasspathType type);
 
   /**
    * Enables coverage support for the java target - adds instrumented jar to the classpath and
@@ -403,4 +472,6 @@ public interface JavaSemantics {
       JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder,
       JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder)
       throws InterruptedException;
+
+  Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
 }

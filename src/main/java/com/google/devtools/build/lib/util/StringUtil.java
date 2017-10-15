@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -127,12 +125,7 @@ public class StringUtil {
    */
   public static Iterable<String> append(Iterable<String> values, final String prefix,
       final String suffix) {
-  return Iterables.transform(values, new Function<String, String>() {
-      @Override
-      public String apply(String input) {
-        return prefix + input + suffix;
-      }
-    });
+    return Iterables.transform(values, input -> prefix + input + suffix);
   }
 
   /**

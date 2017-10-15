@@ -17,10 +17,10 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -46,7 +46,8 @@ class PerActionFileCache implements ActionInputFileCache {
   }
 
   @Nullable
-  private FileArtifactValue getInputFileArtifactValue(ActionInput input) {
+  @Override
+  public Metadata getMetadata(ActionInput input) {
     if (!(input instanceof Artifact)) {
       return null;
     }
@@ -54,33 +55,8 @@ class PerActionFileCache implements ActionInputFileCache {
   }
 
   @Override
-  public long getSizeInBytes(ActionInput input) throws IOException {
-    FileArtifactValue metadata = getInputFileArtifactValue(input);
-    if (metadata != null) {
-      return metadata.getSize();
-    }
-    return -1;
-  }
-
-  @Override
   public Path getInputPath(ActionInput input) {
     return ((Artifact) input).getPath();
-  }
-
-  @Nullable
-  @Override
-  public byte[] getDigest(ActionInput input) throws IOException {
-    FileArtifactValue value = getInputFileArtifactValue(input);
-    if (value != null) {
-      return value.getDigest();
-    }
-    return null;
-  }
-
-  @Override
-  public boolean isFile(Artifact input) {
-    // getInputArtifactValue always returns a value when supplied with an Artifact.
-    return getInputFileArtifactValue(input).isFile();
   }
 
   @Override

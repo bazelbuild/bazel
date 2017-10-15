@@ -1,7 +1,0 @@
-xcrunwrapper runs the command passed to it using xcrun.
-
-It replaces __DEVELOPER_DIR__ with $DEVELOPER_DIR (or reasonable default)
-and __SDKROOT__ with a valid path based on SDKROOT (or reasonable default).
-
-xcrun only runs on Darwin, so xcrunwrapper only runs on Darwin.
-

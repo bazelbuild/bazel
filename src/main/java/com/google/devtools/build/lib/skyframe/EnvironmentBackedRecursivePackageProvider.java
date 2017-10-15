@@ -19,9 +19,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -37,13 +36,17 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
 /**
- * A {@link RecursivePackageProvider} backed by an {@link Environment}. Its methods
- * may throw {@link MissingDepException} if the package values this depends on haven't been
- * calculated and added to its environment.
+ * A {@link RecursivePackageProvider} backed by an {@link Environment}. Its methods may throw {@link
+ * MissingDepException} if the package values this depends on haven't been calculated and added to
+ * its environment.
+ *
+ * <p>This implementation never emits events through the {@link ExtendedEventHandler}s passed to its
+ * methods. Instead, it emits events through its environment's {@link Environment#getListener()}.
  */
 public final class EnvironmentBackedRecursivePackageProvider implements RecursivePackageProvider {
 
@@ -54,7 +57,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public Package getPackage(EventHandler eventHandler, PackageIdentifier packageName)
+  public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws NoSuchPackageException, MissingDepException, InterruptedException {
     SkyKey pkgKey = PackageValue.key(packageName);
     PackageValue pkgValue =
@@ -80,18 +83,17 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public Map<PackageIdentifier, Package> bulkGetPackages(EventHandler eventHandler,
-          Iterable<PackageIdentifier> pkgIds)
-          throws NoSuchPackageException, InterruptedException {
+  public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
+      throws NoSuchPackageException, InterruptedException {
     ImmutableMap.Builder<PackageIdentifier, Package> builder = ImmutableMap.builder();
     for (PackageIdentifier pkgId : pkgIds) {
-      builder.put(pkgId, getPackage(eventHandler, pkgId));
+      builder.put(pkgId, getPackage(env.getListener(), pkgId));
     }
     return builder.build();
   }
 
   @Override
-  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageId)
+  public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageId)
       throws MissingDepException, InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
     try {
@@ -103,15 +105,17 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
       }
       return packageLookupValue.packageExists();
     } catch (NoSuchPackageException | InconsistentFilesystemException e) {
-      eventHandler.handle(Event.error(e.getMessage()));
+      env.getListener().handle(Event.error(e.getMessage()));
       return false;
     }
   }
 
   @Override
   public Iterable<PathFragment> getPackagesUnderDirectory(
+      ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws MissingDepException, InterruptedException {
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
@@ -129,14 +133,19 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
         throw new MissingDepException();
       }
 
+      if (!repositoryValue.repositoryExists()) {
+        // This shouldn't be possible; we're given a repository, so we assume that the caller has
+        // already checked for its existence.
+        throw new IllegalStateException(String.format("No such repository '%s'", repository));
+      }
       roots.add(repositoryValue.getPath());
     }
 
-    NestedSetBuilder<String> packageNames = NestedSetBuilder.stableOrder();
+    LinkedHashSet<PathFragment> packageNames = new LinkedHashSet<>();
     for (Path root : roots) {
-      PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory);
+      PathFragment.checkAllPathsAreUnder(blacklistedSubdirectories, directory);
       RecursivePkgValue lookup = (RecursivePkgValue) env.getValue(RecursivePkgValue.key(
-          repository, RootedPath.toRootedPath(root, directory), excludedSubdirectories));
+          repository, RootedPath.toRootedPath(root, directory), blacklistedSubdirectories));
       if (lookup == null) {
         // Typically a null value from Environment.getValue(k) means that either the key k is
         // missing a dependency or an exception was thrown during evaluation of k. Here, if this
@@ -148,15 +157,23 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
         throw new MissingDepException();
       }
 
-      packageNames.addTransitive(lookup.getPackages());
+      for (String packageName : lookup.getPackages()) {
+        // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform
+        // is unnecessary.
+        PathFragment packageNamePathFragment = PathFragment.create(packageName);
+        if (!Iterables.any(
+            excludedSubdirectories,
+            excludedSubdirectory -> packageNamePathFragment.startsWith(excludedSubdirectory))) {
+          packageNames.add(packageNamePathFragment);
+        }
+      }
     }
-    // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform is
-    // unnecessary.
-    return Iterables.transform(packageNames.build(), PathFragment.TO_PATH_FRAGMENT);
+
+    return packageNames;
   }
 
   @Override
-  public Target getTarget(EventHandler eventHandler, Label label)
+  public Target getTarget(ExtendedEventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, MissingDepException,
           InterruptedException {
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());

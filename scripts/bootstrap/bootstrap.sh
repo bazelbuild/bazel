@@ -22,101 +22,60 @@
 
 : ${BAZELRC:="/dev/null"}
 : ${EMBED_LABEL:=""}
+: ${SOURCE_DATE_EPOCH:=""}
 
 EMBED_LABEL_ARG=()
 if [ -n "${EMBED_LABEL}" ]; then
     EMBED_LABEL_ARG=(--stamp --embed_label "${EMBED_LABEL}")
+    if [ -n "${SOURCE_DATE_EPOCH}" ]; then
+        EMBED_LABEL_ARG+=(--experimental_embed_timestamp_epoch "${SOURCE_DATE_EPOCH}")
+    fi
 fi
 
 : ${JAVA_VERSION:="1.8"}
 
 if [ "${JAVA_VERSION}" = "1.7" ]; then
-  : ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
+  _BAZEL_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
         --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
+        --spawn_strategy=standalone \
+        --nojava_header_compilation \
         --define JAVA_VERSION=1.7 --ignore_unsupported_sandboxing \
         --compilation_mode=opt \
-        "${EXTRA_BAZEL_ARGS:-}"}
+        ${EXTRA_BAZEL_ARGS:-}"
 else
-  : ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+  _BAZEL_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
         --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+        --spawn_strategy=standalone \
+        --nojava_header_compilation \
         --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
         --compilation_mode=opt \
-        "${EXTRA_BAZEL_ARGS:-}"}
+        ${EXTRA_BAZEL_ARGS:-}"
 fi
 
 if [ -z "${BAZEL-}" ]; then
-  function run_bootstrapping_bazel() {
+  function _run_bootstrapping_bazel() {
     local command=$1
     shift
     run_bazel_jar $command \
-        ${BAZEL_ARGS-} --verbose_failures \
+        ${_BAZEL_ARGS} --verbose_failures \
+        "--javabase=${JAVA_HOME}" "--host_javabase=${JAVA_HOME}" \
         --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
   }
 else
-  function run_bootstrapping_bazel() {
+  function _run_bootstrapping_bazel() {
     local command=$1
     shift
     ${BAZEL} --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} $command \
-        ${BAZEL_ARGS-} --verbose_failures \
+        ${_BAZEL_ARGS} --verbose_failures \
+        "--javabase=${JAVA_HOME}" "--host_javabase=${JAVA_HOME}" \
         --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
   }
 fi
 
 function bazel_build() {
-  run_bootstrapping_bazel build "${EMBED_LABEL_ARG[@]}" "$@"
+  _run_bootstrapping_bazel build "${EMBED_LABEL_ARG[@]}" "$@"
 }
 
 function get_bazel_bin_path() {
-  run_bootstrapping_bazel info "bazel-bin" || echo "bazel-bin"
-}
-
-function md5_outputs() {
-  [ -n "${BAZEL_TEST_XTRACE:-}" ] && set +x  # Avoid garbage in the output
-  # runfiles/MANIFEST & runfiles_manifest contain absolute path, ignore.
-  # ar on OS-X is non-deterministic, ignore .a files.
-  for i in $(find bazel-bin/ -type f -a \! -name MANIFEST -a \! -name '*.runfiles_manifest' -a \! -name '*.a'); do
-    md5_file $i
-  done
-  for i in $(find bazel-genfiles/ -type f); do
-    md5_file $i
-  done
-  [ -n "${BAZEL_TEST_XTRACE:-}" ] && set -x
-}
-
-function get_outputs_sum() {
-  md5_outputs | sort -k 2
-}
-
-function bootstrap_test() {
-  local BAZEL_BIN=$1
-  local BAZEL_SUM=$2
-  local BAZEL_TARGET=${3:-src:bazel}
-  local STRATEGY="--strategy=Javac=worker --worker_quit_after_build"
-  if [ "${JAVA_VERSION}" = "1.7" ]; then
-    STRATEGY=
-  fi
-  [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
-  run ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} \
-      ${BAZEL_DIR_STARTUP_OPTIONS} \
-      clean \
-      --expunge || return $?
-  run ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} \
-      ${BAZEL_DIR_STARTUP_OPTIONS} \
-      build \
-      ${EXTRA_BAZEL_ARGS-} ${STRATEGY} \
-      --fetch --nostamp \
-      --define "JAVA_VERSION=${JAVA_VERSION}" \
-      --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
-      ${BAZEL_TARGET} || return $?
-  if [ -n "${BAZEL_SUM}" ]; then
-    cat bazel-genfiles/src/java.version >${BAZEL_SUM}
-    get_outputs_sum >> ${BAZEL_SUM} || return $?
-  fi
-  if [ -z "${BOOTSTRAP:-}" ]; then
-    tempdir
-    BOOTSTRAP=${NEW_TMPDIR}/bazel
-    local FILE=bazel-bin/${BAZEL_TARGET##//}
-    cp -f ${FILE/:/\/} $BOOTSTRAP
-    chmod +x $BOOTSTRAP
-  fi
+  _run_bootstrapping_bazel info "bazel-bin" || echo "bazel-bin"
 }

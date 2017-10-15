@@ -17,19 +17,15 @@ package com.google.devtools.build.lib.packages;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.io.Files;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-
 import com.google.devtools.build.lib.bazel.BazelMain;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.packages.util.DocumentationTestUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
-
+import java.io.File;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.File;
 
 /**
  * Test for Bazel documentation.
@@ -37,12 +33,12 @@ import java.io.File;
 @RunWith(JUnit4.class)
 public class BazelDocumentationTest {
   /**
-   * Checks that the blaze-user-manual is in sync with the
-   * {@link BuildConfiguration}.
+   * Checks that the user-manual is in sync with the {@link
+   * com.google.devtools.build.lib.analysis.config.BuildConfiguration}.
    */
   @Test
   public void testBazelUserManual() throws Exception {
-    String documentationFilePath = "site/versions/master/docs/bazel-user-manual.html";
+    String documentationFilePath = "site/docs/user-manual.html";
     if (OS.getCurrent() == OS.WINDOWS) {
       documentationFilePath = WindowsTestUtil.getRunfile("io_bazel/" + documentationFilePath);
     }

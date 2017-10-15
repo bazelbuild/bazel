@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -44,7 +45,8 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
 
   private final Environment env;
 
-  public SkyframeDependencyResolver(Environment env) {
+  public SkyframeDependencyResolver(Environment env, DynamicTransitionMapper transitionMapper) {
+    super(transitionMapper);
     this.env = env;
   }
 

@@ -15,15 +15,17 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-import java.util.TreeMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,12 +47,24 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
   @Test
   public void testEmptyStringToIterable() throws Exception {
-    assertThat(EvalUtils.toIterable("", null)).isEmpty();
+    assertThat(EvalUtils.toIterable("", null, null)).isEmpty();
   }
 
   @Test
   public void testStringToIterable() throws Exception {
-    assertThat(EvalUtils.toIterable("abc", null)).hasSize(3);
+    assertThat(EvalUtils.toIterable("abc", null, null)).hasSize(3);
+  }
+
+  @Test
+  public void testSize() throws Exception {
+    assertThat(EvalUtils.size("abc")).isEqualTo(3);
+    assertThat(EvalUtils.size(ImmutableMap.of(1, 2, 3, 4))).isEqualTo(2);
+    assertThat(EvalUtils.size(SkylarkList.Tuple.of(1, 2, 3))).isEqualTo(3);
+    SkylarkNestedSet set = SkylarkNestedSet.of(
+        Object.class,
+        NestedSetBuilder.stableOrder().add(1).add(2).add(3).build());
+    assertThat(EvalUtils.size(set)).isEqualTo(3);
+    assertThat(EvalUtils.size(ImmutableList.of(1, 2, 3))).isEqualTo(3);
   }
 
   /** MockClassA */
@@ -64,57 +78,78 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
   @Test
   public void testDataTypeNames() throws Exception {
-    assertEquals("string", EvalUtils.getDataTypeName("foo"));
-    assertEquals("int", EvalUtils.getDataTypeName(3));
-    assertEquals("tuple", EvalUtils.getDataTypeName(Tuple.of(1, 2, 3)));
-    assertEquals("list",  EvalUtils.getDataTypeName(makeList(null)));
-    assertEquals("dict",  EvalUtils.getDataTypeName(makeDict(null)));
-    assertEquals("NoneType", EvalUtils.getDataTypeName(Runtime.NONE));
-    assertEquals("MockClassA", EvalUtils.getDataTypeName(new MockClassA()));
-    assertEquals("MockClassA", EvalUtils.getDataTypeName(new MockClassB()));
+    assertThat(EvalUtils.getDataTypeName("foo")).isEqualTo("string");
+    assertThat(EvalUtils.getDataTypeName(3)).isEqualTo("int");
+    assertThat(EvalUtils.getDataTypeName(Tuple.of(1, 2, 3))).isEqualTo("tuple");
+    assertThat(EvalUtils.getDataTypeName(makeList(null))).isEqualTo("list");
+    assertThat(EvalUtils.getDataTypeName(makeDict(null))).isEqualTo("dict");
+    assertThat(EvalUtils.getDataTypeName(Runtime.NONE)).isEqualTo("NoneType");
+    assertThat(EvalUtils.getDataTypeName(new MockClassA())).isEqualTo("MockClassA");
+    assertThat(EvalUtils.getDataTypeName(new MockClassB())).isEqualTo("MockClassA");
   }
 
   @Test
   public void testDatatypeMutabilityPrimitive() throws Exception {
-    assertTrue(EvalUtils.isImmutable("foo"));
-    assertTrue(EvalUtils.isImmutable(3));
+    assertThat(EvalUtils.isImmutable("foo")).isTrue();
+    assertThat(EvalUtils.isImmutable(3)).isTrue();
   }
 
   @Test
   public void testDatatypeMutabilityShallow() throws Exception {
-    assertTrue(EvalUtils.isImmutable(Tuple.of(1, 2, 3)));
+    assertThat(EvalUtils.isImmutable(Tuple.of(1, 2, 3))).isTrue();
 
     // Mutability depends on the environment.
-    assertTrue(EvalUtils.isImmutable(makeList(null)));
-    assertTrue(EvalUtils.isImmutable(makeDict(null)));
-    assertFalse(EvalUtils.isImmutable(makeList(env)));
-    assertFalse(EvalUtils.isImmutable(makeDict(env)));
+    assertThat(EvalUtils.isImmutable(makeList(null))).isTrue();
+    assertThat(EvalUtils.isImmutable(makeDict(null))).isTrue();
+    assertThat(EvalUtils.isImmutable(makeList(env))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeDict(env))).isFalse();
   }
 
   @Test
   public void testDatatypeMutabilityDeep() throws Exception {
-    assertTrue(EvalUtils.isImmutable(Tuple.<Object>of(makeList(null))));
+    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(null)))).isTrue();
 
-    assertFalse(EvalUtils.isImmutable(Tuple.<Object>of(makeList(env))));
+    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(env)))).isFalse();
   }
 
   @Test
   public void testComparatorWithDifferentTypes() throws Exception {
-    TreeMap<Object, Object> map = new TreeMap<>(EvalUtils.SKYLARK_COMPARATOR);
-    map.put(2, 3);
-    map.put("1", 5);
-    map.put(42, 4);
-    map.put("test", 7);
-    map.put(-1, 2);
-    map.put("4", 6);
-    map.put(true, 1);
-    map.put(Runtime.NONE, 0);
+    Object[] objects = {
+      "1",
+      2,
+      true,
+      Runtime.NONE,
+      SkylarkList.Tuple.of(1, 2, 3),
+      SkylarkList.Tuple.of("1", "2", "3"),
+      SkylarkList.MutableList.of(env, 1, 2, 3),
+      SkylarkList.MutableList.of(env, "1", "2", "3"),
+      SkylarkDict.of(env, "key", 123),
+      SkylarkDict.of(env, 123, "value"),
+      NestedSetBuilder.stableOrder().add(1).add(2).add(3).build(),
+      NativeProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),
+    };
 
-    int expected = 0;
-    // Expected order of keys is NoneType -> Double -> Integers -> Strings
-    for (Object obj : map.values()) {
-      assertThat(obj).isEqualTo(expected);
-      ++expected;
+    for (int i = 0; i < objects.length; ++i) {
+      for (int j = 0; j < objects.length; ++j) {
+        if (i != j) {
+          try {
+            EvalUtils.SKYLARK_COMPARATOR.compare(objects[i], objects[j]);
+            fail("Shouldn't have compared different types");
+          } catch (ComparisonException e) {
+            // expected
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testComparatorWithNones() throws Exception {
+    try {
+      EvalUtils.SKYLARK_COMPARATOR.compare(Runtime.NONE, Runtime.NONE);
+      fail("Shouldn't have compared nones");
+    } catch (ComparisonException e) {
+      // expected
     }
   }
 }

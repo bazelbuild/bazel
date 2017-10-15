@@ -85,8 +85,10 @@ class NullCombiner : public Combiner {
 // files into a single XML output entry with given top level XML tag.
 class XmlCombiner : public Combiner {
  public:
-  XmlCombiner(const std::string &filename, const char *xml_tag)
-      : filename_(filename), xml_tag_(xml_tag) {}
+  XmlCombiner(const std::string &filename, const std::string &xml_tag)
+      : filename_(filename),
+        start_tag_("<" + xml_tag + ">"),
+        end_tag_("</" + xml_tag + ">") {}
   ~XmlCombiner() override;
 
   bool Merge(const CDH *cdh, const LH *lh) override;
@@ -97,7 +99,8 @@ class XmlCombiner : public Combiner {
 
  private:
   const std::string filename_;
-  const char *xml_tag_;
+  const std::string start_tag_;
+  const std::string end_tag_;
   std::unique_ptr<Concatenator> concatenator_;
   std::unique_ptr<Inflater> inflater_;
 };

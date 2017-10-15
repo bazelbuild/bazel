@@ -20,6 +20,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
@@ -35,7 +38,7 @@ public class JarCreator extends JarHelper {
 
   // Map from Jar entry names to files. Use TreeMap so we can establish a canonical order for the
   // entries regardless in what order they get added.
-  private final Map<String, String> jarEntries = new TreeMap<>();
+  private final TreeMap<String, Path> jarEntries = new TreeMap<>();
   private String manifestFile;
   private String mainClass;
 
@@ -47,22 +50,39 @@ public class JarCreator extends JarHelper {
    * Adds an entry to the Jar file, normalizing the name.
    *
    * @param entryName the name of the entry in the Jar file
+   * @param path the path of the input for the entry
+   * @return true iff a new entry was added
+   */
+  public boolean addEntry(String entryName, Path path) {
+    if (entryName.startsWith("/")) {
+      entryName = entryName.substring(1);
+    } else if (entryName.length() >= 3
+        && Character.isLetter(entryName.charAt(0))
+        && entryName.charAt(1) == ':'
+        && (entryName.charAt(2) == '\\' || entryName.charAt(2) == '/')) {
+      // Windows absolute path, e.g. "D:\foo" or "e:/blah".
+      // Windows paths are case-insensitive, and support both backslashes and forward slashes.
+      entryName = entryName.substring(3);
+    } else if (entryName.startsWith("./")) {
+      entryName = entryName.substring(2);
+    }
+    return jarEntries.put(entryName, path) == null;
+  }
+
+  /**
+   * Adds an entry to the Jar file, normalizing the name.
+   *
+   * @param entryName the name of the entry in the Jar file
    * @param fileName the name of the input file for the entry
    * @return true iff a new entry was added
    */
   public boolean addEntry(String entryName, String fileName) {
-    if (entryName.startsWith("/")) {
-      entryName = entryName.substring(1);
-    } else if (entryName.startsWith("./")) {
-      entryName = entryName.substring(2);
-    }
-    return jarEntries.put(entryName, fileName) == null;
+    return addEntry(entryName, Paths.get(fileName));
   }
 
   /**
-   * Adds the contents of a directory to the Jar file. All files below this
-   * directory will be added to the Jar file using the name relative to the
-   * directory as the name for the Jar entry.
+   * Adds the contents of a directory to the Jar file. All files below this directory will be added
+   * to the Jar file using the name relative to the directory as the name for the Jar entry.
    *
    * @param directory the directory to add to the jar
    */
@@ -71,13 +91,11 @@ public class JarCreator extends JarHelper {
   }
 
   /**
-   * Adds the contents of a directory to the Jar file. All files below this
-   * directory will be added to the Jar file using the prefix and the name
-   * relative to the directory as the name for the Jar entry. Always uses '/' as
-   * the separator char for the Jar entries.
+   * Adds the contents of a directory to the Jar file. All files below this directory will be added
+   * to the Jar file using the prefix and the name relative to the directory as the name for the Jar
+   * entry. Always uses '/' as the separator char for the Jar entries.
    *
-   * @param prefix the prefix to prepend to every Jar entry name found below the
-   *        directory
+   * @param prefix the prefix to prepend to every Jar entry name found below the directory
    * @param directory the directory to add to the Jar
    */
   private void addDirectory(String prefix, File directory) {
@@ -85,7 +103,7 @@ public class JarCreator extends JarHelper {
     if (files != null) {
       for (File file : files) {
         String entryName = prefix != null ? prefix + "/" + file.getName() : file.getName();
-        jarEntries.put(entryName, file.getAbsolutePath());
+        jarEntries.put(entryName, file.toPath());
         if (file.isDirectory()) {
           addDirectory(entryName, file);
         }
@@ -94,21 +112,23 @@ public class JarCreator extends JarHelper {
   }
 
   /**
-   * Adds a collection of entries to the jar, each with a given source path, and with
-   * the resulting file in the root of the jar.
+   * Adds a collection of entries to the jar, each with a given source path, and with the resulting
+   * file in the root of the jar.
+   *
    * <pre>
    * some/long/path.foo => (path.foo, some/long/path.foo)
    * </pre>
    */
   public void addRootEntries(Collection<String> entries) {
     for (String entry : entries) {
-      jarEntries.put(new File(entry).getName(), entry);
+      Path path = Paths.get(entry);
+      jarEntries.put(path.getFileName().toString(), path);
     }
   }
 
   /**
-   * Sets the main.class entry for the manifest. A value of <code>null</code>
-   * (the default) will omit the entry.
+   * Sets the main.class entry for the manifest. A value of <code>null</code> (the default) will
+   * omit the entry.
    *
    * @param mainClass the fully qualified name of the main class
    */
@@ -117,9 +137,8 @@ public class JarCreator extends JarHelper {
   }
 
   /**
-   * Sets filename for the manifest content. If this is set the manifest will be
-   * read from this file otherwise the manifest content will get generated on
-   * the fly.
+   * Sets filename for the manifest content. If this is set the manifest will be read from this file
+   * otherwise the manifest content will get generated on the fly.
    *
    * @param manifestFile the filename of the manifest file.
    */
@@ -152,27 +171,23 @@ public class JarCreator extends JarHelper {
   /**
    * Executes the creation of the Jar file.
    *
-   * @throws IOException if the Jar cannot be written or any of the entries
-   *         cannot be read.
+   * @throws IOException if the Jar cannot be written or any of the entries cannot be read.
    */
   public void execute() throws IOException {
-    out = new JarOutputStream(new BufferedOutputStream(new FileOutputStream(jarFile)));
+    try (OutputStream os = new FileOutputStream(jarFile);
+        BufferedOutputStream bos = new BufferedOutputStream(os);
+        JarOutputStream out = new JarOutputStream(bos)) {
 
-    // Create the manifest entry in the Jar file
-    writeManifestEntry(manifestContent());
-    try {
-      for (Map.Entry<String, String> entry : jarEntries.entrySet()) {
-        copyEntry(entry.getKey(), new File(entry.getValue()));
+      // Create the manifest entry in the Jar file
+      writeManifestEntry(out, manifestContent());
+
+      for (Map.Entry<String, Path> entry : jarEntries.entrySet()) {
+        copyEntry(out, entry.getKey(), entry.getValue());
       }
-    } finally {
-      out.closeEntry();
-      out.close();
     }
   }
 
-  /**
-   * A simple way to create Jar file using the JarCreator class.
-   */
+  /** A simple way to create Jar file using the JarCreator class. */
   public static void main(String[] args) {
     if (args.length < 1) {
       System.err.println("usage: CreateJar output [root directories]");

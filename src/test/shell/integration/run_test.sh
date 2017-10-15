@@ -85,9 +85,6 @@ function test_run_py_test() {
 }
 
 function test_runfiles_present_cc_binary() {
-  # cc_binary is needed because runfiles are always created for Python
-  # and shell binaries, so --nobuild_runfile_links does not apply to them.
-  # (see RuleConfiguredTarget.shouldCreateRunfilesSymlinks())
   write_cc_source_files
 
   cat > cc/hello_kitty.txt <<EOF
@@ -173,10 +170,11 @@ function test_consistent_command_line_encoding {
 
 function test_interrupt_kills_child() {
   mkdir -p foo || fail "mkdir foo failed"
-  rm -f /tmp/sleep-minute-pipe
-  mkfifo /tmp/sleep-minute-pipe || fail "make pipe failed"
+  pipe_file="${TEST_TMPDIR}/sleep-minute-pipe"
+  rm -f "$pipe_file"
+  mkfifo "$pipe_file" || fail "make pipe failed"
   echo 'sh_binary(name = "sleep-minute", srcs = ["sleep-minute.sh"])' > foo/BUILD
-  echo -e "#!/bin/bash\n"'echo $$ >/tmp/sleep-minute-pipe'"\n"'sleep 60' > foo/sleep-minute.sh
+  echo -e "#!/bin/sh\n"'echo $$ >'"${pipe_file}\n"'sleep 60' > foo/sleep-minute.sh
   chmod +x foo/sleep-minute.sh
   # Note that if bazel info is not executed before the actual bazel run, this script would have to
   # be run in "monitor mode" (with the command set -m) for bazel or the server to receive SIGINT.
@@ -186,7 +184,7 @@ function test_interrupt_kills_child() {
   fi
   (bazel run //foo:sleep-minute || true) &
   local sleeppid
-  read sleeppid </tmp/sleep-minute-pipe
+  read sleeppid <"$pipe_file"
   if [ -z $sleeppid ]; then
     fail "${PRODUCT_NAME} run did not invoke shell script"
   fi
@@ -292,7 +290,7 @@ sh_binary(
 EOF
 
   cat > some/testing/test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 echo "Got $@"
 i=1
@@ -318,7 +316,7 @@ alias(name='b', actual='a')
 EOF
 
   cat > a/a.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 echo "Dancing with wolves"
 exit 0
 EOF

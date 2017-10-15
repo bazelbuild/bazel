@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import java.util.List;
 
 /**
  * An interface for objects that provide information on how to include them in
@@ -86,7 +87,11 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
    */
   public abstract NestedSet<Artifact> getRunTimeJavaDependencyArtifacts();
 
-  public static JavaCompilationArgsProvider merge(Iterable<JavaCompilationArgsProvider> providers) {
+  public static JavaCompilationArgsProvider merge(List<JavaCompilationArgsProvider> providers) {
+    if (providers.size() == 1) {
+      return providers.get(0);
+    }
+
     JavaCompilationArgs.Builder javaCompilationArgs = JavaCompilationArgs.builder();
     JavaCompilationArgs.Builder recursiveJavaCompilationArgs = JavaCompilationArgs.builder();
     NestedSetBuilder<Artifact> compileTimeJavaDepArtifacts = NestedSetBuilder.stableOrder();

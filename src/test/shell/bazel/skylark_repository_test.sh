@@ -41,7 +41,7 @@ EOF
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
-load('/test', 'macro')
+load('//:test.bzl', 'macro')
 
 macro('$repo2')
 EOF
@@ -74,7 +74,7 @@ genrule(
 EOF
 
   bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
-  expect_log "bleh."
+  expect_log "bleh"
   expect_log "Tra-la!"  # Invalidation
   cat bazel-genfiles/zoo/ball-pit1.txt >$TEST_log
   expect_log "Tra-la!"
@@ -108,7 +108,7 @@ def macro(path):
   native.bind(name='mongoose', actual='@endangered//carnivore:mongoose')
 EOF
   bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
-  expect_log "blah."
+  expect_log "blah"
   expect_log "Tra-la-la!"  # Invalidation
   cat bazel-genfiles/zoo/ball-pit1.txt >$TEST_log
   expect_log "Tra-la-la!"
@@ -126,7 +126,7 @@ function test_load_from_symlink_to_outside_of_workspace() {
   OTHER=$TEST_TMPDIR/other
 
   cat > WORKSPACE<<EOF
-load("/a/b/c", "c")
+load("//a/b:c.bzl", "c")
 EOF
 
   mkdir -p $OTHER/a/b
@@ -179,7 +179,7 @@ EOF
 
   bazel build @endangered//carnivore:mongoose >& $TEST_log \
     || fail "Failed to build"
-  expect_log "bleh."
+  expect_log "bleh"
 }
 
 # Test loading a repository with a load statement in the WORKSPACE file
@@ -253,6 +253,34 @@ EOF
   expect_log "Maybe repository 'foo' was defined later in your WORKSPACE file?"
 }
 
+function test_load_nonexistent_with_subworkspace() {
+  mkdir ws2
+  cat >ws2/WORKSPACE
+
+  cat <<'EOF' >WORKSPACE
+load("@does_not_exist//:random.bzl", "random")
+EOF
+  cat >BUILD
+
+  # Test build //...
+  bazel clean --expunge
+  bazel build //... >& $TEST_log || exitCode=$?
+  [ $exitCode != 0 ] || fail "building //... succeed while expected failure"
+
+  expect_not_log "PACKAGE"
+  expect_log "Failed to load Skylark extension '@does_not_exist//:random.bzl'"
+  expect_log "Maybe repository 'does_not_exist' was defined later in your WORKSPACE file?"
+
+  # Retest with query //...
+  bazel clean --expunge
+  bazel query //... >& $TEST_log || exitCode=$?
+  [ $exitCode != 0 ] || fail "querying //... succeed while expected failure"
+
+  expect_not_log "PACKAGE"
+  expect_log "Failed to load Skylark extension '@does_not_exist//:random.bzl'"
+  expect_log "Maybe repository 'does_not_exist' was defined later in your WORKSPACE file?"
+}
+
 function test_skylark_local_repository() {
   create_new_workspace
   repo2=$new_workspace_dir
@@ -266,7 +294,7 @@ EOF
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
-load('/test', 'repo')
+load('//:test.bzl', 'repo')
 repo(name='foo', path='$repo2')
 EOF
 
@@ -299,7 +327,7 @@ function setup_skylark_repository() {
 
   cd "${WORKSPACE_DIR}"
   cat > WORKSPACE <<EOF
-load('/test', 'repo')
+load('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
   # Need to be in a package
@@ -311,7 +339,7 @@ function test_skylark_repository_which_and_execute() {
 
   # Test we are using the client environment, not the server one
   bazel info &> /dev/null  # Start up the server.
-  echo "#!/bin/bash" > bin.sh
+  echo "#!/bin/sh" > bin.sh
   echo "exit 0" >> bin.sh
   chmod +x bin.sh
 
@@ -353,11 +381,14 @@ def _impl(repository_ctx):
   if result.stdout != "":
     fail("Non-empty output: %s (stderr was %s)" % (result.stdout, result.stderr))
   print(result.stderr)
+  repository_ctx.execute([str(repository_ctx.which("bash")), "-c", "echo shhhh >&2"], quiet = False)
+
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "erf"
+  expect_log "shhhh"
 }
 
 function test_skylark_repository_execute_env_and_workdir() {
@@ -411,6 +442,22 @@ EOF
   FOO=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_not_log "BEZ"
 
+  # Test that --action_env value is taken
+  # TODO(dmarting): The current implemnentation cannot invalidate on environment
+  # but the incoming change can declare environment dependency, once this is
+  # done, maybe we should update this test to remove clean --expunge and use the
+  # invalidation mechanism instead?
+  bazel clean --expunge
+  FOO=BAZ bazel build --action_env=FOO=BAZINGA @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "BAZINGA"
+
+  bazel clean --expunge
+  FOO=BAZ bazel build --action_env=FOO @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "BAZ"
+  expect_not_log "BAZINGA"
+
   # Test modifying test.bzl invalidate the repository
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
@@ -433,6 +480,267 @@ repo = repository_rule(implementation=_impl, local=True)
 EOF
   BAZ=BOZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "BOZ"
+}
+
+function write_environ_skylark() {
+  local execution_file="$1"
+  local environ="$2"
+
+  cat >test.bzl <<EOF
+load("//:environ.bzl", "environ")
+
+def _impl(repository_ctx):
+  # This might cause a function restart, do it first
+  foo = environ(repository_ctx, "FOO")
+  bar = environ(repository_ctx, "BAR")
+  baz = environ(repository_ctx, "BAZ")
+  repository_ctx.template("bar.txt", Label("//:bar.tpl"), {
+      "%{FOO}": foo,
+      "%{BAR}": bar,
+      "%{BAZ}": baz}, False)
+
+  exe_result = repository_ctx.execute(["cat", "${execution_file}"]);
+  execution = int(exe_result.stdout.strip()) + 1
+  repository_ctx.execute(["bash", "-c", "echo %s >${execution_file}" % execution])
+  print("<%s> FOO=%s BAR=%s BAZ=%s" % (execution, foo, bar, baz))
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=['bar.txt'])")
+
+repo = repository_rule(implementation=_impl, environ=[${environ}])
+EOF
+}
+
+function setup_invalidation_test() {
+  local startup_flag="${1-}"
+  setup_skylark_repository
+
+  # We use a counter to avoid other invalidation to hide repository
+  # invalidation (e.g., --action_env will cause all action to re-run).
+  local execution_file="${TEST_TMPDIR}/execution"
+
+  # Our custom repository rule
+  cat >environ.bzl <<EOF
+def environ(r_ctx, var):
+  return r_ctx.os.environ[var] if var in r_ctx.os.environ else "undefined"
+EOF
+
+  write_environ_skylark "${execution_file}" '"FOO", "BAR"'
+
+  cat <<EOF >bar.tpl
+FOO=%{FOO} BAR=%{BAR} BAZ=%{BAZ}
+EOF
+
+  bazel ${startup_flag} clean --expunge
+  echo 0 >"${execution_file}"
+  echo "${execution_file}"
+}
+
+# Test invalidation based on environment variable
+function environ_invalidation_test_template() {
+  local startup_flag="${1-}"
+  local execution_file="$(setup_invalidation_test)"
+  FOO=BAR bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+     || fail "Failed to build"
+  expect_log "<1> FOO=BAR BAR=undefined BAZ=undefined"
+  assert_equals 1 $(cat "${execution_file}")
+  FOO=BAR bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Test that changing FOO is causing a refetch
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<2> FOO=BAZ BAR=undefined BAZ=undefined"
+  assert_equals 2 $(cat "${execution_file}")
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 2 $(cat "${execution_file}")
+
+  # Test that changing BAR is causing a refetch
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<3> FOO=BAZ BAR=FOO BAZ=undefined"
+  assert_equals 3 $(cat "${execution_file}")
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 3 $(cat "${execution_file}")
+
+  # Test that changing BAZ is not causing a refetch
+  FOO=BAZ BAR=FOO BAZ=BAR bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 3 $(cat "${execution_file}")
+
+  # Test more change in the environment
+  FOO=BAZ BAR=FOO BEZ=BAR bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 3 $(cat "${execution_file}")
+
+  # Test that removing BEZ is not causing a refetch
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 3 $(cat "${execution_file}")
+
+  # Test that removing BAR is causing a refetch
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<4> FOO=BAZ BAR=undefined BAZ=undefined"
+  assert_equals 4 $(cat "${execution_file}")
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 4 $(cat "${execution_file}")
+
+  # Now try to depends on more variables
+  write_environ_skylark "${execution_file}" '"FOO", "BAR", "BAZ"'
+
+  # The skylark rule has changed, so a rebuild should happen
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<5> FOO=BAZ BAR=undefined BAZ=undefined"
+  assert_equals 5 $(cat "${execution_file}")
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 5 $(cat "${execution_file}")
+
+  # Now a change to BAZ should trigger a rebuild
+  FOO=BAZ BAZ=BEZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<6> FOO=BAZ BAR=undefined BAZ=BEZ"
+  assert_equals 6 $(cat "${execution_file}")
+  FOO=BAZ BAZ=BEZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 6 $(cat "${execution_file}")
+}
+
+function environ_invalidation_action_env_test_template() {
+  local startup_flag="${1-}"
+  setup_skylark_repository
+
+  # We use a counter to avoid other invalidation to hide repository
+  # invalidation (e.g., --action_env will cause all action to re-run).
+  local execution_file="${TEST_TMPDIR}/execution"
+
+  # Our custom repository rule
+  write_environ_skylark "${execution_file}" '"FOO", "BAR"'
+
+  bazel ${startup_flag} clean --expunge
+  echo 0 >"${execution_file}"
+
+  # Set to FOO=BAZ BAR=FOO
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<1> FOO=BAZ BAR=FOO BAZ=undefined"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Test with changing using --action_env
+  bazel ${startup_flag} build \
+      --action_env FOO=BAZ --action_env BAR=FOO  --action_env BEZ=BAR \
+      @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+  bazel ${startup_flag} build \
+      --action_env FOO=BAZ --action_env BAR=FOO --action_env BAZ=BAR \
+      @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+  bazel ${startup_flag} build \
+      --action_env FOO=BAR --action_env BAR=FOO --action_env BAZ=BAR \
+      @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<2> FOO=BAR BAR=FOO BAZ=BAR"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
+function test_skylark_repository_environ_invalidation() {
+  environ_invalidation_test_template
+}
+
+# Same test as previous but with server restart between each invocation
+function test_skylark_repository_environ_invalidation_batch() {
+  environ_invalidation_test_template --batch
+}
+
+function test_skylark_repository_environ_invalidation_action_env() {
+  environ_invalidation_action_env_test_template
+}
+
+function test_skylark_repository_environ_invalidation_action_env_batch() {
+  environ_invalidation_action_env_test_template --batch
+}
+
+# Test invalidation based on change to the bzl files
+function bzl_invalidation_test_template() {
+  local startup_flag="${1-}"
+  local execution_file="$(setup_invalidation_test)"
+  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+
+  local bazel_build="bazel ${startup_flag} build ${flags}"
+
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<1> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 1 $(cat "${execution_file}")
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Changing the skylark file cause a refetch
+  cat <<EOF >>test.bzl
+
+# Just add a comment
+EOF
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<2> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 2 $(cat "${execution_file}")
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 2 $(cat "${execution_file}")
+
+  # But also changing the environ.bzl file does a refetch
+  cat <<EOF >>environ.bzl
+
+# Just add a comment
+EOF
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<3> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 3 $(cat "${execution_file}")
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 3 $(cat "${execution_file}")
+}
+
+function test_skylark_repository_bzl_invalidation() {
+  bzl_invalidation_test_template
+}
+
+# Same test as previous but with server restart between each invocation
+function test_skylark_repository_bzl_invalidation_batch() {
+  bzl_invalidation_test_template --batch
+}
+
+# Test invalidation based on change to the bzl files
+function file_invalidation_test_template() {
+  local startup_flag="${1-}"
+  local execution_file="$(setup_invalidation_test)"
+  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+
+  local bazel_build="bazel ${startup_flag} build ${flags}"
+
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<1> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 1 $(cat "${execution_file}")
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Changing the skylark file cause a refetch
+  cat <<EOF >>bar.tpl
+Add more stuff
+EOF
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<2> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 2 $(cat "${execution_file}")
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
+function test_skylark_repository_file_invalidation() {
+  file_invalidation_test_template
+}
+
+# Same test as previous but with server restart between each invocation
+function test_skylark_repository_file_invalidation_batch() {
+  file_invalidation_test_template --batch
 }
 
 function test_skylark_repository_executable_flag() {
@@ -551,6 +859,11 @@ def _impl(repository_ctx):
     "http://localhost:${fileserver_port}/download_and_extract1.tar.gz", "some/path")
   repository_ctx.download_and_extract(
     "http://localhost:${fileserver_port}/download_and_extract3.zip", ".", "${file_sha256}", "", "")
+  repository_ctx.download_and_extract(
+    url = ["http://localhost:${fileserver_port}/download_and_extract3.zip"],
+    output = "other/path",
+    sha256 = "${file_sha256}"
+  )
 repo = repository_rule(implementation=_impl, local=False)
 EOF
 
@@ -579,6 +892,9 @@ EOF
   diff "${output_base}/external/foo/server_dir/download_and_extract3.txt" \
     "${file_prefix}3.txt" >/dev/null \
     || fail "download_and_extract3.zip was not extracted successfully"
+  diff "${output_base}/external/foo/other/path/server_dir/download_and_extract3.txt" \
+    "${file_prefix}3.txt" >/dev/null \
+    || fail "download_and_extract3.tar.gz was not extracted successfully"
 }
 
 # Test native.bazel_version
@@ -597,7 +913,7 @@ EOF
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
-load('/test', 'macro')
+load('//:test.bzl', 'macro')
 
 macro('$repo2')
 EOF
@@ -635,7 +951,7 @@ function test_existing_rule() {
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
 local_repository(name = 'existing', path='$repo2')
-load('/test', 'macro')
+load('//:test.bzl', 'macro')
 
 macro()
 EOF
@@ -671,6 +987,7 @@ def _impl(repository_ctx):
 
 my_repo = repository_rule(_impl)
 EOF
+  touch BUILD
 
   bazel build //external:reg &> $TEST_log || fail "Couldn't build repo"
 }

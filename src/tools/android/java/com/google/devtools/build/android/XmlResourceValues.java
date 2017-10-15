@@ -178,12 +178,16 @@ public class XmlResourceValues {
   static XmlResourceValue parseId(
       XMLEventReader eventReader, StartElement start, Namespaces.Collector namespacesCollector)
       throws XMLStreamException {
-    if (XmlResourceValues.isEndTag(eventReader.peek(), start.getName())) {
-      return IdXmlResourceValue.of();
-    } else {
-      return IdXmlResourceValue.of(
-          readContentsAsString(
-              eventReader, start.getName(), namespacesCollector.collectFrom(start)));
+    try {
+      if (XmlResourceValues.isEndTag(eventReader.peek(), start.getName())) {
+        return IdXmlResourceValue.of();
+      } else {
+        return IdXmlResourceValue.of(
+            readContentsAsString(
+                eventReader, start.getName(), namespacesCollector.collectFrom(start)));
+      }
+    } catch (IllegalArgumentException e) {
+      throw new XMLStreamException(e);
     }
   }
 
@@ -409,14 +413,14 @@ public class XmlResourceValues {
     return null;
   }
 
-  static boolean moveToResources(XMLEventReader eventReader) throws XMLStreamException {
+  static StartElement moveToResources(XMLEventReader eventReader) throws XMLStreamException {
     while (eventReader.hasNext()) {
       StartElement next = findNextStart(eventReader);
       if (next != null && next.getName().equals(TAG_RESOURCES)) {
-        return true;
+        return next;
       }
     }
-    return false;
+    return null;
   }
 
   public static SerializeFormat.DataValue.Builder newSerializableDataValueBuilder(int sourceId) {

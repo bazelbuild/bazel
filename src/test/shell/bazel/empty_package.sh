@@ -44,4 +44,17 @@ EOF
   expect_log "SCREEEECH"
 }
 
+function test_empty_external() {
+  mkdir foo
+  cd foo
+  touch WORKSPACE
+  # Create a dummy BUILD file, otherwise `bazel build` will complain that there
+  # were no targets to build.
+  cat > BUILD <<EOF
+exports_files(["BUILD"])
+EOF
+  mkdir external
+  bazel build ... &> $TEST_log || fail "Failed to build ..."
+}
+
 run_suite "empty package tests"

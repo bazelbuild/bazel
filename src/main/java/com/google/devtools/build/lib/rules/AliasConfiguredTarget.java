@@ -14,23 +14,20 @@
 package com.google.devtools.build.lib.rules;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.SkylarkProviders;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -45,17 +42,19 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObject {
+  private final Label label;
   private final BuildConfiguration configuration;
   private final ConfiguredTarget actual;
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
       overrides;
 
   public AliasConfiguredTarget(
-      BuildConfiguration configuration,
-      @Nullable ConfiguredTarget actual,
+      RuleContext ruleContext,
+      ConfiguredTarget actual,
       ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> overrides) {
-    this.configuration = Preconditions.checkNotNull(configuration);
-    this.actual = actual;
+    this.label = ruleContext.getLabel();
+    this.configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
+    this.actual = Preconditions.checkNotNull(actual);
     this.overrides = Preconditions.checkNotNull(overrides);
   }
 
@@ -65,7 +64,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
       return provider.cast(overrides.get(provider));
     }
 
-    return actual == null ? null : actual.getProvider(provider);
+    return actual.getProvider(provider);
   }
 
   @Override
@@ -75,34 +74,28 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
 
   @Override
   public Object get(String providerKey) {
-    return actual == null ? null : actual.get(providerKey);
+    return actual.get(providerKey);
   }
 
   @Nullable
   @Override
-  public SkylarkClassObject get(Key providerKey) {
-    return actual == null ? null : actual.get(providerKey);
-  }
-
-  @Nullable
-  @Override
-  public Object get(SkylarkProviderIdentifier id) {
-    return actual == null ? null : actual.get(id);
+  public Info get(Provider.Key providerKey) {
+    return actual.get(providerKey);
   }
 
   @Override
   public Object getIndex(Object key, Location loc) throws EvalException {
-    return actual == null ? null : actual.getIndex(key, loc);
+    return actual.getIndex(key, loc);
   }
 
   @Override
   public boolean containsKey(Object key, Location loc) throws EvalException {
-    return actual != null && actual.containsKey(key, loc);
+    return actual.containsKey(key, loc);
   }
 
   @Override
   public Target getTarget() {
-    return actual == null ? null : actual.getTarget();
+    return actual.getTarget();
   }
 
   @Override
@@ -117,31 +110,37 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
 
   @Override
   public Object getValue(String name) {
-    if (name.equals("label")) {
+    if (name.equals(LABEL_FIELD)) {
       return getLabel();
-    } else if (name.equals("files")) {
+    } else if (name.equals(FILES_FIELD)) {
       // A shortcut for files to build in Skylark. FileConfiguredTarget and RuleConfiguredTarget
       // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
       // accessible in Skylark.
-      return SkylarkNestedSet.of(Artifact.class, actual == null
-          ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
-          : getProvider(FileProvider.class).getFilesToBuild());
+      return SkylarkNestedSet.of(Artifact.class, getProvider(FileProvider.class).getFilesToBuild());
     }
-    return actual == null ? null : actual.get(name);
+    return actual.getValue(name);
   }
 
   @Override
   public ImmutableCollection<String> getKeys() {
-    ImmutableList.Builder<String> result = ImmutableList.<String>builder().add("label", "files");
-    if (actual != null) {
-        result.addAll(actual.getProvider(SkylarkProviders.class).getKeys());
-    }
-    return result.build();
+    return actual.getKeys();
   }
 
   @Override
   public String errorMessage(String name) {
     // Use the default error message.
     return null;
+  }
+
+  /**
+   *  Returns a target this target aliases.
+   */
+  public ConfiguredTarget getActual() {
+    return actual;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<alias target " + label + " of " + actual.getLabel() + ">");
   }
 }

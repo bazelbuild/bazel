@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -41,7 +39,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
@@ -54,11 +51,13 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         buildInfoFactories,
         diffAwarenessFactories,
         allowedMissingInputs,
-        preprocessorFactorySupplier,
         extraSkyFunctions,
         extraPrecomputedValues,
         customDirtinessCheckers,
+        PathFragment.EMPTY_FRAGMENT,
         productName,
-        CrossRepositoryLabelViolationStrategy.ERROR);
+        BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+        BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
   }
 }

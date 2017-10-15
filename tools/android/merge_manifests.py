@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -121,7 +122,7 @@ class MergeManifests(object):
     if self._exclude_permissions:
       exclude_all_permissions = EXCLUDE_ALL_ARG in self._exclude_permissions
       for element in (dom.getElementsByTagName(self._USES_PERMISSION) +
-       dom.getElementsByTagName(self._USES_PERMISSION_SDK_23)):
+                      dom.getElementsByTagName(self._USES_PERMISSION_SDK_23)):
         if element.hasAttribute(self._ANDROID_NAME):
           attrib = element.getAttribute(self._ANDROID_NAME)
           if exclude_all_permissions or attrib in self._exclude_permissions:
@@ -424,7 +425,7 @@ def _ReadFiles(files):
 
 
 def _ReadFile(file_name):
-  with open(file_name, 'r') as my_file:
+  with open(file_name, 'rb') as my_file:
     return (my_file.read(), file_name,)
 
 
@@ -455,7 +456,7 @@ def main():
                                     FLAGS.exclude_permission
                                    ).Merge()
 
-  with open(FLAGS.output, 'w') as out_file:
+  with open(FLAGS.output, 'wb') as out_file:
     for line in merged_manifests.split('\n'):
       if not line.strip():
         continue

@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import static java.util.Collections.singleton;
+import static java.util.stream.Collectors.toCollection;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -89,23 +89,32 @@ public abstract class ImplicitOutputsFunction {
         Type<?> attrType = map.getAttributeType(attrName);
         // Don't include configurable attributes: we don't know which value they might take
         // since we don't yet have a build configuration.
-        if (!map.isConfigurable(attrName, attrType)) {
+        if (!map.isConfigurable(attrName)) {
           Object value = map.get(attrName, attrType);
           attrValues.put(attrName, value == null ? Runtime.NONE : value);
         }
       }
-      ClassObject attrs = SkylarkClassObjectConstructor.STRUCT.create(
-          attrValues,
-          "Attribute '%s' either doesn't exist "
-          + "or uses a select() (i.e. could have multiple values)");
+      ClassObject attrs =
+          NativeProvider.STRUCT.create(
+              attrValues,
+              "Attribute '%s' either doesn't exist "
+                  + "or uses a select() (i.e. could have multiple values)");
       try {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (Map.Entry<String, String> entry : castMap(callback.call(attrs),
             String.class, String.class, "implicit outputs function return value").entrySet()) {
+
+          // Returns empty string only in case of invalid templates
           Iterable<String> substitutions = fromTemplates(entry.getValue()).getImplicitOutputs(map);
-          if (!Iterables.isEmpty(substitutions)) {
-            builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
+          if (Iterables.isEmpty(substitutions)) {
+            throw new EvalException(
+                loc,
+                String.format(
+                    "For attribute '%s' in outputs: %s",
+                    entry.getKey(), "Invalid placeholder(s) in template"));
           }
+
+          builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
         }
         return builder.build();
       } catch (IllegalArgumentException e) {
@@ -127,13 +136,22 @@ public abstract class ImplicitOutputsFunction {
     }
 
     @Override
-    public ImmutableMap<String, String> calculateOutputs(AttributeMap map) {
+    public ImmutableMap<String, String> calculateOutputs(AttributeMap map) throws EvalException {
+
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       for (Map.Entry<String, String> entry : outputMap.entrySet()) {
+        // Empty iff invalid placeholders present.
         Iterable<String> substitutions = fromTemplates(entry.getValue()).getImplicitOutputs(map);
-        if (!Iterables.isEmpty(substitutions)) {
-          builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
+        if (Iterables.isEmpty(substitutions)) {
+          throw new EvalException(
+              null,
+              String.format(
+                  "For attribute '%s' in outputs: %s",
+                  entry.getKey(), "Invalid placeholder(s) in template"));
+
         }
+
+        builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
       }
       return builder.build();
     }
@@ -278,18 +296,17 @@ public abstract class ImplicitOutputsFunction {
    * strings.  Helper function for {@link #fromTemplates(Iterable)}.
    */
   private static Set<String> attributeValues(AttributeMap rule, String attrName) {
-    // Special case "name" since it's not treated as an attribute.
-    if (attrName.equals("name")) {
-      return singleton(rule.getName());
-    } else if (attrName.equals("dirname")) {
-      PathFragment dir = new PathFragment(rule.getName()).getParentDirectory();
+    if (attrName.equals("dirname")) {
+      PathFragment dir = PathFragment.create(rule.getName()).getParentDirectory();
       return (dir.segmentCount() == 0) ? singleton("") : singleton(dir.getPathString() + "/");
     } else if (attrName.equals("basename")) {
-      return singleton(new PathFragment(rule.getName()).getBaseName());
+      return singleton(PathFragment.create(rule.getName()).getBaseName());
     }
 
     Type<?> attrType = rule.getAttributeType(attrName);
-    if (attrType == null) { return Collections.emptySet(); }
+    if (attrType == null) {
+      return Collections.emptySet();
+    }
     // String attributes and lists are easy.
     if (Type.STRING == attrType) {
       return singleton(rule.get(attrName, Type.STRING));
@@ -303,26 +320,18 @@ public abstract class ImplicitOutputsFunction {
     } else if (BuildType.LABEL_LIST == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
-      return Sets.newLinkedHashSet(
-          Iterables.transform(rule.get(attrName, BuildType.LABEL_LIST),
-              new Function<Label, String>() {
-                @Override
-                public String apply(Label label) {
-                  return FileSystemUtils.removeExtension(label.getName());
-                }
-              }));
+      return rule.get(attrName, BuildType.LABEL_LIST)
+          .stream()
+          .map(label -> FileSystemUtils.removeExtension(label.getName()))
+          .collect(toCollection(LinkedHashSet::new));
     } else if (BuildType.OUTPUT == attrType) {
       Label out = rule.get(attrName, BuildType.OUTPUT);
       return singleton(out.getName());
     } else if (BuildType.OUTPUT_LIST == attrType) {
-      return Sets.newLinkedHashSet(
-          Iterables.transform(rule.get(attrName, BuildType.OUTPUT_LIST),
-              new Function<Label, String>() {
-                @Override
-                public String apply(Label label) {
-                  return label.getName();
-                }
-              }));
+      return rule.get(attrName, BuildType.OUTPUT_LIST)
+          .stream()
+          .map(Label::getName)
+          .collect(toCollection(LinkedHashSet::new));
     }
     throw new IllegalArgumentException(
         "Don't know how to handle " + attrName + " : " + attrType);

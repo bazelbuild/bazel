@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.JavaClock;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;

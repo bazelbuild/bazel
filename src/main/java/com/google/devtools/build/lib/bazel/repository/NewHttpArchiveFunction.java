@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.repository.NewRepositoryBuildFileHandler;
+import com.google.devtools.build.lib.rules.repository.NewRepositoryFileHandler;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -26,10 +26,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -38,18 +36,17 @@ import javax.annotation.Nullable;
  */
 public class NewHttpArchiveFunction extends HttpArchiveFunction {
 
-  public NewHttpArchiveFunction(AtomicReference<HttpDownloader> httpDownloader) {
+  public NewHttpArchiveFunction(HttpDownloader httpDownloader) {
     super(httpDownloader);
   }
 
   @Nullable
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws RepositoryFunctionException, InterruptedException {
-    NewRepositoryBuildFileHandler buildFileHandler =
-        new NewRepositoryBuildFileHandler(directories.getWorkspace());
-    if (!buildFileHandler.prepareBuildFile(rule, env)) {
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
+      throws RepositoryFunctionException, InterruptedException {
+    NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
+    if (!fileHandler.prepareFile(rule, env)) {
       return null;
     }
 
@@ -61,11 +58,10 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
     }
 
     // Download.
-    Path downloadedPath = httpDownloader.get().download(
+    Path downloadedPath = downloader.download(
         rule, outputDirectory, env.getListener(), clientEnvironment);
 
     // Decompress.
-    Path decompressed;
     WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
     String prefix = null;
     if (mapper.isAttributeValueExplicitlySpecified("strip_prefix")) {
@@ -75,18 +71,18 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }
     }
-    decompressed = DecompressorValue.decompress(DecompressorDescriptor.builder()
-        .setTargetKind(rule.getTargetKind())
-        .setTargetName(rule.getName())
-        .setArchivePath(downloadedPath)
-        .setRepositoryPath(outputDirectory)
-        .setPrefix(prefix)
-        .build());
+    DecompressorValue.decompress(
+        DecompressorDescriptor.builder()
+            .setTargetKind(rule.getTargetKind())
+            .setTargetName(rule.getName())
+            .setArchivePath(downloadedPath)
+            .setRepositoryPath(outputDirectory)
+            .setPrefix(prefix)
+            .build());
 
     // Finally, write WORKSPACE and BUILD files.
-    createWorkspaceFile(decompressed, rule.getTargetKind(), rule.getName());
-    buildFileHandler.finishBuildFile(outputDirectory);
+    fileHandler.finishFile(rule, outputDirectory, markerData);
 
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 }
