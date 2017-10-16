@@ -254,6 +254,27 @@ public class BuildEventStreamer implements EventHandler {
     }
   }
 
+  /**
+   * If some events are blocked on the absence of a build_started event, generate such an event;
+   * moreover, make that artificial start event announce all events blocked on it, as well as the
+   * {@link BuildCompletingEvent} that caused the early end of the stream.
+   */
+  private void clearMissingStartEvent(BuildEventId id) {
+    if (pendingEvents.containsKey(BuildEventId.buildStartedId())) {
+      ImmutableSet.Builder<BuildEventId> children = ImmutableSet.<BuildEventId>builder();
+      children.add(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+      children.add(id);
+      children.addAll(
+          pendingEvents
+              .get(BuildEventId.buildStartedId())
+              .stream()
+              .map(BuildEvent::getEventId)
+              .collect(ImmutableSet.<BuildEventId>toImmutableSet()));
+      buildEvent(
+          new AbortedEvent(BuildEventId.buildStartedId(), children.build(), abortReason, ""));
+    }
+  }
+
   /** Clear pending events by generating aborted events for all their requisits. */
   private void clearPendingEvents() {
     while (!pendingEvents.isEmpty()) {
@@ -402,6 +423,11 @@ public class BuildEventStreamer implements EventHandler {
           ((EventReportingArtifacts) event).reportedArtifacts()) {
         maybeReportArtifactSet(artifactSet);
       }
+    }
+
+    if (event instanceof BuildCompletingEvent
+        && !event.getEventId().equals(BuildEventId.buildStartedId())) {
+      clearMissingStartEvent(event.getEventId());
     }
 
     post(event);

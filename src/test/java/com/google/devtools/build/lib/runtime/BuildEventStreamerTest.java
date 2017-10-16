@@ -734,4 +734,33 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     verify(outErr, times(1)).getOut();
     verify(outErr, times(1)).getErr();
   }
+
+  @Test
+  public void testEarlyAbort() throws Exception {
+    // For a build that is aborted before a build-started event is generated,
+    // we still expect that, if a build-started event is forced by some order
+    // constraint (e.g., CommandLine wants to come after build started), then
+    // that gets sorted to the beginning.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+
+    BuildEvent orderEvent =
+        new GenericOrderEvent(
+            testId("event depending on start"),
+            ImmutableList.of(),
+            ImmutableList.of(BuildEventId.buildStartedId()));
+
+    streamer.buildEvent(orderEvent);
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(4);
+    assertThat(eventsSeen.get(0).getEventId()).isEqualTo(BuildEventId.buildStartedId());
+    assertThat(eventsSeen.get(1).getEventId()).isEqualTo(orderEvent.getEventId());
+    assertThat(ImmutableSet.of(eventsSeen.get(2).getEventId(), eventsSeen.get(3).getEventId()))
+        .isEqualTo(
+            ImmutableSet.of(BuildEventId.buildFinished(), ProgressEvent.INITIAL_PROGRESS_UPDATE));
+    assertThat(transport.getEventProtos().get(3).getLastMessage()).isTrue();
+  }
 }
