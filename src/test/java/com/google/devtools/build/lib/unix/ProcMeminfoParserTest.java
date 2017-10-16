@@ -81,4 +81,18 @@ public class ProcMeminfoParserTest {
     assertThrows(ProcMeminfoParser.KeywordNotFoundException.class,
         () -> memInfo.getRamKb("Bogus2"));
   }
+
+  @Test
+  public void testOldKernelFallback() throws Exception {
+    String meminfoContent =
+        StringUtilities.joinLines(
+            "MemTotal:      3091732 kB",
+            "Active:         636892 kB",
+            "Inactive:       212760 kB",
+            "Slab:            42820 kB");
+
+    String meminfoFile = scratch.file("test_meminfo", meminfoContent).getPathString();
+    ProcMeminfoParser memInfo = new ProcMeminfoParser(meminfoFile);
+    assertThat(memInfo.getFreeRamKb()).isEqualTo(2356756);
+  }
 }

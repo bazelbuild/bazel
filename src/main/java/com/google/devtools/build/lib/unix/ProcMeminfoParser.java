@@ -89,7 +89,17 @@ public class ProcMeminfoParser {
    * line in /proc/meminfo.
    */
   public long getFreeRamKb() throws KeywordNotFoundException {
-    return getRamKb("MemAvailable");
+    if (memInfo.containsKey("MemAvailable")) {
+      return getRamKb("MemAvailable");
+    }
+    // We have no MemAvailable in /proc/meminfo; fall back to the previous estimation.
+    return getRamKb("MemTotal")
+        - getRamKb("Active")
+        // Blaze doesn't want to use more than a third of inactive ram...
+        - (long) (getRamKb("Inactive") * 0.3)
+        // ...and doesn't want to assume more than 80% of the slab memory can be reallocated.
+        - (long) (getRamKb("Slab") * 0.8);
+    // That said, this estimate will be more inaccurate as it diverges from kernel internals.
   }
 
   /** Exception thrown when /proc/meminfo does not have a requested key. Should be tolerated. */
