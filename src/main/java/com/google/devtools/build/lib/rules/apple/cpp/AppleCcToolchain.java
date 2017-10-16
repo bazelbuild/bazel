@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -120,12 +121,12 @@ public class AppleCcToolchain extends CcToolchain {
   private ImmutableMap<String, String> getEnvironmentBuildVariables(RuleContext ruleContext) {
     Map<String, String> builder = new LinkedHashMap<>();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    builder.putAll(appleConfiguration.getAppleHostSystemEnv());
+    XcodeConfigProvider xcodeConfig = XcodeConfigProvider.fromRuleContext(ruleContext);
+    builder.putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfig.getXcodeVersion()));
     if (ApplePlatform.isApplePlatform(cppConfiguration.getTargetCpu())) {
-      builder.putAll(
-          appleConfiguration.appleTargetPlatformEnv(
-              ApplePlatform.forTargetCpu(cppConfiguration.getTargetCpu())));
+      ApplePlatform platform = ApplePlatform.forTargetCpu(cppConfiguration.getTargetCpu());
+      builder.putAll(AppleConfiguration.appleTargetPlatformEnv(
+          platform, xcodeConfig.getSdkVersionForPlatform(platform)));
     }
     return ImmutableMap.copyOf(builder);
   }

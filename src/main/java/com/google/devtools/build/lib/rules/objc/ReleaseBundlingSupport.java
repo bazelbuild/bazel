@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.rules.objc.Bundling.Builder;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -370,7 +371,6 @@ public final class ReleaseBundlingSupport {
   }
 
   private void registerEnvironmentPlistAction() {
-    AppleConfiguration configuration = ruleContext.getFragment(AppleConfiguration.class);
     // Generates a .plist that contains environment values (such as the SDK used to build, the Xcode
     // version, etc), which are parsed from various .plist files of the OS, namely Xcodes' and
     // Platforms' plists.
@@ -381,7 +381,8 @@ public final class ReleaseBundlingSupport {
             platform.getLowerCaseNameInPlist(),
             XcodeConfig.getSdkVersionForPlatform(ruleContext, platform));
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(configuration, platform)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                XcodeConfigProvider.fromRuleContext(ruleContext), platform)
             .setMnemonic("EnvironmentPlist")
             .setExecutable(attributes.environmentPlist())
             .addOutput(getGeneratedEnvironmentPlist())
@@ -472,10 +473,11 @@ public final class ReleaseBundlingSupport {
 
     actionCommandLine += "cd ${t} && /usr/bin/zip -q -r \"${signed_ipa}\" .";
 
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     SpawnAction.Builder processAction =
         ObjcRuleClasses.spawnBashOnDarwinActionBuilder(actionCommandLine)
-            .setEnvironment(ObjcRuleClasses.appleToolchainEnvironment(appleConfiguration, platform))
+            .setEnvironment(
+                ObjcRuleClasses.appleToolchainEnvironment(
+                    XcodeConfigProvider.fromRuleContext(ruleContext), platform))
             .setMnemonic("ObjcProcessIpa")
             .setProgressMessage("Processing iOS IPA: %s", ruleContext.getLabel())
             .disableSandboxing()
@@ -1040,7 +1042,8 @@ public final class ReleaseBundlingSupport {
         .addExecPath("--scan-executable", combinedArchBinary);
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                XcodeConfigProvider.fromRuleContext(ruleContext), platform)
             .setMnemonic("SwiftStdlibCopy")
             .setExecutable(attributes.swiftStdlibToolWrapper())
             .addCommandLine(commandLine.build())
@@ -1072,7 +1075,8 @@ public final class ReleaseBundlingSupport {
         .addExecPath("--scan-executable", combinedArchBinary);
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(configuration, platform)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                XcodeConfigProvider.fromRuleContext(ruleContext), platform)
             .setMnemonic("SwiftCopySwiftSupport")
             .setExecutable(attributes.swiftStdlibToolWrapper())
             .addCommandLine(commandLine.build())

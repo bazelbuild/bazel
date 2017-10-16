@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -114,5 +116,10 @@ public class XcodeConfigProvider extends NativeInfo {
       default:
         throw new IllegalArgumentException("Unhandled platform: " + platform);
     }
+  }
+
+  public static XcodeConfigProvider fromRuleContext(RuleContext ruleContext) {
+    return ruleContext.getPrerequisite(
+        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, Mode.TARGET, XcodeConfigProvider.PROVIDER);
   }
 }

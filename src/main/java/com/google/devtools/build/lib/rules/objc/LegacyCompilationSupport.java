@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -398,7 +399,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
     // TODO(bazel-team): Remove private headers from inputs once they're added to the provider.
     ObjcCompileAction.Builder compileBuilder =
         ObjcCompileAction.Builder.createObjcCompileActionBuilderWithAppleEnv(
-                appleConfiguration, appleConfiguration.getSingleArchPlatform())
+                XcodeConfigProvider.fromRuleContext(ruleContext),
+                appleConfiguration.getSingleArchPlatform())
             .setDotdPruningPlan(objcConfiguration.getDotdPruningPlan())
             .setSourceFile(sourceFile)
             .addTransitiveHeaders(objcProvider.get(HEADER))
@@ -483,7 +485,9 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .setMnemonics("ObjcCompileActionTemplate", "ObjcCompile")
             .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLineTemplate(commandLine)
-            .setEnvironment(ObjcRuleClasses.appleToolchainEnvironment(appleConfiguration, platform))
+            .setEnvironment(
+                ObjcRuleClasses.appleToolchainEnvironment(
+                    XcodeConfigProvider.fromRuleContext(ruleContext), platform))
             .setExecutionInfo(ObjcRuleClasses.darwinActionExecutionRequirement())
             .setOutputPathMapper(COMPILE_ACTION_TEMPLATE_OUTPUT_PATH_MAPPER)
             .addCommonTransitiveInputs(objcProvider.get(HEADER))
@@ -507,7 +511,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
     Artifact objList = intermediateArtifacts.archiveObjList();
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                appleConfiguration, appleConfiguration.getSingleArchPlatform())
+                XcodeConfigProvider.fromRuleContext(ruleContext),
+                appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcLink")
             .setExecutable(libtool(ruleContext))
             .addCommandLine(
@@ -530,7 +535,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
       @Nullable CcToolchainProvider ccToolchain, @Nullable FdoSupportProvider fdoSupport) {
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                appleConfiguration, appleConfiguration.getSingleArchPlatform())
+                XcodeConfigProvider.fromRuleContext(ruleContext),
+                appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcLink")
             .setExecutable(libtool(ruleContext))
             .addCommandLine(
@@ -631,7 +637,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
             bitcodeSymbolMap);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                appleConfiguration, appleConfiguration.getSingleArchPlatform())
+                XcodeConfigProvider.fromRuleContext(ruleContext),
+                appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcLink")
             .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
             .addCommandLine(new SingleArgCommandLine(commandLine))

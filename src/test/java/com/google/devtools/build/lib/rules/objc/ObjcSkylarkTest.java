@@ -263,7 +263,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   cpu = ctx.fragments.apple.ios_cpu()",
         "   platform = ctx.fragments.apple.ios_cpu_platform()",
         "   xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]",
-        "   env = ctx.fragments.apple.target_apple_env(platform)",
+        "   env = apple_common.target_apple_env(xcode_config, platform)",
         "   xcode_version = xcode_config.xcode_version()",
         "   sdk_version = xcode_config.sdk_version_for_platform(platform)",
         "   single_arch_platform = ctx.fragments.apple.single_arch_platform",

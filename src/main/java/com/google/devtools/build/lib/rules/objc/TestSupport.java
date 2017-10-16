@@ -265,12 +265,11 @@ public class TestSupport {
         ruleContext.getPrerequisite(
             IosTest.TARGET_DEVICE, Mode.TARGET, IosDeviceProvider.SKYLARK_CONSTRUCTOR);
     DottedVersion xcodeVersion = deviceProvider.getXcodeVersion();
-    AppleConfiguration configuration = ruleContext.getFragment(AppleConfiguration.class);
 
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
 
     if (xcodeVersion != null) {
-      envBuilder.putAll(configuration.getXcodeVersionEnv(xcodeVersion));
+      envBuilder.putAll(AppleConfiguration.getXcodeVersionEnv(xcodeVersion));
     }
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {

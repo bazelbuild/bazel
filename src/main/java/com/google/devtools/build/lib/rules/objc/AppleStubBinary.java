@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -117,7 +118,7 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
     Artifact outputArtifact =
         ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
 
-    registerActions(ruleContext, appleConfiguration, platform, outputArtifact);
+    registerActions(ruleContext, platform, outputArtifact);
 
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
@@ -147,7 +148,6 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
   /** Registers the actions that copy the stub binary to the target's output. */
   private static void registerActions(
       RuleContext ruleContext,
-      AppleConfiguration appleConfiguration,
       ApplePlatform platform,
       Artifact outputBinary)
       throws RuleErrorException {
@@ -159,7 +159,8 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
             .build();
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                XcodeConfigProvider.fromRuleContext(ruleContext), platform)
             .setExecutable(xcrunwrapper(ruleContext))
             .addCommandLine(copyCommandLine)
             .setMnemonic("CopyStubExecutable")

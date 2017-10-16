@@ -43,8 +43,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
@@ -352,12 +352,12 @@ public class ObjcCompileAction extends SpawnAction {
      * needed by the apple toolchain.
      */
     public static ObjcCompileAction.Builder createObjcCompileActionBuilderWithAppleEnv(
-        AppleConfiguration appleConfiguration, ApplePlatform targetPlatform) {
+        XcodeConfigProvider xcodeConfigProvider, ApplePlatform targetPlatform) {
       return (Builder)
           new ObjcCompileAction.Builder()
               .setExecutionInfo(ObjcRuleClasses.darwinActionExecutionRequirement())
               .setEnvironment(
-                  ObjcRuleClasses.appleToolchainEnvironment(appleConfiguration, targetPlatform));
+                  ObjcRuleClasses.appleToolchainEnvironment(xcodeConfigProvider, targetPlatform));
     }
 
     @Override

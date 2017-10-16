@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -1127,7 +1128,8 @@ public abstract class CompilationSupport {
               ISO_8859_1));
       ruleContext.registerAction(
           ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                  appleConfiguration, appleConfiguration.getSingleArchPlatform())
+                  XcodeConfigProvider.fromRuleContext(ruleContext),
+                  appleConfiguration.getSingleArchPlatform())
               .setMnemonic("DummyPruner")
               .setExecutable(pruner)
               .addInput(dummyArchive)
@@ -1228,7 +1230,8 @@ public abstract class CompilationSupport {
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                appleConfiguration, appleConfiguration.getSingleArchPlatform())
+                XcodeConfigProvider.fromRuleContext(ruleContext),
+                appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcBinarySymbolStrip")
             .setExecutable(xcrunwrapper(ruleContext))
             .addCommandLine(symbolStripCommandLine(stripArgs, binaryToLink, strippedBinary))

@@ -45,6 +45,7 @@ import javax.annotation.Nullable;
  * Implementation for the {@code xcode_config} rule.
  */
 public class XcodeConfig implements RuleConfiguredTargetFactory {
+
   private static ImmutableList<XcodeVersionRuleData> getAvailableVersions(
       ConfigurationEnvironment env, Rule xcodeConfigTarget)
       throws InvalidConfigurationException, InterruptedException {
@@ -92,6 +93,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
    * An exception that signals that an Xcode config setup was invalid.
    */
   public static class XcodeConfigException extends Exception {
+
     XcodeConfigException(String reason) {
       super(reason);
     }
@@ -149,18 +151,17 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(xcodeVersionProperties)
         .build();
   }
-  
+
   /**
    * Uses the {@link AppleCommandLineOptions#xcodeVersion} and {@link
    * AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and return the
    * effective xcode version and its properties.
    *
-   * @param requireDefinedVersions whether the version config requires an explicitly defined version
    * @param xcodeVersionOverrideFlag the value of the {@code --xcode_version} command line flag
    * @param xcodeVersions the Xcode versions listed in the {@code xcode_config} rule
    * @param defaultVersion the default Xcode version in the {@code xcode_config} rule.
-   * @throws XcodeConfigException if the options given (or configuration targets) were
-   *     malformed and thus the xcode version could not be determined
+   * @throws XcodeConfigException if the options given (or configuration targets) were malformed and
+   *     thus the xcode version could not be determined
    */
   static XcodeVersionProperties resolveXcodeVersion(
       String xcodeVersionOverrideFlag,
@@ -168,9 +169,10 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       XcodeVersionRuleData defaultVersion)
       throws XcodeConfigException {
     if (defaultVersion != null
-        && Iterables.isEmpty(Iterables.filter(
-              xcodeVersions,
-              ruleData -> ruleData.getLabel().equals(defaultVersion.getLabel())))) {
+        && Iterables.isEmpty(
+            Iterables.filter(
+                xcodeVersions,
+                ruleData -> ruleData.getLabel().equals(defaultVersion.getLabel())))) {
       throw new XcodeConfigException(
           String.format("default label '%s' must be contained in versions attribute",
               defaultVersion.getLabel()));
@@ -246,12 +248,11 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
    * Returns a map where keys are "names" of xcode versions as defined by the configuration target,
    * and values are the rule data objects which contain information regarding that xcode version.
    *
-   * @throws XcodeConfigException if there are duplicate aliases (if two xcode versions
-   *     were registered to the same alias)
+   * @throws XcodeConfigException if there are duplicate aliases (if two xcode versions were
+   *     registered to the same alias)
    */
   private static Map<String, XcodeVersionRuleData> aliasesToVersionMap(
-      Iterable<XcodeVersionRuleData> xcodeVersionRules)
-      throws XcodeConfigException {
+      Iterable<XcodeVersionRuleData> xcodeVersionRules) throws XcodeConfigException {
     Map<String, XcodeVersionRuleData> aliasesToXcodeRules = Maps.newLinkedHashMap();
     for (XcodeVersionRuleData xcodeVersionRule : xcodeVersionRules) {
       for (String alias : xcodeVersionRule.getAliases()) {
@@ -271,13 +272,13 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     }
     return aliasesToXcodeRules;
   }
-  
+
   /**
-   * Convenience method for throwing an {@link XcodeConfigException} due to presence
-   * of duplicate aliases in an {@code xcode_config} target definition. 
+   * Convenience method for throwing an {@link XcodeConfigException} due to presence of duplicate
+   * aliases in an {@code xcode_config} target definition.
    */
-  private static void configErrorDuplicateAlias(String alias,
-      Iterable<XcodeVersionRuleData> xcodeVersionRules) throws XcodeConfigException {
+  private static void configErrorDuplicateAlias(
+      String alias, Iterable<XcodeVersionRuleData> xcodeVersionRules) throws XcodeConfigException {
 
     ImmutableList.Builder<Label> labelsContainingAlias = ImmutableList.builder();
     for (XcodeVersionRuleData xcodeVersionRule : xcodeVersionRules) {

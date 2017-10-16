@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -175,17 +176,18 @@ public class ObjcRuleClasses {
    * which contain information about the target and host architectures.
    */
   static SpawnAction.Builder spawnAppleEnvActionBuilder(
-      AppleConfiguration appleConfiguration, ApplePlatform targetPlatform) {
+      XcodeConfigProvider xcodeConfigProvider, ApplePlatform targetPlatform) {
     return spawnOnDarwinActionBuilder()
-        .setEnvironment(appleToolchainEnvironment(appleConfiguration, targetPlatform));
+        .setEnvironment(appleToolchainEnvironment(xcodeConfigProvider, targetPlatform));
   }
 
   /** Returns apple environment variables that are typically needed by the apple toolchain. */
   static ImmutableMap<String, String> appleToolchainEnvironment(
-      AppleConfiguration appleConfiguration, ApplePlatform targetPlatform) {
+      XcodeConfigProvider xcodeConfigProvider, ApplePlatform targetPlatform) {
     return ImmutableMap.<String, String>builder()
-        .putAll(appleConfiguration.getTargetAppleEnvironment(targetPlatform))
-        .putAll(appleConfiguration.getAppleHostSystemEnv())
+        .putAll(AppleConfiguration.appleTargetPlatformEnv(
+            targetPlatform, xcodeConfigProvider.getSdkVersionForPlatform(targetPlatform)))
+        .putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfigProvider.getXcodeVersion()))
         .build();
   }
 
