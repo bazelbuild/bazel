@@ -31,6 +31,7 @@ source ${SCRIPT_DIR}/relnotes.sh || { echo "relnotes.sh not found!" >&2; exit 1;
 
 function set_up() {
   cd ${MASTER_ROOT}
+  git checkout -q master
 }
 
 function test_format_release_notes() {
