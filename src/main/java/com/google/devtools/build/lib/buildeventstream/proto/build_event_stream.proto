@@ -142,6 +142,15 @@ message BuildEventId {
     ConfigurationId configuration = 3;
   }
 
+  // Identifier of an event reporting an event associated with an unconfigured
+  // label. Usually, this indicates a failure due to a missing input file. In
+  // any case, it will report some form of error (i.e., the payload will be an
+  // Aborted event); there are no regular events using this identifier. The
+  // purpose of those events is to serve as the root cause of a failed target.
+  message UnconfiguredLabelId {
+    string label = 1;
+  }
+
   // Identifier of an event reporting on an individual test run. The label
   // identifies the test that is reported about, the remaining fields are
   // in such a way as to uniquely identify the action within a build. In fact,
@@ -181,6 +190,7 @@ message BuildEventId {
     NamedSetOfFilesId named_set = 13;
     TargetCompletedId target_completed = 5;
     ActionCompletedId action_completed = 6;
+    UnconfiguredLabelId unconfigured_label = 19;
     TestResultId test_result = 8;
     TestSummaryId test_summary = 7;
     BuildFinishedId build_finished = 9;

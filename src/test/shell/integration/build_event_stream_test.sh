@@ -712,4 +712,32 @@ function test_alias() {
   expect_not_log 'label: "//alias/actual'
 }
 
+function test_missing_file() {
+  cat > BUILD <<'EOF'
+filegroup(
+  name = "badfilegroup",
+  srcs = ["doesnotexist"],
+)
+EOF
+  (bazel build --build_event_text_file="${TEST_log}" :badfilegroup \
+    && fail "Expected failure") || :
+  # There should be precisely one event with target_completed as event id type
+  (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
+  [ `grep target_completed event_id_types | wc -l` -eq 1 ] \
+      || fail "not precisely one target_completed event id"
+  # Moreover, we expect precisely one event identified by an unconfigured label
+  [ `grep unconfigured_label event_id_types | wc -l` -eq 1 ] \
+      || fail "not precisely one unconfigured_label event id"
+
+  (bazel build --build_event_text_file="${TEST_log}" :badfilegroup :doesnotexist \
+    && fail "Expected failure") || :
+  # There should be precisely two events with target_completed as event id type
+  (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
+  [ `grep target_completed event_id_types | wc -l` -eq 2 ] \
+      || fail "not precisely one target_completed event id"
+  # Moreover, we expect precisely one event identified by an unconfigured label
+  [ `grep unconfigured_label event_id_types | wc -l` -eq 1 ] \
+      || fail "not precisely one unconfigured_label event id"
+}
+
 run_suite "Integration tests for the build event stream"
