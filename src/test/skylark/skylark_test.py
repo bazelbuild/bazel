@@ -68,14 +68,30 @@ class SkylarkTest(unittest.TestCase):
       if not re.search(exp, output):
         raise Exception("Error `{}` not found, got: {}".format(exp, output))
 
-  def testSuccess(self):
-    tests = ["int.sky", "equality.sky", "and_or_not.sky"]
-    for t in tests:
+  TESTS = [
+      "int.sky",
+      "equality.sky",
+      "and_or_not.sky",
+      "min_max.sky",
+  ]
+
+  PRELUDE = """
+def assert_eq(x, y):
+  if x != y:
+    fail("%r != %r" % (x, y))
+
+def assert_(cond, msg="assertion failed"):
+  if not cond:
+    fail(msg)
+"""
+
+  def testAll(self):
+    for t in self.TESTS:
       print("===", t, "===")
       f = os.path.join(testenv.SKYLARK_TESTDATA_PATH, t)
       for chunk, expected in self.chunks(f):
         with tempfile.NamedTemporaryFile(suffix=".sky", delete=False) as tmp:
-          tmp.writelines(chunk)
+          tmp.writelines([self.PRELUDE] + chunk)
         output = self.evaluate(tmp.name)
         os.unlink(tmp.name)
         self.check_output(output, expected)

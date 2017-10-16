@@ -1,13 +1,5 @@
 # Tests of Skylark 'int'
 
-def assert_eq(x, y):
-  if x != y:
-    fail("%r != %r" % (x, y))
-
-def assert_(cond, msg="assertion failed"):
-  if not cond:
-    fail(msg)
-
 # basic arithmetic
 assert_eq(0 - 1, -1)
 assert_eq(1 + 1, 2)

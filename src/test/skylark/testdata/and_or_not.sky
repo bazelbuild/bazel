@@ -1,8 +1,3 @@
-def assert_eq(x, y):
-  if x != y:
-    fail("%r != %r" % (x, y))
-
-
 assert_eq(8 or 9, 8)
 assert_eq(0 or 9, 9)
 assert_eq(8 and 9, 9)
