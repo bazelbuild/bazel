@@ -246,8 +246,11 @@ EOF
   add_to_bazelrc common --show_progress_rate_limit=0.03
   bazel run //x:x --color=yes >$out1color 2>$err1raw_color || fail "expected success"
   bazel run //x:x --color=no >$out1nocolor 2>$err1raw_nocolor || fail "expected success"
+  echo >> $err1raw_color
+  echo >> $err1raw_nocolor
 
   ${PRODUCT_NAME}-bin/x/x >$out2 2>$err2
+  echo >> $err2
 
   # Extract the binary's stderr from the raw stderr, which also contains bazel's
   # stderr; if present, remove a trailing ^[[0m (reset terminal to defaults).
