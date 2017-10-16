@@ -216,9 +216,11 @@ function test_basic() {
   expect_log_once 'tool_tag: "MyFancyTool"'
 
   # Structured command line. Expect the explicit flags to appear twice,
-  # in the canonical and original command lines
+  # in the canonical and original command lines. We did not pass a tool
+  # command line, but still expect an empty report.
   expect_log 'command_line_label: "original"'
   expect_log 'command_line_label: "canonical"'
+  expect_log 'command_line_label: "tool"'
 
   expect_log_n 'combined_form: "-k"' 2
   expect_log_n 'option_name: "keep_going"' 2
@@ -739,5 +741,30 @@ EOF
   [ `grep unconfigured_label event_id_types | wc -l` -eq 1 ] \
       || fail "not precisely one unconfigured_label event id"
 }
+
+function test_tool_command_line() {
+  bazel build --experimental_tool_command_line="foo bar" --build_event_text_file=$TEST_log \
+    || fail "build failed"
+
+  # Sanity check the arglist
+  expect_log_once 'args: "build"'
+  expect_log_once 'args: "--experimental_tool_command_line='
+
+  # Structured command line. Expect the explicit flags to appear twice,
+  # in the canonical and original command lines
+  expect_log 'command_line_label: "original"'
+  expect_log 'command_line_label: "canonical"'
+  expect_log 'command_line_label: "tool"'
+
+  # Expect the actual tool command line flag to appear twice, because of the two
+  # bazel command lines that are reported
+  expect_log_n 'combined_form: "--experimental_tool_command_line=' 2
+  expect_log_n 'option_name: "experimental_tool_command_line"' 2
+  expect_log_n 'option_value: "foo bar"' 2
+
+  # Check the contents of the tool command line
+  expect_log_once 'chunk: "foo bar"'
+}
+
 
 run_suite "Integration tests for the build event stream"

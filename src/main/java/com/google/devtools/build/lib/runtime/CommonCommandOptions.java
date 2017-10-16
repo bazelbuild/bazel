@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.runtime.CommandLineEvent.ToolCommandLineEvent;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
@@ -53,10 +54,7 @@ public class CommonCommandOptions extends OptionsBase {
     }
   }
 
-  /**
-   * Converter for --default_override. The format is:
-   * --default_override=blazerc:command=option.
-   */
+  /** Converter for --default_override. The format is: --default_override=blazerc:command=option. */
   public static class OptionOverrideConverter implements Converter<OptionOverride> {
     static final String ERROR_MESSAGE = "option overrides must be in form "
       + " rcfile:command=option, where rcfile is a nonzero integer";
@@ -364,4 +362,26 @@ public class CommonCommandOptions extends OptionsBase {
             + "unset, these commands will immediately return with an error."
   )
   public boolean blockForLock;
+
+  // We could accept multiple of these, in the event where there's a chain of tools that led to a
+  // Bazel invocation. We would not want to expect anything from the order of these, and would need
+  // to guarantee that the "label" for each command line is unique. Unless a need is demonstrated,
+  // though, logs are a better place to track this information than flags, so let's try to avoid it.
+  @Option(
+    // In May 2018, this feature will have been out for 6 months. If the format we accept has not
+    // changed in that time, we can remove the "experimental" prefix and tag.
+    name = "experimental_tool_command_line",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    // Keep this flag HIDDEN so that it is not listed with our reported command lines, it being
+    // reported separately.
+    metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
+    converter = ToolCommandLineEvent.Converter.class,
+    help =
+        "An extra command line to report with this invocation's command line. Useful for tools "
+            + "that invoke Bazel and want the original information that the tool received to be "
+            + "logged with the rest of the Bazel invocation."
+  )
+  public ToolCommandLineEvent toolCommandLine;
 }

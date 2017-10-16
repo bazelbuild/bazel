@@ -406,6 +406,7 @@ public class BlazeCommandDispatcher {
             runtime, commandName, options, startupOptionsTaggedWithBazelRc);
     CommandLineEvent canonicalCommandLineEvent =
         new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
+
     // The initCommand call also records the start time for the timestamp granularity monitor.
     CommandEnvironment env = workspace.initCommand(commandAnnotation, options);
     // Record the command's starting time for use by the commands themselves.
@@ -606,6 +607,7 @@ public class BlazeCommandDispatcher {
       env.getEventBus().post(unstructuredServerCommandLineEvent);
       env.getEventBus().post(originalCommandLineEvent);
       env.getEventBus().post(canonicalCommandLineEvent);
+      env.getEventBus().post(commonOptions.toolCommandLine);
 
       for (BlazeModule module : runtime.getBlazeModules()) {
         env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());

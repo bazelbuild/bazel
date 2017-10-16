@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.ChunkList;
@@ -35,6 +37,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.devtools.common.options.proto.OptionFilters;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -44,21 +47,6 @@ import javax.annotation.Nullable;
 
 /** A build event reporting the command line by which Bazel was invoked. */
 public abstract class CommandLineEvent implements BuildEventWithOrderConstraint {
-  protected final String productName;
-  protected final OptionsProvider activeStartupOptions;
-  protected final String commandName;
-  protected final OptionsProvider commandOptions;
-
-  CommandLineEvent(
-      String productName,
-      OptionsProvider activeStartupOptions,
-      String commandName,
-      OptionsProvider commandOptions) {
-    this.productName = productName;
-    this.activeStartupOptions = activeStartupOptions;
-    this.commandName = commandName;
-    this.commandOptions = commandOptions;
-  }
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
@@ -70,108 +58,129 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     return ImmutableList.of(BuildEventId.buildStartedId());
   }
 
-  CommandLineSection getExecutableSection() {
-    return CommandLineSection.newBuilder()
-        .setSectionLabel("executable")
-        .setChunkList(ChunkList.newBuilder().addChunk(productName))
-        .build();
-  }
+  /** A CommandLineEvent that stores functions and values common to both Bazel command lines. */
+  public abstract static class BazelCommandLineEvent extends CommandLineEvent {
+    protected final String productName;
+    protected final OptionsProvider activeStartupOptions;
+    protected final String commandName;
+    protected final OptionsProvider commandOptions;
 
-  CommandLineSection getCommandSection() {
-    return CommandLineSection.newBuilder()
-        .setSectionLabel("command")
-        .setChunkList(ChunkList.newBuilder().addChunk(commandName))
-        .build();
-  }
-
-  /**
-   * Convert an array of tags to the equivalent proto-generated enum values.
-   *
-   * <p>The proto type is duplicate in order to not burden the OptionsParser with the proto
-   * dependency. A test guarantees that the two enum types are kept in sync with matching indices.
-   */
-  static List<OptionFilters.OptionEffectTag> getProtoEffectTags(OptionEffectTag[] tagArray) {
-    ArrayList<OptionFilters.OptionEffectTag> effectTags = new ArrayList<>(tagArray.length);
-    for (OptionEffectTag tag : tagArray) {
-      effectTags.add(OptionFilters.OptionEffectTag.forNumber(tag.getValue()));
+    BazelCommandLineEvent(
+        String productName,
+        OptionsProvider activeStartupOptions,
+        String commandName,
+        OptionsProvider commandOptions) {
+      this.productName = productName;
+      this.activeStartupOptions = activeStartupOptions;
+      this.commandName = commandName;
+      this.commandOptions = commandOptions;
     }
-    return effectTags;
-  }
 
-  /**
-   * Convert an array of tags to the equivalent proto-generated enum values.
-   *
-   * <p>The proto type is duplicate in order to not burden the OptionsParser with the proto
-   * dependency. A test guarantees that the two enum types are kept in sync with matching indices.
-   */
-  static List<OptionFilters.OptionMetadataTag> getProtoMetadataTags(OptionMetadataTag[] tagArray) {
-    ArrayList<OptionFilters.OptionMetadataTag> metadataTags = new ArrayList<>(tagArray.length);
-    for (OptionMetadataTag tag : tagArray) {
-      metadataTags.add(OptionFilters.OptionMetadataTag.forNumber(tag.getValue()));
+    CommandLineSection getExecutableSection() {
+      return CommandLineSection.newBuilder()
+          .setSectionLabel("executable")
+          .setChunkList(ChunkList.newBuilder().addChunk(productName))
+          .build();
     }
-    return metadataTags;
-  }
 
-  List<Option> getOptionListFromParsedOptionDescriptions(
-      List<ParsedOptionDescription> parsedOptionDescriptions) {
-    List<Option> options = new ArrayList<>();
-    for (ParsedOptionDescription parsedOption : parsedOptionDescriptions) {
-      options.add(
-          createOption(
-              parsedOption.getOptionDefinition(),
-              parsedOption.getCommandLineForm(),
-              parsedOption.getUnconvertedValue()));
+    CommandLineSection getCommandSection() {
+      return CommandLineSection.newBuilder()
+          .setSectionLabel("command")
+          .setChunkList(ChunkList.newBuilder().addChunk(commandName))
+          .build();
     }
-    return options;
-  }
 
-  private Option createOption(
-      OptionDefinition optionDefinition, String combinedForm, @Nullable String value) {
-    Option.Builder option = Option.newBuilder();
-    option.setCombinedForm(combinedForm);
-    option.setOptionName(optionDefinition.getOptionName());
-    if (value != null) {
-      option.setOptionValue(value);
+    /**
+     * Convert an array of tags to the equivalent proto-generated enum values.
+     *
+     * <p>The proto type is duplicate in order to not burden the OptionsParser with the proto
+     * dependency. A test guarantees that the two enum types are kept in sync with matching indices.
+     */
+    static List<OptionFilters.OptionEffectTag> getProtoEffectTags(OptionEffectTag[] tagArray) {
+      ArrayList<OptionFilters.OptionEffectTag> effectTags = new ArrayList<>(tagArray.length);
+      for (OptionEffectTag tag : tagArray) {
+        effectTags.add(OptionFilters.OptionEffectTag.forNumber(tag.getValue()));
+      }
+      return effectTags;
     }
-    option.addAllEffectTags(getProtoEffectTags(optionDefinition.getOptionEffectTags()));
-    option.addAllMetadataTags(getProtoMetadataTags(optionDefinition.getOptionMetadataTags()));
-    return option.build();
-  }
 
-  /**
-   * Returns the startup option section of the command line for the startup options as the server
-   * received them at its startup. Since not all client options get passed to the server as startup
-   * options, this might not represent the actual list of startup options as the user provided them.
-   */
-  CommandLineSection getActiveStartupOptions() {
-    return CommandLineSection.newBuilder()
-        .setSectionLabel("startup options")
-        .setOptionList(
-            OptionList.newBuilder()
-                .addAllOption(
-                    getOptionListFromParsedOptionDescriptions(
-                        activeStartupOptions.asCompleteListOfParsedOptions())))
-        .build();
-  }
+    /**
+     * Convert an array of tags to the equivalent proto-generated enum values.
+     *
+     * <p>The proto type is duplicate in order to not burden the OptionsParser with the proto
+     * dependency. A test guarantees that the two enum types are kept in sync with matching indices.
+     */
+    static List<OptionFilters.OptionMetadataTag> getProtoMetadataTags(
+        OptionMetadataTag[] tagArray) {
+      ArrayList<OptionFilters.OptionMetadataTag> metadataTags = new ArrayList<>(tagArray.length);
+      for (OptionMetadataTag tag : tagArray) {
+        metadataTags.add(OptionFilters.OptionMetadataTag.forNumber(tag.getValue()));
+      }
+      return metadataTags;
+    }
 
-  /**
-   * Returns the final part of the command line, containing whatever was left after obtaining the
-   * command and its options.
-   */
-  CommandLineSection getResidual() {
-    // Potential further split: how the residual, if any is accepted, gets interpreted depends on
-    // the command. For example, for build commands, we might want to consider separating out
-    // project files, as in runtime.commands.ProjectFileSupport. To properly report this, we would
-    // need to let the command customize how the residual is listed. This catch-all could serve
-    // as a default in this case.
-    return CommandLineSection.newBuilder()
-        .setSectionLabel("residual")
-        .setChunkList(ChunkList.newBuilder().addAllChunk(commandOptions.getResidue()))
-        .build();
+    List<Option> getOptionListFromParsedOptionDescriptions(
+        List<ParsedOptionDescription> parsedOptionDescriptions) {
+      List<Option> options = new ArrayList<>();
+      for (ParsedOptionDescription parsedOption : parsedOptionDescriptions) {
+        options.add(
+            createOption(
+                parsedOption.getOptionDefinition(),
+                parsedOption.getCommandLineForm(),
+                parsedOption.getUnconvertedValue()));
+      }
+      return options;
+    }
+
+    private Option createOption(
+        OptionDefinition optionDefinition, String combinedForm, @Nullable String value) {
+      Option.Builder option = Option.newBuilder();
+      option.setCombinedForm(combinedForm);
+      option.setOptionName(optionDefinition.getOptionName());
+      if (value != null) {
+        option.setOptionValue(value);
+      }
+      option.addAllEffectTags(getProtoEffectTags(optionDefinition.getOptionEffectTags()));
+      option.addAllMetadataTags(getProtoMetadataTags(optionDefinition.getOptionMetadataTags()));
+      return option.build();
+    }
+
+    /**
+     * Returns the startup option section of the command line for the startup options as the server
+     * received them at its startup. Since not all client options get passed to the server as
+     * startup options, this might not represent the actual list of startup options as the user
+     * provided them.
+     */
+    CommandLineSection getActiveStartupOptions() {
+      return CommandLineSection.newBuilder()
+          .setSectionLabel("startup options")
+          .setOptionList(
+              OptionList.newBuilder()
+                  .addAllOption(
+                      getOptionListFromParsedOptionDescriptions(
+                          activeStartupOptions.asCompleteListOfParsedOptions())))
+          .build();
+    }
+
+    /**
+     * Returns the final part of the command line, containing whatever was left after obtaining the
+     * command and its options.
+     */
+    CommandLineSection getResidual() {
+      // Potential further split: how the residual, if any is accepted, gets interpreted depends on
+      // the command. For example, for build commands, we might want to consider separating out
+      // project files, as in runtime.commands.ProjectFileSupport. To properly report this, we would
+      // need to let the command customize how the residual is listed. This catch-all could serve
+      // as a default in this case.
+      return CommandLineSection.newBuilder()
+          .setSectionLabel("residual")
+          .setChunkList(ChunkList.newBuilder().addAllChunk(commandOptions.getResidue()))
+          .build();
+    }
   }
 
   /** This reports a reassembled version of the command line as Bazel received it. */
-  public static class OriginalCommandLineEvent extends CommandLineEvent {
+  public static class OriginalCommandLineEvent extends BazelCommandLineEvent {
     public static final String LABEL = "original";
     private final Optional<List<Pair<String, String>>> originalStartupOptions;
 
@@ -266,7 +275,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
   }
 
   /** This reports the canonical form of the command line. */
-  public static class CanonicalCommandLineEvent extends CommandLineEvent {
+  public static class CanonicalCommandLineEvent extends BazelCommandLineEvent {
     public static final String LABEL = "canonical";
 
     public CanonicalCommandLineEvent(
@@ -364,6 +373,76 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
                   .addSections(getResidual())
                   .build())
           .build();
+    }
+  }
+
+  /**
+   * A command line that Bazel accepts via flag (yes, we see the irony there).
+   *
+   * <p>Permits Bazel to report command lines from the tool that invoked it, if such a tool exists.
+   */
+  public static final class ToolCommandLineEvent extends CommandLineEvent {
+    public static final String LABEL = "tool";
+    private final CommandLine commandLine;
+
+    ToolCommandLineEvent(CommandLine commandLine) {
+      this.commandLine = commandLine;
+    }
+
+    @Override
+    public BuildEvent asStreamProto(BuildEventConverters converters) {
+      return GenericBuildEvent.protoChaining(this).setStructuredCommandLine(commandLine).build();
+    }
+
+    /**
+     * The label of this command line event is always "tool," so that the BuildStartingEvent
+     * correctly tracks its children. The provided command line may have its own label that will be
+     * more descriptive.
+     */
+    @Override
+    public BuildEventId getEventId() {
+      return BuildEventId.structuredCommandlineId(LABEL);
+    }
+
+    /**
+     * The converter for the option value. We accept the command line both in base64 encoded proto
+     * form and as unstructured strings.
+     */
+    public static class Converter
+        implements com.google.devtools.common.options.Converter<ToolCommandLineEvent> {
+
+      @Override
+      public ToolCommandLineEvent convert(String input) throws OptionsParsingException {
+        if (input.isEmpty()) {
+          return new ToolCommandLineEvent(CommandLine.getDefaultInstance());
+        }
+
+        CommandLine commandLine;
+        try {
+          // Try decoding the input as a base64 encoded binary proto.
+          commandLine = CommandLine.parseFrom(BaseEncoding.base64().decode(input));
+        } catch (IllegalArgumentException e) {
+          // If the value was not recognized as a base64-encoded proto, store the flag value as a
+          // single string chunk.
+          commandLine =
+              CommandLine.newBuilder()
+                  .setCommandLineLabel(LABEL)
+                  .addSections(
+                      CommandLineSection.newBuilder()
+                          .setChunkList(ChunkList.newBuilder().addChunk(input)))
+                  .build();
+        } catch (InvalidProtocolBufferException e) {
+          throw new OptionsParsingException(
+              String.format("Malformed value of --experimental_tool_command_line: %s", input), e);
+        }
+        return new ToolCommandLineEvent(commandLine);
+      }
+
+      @Override
+      public String getTypeDescription() {
+        return "A command line, either as a simple string, or as a base64-encoded binary form of a"
+            + " CommandLine proto";
+      }
     }
   }
 }

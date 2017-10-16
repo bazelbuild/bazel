@@ -16,9 +16,16 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.StructuredCommandLineId;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
+import com.google.devtools.build.lib.runtime.CommandLineEvent.ToolCommandLineEvent;
+import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.ChunkList;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLine;
+import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLineSection;
+import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLineSection.SectionTypeCase;
+import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.OptionList;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
@@ -424,5 +431,87 @@ public class CommandLineEventTest {
     assertThat(line.getSections(3).getOptionList().getOption(0).getCombinedForm())
         .isEqualTo("--test_implicit_requirement=foo");
     assertThat(line.getSections(4).getChunkList().getChunkCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void testDefaultToolCommandLine() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.newOptionsParser(CommonCommandOptions.class);
+    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
+    // Test that the actual default value is an empty command line.
+    assertThat(event.asStreamProto(null).getStructuredCommandLine())
+        .isEqualTo(CommandLine.getDefaultInstance());
+  }
+
+  @Test
+  public void testLabelessParsingOfCompiledToolCommandLine() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.newOptionsParser(CommonCommandOptions.class);
+    CommandLine original =
+        CommandLine.newBuilder().addSections(CommandLineSection.getDefaultInstance()).build();
+    parser.parse(
+        "--experimental_tool_command_line=" + BaseEncoding.base64().encode(original.toByteArray()));
+
+    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
+    StructuredCommandLineId id = event.getEventId().asStreamProto().getStructuredCommandLine();
+    CommandLine line = event.asStreamProto(null).getStructuredCommandLine();
+
+    assertThat(id.getCommandLineLabel()).isEqualTo("tool");
+    assertThat(line.getSectionsCount()).isEqualTo(1);
+  }
+
+  @Test
+  public void testParsingOfCompiledToolCommandLine() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.newOptionsParser(CommonCommandOptions.class);
+    CommandLine original =
+        CommandLine.newBuilder()
+            .setCommandLineLabel("something meaningful")
+            .addSections(
+                CommandLineSection.newBuilder()
+                    .setSectionLabel("command")
+                    .setChunkList(ChunkList.newBuilder().addChunk("aCommand")))
+            .addSections(
+                CommandLineSection.newBuilder()
+                    .setSectionLabel("someArguments")
+                    .setChunkList(ChunkList.newBuilder().addChunk("arg1").addChunk("arg2")))
+            .addSections(
+                CommandLineSection.newBuilder()
+                    .setSectionLabel("someOptions")
+                    .setOptionList(OptionList.getDefaultInstance()))
+            .build();
+    parser.parse(
+        "--experimental_tool_command_line=" + BaseEncoding.base64().encode(original.toByteArray()));
+
+    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
+    StructuredCommandLineId id = event.getEventId().asStreamProto().getStructuredCommandLine();
+    CommandLine line = event.asStreamProto(null).getStructuredCommandLine();
+
+    assertThat(id.getCommandLineLabel()).isEqualTo("tool");
+    assertThat(line.getCommandLineLabel()).isEqualTo("something meaningful");
+    assertThat(line.getSectionsCount()).isEqualTo(3);
+    assertThat(line.getSections(0).getSectionTypeCase()).isEqualTo(SectionTypeCase.CHUNK_LIST);
+    assertThat(line.getSections(0).getChunkList().getChunkCount()).isEqualTo(1);
+    assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("aCommand");
+    assertThat(line.getSections(1).getSectionTypeCase()).isEqualTo(SectionTypeCase.CHUNK_LIST);
+    assertThat(line.getSections(1).getChunkList().getChunkCount()).isEqualTo(2);
+    assertThat(line.getSections(1).getChunkList().getChunk(0)).isEqualTo("arg1");
+    assertThat(line.getSections(1).getChunkList().getChunk(1)).isEqualTo("arg2");
+    assertThat(line.getSections(2).getSectionTypeCase()).isEqualTo(SectionTypeCase.OPTION_LIST);
+    assertThat(line.getSections(2).getOptionList().getOptionCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void testSimpleStringToolCommandLine() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.newOptionsParser(CommonCommandOptions.class);
+    parser.parse("--experimental_tool_command_line=The quick brown fox jumps over the lazy dog");
+
+    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
+    StructuredCommandLineId id = event.getEventId().asStreamProto().getStructuredCommandLine();
+    CommandLine line = event.asStreamProto(null).getStructuredCommandLine();
+
+    assertThat(id.getCommandLineLabel()).isEqualTo("tool");
+    assertThat(line.getCommandLineLabel()).isEqualTo("tool");
+    assertThat(line.getSectionsCount()).isEqualTo(1);
+    assertThat(line.getSections(0).getSectionTypeCase()).isEqualTo(SectionTypeCase.CHUNK_LIST);
+    assertThat(line.getSections(0).getChunkList().getChunk(0))
+        .isEqualTo("The quick brown fox jumps over the lazy dog");
   }
 }
