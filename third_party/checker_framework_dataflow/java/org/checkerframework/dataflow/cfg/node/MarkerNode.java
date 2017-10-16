@@ -4,27 +4,21 @@ package org.checkerframework.dataflow.cfg.node;
 import org.checkerframework.checker.nullness.qual.Nullable;
 */
 
-import org.checkerframework.dataflow.util.HashCodeUtils;
-
+import com.sun.source.tree.Tree;
 import java.util.Collection;
 import java.util.Collections;
-
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Types;
-
-import com.sun.source.tree.Tree;
+import org.checkerframework.dataflow.util.HashCodeUtils;
 
 /**
- * MarkerNodes are no-op Nodes used for debugging information.
- * They can hold a Tree and a message, which will be part of the
- * String representation of the MarkerNode.
+ * MarkerNodes are no-op Nodes used for debugging information. They can hold a Tree and a message,
+ * which will be part of the String representation of the MarkerNode.
  *
- * An example use case for MarkerNodes is representing switch
- * statements.
+ * <p>An example use case for MarkerNodes is representing switch statements.
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
 public class MarkerNode extends Node {
 
@@ -69,8 +63,7 @@ public class MarkerNode extends Node {
             return false;
         }
 
-        return getTree().equals(other.getTree())
-                && getMessage().equals(other.getMessage());
+        return getTree().equals(other.getTree()) && getMessage().equals(other.getMessage());
     }
 
     @Override

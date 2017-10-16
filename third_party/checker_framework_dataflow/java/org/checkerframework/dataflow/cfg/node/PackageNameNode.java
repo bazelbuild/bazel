@@ -4,37 +4,30 @@ package org.checkerframework.dataflow.cfg.node;
 import org.checkerframework.checker.nullness.qual.Nullable;
 */
 
-import org.checkerframework.dataflow.util.HashCodeUtils;
-
-import org.checkerframework.javacutil.InternalUtils;
-import org.checkerframework.javacutil.TreeUtils;
-
-import java.util.Collection;
-import java.util.Collections;
-
-import javax.lang.model.element.Element;
-
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Tree;
+import java.util.Collection;
+import java.util.Collections;
+import javax.lang.model.element.Element;
+import org.checkerframework.dataflow.util.HashCodeUtils;
+import org.checkerframework.javacutil.InternalUtils;
+import org.checkerframework.javacutil.TreeUtils;
 
 /**
- * A node representing a package name used in an expression such as a
- * constructor invocation
+ * A node representing a package name used in an expression such as a constructor invocation
  *
- * <p>
- * <em>package</em>.class.object(...)
- * <p>
- * parent.<em>package</em>.class.object(...)
+ * <p><em>package</em>.class.object(...)
+ *
+ * <p>parent.<em>package</em>.class.object(...)
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
 public class PackageNameNode extends Node {
 
     protected final Tree tree;
-    // The package named by this node
+    /** The package named by this node */
     protected final Element element;
 
     /** The parent name, if any. */
@@ -84,11 +77,9 @@ public class PackageNameNode extends Node {
         }
         PackageNameNode other = (PackageNameNode) obj;
         if (getParent() == null) {
-            return other.getParent() == null
-                    && getElement().equals(other.getElement());
+            return other.getParent() == null && getElement().equals(other.getElement());
         } else {
-            return getParent().equals(other.getParent())
-                    && getElement().equals(other.getElement());
+            return getParent().equals(other.getParent()) && getElement().equals(other.getElement());
         }
     }
 

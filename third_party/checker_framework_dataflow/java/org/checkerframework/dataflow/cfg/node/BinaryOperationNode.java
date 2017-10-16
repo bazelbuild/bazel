@@ -1,29 +1,29 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import com.sun.source.tree.Tree;
-import com.sun.source.tree.Tree.Kind;
+import com.sun.source.tree.BinaryTree;
 import java.util.Collection;
 import java.util.LinkedList;
 import org.checkerframework.javacutil.InternalUtils;
 
 /**
- * A node for the string concatenation compound assignment:
+ * A node for a binary expression.
+ *
+ * <p>For example:
  *
  * <pre>
- *   <em>variable</em> += <em>expression</em>
+ *   <em>lefOperandNode</em> <em>operator</em> <em>rightOperandNode</em>
  * </pre>
  *
- * @author Stefan Heule
- * @author Charlie Garrett
+ * @author charleszhuochen
  */
-public class StringConcatenateAssignmentNode extends Node {
-    protected Tree tree;
-    protected Node left;
-    protected Node right;
+public abstract class BinaryOperationNode extends Node {
 
-    public StringConcatenateAssignmentNode(Tree tree, Node left, Node right) {
+    protected final BinaryTree tree;
+    protected final Node left;
+    protected final Node right;
+
+    public BinaryOperationNode(BinaryTree tree, Node left, Node right) {
         super(InternalUtils.typeOf(tree));
-        assert tree.getKind() == Kind.PLUS_ASSIGNMENT;
         this.tree = tree;
         this.left = left;
         this.right = right;
@@ -38,13 +38,8 @@ public class StringConcatenateAssignmentNode extends Node {
     }
 
     @Override
-    public Tree getTree() {
+    public BinaryTree getTree() {
         return tree;
-    }
-
-    @Override
-    public <R, P> R accept(NodeVisitor<R, P> visitor, P p) {
-        return visitor.visitStringConcatenateAssignment(this, p);
     }
 
     @Override

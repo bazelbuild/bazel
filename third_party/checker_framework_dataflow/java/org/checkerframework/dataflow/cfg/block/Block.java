@@ -4,7 +4,6 @@ package org.checkerframework.dataflow.cfg.block;
  * Represents a basic block in a control flow graph.
  *
  * @author Stefan Heule
- *
  */
 public interface Block {
 
@@ -24,14 +23,9 @@ public interface Block {
         EXCEPTION_BLOCK,
     }
 
-    /**
-     * @return The type of this basic block.
-     */
+    /** @return the type of this basic block */
     BlockType getType();
 
-    /**
-     * @return The unique identifier of this block.
-     */
+    /** @return the unique identifier of this block */
     long getId();
-
 }

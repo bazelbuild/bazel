@@ -1,14 +1,11 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import java.util.Collection;
-import java.util.LinkedList;
-
-import javax.lang.model.type.TypeMirror;
-
-import org.checkerframework.dataflow.util.HashCodeUtils;
-
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import java.util.Collection;
+import java.util.LinkedList;
+import javax.lang.model.type.TypeMirror;
+import org.checkerframework.dataflow.util.HashCodeUtils;
 
 /**
  * A node for the {@link AssertionError} when an assertion fails.
@@ -19,7 +16,6 @@ import com.sun.source.tree.Tree.Kind;
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
 public class AssertionErrorNode extends Node {
 
@@ -66,8 +62,7 @@ public class AssertionErrorNode extends Node {
             return false;
         }
         AssertionErrorNode other = (AssertionErrorNode) obj;
-        return getCondition().equals(other.getCondition()) &&
-            getDetail().equals(other.getDetail());
+        return getCondition().equals(other.getCondition()) && getDetail().equals(other.getDetail());
     }
 
     @Override

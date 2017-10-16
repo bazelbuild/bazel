@@ -1,10 +1,9 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import java.util.Collection;
-import java.util.Collections;
-
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.Tree;
+import java.util.Collection;
+import java.util.Collections;
 
 /**
  * A node for a long literal. For example:
@@ -16,7 +15,6 @@ import com.sun.source.tree.Tree;
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
 public class LongLiteralNode extends ValueLiteralNode {
 

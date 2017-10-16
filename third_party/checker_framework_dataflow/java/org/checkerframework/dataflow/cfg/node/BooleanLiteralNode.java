@@ -1,10 +1,9 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import java.util.Collection;
-import java.util.Collections;
-
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.Tree;
+import java.util.Collection;
+import java.util.Collections;
 
 /**
  * A node for a boolean literal:
@@ -15,7 +14,6 @@ import com.sun.source.tree.Tree;
  * </pre>
  *
  * @author Stefan Heule
- *
  */
 public class BooleanLiteralNode extends ValueLiteralNode {
 

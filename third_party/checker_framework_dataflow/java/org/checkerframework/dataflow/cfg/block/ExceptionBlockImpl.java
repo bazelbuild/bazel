@@ -5,19 +5,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
 import javax.lang.model.type.TypeMirror;
-
 import org.checkerframework.dataflow.cfg.node.Node;
 
 /**
  * Base class of the {@link Block} implementation hierarchy.
  *
  * @author Stefan Heule
- *
  */
-public class ExceptionBlockImpl extends SingleSuccessorBlockImpl implements
-        ExceptionBlock {
+public class ExceptionBlockImpl extends SingleSuccessorBlockImpl implements ExceptionBlock {
 
     /** Set of exceptional successors. */
     protected Map<TypeMirror, Set<Block>> exceptionalSuccessors;
@@ -30,9 +26,7 @@ public class ExceptionBlockImpl extends SingleSuccessorBlockImpl implements
     /** The node of this block. */
     protected Node node;
 
-    /**
-     * Set the node.
-     */
+    /** Set the node. */
     public void setNode(Node c) {
         node = c;
         c.setBlock(this);
@@ -43,11 +37,8 @@ public class ExceptionBlockImpl extends SingleSuccessorBlockImpl implements
         return node;
     }
 
-    /**
-     * Add an exceptional successor.
-     */
-    public void addExceptionalSuccessor(BlockImpl b,
-            TypeMirror cause) {
+    /** Add an exceptional successor. */
+    public void addExceptionalSuccessor(BlockImpl b, TypeMirror cause) {
         if (exceptionalSuccessors == null) {
             exceptionalSuccessors = new HashMap<>();
         }
@@ -72,5 +63,4 @@ public class ExceptionBlockImpl extends SingleSuccessorBlockImpl implements
     public String toString() {
         return "ExceptionBlock(" + node + ")";
     }
-
 }

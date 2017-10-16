@@ -1,28 +1,21 @@
 package org.checkerframework.dataflow.cfg.node;
 
-
 /**
- * A default implementation of the node visitor interface. The class introduces
- * several 'summary' methods, that can be overridden to change the behavior of
- * several related visit methods at once. An example is the
- * {@code visitValueLiteral} method, that is called for every
- * {@link ValueLiteralNode}.
+ * A default implementation of the node visitor interface. The class introduces several 'summary'
+ * methods, that can be overridden to change the behavior of several related visit methods at once.
+ * An example is the {@code visitValueLiteral} method, that is called for every {@link
+ * ValueLiteralNode}.
  *
- * <p>
- *
- * This is useful to implement a visitor that performs the same operation (e.g.,
- * nothing) for most {@link Node}s and only has special behavior for a few.
+ * <p>This is useful to implement a visitor that performs the same operation (e.g., nothing) for
+ * most {@link Node}s and only has special behavior for a few.
  *
  * @author Stefan Heule
- *
- * @param <R>
- *            Return type of the visitor.
- * @param <P>
- *            Parameter type of the visitor.
+ * @param <R> return type of the visitor
+ * @param <P> parameter type of the visitor
  */
 public abstract class AbstractNodeVisitor<R, P> implements NodeVisitor<R, P> {
 
-    abstract public R visitNode(Node n, P p);
+    public abstract R visitNode(Node n, P p);
 
     public R visitValueLiteral(ValueLiteralNode n, P p) {
         return visitNode(n, p);
@@ -168,8 +161,7 @@ public abstract class AbstractNodeVisitor<R, P> implements NodeVisitor<R, P> {
 
     // Compound assignments
     @Override
-    public R visitStringConcatenateAssignment(
-           StringConcatenateAssignmentNode n, P p) {
+    public R visitStringConcatenateAssignment(StringConcatenateAssignmentNode n, P p) {
         return visitNode(n, p);
     }
 

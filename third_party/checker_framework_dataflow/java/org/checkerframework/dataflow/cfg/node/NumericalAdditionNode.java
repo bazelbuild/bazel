@@ -1,14 +1,8 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import java.util.Collection;
-import java.util.LinkedList;
-
-import org.checkerframework.dataflow.util.HashCodeUtils;
-
-import org.checkerframework.javacutil.InternalUtils;
-
-import com.sun.source.tree.Tree;
+import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.Tree.Kind;
+import org.checkerframework.dataflow.util.HashCodeUtils;
 
 /**
  * A node for the numerical addition:
@@ -18,34 +12,12 @@ import com.sun.source.tree.Tree.Kind;
  * </pre>
  *
  * @author Stefan Heule
- *
  */
-public class NumericalAdditionNode extends Node {
+public class NumericalAdditionNode extends BinaryOperationNode {
 
-    protected Tree tree;
-    protected Node left;
-    protected Node right;
-
-    public NumericalAdditionNode(Tree tree, Node left, Node right) {
-        super(InternalUtils.typeOf(tree));
-        assert tree.getKind() == Kind.PLUS
-                || tree.getKind() == Kind.PLUS_ASSIGNMENT;
-        this.tree = tree;
-        this.left = left;
-        this.right = right;
-    }
-
-    public Node getLeftOperand() {
-        return left;
-    }
-
-    public Node getRightOperand() {
-        return right;
-    }
-
-    @Override
-    public Tree getTree() {
-        return tree;
+    public NumericalAdditionNode(BinaryTree tree, Node left, Node right) {
+        super(tree, left, right);
+        assert tree.getKind() == Kind.PLUS || tree.getKind() == Kind.PLUS_ASSIGNMENT;
     }
 
     @Override
@@ -71,13 +43,5 @@ public class NumericalAdditionNode extends Node {
     @Override
     public int hashCode() {
         return HashCodeUtils.hash(getLeftOperand(), getRightOperand());
-    }
-
-    @Override
-    public Collection<Node> getOperands() {
-        LinkedList<Node> list = new LinkedList<Node>();
-        list.add(getLeftOperand());
-        list.add(getRightOperand());
-        return list;
     }
 }

@@ -1,7 +1,6 @@
 package org.checkerframework.dataflow.constantpropagation;
 
 import java.util.List;
-
 import org.checkerframework.dataflow.analysis.ConditionalTransferResult;
 import org.checkerframework.dataflow.analysis.RegularTransferResult;
 import org.checkerframework.dataflow.analysis.TransferFunction;
@@ -15,39 +14,36 @@ import org.checkerframework.dataflow.cfg.node.IntegerLiteralNode;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
-import com.sun.tools.javac.tree.JCTree.JCIdent;
-
-
 public class ConstantPropagationTransfer
-        extends
-        AbstractNodeVisitor<TransferResult<Constant, ConstantPropagationStore>, TransferInput<Constant, ConstantPropagationStore>>
+        extends AbstractNodeVisitor<
+                TransferResult<Constant, ConstantPropagationStore>,
+                TransferInput<Constant, ConstantPropagationStore>>
         implements TransferFunction<Constant, ConstantPropagationStore> {
 
     @Override
-    public ConstantPropagationStore initialStore(UnderlyingAST underlyingAST,
-            List<LocalVariableNode> parameters) {
+    public ConstantPropagationStore initialStore(
+            UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
         ConstantPropagationStore store = new ConstantPropagationStore();
         return store;
     }
 
     @Override
     public TransferResult<Constant, ConstantPropagationStore> visitLocalVariable(
-        LocalVariableNode node, TransferInput<Constant, ConstantPropagationStore> before) {
+            LocalVariableNode node, TransferInput<Constant, ConstantPropagationStore> before) {
         ConstantPropagationStore store = before.getRegularStore();
         Constant value = store.getInformation(node);
         return new RegularTransferResult<>(value, store);
     }
 
     @Override
-    public TransferResult<Constant, ConstantPropagationStore> visitNode(Node n,
-            TransferInput<Constant, ConstantPropagationStore> p) {
+    public TransferResult<Constant, ConstantPropagationStore> visitNode(
+            Node n, TransferInput<Constant, ConstantPropagationStore> p) {
         return new RegularTransferResult<>(null, p.getRegularStore());
     }
 
     @Override
     public TransferResult<Constant, ConstantPropagationStore> visitAssignment(
-            AssignmentNode n,
-            TransferInput<Constant, ConstantPropagationStore> pi) {
+            AssignmentNode n, TransferInput<Constant, ConstantPropagationStore> pi) {
         ConstantPropagationStore p = pi.getRegularStore();
         Node target = n.getTarget();
         Constant info = null;
@@ -61,8 +57,7 @@ public class ConstantPropagationTransfer
 
     @Override
     public TransferResult<Constant, ConstantPropagationStore> visitIntegerLiteral(
-            IntegerLiteralNode n,
-            TransferInput<Constant, ConstantPropagationStore> pi) {
+            IntegerLiteralNode n, TransferInput<Constant, ConstantPropagationStore> pi) {
         ConstantPropagationStore p = pi.getRegularStore();
         Constant c = new Constant(n.getValue());
         p.setInformation(n, c);
@@ -87,5 +82,4 @@ public class ConstantPropagationTransfer
             p.setInformation(b, val);
         }
     }
-
 }

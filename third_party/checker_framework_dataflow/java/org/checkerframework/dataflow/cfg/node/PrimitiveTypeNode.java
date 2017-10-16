@@ -1,24 +1,19 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import java.util.Collection;
-import java.util.Collections;
-
-import org.checkerframework.dataflow.util.HashCodeUtils;
-
-import org.checkerframework.javacutil.InternalUtils;
-
 import com.sun.source.tree.PrimitiveTypeTree;
 import com.sun.source.tree.Tree;
+import java.util.Collection;
+import java.util.Collections;
+import org.checkerframework.dataflow.util.HashCodeUtils;
+import org.checkerframework.javacutil.InternalUtils;
 
 /**
- * A node representing a primitive type used in an expression
- * such as a field access
+ * A node representing a primitive type used in an expression such as a field access
  *
- * <em>type</em> .class
+ * <p><em>type</em> .class
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
 public class PrimitiveTypeNode extends Node {
 
