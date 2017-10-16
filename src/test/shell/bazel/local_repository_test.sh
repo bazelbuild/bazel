@@ -961,7 +961,7 @@ local_repository(
 )
 EOF
 
-  bazel build @r/a//:bin &> $TEST_log && fail "expected build failure, but succeeded"
+  bazel build --noexperimental_skyframe_target_pattern_evaluator @r/a//:bin &> $TEST_log && fail "expected build failure, but succeeded"
   expect_log "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'"
 }
 

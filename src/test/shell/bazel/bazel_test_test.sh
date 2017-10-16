@@ -484,7 +484,8 @@ EOF
   chmod +x true.sh flaky.sh false.sh
 
   # We do not use sandboxing so we can trick to be deterministically flaky
-  bazel --nomaster_bazelrc test --spawn_strategy=standalone //:flaky &> $TEST_log \
+  # TODO(b/37617303): make test UI-independent
+  bazel --nomaster_bazelrc test --noexperimental_ui --noexperimental_skyframe_target_pattern_evaluator --spawn_strategy=standalone //:flaky &> $TEST_log \
       || fail "//:flaky should have passed with flaky support"
   [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
 
@@ -497,7 +498,8 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  bazel --nomaster_bazelrc test //:pass &> $TEST_log \
+  # TODO(b/37617303): make test UI-independent
+  bazel --nomaster_bazelrc test --noexperimental_ui --noexperimental_skyframe_target_pattern_evaluator //:pass &> $TEST_log \
       || fail "//:pass should have passed"
   expect_log_once "PASS: //:pass"
   expect_log_once PASSED
@@ -506,7 +508,8 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  bazel --nomaster_bazelrc test //:fail &> $TEST_log \
+  # TODO(b/37617303): make test UI-independent
+  bazel --nomaster_bazelrc test --noexperimental_ui --noexperimental_skyframe_target_pattern_evaluator //:fail &> $TEST_log \
       && fail "//:fail should have failed" \
       || true
   expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
