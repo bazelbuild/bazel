@@ -116,8 +116,11 @@ class ActionTempTest(test_base.TestBase):
 
   def _SpawnStrategies(self):
     """Returns the list of supported --spawn_strategy values."""
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '--color=no', '--curses=no', '--spawn_strategy=foo'])
+    # TODO(b/37617303): make test UI-independent
+    exit_code, _, stderr = self.RunBazel([
+        'build', '--color=no', '--curses=no', '--spawn_strategy=foo',
+        '--noexperimental_ui'
+    ])
     self.AssertExitCode(exit_code, 2, stderr)
     pattern = re.compile(
         r'^ERROR:.*is an invalid value for.*Valid values are: (.*)\.$')
@@ -141,8 +144,9 @@ class ActionTempTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
+    # TODO(b/37617303): make test UI-independent
     exit_code, _, stderr = self.RunBazel([
-        'build', '--verbose_failures',
+        'build', '--verbose_failures', '--noexperimental_ui',
         '--spawn_strategy=%s' % strategy, '//foo:genrule', '//foo:skylark'
     ])
     self.AssertExitCode(exit_code, 0, stderr)
