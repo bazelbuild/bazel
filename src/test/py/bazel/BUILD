@@ -25,6 +25,13 @@ py_library(
 )
 
 py_test(
+    name = "action_temp_test",
+    size = "medium",
+    srcs = ["action_temp_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "bazel_server_mode_test",
     size = "medium",
     srcs = ["bazel_server_mode_test.py"],

@@ -15,6 +15,7 @@
 
 import locale
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -139,7 +140,7 @@ class TestBase(unittest.TestCase):
     os.makedirs(abspath)
     return abspath
 
-  def ScratchFile(self, path, lines=None):
+  def ScratchFile(self, path, lines=None, executable=False):
     """Creates a file under the test's scratch directory.
 
     Args:
@@ -147,6 +148,7 @@ class TestBase(unittest.TestCase):
         e.g. "foo/bar/BUILD"
       lines: [string]; the contents of the file (newlines are added
         automatically)
+      executable: bool; whether to make the file executable
     Returns:
       The absolute path of the scratch file.
     Raises:
@@ -164,6 +166,8 @@ class TestBase(unittest.TestCase):
         for l in lines:
           f.write(l)
           f.write('\n')
+    if executable:
+      os.chmod(abspath, stat.S_IRWXU)
     return abspath
 
   def RunBazel(self, args, env_remove=None, env_add=None):

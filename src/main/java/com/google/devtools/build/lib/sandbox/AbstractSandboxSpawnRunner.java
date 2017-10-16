@@ -77,6 +77,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
   }
 
+  // TODO(laszlocsomor): refactor this class to make `actuallyExec`'s contract clearer: the caller
+  // of `actuallyExec` should not depend on `actuallyExec` calling `runSpawn` because it's easy to
+  // forget to do so in `actuallyExec`'s implementations.
   protected abstract SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
       throws ExecException, InterruptedException, IOException;
 
@@ -85,14 +88,15 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       SandboxedSpawn sandbox,
       SpawnExecutionPolicy policy,
       Path execRoot,
+      Path tmpDir,
       Duration timeout)
-          throws ExecException, IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     try {
       sandbox.createFileSystem();
       OutErr outErr = policy.getFileOutErr();
       policy.prefetchInputs();
 
-      SpawnResult result = run(sandbox, outErr, timeout);
+      SpawnResult result = run(sandbox, outErr, timeout, tmpDir);
 
       policy.lockOutputFiles();
       try {
@@ -126,7 +130,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
   }
 
-  private final SpawnResult run(SandboxedSpawn sandbox, OutErr outErr, Duration timeout)
+  private final SpawnResult run(
+      SandboxedSpawn sandbox, OutErr outErr, Duration timeout, Path tmpDir)
       throws IOException, InterruptedException {
     Command cmd = new Command(
         sandbox.getArguments().toArray(new String[0]),
@@ -136,6 +141,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     long startTime = System.currentTimeMillis();
     CommandResult result;
     try {
+      if (!tmpDir.exists() && !tmpDir.createDirectory()) {
+        throw new IOException(String.format("Could not create temp directory '%s'", tmpDir));
+      }
       result = cmd.execute(outErr.getOutputStream(), outErr.getErrorStream());
       if (Thread.currentThread().isInterrupted()) {
         throw new InterruptedException();
@@ -190,8 +198,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
    *
    * @throws IOException because we might resolve symlinks, which throws {@link IOException}.
    */
-  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
-      throws IOException {
+  protected ImmutableSet<Path> getWritableDirs(
+      Path sandboxExecRoot, Map<String, String> env, Path tmpDir) throws IOException {
     // We have to make the TEST_TMPDIR directory writable if it is specified.
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
     writablePaths.add(sandboxExecRoot);
@@ -207,6 +215,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         writablePaths.add(sandboxExecRoot.getRelative(testTmpDir));
       }
     }
+
+    writablePaths.add(tmpDir);
 
     FileSystem fileSystem = sandboxExecRoot.getFileSystem();
     for (String writablePath : sandboxOptions.sandboxWritablePath) {

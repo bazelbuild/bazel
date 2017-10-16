@@ -17,10 +17,19 @@
 # Test rules provided in Bazel not tested by examples
 #
 
+function die() {
+  echo >&2 "ERROR[$(basename "$0") $(date +%H:%M:%S.%N)] $@"
+  exit 1
+}
+
+if ! type rlocation &> /dev/null; then
+  die "the rlocation() Bash function is undefined"
+fi
+
 # Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
-  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
+  || die "integration_test_setup.sh not found!"
+
 
 function test_sh_test() {
   mkdir -p a
@@ -238,10 +247,13 @@ EOF
   export PATH="$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path"
   export TMPDIR="${new_tmpdir}"
   # batch mode to force reload of the environment
-  bazel --batch build //pkg:test || fail "Failed to build //pkg:test"
+  bazel --batch build //pkg:test --spawn_strategy=standalone \
+    || fail "Failed to build //pkg:test"
   assert_contains "PATH=$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path" \
     bazel-genfiles/pkg/test.out
-  assert_contains "TMPDIR=.*newfancytmpdir" \
+  assert_contains "TMPDIR=.*execroot.*tmp[0-9a-fA-F]\+$" \
+    bazel-genfiles/pkg/test.out
+  assert_not_contains "TMPDIR=.*newfancytmpdir" \
     bazel-genfiles/pkg/test.out
   if [ -n "${old_tmpdir}" ]
   then

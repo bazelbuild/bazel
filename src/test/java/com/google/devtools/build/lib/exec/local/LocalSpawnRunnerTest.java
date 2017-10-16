@@ -253,6 +253,7 @@ public class LocalSpawnRunnerTest {
 
     policy.timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
@@ -299,6 +300,7 @@ public class LocalSpawnRunnerTest {
 
     policy.timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any());
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
@@ -334,6 +336,7 @@ public class LocalSpawnRunnerTest {
         "product-name", LocalEnvProvider.UNMODIFIED);
 
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
@@ -371,6 +374,7 @@ public class LocalSpawnRunnerTest {
 
     assertThat(fs.getPath("/out").createDirectory()).isTrue();
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
@@ -394,6 +398,7 @@ public class LocalSpawnRunnerTest {
         "product-name", LocalEnvProvider.UNMODIFIED);
 
     outErr = new FileOutErr();
+    assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult reply = runner.exec(SIMPLE_SPAWN, policy);
     assertThat(reply.status()).isEqualTo(SpawnResult.Status.LOCAL_ACTION_NOT_ALLOWED);
     assertThat(reply.exitCode()).isEqualTo(-1);
@@ -433,6 +438,7 @@ public class LocalSpawnRunnerTest {
         "product-name", LocalEnvProvider.UNMODIFIED);
 
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     try {
       runner.exec(SIMPLE_SPAWN, policy);
       fail();
@@ -456,6 +462,7 @@ public class LocalSpawnRunnerTest {
 
     policy.timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     runner.exec(SIMPLE_SPAWN, policy);
     assertThat(policy.prefetchCalled).isTrue();
   }
@@ -476,6 +483,7 @@ public class LocalSpawnRunnerTest {
 
     Spawn spawn = new SpawnBuilder("/bin/echo", "Hi!")
         .withExecutionInfo(ExecutionRequirements.DISABLE_LOCAL_PREFETCH, "").build();
+    assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     runner.exec(spawn, policy);
     assertThat(policy.prefetchCalled).isFalse();
   }
@@ -494,10 +502,15 @@ public class LocalSpawnRunnerTest {
 
     policy.timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
 
     runner.exec(SIMPLE_SPAWN, policy);
     verify(localEnvProvider)
-        .rewriteLocalEnv(any(), eq(fs.getPath("/execroot")), eq("product-name"));
+        .rewriteLocalEnv(
+            any(),
+            eq(fs.getPath("/execroot")),
+            eq(fs.getPath("/execroot/tmp1")),
+            eq("product-name"));
   }
 
   @Test
@@ -521,6 +534,7 @@ public class LocalSpawnRunnerTest {
 
     policy.timeoutMillis = 321 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);

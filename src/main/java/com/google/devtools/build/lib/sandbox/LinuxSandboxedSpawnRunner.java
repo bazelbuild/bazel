@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -86,22 +87,27 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path linuxSandbox;
   private final Path inaccessibleHelperFile;
   private final Path inaccessibleHelperDir;
+  private final LocalEnvProvider localEnvProvider;
   private final int timeoutGraceSeconds;
+  private final String productName;
 
   LinuxSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
+      String productName,
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
       int timeoutGraceSeconds) {
     super(cmdEnv, sandboxBase);
     this.blazeDirs = cmdEnv.getDirectories();
     this.execRoot = cmdEnv.getExecRoot();
+    this.productName = productName;
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.linuxSandbox = getLinuxSandbox(cmdEnv);
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;
     this.timeoutGraceSeconds = timeoutGraceSeconds;
+    this.localEnvProvider = LocalEnvProvider.ADD_TEMP_POSIX;
   }
 
   @Override
@@ -111,7 +117,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
+    // Each sandboxed action runs in its own execroot, so we don't need to make the temp directory's
+    // name unique (like we have to with standalone execution strategy).
+    Path tmpDir = sandboxExecRoot.getRelative("tmp");
+
+    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), tmpDir);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
     Duration timeout = policy.getTimeout();
     List<String> arguments =
@@ -124,16 +134,19 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
             allowNetwork || SandboxHelpers.shouldAllowNetwork(spawn),
             spawn.getExecutionInfo().containsKey("requires-fakeroot"));
+    Map<String, String> environment =
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 
-    SandboxedSpawn sandbox = new SymlinkedSandboxedSpawn(
-        sandboxPath,
-        sandboxExecRoot,
-        arguments,
-        spawn.getEnvironment(),
-        SandboxHelpers.getInputFiles(spawn, policy, execRoot),
-        outputs,
-        writableDirs);
-    return runSpawn(spawn, sandbox, policy, execRoot, timeout);
+    SandboxedSpawn sandbox =
+        new SymlinkedSandboxedSpawn(
+            sandboxPath,
+            sandboxExecRoot,
+            arguments,
+            environment,
+            SandboxHelpers.getInputFiles(spawn, policy, execRoot),
+            outputs,
+            writableDirs);
+    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout);
   }
 
   private List<String> computeCommandLine(
@@ -214,10 +227,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
-      throws IOException {
+  protected ImmutableSet<Path> getWritableDirs(
+      Path sandboxExecRoot, Map<String, String> env, Path tmpDir) throws IOException {
     ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
-    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
+    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env, tmpDir));
 
     FileSystem fs = sandboxExecRoot.getFileSystem();
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());

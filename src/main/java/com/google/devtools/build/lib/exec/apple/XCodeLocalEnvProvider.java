@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec.apple;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -48,16 +49,19 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
 
   @Override
   public Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, String productName) throws IOException {
+      Map<String, String> env, Path execRoot, Path tmpDir, String productName) throws IOException {
     boolean containsXcodeVersion = env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME);
     boolean containsAppleSdkVersion =
         env.containsKey(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME);
-    if (!containsXcodeVersion && !containsAppleSdkVersion) {
-      return env;
-    }
 
     ImmutableMap.Builder<String, String> newEnvBuilder = ImmutableMap.builder();
-    newEnvBuilder.putAll(env);
+    newEnvBuilder.putAll(Maps.filterKeys(env, k -> !k.equals("TMPDIR")));
+    newEnvBuilder.put("TMPDIR", tmpDir.getPathString());
+
+    if (!containsXcodeVersion && !containsAppleSdkVersion) {
+      return newEnvBuilder.build();
+    }
+
     // Empty developer dir indicates to use the system default.
     // TODO(bazel-team): Bazel's view of the xcode version and developer dir should be explicitly
     // set for build hermeticity.
@@ -78,6 +82,7 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
           "SDKROOT",
           getSdkRoot(execRoot, developerDir, iosSdkVersion, appleSdkPlatform, productName));
     }
+
     return newEnvBuilder.build();
   }
 

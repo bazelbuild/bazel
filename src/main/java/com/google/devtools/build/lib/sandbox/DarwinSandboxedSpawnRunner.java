@@ -128,15 +128,17 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     HashSet<Path> writableDirs = new HashSet<>();
 
     addPathToSetIfExists(fs, writableDirs, "/dev");
-    addPathToSetIfExists(fs, writableDirs, System.getenv("TMPDIR"));
     addPathToSetIfExists(fs, writableDirs, "/tmp");
     addPathToSetIfExists(fs, writableDirs, "/private/tmp");
     addPathToSetIfExists(fs, writableDirs, "/private/var/tmp");
 
-    // On macOS, in addition to what is specified in $TMPDIR, two other temporary directories may be
-    // written to by processes. We have to get their location by calling "getconf".
+    // On macOS, processes may write to not only $TMPDIR but also to two other temporary
+    // directories. We have to get their location by calling "getconf".
     addPathToSetIfExists(fs, writableDirs, getConfStr("DARWIN_USER_TEMP_DIR"));
     addPathToSetIfExists(fs, writableDirs, getConfStr("DARWIN_USER_CACHE_DIR"));
+    // We don't add any value for $TMPDIR here, instead we compute its value later in
+    // {@link #actuallyExec} and add it as a writable directory in
+    // {@link AbstractSandboxSpawnRunner#getWritableDirs}.
 
     // ~/Library/Cache and ~/Library/Logs need to be writable (cf. issue #2231).
     Path homeDir = fs.getPath(System.getProperty("user.home"));
@@ -173,11 +175,16 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
+    // Each sandboxed action runs in its own execroot, so we don't need to make the temp directory's
+    // name unique (like we have to with standalone execution strategy).
+    Path tmpDir = sandboxExecRoot.getRelative("tmp");
+
     Map<String, String> spawnEnvironment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName);
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 
     final HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
-    ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, spawnEnvironment);
+    ImmutableSet<Path> extraWritableDirs =
+        getWritableDirs(sandboxExecRoot, spawnEnvironment, tmpDir);
     writableDirs.addAll(extraWritableDirs);
 
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
@@ -187,7 +194,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     List<String> arguments =
         computeCommandLine(spawn, timeout, sandboxConfigPath, timeoutGraceSeconds);
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName);
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 
     boolean allowNetworkForThisSpawn = allowNetwork || SandboxHelpers.shouldAllowNetwork(spawn);
     SandboxedSpawn sandbox = new SymlinkedSandboxedSpawn(
@@ -205,7 +212,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             sandboxConfigPath, writableDirs, getInaccessiblePaths(), allowNetworkForThisSpawn);
       }
     };
-    return runSpawn(spawn, sandbox, policy, execRoot, timeout);
+    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout);
   }
 
   private List<String> computeCommandLine(
