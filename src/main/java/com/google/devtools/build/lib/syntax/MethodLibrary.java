@@ -1517,11 +1517,11 @@ public class MethodLibrary {
   private static final BuiltinFunction items =
       new BuiltinFunction("items") {
         public MutableList<?> invoke(SkylarkDict<?, ?> self, Environment env) throws EvalException {
-          List<Object> list = Lists.newArrayListWithCapacity(self.size());
+          ArrayList<Object> list = Lists.newArrayListWithCapacity(self.size());
           for (Map.Entry<?, ?> entries : self.entrySet()) {
             list.add(Tuple.of(entries.getKey(), entries.getValue()));
           }
-          return MutableList.copyOf(env, list);
+          return MutableList.wrapUnsafe(env, list);
         }
       };
 
@@ -1539,11 +1539,11 @@ public class MethodLibrary {
     @SuppressWarnings("unchecked")
     public MutableList<?> invoke(SkylarkDict<?, ?> self,
         Environment env) throws EvalException {
-      List<Object> list = Lists.newArrayListWithCapacity(self.size());
+      ArrayList<Object> list = Lists.newArrayListWithCapacity(self.size());
       for (Map.Entry<?, ?> entries : self.entrySet()) {
         list.add(entries.getKey());
       }
-      return MutableList.copyOf(env, list);
+      return MutableList.wrapUnsafe(env, list);
     }
   };
 
@@ -1863,12 +1863,12 @@ public class MethodLibrary {
       new BuiltinFunction("enumerate") {
         public MutableList<?> invoke(SkylarkList<?> input, Environment env) throws EvalException {
           int count = 0;
-          List<SkylarkList<?>> result = Lists.newArrayList();
+          ArrayList<SkylarkList<?>> result = new ArrayList<>(input.size());
           for (Object obj : input) {
             result.add(Tuple.of(count, obj));
             count++;
           }
-          return MutableList.copyOf(env, result);
+          return MutableList.wrapUnsafe(env, result);
         }
       };
 
@@ -1946,23 +1946,19 @@ public class MethodLibrary {
           if (step == 0) {
             throw new EvalException(loc, "step cannot be 0");
           }
-          ArrayList<Integer> result = Lists.newArrayList();
+          ArrayList<Integer> result = new ArrayList<>(Math.abs((stop - start) / step));
           if (step > 0) {
-            int size = (stop - start) / step;
-            result.ensureCapacity(size);
             while (start < stop) {
               result.add(start);
               start += step;
             }
           } else {
-            int size = (start - stop) / step;
-            result.ensureCapacity(size);
             while (start > stop) {
               result.add(start);
               start += step;
             }
           }
-          return MutableList.copyOf(env, result);
+          return MutableList.wrapUnsafe(env, result);
         }
       };
 
@@ -2184,7 +2180,7 @@ public class MethodLibrary {
           for (int i = 0; i < args.size(); i++) {
             iterators[i] = EvalUtils.toIterable(args.get(i), loc, env).iterator();
           }
-          List<Tuple<?>> result = new ArrayList<>();
+          ArrayList<Tuple<?>> result = new ArrayList<>();
           boolean allHasNext;
           do {
             allHasNext = !args.isEmpty();
@@ -2200,7 +2196,7 @@ public class MethodLibrary {
               result.add(Tuple.copyOf(elem));
             }
           } while (allHasNext);
-          return MutableList.copyOf(env, result);
+          return MutableList.wrapUnsafe(env, result);
         }
       };
 
