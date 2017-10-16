@@ -16,14 +16,22 @@ package com.google.devtools.skylark.skylint;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.syntax.AssignmentStatement;
+import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ExpressionStatement;
+import com.google.devtools.build.lib.syntax.FunctionDefStatement;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
+import java.util.AbstractMap;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -32,20 +40,88 @@ import javax.annotation.Nullable;
 public final class DocstringUtils {
   private DocstringUtils() {}
 
+  /**
+   * Collect all docstrings in the AST and store them in a map: name -> docstring.
+   *
+   * <p>Note that local variables can't have docstrings.
+   *
+   * @param ast the AST to traverse
+   * @return a map from identifier names to their docstring; if there is a file-level docstring, its
+   *     key is "".
+   */
+  static ImmutableMap<String, StringLiteral> collectDocstringLiterals(BuildFileAST ast) {
+    ImmutableMap.Builder<String, StringLiteral> nameToDocstringLiteral = ImmutableMap.builder();
+    Statement previousStatement = null;
+    for (Statement currentStatement : ast.getStatements()) {
+      Entry<String, StringLiteral> entry = getNameAndDocstring(previousStatement, currentStatement);
+      if (entry != null) {
+        nameToDocstringLiteral.put(entry);
+      }
+      previousStatement = currentStatement;
+    }
+    return nameToDocstringLiteral.build();
+  }
+
+  @Nullable
+  private static Entry<String, StringLiteral> getNameAndDocstring(
+      @Nullable Statement previousStatement, Statement currentStatement) {
+    // function docstring:
+    if (currentStatement instanceof FunctionDefStatement) {
+      StringLiteral docstring =
+          extractDocstring(((FunctionDefStatement) currentStatement).getStatements());
+      if (docstring != null) {
+        return new AbstractMap.SimpleEntry<>(
+            ((FunctionDefStatement) currentStatement).getIdentifier().getName(), docstring);
+      }
+    } else {
+      StringLiteral docstring = getStringLiteral(currentStatement);
+      if (docstring != null) {
+        if (previousStatement == null) {
+          // file docstring:
+          return new SimpleEntry<>("", docstring);
+        } else {
+          // variable docstring:
+          String variable = getAssignedVariableName(previousStatement);
+          if (variable != null) {
+            return new SimpleEntry<>(variable, docstring);
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /** If the statement is an assignment to one variable, returns its name, or otherwise null. */
+  @Nullable
+  static String getAssignedVariableName(@Nullable Statement stmt) {
+    if (stmt instanceof AssignmentStatement) {
+      Expression lhs = ((AssignmentStatement) stmt).getLValue().getExpression();
+      if (lhs instanceof Identifier) {
+        return ((Identifier) lhs).getName();
+      }
+    }
+    return null;
+  }
+
+  /** If the statement is a string literal, returns it, or otherwise null. */
+  @Nullable
+  static StringLiteral getStringLiteral(Statement stmt) {
+    if (stmt instanceof ExpressionStatement) {
+      Expression expr = ((ExpressionStatement) stmt).getExpression();
+      if (expr instanceof StringLiteral) {
+        return (StringLiteral) expr;
+      }
+    }
+    return null;
+  }
+
   /** Takes a function body and returns the docstring literal, if present. */
   @Nullable
   static StringLiteral extractDocstring(List<Statement> statements) {
     if (statements.isEmpty()) {
       return null;
     }
-    Statement statement = statements.get(0);
-    if (statement instanceof ExpressionStatement) {
-      Expression expr = ((ExpressionStatement) statement).getExpression();
-      if (expr instanceof StringLiteral) {
-        return (StringLiteral) expr;
-      }
-    }
-    return null;
+    return getStringLiteral(statements.get(0));
   }
 
   /** Parses a docstring from a string literal and appends any new errors to the given list. */

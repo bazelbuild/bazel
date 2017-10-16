@@ -62,9 +62,19 @@ public class StatementWithoutEffectCheckerTest {
   }
 
   @Test
-  public void dontReportDocstrings() throws Exception {
-    Truth.assertThat(findIssues("\"\"\" docstring \"\"\"", "def f():", "  \"\"\" docstring \"\"\""))
+  public void testDocstrings() throws Exception {
+    Truth.assertThat(
+            findIssues(
+                "\"\"\" docstring \"\"\"",
+                "x = 0",
+                "'''A useless variable.'''",
+                "def f():",
+                "  \"\"\" docstring \"\"\""))
         .isEmpty();
+    Truth.assertThat(
+            findIssues("def f():", "  x = 0", "  '''Local variables can't have docstrings.'''")
+                .toString())
+        .contains("3:3-3:46: expression result not used [no-effect]");
   }
 
   @Test
