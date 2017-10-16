@@ -144,14 +144,12 @@ public class DocstringUtilsTest {
                 + "  Returns:\n"
                 + "    line 1\n"
                 + "\n"
-                + "    line 2\n"
-                + "\n"
-                + "  remaining description",
+                + "    line 2\n",
             2,
             errors);
     Truth.assertThat(info.summary).isEqualTo("summary");
     Truth.assertThat(info.returns).isEqualTo("line 1\n\nline 2");
-    Truth.assertThat(info.longDescription).isEqualTo("remaining description");
+    Truth.assertThat(info.longDescription).isEmpty();
     Truth.assertThat(errors).isEmpty();
   }
 
@@ -165,14 +163,12 @@ public class DocstringUtilsTest {
                 + "  Deprecated:\n"
                 + "    line 1\n"
                 + "\n"
-                + "    line 2\n"
-                + "\n"
-                + "  remaining description",
+                + "    line 2\n",
             2,
             errors);
     Truth.assertThat(info.summary).isEqualTo("summary");
     Truth.assertThat(info.deprecated).isEqualTo("line 1\n\nline 2");
-    Truth.assertThat(info.longDescription).isEqualTo("remaining description");
+    Truth.assertThat(info.longDescription).isEmpty();
     Truth.assertThat(errors).isEmpty();
   }
 
@@ -212,14 +208,12 @@ public class DocstringUtilsTest {
                 + "      line\n"
                 + "    param2 (mutable, unused): bar\n"
                 + "    *args: args\n"
-                + "    **kwargs: kwargs\n"
-                + "\n"
-                + "  description",
+                + "    **kwargs: kwargs\n",
             2,
             errors);
     Truth.assertThat(info.summary).isEqualTo("summary");
     Truth.assertThat(info.parameters).hasSize(4);
-    Truth.assertThat(info.longDescription).isEqualTo("description");
+    Truth.assertThat(info.longDescription).isEmpty();
     ParameterDoc firstParam = info.parameters.get(0);
     ParameterDoc secondParam = info.parameters.get(1);
     ParameterDoc thirdParam = info.parameters.get(2);
@@ -256,14 +250,12 @@ public class DocstringUtilsTest {
                 + "\n"
                 + "      line\n"
                 + "\n"
-                + "    param2: foo\n"
-                + "\n"
-                + "  description",
+                + "    param2: foo\n",
             2,
             errors);
     Truth.assertThat(info.summary).isEqualTo("summary");
     Truth.assertThat(info.parameters).hasSize(2);
-    Truth.assertThat(info.longDescription).isEqualTo("description");
+    Truth.assertThat(info.longDescription).isEmpty();
     ParameterDoc firstParam = info.parameters.get(0);
     ParameterDoc secondParam = info.parameters.get(1);
 
@@ -285,6 +277,9 @@ public class DocstringUtilsTest {
     Truth.assertThat(errors.toString()).contains("4: section should be preceded by a blank line");
     errors = new ArrayList<>();
     DocstringUtils.parseDocstring("summary\n" + "\n" + "  foo\n" + "  Returns:", 2, errors);
+    Truth.assertThat(errors.toString()).contains("4: section should be preceded by a blank line");
+    errors = new ArrayList<>();
+    DocstringUtils.parseDocstring("summary\n" + "\n" + "  foo\n" + "  Deprecated:", 2, errors);
     Truth.assertThat(errors.toString()).contains("4: section should be preceded by a blank line");
   }
 
@@ -317,10 +312,9 @@ public class DocstringUtilsTest {
             2,
             errors);
     Truth.assertThat(info.parameters).hasSize(2);
-    Truth.assertThat(errors.toString()).contains("6: parameters were already documented above");
-    Truth.assertThat(errors.toString()).contains("12: return value was already documented above");
-    Truth.assertThat(errors.toString())
-        .contains("18: deprecation message was already documented above");
+    Truth.assertThat(errors.toString()).contains("6: duplicate 'Args:' section");
+    Truth.assertThat(errors.toString()).contains("12: duplicate 'Returns:' section");
+    Truth.assertThat(errors.toString()).contains("18: duplicate 'Deprecated:' section");
   }
 
   @Test
@@ -330,18 +324,31 @@ public class DocstringUtilsTest {
         DocstringUtils.parseDocstring(
             "summary\n"
                 + "\n"
+                + "  Deprecated:\n"
+                + "    bar\n"
+                + "\n"
                 + "  Returns:\n"
                 + "    foo\n"
                 + "\n"
                 + "  Args:\n"
                 + "    param1: foo\n"
                 + "\n"
-                + "  description",
+                + "  description\n",
             2,
             errors);
+    Truth.assertThat(info.summary).isEqualTo("summary");
     Truth.assertThat(info.parameters).hasSize(1);
+    Truth.assertThat(info.returns).isEqualTo("foo");
+    Truth.assertThat(info.deprecated).isEqualTo("bar");
+    Truth.assertThat(info.longDescription).isEqualTo("description");
     Truth.assertThat(errors.toString())
-        .contains("6: parameters should be documented before the return value");
+        .contains("9: 'Args:' section should go before the 'Returns:' section");
+    Truth.assertThat(errors.toString())
+        .contains("9: 'Args:' section should go before the 'Deprecated:' section");
+    Truth.assertThat(errors.toString())
+        .contains("6: 'Returns:' section should go before the 'Deprecated:' section");
+    Truth.assertThat(errors.toString())
+        .contains(("12: description body should go before the special sections"));
   }
 
   @Test

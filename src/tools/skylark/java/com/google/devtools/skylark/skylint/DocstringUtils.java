@@ -154,6 +154,8 @@ public final class DocstringUtils {
     private int baselineIndentation = 0;
     /** Whether there was a blank line before the current line. */
     private boolean blankLineBefore = false;
+    /** Whether we've seen a special section, e.g. 'Args:', already. */
+    private boolean specialSectionsStarted = false;
     /** The complete current line in the docstring, including all indentation. */
     private String originalLine = "";
     /**
@@ -248,36 +250,30 @@ public final class DocstringUtils {
       while (!eof()) {
         switch (line) {
           case "Args:":
-            if (!blankLineBefore) {
-              error("section should be preceded by a blank line");
-            }
-            if (!params.isEmpty()) {
-              error("parameters were already documented above");
-            }
+            checkSectionStart(!params.isEmpty());
             if (!returns.isEmpty()) {
-              error("parameters should be documented before the return value");
+              error("'Args:' section should go before the 'Returns:' section");
+            }
+            if (!deprecated.isEmpty()) {
+              error("'Args:' section should go before the 'Deprecated:' section");
             }
             params.addAll(parseParameters());
             break;
           case "Returns:":
-            if (!blankLineBefore) {
-              error("section should be preceded by a blank line");
-            }
-            if (!returns.isEmpty()) {
-              error("return value was already documented above");
+            checkSectionStart(!returns.isEmpty());
+            if (!deprecated.isEmpty()) {
+              error("'Returns:' section should go before the 'Deprecated:' section");
             }
             returns = parseSectionAfterHeading();
             break;
           case "Deprecated:":
-            if (!blankLineBefore) {
-              error("section should be preceded by a blank line");
-            }
-            if (!deprecated.isEmpty()) {
-              error("deprecation message was already documented above");
-            }
+            checkSectionStart(!deprecated.isEmpty());
             deprecated = parseSectionAfterHeading();
             break;
           default:
+            if (specialSectionsStarted) {
+              error("description body should go before the special sections");
+            }
             if (deprecated.isEmpty() && nonStandardDeprecation.isEmpty()) {
               nonStandardDeprecation = checkForNonStandardDeprecation(line);
             }
@@ -290,6 +286,16 @@ public final class DocstringUtils {
       }
       return new DocstringInfo(
           summary, params, returns, deprecated, String.join("\n", longDescriptionLines));
+    }
+
+    private void checkSectionStart(boolean duplicateSection) {
+      specialSectionsStarted = true;
+      if (!blankLineBefore) {
+        error("section should be preceded by a blank line");
+      }
+      if (duplicateSection) {
+        error("duplicate '" + line + "' section");
+      }
     }
 
     private String checkForNonStandardDeprecation(String line) {
