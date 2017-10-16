@@ -618,6 +618,7 @@ function test_visibility_failure() {
 
 function test_loading_failure_keep_going() {
   (bazel build --build_event_text_file=$TEST_log \
+         --noexperimental_skyframe_target_pattern_evaluator \
          -k //does/not/exist && fail "build failure expected") || true
   expect_log_once 'aborted'
   expect_log_once 'reason: LOADING_FAILURE'
