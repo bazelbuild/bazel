@@ -76,7 +76,7 @@ def xcrun_env(ctx):
 
   if hasattr(apple_common, "apple_host_system_env"):
     xcode_config =  ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
-    return (apple_common.target_apple_env(xcode_config) +
+    return (apple_common.target_apple_env(xcode_config, platform) +
             apple_common.apple_host_system_env(xcode_config))
   else:
     return (ctx.fragments.apple.target_apple_env(platform) +
