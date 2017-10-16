@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +27,8 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link LocationExpander}. */
 @RunWith(JUnit4.class)
 public class LocationExpanderTest {
-  private static final class Capture implements RuleErrorConsumer {
+  private static final class Capture extends AbstractRuleErrorConsumer
+      implements RuleErrorConsumer {
     private final List<String> warnsOrErrors = new ArrayList<>();
 
     @Override
@@ -51,28 +52,8 @@ public class LocationExpanderTest {
     }
 
     @Override
-    public RuleErrorException throwWithRuleError(String message) throws RuleErrorException {
-      ruleError(message);
-      throw new RuleErrorException();
-    }
-
-    @Override
-    public RuleErrorException throwWithAttributeError(String attrName, String message)
-        throws RuleErrorException {
-      attributeError(attrName, message);
-      throw new RuleErrorException();
-    }
-
-    @Override
     public boolean hasErrors() {
       return !warnsOrErrors.isEmpty();
-    }
-
-    @Override
-    public void assertNoErrors() throws RuleErrorException {
-      if (hasErrors()) {
-        throw new RuleErrorException();
-      }
     }
   }
 

@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
@@ -1849,10 +1850,9 @@ public final class RuleContext extends TargetContext
     }
   }
 
-  /**
-   * Helper class for reporting errors and warnings.
-   */
-  public static final class ErrorReporter implements RuleErrorConsumer {
+  /** Helper class for reporting errors and warnings. */
+  public static final class ErrorReporter extends AbstractRuleErrorConsumer
+      implements RuleErrorConsumer {
     private final AnalysisEnvironment env;
     private final Rule rule;
     private final String ruleClassNameForLogging;
@@ -1882,28 +1882,8 @@ public final class RuleContext extends TargetContext
     }
 
     @Override
-    public RuleErrorException throwWithRuleError(String message) throws RuleErrorException {
-      ruleError(message);
-      throw new RuleErrorException();
-    }
-
-    @Override
-    public RuleErrorException throwWithAttributeError(String attrName, String message)
-        throws RuleErrorException {
-      attributeError(attrName, message);
-      throw new RuleErrorException();
-    }
-
-    @Override
     public boolean hasErrors() {
       return env.hasErrors();
-    }
-
-    @Override
-    public void assertNoErrors() throws RuleErrorException {
-      if (hasErrors()) {
-        throw new RuleErrorException();
-      }
     }
 
     public void reportWarning(Location location, String message) {
