@@ -71,25 +71,19 @@ def CreatePythonPathEntries(python_imports, module_space):
 
 # Find the runfiles tree
 def FindModuleSpace():
-  # Follow symlinks, looking for my module space
   stub_filename = os.path.abspath(sys.argv[0])
-  while True:
-    # Found it?
-    module_space = stub_filename + '.runfiles'
-    if os.path.isdir(module_space):
-      break
+  module_space = stub_filename + '.runfiles'
+  if os.path.isdir(module_space):
+    return module_space
 
-    runfiles_pattern = "(.*\.runfiles)/.*"
-    if IsWindows():
-      runfiles_pattern = "(.*\.runfiles)\\.*"
-    matchobj = re.match(runfiles_pattern, os.path.abspath(sys.argv[0]))
-    if matchobj:
-      module_space = matchobj.group(1)
-      break
+  runfiles_pattern = "(.*\.runfiles)/.*"
+  if IsWindows():
+    runfiles_pattern = "(.*\.runfiles)\\.*"
+  matchobj = re.match(runfiles_pattern, os.path.abspath(sys.argv[0]))
+  if matchobj:
+    return matchobj.group(1)
 
-    raise AssertionError('Cannot find .runfiles directory for %s' %
-                         sys.argv[0])
-  return module_space
+  raise AssertionError('Cannot find .runfiles directory for %s' % sys.argv[0])
 
 # Create the runfiles tree by extracting the zip file
 def CreateModuleSpace():
