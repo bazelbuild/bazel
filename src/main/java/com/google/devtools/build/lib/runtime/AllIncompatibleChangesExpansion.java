@@ -97,7 +97,7 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
    * as this constitutes an internal error in the declaration of the option.
    */
   private static void validateIncompatibleChange(OptionDefinition optionDefinition) {
-    String prefix = "Incompatible change option '--" + optionDefinition.getOptionName() + "' ";
+    String prefix = String.format("Incompatible change %s ", optionDefinition);
 
     // To avoid ambiguity, and the suggestion of using .isEmpty().
     String defaultString = "";

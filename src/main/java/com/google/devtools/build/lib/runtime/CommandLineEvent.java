@@ -248,7 +248,8 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
               .stream()
               .filter(
                   parsedOptionDescription ->
-                      parsedOptionDescription.getPriority() == OptionPriority.COMMAND_LINE)
+                      parsedOptionDescription.getPriority().getPriorityCategory()
+                          == OptionPriority.PriorityCategory.COMMAND_LINE)
               .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")

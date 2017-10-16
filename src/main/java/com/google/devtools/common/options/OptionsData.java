@@ -61,10 +61,9 @@ final class OptionsData extends IsolatedOptionsData {
               context.getUnparsedValue() != null ? context.getUnparsedValue() : "(null)";
           String name = context.getOptionDefinition().getOptionName();
           throw new OptionsParsingException(
-              "Error expanding option '"
-                  + name
-                  + "': no expansions defined for value: "
-                  + valueString,
+              String.format(
+                  "Error expanding %s: no expansions defined for value: %s",
+                  context.getOptionDefinition(), valueString),
               name);
         }
         return result;
@@ -159,9 +158,7 @@ final class OptionsData extends IsolatedOptionsData {
           staticExpansion =
               instance.getExpansion(new ExpansionContext(isolatedData, optionDefinition, null));
           Preconditions.checkState(
-              staticExpansion != null,
-              "Error calling expansion function for option: %s",
-              optionDefinition.getOptionName());
+              staticExpansion != null, "Error calling expansion function for %s", optionDefinition);
           expansionDataBuilder.put(optionDefinition, new ExpansionData(staticExpansion));
         } catch (ExpansionNeedsValueException e) {
           // This expansion function needs data that isn't available yet. Save the instance and call

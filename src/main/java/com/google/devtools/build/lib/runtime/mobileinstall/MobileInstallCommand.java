@@ -42,7 +42,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -301,12 +301,12 @@ public class MobileInstallCommand implements BlazeCommand {
                     ? "mobile_install_incremental" + INTERNAL_SUFFIX
                     : "mobile_install_full" + INTERNAL_SUFFIX;
         optionsParser.parse(
-            OptionPriority.COMMAND_LINE,
+            PriorityCategory.COMMAND_LINE,
             "Options required by the mobile-install command",
             ImmutableList.of("--output_groups=" + outputGroup));
       } else {
         optionsParser.parse(
-            OptionPriority.COMMAND_LINE,
+            PriorityCategory.COMMAND_LINE,
             "Options required by the skylark implementation of mobile-install command",
             ImmutableList.of(
                 "--aspects=" + options.mobileInstallAspect + "%" + options.mode.getAspectName(),

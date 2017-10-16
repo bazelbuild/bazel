@@ -76,7 +76,7 @@ import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
@@ -874,7 +874,7 @@ public final class BlazeRuntime {
     // First parse the command line so that we get the option_sources argument
     OptionsParser parser = OptionsParser.newOptionsParser(optionClasses);
     parser.setAllowResidue(false);
-    parser.parse(OptionPriority.COMMAND_LINE, null, args);
+    parser.parse(PriorityCategory.COMMAND_LINE, null, args);
     Map<String, String> optionSources =
         parser.getOptions(BlazeServerStartupOptions.class).optionSources;
     Function<OptionDefinition, String> sourceFunction =
@@ -888,7 +888,7 @@ public final class BlazeRuntime {
     // Then parse the command line again, this time with the correct option sources
     parser = OptionsParser.newOptionsParser(optionClasses);
     parser.setAllowResidue(false);
-    parser.parseWithSourceFunction(OptionPriority.COMMAND_LINE, sourceFunction, args);
+    parser.parseWithSourceFunction(PriorityCategory.COMMAND_LINE, sourceFunction, args);
     return parser;
   }
 

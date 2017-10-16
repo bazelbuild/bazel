@@ -51,7 +51,7 @@ public class Options<O extends OptionsBase> {
   public static <O extends OptionsBase> Options<O> parse(Class<O> optionsClass, String... args)
       throws OptionsParsingException {
     OptionsParser parser = OptionsParser.newOptionsParser(optionsClass);
-    parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList(args));
+    parser.parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, Arrays.asList(args));
     List<String> remainingArgs = parser.getResidue();
     return new Options<>(parser.getOptions(optionsClass), remainingArgs.toArray(new String[0]));
   }

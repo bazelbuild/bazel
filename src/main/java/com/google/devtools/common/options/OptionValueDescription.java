@@ -18,9 +18,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 /**
@@ -168,40 +169,34 @@ public abstract class OptionValueDescription {
             if (!implicitDependent.equals(optionThatDependsOnEffectiveValue)) {
               warnings.add(
                   String.format(
-                      "Option '%s' is implicitly defined by both option '%s' and option '%s'",
-                      optionDefinition.getOptionName(),
-                      optionThatDependsOnEffectiveValue.getOptionName(),
-                      implicitDependent.getOptionName()));
+                      "%s is implicitly defined by both %s and %s",
+                      optionDefinition, optionThatDependsOnEffectiveValue, implicitDependent));
             }
           } else if ((implicitDependent != null)
               && parsedOption.getPriority().equals(effectiveOptionInstance.getPriority())) {
             warnings.add(
                 String.format(
-                    "Option '%s' is implicitly defined by option '%s'; the implicitly set value "
+                    "%s is implicitly defined by %s; the implicitly set value "
                         + "overrides the previous one",
-                    optionDefinition.getOptionName(), implicitDependent.getOptionName()));
+                    optionDefinition, implicitDependent));
           } else if (optionThatDependsOnEffectiveValue != null) {
             warnings.add(
                 String.format(
-                    "A new value for option '%s' overrides a previous implicit setting of that "
-                        + "option by option '%s'",
-                    optionDefinition.getOptionName(),
-                    optionThatDependsOnEffectiveValue.getOptionName()));
-          } else if ((parsedOption.getPriority() == effectiveOptionInstance.getPriority())
+                    "A new value for %s overrides a previous implicit setting of that "
+                        + "option by %s",
+                    optionDefinition, optionThatDependsOnEffectiveValue));
+          } else if ((parsedOption.getPriority().equals(effectiveOptionInstance.getPriority()))
               && ((optionThatExpandedToEffectiveValue == null) && (expandedFrom != null))) {
             // Create a warning if an expansion option overrides an explicit option:
             warnings.add(
                 String.format(
-                    "The option '%s' was expanded and now overrides a previous explicitly "
-                        + "specified option '%s'",
-                    expandedFrom.getOptionName(), optionDefinition.getOptionName()));
+                    "%s was expanded and now overrides a previous explicitly specified %s",
+                    expandedFrom, optionDefinition));
           } else if ((optionThatExpandedToEffectiveValue != null) && (expandedFrom != null)) {
             warnings.add(
                 String.format(
-                    "The option '%s' was expanded to from both options '%s' and '%s'",
-                    optionDefinition.getOptionName(),
-                    optionThatExpandedToEffectiveValue.getOptionName(),
-                    expandedFrom.getOptionName()));
+                    "%s was expanded to from both %s and %s",
+                    optionDefinition, optionThatExpandedToEffectiveValue, expandedFrom));
           }
         }
 
@@ -247,17 +242,15 @@ public abstract class OptionValueDescription {
     @Override
     public List<Object> getValue() {
       // Sort the results by option priority and return them in a new list. The generic type of
-      // the list is not known at runtime, so we can't use it here. It was already checked in
-      // the constructor, so this is type-safe.
-      List<Object> result = new ArrayList<>();
-      for (OptionPriority priority : OptionPriority.values()) {
-        // If there is no mapping for this key, this check avoids object creation (because
-        // ListMultimap has to return a new object on get) and also an unnecessary addAll call.
-        if (optionValues.containsKey(priority)) {
-          result.addAll(optionValues.get(priority));
-        }
-      }
-      return result;
+      // the list is not known at runtime, so we can't use it here.
+      return optionValues
+          .asMap()
+          .entrySet()
+          .stream()
+          .sorted(Comparator.comparing(Entry::getKey))
+          .map(Entry::getValue)
+          .flatMap(Collection::stream)
+          .collect(Collectors.toList());
     }
 
     @Override

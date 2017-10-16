@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ProjectFile;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
@@ -72,7 +72,7 @@ public final class ProjectFileSupport {
       eventHandler.handle(Event.info("Using " + projectFile.getName()));
 
       optionsParser.parse(
-          OptionPriority.RC_FILE, projectFile.getName(), projectFile.getCommandLineFor(command));
+          PriorityCategory.RC_FILE, projectFile.getName(), projectFile.getCommandLineFor(command));
       eventHandler.post(new GotProjectFileEvent(projectFile.getName()));
     }
   }

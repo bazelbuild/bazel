@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
@@ -219,8 +219,8 @@ public class BlazeCommandDispatcher {
 
     // Explicit command-line options:
     List<String> cmdLineAfterCommand = args.subList(1, args.size());
-    optionsParser.parseWithSourceFunction(OptionPriority.COMMAND_LINE,
-        commandOptionSourceFunction, cmdLineAfterCommand);
+    optionsParser.parseWithSourceFunction(
+        PriorityCategory.COMMAND_LINE, commandOptionSourceFunction, cmdLineAfterCommand);
 
     // Command-specific options from .blazerc passed in via --default_override
     // and --rc_source. A no-op if none are provided.
@@ -818,7 +818,7 @@ public class BlazeCommandDispatcher {
       rcfileNotes.add(source + ":\n"
           + "  " + inherited + "'" + commandToParse + "' options: "
           + Joiner.on(' ').join(rcfileOptions));
-      optionsParser.parse(OptionPriority.RC_FILE, rcfile, rcfileOptions);
+      optionsParser.parse(PriorityCategory.RC_FILE, rcfile, rcfileOptions);
     }
   }
 

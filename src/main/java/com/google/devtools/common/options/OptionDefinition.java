@@ -303,6 +303,11 @@ public class OptionDefinition {
     return field.hashCode();
   }
 
+  @Override
+  public String toString() {
+    return String.format("option '--%s'", getOptionName());
+  }
+
   static final Comparator<OptionDefinition> BY_OPTION_NAME =
       Comparator.comparing(OptionDefinition::getOptionName);
 

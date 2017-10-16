@@ -56,9 +56,10 @@ import javax.annotation.Nullable;
  * <p>FooOptions and BarOptions would be options specification classes, derived from OptionsBase,
  * that contain fields annotated with @Option(...).
  *
- * <p>Alternatively, rather than calling {@link #parseAndExitUponError(OptionPriority, String,
- * String[])}, client code may call {@link #parse(OptionPriority,String,List)}, and handle parser
- * exceptions usage messages themselves.
+ * <p>Alternatively, rather than calling {@link
+ * #parseAndExitUponError(OptionPriority.PriorityCategory, String, String[])}, client code may call
+ * {@link #parse(OptionPriority.PriorityCategory,String,List)}, and handle parser exceptions usage
+ * messages themselves.
  *
  * <p>This options parsing implementation has (at least) one design flaw. It allows both '--foo=baz'
  * and '--foo baz' for all options except void, boolean and tristate options. For these, the 'baz'
@@ -216,15 +217,16 @@ public class OptionsParser implements OptionsProvider {
   }
 
   public void parseAndExitUponError(String[] args) {
-    parseAndExitUponError(OptionPriority.COMMAND_LINE, "unknown", args);
+    parseAndExitUponError(OptionPriority.PriorityCategory.COMMAND_LINE, "unknown", args);
   }
 
   /**
-   * A convenience function for use in main methods. Parses the command line
-   * parameters, and exits upon error. Also, prints out the usage message
-   * if "--help" appears anywhere within {@code args}.
+   * A convenience function for use in main methods. Parses the command line parameters, and exits
+   * upon error. Also, prints out the usage message if "--help" appears anywhere within {@code
+   * args}.
    */
-  public void parseAndExitUponError(OptionPriority priority, String source, String[] args) {
+  public void parseAndExitUponError(
+      OptionPriority.PriorityCategory priority, String source, String[] args) {
     for (String arg : args) {
       if (arg.equals("--help")) {
         System.out.println(
@@ -538,9 +540,9 @@ public class OptionsParser implements OptionsProvider {
    * @return The {@link OptionDescription} for the option, or null if there is no option by the
    *     given name.
    */
-  OptionDescription getOptionDescription(String name, OptionPriority priority, String source)
+  OptionDescription getOptionDescription(String name, OptionInstanceOrigin origin)
       throws OptionsParsingException {
-    return impl.getOptionDescription(name, priority, source);
+    return impl.getOptionDescription(name, origin);
   }
 
   /**
@@ -558,9 +560,9 @@ public class OptionsParser implements OptionsProvider {
 
   /**
    * Returns a description of the option value set by the last previous call to {@link
-   * #parse(OptionPriority, String, List)} that successfully set the given option. If the option is
-   * of type {@link List}, the description will correspond to any one of the calls, but not
-   * necessarily the last.
+   * #parse(OptionPriority.PriorityCategory, String, List)} that successfully set the given option.
+   * If the option is of type {@link List}, the description will correspond to any one of the calls,
+   * but not necessarily the last.
    *
    * @return The {@link com.google.devtools.common.options.OptionValueDescription} for the option,
    *     or null if the value has not been set.
@@ -571,53 +573,83 @@ public class OptionsParser implements OptionsProvider {
   }
 
   /**
-   * A convenience method, equivalent to
-   * {@code parse(OptionPriority.COMMAND_LINE, null, Arrays.asList(args))}.
+   * A convenience method, equivalent to {@code parse(PriorityCategory.COMMAND_LINE, null,
+   * Arrays.asList(args))}.
    */
   public void parse(String... args) throws OptionsParsingException {
-    parse(OptionPriority.COMMAND_LINE, null, Arrays.asList(args));
+    parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, Arrays.asList(args));
   }
 
   /**
-   * A convenience method, equivalent to
-   * {@code parse(OptionPriority.COMMAND_LINE, null, args)}.
+   * A convenience method, equivalent to {@code parse(PriorityCategory.COMMAND_LINE, null, args)}.
    */
   public void parse(List<String> args) throws OptionsParsingException {
-    parse(OptionPriority.COMMAND_LINE, null, args);
+    parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, args);
   }
 
   /**
-   * Parses {@code args}, using the classes registered with this parser.
-   * {@link #getOptions(Class)} and {@link #getResidue()} return the results.
-   * May be called multiple times; later options override existing ones if they
-   * have equal or higher priority. The source of options is a free-form string
-   * that can be used for debugging. Strings that cannot be parsed as options
-   * accumulates as residue, if this parser allows it.
+   * Parses {@code args}, using the classes registered with this parser, at the given priority.
    *
-   * @see OptionPriority
+   * <p>May be called multiple times; later options override existing ones if they have equal or
+   * higher priority. Strings that cannot be parsed as options are accumulated as residue, if this
+   * parser allows it.
+   *
+   * <p>{@link #getOptions(Class)} and {@link #getResidue()} will return the results.
+   *
+   * @param priority the priority at which to parse these options. Within this priority category,
+   *     each option will be given an index to track its position. If parse() has already been
+   *     called at this priority, the indexing will continue where it left off, to keep ordering.
+   * @param source the source to track for each option parsed.
+   * @param args the arg list to parse. Each element might be an option, a value linked to an
+   *     option, or residue.
    */
-  public void parse(OptionPriority priority, String source,
-      List<String> args) throws OptionsParsingException {
+  public void parse(OptionPriority.PriorityCategory priority, String source, List<String> args)
+      throws OptionsParsingException {
     parseWithSourceFunction(priority, o -> source, args);
   }
 
   /**
-   * Parses {@code args}, using the classes registered with this parser. {@link #getOptions(Class)}
-   * and {@link #getResidue()} return the results. May be called multiple times; later options
-   * override existing ones if they have equal or higher priority. The source of options is given as
-   * a function that maps option names to the source of the option. Strings that cannot be parsed as
-   * options accumulates as* residue, if this parser allows it.
+   * Parses {@code args}, using the classes registered with this parser, at the given priority.
+   *
+   * <p>May be called multiple times; later options override existing ones if they have equal or
+   * higher priority. Strings that cannot be parsed as options are accumulated as residue, if this
+   * parser allows it.
+   *
+   * <p>{@link #getOptions(Class)} and {@link #getResidue()} will return the results.
+   *
+   * @param priority the priority at which to parse these options. Within this priority category,
+   *     each option will be given an index to track its position. If parse() has already been
+   *     called at this priority, the indexing will continue where it left off, to keep ordering.
+   * @param sourceFunction a function that maps option names to the source of the option.
+   * @param args the arg list to parse. Each element might be an option, a value linked to an
+   *     option, or residue.
    */
   public void parseWithSourceFunction(
-      OptionPriority priority, Function<OptionDefinition, String> sourceFunction, List<String> args)
+      OptionPriority.PriorityCategory priority,
+      Function<OptionDefinition, String> sourceFunction,
+      List<String> args)
       throws OptionsParsingException {
     Preconditions.checkNotNull(priority);
-    Preconditions.checkArgument(priority != OptionPriority.DEFAULT);
+    Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
     residue.addAll(impl.parse(priority, sourceFunction, args));
     if (!allowResidue && !residue.isEmpty()) {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);
     }
+  }
+
+  /**
+   * @param origin the origin of this option instance, it includes the priority of the value. If
+   *     other values have already been or will be parsed at a higher priority, they might override
+   *     the provided value. If this option already has a value at this priority, this value will
+   *     have precedence, but this should be avoided, as it breaks order tracking.
+   * @param option the option to add the value for.
+   * @param value the value to add at the given priority.
+   */
+  void addOptionValueAtSpecificPriority(
+      OptionInstanceOrigin origin, OptionDefinition option, String value)
+      throws OptionsParsingException {
+    impl.addOptionValueAtSpecificPriority(origin, option, value);
   }
 
   /**

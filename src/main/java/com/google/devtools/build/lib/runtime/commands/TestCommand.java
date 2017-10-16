@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.runtime.TestResultAnalyzer;
 import com.google.devtools.build.lib.runtime.TestResultNotifier;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
-import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
@@ -70,7 +70,8 @@ public class TestCommand implements BlazeCommand {
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
     try {
       if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
-        optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
+        optionsParser.parse(
+            PriorityCategory.SOFTWARE_REQUIREMENT,
             "streamed output requires locally run tests, without sharding",
             ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
       }

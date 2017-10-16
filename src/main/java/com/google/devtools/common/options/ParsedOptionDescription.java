@@ -115,6 +115,10 @@ public final class ParsedOptionDescription {
     return unconvertedValue;
   }
 
+  public OptionInstanceOrigin getOrigin() {
+    return origin;
+  }
+
   public OptionPriority getPriority() {
     return origin.getPriority();
   }
@@ -149,7 +153,7 @@ public final class ParsedOptionDescription {
   @Override
   public String toString() {
     StringBuilder result = new StringBuilder();
-    result.append("option '").append(optionDefinition.getOptionName()).append("' ");
+    result.append(optionDefinition);
     result.append("set to '").append(unconvertedValue).append("' ");
     result.append("with priority ").append(origin.getPriority());
     if (origin.getSource() != null) {

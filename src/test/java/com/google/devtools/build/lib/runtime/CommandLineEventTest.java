@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.Command
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLineSection.SectionTypeCase;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.OptionList;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TestOptions;
@@ -217,15 +217,15 @@ public class CommandLineEventTest {
         OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
     OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
     fakeCommandOptions.parse(
-        OptionPriority.COMMAND_LINE,
+        PriorityCategory.COMMAND_LINE,
         "command line",
         ImmutableList.of("--test_string=foo", "--test_multiple_string=bar"));
     fakeCommandOptions.parse(
-        OptionPriority.INVOCATION_POLICY,
+        PriorityCategory.INVOCATION_POLICY,
         "fake invocation policy",
         ImmutableList.of("--expanded_c=2"));
     fakeCommandOptions.parse(
-        OptionPriority.RC_FILE, "fake rc file", ImmutableList.of("--test_multiple_string=baz"));
+        PriorityCategory.RC_FILE, "fake rc file", ImmutableList.of("--test_multiple_string=baz"));
 
     CommandLine line =
         new OriginalCommandLineEvent(
@@ -260,15 +260,15 @@ public class CommandLineEventTest {
         OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
     OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
     fakeCommandOptions.parse(
-        OptionPriority.COMMAND_LINE,
+        PriorityCategory.COMMAND_LINE,
         "command line",
         ImmutableList.of("--test_string=foo", "--test_multiple_string=bar"));
     fakeCommandOptions.parse(
-        OptionPriority.INVOCATION_POLICY,
+        PriorityCategory.INVOCATION_POLICY,
         "fake invocation policy",
         ImmutableList.of("--expanded_c=2"));
     fakeCommandOptions.parse(
-        OptionPriority.RC_FILE, "fake rc file", ImmutableList.of("--test_multiple_string=baz"));
+        PriorityCategory.RC_FILE, "fake rc file", ImmutableList.of("--test_multiple_string=baz"));
 
     CommandLine line =
         new CanonicalCommandLineEvent(
@@ -303,7 +303,7 @@ public class CommandLineEventTest {
         OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
     OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
     fakeCommandOptions.parse(
-        OptionPriority.COMMAND_LINE, "command line", ImmutableList.of("--test_expansion"));
+        PriorityCategory.COMMAND_LINE, "command line", ImmutableList.of("--test_expansion"));
 
     CommandLine line =
         new OriginalCommandLineEvent(
@@ -335,7 +335,7 @@ public class CommandLineEventTest {
         OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
     OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
     fakeCommandOptions.parse(
-        OptionPriority.COMMAND_LINE, "command line", ImmutableList.of("--test_expansion"));
+        PriorityCategory.COMMAND_LINE, "command line", ImmutableList.of("--test_expansion"));
 
     CommandLine line =
         new CanonicalCommandLineEvent(
@@ -375,7 +375,7 @@ public class CommandLineEventTest {
         OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
     OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
     fakeCommandOptions.parse(
-        OptionPriority.COMMAND_LINE,
+        PriorityCategory.COMMAND_LINE,
         "command line",
         ImmutableList.of("--test_implicit_requirement=foo"));
 
@@ -409,7 +409,7 @@ public class CommandLineEventTest {
         OptionsParser.newOptionsParser(BlazeServerStartupOptions.class);
     OptionsParser fakeCommandOptions = OptionsParser.newOptionsParser(TestOptions.class);
     fakeCommandOptions.parse(
-        OptionPriority.COMMAND_LINE,
+        PriorityCategory.COMMAND_LINE,
         "command line",
         ImmutableList.of("--test_implicit_requirement=foo"));
 

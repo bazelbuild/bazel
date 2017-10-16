@@ -26,9 +26,9 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 # The clash canary flags are built into the canonicalize-flags command
 # specifically for this test suite.
-canary_clash_error="The option 'flag_clash_canary' was expanded to from both "
-canary_clash_error+="options 'flag_clash_canary_expander1' and "
-canary_clash_error+="'flag_clash_canary_expander2'."
+canary_clash_error="option '--flag_clash_canary' was expanded to from both "
+canary_clash_error+="option '--flag_clash_canary_expander1' and "
+canary_clash_error+="option '--flag_clash_canary_expander2'."
 
 # Ensures that we didn't change the formatting of the warning message or
 # disable the warning.
@@ -53,8 +53,8 @@ function test_canonicalize_flags_suppresses_warnings() {
 function test_no_conflicts_among_incompatible_changes() {
   bazel canonicalize-flags --show_warnings -- --all_incompatible_changes \
     &>$TEST_log || fail "bazel canonicalize-flags failed";
-  expected="The option '.*' was expanded to from both options "
-  expected+="'.*' and '.*'."
+  expected="The option '.*' was expanded to from both option "
+  expected+="'.*' and option '.*'."
   fail_msg="Options conflict in expansion of --all_incompatible_changes"
   expect_not_log "$expected" "$fail_msg"
 }
