@@ -67,7 +67,6 @@ public class StandaloneTestStrategy extends TestStrategy {
   private static final ImmutableMap<String, String> ENV_VARS =
       ImmutableMap.<String, String>builder()
           .put("TZ", "UTC")
-          .put("USER", TestPolicy.SYSTEM_USER_NAME)
           .put("TEST_SRCDIR", TestPolicy.RUNFILES_DIR)
           // TODO(lberki): Remove JAVA_RUNFILES and PYTHON_RUNFILES.
           .put("JAVA_RUNFILES", TestPolicy.RUNFILES_DIR)

@@ -380,6 +380,41 @@ EOF
   expect_log "TIMEOUT"
 }
 
+function test_passed_env_user() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "user_test",
+  timeout = "short",
+  srcs = ["user_test.sh"],
+)
+EOF
+
+  cat > a/user_test.sh <<'EOF'
+#!/bin/sh
+echo "user=$USER"
+EOF
+  chmod +x a/user_test.sh
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --test_output=all \
+      --test_env=USER=boo \
+      //a:user_test >& $TEST_log \
+      || fail "Failed to run //a:user_test with remote execution"
+  expect_log "user=boo"
+
+  # Rely on the test-setup script to set USER value to whoami.
+  export USER=
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --test_output=all \
+      //a:user_test >& $TEST_log \
+      || fail "Failed to run //a:user_test with remote execution"
+  expect_log "user=$(whoami)"
+}
+
 function test_exitcode() {
   mkdir -p a
   cat > a/BUILD <<'EOF'

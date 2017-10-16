@@ -59,6 +59,11 @@ is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
 is_absolute "$TEST_TMPDIR" || TEST_TMPDIR="$PWD/$TEST_TMPDIR"
 is_absolute "$XML_OUTPUT_FILE" || XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
 
+# Set USER to the current user, unless passed by Bazel via --test_env.
+if [[ -z "$USER" ]]; then
+  export USER=$(whoami)
+fi
+
 # The test shard status file is only set for sharded tests.
 if [[ -n "$TEST_SHARD_STATUS_FILE" ]]; then
   is_absolute "$TEST_SHARD_STATUS_FILE" || TEST_SHARD_STATUS_FILE="$PWD/$TEST_SHARD_STATUS_FILE"
