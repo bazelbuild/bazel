@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
-import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -123,7 +123,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
   }
 
   @Override
-  public SplitTransition<?> apply(ConfiguredAttributeMapper attrMapper) {
+  public SplitTransition<?> apply(AttributeMap attrMapper) {
     String platformTypeString = attrMapper.get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
     String minimumOsVersionString = attrMapper.get(PlatformRule.MINIMUM_OS_VERSION, STRING);
     PlatformType platformType;

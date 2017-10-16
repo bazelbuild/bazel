@@ -188,7 +188,7 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * Transition to one or more configurations. To obtain the actual child configurations,
-     * invoke {@link Attribute#getSplitTransition(ConfiguredAttributeMapper)}.
+     * invoke {@link Attribute#getSplitTransition(AttributeMap)}.
      * See {@link SplitTransition}.
      **/
     SPLIT
@@ -320,7 +320,7 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * Returns the {@link SplitTransition} given the attribute mapper of the originating rule.
      */
-    SplitTransition<?> apply(ConfiguredAttributeMapper attributeMap);
+    SplitTransition<?> apply(AttributeMap attributeMap);
   }
 
   /**
@@ -336,7 +336,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    public SplitTransition<?> apply(ConfiguredAttributeMapper attributeMap) {
+    public SplitTransition<?> apply(AttributeMap attributeMap) {
       return splitTransition;
     }
   }
@@ -1959,7 +1959,7 @@ public final class Attribute implements Comparable<Attribute> {
    * @return a SplitTransition<BuildOptions> object
    * @throws IllegalStateException if {@link #hasSplitConfigurationTransition} is not true
    */
-  public SplitTransition<?> getSplitTransition(ConfiguredAttributeMapper attributeMapper) {
+  public SplitTransition<?> getSplitTransition(AttributeMap attributeMapper) {
     Preconditions.checkState(hasSplitConfigurationTransition());
     return splitTransitionProvider.apply(attributeMapper);
   }

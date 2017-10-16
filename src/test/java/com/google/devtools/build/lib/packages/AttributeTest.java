@@ -301,7 +301,7 @@ public class AttributeTest {
 
   private static class TestSplitTransitionProvider implements SplitTransitionProvider {
     @Override
-    public SplitTransition<?> apply(ConfiguredAttributeMapper attrMapper) {
+    public SplitTransition<?> apply(AttributeMap attrMapper) {
       return new TestSplitTransition();
     }
   }
