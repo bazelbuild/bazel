@@ -162,7 +162,7 @@ def _find_vc_path(repository_ctx):
             vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip() + suffix
 
   if not vc_dir:
-    auto_configure_fail("Visual C++ build tools not found on your machine.")
+    return "visual-studio-not-found"
   auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
   return vc_dir
 
@@ -288,6 +288,29 @@ def configure_windows_toolchain(repository_ctx):
   repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
 
   vc_path = _find_vc_path(repository_ctx)
+  if vc_path == "visual-studio-not-found":
+    vc_path_error_script = "vc_path_not_found.bat"
+    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:vc_path_not_found.bat"), vc_path_error_script)
+    tpl(repository_ctx, "CROSSTOOL", {
+        "%{cpu}": "x64_windows",
+        "%{default_toolchain_name}": "msvc_x64",
+        "%{toolchain_name}": "msys_x64",
+        "%{msvc_env_tmp}": "",
+        "%{msvc_env_path}": "",
+        "%{msvc_env_include}": "",
+        "%{msvc_env_lib}": "",
+        "%{msvc_cl_path}": vc_path_error_script,
+        "%{msvc_link_path}": vc_path_error_script,
+        "%{msvc_lib_path}": vc_path_error_script,
+        "%{compilation_mode_content}": "",
+        "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+        "%{opt_content}": "",
+        "%{dbg_content}": "",
+        "%{cxx_builtin_include_directory}": "",
+        "%{coverage}": "",
+    })
+    return
+
   env = _find_env_vars(repository_ctx, vc_path)
   escaped_paths = escape_string(env["PATH"])
   escaped_include_paths = escape_string(env["INCLUDE"])

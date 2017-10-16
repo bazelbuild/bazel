@@ -13,6 +13,11 @@ default_toolchain {
 }
 
 default_toolchain {
+  cpu: "x64_windows"
+  toolchain_identifier: "msvc_x64"
+}
+
+default_toolchain {
   cpu: "x64_windows_msvc"
   toolchain_identifier: "msvc_x64"
 }
