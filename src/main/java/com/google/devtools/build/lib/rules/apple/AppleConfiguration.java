@@ -204,53 +204,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
 
   /**
-   * Returns the SDK version for a platform (whether they be for simulator or device). This is
-   * directly derived from command line args.
-   *
-   * @deprecated use {@link XcodeConfig#getSdkVersionForPlatform(RuleContext, ApplePlatform)}
-   */
-  @Deprecated
-  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
-  private DottedVersion getSdkVersionForPlatform(ApplePlatform platform) {
-    switch (platform) {
-      case IOS_DEVICE:
-      case IOS_SIMULATOR:
-        return iosSdkVersion;
-      case TVOS_DEVICE:
-      case TVOS_SIMULATOR:
-        return tvosSdkVersion;
-      case WATCHOS_DEVICE:
-      case WATCHOS_SIMULATOR:
-        return watchosSdkVersion;
-      case MACOS:
-        return macosSdkVersion;
-    }
-    throw new AssertionError();
-
-  }
-
-  /**
-   * Returns a map of environment variables (derived from configuration) that should be propagated
-   * for actions pertaining to the given apple platform. Keys are variable names and values are
-   * their corresponding values.
-   *
-   * @deprecated use {@link #appleTargetPlatformEnv(ApplePlatform, DottedVersion) instead)}.
-   */
-  @Deprecated
-  @SkylarkCallable(
-    name = "target_apple_env",
-    doc =
-        "Returns a <code>dict</code> of environment variables that should be set for actions "
-            + "that build targets of the given Apple platform type. For example, this dictionary "
-            + "contains variables that denote the platform name and SDK version with which to "
-            + "build. The keys are variable names and the values are their corresponding values."
-  )
-  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
-  public ImmutableMap<String, String> getTargetAppleEnvironment(ApplePlatform platform) {
-    return appleTargetPlatformEnv(platform, getSdkVersionForPlatform(platform));
-  }
-
-  /**
    * Returns a map of environment variables (derived from configuration) that should be propagated
    * for actions pertaining to building applications for apple platforms. These environment
    * variables are needed to use apple toolkits. Keys are variable names and values are their
@@ -267,27 +220,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
             platform.getNameInPlist());
 
     return builder.build();
-  }
-
-  /**
-   * Returns a map of environment variables that should be propagated for actions that build on an
-   * apple host system. These environment variables are needed by the apple toolchain. Keys are
-   * variable names and values are their corresponding values.
-   *
-   * @deprecated use {@link #getXcodeVersionEnv(DottedVersion)} instead}.
-   */
-  @SkylarkCallable(
-    name = "apple_host_system_env",
-    doc =
-        "Returns a <a href='dict.html'>dict</a> of environment variables that should be set "
-            + "for actions that need to run build tools on an Apple host system, such as the "
-            + "version of Xcode that should be used. The keys are variable names and the values "
-            + "are their corresponding values."
-  )
-  @Deprecated
-  // Bug tracking the removal of this method: https://github.com/bazelbuild/bazel/issues/3424
-  public ImmutableMap<String, String> getAppleHostSystemEnv() {
-    return getXcodeVersionEnv(xcodeVersion);
   }
 
   /**
