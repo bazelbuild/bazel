@@ -14,7 +14,6 @@
 package com.google.devtools.common.options;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -259,8 +259,7 @@ public final class InvocationPolicyEnforcer {
         continue;
       }
 
-      OptionDescription optionDescription =
-          parser.getOptionDescription(policy.getFlagName(), origin);
+      OptionDescription optionDescription = parser.getOptionDescription(policy.getFlagName());
       if (optionDescription == null) {
         // InvocationPolicy ignores policy on non-existing flags by design, for version
         // compatibility.
@@ -273,8 +272,7 @@ public final class InvocationPolicyEnforcer {
       }
       FlagPolicyWithContext policyWithContext =
           new FlagPolicyWithContext(policy, optionDescription, origin);
-      List<FlagPolicyWithContext> policies =
-          expandPolicy(policyWithContext, currentPriority, parser, loglevel);
+      List<FlagPolicyWithContext> policies = expandPolicy(policyWithContext, parser, loglevel);
       expandedPolicies.addAll(policies);
     }
 
@@ -300,75 +298,6 @@ public final class InvocationPolicyEnforcer {
         String.format("Disallow_Values on expansion flags like %s is not allowed.", flagName));
   }
 
-  private static ImmutableList<ParsedOptionDescription> getExpansionsFromFlagPolicy(
-      FlagPolicyWithContext expansionPolicy, OptionPriority priority, OptionsParser parser)
-      throws OptionsParsingException {
-    if (!expansionPolicy.description.isExpansion()) {
-      return ImmutableList.of();
-    }
-    String policyFlagName = expansionPolicy.policy.getFlagName();
-    String optionName = expansionPolicy.description.getOptionDefinition().getOptionName();
-    Preconditions.checkArgument(
-        policyFlagName.equals(optionName),
-            "The optionDescription provided (for flag %s) does not match the policy for flag %s.",
-            optionName, policyFlagName);
-
-    ImmutableList.Builder<ParsedOptionDescription> resultsBuilder = ImmutableList.builder();
-    switch (expansionPolicy.policy.getOperationCase()) {
-      case SET_VALUE:
-        {
-          SetValue setValue = expansionPolicy.policy.getSetValue();
-          if (setValue.getFlagValueCount() > 0) {
-            for (String value : setValue.getFlagValueList()) {
-              resultsBuilder.addAll(
-                  parser.getExpansionOptionValueDescriptions(
-                      expansionPolicy.description.getOptionDefinition(),
-                      value,
-                      priority,
-                      INVOCATION_POLICY_SOURCE));
-            }
-          } else {
-            resultsBuilder.addAll(
-                parser.getExpansionOptionValueDescriptions(
-                    expansionPolicy.description.getOptionDefinition(),
-                    null,
-                    priority,
-                    INVOCATION_POLICY_SOURCE));
-          }
-        }
-        break;
-      case USE_DEFAULT:
-        resultsBuilder.addAll(
-            parser.getExpansionOptionValueDescriptions(
-                expansionPolicy.description.getOptionDefinition(),
-                null,
-                priority,
-                INVOCATION_POLICY_SOURCE));
-        break;
-      case ALLOW_VALUES:
-        // All expansions originally given to the parser have been expanded by now, so these two
-        // cases aren't necessary (the values given in the flag policy shouldn't need to be
-        // checked). If you care about blocking specific flag values you should block the behavior
-        // on the specific ones, not the expansion that contains them.
-        throwAllowValuesOnExpansionFlagException(optionName);
-        break;
-      case DISALLOW_VALUES:
-        throwDisallowValuesOnExpansionFlagException(optionName);
-        break;
-      case OPERATION_NOT_SET:
-        throw new PolicyOperationNotSetException(optionName);
-      default:
-        logger.warning(
-            String.format(
-                "Unknown operation '%s' from invocation policy for flag '%s'",
-                expansionPolicy.policy.getOperationCase(),
-                optionName));
-        break;
-    }
-
-    return resultsBuilder.build();
-  }
-
   /**
    * Expand a single policy. If the policy is not about an expansion flag, this will simply return a
    * list with a single element, oneself. If the policy is for an expansion flag, the policy will
@@ -378,47 +307,20 @@ public final class InvocationPolicyEnforcer {
    */
   private static List<FlagPolicyWithContext> expandPolicy(
       FlagPolicyWithContext originalPolicy,
-      OptionPriority priority,
       OptionsParser parser,
       Level loglevel)
       throws OptionsParsingException {
     List<FlagPolicyWithContext> expandedPolicies = new ArrayList<>();
 
-    OptionInstanceOrigin originOfSubflags;
-    ImmutableList<ParsedOptionDescription> subflags;
-    if (originalPolicy.description.getOptionDefinition().hasImplicitRequirements()) {
-      originOfSubflags =
-          new OptionInstanceOrigin(
-              originalPolicy.origin.getPriority(),
-              String.format(
-                  "implicitly required by %s (source: %s)",
-                  originalPolicy.description.getOptionDefinition(),
-                  originalPolicy.origin.getSource()),
-              originalPolicy.description.getOptionDefinition(),
-              null);
-      subflags = originalPolicy.description.getImplicitRequirements();
-    } else if (originalPolicy.description.getOptionDefinition().isExpansionOption()) {
-      subflags = getExpansionsFromFlagPolicy(originalPolicy, priority, parser);
-      originOfSubflags =
-          new OptionInstanceOrigin(
-              originalPolicy.origin.getPriority(),
-              String.format(
-                  "expanded by %s (source: %s)",
-                  originalPolicy.description.getOptionDefinition(),
-                  originalPolicy.origin.getSource()),
-              null,
-              originalPolicy.description.getOptionDefinition());
-    } else {
+    boolean isExpansion = originalPolicy.description.isExpansion();
+    ImmutableList<ParsedOptionDescription> subflags =
+        parser.getExpansionValueDescriptions(
+            originalPolicy.description.getOptionDefinition(), originalPolicy.origin);
+
+    // If we have nothing to expand to, no need to do any further work.
+    if (subflags.isEmpty()) {
       return ImmutableList.of(originalPolicy);
     }
-    boolean isExpansion = originalPolicy.description.isExpansion();
-    // We do not get to this point unless there are flags to expand to.
-    boolean hasFlagsToExpandTo = !subflags.isEmpty();
-    Preconditions.checkArgument(
-        hasFlagsToExpandTo,
-        "The only policies that need expanding are those with expansions or implicit requirements, "
-            + "%s has neither yet was not returned as-is.",
-        originalPolicy.description.getOptionDefinition());
 
     if (logger.isLoggable(loglevel)) {
       // Log the expansion. This is only really useful for understanding the invocation policy
@@ -450,8 +352,7 @@ public final class InvocationPolicyEnforcer {
     // UseDefault, when preventing it from being set.
     for (ParsedOptionDescription currentSubflag : subflags) {
       OptionDescription subflagOptionDescription =
-          parser.getOptionDescription(
-              currentSubflag.getOptionDefinition().getOptionName(), originOfSubflags);
+          parser.getOptionDescription(currentSubflag.getOptionDefinition().getOptionName());
 
       if (currentSubflag.getOptionDefinition().allowsMultiple()
           && originalPolicy.policy.getOperationCase().equals(OperationCase.SET_VALUE)) {
@@ -461,7 +362,7 @@ public final class InvocationPolicyEnforcer {
             getSingleValueSubflagAsPolicy(
                 subflagOptionDescription, currentSubflag, originalPolicy, isExpansion);
         // In case any of the expanded flags are themselves expansions, recurse.
-        expandedPolicies.addAll(expandPolicy(subflagAsPolicy, priority, parser, loglevel));
+        expandedPolicies.addAll(expandPolicy(subflagAsPolicy, parser, loglevel));
       }
     }
 
@@ -471,9 +372,26 @@ public final class InvocationPolicyEnforcer {
     for (OptionDescription repeatableFlag : repeatableSubflagsInSetValues.keySet()) {
       int numValues = repeatableSubflagsInSetValues.get(repeatableFlag).size();
       ArrayList<String> newValues = new ArrayList<>(numValues);
+      ArrayList<OptionInstanceOrigin> origins = new ArrayList<>(numValues);
       for (ParsedOptionDescription setValue : repeatableSubflagsInSetValues.get(repeatableFlag)) {
         newValues.add(setValue.getUnconvertedValue());
+        origins.add(setValue.getOrigin());
       }
+      // These options come from expanding a single policy, so they have effectively the same
+      // priority. They could have come from different expansions or implicit requirements in the
+      // recursive resolving of the option list, so just pick the first one. Do collapse the source
+      // strings though, in case there are different sources.
+      OptionInstanceOrigin arbitraryFirstOptionOrigin = origins.get(0);
+      OptionInstanceOrigin originOfSubflags =
+          new OptionInstanceOrigin(
+              arbitraryFirstOptionOrigin.getPriority(),
+              origins
+                  .stream()
+                  .map(OptionInstanceOrigin::getSource)
+                  .distinct()
+                  .collect(Collectors.joining(", ")),
+              arbitraryFirstOptionOrigin.getImplicitDependent(),
+              arbitraryFirstOptionOrigin.getExpandedFrom());
       expandedPolicies.add(
           getSetValueSubflagAsPolicy(repeatableFlag, newValues, originOfSubflags, originalPolicy));
     }

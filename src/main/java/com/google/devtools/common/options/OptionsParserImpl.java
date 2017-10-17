@@ -208,77 +208,58 @@ class OptionsParserImpl {
     return optionValues.get(optionDefinition);
   }
 
-  OptionDescription getOptionDescription(String name, OptionInstanceOrigin origin)
-      throws OptionsParsingException {
+  OptionDescription getOptionDescription(String name) throws OptionsParsingException {
     OptionDefinition optionDefinition = optionsData.getOptionDefinitionFromName(name);
     if (optionDefinition == null) {
       return null;
     }
-
-    return new OptionDescription(
-        optionDefinition,
-        optionsData.getExpansionDataForField(optionDefinition),
-        getImplicitDependentDescriptions(
-            ImmutableList.copyOf(optionDefinition.getImplicitRequirements()),
-            optionDefinition,
-            origin));
-  }
-
-  /** @return A list of the descriptions corresponding to the implicit dependent flags passed in. */
-  private ImmutableList<ParsedOptionDescription> getImplicitDependentDescriptions(
-      ImmutableList<String> options,
-      OptionDefinition implicitDependent,
-      OptionInstanceOrigin dependentsOrigin)
-      throws OptionsParsingException {
-    ImmutableList.Builder<ParsedOptionDescription> builder = ImmutableList.builder();
-    Iterator<String> optionsIterator = options.iterator();
-
-    Function<OptionDefinition, String> sourceFunction =
-        o ->
-            String.format(
-                "implicitely required for %s (source: %s)",
-                implicitDependent, dependentsOrigin.getSource());
-    while (optionsIterator.hasNext()) {
-      String unparsedFlagExpression = optionsIterator.next();
-      ParsedOptionDescription parsedOption =
-          identifyOptionAndPossibleArgument(
-              unparsedFlagExpression,
-              optionsIterator,
-              dependentsOrigin.getPriority(),
-              sourceFunction,
-              implicitDependent,
-              null);
-      builder.add(parsedOption);
-    }
-    return builder.build();
+    return new OptionDescription(optionDefinition, optionsData);
   }
 
   /**
-   * @return A list of the descriptions corresponding to options expanded from the flag for the
-   *     given value. The value itself is a string, no conversion has taken place.
+   * Implementation of {@link OptionsParser#getExpansionValueDescriptions(OptionDefinition,
+   * OptionInstanceOrigin)}
    */
-  ImmutableList<ParsedOptionDescription> getExpansionOptionValueDescriptions(
-      OptionDefinition expansionFlag,
-      @Nullable String flagValue,
-      OptionPriority priority,
-      String source)
+  ImmutableList<ParsedOptionDescription> getExpansionValueDescriptions(
+      OptionDefinition expansionFlag, OptionInstanceOrigin originOfExpansionFlag)
       throws OptionsParsingException {
     ImmutableList.Builder<ParsedOptionDescription> builder = ImmutableList.builder();
+    OptionInstanceOrigin originOfSubflags;
+    ImmutableList<String> options;
+    if (expansionFlag.hasImplicitRequirements()) {
+      options = ImmutableList.copyOf(expansionFlag.getImplicitRequirements());
+      originOfSubflags =
+          new OptionInstanceOrigin(
+              originOfExpansionFlag.getPriority(),
+              String.format(
+                  "implicitly required by %s (source: %s)",
+                  expansionFlag, originOfExpansionFlag.getSource()),
+              expansionFlag,
+              null);
+    } else if (expansionFlag.isExpansionOption()) {
+      options = optionsData.getEvaluatedExpansion(expansionFlag);
+      originOfSubflags =
+          new OptionInstanceOrigin(
+              originOfExpansionFlag.getPriority(),
+              String.format(
+                  "expanded by %s (source: %s)", expansionFlag, originOfExpansionFlag.getSource()),
+              null,
+              expansionFlag);
+    } else {
+      return ImmutableList.of();
+    }
 
-    ImmutableList<String> options = optionsData.getEvaluatedExpansion(expansionFlag, flagValue);
     Iterator<String> optionsIterator = options.iterator();
-    Function<OptionDefinition, String> sourceFunction =
-        o -> String.format("expanded from %s (source: %s)", expansionFlag, source);
     while (optionsIterator.hasNext()) {
       String unparsedFlagExpression = optionsIterator.next();
       ParsedOptionDescription parsedOption =
           identifyOptionAndPossibleArgument(
               unparsedFlagExpression,
               optionsIterator,
-              priority,
-              sourceFunction,
-              null,
-              expansionFlag);
+              originOfSubflags.getPriority(),
+              o -> originOfSubflags.getSource(),
+              originOfSubflags.getImplicitDependent(),
+              originOfSubflags.getExpandedFrom());
       builder.add(parsedOption);
     }
     return builder.build();
@@ -431,7 +412,7 @@ class OptionsParserImpl {
       StringBuilder sourceMessage = new StringBuilder();
       ImmutableList<String> expansionArgs;
       if (optionDefinition.isExpansionOption()) {
-        expansionArgs = optionsData.getEvaluatedExpansion(optionDefinition, unconvertedValue);
+        expansionArgs = optionsData.getEvaluatedExpansion(optionDefinition);
         sourceMessage.append("expanded from option ");
       } else if (optionDefinition.hasImplicitRequirements()) {
         expansionArgs = ImmutableList.copyOf(optionDefinition.getImplicitRequirements());

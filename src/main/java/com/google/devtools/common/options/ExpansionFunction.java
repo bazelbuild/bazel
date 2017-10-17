@@ -30,5 +30,5 @@ public interface ExpansionFunction {
    *     information is computed
    * @return An expansion to use on an empty list
    */
-  ImmutableList<String> getExpansion(ExpansionContext context) throws OptionsParsingException;
+  ImmutableList<String> getExpansion(IsolatedOptionsData optionsData);
 }

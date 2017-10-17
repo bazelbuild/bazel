@@ -532,22 +532,4 @@ public class OptionsTest {
         Options.parse(TestOptions.class, new String[] {"--specialexp_foo", "--specialexp_bar"});
     assertThat(options1.getOptions()).isEqualTo(options2.getOptions());
   }
-  @Test
-  public void dynamicExpansionFunctionWorks() throws Exception {
-    Options<TestOptions> options1 =
-        Options.parse(TestOptions.class, new String[] {"--dynamicexp=foo_bar"});
-    Options<TestOptions> options2 =
-        Options.parse(TestOptions.class, new String[] {"--specialexp_foo", "--specialexp_bar"});
-    assertThat(options1.getOptions()).isEqualTo(options2.getOptions());
-  }
-
-  @Test
-  public void dynamicExpansionFunctionUnknowValue() throws Exception {
-    try {
-      Options.parse(TestOptions.class, new String[] {"--dynamicexp=foo"});
-      fail("Unknown expansion argument should cause a failure.");
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessage("Unexpected expansion argument: foo");
-    }
-  }
 }

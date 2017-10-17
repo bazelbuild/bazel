@@ -38,11 +38,11 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -979,7 +979,7 @@ public class OptionsParserTest {
     /** ExpFunc */
     public static class ExpFunc implements ExpansionFunction {
       @Override
-      public ImmutableList<String> getExpansion(ExpansionContext context) {
+      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
         return null;
       }
     }
@@ -1002,41 +1002,8 @@ public class OptionsParserTest {
       newOptionsParser(NullExpansionsOptions.class);
       fail("Should have failed due to null expansion function result");
     } catch (OptionsParser.ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(IllegalStateException.class);
-    }
-  }
-
-  /** NullExpansionOptions */
-  public static class NullExpansionsWithArgumentOptions extends OptionsBase {
-
-    /** ExpFunc */
-    public static class ExpFunc implements ExpansionFunction {
-      @Override
-      public ImmutableList<String> getExpansion(ExpansionContext context) {
-        return null;
-      }
-    }
-
-    @Option(
-      name = "badness",
-      expansionFunction = ExpFunc.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String badness;
-  }
-
-  @Test
-  public void nullExpansionsWithArgument() throws Exception {
-    try {
-      // When an expansion takes a value, this exception should still happen at parse time.
-      newOptionsParser(NullExpansionsWithArgumentOptions.class);
-      fail("Should have failed due to null expansion function result");
-    } catch (OptionsParser.ConstructionException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("Error calling expansion function for option '--badness'");
+      assertThat(e).hasCauseThat().isInstanceOf(NullPointerException.class);
+      assertThat(e).hasCauseThat().hasMessageThat().contains("null value in entry");
     }
   }
 
@@ -1062,7 +1029,7 @@ public class OptionsParserTest {
     /** ExpFunc */
     public static class ExpFunc implements ExpansionFunction {
       @Override
-      public ImmutableList<String> getExpansion(ExpansionContext context) {
+      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
         return ImmutableList.of("--expands");
       }
     }
@@ -1091,14 +1058,8 @@ public class OptionsParserTest {
     /** ExpFunc */
     public static class ExpFunc implements ExpansionFunction {
       @Override
-      public ImmutableList<String> getExpansion(ExpansionContext context)
-          throws OptionsParsingException {
-        String value = context.getUnparsedValue();
-        if (value == null) {
-          throw new ExpansionNeedsValueException("No value given to 'expands_by_function'");
-        }
-
-        return ImmutableList.of("--underlying=pre_" + value, "--underlying=post_" + value);
+      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+        return ImmutableList.of("--underlying=pre_value", "--underlying=post_value");
       }
     }
 
@@ -1174,9 +1135,11 @@ public class OptionsParserTest {
     parser.parse(
         OptionPriority.PriorityCategory.COMMAND_LINE,
         null,
-        Arrays.asList("--expands_by_function=a", "--expands_by_function=b"));
+        Arrays.asList("--expands_by_function", "--expands_by_function"));
     ExpansionMultipleOptions options = parser.getOptions(ExpansionMultipleOptions.class);
-    assertThat(options.underlying).containsExactly("pre_a", "post_a", "pre_b", "post_b").inOrder();
+    assertThat(options.underlying)
+        .containsExactly("pre_value", "post_value", "pre_value", "post_value")
+        .inOrder();
   }
 
   @Test
@@ -2395,7 +2358,7 @@ public class OptionsParserTest {
   }
 
   private List<String> visitOptionsToCollectTheirNames(Predicate<OptionDefinition> predicate) {
-    List<String> names = new LinkedList<>();
+    List<String> names = new ArrayList<>();
     Consumer<OptionDefinition> visitor = option -> names.add(option.getOptionName());
 
     OptionsParser parser = OptionsParser.newOptionsParser(CompletionOptions.class);

@@ -565,61 +565,6 @@ public final class OptionsUsageTest {
   }
 
   @Test
-  public void expansionFunctionOptionThatReadsUserValue_shortTerminalOutput() {
-    assertThat(getTerminalUsageWithoutTags("test_expansion_function", HelpVerbosity.SHORT))
-        .isEqualTo("  --test_expansion_function\n");
-    assertThat(getTerminalUsageWithoutTags("test_expansion_function", HelpVerbosity.SHORT))
-        .isEqualTo(getTerminalUsageWithTags("test_expansion_function", HelpVerbosity.SHORT));
-  }
-
-  @Test
-  public void expansionFunctionOptionThatReadsUserValue_mediumTerminalOutput() {
-    assertThat(getTerminalUsageWithoutTags("test_expansion_function", HelpVerbosity.MEDIUM))
-        .isEqualTo("  --test_expansion_function\n");
-    assertThat(getTerminalUsageWithoutTags("test_expansion_function", HelpVerbosity.MEDIUM))
-        .isEqualTo(getTerminalUsageWithTags("test_expansion_function", HelpVerbosity.MEDIUM));
-  }
-
-  @Test
-  public void expansionFunctionOptionThatReadsUserValue_longTerminalOutput() {
-    assertThat(getTerminalUsageWithoutTags("test_expansion_function", HelpVerbosity.LONG))
-        .isEqualTo(
-            "  --test_expansion_function\n"
-                + "    this is for testing expansion-by-function functionality.\n"
-                + "      Expands to unknown options.\n");
-    assertThat(getTerminalUsageWithTags("test_expansion_function", HelpVerbosity.LONG))
-        .isEqualTo(
-            "  --test_expansion_function\n"
-                + "    this is for testing expansion-by-function functionality.\n"
-                + "      Expands to unknown options.\n"
-                + "      Tags: no_op\n");
-  }
-
-  @Test
-  public void expansionFunctionOptionThatReadsUserValue_htmlOutput() {
-    assertThat(getHtmlUsageWithoutTags("test_expansion_function"))
-        .isEqualTo(
-            "<dt><code><a name=\"flag--test_expansion_function\"></a>"
-                + "--test_expansion_function</code></dt>\n"
-                + "<dd>\n"
-                + "this is for testing expansion-by-function functionality.\n"
-                + "<br/>\n"
-                + "Expands to unknown options.<br/>\n"
-                + "</dd>\n");
-    assertThat(getHtmlUsageWithTags("test_expansion_function"))
-        .isEqualTo(
-            "<dt><code><a name=\"flag--test_expansion_function\"></a>"
-                + "--test_expansion_function</code></dt>\n"
-                + "<dd>\n"
-                + "this is for testing expansion-by-function functionality.\n"
-                + "<br/>\n"
-                + "Expands to unknown options.<br/>\n"
-                + "<br>Tags: \n"
-                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
-                + "</dd>\n");
-  }
-
-  @Test
   public void expansionFunctionOptionThatExpandsBasedOnOtherLoadedOptions_shortTerminalOutput() {
     assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.SHORT))
         .isEqualTo("  --prefix_expansion\n");

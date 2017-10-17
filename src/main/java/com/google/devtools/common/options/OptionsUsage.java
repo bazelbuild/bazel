@@ -89,14 +89,7 @@ class OptionsUsage {
   private static @Nullable ImmutableList<String> getExpansionIfKnown(
       OptionDefinition optionDefinition, OptionsData optionsData) {
     Preconditions.checkNotNull(optionDefinition);
-    try {
-      return optionsData.getEvaluatedExpansion(optionDefinition, null);
-    } catch (ExpansionNeedsValueException e) {
-      return null;
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException("Error expanding void expansion function: ", e);
-    }
-
+    return optionsData.getEvaluatedExpansion(optionDefinition);
   }
 
   // Placeholder tag "UNKNOWN" is ignored.
@@ -244,7 +237,7 @@ class OptionsUsage {
       usage.append('\n');
     }
 
-    if (!optionsData.getExpansionDataForField(optionDefinition).isEmpty()) {
+    if (!optionsData.getEvaluatedExpansion(optionDefinition).isEmpty()) {
       // If this is an expansion option, list the expansion if known, or at least specify that we
       // don't know.
       usage.append("<br/>\n");

@@ -39,7 +39,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /**
  * A parser for options. Typical use case in a main method:
@@ -153,11 +152,9 @@ public class OptionsParser implements OptionsProvider {
     return newOptionsParser(ImmutableList.<Class<? extends OptionsBase>>of(class1));
   }
 
-  /**
-   * @see #newOptionsParser(Iterable)
-   */
-  public static OptionsParser newOptionsParser(Class<? extends OptionsBase> class1,
-                                               Class<? extends OptionsBase> class2)
+  /** @see #newOptionsParser(Iterable) */
+  public static OptionsParser newOptionsParser(
+      Class<? extends OptionsBase> class1, Class<? extends OptionsBase> class2)
       throws ConstructionException {
     return newOptionsParser(ImmutableList.of(class1, class2));
   }
@@ -240,52 +237,41 @@ public class OptionsParser implements OptionsProvider {
 
   /** The metadata about an option, in the context of this options parser. */
   public static final class OptionDescription {
-
     private final OptionDefinition optionDefinition;
-    private final OptionsData.ExpansionData expansionData;
-    private final ImmutableList<ParsedOptionDescription> implicitRequirements;
+    private final ImmutableList<String> evaluatedExpansion;
 
-    OptionDescription(
-        OptionDefinition definition,
-        OptionsData.ExpansionData expansionData,
-        ImmutableList<ParsedOptionDescription> implicitRequirements) {
+    OptionDescription(OptionDefinition definition, OptionsData optionsData) {
       this.optionDefinition = definition;
-      this.expansionData = expansionData;
-      this.implicitRequirements = implicitRequirements;
+      this.evaluatedExpansion = optionsData.getEvaluatedExpansion(optionDefinition);
     }
 
     public OptionDefinition getOptionDefinition() {
       return optionDefinition;
     }
 
-    public ImmutableList<ParsedOptionDescription> getImplicitRequirements() {
-      return implicitRequirements;
-    }
-
     public boolean isExpansion() {
-      return !expansionData.isEmpty();
+      return optionDefinition.isExpansionOption();
     }
 
     /** Return a list of flags that this option expands to. */
-    public ImmutableList<String> getExpansion(ExpansionContext context)
-        throws OptionsParsingException {
-      return expansionData.getExpansion(context);
+    public ImmutableList<String> getExpansion() throws OptionsParsingException {
+      return evaluatedExpansion;
     }
 
     @Override
     public boolean equals(Object obj) {
       if (obj instanceof OptionDescription) {
         OptionDescription other = (OptionDescription) obj;
-        // Check that the option is the same and that it is in the same context (expansionData)
+        // Check that the option is the same, with the same expansion.
         return other.optionDefinition.equals(optionDefinition)
-            && other.expansionData.equals(expansionData);
+            && other.evaluatedExpansion.equals(evaluatedExpansion);
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return optionDefinition.hashCode() + expansionData.hashCode();
+      return optionDefinition.hashCode() + evaluatedExpansion.hashCode();
     }
   }
 
@@ -534,22 +520,23 @@ public class OptionsParser implements OptionsProvider {
    * @return The {@link OptionDescription} for the option, or null if there is no option by the
    *     given name.
    */
-  OptionDescription getOptionDescription(String name, OptionInstanceOrigin origin)
-      throws OptionsParsingException {
-    return impl.getOptionDescription(name, origin);
+  OptionDescription getOptionDescription(String name) throws OptionsParsingException {
+    return impl.getOptionDescription(name);
   }
 
   /**
-   * Returns a description of the options values that get expanded from this option with the given
-   * value.
+   * Returns the parsed options that get expanded from this option, whether it expands due to an
+   * implicit requirement or expansion.
    *
-   * @return The {@link com.google.devtools.common.options.OptionValueDescription>} for the option,
-   *     or null if there is no option by the given name.
+   * @param expansionOption the option that might need to be expanded. If this option does not
+   *     expand to other options, the empty list will be returned.
+   * @param originOfExpansionOption the origin of the option that's being expanded. This function
+   *     will take care of adjusting the source messages as necessary.
    */
-  ImmutableList<ParsedOptionDescription> getExpansionOptionValueDescriptions(
-      OptionDefinition option, @Nullable String optionValue, OptionPriority priority, String source)
+  ImmutableList<ParsedOptionDescription> getExpansionValueDescriptions(
+      OptionDefinition expansionOption, OptionInstanceOrigin originOfExpansionOption)
       throws OptionsParsingException {
-    return impl.getExpansionOptionValueDescriptions(option, optionValue, priority, source);
+    return impl.getExpansionValueDescriptions(expansionOption, originOfExpansionOption);
   }
 
   /**
@@ -845,4 +832,3 @@ public class OptionsParser implements OptionsProvider {
             + "}");
   }
 }
-
