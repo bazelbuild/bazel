@@ -46,14 +46,12 @@ public interface SimpleBlobStore {
       InterruptedException;
 
   /**
-   * Uploads a BLOB (as {@code in}) indexed by {@code key} to the CAS.
+   * Uploads a BLOB (as {@code in}) with length {@code length} indexed by {@code key} to the CAS.
    */
-  void put(String key, InputStream in) throws IOException, InterruptedException;
+  void put(String key, long length, InputStream in) throws IOException, InterruptedException;
 
-  /**
-   * Uploads a BLOB (as {@code in}) indexed by {@code key} to the Action Cache.
-   */
-  void putActionResult(String actionKey, InputStream in) throws IOException, InterruptedException;
+  /** Uploads a bytearray BLOB (as {@code in}) indexed by {@code key} to the Action Cache. */
+  void putActionResult(String actionKey, byte[] in) throws IOException, InterruptedException;
 
   /** Close resources associated with the blob store. */
   void close();

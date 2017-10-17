@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.blobstore;
 
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -49,15 +50,15 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void put(String key, InputStream in) throws IOException {
+  public void put(String key, long length, InputStream in) throws IOException {
     byte[] value = ByteStreams.toByteArray(in);
+    Preconditions.checkState(value.length == length);
     map.put(key, value);
   }
 
   @Override
-  public void putActionResult(String key, InputStream in)
-      throws IOException, InterruptedException {
-    put(key, in);
+  public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
+    map.put(key, in);
   }
 
   @Override

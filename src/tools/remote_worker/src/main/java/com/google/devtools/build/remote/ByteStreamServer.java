@@ -229,7 +229,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
         try {
           Digest d = Digests.computeDigest(temp);
           try (InputStream in = temp.getInputStream()) {
-            cache.uploadBlob(d, in);
+            cache.uploadStream(d, in);
           }
           try {
             temp.delete();
