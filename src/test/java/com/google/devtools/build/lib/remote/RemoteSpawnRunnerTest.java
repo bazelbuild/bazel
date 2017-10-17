@@ -350,7 +350,7 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
-  public void fallbackFails() throws Exception {
+  public void noRemoteExecutorFallbackFails() throws Exception {
     // Errors from the fallback runner should be propogated out of the remote runner.
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
@@ -373,6 +373,80 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+
+    IOException err = new IOException("local execution error");
+    when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
+
+    try {
+      runner.exec(spawn, policy);
+      fail("expected IOException to be raised");
+    } catch (IOException e) {
+      assertThat(e).isSameAs(err);
+    }
+
+    verify(localRunner).exec(eq(spawn), eq(policy));
+  }
+
+  @Test
+  public void remoteCacheErrorFallbackFails() throws Exception {
+    // Errors from the fallback runner should be propogated out of the remote runner.
+
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteUploadLocalResults = true;
+    options.remoteLocalFallback = true;
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            null);
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException());
+
+    IOException err = new IOException("local execution error");
+    when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
+
+    try {
+      runner.exec(spawn, policy);
+      fail("expected IOException to be raised");
+    } catch (IOException e) {
+      assertThat(e).isSameAs(err);
+    }
+
+    verify(localRunner).exec(eq(spawn), eq(policy));
+  }
+
+  @Test
+  public void testLocalFallbackFailureRemoteExecutorFailure() throws Exception {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteLocalFallback = true;
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor);
+
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
@@ -458,6 +532,78 @@ public class RemoteSpawnRunnerTest {
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
     verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+  }
+
+  @Test
+  public void testRemoteExecutionTimeoutDoesNotTriggerFallback() throws Exception {
+    // If remote execution times out the SpawnResult status should be TIMEOUT, regardess of local
+    // fallback option.
+
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteLocalFallback = true;
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor);
+
+    ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new TimeoutException());
+
+    Spawn spawn = newSimpleSpawn();
+
+    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.TIMEOUT);
+
+    verify(executor).executeRemotely(any(ExecuteRequest.class));
+    verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+    verify(localRunner, never()).exec(eq(spawn), eq(policy));
+  }
+
+  @Test
+  public void testRemoteExecutionCommandFailureDoesNotTriggerFallback() throws Exception {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteLocalFallback = true;
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor);
+
+    ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    ExecuteResponse failed = ExecuteResponse.newBuilder().setResult(
+        ActionResult.newBuilder().setExitCode(33).build()).build();
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(failed);
+
+    Spawn spawn = newSimpleSpawn();
+
+    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.SUCCESS);  // Even though the command failed.
+    assertThat(res.exitCode()).isEqualTo(33);
+
+    verify(executor).executeRemotely(any(ExecuteRequest.class));
+    verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+    verify(localRunner, never()).exec(eq(spawn), eq(policy));
   }
 
   @Test
