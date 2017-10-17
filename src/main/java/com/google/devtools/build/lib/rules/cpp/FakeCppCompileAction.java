@@ -23,9 +23,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -120,9 +123,10 @@ public class FakeCppCompileAction extends CppCompileAction {
 
   @Override
   @ThreadCompatible
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     setModuleFileFlags();
+    Set<SpawnResult> spawnResults;
     // First, do a normal compilation, to generate the ".d" file. The generated object file is built
     // to a temporary location (tempOutputFile) and ignored afterwards.
     logger.info("Generating " + getDotdFile());
@@ -131,8 +135,8 @@ public class FakeCppCompileAction extends CppCompileAction {
     try {
       CppCompileActionResult cppCompileActionResult =
           context.execWithReply(this, actionExecutionContext);
-      // TODO(b/62588075) Save spawnResults from cppCompileActionResult and return them upwards.
       reply = cppCompileActionResult.contextReply();
+      spawnResults = cppCompileActionResult.spawnResults();
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "C++ compilation of rule '" + getOwner().getLabel() + "'",
@@ -238,6 +242,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       throw new ActionExecutionException("failed to create fake compile command for rule '"
           + getOwner().getLabel() + ": " + e.getMessage(), this, false);
     }
+    return ActionResult.create(spawnResults);
   }
 
   @Override

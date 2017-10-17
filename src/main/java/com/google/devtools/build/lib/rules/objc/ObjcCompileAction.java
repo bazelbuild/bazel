@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -213,9 +214,9 @@ public class ObjcCompileAction extends SpawnAction {
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    super.execute(actionExecutionContext);
+    ActionResult actionResult = super.execute(actionExecutionContext);
 
     if (dotdPruningPlan == HeaderDiscovery.DotdPruningMode.USE) {
       IncludeScanningContext scanningContext =
@@ -232,6 +233,8 @@ public class ObjcCompileAction extends SpawnAction {
       // haven't quite managed to get that right yet.
       updateActionInputs(getInputs());
     }
+
+    return actionResult;
   }
 
   @VisibleForTesting

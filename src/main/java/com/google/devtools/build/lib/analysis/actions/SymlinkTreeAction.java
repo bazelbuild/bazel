@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -113,10 +114,11 @@ public final class SymlinkTreeAction extends AbstractAction {
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    actionExecutionContext
-        .getContext(SymlinkTreeActionContext.class)
-        .createSymlinks(this, actionExecutionContext, shellEnvironment, enableRunfiles);
+    return ActionResult.create(
+        actionExecutionContext
+            .getContext(SymlinkTreeActionContext.class)
+            .createSymlinks(this, actionExecutionContext, shellEnvironment, enableRunfiles));
   }
 }

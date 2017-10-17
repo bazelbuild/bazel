@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -64,7 +65,7 @@ final class ExtractInclusionAction extends AbstractAction {
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     IncludeScanningContext context =
         actionExecutionContext.getContext(IncludeScanningContext.class);
@@ -76,5 +77,6 @@ final class ExtractInclusionAction extends AbstractAction {
     } catch (ExecException e) {
       throw e.toActionExecutionException(this);
     }
+    return ActionResult.EMPTY;
   }
 }

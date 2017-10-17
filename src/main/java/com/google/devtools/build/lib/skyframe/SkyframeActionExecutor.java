@@ -847,8 +847,9 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     // instead.
     FileOutErr outErrBuffer = actionExecutionContext.getFileOutErr();
     try {
+      // TODO(b/62588075): Now that execute() returns information about the execution, we could log
+      // the data to the invocations table.
       action.execute(actionExecutionContext);
-
       // Action terminated fine, now report the output.
       // The .showOutput() method is not necessarily a quick check: in its
       // current implementation it uses regular expression matching.

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -61,8 +62,8 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
-  throws ActionExecutionException {
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
     try {
       for (Map.Entry<Artifact, Artifact> entry : symlinks.entrySet()) {
         Path symlink = entry.getKey().getPath();
@@ -72,6 +73,7 @@ public final class CreateIncSymlinkAction extends AbstractAction {
       String message = "IO Error while creating symlink";
       throw new ActionExecutionException(message, e, this, false);
     }
+    return ActionResult.EMPTY;
   }
 
   @VisibleForTesting

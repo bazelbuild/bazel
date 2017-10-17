@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -107,7 +108,7 @@ public class SymlinkAction extends AbstractAction {
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
     Path srcPath;
     if (inputPath == null) {
@@ -123,6 +124,7 @@ public class SymlinkAction extends AbstractAction {
           + "' to the '" + Iterables.getOnlyElement(getInputs()).prettyPrint()
           + "' due to I/O error: " + e.getMessage(), e, this, false);
     }
+    return ActionResult.EMPTY;
   }
 
   @Override

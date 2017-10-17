@@ -51,8 +51,7 @@ public final class MiddlemanAction extends AbstractAction {
   }
 
   @Override
-  public final void execute(
-      ActionExecutionContext actionExecutionContext) {
+  public final ActionResult execute(ActionExecutionContext actionExecutionContext) {
     throw new IllegalStateException("MiddlemanAction should never be executed");
   }
 

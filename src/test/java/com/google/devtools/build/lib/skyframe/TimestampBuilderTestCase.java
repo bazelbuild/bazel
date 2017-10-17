@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -410,9 +411,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     }
 
     @Override
-    public void execute(ActionExecutionContext actionExecutionContext)
+    public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
-      super.execute(actionExecutionContext);
+      ActionResult actionResult = super.execute(actionExecutionContext);
       try {
         FileSystemUtils.copyFile(
             Iterables.getOnlyElement(getInputs()).getPath(),
@@ -420,6 +421,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
+      return actionResult;
     }
   }
 

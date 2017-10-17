@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -656,11 +657,11 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     TestActionContext context = actionExecutionContext.getContext(TestActionContext.class);
     try {
-      context.exec(this, actionExecutionContext);
+      return ActionResult.create(context.exec(this, actionExecutionContext));
     } catch (ExecException e) {
       throw e.toActionExecutionException(this);
     } finally {

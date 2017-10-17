@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -679,30 +680,33 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
           ? ImmutableList.of(artifacts[0])
           : Artifact.NO_ARTIFACTS;
       final int iCopy = ii;
-      registerAction(new TestAction(new Callable<Void>() {
-          @Override
-          public Void call() throws Exception {
-            Thread.sleep(100); // 100ms
-            completedTasks.getAndIncrement();
-            throw new IOException("task failed");
-          }
-        },
-          inputs, ImmutableList.of(out)) {
-        @Override
-        public void execute(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
-          if (catastrophe && iCopy == 0) {
-            try {
-              Thread.sleep(300); // 300ms
-            } catch (InterruptedException e) {
-              throw new RuntimeException(e);
+      registerAction(
+          new TestAction(
+              new Callable<Void>() {
+                @Override
+                public Void call() throws Exception {
+                  Thread.sleep(100); // 100ms
+                  completedTasks.getAndIncrement();
+                  throw new IOException("task failed");
+                }
+              },
+              inputs,
+              ImmutableList.of(out)) {
+            @Override
+            public ActionResult execute(ActionExecutionContext actionExecutionContext)
+                throws ActionExecutionException {
+              if (catastrophe && iCopy == 0) {
+                try {
+                  Thread.sleep(300); // 300ms
+                } catch (InterruptedException e) {
+                  throw new RuntimeException(e);
+                }
+                completedTasks.getAndIncrement();
+                throw new ActionExecutionException("This is a catastrophe", this, true);
+              }
+              return super.execute(actionExecutionContext);
             }
-            completedTasks.getAndIncrement();
-            throw new ActionExecutionException("This is a catastrophe", this, true);
-          }
-          super.execute(actionExecutionContext);
-        }
-      });
+          });
       artifacts[ii] = out;
     }
 
