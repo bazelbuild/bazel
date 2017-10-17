@@ -287,4 +287,52 @@ public class UsageCheckerTest {
   public void dontReportLocalsStartingWithUnderscore() throws Exception {
     Truth.assertThat(findIssues("def f(_param):", "  _local = [[] for _x in []]")).isEmpty();
   }
+
+  @Test
+  public void dontReportInitializationWithNoneAsDeclaration() throws Exception {
+    Truth.assertThat(
+            findIssues(
+                "def foo(bar):",
+                "  baz = None # here should be no unused warning",
+                "  # because we want to allow people to 'declare' a variable in one location",
+                "  if bar:",
+                "    baz = 0",
+                "  else:",
+                "    baz = 1",
+                "  print(baz)"))
+        .isEmpty();
+  }
+
+  @Test
+  public void reportUnusedInitializationWithNone() throws Exception {
+    Truth.assertThat(
+            findIssues("def foo():", "  baz = None # warn here because 'baz' is never used")
+                .toString())
+        .contains("2:3-2:5: unused binding of 'baz'");
+  }
+
+  @Test
+  public void reportSubsequentInitializations() throws Exception {
+    Truth.assertThat(
+            findIssues(
+                    "def foo():",
+                    "  baz = None",
+                    "  baz = None # do warn here (not an initialization)")
+                .toString())
+        .contains("3:3-3:5: unused binding of 'baz'");
+    Truth.assertThat(
+            findIssues(
+                    "def foo():",
+                    "  baz = None",
+                    "  baz = 0 # do warn here (it's a regular assignment)")
+                .toString())
+        .contains("3:3-3:5: unused binding of 'baz'");
+    Truth.assertThat(
+            findIssues(
+                    "def foo():",
+                    "  baz = 0",
+                    "  baz = None # do warn here (not an initialization)")
+                .toString())
+        .contains("3:3-3:5: unused binding of 'baz'");
+  }
 }
