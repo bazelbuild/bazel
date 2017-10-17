@@ -103,6 +103,12 @@ def create_android_sdk_rules(
             ":windows_msys": "build-tools/%s/aapt.exe" % build_tools_directory,
             "//conditions:default": ":aapt_binary",
         }),
+        aapt2 = select({
+            ":windows": "build-tools/%s/aapt2.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/aapt2.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/aapt2.exe" % build_tools_directory,
+            "//conditions:default": ":aapt2_binary",
+        }),
         dx = ":dx_binary",
         main_dex_list_creator = ":main_dex_list_creator",
         adb = select({
@@ -156,7 +162,7 @@ def create_android_sdk_rules(
       ])
   )
 
-  for tool in ["aapt", "aidl", "zipalign"]:
+  for tool in ["aapt", "aapt2", "aidl", "zipalign"]:
     native.genrule(
         name = tool + "_runner",
         outs = [tool + "_runner.sh"],
