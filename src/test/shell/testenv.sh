@@ -19,11 +19,15 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
-# Windows
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
+
 function is_windows() {
   # On windows, the shell test is actually running on msys
   [[ "${PLATFORM}" =~ msys_nt* ]]
+}
+
+function is_darwin() {
+  [[ "${PLATFORM}" =~ darwin ]]
 }
 
 function _log_base() {
