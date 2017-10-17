@@ -94,10 +94,16 @@ cp -f "$JAVAINCLUDES/win32/jni_md.h" "$JNI_HEADERS_DIR/"
 # CL.EXE needs a bunch of environment variables whose official location is a
 # batch file. We can't make that have an effect on a bash instance, so
 # generate a batch file that invokes it.
+# As for `abs_pwd` and `pwd_drive`: in cmd.exe, it's not enough to `cd` into a
+# directory. You must also change to its drive to truly set the cwd to that
+# directory. See https://github.com/bazelbuild/bazel/issues/3906
+abs_pwd="$(cygpath -a -w "${PWD}")"
+pwd_drive="$(echo "$abs_pwd" | head -c2)"
 cat > "${VSTEMP}/windows_jni.bat" <<EOF
 @echo OFF
 @call "${VSVARS}" amd64
-@cd $(cygpath -a -w "${PWD}")
+@$pwd_drive
+@cd "$abs_pwd"
 @set TMP=$(cygpath -a -w "${VSTEMP}")
 @CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . ${WINDOWS_SOURCES[*]}
 EOF
