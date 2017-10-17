@@ -24,6 +24,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.List;
@@ -158,7 +159,8 @@ public class ValidateAndLinkResourcesAction {
   public static void main(String[] args) throws Exception {
     final OptionsParser optionsParser =
         OptionsParser.newOptionsParser(Options.class, Aapt2ConfigOptions.class);
-    optionsParser.enableParamsFileSupport(FileSystems.getDefault());
+    optionsParser.enableParamsFileSupport(
+        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parse(args);
 
     Options options = optionsParser.getOptions(Options.class);

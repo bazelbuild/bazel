@@ -25,7 +25,6 @@ import com.google.common.escape.Escaper;
 import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.nio.file.FileSystem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -202,11 +201,6 @@ public class OptionsParser implements OptionsProvider {
    */
   public void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
     this.impl.setAllowSingleDashLongOptions(allowSingleDashLongOptions);
-  }
-
-  /** Enables the Parser to handle params files located inside the provided {@link FileSystem}. */
-  public void enableParamsFileSupport(FileSystem fs) {
-    enableParamsFileSupport(new LegacyParamsFilePreProcessor(fs));
   }
 
   /**

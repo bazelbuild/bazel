@@ -244,7 +244,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("defaultFoo");
@@ -264,7 +264,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("defaultFoo");
@@ -283,7 +283,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEmpty();
@@ -302,7 +302,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("defaultFoo");
@@ -326,7 +326,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("defaultFoo");
@@ -345,7 +345,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("\"fuzzy\nfoo\"");
@@ -364,7 +364,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("fuzzy\\ foo");
@@ -383,7 +383,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("\"fuzzy\\\"foo\"");
@@ -403,7 +403,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("fuzzy 'foo");
@@ -423,7 +423,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("'fuzzy 'foo");
@@ -442,7 +442,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     try {
       parser.parse("@" + params);
       fail();
@@ -475,7 +475,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("hello\\\nworld");
@@ -496,7 +496,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
     assertThat(baz.baz).isEqualTo("hello\nworld");
@@ -516,7 +516,7 @@ public class OptionsParserTest {
         StandardOpenOption.CREATE);
 
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parse("@" + params);
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     assertThat(foo.foo).isEqualTo("defaultFoo");
@@ -528,7 +528,7 @@ public class OptionsParserTest {
   @Test
   public void parsingFailsWithMissingParamsFile() {
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
-    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.enableParamsFileSupport(new LegacyParamsFilePreProcessor(FileSystems.getDefault()));
     List<String> unknownOpts = asList("@does/not/exist");
     try {
       parser.parse(unknownOpts);

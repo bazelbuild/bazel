@@ -27,7 +27,11 @@ import java.util.NoSuchElementException;
  * A {@link ParamsFilePreProcessor} that processes a parameter file using a custom format. This
  * format assumes each parameter is separated by whitespace and allows arguments to use single and
  * double quotes and quote and whitespace escaping.
+ *
+ * <p><em>NOTE:</em> This class is deprecated; use either {@link ShellQuotedParamsFilePreProcessor}
+ * or {@link UnquotedParamsFilePreProcessor} depending on the format of the provided params file.
  */
+@Deprecated
 public class LegacyParamsFilePreProcessor extends ParamsFilePreProcessor {
 
   public LegacyParamsFilePreProcessor(FileSystem fs) {
