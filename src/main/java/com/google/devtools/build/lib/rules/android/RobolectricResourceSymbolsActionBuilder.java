@@ -93,7 +93,7 @@ public class RobolectricResourceSymbolsActionBuilder {
     builder.addExecPath("--classJarOutput", classJarOut);
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
 
-    ParamFileInfo.Builder paramFile = ParamFileInfo.builder(ParameterFileType.UNQUOTED);
+    ParamFileInfo.Builder paramFile = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED);
     // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
     // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
     // semantics are very complicated (more so than in Bash), so let's just always use a parameter

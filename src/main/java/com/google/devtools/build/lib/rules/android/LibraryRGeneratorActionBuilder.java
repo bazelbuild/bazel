@@ -94,7 +94,7 @@ public class LibraryRGeneratorActionBuilder {
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.<Artifact>of(rJavaClassJar))
             .addCommandLine(
-                builder.build(), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
+                builder.build(), ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build())
             .setExecutable(executable)
             .setProgressMessage("Generating Library R Classes: %s", ruleContext.getLabel())
             .setMnemonic("LibraryRClassGenerator")

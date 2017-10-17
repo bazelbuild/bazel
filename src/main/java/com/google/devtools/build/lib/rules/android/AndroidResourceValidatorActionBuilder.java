@@ -199,7 +199,7 @@ public class AndroidResourceValidatorActionBuilder {
             .addInputs(inputs.build())
             .addOutputs(outs.build())
             .addCommandLine(
-                builder.build(), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
+                builder.build(), ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage(
@@ -275,7 +275,7 @@ public class AndroidResourceValidatorActionBuilder {
             .addInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))
             .addCommandLine(
-                builder.build(), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
+                builder.build(), ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Validating Android resources for %s", ruleContext.getLabel())
