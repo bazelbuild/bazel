@@ -251,4 +251,17 @@ a9c46e5907be66248b6218ae70e0a1d999c696d5
   assert_equals "${expected}" "${actual}"
 }
 
+function test_nonone_relnotes() {
+  git checkout -q 2ea4fa26281175c316651ec50784b820a9f409cf
+  local expected='Incompatible changes:
+
+  - --javabase=<absolute path> and --host_javabase=<absolute path>
+    are not supported anymore. If you need this functionality
+    java_runtime_suite(name="suite", default=":runtime")
+    java_runtime(name="runtime", java_home=<path to the JDK>) is an
+    alternative.'
+  local actual="$(release_notes  7c605cf6ea9755a06e5abb16a631faac8ebe2937)"
+  assert_equals "${expected}" "${actual}"
+}
+
 run_suite "Release notes generation tests"
