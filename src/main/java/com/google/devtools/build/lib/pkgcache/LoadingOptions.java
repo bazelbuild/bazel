@@ -154,7 +154,7 @@ public class LoadingOptions extends OptionsBase {
   // implementation, making it a moot point.
   @Option(
     name = "experimental_skyframe_target_pattern_evaluator",
-    defaultValue = "false",
+    defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =

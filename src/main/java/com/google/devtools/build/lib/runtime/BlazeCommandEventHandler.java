@@ -81,7 +81,7 @@ public class BlazeCommandEventHandler implements EventHandler {
 
     @Option(
       name = "show_progress_rate_limit",
-      defaultValue = "0.03", // A nice middle ground; snappy but not too spammy in logs.
+      defaultValue = "0.2", // A nice middle ground; snappy but not too spammy in logs.
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -194,7 +194,7 @@ public class BlazeCommandEventHandler implements EventHandler {
 
     @Option(
       name = "experimental_ui",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
