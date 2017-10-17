@@ -222,14 +222,11 @@ class RemoteSpawnRunner implements SpawnRunner {
     final Status status;
     if (cause instanceof TimeoutException) {
       status = Status.TIMEOUT;
-      // TODO(buchgr): Once the remote execution protocol allows it, also provide stdout/stderr
-      // from the action that timed out.
+      // TODO(buchgr): provide stdout/stderr from the action that timed out.
+      // Remove the unsuported message once remote execution tests no longer check for it.
       try (OutputStream out = outErr.getOutputStream()) {
-        // This is a hack to ensure that the test.log file gets created, as else the action
-        // will complain that one of its outputs has not been created.
-        String msg = "Log output for timeouts is not yet supported in remote execution.";
+        String msg = "Log output for timeouts is not yet supported in remote execution.\n";
         out.write(msg.getBytes(StandardCharsets.UTF_8));
-        out.flush();
       }
       return new SpawnResult.Builder().setStatus(status).build();
     } else if (cause instanceof RetryException

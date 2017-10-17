@@ -242,12 +242,12 @@ public class StandaloneTestStrategy extends TestStrategy {
 
       // e.g. test.dir/file
       PathFragment relativeToTestDirectory = testOutputPath.relativeTo(testRoot);
-      
+
       // e.g. attempt_1.dir/file
       String destinationPathFragmentStr =
           relativeToTestDirectory.getSafePathString().replaceFirst("test", attemptPrefix);
       PathFragment destinationPathFragment = PathFragment.create(destinationPathFragmentStr);
-      
+
       // e.g. /attemptsDir/attempt_1.dir/file
       Path destinationPath = attemptsDir.getRelative(destinationPathFragment);
       destinationPath.getParentDirectory().createDirectory();
@@ -316,6 +316,10 @@ public class StandaloneTestStrategy extends TestStrategy {
       StandaloneTestResult standaloneTestResult =
           executeTest(action, spawn, actionExecutionContext.withFileOutErr(fileOutErr));
       appendStderr(fileOutErr.getOutputPath(), fileOutErr.getErrorPath());
+      if (!fileOutErr.hasRecordedOutput()) {
+        // Touch the output file so that test.log can get created.
+        FileSystemUtils.touchFile(fileOutErr.getOutputPath());
+      }
       return standaloneTestResult;
     }
   }
@@ -370,6 +374,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             .setTestPassed(false)
             .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)
             .addFailedLogs(testLogPath.getPathString());
+        spawnResults = ImmutableSet.of(e.getSpawnResult());
       } finally {
         long duration = actionExecutionContext.getClock().currentTimeMillis() - startTime;
         builder.setStartTimeMillisEpoch(startTime);
