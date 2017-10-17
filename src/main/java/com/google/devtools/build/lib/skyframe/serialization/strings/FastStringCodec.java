@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -29,8 +30,13 @@ import sun.misc.Unsafe;
  * Similar to {@link StringCodec}, except with deserialization optimized for ascii data. It can
  * still handle UTF-8, though less efficiently than {@link StringCodec}. Should be used when the
  * majority of the data passing through will be ascii.
+ *
+ * <p>Users <b>MUST</b> check if this class is usable by checking {@link #isAvailable()}.
  */
 class FastStringCodec implements ObjectCodec<String> {
+
+  /** Sentinel value for missing {@link #STRING_VALUE_OFFSET}. */
+  private static final long UNSUPPORTED_STRING_VALUE_OFFSET = -1;
 
   private static final Unsafe theUnsafe;
   private static final long STRING_VALUE_OFFSET;
@@ -39,21 +45,16 @@ class FastStringCodec implements ObjectCodec<String> {
 
   static {
     theUnsafe = getUnsafe();
-    try {
-      // String's 'value' field stores its char[]. If this field changes name or type then the
-      // reflective check below will fail. We can reasonably expect our approach to be stable for
-      // now, but things are likely to change in java 9, hopefully in a way which obsoletes this
-      // optimization.
-      Field valueField = String.class.getDeclaredField("value");
-      Class<?> valueFieldType = valueField.getType();
-      if (!valueFieldType.equals(char[].class)) {
-        throw new AssertionError(
-            "Expected String's value field to be char[], but was " + valueFieldType);
-      }
-      STRING_VALUE_OFFSET = theUnsafe.objectFieldOffset(valueField);
-    } catch (NoSuchFieldException | SecurityException e) {
-      throw new AssertionError("Failed to find String's 'value' offset", e);
-    }
+    STRING_VALUE_OFFSET = getStringValueOffset();
+  }
+
+  /** Returns whether or not this implementation is supported. */
+  static boolean isAvailable() {
+    return STRING_VALUE_OFFSET != UNSUPPORTED_STRING_VALUE_OFFSET;
+  }
+
+  FastStringCodec() {
+    Preconditions.checkState(isAvailable(), "FastStringCodec isn't available!");
   }
 
   @Override
@@ -135,6 +136,23 @@ class FastStringCodec implements ObjectCodec<String> {
           });
     } catch (PrivilegedActionException pae) {
       throw new AssertionError("Unable to get sun.misc.Unsafe", pae);
+    }
+  }
+
+  private static long getStringValueOffset() {
+    try {
+      // We expect a String's value field to be a char[] - if that's not the case then we're
+      // probably on a more modern JDK and this optimization isn't available.
+      Field valueField = String.class.getDeclaredField("value");
+      Class<?> valueFieldType = valueField.getType();
+      if (valueFieldType.equals(char[].class)) {
+        return theUnsafe.objectFieldOffset(valueField);
+      } else {
+        // value was of a different type, bail.
+        return UNSUPPORTED_STRING_VALUE_OFFSET;
+      }
+    } catch (NoSuchFieldException | SecurityException e) {
+      throw new AssertionError("Failed to find String's 'value' field/offset", e);
     }
   }
 }

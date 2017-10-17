@@ -26,7 +26,8 @@ public class FastStringCodecTest extends AbstractObjectCodecTest<String> {
 
   public FastStringCodecTest() {
     super(
-        new FastStringCodec(),
+        // TODO(michajlo): Don't bother running this test if FastStringCodec isn't available.
+        FastStringCodec.isAvailable() ? new FastStringCodec() : new StringCodec(),
         "ow now brown cow. ow now brown cow",
         "（╯°□°）╯︵┻━┻ string with utf8/ascii",
         "string with ascii/utf8 （╯°□°）╯︵┻━┻",
