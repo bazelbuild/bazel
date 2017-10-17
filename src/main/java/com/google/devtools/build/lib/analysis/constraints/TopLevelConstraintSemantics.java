@@ -49,29 +49,28 @@ import javax.annotation.Nullable;
 public class TopLevelConstraintSemantics {
 
   /**
-   * Checks that if this is an environment-restricted build, all top-level targets support
-   * expected top-level environments. Expected top-level environments can be declared explicitly
-   * through {@code --target_environment} or implicitly through
-   * {@code --experimental_auto_cpu_environment_group}. For the latter, top-level targets must
-   * be compatible with the build's target configuration CPU.
+   * Checks that if this is an environment-restricted build, all top-level targets support expected
+   * top-level environments. Expected top-level environments can be declared explicitly through
+   * {@code --target_environment} or implicitly through {@code --auto_cpu_environment_group}. For
+   * the latter, top-level targets must be compatible with the build's target configuration CPU.
    *
-   * <p>If any target doesn't support an explicitly expected environment declared through
-   * {@link BuildConfiguration.Options#targetEnvironments}, the entire build fails with an error.
+   * <p>If any target doesn't support an explicitly expected environment declared through {@link
+   * BuildConfiguration.Options#targetEnvironments}, the entire build fails with an error.
    *
-   * <p>If any target doesn't support an implicitly expected environment declared through
-   * {@link BuildConfiguration.Options#autoCpuEnvironmentGroup}, the target is skipped during
-   * execution while remaining targets execute as normal.
+   * <p>If any target doesn't support an implicitly expected environment declared through {@link
+   * BuildConfiguration.Options#autoCpuEnvironmentGroup}, the target is skipped during execution
+   * while remaining targets execute as normal.
    *
    * @param topLevelTargets the build's top-level targets
    * @param packageManager object for retrieving loaded targets
    * @param eventHandler the build's event handler
-   *
    * @return the set of bad top-level targets.
    * @throws ViewCreationFailedException if any target doesn't support an explicitly expected
-   * environment declared through {@link BuildConfiguration.Options#targetEnvironments}
+   *     environment declared through {@link BuildConfiguration.Options#targetEnvironments}
    */
   public static Set<ConfiguredTarget> checkTargetEnvironmentRestrictions(
-      Iterable<ConfiguredTarget> topLevelTargets, PackageManager packageManager,
+      Iterable<ConfiguredTarget> topLevelTargets,
+      PackageManager packageManager,
       ExtendedEventHandler eventHandler)
       throws ViewCreationFailedException, InterruptedException {
     ImmutableSet.Builder<ConfiguredTarget> badTargets = ImmutableSet.builder();

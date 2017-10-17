@@ -935,12 +935,15 @@ public final class BuildConfiguration implements BuildEvent {
     public List<Label> targetEnvironments;
 
     @Option(
-      name = "experimental_auto_cpu_environment_group",
+      name = "auto_cpu_environment_group",
+      // TODO(b/67853005): Remove when all usage of experimental_auto_cpu_environment_group is
+      // removed
+      oldName = "experimental_auto_cpu_environment_group",
       converter = EmptyToNullLabelConverter.class,
       defaultValue = "",
       category = "flags",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = { OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS },
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Declare the environment_group to use for automatically mapping cpu values to "
@@ -1699,7 +1702,7 @@ public final class BuildConfiguration implements BuildEvent {
    * client's own environment, and are returned by this function.
    *
    * <p>The values of the "variable" variables are tracked in Skyframe via the {@link
-   * com.google.devtools.build.lib.skyframe.SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE} skyfunction.
+   * com.google.devtools.build.lib.skyframe.SkyFunctions#CLIENT_ENVIRONMENT_VARIABLE} skyfunction.
    * This method only returns the names of those variables to be inherited, if set in the client's
    * environment. (Variables where the name is not returned in this set should not be taken from the
    * client environment.)
