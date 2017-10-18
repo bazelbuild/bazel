@@ -78,7 +78,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('third_party/six.BUILD', build_file + ['foobar'])
     exit_code, _, stderr = self.RunBazel(['build', '@six_archive//...'])
     self.assertEqual(exit_code, 1, os.linesep.join(stderr))
-    self.assertIn('name \'foobar\' is not defined.', os.linesep.join(stderr))
+    self.assertIn('name \'foobar\' is not defined', os.linesep.join(stderr))
 
 
 if __name__ == '__main__':

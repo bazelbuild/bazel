@@ -84,7 +84,7 @@ class LauncherTest(test_base.TestBase):
                                          launcher_flag)
     if self.IsWindows():
       self.AssertExitCode(exit_code, 1, stderr)
-      self.assertIn('target name extension should match source file extension.',
+      self.assertIn('target name extension should match source file extension',
                     os.linesep.join(stderr))
     else:
       bin3 = os.path.join(bazel_bin, 'foo', 'bin3.bat')
