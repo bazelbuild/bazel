@@ -29,16 +29,18 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -46,6 +48,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -509,6 +512,73 @@ public final class ConfigurationResolver {
           resolvedDepWithSplit = sortedSplitList;
         }
         result.putAll(depsEntry.getKey(), resolvedDepWithSplit);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * This method allows resolution of configurations outside of a skyfunction call.
+   *
+   * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, transforms a collection
+   * of <Target, Configuration> pairs by trimming each target's configuration to only the fragments
+   * the target and its transitive dependencies need.
+   *
+   * <p>Else returns configurations that unconditionally include all fragments.
+   *
+   * <p>Preserves the original input order (but merges duplicate nodes that might occur due to
+   * top-level configuration transitions) . Uses original (untrimmed) configurations for targets
+   * that can't be evaluated (e.g. due to loading phase errors).
+   *
+   * <p>This is suitable for feeding {@link ConfiguredTargetValue} keys: as general principle {@link
+   * ConfiguredTarget}s should have exactly as much information in their configurations as they need
+   * to evaluate and no more (e.g. there's no need for Android settings in a C++ configured target).
+   *
+   * @param inputs the original targets and configurations
+   * @param asDeps the inputs repackaged as dependencies
+   * @param eventHandler
+   * @param skyframeExecutor
+   */
+  // TODO(bazel-team): error out early for targets that fail - untrimmed configurations should
+  // never make it through analysis (and especially not seed ConfiguredTargetValues)
+  public static LinkedHashSet<TargetAndConfiguration> getConfigurationsFromExecutor(
+      Iterable<TargetAndConfiguration> inputs,
+      Multimap<BuildConfiguration, Dependency> asDeps,
+      ExtendedEventHandler eventHandler,
+      SkyframeExecutor skyframeExecutor)
+      throws InterruptedException {
+
+    Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
+    for (TargetAndConfiguration targetAndConfig : inputs) {
+      labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig.getTarget());
+    }
+
+    // Maps <target, originalConfig> pairs to <target, finalConfig> pairs for targets that
+    // could be successfully Skyframe-evaluated.
+    Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
+        new LinkedHashMap<>();
+    if (!asDeps.isEmpty()) {
+      for (BuildConfiguration fromConfig : asDeps.keySet()) {
+        Multimap<Dependency, BuildConfiguration> trimmedTargets =
+            skyframeExecutor.getConfigurations(
+                eventHandler, fromConfig.getOptions(), asDeps.get(fromConfig));
+        for (Map.Entry<Dependency, BuildConfiguration> trimmedTarget : trimmedTargets.entries()) {
+          Target target = labelsToTargets.get(trimmedTarget.getKey().getLabel());
+          successfullyEvaluatedTargets.put(
+              new TargetAndConfiguration(target, fromConfig),
+              new TargetAndConfiguration(target, trimmedTarget.getValue()));
+        }
+      }
+    }
+
+    LinkedHashSet<TargetAndConfiguration> result = new LinkedHashSet<>();
+    for (TargetAndConfiguration originalInput : inputs) {
+      if (successfullyEvaluatedTargets.containsKey(originalInput)) {
+        // The configuration was successfully trimmed.
+        result.add(successfullyEvaluatedTargets.get(originalInput));
+      } else {
+        // Either the configuration couldn't be determined (e.g. loading phase error) or it's null.
+        result.add(originalInput);
       }
     }
     return result;

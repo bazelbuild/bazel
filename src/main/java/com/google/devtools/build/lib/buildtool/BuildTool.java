@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.MakeEnvironmentEvent;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
+import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -60,6 +62,7 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -72,6 +75,7 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -231,7 +235,7 @@ public final class BuildTool {
         // (SkyframeExecutor#handleConfiguredTargetChange should be sufficient).
         if (request.getBuildOptions().queryExpression != null) {
           try {
-            doConfiguredTargetQuery(request, configurations);
+            doConfiguredTargetQuery(request, configurations, loadingResult);
           } catch (QueryException | IOException e) {
             if (!request.getViewOptions().keepGoing) {
               throw new ViewCreationFailedException("Error doing configured target query", e);
@@ -391,8 +395,37 @@ public final class BuildTool {
   }
 
   private void doConfiguredTargetQuery(
-      BuildRequest request, BuildConfigurationCollection configurations)
+      BuildRequest request,
+      BuildConfigurationCollection configurations,
+      LoadingResult loadingResult)
       throws InterruptedException, QueryException, IOException {
+
+    // Determine the configurations.
+    List<TargetAndConfiguration> topLevelTargetsWithConfigs =
+        AnalysisUtils.getTargetsWithConfigs(
+            configurations,
+            loadingResult.getTargets(),
+            env.getReporter(),
+            runtime.getRuleClassProvider(),
+            env.getSkyframeExecutor());
+
+    // Currently, CTQE assumes that all top level targets take on the same default config and we
+    // don't have the ability to map multiple configs to multiple top level targets.
+    // So for now, we only allow multiple targets when they all carry the same config.
+    // TODO: fully support multiple top level targets
+    TargetAndConfiguration sampleTAndC = topLevelTargetsWithConfigs.get(0);
+    BuildConfiguration sampleConfig = sampleTAndC.getConfiguration();
+    for (TargetAndConfiguration targAndConfig : topLevelTargetsWithConfigs) {
+      if (!targAndConfig.getConfiguration().equals(sampleConfig)) {
+        throw new QueryException(
+            new TargetLiteral(request.getBuildOptions().queryExpression),
+            String.format(
+                "Top level targets %s and %s have different configurations (top level "
+                    + "targets with different configurations is not supported)",
+                sampleTAndC.getTarget().getLabel(), targAndConfig.getTarget().getLabel()));
+      }
+    }
+
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
     ConfiguredTargetQueryEnvironment configuredTargetQueryEnvironment =
@@ -400,7 +433,7 @@ public final class BuildTool {
             request.getViewOptions().keepGoing,
             env.getReporter(),
             env.getRuntime().getQueryFunctions(),
-            configurations.getTargetConfigurations().get(0),
+            sampleConfig,
             configurations.getHostConfiguration(),
             env.newTargetPatternEvaluator().getOffset(),
             env.getPackageManager().getPackagePath(),

@@ -40,9 +40,8 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ComposingSplitTransition;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
+import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
@@ -80,7 +79,6 @@ import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -495,7 +493,8 @@ public class BuildView {
 
     // Determine the configurations.
     List<TargetAndConfiguration> topLevelTargetsWithConfigs =
-        nodesForTopLevelTargets(configurations, targets, eventHandler);
+        AnalysisUtils.getTargetsWithConfigs(
+            configurations, targets, eventHandler, ruleClassProvider, skyframeExecutor);
 
     // Report the generated association of targets to configurations
     Multimap<Label, BuildConfiguration> byLabel =
@@ -864,139 +863,6 @@ public class BuildView {
   }
 
   /**
-   * Given a set of top-level targets and a configuration collection, returns the appropriate
-   * <Target, Configuration> pair for each target.
-   *
-   * <p>Preserves the original input ordering.
-   */
-  private List<TargetAndConfiguration> nodesForTopLevelTargets(
-      BuildConfigurationCollection configurations,
-      Collection<Target> targets,
-      ExtendedEventHandler eventHandler)
-      throws InterruptedException {
-    // We use a hash set here to remove duplicate nodes; this can happen for input files and package
-    // groups.
-    LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
-    for (BuildConfiguration config : configurations.getTargetConfigurations()) {
-      for (Target target : targets) {
-        nodes.add(new TargetAndConfiguration(target, target.isConfigurable() ? config : null));
-      }
-    }
-    return ImmutableList.copyOf(getConfigurations(nodes, eventHandler));
-  }
-
-  /**
-   * If {@link BuildConfiguration.Options#trimConfigurations()} is true, transforms a collection of
-   * <Target, Configuration> pairs by trimming each target's configuration to only the fragments the
-   * target and its transitive dependencies need.
-   *
-   * <p>Else returns configurations that unconditionally include all fragments.
-   *
-   * <p>Preserves the original input order (but merges duplicate nodes that might occur due to
-   * top-level configuration transitions) . Uses original (untrimmed) configurations for targets
-   * that can't be evaluated (e.g. due to loading phase errors).
-   *
-   * <p>This is suitable for feeding {@link ConfiguredTargetValue} keys: as general principle {@link
-   * ConfiguredTarget}s should have exactly as much information in their configurations as they need
-   * to evaluate and no more (e.g. there's no need for Android settings in a C++ configured target).
-   */
-  // TODO(bazel-team): error out early for targets that fail - untrimmed configurations should
-  // never make it through analysis (and especially not seed ConfiguredTargetValues)
-  private LinkedHashSet<TargetAndConfiguration> getConfigurations(
-      Iterable<TargetAndConfiguration> inputs, ExtendedEventHandler eventHandler)
-      throws InterruptedException {
-    Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
-    // We'll get the configs from SkyframeExecutor#getConfigurations, which gets configurations
-    // for deps including transitions. So to satisfy its API we repackage each target as a
-    // Dependency with a NONE transition.
-    Multimap<BuildConfiguration, Dependency> asDeps =
-        ArrayListMultimap.<BuildConfiguration, Dependency>create();
-
-    for (TargetAndConfiguration targetAndConfig : inputs) {
-      labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig.getTarget());
-      if (targetAndConfig.getConfiguration() != null) {
-        asDeps.put(targetAndConfig.getConfiguration(),
-            Dependency.withTransitionAndAspects(
-                targetAndConfig.getLabel(),
-                getTopLevelTransition(targetAndConfig,
-                    ruleClassProvider.getDynamicTransitionMapper()),
-                // TODO(bazel-team): support top-level aspects
-                AspectCollection.EMPTY));
-      }
-    }
-
-    // Maps <target, originalConfig> pairs to <target, finalConfig> pairs for targets that
-    // could be successfully Skyframe-evaluated.
-    Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
-        new LinkedHashMap<>();
-    if (!asDeps.isEmpty()) {
-      for (BuildConfiguration fromConfig : asDeps.keySet()) {
-        Multimap<Dependency, BuildConfiguration> trimmedTargets =
-            skyframeExecutor.getConfigurations(eventHandler, fromConfig.getOptions(),
-                asDeps.get(fromConfig));
-        for (Map.Entry<Dependency, BuildConfiguration> trimmedTarget : trimmedTargets.entries()) {
-          Target target = labelsToTargets.get(trimmedTarget.getKey().getLabel());
-          successfullyEvaluatedTargets.put(
-              new TargetAndConfiguration(target, fromConfig),
-              new TargetAndConfiguration(target, trimmedTarget.getValue()));
-        }
-      }
-    }
-
-    LinkedHashSet<TargetAndConfiguration> result = new LinkedHashSet<>();
-    for (TargetAndConfiguration originalInput : inputs) {
-      if (successfullyEvaluatedTargets.containsKey(originalInput)) {
-        // The configuration was successfully trimmed.
-        result.add(successfullyEvaluatedTargets.get(originalInput));
-      } else {
-        // Either the configuration couldn't be determined (e.g. loading phase error) or it's null.
-        result.add(originalInput);
-      }
-    }
-    return result;
-  }
-
-  /**
-   * Returns the transition to apply to the top-level configuration before applying it to this
-   * target. This enables support for rule-triggered top-level configuration hooks.
-   */
-  private static Attribute.Transition getTopLevelTransition(TargetAndConfiguration targetAndConfig,
-      DynamicTransitionMapper dynamicTransitionMapper) {
-    Target target = targetAndConfig.getTarget();
-    BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
-
-    // Top-level transitions (chosen by configuration fragments):
-    Transition topLevelTransition = fromConfig.topLevelConfigurationHook(target);
-    if (topLevelTransition == null) {
-      topLevelTransition = ConfigurationTransition.NONE;
-    }
-
-    // Rule class transitions (chosen by rule class definitions):
-    if (target.getAssociatedRule() == null) {
-      return topLevelTransition;
-    }
-    Rule associatedRule = target.getAssociatedRule();
-    RuleTransitionFactory transitionFactory =
-        associatedRule.getRuleClassObject().getTransitionFactory();
-    if (transitionFactory == null) {
-      return topLevelTransition;
-    }
-    // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
-    // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
-    // C++-specific patch transition that implements it.
-    PatchTransition ruleClassTransition = (PatchTransition)
-        dynamicTransitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
-    if (ruleClassTransition == null) {
-      return topLevelTransition;
-    } else if (topLevelTransition == ConfigurationTransition.NONE) {
-      return ruleClassTransition;
-    } else {
-      return new ComposingSplitTransition(topLevelTransition, ruleClassTransition);
-    }
-  }
-
-
-  /**
    * Gets a configuration for the given target.
    *
    * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, the configuration only
@@ -1007,9 +873,16 @@ public class BuildView {
   public BuildConfiguration getConfigurationForTesting(
       Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
       throws InterruptedException {
-    return Iterables.getOnlyElement(getConfigurations(
-        ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config)),
-        eventHandler)).getConfiguration();
+    List<TargetAndConfiguration> node =
+        ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config));
+    LinkedHashSet<TargetAndConfiguration> configs =
+        ConfigurationResolver.getConfigurationsFromExecutor(
+            node,
+            AnalysisUtils.targetsToDeps(
+                new LinkedHashSet<TargetAndConfiguration>(node), ruleClassProvider),
+            eventHandler,
+            skyframeExecutor);
+    return configs.iterator().next().getConfiguration();
   }
 
   /**

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
@@ -28,16 +29,15 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.Preconditions;
 
 /**
- * Determines the {@link Attribute.Transition}s dependencies should apply to their parents'
- * configurations.
+ * Tool for evaluating which {@link Attribute.Transition}(s) should be applied to given targets.
  *
- * <p>For the work of turning these transitions into actual configurations, see
- * {@link ConfigurationResolver}.
+ * <p>For the work of turning these transitions into actual configurations, see {@link
+ * ConfigurationResolver}.
  *
  * <p>This is the "generic engine" for configuration selection. It doesn't know anything about
- * specific rules or their requirements. Rule writers decide those with appropriately placed
- * {@link PatchTransition} declarations. This class then processes those declarations to determine
- * final transitions.
+ * specific rules or their requirements. Rule writers decide those with appropriately placed {@link
+ * PatchTransition} declarations. This class then processes those declarations to determine final
+ * transitions.
  */
 public final class TransitionResolver {
   private final DynamicTransitionMapper transitionMapper;
@@ -121,7 +121,31 @@ public final class TransitionResolver {
           attribute.getConfigurationTransition());
     }
 
-    return applyConfigurationHook(currentTransition, toTarget);
+    // IV. Applies any rule transitions associated with the dep target, composes their transitions
+    // with a passed-in existing transition, and returns the composed result.
+    return applyRuleTransition(currentTransition, toTarget, transitionMapper);
+  }
+
+  /**
+   * Same as evaluateTransition except does not check for transitions coming from parents and
+   * enables support for rule-triggered top-level configuration hooks.
+   */
+  public static Attribute.Transition evaluateTopLevelTransition(
+      TargetAndConfiguration targetAndConfig, DynamicTransitionMapper dynamicTransitionMapper) {
+    Target target = targetAndConfig.getTarget();
+    BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
+
+    // Top-level transitions (chosen by configuration fragments):
+    Transition topLevelTransition = fromConfig.topLevelConfigurationHook(target);
+    if (topLevelTransition == null) {
+      topLevelTransition = ConfigurationTransition.NONE;
+    }
+
+    // Rule class transitions (chosen by rule class definitions):
+    if (target.getAssociatedRule() == null) {
+      return topLevelTransition;
+    }
+    return applyRuleTransition(topLevelTransition, target, dynamicTransitionMapper);
   }
 
   /**
@@ -183,10 +207,14 @@ public final class TransitionResolver {
   }
 
   /**
-   * Applies any configuration hooks associated with the dep target, composes their transitions
-   * after an existing transition, and returns the composed result.
+   * @param currentTransition a pre-existing transition to be composed with
+   * @param toTarget rule to examine for transitions
+   * @param transitionMapper only needed because of Attribute.ConfigurationTransition.DATA: this is
+   *     C++-specific but non-C++ rules declare it. So they can't directly provide the C++-specific
+   *     patch transition that implements it.
    */
-  private Transition applyConfigurationHook(Transition currentTransition, Target toTarget) {
+  private static Transition applyRuleTransition(
+      Transition currentTransition, Target toTarget, DynamicTransitionMapper transitionMapper) {
     if (isFinal(currentTransition)) {
       return currentTransition;
     }
@@ -194,9 +222,6 @@ public final class TransitionResolver {
     RuleTransitionFactory transitionFactory =
         associatedRule.getRuleClassObject().getTransitionFactory();
     if (transitionFactory != null) {
-      // transitionMapper is only needed because of Attribute.ConfigurationTransition.DATA: this is
-      // C++-specific but non-C++ rules declare it. So they can't directly provide the C++-specific
-      // patch transition that implements it.
       PatchTransition ruleClassTransition = (PatchTransition)
           transitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
       if (ruleClassTransition != null) {
