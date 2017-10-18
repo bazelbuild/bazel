@@ -149,7 +149,7 @@ public class AndroidResourceValidatorAction {
       logger.fine(String.format("unpacked zip at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       // We need to make the manifest aapt safe (w.r.t., placeholders). For now, just stub it out.
-      resourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
+      AndroidResourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
 
       resourceProcessor.runAapt(
           tmp,
