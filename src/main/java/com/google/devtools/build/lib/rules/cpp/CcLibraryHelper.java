@@ -115,6 +115,7 @@ public final class CcLibraryHelper {
             CppCompileAction.CPP_HEADER_PARSING,
             CppCompileAction.CPP_HEADER_PREPROCESSING,
             CppCompileAction.CPP_MODULE_COMPILE,
+            CppCompileAction.CPP_MODULE_CODEGEN,
             CppCompileAction.ASSEMBLE,
             CppCompileAction.PREPROCESS_ASSEMBLE,
             CppCompileAction.CLIF_MATCH,
