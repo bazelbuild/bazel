@@ -39,6 +39,16 @@ class SkylintTest(unittest.TestCase):
       issues = e.output
     self.assertIn("no module docstring", issues)
 
+  def testNonexistingFile(self):
+    try:
+      output = ""
+      subprocess.check_output(
+          [testenv.SKYLINT_BINARY_PATH, "does_not_exist.bzl"],
+          stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+      output = e.output
+    self.assertEqual("File not found: does_not_exist.bzl\n", output)
+
   def testDisablingChecker(self):
     output = subprocess.check_output([
         testenv.SKYLINT_BINARY_PATH, "--disable=docstring",

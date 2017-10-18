@@ -15,6 +15,7 @@
 package com.google.devtools.skylark.skylint;
 
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ import java.util.List;
 
 /** The main class for the skylint binary. */
 public class Skylint {
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     List<Path> paths = new ArrayList<>();
     List<String> disabledChecks = new ArrayList<>();
     for (String arg : args) {
@@ -44,7 +45,19 @@ public class Skylint {
       linter.disable(checkerName);
     }
     for (Path path : paths) {
-      List<Issue> issues = linter.lint(path);
+      List<Issue> issues;
+      try {
+        issues = linter.lint(path);
+      } catch (IOException e) {
+        issuesFound = true;
+        if (e instanceof NoSuchFileException) {
+          System.err.println("File not found: " + path);
+        } else {
+          System.err.println("Error trying to read " + path);
+          e.printStackTrace();
+        }
+        continue;
+      }
       if (!issues.isEmpty()) {
         issuesFound = true;
         for (Issue issue : issues) {
