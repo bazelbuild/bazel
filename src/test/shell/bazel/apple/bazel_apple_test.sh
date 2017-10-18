@@ -255,4 +255,98 @@ EOF
     || fail "expected output binary to be for armv7k architecture"
 }
 
+function test_xcode_config_select() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+xcode_config(
+    name = "xcodes",
+    default = ":version10",
+    versions = [ ":version10", ":version20", ":version30" ],
+    visibility = ["//visibility:public"],
+)
+
+xcode_version(
+    name = "version10",
+    default_ios_sdk_version = "1.1",
+    default_macos_sdk_version = "1.2",
+    default_tvos_sdk_version = "1.3",
+    default_watchos_sdk_version = "1.4",
+    version = "1.0",
+)
+
+xcode_version(
+    name = "version20",
+    default_ios_sdk_version = "2.1",
+    default_macos_sdk_version = "2.2",
+    default_tvos_sdk_version = "2.3",
+    default_watchos_sdk_version = "2.4",
+    version = "2.0",
+)
+
+xcode_version(
+    name = "version30",
+    default_ios_sdk_version = "3.1",
+    default_macos_sdk_version = "3.2",
+    default_tvos_sdk_version = "3.3",
+    default_watchos_sdk_version = "3.4",
+    version = "3.0",
+)
+
+config_setting(
+    name = "xcode10",
+    flag_values = { "@bazel_tools//tools/osx:xcode_version_flag": "1.0" },
+)
+
+config_setting(
+    name = "xcode20",
+    flag_values = { "@bazel_tools//tools/osx:xcode_version_flag": "2.0" },
+)
+
+config_setting(
+    name = "ios11",
+    flag_values = { "@bazel_tools//tools/osx:ios_sdk_version_flag": "1.1" },
+)
+
+config_setting(
+    name = "ios21",
+    flag_values = { "@bazel_tools//tools/osx:ios_sdk_version_flag": "2.1" },
+)
+
+genrule(
+    name = "xcode",
+    srcs = [],
+    outs = ["xcodeo"],
+    cmd = "echo " + select({
+      ":xcode10": "XCODE 1.0",
+      ":xcode20": "XCODE 2.0",
+      "//conditions:default": "XCODE UNKNOWN",
+    }) + " >$@",)
+
+genrule(
+    name = "ios",
+    srcs = [],
+    outs = ["ioso"],
+    cmd = "echo " + select({
+      ":ios11": "IOS 1.1",
+      ":ios21": "IOS 2.1",
+      "//conditions:default": "IOS UNKNOWN",
+    }) + " >$@",)
+
+EOF
+
+  bazel build //a:xcode //a:ios --xcode_version_config=//a:xcodes || fail "build failed"
+  assert_contains "XCODE 1.0" bazel-genfiles/a/xcodeo
+  assert_contains "IOS 1.1" bazel-genfiles/a/ioso
+
+  bazel build //a:xcode //a:ios --xcode_version_config=//a:xcodes \
+      --xcode_version=2.0 || fail "build failed"
+  assert_contains "XCODE 2.0" bazel-genfiles/a/xcodeo
+  assert_contains "IOS 2.1" bazel-genfiles/a/ioso
+
+  bazel build //a:xcode //a:ios --xcode_version_config=//a:xcodes \
+      --xcode_version=3.0 || fail "build failed"
+  assert_contains "XCODE UNKNOWN" bazel-genfiles/a/xcodeo
+  assert_contains "IOS UNKNOWN" bazel-genfiles/a/ioso
+}
+
 run_suite "apple_tests"
