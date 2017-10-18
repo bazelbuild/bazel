@@ -17,6 +17,7 @@ from __future__ import print_function
 import os.path
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -85,17 +86,19 @@ def assert_(cond, msg="assertion failed"):
     fail(msg)
 """
 
-  def testAll(self):
-    for t in self.TESTS:
-      print("===", t, "===")
-      f = os.path.join(testenv.SKYLARK_TESTDATA_PATH, t)
-      for chunk, expected in self.chunks(f):
-        with tempfile.NamedTemporaryFile(suffix=".sky", delete=False) as tmp:
-          tmp.writelines([self.PRELUDE] + chunk)
-        output = self.evaluate(tmp.name)
-        os.unlink(tmp.name)
-        self.check_output(output, expected)
+  def testFile(self):
+    t = test_file
+    print("===", t, "===")
+    f = os.path.join(testenv.SKYLARK_TESTDATA_PATH, t)
+    for chunk, expected in self.chunks(f):
+      with tempfile.NamedTemporaryFile(suffix=".sky", delete=False) as tmp:
+        tmp.writelines([self.PRELUDE] + chunk)
+      output = self.evaluate(tmp.name)
+      os.unlink(tmp.name)
+      self.check_output(output, expected)
 
 
 if __name__ == "__main__":
-  unittest.main()
+  # Test filename is the last argument on the command-line.
+  test_file = sys.argv[-1]
+  unittest.main(argv=sys.argv[1:])

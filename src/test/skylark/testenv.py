@@ -14,4 +14,4 @@
 """Test constants for src/test/skylark."""
 
 SKYLARK_BINARY_PATH = "src/main/java/com/google/devtools/skylark/Skylark"
-SKYLARK_TESTDATA_PATH = "src/test/skylark/testdata/"
+SKYLARK_TESTDATA_PATH = "src/test/skylark/"
