@@ -16,6 +16,7 @@ package com.google.devtools.skylark.skylint;
 
 import static com.google.devtools.skylark.skylint.DocstringUtils.extractDocstring;
 
+import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FunctionDefStatement;
@@ -79,11 +80,20 @@ public class DocstringChecker extends SyntaxTreeVisitor {
     super.visit(node);
     StringLiteral functionDocstring = extractDocstring(node.getStatements());
     if (functionDocstring == null && !node.getIdentifier().getName().startsWith("_")) {
+      Location start = Location.from(node.getLocation().getStartLineAndColumn());
+      Location end;
+      if (node.getStatements().isEmpty()) {
+        // The function body can be empty because the parser discards `pass` statements:
+        end = Location.from(node.getLocation().getEndLineAndColumn());
+      } else {
+        LineAndColumn lac = node.getStatements().get(0).getLocation().getStartLineAndColumn();
+        end = new Location(lac.getLine(), lac.getColumn() - 1); // right before the first statement
+      }
       issues.add(
-          Issue.create(
+          new Issue(
               MISSING_DOCSTRING_CATEGORY,
               "function '" + node.getIdentifier().getName() + "' has no docstring",
-              node.getLocation()));
+              new LocationRange(start, end)));
     }
     if (functionDocstring == null) {
       return;

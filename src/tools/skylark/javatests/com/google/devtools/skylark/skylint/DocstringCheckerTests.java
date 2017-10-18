@@ -38,12 +38,17 @@ public class DocstringCheckerTests {
   @Test
   public void reportMissingDocString() throws Exception {
     String errorMessage =
-        findIssues("# no module docstring", "def function():", "  pass # no function docstring")
+        findIssues("# no module docstring", "def function():", "  return # no function docstring")
             .toString();
     Truth.assertThat(errorMessage)
         .contains("1:1-2:1: file has no module docstring [missing-docstring]");
     Truth.assertThat(errorMessage)
-        .contains("2:1-3:30: function 'function' has no docstring [missing-docstring]");
+        .contains("2:1-3:2: function 'function' has no docstring [missing-docstring]");
+    // The following function has zero statements since the parser throws `pass` statements away.
+    // Hence we have to check this case to make sure the end location is set correctly.
+    errorMessage = findIssues("def function():", "  pass # no function docstring").toString();
+    Truth.assertThat(errorMessage)
+        .contains("1:1-2:30: function 'function' has no docstring [missing-docstring]");
   }
 
   @Test
