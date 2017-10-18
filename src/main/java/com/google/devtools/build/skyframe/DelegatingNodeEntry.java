@@ -28,11 +28,6 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public KeepEdgesPolicy keepEdges() {
-    return getDelegate().keepEdges();
-  }
-
-  @Override
   public SkyValue getValue() throws InterruptedException {
     return getDelegate().getValue();
   }

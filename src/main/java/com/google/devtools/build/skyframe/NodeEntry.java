@@ -75,8 +75,6 @@ public interface NodeEntry extends ThinNodeEntry {
     REBUILDING
   }
 
-  KeepEdgesPolicy keepEdges();
-
   /**
    * Returns the value stored in this entry. This method may only be called after the evaluation of
    * this node is complete, i.e., after {@link #setValue} has been called.

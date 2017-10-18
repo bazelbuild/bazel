@@ -174,7 +174,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   public InMemoryNodeEntry() {
   }
 
-  @Override
+  // Public only for use in alternate graph implementations.
   public KeepEdgesPolicy keepEdges() {
     return KeepEdgesPolicy.ALL;
   }
