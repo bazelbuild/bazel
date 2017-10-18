@@ -30,11 +30,14 @@ import com.google.devtools.build.lib.analysis.BuildView.Options;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -77,6 +80,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -627,6 +631,48 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void clearAnalysisCache(
       Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
     discardAnalysisCache(topLevelTargets, topLevelAspects);
+  }
+
+  @Override
+  public List<RuleStat> getRuleStats() {
+    Map<String, RuleStat> ruleStats = new HashMap<>();
+    for (Map.Entry<SkyKey, ? extends NodeEntry> skyKeyAndNodeEntry :
+        memoizingEvaluator.getGraphMap().entrySet()) {
+      NodeEntry entry = skyKeyAndNodeEntry.getValue();
+      if (entry == null || !entry.isDone()) {
+        continue;
+      }
+      SkyKey key = skyKeyAndNodeEntry.getKey();
+      SkyFunctionName functionName = key.functionName();
+      if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
+        try {
+          ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
+          ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
+          if (configuredTarget instanceof RuleConfiguredTarget) {
+            RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+            RuleClass ruleClass = ruleConfiguredTarget.getTarget().getRuleClassObject();
+            RuleStat ruleStat =
+                ruleStats.computeIfAbsent(
+                    ruleClass.getKey(), k -> new RuleStat(k, ruleClass.getName(), true));
+            ruleStat.addRule(ctValue.getNumActions());
+          }
+        } catch (InterruptedException e) {
+          throw new IllegalStateException("No interruption in sequenced evaluation", e);
+        }
+      } else if (functionName.equals(SkyFunctions.ASPECT)) {
+        try {
+          AspectValue aspectValue = (AspectValue) entry.getValue();
+          AspectClass aspectClass = aspectValue.getAspect().getAspectClass();
+          RuleStat ruleStat =
+              ruleStats.computeIfAbsent(
+                  aspectClass.getKey(), k -> new RuleStat(k, aspectClass.getName(), false));
+          ruleStat.addRule(aspectValue.getNumActions());
+        } catch (InterruptedException e) {
+          throw new IllegalStateException("No interruption in sequenced evaluation", e);
+        }
+      }
+    }
+    return new ArrayList<>(ruleStats.values());
   }
 
   /**

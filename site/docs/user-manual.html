@@ -3200,6 +3200,108 @@ adb -s deadbeef install ...
   printed to the console.
 </p>
 
+<p>
+  By default, command will just print help message outlining possible
+  options to dump specific areas of the Bazel state. In order to dump
+  internal state, at least one of the options must be specified.
+</p>
+<p>
+  Following options are supported:
+</p>
+<ul>
+  <li><code class='flag'>--action_cache</code> dumps action cache content.</li>
+  <li><code class='flag'>--packages</code> dumps package cache content.</li>
+  <li><code class='flag'>--vfs</code> dumps VFS state.</li>
+  <li><code class='flag'>--skyframe</code> dumps state of internal Bazel dependency graph.</li>
+  <li><code class='flag'>--rules</code> dumps rule summary for each rule and aspect class,
+    including counts and action counts. This includes both native and Skylark rules.
+    If memory tracking is enabled, then the rules' memory consumption is also printed.</li>
+  <li><code class='flag'>--skylark_memory</code> dumps a
+    <href a=https://github.com/google/pprof>pprof</href> compatible .gz file to the specified path.
+    You must enable memory tracking for this to work.</li>
+</ul>
+
+ -->
+<h4 id='memory-tracking'>Memory tracking</h4>
+<p>
+  Some <code>dump</code> commands require memory tracking. To turn this on, you have to pass
+  startup flags to Bazel:
+</p>
+<ul>
+  <li><code>--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar</code></li>
+  <li><code>--host_jvm_args=-DBLAZE_MEMORY_TRACKER=1</code></li>
+</ul>
+<p>
+  The java-agent is checked into bazel at
+  third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar, so make
+  sure you adjust <code>$BAZEL</code> for where you keep your bazel repository.
+
+  Do not forget to keep passing these options to Bazel for every command or the server will
+  restart.
+</p>
+<p>Example:</p>
+<pre>
+  % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+  --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
+  build --nobuild &lt;targets&gt;
+
+  # Dump rules
+  % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+  --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
+  dump --rules
+
+  # Dump Skylark heap and analyze it with pprof
+  % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+  --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
+  dump --skylark_memory=$HOME/prof.gz
+  % pprof -flame $HOME/prof.gz
+</pre>
+
+<h3 id='analyze-profile'>The <code>analyze-profile</code> command</h3>
+
+<p>
+  The <code>analyze-profile</code> command analyzes data previously gathered
+  during the build using <code class='flag'>--profile</code> option. It provides several
+  options to either perform analysis of the build execution or export data in
+  the specified format.
+
+</p>
+<p>
+  The following options are supported:
+</p>
+<ul>
+  <li><code id='flag--dump'>--dump=text</code> displays all gathered data in a
+  <a href='#dump-text-format'>human-readable format</a></li>
+  <li><code>--dump=raw</code> displays all gathered data in a
+  <a href='#dump-raw-format'>script-friendly format</a></li>
+  <li><code id='flag--html'>--html</code> generates an <a href='#dump-html-format'>HTML file</a> visualizing the
+  actions and rules executed in the build, as well as summary statistics for the build
+    <ul>
+      <li><code id='flag--html_details'>--html_details</code> adds more fine-grained
+      information on actions and rules to the HTML visualization</li>
+        <ul>
+          <li><code id='flag--html_histograms'>--html_histograms</code> adds histograms for Skylark
+          functions clicked in the statistics table. This will increase file size massively</li>
+          <li><code id='flag--nochart'>--nochart</code> hides the task chart from generated HTML
+          </li>
+        </ul>
+    </ul>
+  </li>
+  <li><code id='flag--combine'>--combine</code> combines multiple profile data files into a single
+  report. Does not generate HTML task charts</li>
+  <li><code id='flag--task_tree'>--task_tree</code> prints the tree of tasks matching the given
+  regular expression
+    <ul>
+      <li><code id='flag--task_tree_threshold'>--task_tree_threshold</code> skip tasks with duration
+      less than threshhold, in milliseconds. Default is 50ms</li>
+    </ul>
+  </li>
+</ul>
+
+<p>
+  See the section on <a href='#profiling'>Troubleshooting performance by profiling</a> for
+  format details and usage help.
+
 </p>
 
 <h3 id='canonicalize'>The <code>canonicalize-flags</code> command</h3>

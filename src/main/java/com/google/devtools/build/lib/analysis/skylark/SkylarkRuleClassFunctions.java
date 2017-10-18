@@ -27,7 +27,6 @@ import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -67,6 +66,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
@@ -548,7 +548,7 @@ public class SkylarkRuleClassFunctions {
           builder.setRuleDefinitionEnvironment(funcallEnv);
           builder.addRequiredToolchains(collectToolchainLabels(toolchains, ast));
 
-          return new RuleFunction(builder, type, attributes, ast.getLocation());
+          return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());
         }
       };
 
@@ -799,7 +799,8 @@ public class SkylarkRuleClassFunctions {
       };
 
   /** The implementation for the magic function "rule" that creates Skylark rule classes */
-  public static final class RuleFunction extends BaseFunction implements SkylarkExportable {
+  public static final class SkylarkRuleFunction extends BaseFunction
+      implements SkylarkExportable, RuleFunction {
     private RuleClass.Builder builder;
 
     private RuleClass ruleClass;
@@ -808,7 +809,9 @@ public class SkylarkRuleClassFunctions {
     private final Location definitionLocation;
     private Label skylarkLabel;
 
-    public RuleFunction(Builder builder, RuleClassType type,
+    public SkylarkRuleFunction(
+        Builder builder,
+        RuleClassType type,
         ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes,
         Location definitionLocation) {
       super("rule", FunctionSignature.KWARGS);
@@ -884,13 +887,12 @@ public class SkylarkRuleClassFunctions {
         addAttribute(definitionLocation, builder,
             descriptor.build(attribute.getFirst()));
       }
-      this.ruleClass = builder.build(ruleClassName);
+      this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
 
       this.builder = null;
       this.attributes = null;
     }
 
-    @VisibleForTesting
     public RuleClass getRuleClass() {
       Preconditions.checkState(ruleClass != null && builder == null);
       return ruleClass;
@@ -912,10 +914,10 @@ public class SkylarkRuleClassFunctions {
    * file.
    *
    * <p>Order in list is significant: all {@link SkylarkAspect}s need to be exported before {@link
-   * RuleFunction}s etc.
+   * SkylarkRuleFunction}s etc.
    */
   private static final ImmutableList<Class<? extends SkylarkExportable>> EXPORTABLES =
-      ImmutableList.of(SkylarkProvider.class, SkylarkAspect.class, RuleFunction.class);
+      ImmutableList.of(SkylarkProvider.class, SkylarkAspect.class, SkylarkRuleFunction.class);
 
   @SkylarkSignature(
     name = "Label",

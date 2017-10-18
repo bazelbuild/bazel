@@ -104,4 +104,8 @@ public interface AspectClass {
    * Returns an aspect name.
    */
   String getName();
+
+  default String getKey() {
+    return getName();
+  }
 }

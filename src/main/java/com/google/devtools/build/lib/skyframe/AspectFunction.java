@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredTargetFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
@@ -468,19 +469,24 @@ public final class AspectFunction implements SkyFunction {
 
     ConfiguredAspect configuredAspect;
     if (AspectResolver.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
-      configuredAspect =
-          view.getConfiguredTargetFactory()
-              .createAspect(
-                  analysisEnvironment,
-                  associatedTarget,
-                  aspectPath,
-                  aspectFactory,
-                  aspect,
-                  directDeps,
-                  configConditions,
-                  toolchainContext,
-                  aspectConfiguration,
-                  view.getHostConfiguration(aspectConfiguration));
+      try {
+        CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
+        configuredAspect =
+            view.getConfiguredTargetFactory()
+                .createAspect(
+                    analysisEnvironment,
+                    associatedTarget,
+                    aspectPath,
+                    aspectFactory,
+                    aspect,
+                    directDeps,
+                    configConditions,
+                    toolchainContext,
+                    aspectConfiguration,
+                    view.getHostConfiguration(aspectConfiguration));
+      } finally {
+        CurrentRuleTracker.endConfiguredAspect();
+      }
     } else {
       configuredAspect = ConfiguredAspect.forNonapplicableTarget(aspect.getDescriptor());
     }

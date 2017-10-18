@@ -169,7 +169,7 @@ public class SkylarkRepositoryModule {
         throw new IllegalStateException("Function is not an identifier or method call");
       }
       try {
-        RuleClass ruleClass = builder.build(ruleClassName);
+        RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
         PackageContext context = PackageFactory.getContext(env, ast);
         @SuppressWarnings("unchecked")
         Map<String, Object> attributeValues = (Map<String, Object>) args[0];

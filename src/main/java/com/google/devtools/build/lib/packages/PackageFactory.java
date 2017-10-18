@@ -331,7 +331,7 @@ public final class PackageFactory {
   private static final Logger logger = Logger.getLogger(PackageFactory.class.getName());
 
   private final RuleFactory ruleFactory;
-  private final ImmutableMap<String, RuleFunction> ruleFunctions;
+  private final ImmutableMap<String, BuiltinRuleFunction> ruleFunctions;
   private final RuleClassProvider ruleClassProvider;
 
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
@@ -1206,21 +1206,22 @@ public final class PackageFactory {
     return value;
   }
 
-  private static ImmutableMap<String, RuleFunction> buildRuleFunctions(RuleFactory ruleFactory) {
-    ImmutableMap.Builder<String, RuleFunction> result = ImmutableMap.builder();
+  private static ImmutableMap<String, BuiltinRuleFunction> buildRuleFunctions(
+      RuleFactory ruleFactory) {
+    ImmutableMap.Builder<String, BuiltinRuleFunction> result = ImmutableMap.builder();
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
-      result.put(ruleClass, new RuleFunction(ruleClass, ruleFactory));
+      result.put(ruleClass, new BuiltinRuleFunction(ruleClass, ruleFactory));
     }
     return result.build();
   }
 
   /** {@link BuiltinFunction} adapter for creating {@link Rule}s for native {@link RuleClass}es. */
-  private static class RuleFunction extends BuiltinFunction {
+  private static class BuiltinRuleFunction extends BuiltinFunction implements RuleFunction {
     private final String ruleClassName;
     private final RuleFactory ruleFactory;
     private final RuleClass ruleClass;
 
-    RuleFunction(String ruleClassName, RuleFactory ruleFactory) {
+    BuiltinRuleFunction(String ruleClassName, RuleFactory ruleFactory) {
       super(ruleClassName, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV, /*isRule=*/ true);
       this.ruleClassName = ruleClassName;
       this.ruleFactory = Preconditions.checkNotNull(ruleFactory, "ruleFactory was null");
@@ -1255,6 +1256,11 @@ public final class PackageFactory {
       AttributeContainer attributeContainer = ruleFactory.getAttributeContainer(ruleClass);
       RuleFactory.createAndAddRule(
           context, ruleClass, attributeValues, ast, env, attributeContainer);
+    }
+
+    @Override
+    public RuleClass getRuleClass() {
+      return ruleClass;
     }
   }
 
@@ -1584,7 +1590,7 @@ public final class PackageFactory {
         .setup("repository_name", SkylarkNativeModule.repositoryName)
         .setup("environment_group", newEnvironmentGroupFunction.apply(context));
 
-    for (Entry<String, RuleFunction> entry : ruleFunctions.entrySet()) {
+    for (Entry<String, BuiltinRuleFunction> entry : ruleFunctions.entrySet()) {
       pkgEnv.setup(entry.getKey(), entry.getValue());
     }
 

@@ -550,13 +550,12 @@ public class RuleClass {
      * @throws IllegalStateException if any of the required attributes is missing
      */
     public RuleClass build() {
-      return build(name);
+      // For built-ins, name == key
+      return build(name, name);
     }
 
-    /**
-     * Same as {@link #build} except with setting the name parameter.
-     */
-    public RuleClass build(String name) {
+    /** Same as {@link #build} except with setting the name and key parameters. */
+    public RuleClass build(String name, String key) {
       Preconditions.checkArgument(this.name.isEmpty() || this.name.equals(name));
       type.checkName(name);
       type.checkAttributes(attributes);
@@ -575,6 +574,7 @@ public class RuleClass {
       }
       return new RuleClass(
           name,
+          key,
           skylark,
           skylarkExecutable,
           skylarkTestable,
@@ -1025,6 +1025,8 @@ public class RuleClass {
 
   private final String name; // e.g. "cc_library"
 
+  private final String key; // Just the name for native, label + name for skylark
+
   /**
    * The kind of target represented by this RuleClass (e.g. "cc_library rule").
    * Note: Even though there is partial duplication with the {@link RuleClass#name} field,
@@ -1154,6 +1156,7 @@ public class RuleClass {
   @VisibleForTesting
   RuleClass(
       String name,
+      String key,
       boolean isSkylark,
       boolean skylarkExecutable,
       boolean skylarkTestable,
@@ -1180,6 +1183,7 @@ public class RuleClass {
       Set<Label> requiredToolchains,
       Attribute... attributes) {
     this.name = name;
+    this.key = key;
     this.isSkylark = isSkylark;
     this.targetKind = name + Rule.targetKindSuffix();
     this.skylarkExecutable = skylarkExecutable;
@@ -1275,6 +1279,11 @@ public class RuleClass {
    */
   public String getName() {
     return name;
+  }
+
+  /** Returns a unique key. Used for profiling purposes. */
+  public String getKey() {
+    return key;
   }
 
   /**

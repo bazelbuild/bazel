@@ -45,6 +45,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
+        "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/config:srcs",

@@ -425,7 +425,12 @@ public abstract class BaseFunction implements SkylarkValue {
     Object[] arguments = processArguments(args, kwargs, loc, env);
     canonicalizeArguments(arguments, loc);
 
-    return call(arguments, ast, env);
+    try {
+      Callstack.push(this);
+      return call(arguments, ast, env);
+    } finally {
+      Callstack.pop();
+    }
   }
 
   /**

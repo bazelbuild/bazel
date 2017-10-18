@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
@@ -54,6 +55,7 @@ public final class WorkspaceBuilder {
       ImmutableMap.builder();
   private final ImmutableList.Builder<SkyValueDirtinessChecker> customDirtinessCheckers =
       ImmutableList.builder();
+  private AllocationTracker allocationTracker;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -84,8 +86,13 @@ public final class WorkspaceBuilder {
             skyFunctions.build(),
             customDirtinessCheckers.build());
     return new BlazeWorkspace(
-        runtime, directories, skyframeExecutor, eventBusExceptionHandler,
-        workspaceStatusActionFactory, binTools);
+        runtime,
+        directories,
+        skyframeExecutor,
+        eventBusExceptionHandler,
+        workspaceStatusActionFactory,
+        binTools,
+        allocationTracker);
   }
 
   /**
@@ -111,6 +118,13 @@ public final class WorkspaceBuilder {
         "At most one workspace status action factory supported. But found two: %s and %s",
         this.workspaceStatusActionFactory, workspaceStatusActionFactory);
     this.workspaceStatusActionFactory = Preconditions.checkNotNull(workspaceStatusActionFactory);
+    return this;
+  }
+
+  public WorkspaceBuilder setAllocationTracker(AllocationTracker allocationTracker) {
+    Preconditions.checkState(
+        this.allocationTracker == null, "At most one allocation tracker can be set.");
+    this.allocationTracker = Preconditions.checkNotNull(allocationTracker);
     return this;
   }
 
