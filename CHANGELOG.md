@@ -1,3 +1,267 @@
+## Release 0.7.0 (2017-10-18)
+
+```
+Baseline: 5cc6246d429f7d9119b97ce263b4fd6893222e92
+
+Cherry picks:
+   + e79a1107d90380501102990d82cbfaa8f51a1778:
+     Windows,bootstrapping: fix build_windows_jni.sh
+```
+
+Incompatible changes:
+
+  - The --output=location flag to 'bazel query' cannot be used with
+    query expressions that involve the 'buildfiles' or 'loadfiles'
+    operators. This also applies to 'genquery' rules.
+  - Operators for equality, comparison, 'in' and 'not in' are no
+    longer associative,
+      e.g.  x < y < z  is now a syntax error. Before, it was parsed
+    as:  (x < y) < z.
+  - In strings, octal sequences greater than \377 are now forbidden
+    (e.g. "\\600").
+      Previously, Blaze had the same behavior as Python 2, where
+    "\\450" == "\050".
+  - Using tabulation for identation is now fobidden in .bzl files
+  - `load` is now a language keyword, it cannot be used as an
+    identifier
+  - lvalues must have define at least one variable (i.e. we forbid
+    `[] = f()`).
+  - Fixed a bug whereby multiple load() statements could appear on
+    the same line
+  - -extra_checks:off is no longer supported; use
+    -XepDisableAllChecks instead
+  - java_common.java_toolchain_attr is removed. Depend on the
+    java_toolchain_alias() rule to accomplish the same thing.
+  - cc_common.cc_toolchain_attr and java_common.java_runtime_attr are
+    not supported anymore and were replaced with the
+    cc_toolchain_alias() and java_runtime_alias() rules.
+  - Noop flag --deprecated_generate_xcode_project deleted.
+  - Objects in Skylark are converted to strings in a more descriptive
+    and less harmful way (they don't leak information that shouldn't
+    be accessed by Skylark code, e.g. nondeterministic memory addresses
+    of objects).
+  - `set` is deprecated in BUILD and .bzl files, please use `depset`
+    instead. Ordering names have also been changed, please use "default",
+    "postorder", "preorder", and "topological" instead of "stable",
+    "compile", "naive_link", and "link" correspondingly.
+  - Integer overflow (on signed 32 bit numbers) in BUILD/bzl files is
+    an error.
+  - Keyword-only syntax in a function definition is now forbidden
+      e.g. `def foo(a, *, b)` or `def foo(a, *b, c)`
+  - --incompatible_comprehension_variables_do_not_leak defaults to
+    "true."
+      Iteration variable becomes inaccessible after a list/dict
+    comprehension.
+  - @bazel_tools//tools/build_defs/docker:docker.bzl is no longer
+    available, please see https://github.com/bazelbuild/rules_docker.
+
+New features:
+
+  - Zipped LLVM profiles are now supported.
+  - LIPO maps to ThinLTO for LLVM builds.
+  - Change to handle LLVM FDO zipped profile contents correctly.
+  - Do not disable fully dynamic linking with ThinLTO when invoked
+    via LIPO options.
+  - There is now a 'siblings' query function. See the query
+    documentation for more details.
+  - Added the print_action command, which outputs the
+    actions needed to build a given target in the form of an
+    ExtraActionSummary proto in text format.
+  - android_binary now supports proguard_apply_dictionary to specify
+    a custom dictionary to use for choosing names to obfuscate
+    classes and members to.
+
+Important changes:
+
+  - Windows: bazel clean --expunge works
+  - First argument of 'load' should be a label. Path syntax is
+    deprecated (label should start with '//' or ':').
+  - Octal prefix '0' is deprecated in favor of '0o' (use 0o777
+    instead of 0777).
+  - The extension_safe attribute of apple_binary no longer validates
+    transitive dependencies are compiled against extension_safe APIs.
+  - Parentheses around the tuple are now mandatory in [a for b in c
+    if 1, 2]
+  - Adjust the thresholds for --test_verbose_timeout_warnings so that
+    it can recommending timeout increases and won't recommend
+    timeouts that are too close to the actual timeout.
+  - Iterating on a `depset` object is deprecated. If you need an
+    iterable, call the `.to_list()` method first.
+  - Bazel now uses tools from action_configs in Crosstool by default
+    (as oposed to using top level tools).
+  - Incremental dexing errors on combination of --multidex=off and
+    either --main-dex-list or --minimal-main-dex.
+  - When using the dictionary literal syntax, it is now an error to
+    have duplicated keys (e.g.  {'ab': 3, 'ab': 5}).
+  - New property on android_sdk: aapt2
+      Choose the version of aapt on android_binary
+  - Add idl_preprocessed attribute to android_library, so that
+    preprocessed aidl files can be passed to android_library for
+    compiling
+  - Bazel's remote_worker backend for remote execution supports
+    sandboxing on Linux now. Check
+    https://github.com/bazelbuild/bazel/blob/master/src/tools/remote_w
+    orker/README.md for details.
+  - Allows flags that expand to take values.
+  - Make querying attributes formed by selector lists of list types
+    more efficient by no longer listing every possible combination of
+    attribute value but by more compactly storing the possible values
+    of the list.
+  - writing build events to a file is no longer experimental
+  - set --rewrite_calls_to_long_compare to false by default.
+  - ObjC and C++ coverage feature is unified under name 'coverage'
+  - Enable --incremental_dexing for Android builds by default. Note
+    that some dexopts are incompatible with incremental dexing,
+    including --force-jumbo.
+  - Evaluation will soon use checked arithmetics and throw an error
+    instead of overflow/underflow.
+  - Implicit iteration in the CROSSTOOL has been removed, use
+    explicit 'iterate_over' message.
+  - Add option for Android specific grte_top
+  - Crosstool patches are only applied if the toolchain doesn't define
+    'no_legacy_features' feature.
+  - 'platform_type' is now a mandatory attribute on apple_binary and
+    apple_static_library rules.
+    If this change breaks your build, feel free to add platform_type
+    = 'ios' to any apple_binary and apple_static_library
+    targets in your project, as this was the previous default
+    behavior.
+  - Remove apple_watch2_extension build rule. Users should be using
+    the skylark watchos_application and watchos_extension rules.
+    https://github.com/bazelbuild/rules_apple has details.
+  - Check stderr to detect if connected to a terminal.  Deprecate
+    --isatty.
+  - Commands that shut down the server (like "shutdown") now ensure
+    that the server process has terminated before the client process
+    terminates.
+  - Remove apple_watch1_extension and apple_watch_extension_binary
+    rules. Users should be using the skylark watchos_application and
+    watchos_extension rules.
+    https://github.com/bazelbuild/rules_apple has details.
+  - Windows: Wrapper-less CROSSTOOL becomes default now.
+    set USE_MSVC_WRAPPER=1 if you still want to use wrapper script.
+  - Ignore --glibc in the Android transition.
+  - Remove --experimental_android_use_singlejar_for_multidex.
+  - nocopts now also filter copts
+  - 'strip' action is now configured via feature configuration
+  - The Build Event Service (BES) client now properly supports
+    Google Applicaton Default Credentials.
+  - Flags from action_config get added first to the command line
+    first, before the flags from features.
+  - update dexing tools to Android SDK 26.0.1
+  - Bazel Android support now requires build-tools 26.0.1 or later.
+  - `bazel info output_path` no longer relies on the root directory
+    filename being equal to the workspace name.
+  - The `print` function now prints debug messages instead of
+    warnings.
+  - speedup of incremental dexing tools
+  - --announce_rc now controls whether bazelrc startup options are
+    printed to stderr.
+  - Removing a few unused objc_provider keys.
+  - Improved logging when workers have to be restarted due to its
+    files having changed.
+  - Top-level `if` statements are now forbidden.
+  - Java protos are compiled to Java 7 bytecode.
+  - All Android builds now use the desugar tool to support some Java
+    8 features by default. To disable, use the --nodesugar_for_android flag.
+  - Skylark-related options may now appear as "common" command
+    options in the .bazelrc
+  - Python is now required to build bazel.
+  - New --build_runfile_manifests flag controls production of
+    runfiles manifests.
+  - Enable debug info for Java builds
+  - Allow java_lite_proto_library in the deps of android rules.
+  - .so files in APKs will be memory-page aligned when
+    android_binary.nocompress_extensions contains ".so" and
+    --experimental_android_use_nocompress_extensions_on_apk is
+    specified.
+  - Skylark providers can specify allowed fields and their
+    documentation.
+  - Support ctx.actions.args() for more efficient Skylark command
+    line construction.
+  - The remote HTTP/1.1 caching client (--remote_rest_cache) now
+    distinquishes between action cache and CAS. The request URL for
+    the action cache is prefixed with 'ac' and the URL for the CAS
+    is prefixed with 'cas'.
+  - `JavaInfo` is a preferred alias to `java_common.provider`.
+  - J2ObjC version updated to 2.0.3.
+  - A new Java coverage implementation is available. Makes possible
+    coverage for Skylark JVM rules.
+  - Make proguard_apply_dictionary also apply to class and package
+    obfuscation, not just class members.
+  - android_binary.nocompress_extensions now applies to all files in
+    the APK, not just resources and assets.
+  - The apple_genrule rule that is distributed with Bazel has been
+    deleted. Users who wish to use genrules with Xcode's
+    DEVELOPER_DIR set should use the rules in
+    https://github.com/bazelbuild/rules_apple instead.
+  - The swift_library rule that is distributed with Bazel has been
+    deleted. Users who wish to compile Swift should use the rules in
+    https://github.com/bazelbuild/rules_apple instead.
+  - The Build Event Protocol's File.uri field is now properly
+    encoded according to RFC2396.
+  - Deprecated: Using the android_library.deps attribute to
+    implicitly export targets to dependent rules. If your code is
+    using this feature, Bazel will raise a warning. To fix, please
+    use android_library.exports to explicitly specify exported
+    targets. Run with
+    --experimental_allow_android_library_deps_without_srcs=false to
+    ensure forward compatibility when this feature is removed in a
+    future release.
+  - java_common.create_provider is now supported with creating ijars
+    by default. This introduces incompatibilities for existing users.
+    Please set use_ijar=False if you don't want to use ijars.
+  - Tests can now write files to TEST_UNDECLARED_OUTPUTS_DIR and
+    TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR and these will be
+    reflected under bazel-testlogs.
+  - remove unused --host_incremental_dexing flag
+  - Stop using --undefined dynamic_lookup in Apple links. Enables
+    unresolved symbol errors.
+  - All test output files included for cached, uncached, and multiple
+    attempt tests.
+  - Android rules no longer restrict the manifest file to be named
+    "AndroidManifest.xml".
+  - Boolean flag values will now get normalized to 1 or 0 in
+    canonicalize-flags output.
+  - added experimental --use_new_category_enum to the help command to
+    output options grouped by the new type of category.
+  - Expose output jars and jdeps in java_common.provider, when
+    available.
+  - android_library targets are no longer allowed to use deps to
+    export targets implicitly; please use android_library.exports
+    instead.
+  - New depset API
+  - apple_binary and apple_static_library no longer support
+    compilation attributes such as 'srcs'. If this breaks any
+    existing targets, you may migrate all such attributes to a new
+    objc_library target and depend on that objc_library target via
+    the 'deps' attribute of apple_binary or apple_static_library.
+
+## Release 0.6.1 (2017-10-05)
+
+```
+Baseline: 87cc92e5df35d02a7c9bc50b229c513563dc1689
+
+Cherry picks:
+   + a615d288b008c36c659fdc17965207bb62d95d8d:
+     Rollback context.actions.args() functionality.
+   + 7b091c1397a82258e26ab5336df6c8dae1d97384:
+     Add a global failure when a test is interrupted/cancelled.
+   + 95b0467e3eb42a8ce8d1179c0c7e1aab040e8120:
+     Cleanups for Skylark tracebacks
+   + cc9c2f07127a832a88f27f5d72e5508000b53429:
+     Remove the status xml attribute from AntXmlResultWriter
+   + 471c0e1678d0471961f1dc467666991e4cce3846:
+     Release 0.6.0 (2017-09-28)
+   + 8bdd409f4900d4574667fed83d86b494debef467:
+     Only compute hostname once per server lifetime
+   + 0bc9b3e14f305706d72180371f73a98d6bfcdf35:
+     Fix bug in NetUtil caching.
+```
+
+Important changes:
+ - Only compute hostname once per server lifetime
+
 ## Release 0.6.0 (2017-09-28)
 
 ```
@@ -1784,6 +2048,8 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
+
 
 
 
