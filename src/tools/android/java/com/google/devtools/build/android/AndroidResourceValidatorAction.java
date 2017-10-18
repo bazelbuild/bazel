@@ -193,6 +193,11 @@ public class AndroidResourceValidatorAction {
       ZipEntry z = zis.getNextEntry();
       while (z != null) {
         String entryName = z.getName();
+        // Skip directory entries
+        if (entryName.endsWith("/")) {
+          z = zis.getNextEntry();
+          continue;
+        }
         Path outputPath = expandedOut.resolve(entryName);
         Files.createDirectories(outputPath.getParent());
         try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(outputPath))) {

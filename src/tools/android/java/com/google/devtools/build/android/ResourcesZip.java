@@ -19,7 +19,7 @@ import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AndroidResourceOutputs.ZipBuilder;
-import com.google.devtools.build.android.AndroidResourceOutputs.ZipBuilderVisitor;
+import com.google.devtools.build.android.AndroidResourceOutputs.ZipBuilderVisitorWithDirectories;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import java.io.FileOutputStream;
@@ -104,7 +104,8 @@ public class ResourcesZip {
   public void writeTo(Path output, boolean compress) throws IOException {
     try (final ZipBuilder zip = ZipBuilder.createFor(output)) {
       if (Files.exists(resourcesRoot)) {
-        ZipBuilderVisitor visitor = new ZipBuilderVisitor(zip, resourcesRoot, "res");
+        ZipBuilderVisitorWithDirectories visitor =
+            new ZipBuilderVisitorWithDirectories(zip, resourcesRoot, "res");
         visitor.setCompress(compress);
         Files.walkFileTree(resourcesRoot, visitor);
         if (!Files.exists(resourcesRoot.resolve("values/public.xml"))) {
@@ -116,7 +117,8 @@ public class ResourcesZip {
         visitor.writeEntries();
       }
       if (Files.exists(assetsRoot)) {
-        ZipBuilderVisitor visitor = new ZipBuilderVisitor(zip, assetsRoot, "assets");
+        ZipBuilderVisitorWithDirectories visitor =
+            new ZipBuilderVisitorWithDirectories(zip, assetsRoot, "assets");
         visitor.setCompress(compress);
         Files.walkFileTree(assetsRoot, visitor);
         visitor.writeEntries();
