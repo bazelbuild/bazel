@@ -20,13 +20,8 @@ PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/bui
 LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac-9-dev-r3297-4.jar | grep -Fv /javac-9-dev-4023-3.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve third_party/grpc/grpc.*jar | tr "\n" " ")
 GRPC_JAVA_VERSION=1.6.1
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e .*${GRPC_JAVA_VERSION}.*jar | tr "\n" " ")
-# Guava jars are different for JDK 7 build and JDK 8 build, we select the good
-# one based on the name (21.0-{date} for JDK7).
-if [ "${JAVA_VERSION}" = "1.7" ]; then
-  GUAVA_JARS=third_party/guava/guava-*21.0-*.jar
-else
-  GUAVA_JARS=third_party/guava/guava-*21.0.jar
-fi
+GUAVA_VERSIONE=23.1
+GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e .*${GUAVA_VERSION}.*jar | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
 
 # tl;dr - error_prone_core contains a copy of an older version of guava, so we
