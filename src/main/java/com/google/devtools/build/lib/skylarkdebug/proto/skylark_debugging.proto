@@ -175,20 +175,11 @@ message Frame {
   // The name of the function that this frame represents.
   string function_name = 1;
 
-  // The lexical blocks that contain value bindings accessible in this frame.
-  repeated LexicalBlock lexical_block = 2;
+  // The scopes that contain value bindings accessible in this frame.
+  repeated Scope scope = 2;
 
   // The source location where the frame is currently paused.
   Location location = 3;
-}
-
-// A lexical block that contains value bindings accessible in a frame.
-message LexicalBlock {
-  // A human-readable name of the lexical block, such as "global" or "local".
-  string name = 1;
-
-  // The variable bindings that are defined in this lexical block.
-  repeated Value binding = 2;
 }
 
 // A location in Skylark source code.
@@ -198,6 +189,15 @@ message Location {
 
   // A line number in the file denoted by path.
   uint32 line_number = 2;
+}
+
+// A scope that contains value bindings accessible in a frame.
+message Scope {
+  // A human-readable name of the scope, such as "global" or "local".
+  string name = 1;
+
+  // The variable bindings that are defined in this scope.
+  repeated Value binding = 2;
 }
 
 // Describes the stepping behavior that should occur when execution of a thread
