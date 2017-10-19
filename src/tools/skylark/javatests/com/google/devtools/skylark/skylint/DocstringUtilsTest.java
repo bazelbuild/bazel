@@ -135,6 +135,31 @@ public class DocstringUtilsTest {
   }
 
   @Test
+  public void emptySection() throws Exception {
+    List<DocstringParseError> errors = new ArrayList<>();
+    DocstringUtils.parseDocstring(
+        "summary\n" + "\n" + "Args:\n" + "More description.\n", 0, errors);
+    Truth.assertThat(errors.toString()).contains("3: section is empty");
+
+    errors = new ArrayList<>();
+    DocstringUtils.parseDocstring(
+        "summary\n" + "\n" + "Returns:\n" + "More description\n", 0, errors);
+    Truth.assertThat(errors.toString()).contains("3: section is empty");
+
+    errors = new ArrayList<>();
+    DocstringUtils.parseDocstring(
+        "summary\n" + "\n" + "Deprecated:\n" + "More description\n", 0, errors);
+    Truth.assertThat(errors.toString()).contains("3: section is empty");
+  }
+
+  @Test
+  public void emptyParamDescription() throws Exception {
+    List<DocstringParseError> errors = new ArrayList<>();
+    DocstringUtils.parseDocstring("summary\n" + "\n" + "Args:\n" + "" + "  foo: \n\n", 0, errors);
+    Truth.assertThat(errors.toString()).contains("4: empty parameter description for 'foo'");
+  }
+
+  @Test
   public void docstringReturn() throws Exception {
     List<DocstringParseError> errors = new ArrayList<>();
     DocstringInfo info =
