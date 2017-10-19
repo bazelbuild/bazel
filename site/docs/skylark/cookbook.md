@@ -411,12 +411,12 @@ sh_binary(
 
 `merge.sh`:
 
-```python
-#!/bin/bash
+```shell
+#!/bin/sh
 
 out=$1
 shift
-cat $* > $out
+cat "$@" > $out
 ```
 
 `header.html`:
