@@ -284,17 +284,17 @@ class AndroidDataMerger {
       // overwriting resources
       for (Entry<DataKey, DataResource> entry : parsedPrimary.iterateOverwritableEntries()) {
         if (direct.containsOverwritable(entry.getKey())) {
-          primaryConsumers.overwritingConsumer.consume(
+          primaryConsumers.overwritingConsumer.accept(
               entry.getKey(), entry.getValue().overwrite(direct.getOverwritable(entry.getKey())));
         } else {
-          primaryConsumers.overwritingConsumer.consume(entry.getKey(), entry.getValue());
+          primaryConsumers.overwritingConsumer.accept(entry.getKey(), entry.getValue());
         }
       }
 
       for (Map.Entry<DataKey, DataResource> entry : direct.iterateOverwritableEntries()) {
         // Direct dependencies are simply overwritten, no conflict.
         if (!parsedPrimary.containsOverwritable(entry.getKey())) {
-          transitiveConsumers.overwritingConsumer.consume(entry.getKey(), entry.getValue());
+          transitiveConsumers.overwritingConsumer.accept(entry.getKey(), entry.getValue());
         }
       }
       for (Map.Entry<DataKey, DataResource> entry : transitive.iterateOverwritableEntries()) {
@@ -314,45 +314,45 @@ class AndroidDataMerger {
           conflicts.add(parsedPrimary.foundResourceConflict(entry.getKey(), entry.getValue()));
         } else {
           // If it's in none of the of sources, add it.
-          transitiveConsumers.overwritingConsumer.consume(entry.getKey(), entry.getValue());
+          transitiveConsumers.overwritingConsumer.accept(entry.getKey(), entry.getValue());
         }
       }
 
       // combining resources
       for (Entry<DataKey, DataResource> entry : parsedPrimary.iterateCombiningEntries()) {
-        primaryConsumers.combiningConsumer.consume(entry.getKey(), entry.getValue());
+        primaryConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
       }
       for (Map.Entry<DataKey, DataResource> entry : direct.iterateCombiningEntries()) {
         if (parsedPrimary.containsCombineable(entry.getKey())) {
           // If it is in the primary, add it to the primary to be combined.
-          primaryConsumers.combiningConsumer.consume(entry.getKey(), entry.getValue());
+          primaryConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
         } else {
           // If the combining asset is not in the primary, put it into the transitive.
-          transitiveConsumers.combiningConsumer.consume(entry.getKey(), entry.getValue());
+          transitiveConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
         }
       }
       for (Map.Entry<DataKey, DataResource> entry : transitive.iterateCombiningEntries()) {
         if (parsedPrimary.containsCombineable(entry.getKey())) {
-          primaryConsumers.combiningConsumer.consume(entry.getKey(), entry.getValue());
+          primaryConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
         } else {
-          transitiveConsumers.combiningConsumer.consume(entry.getKey(), entry.getValue());
+          transitiveConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
         }
       }
 
       // assets
       for (Entry<DataKey, DataAsset> entry : parsedPrimary.iterateAssetEntries()) {
         if (direct.containsAsset(entry.getKey())) {
-          primaryConsumers.assetConsumer.consume(
+          primaryConsumers.assetConsumer.accept(
               entry.getKey(), entry.getValue().overwrite(direct.getAsset(entry.getKey())));
         } else {
-          primaryConsumers.assetConsumer.consume(entry.getKey(), entry.getValue());
+          primaryConsumers.assetConsumer.accept(entry.getKey(), entry.getValue());
         }
       }
 
       for (Map.Entry<DataKey, DataAsset> entry : direct.iterateAssetEntries()) {
         // Direct dependencies are simply overwritten, no conflict.
         if (!parsedPrimary.containsAsset(entry.getKey())) {
-          transitiveConsumers.assetConsumer.consume(entry.getKey(), entry.getValue());
+          transitiveConsumers.assetConsumer.accept(entry.getKey(), entry.getValue());
         }
       }
       for (Map.Entry<DataKey, DataAsset> entry : transitive.iterateAssetEntries()) {
@@ -372,7 +372,7 @@ class AndroidDataMerger {
           conflicts.add(parsedPrimary.foundAssetConflict(entry.getKey(), entry.getValue()));
         } else {
           // If it's in none of the of sources, add it.
-          transitiveConsumers.assetConsumer.consume(entry.getKey(), entry.getValue());
+          transitiveConsumers.assetConsumer.accept(entry.getKey(), entry.getValue());
         }
       }
 

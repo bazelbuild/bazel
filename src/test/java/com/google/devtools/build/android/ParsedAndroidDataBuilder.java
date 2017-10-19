@@ -148,12 +148,12 @@ public class ParsedAndroidDataBuilder {
             @Nullable Factory factory,
             @Nullable Path root,
             KeyValueConsumer<DataKey, DataResource> consumer) {
-          consumer.consume(factory.parse(rawKey), DataValueFile.of(source));
+          consumer.accept(factory.parse(rawKey), DataValueFile.of(source));
         }
 
         @Override
         void accept(@Nullable Path defaultRoot, KeyValueConsumer<DataKey, DataAsset> target) {
-          target.consume(
+          target.accept(
               RelativeAssetPath.Factory.of(chooseRoot(defaultRoot).resolve("assets"))
                   .create(source.getPath()),
               DataValueFile.of(source));
@@ -169,7 +169,7 @@ public class ParsedAndroidDataBuilder {
             Path defaultRoot,
             KeyValueConsumer<DataKey, DataResource> consumer) {
           Path res = chooseRoot(defaultRoot).resolve("res");
-          consumer.consume(factory.parse(rawKey), DataValueFile.of(res.resolve(path)));
+          consumer.accept(factory.parse(rawKey), DataValueFile.of(res.resolve(path)));
         }
 
         @Override
@@ -177,7 +177,7 @@ public class ParsedAndroidDataBuilder {
             @Nullable Path defaultRoot, KeyValueConsumer<DataKey, DataAsset> consumer) {
           Path assets = chooseRoot(defaultRoot).resolve("assets");
           Path fullPath = assets.resolve(path);
-          consumer.consume(
+          consumer.accept(
               RelativeAssetPath.Factory.of(assets).create(fullPath), DataValueFile.of(fullPath));
         }
       };
@@ -209,7 +209,7 @@ public class ParsedAndroidDataBuilder {
                 Path defaultRoot,
                 KeyValueConsumer<DataKey, DataResource> consumer) {
               Path res = (root == null ? defaultRoot : root).resolve("res");
-              consumer.consume(
+              consumer.accept(
                   factory.parse(rawFqn),
                   DataResourceXml.createWithNamespaces(
                       res.resolve(path), value, Namespaces.from(prefixToUri)));
@@ -229,7 +229,7 @@ public class ParsedAndroidDataBuilder {
                 FullyQualifiedName.Factory factory,
                 Path defaultRoot,
                 KeyValueConsumer<DataKey, DataResource> consumer) {
-              consumer.consume(
+              consumer.accept(
                   factory.parse(rawFqn),
                   DataResourceXml.createWithNamespaces(
                       dataSource, value, Namespaces.from(prefixToUri)));

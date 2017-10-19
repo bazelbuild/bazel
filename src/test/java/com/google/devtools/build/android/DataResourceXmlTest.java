@@ -1376,7 +1376,7 @@ public class DataResourceXmlTest {
     }
 
     @Override
-    public void consume(DataKey key, DataResource value) {
+    public void accept(DataKey key, DataResource value) {
       target.put(key, value);
     }
   }
