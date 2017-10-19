@@ -30,8 +30,7 @@
 namespace bazel {
 namespace windows {
 
-using std::function;
-using std::string;
+using std::wstring;
 using std::unique_ptr;
 using std::wstring;
 
@@ -64,8 +63,8 @@ static void GetShortTempDir(wstring* result) {
 
   // Set the result, omit the "\\?\" prefix.
   // Ensure that the result is shorter than MAX_PATH and also has room for a
-  // backslash (1 char) and a single-letter executable name with .bat
-  // extension (5 chars).
+  // backslash (1 wchar) and a single-letter executable name with .bat
+  // extension (5 wchars).
   *result = wstring(buf.get() + 4);
   ASSERT_LT(result->size(), MAX_PATH - 6);
 }
@@ -205,12 +204,12 @@ static void DeleteDirsUnder(const wstring& basedir,
   // Make a mutable copy of `deepest_subdir`.
   unique_ptr<WCHAR[]> mutable_path(new WCHAR[deepest_subdir.size() + 1]);
   memcpy(mutable_path.get(), deepest_subdir.c_str(),
-         deepest_subdir.size() * sizeof(wchar_t));
+         deepest_subdir.size() * sizeof(WCHAR));
   mutable_path.get()[deepest_subdir.size()] = 0;
 
   // Mark the end of the path. We'll keep setting the last directory separator
   // to the null-terminator, thus walking up the directory tree.
-  wchar_t* p_end = mutable_path.get() + deepest_subdir.size();
+  WCHAR* p_end = mutable_path.get() + deepest_subdir.size();
 
   while (p_end > mutable_path.get() + basedir.size()) {
     DELETE_DIR(mutable_path.get());
@@ -222,70 +221,48 @@ static void DeleteDirsUnder(const wstring& basedir,
   }
 }
 
-// Converts a wstring to a string using `wcstombs`.
-static string AsString(const wstring& s) {
-  size_t size = wcstombs(nullptr, s.c_str(), 0) + 1;
-  unique_ptr<char[]> result(new char[size]);
-  wcstombs(result.get(), s.c_str(), size);
-  return string(result.get());
-}
-
-// Converts a string to a wstring using `mbstowcs`.
-static wstring AsWstring(const char* s) {
-  size_t size = mbstowcs(nullptr, s, 0) + 1;
-  unique_ptr<WCHAR[]> result(new WCHAR[size]);
-  mbstowcs(result.get(), s, size);
-  return wstring(result.get());
-}
-
-static function<wstring()> MakeConversionFunc(const char* input) {
-  return [input]() { return AsWstring(input); };
-}
-
 // Asserts that `str` contains substring `substr`.
 // This is a macro so the assertions will have the correct line number.
-#define ASSERT_CONTAINS(/* const string& */ str, /* const char* */ substr) \
-  {                                                                        \
-    ASSERT_NE(str, "");                                                    \
-    ASSERT_NE(str.find(substr), string::npos);                             \
+#define ASSERT_CONTAINS(/* const wstring& */ str, /* const WCHAR* */ substr) \
+  {                                                                          \
+    ASSERT_NE(str, L"");                                                     \
+    ASSERT_NE(str.find(substr), wstring::npos);                              \
   }
 
 // This is a macro so the assertions will have the correct line number.
-#define ASSERT_SHORTENING_FAILS(/* const char* */ input,            \
-                                /* const char* */ error_msg)        \
-  {                                                                 \
-    string actual;                                                  \
-    ASSERT_CONTAINS(AsExecutablePathForCreateProcess(               \
-                        input, MakeConversionFunc(input), &actual), \
-                    error_msg);                                     \
+#define ASSERT_SHORTENING_FAILS(/* const WCHAR* */ input,             \
+                                /* const WCHAR* */ error_msg)         \
+  {                                                                   \
+    wstring actual;                                                   \
+    ASSERT_CONTAINS(AsExecutablePathForCreateProcess(input, &actual), \
+                    error_msg);                                       \
   }
 
 // This is a macro so the assertions will have the correct line number.
-#define ASSERT_SHORTENING_SUCCEEDS(/* const char* */ input,             \
-                                   /* const string& */ expected_result) \
-  {                                                                     \
-    string actual;                                                      \
-    ASSERT_EQ(AsExecutablePathForCreateProcess(                         \
-                  input, MakeConversionFunc(input), &actual),           \
-              "");                                                      \
-    ASSERT_EQ(actual, expected_result);                                 \
+#define ASSERT_SHORTENING_SUCCEEDS(/* const WCHAR* */ input,             \
+                                   /* const wstring& */ expected_result) \
+  {                                                                      \
+    wstring actual;                                                      \
+    ASSERT_EQ(AsExecutablePathForCreateProcess(input, &actual), L"");    \
+    ASSERT_EQ(actual, expected_result);                                  \
   }
 
 TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
-  ASSERT_SHORTENING_FAILS("", "should not be empty");
-  ASSERT_SHORTENING_FAILS("\"cmd.exe\"", "should not be quoted");
-  ASSERT_SHORTENING_FAILS("/dev/null", "path='/dev/null' is absolute");
-  ASSERT_SHORTENING_FAILS("/usr/bin/bash", "path='/usr/bin/bash' is absolute");
-  ASSERT_SHORTENING_FAILS("foo\\bar.exe", "absolute");
-  ASSERT_SHORTENING_FAILS("foo\\..\\bar.exe", "normalized");
-  ASSERT_SHORTENING_FAILS("\\bar.exe", "path='\\bar.exe' is absolute");
+  ASSERT_SHORTENING_FAILS(L"", L"should not be empty");
+  ASSERT_SHORTENING_FAILS(L"\"cmd.exe\"", L"should not be quoted");
+  ASSERT_SHORTENING_FAILS(L"/dev/null", L"path='/dev/null' is absolute");
+  ASSERT_SHORTENING_FAILS(L"/usr/bin/bash",
+                          L"path='/usr/bin/bash' is absolute");
+  ASSERT_SHORTENING_FAILS(L"foo\\bar.exe", L"absolute");
+  ASSERT_SHORTENING_FAILS(L"foo\\..\\bar.exe", L"normalized");
+  ASSERT_SHORTENING_FAILS(L"\\bar.exe", L"path='\\bar.exe' is absolute");
 
-  string dummy = "hello";
+  wstring dummy = L"hello";
   while (dummy.size() < MAX_PATH) {
     dummy += dummy;
   }
-  dummy += ".exe";
-  ASSERT_SHORTENING_FAILS(dummy.c_str(), "a file name but too long");
+  dummy += L".exe";
+  ASSERT_SHORTENING_FAILS(dummy.c_str(), L"a file name but too long");
 }
 
 TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
@@ -299,41 +276,40 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
   // the whole path MAX_PATH long or longer.
   ASSERT_EQ(short_root.size(), MAX_PATH - 1 - 6);
 
-  string actual;
-  string error;
+  wstring actual;
+  wstring error;
   for (size_t i = 0; i < 3; ++i) {
     wstring wfilename = short_root;
 
     APPEND_FILE_SEGMENT(6 + i, &wfilename);
-    string filename = AsString(wfilename);
-    ASSERT_EQ(filename.size(), MAX_PATH - 1 + i);
+    ASSERT_EQ(wfilename.size(), MAX_PATH - 1 + i);
 
-    // When i=0 then `filename` is MAX_PATH - 1 long, so
+    // When i=0 then `wfilename` is MAX_PATH - 1 long, so
     // `AsExecutablePathForCreateProcess` will not attempt to shorten it, and
     // so it also won't notice that the file doesn't exist. If however we pass
     // a non-existent path to CreateProcessA, then it'll fail, so we'll find out
     // about this error in production code.
-    // When i>0 then `filename` is at least MAX_PATH long, so
+    // When i>0 then `wfilename` is at least MAX_PATH long, so
     // `AsExecutablePathForCreateProcess` will attempt to shorten it, but
     // because the file doesn't yet exist, the shortening attempt will fail.
     if (i > 0) {
-      ASSERT_EQ(::GetFileAttributesA(filename.c_str()),
+      ASSERT_EQ(::GetFileAttributesW(wfilename.c_str()),
                 INVALID_FILE_ATTRIBUTES);
-      ASSERT_SHORTENING_FAILS(filename.c_str(), "GetShortPathName failed");
+      ASSERT_SHORTENING_FAILS(wfilename.c_str(), L"GetShortPathName failed");
     }
 
     // Create the file, now we should be able to shorten it when i=0, but not
     // otherwise.
     CREATE_FILE(wfilename);
     if (i == 0) {
-      // The filename was short enough.
-      ASSERT_SHORTENING_SUCCEEDS(filename.c_str(),
-                                 string("\"") + filename + "\"");
+      // The wfilename was short enough.
+      ASSERT_SHORTENING_SUCCEEDS(wfilename.c_str(),
+                                 wstring(L"\"") + wfilename + L"\"");
     } else {
-      // The filename was too long to begin with, and it was impossible to
+      // The wfilename was too long to begin with, and it was impossible to
       // shorten any of the segments (since we deliberately created them that
       // way), so shortening failed.
-      ASSERT_SHORTENING_FAILS(filename.c_str(), "would not shorten");
+      ASSERT_SHORTENING_FAILS(wfilename.c_str(), L"would not shorten");
     }
     DELETE_FILE(wfilename);
   }
@@ -343,22 +319,20 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
   wstring wshortenable_root = short_root;
   while (wshortenable_root.size() > MAX_PATH - 1 - 13) {
     wshortenable_root =
-        wshortenable_root.substr(0, wshortenable_root.find_last_of('\\'));
+        wshortenable_root.substr(0, wshortenable_root.find_last_of(L'\\'));
   }
   wstring wshortenable = wshortenable_root + wstring(L"\\") +
-                         wstring(MAX_PATH - wshortenable_root.size(), 'a') +
+                         wstring(MAX_PATH - wshortenable_root.size(), L'a') +
                          wstring(L".bat");
   ASSERT_GT(wshortenable.size(), MAX_PATH);
 
   // Attempt to shorten. It will fail because the file doesn't exist yet.
-  ASSERT_SHORTENING_FAILS(AsString(wshortenable).c_str(),
-                          "GetShortPathName failed");
+  ASSERT_SHORTENING_FAILS(wshortenable, L"GetShortPathName failed");
 
   // Create the file so shortening will succeed.
   CREATE_FILE(wshortenable);
   ASSERT_SHORTENING_SUCCEEDS(
-      AsString(wshortenable).c_str(),
-      string("\"") + AsString(wshortenable_root) + "\\AAAAAA~1.BAT\"");
+      wshortenable, wstring(L"\"") + wshortenable_root + L"\\AAAAAA~1.BAT\"");
   DELETE_FILE(wshortenable);
 
   DeleteDirsUnder(tmpdir, short_root);

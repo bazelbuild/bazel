@@ -13,14 +13,13 @@
 // limitations under the License.
 
 #define WIN32_LEAN_AND_MEAN
-#define WINVER 0x0601
-#define _WIN32_WINNT 0x0601
 
 #include <windows.h>
 
 #include <atomic>
 #include <memory>
 #include <string>
+#include <type_traits>  // static_assert
 
 #include "src/main/native/jni.h"
 #include "src/main/native/windows/jni-util.h"
@@ -34,10 +33,10 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetpid(
 
 struct NativeOutputStream {
   HANDLE handle_;
-  std::string error_;
+  std::wstring error_;
   std::atomic<bool> closed_;
   NativeOutputStream()
-      : handle_(INVALID_HANDLE_VALUE), error_(""), closed_(false) {}
+      : handle_(INVALID_HANDLE_VALUE), error_(L""), closed_(false) {}
 
   void close() {
     closed_.store(true);
@@ -45,6 +44,11 @@ struct NativeOutputStream {
       return;
     }
 
+    // CancelIoEx only cancels I/O operations in the current process.
+    // https://msdn.microsoft.com/en-us/library/windows/desktop/aa363792(v=vs.85).aspx
+    //
+    // Therefore if this process bequested `handle_` to a child process, we
+    // cannot cancel I/O in the child process.
     CancelIoEx(handle_, NULL);
     CloseHandle(handle_);
     handle_ = INVALID_HANDLE_VALUE;
@@ -62,7 +66,7 @@ struct NativeProcess {
   HANDLE process_;
   HANDLE job_;
   DWORD pid_;
-  std::string error_;
+  std::wstring error_;
 
   NativeProcess()
       : stdin_(INVALID_HANDLE_VALUE),
@@ -70,7 +74,7 @@ struct NativeProcess {
         stderr_(),
         process_(INVALID_HANDLE_VALUE),
         job_(INVALID_HANDLE_VALUE),
-        error_("") {}
+        error_(L"") {}
 };
 
 class JavaByteArray {
@@ -112,14 +116,19 @@ static bool NestedJobsSupported() {
          version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 2;
 }
 
+// Ensure we can safely cast jlong to void*.
+static_assert(sizeof(jlong) == sizeof(void*),
+              "jlong and void* should be the same size");
+
+static_assert(sizeof(jchar) == sizeof(WCHAR),
+              "jchar and WCHAR should be the same size");
+
 static jlong PtrAsJlong(void* p) { return reinterpret_cast<jlong>(p); }
 
-static std::string AsExecutableForCreateProcess(JNIEnv* env, jstring path,
-                                                std::string* result) {
+static std::wstring AsExecutableForCreateProcess(JNIEnv* env, jstring path,
+                                                 std::wstring* result) {
   return bazel::windows::AsExecutablePathForCreateProcess(
-      bazel::windows::GetJavaUTFString(env, path),
-      [env, path]() { return bazel::windows::GetJavaWstring(env, path); },
-      result);
+      bazel::windows::GetJavaWstring(env, path), result);
 }
 
 extern "C" JNIEXPORT jlong JNICALL
@@ -129,33 +138,30 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     jstring java_stderr_redirect) {
   NativeProcess* result = new NativeProcess();
 
-  std::string argv0;
-  std::string error_msg(AsExecutableForCreateProcess(env, java_argv0, &argv0));
+  std::wstring argv0;
+  std::wstring error_msg(AsExecutableForCreateProcess(env, java_argv0, &argv0));
   if (!error_msg.empty()) {
     result->error_ = error_msg;
     return PtrAsJlong(result);
   }
 
-  std::string commandline =
-      argv0 + " " + bazel::windows::GetJavaUTFString(env, java_argv_rest);
+  std::wstring commandline =
+      argv0 + L" " + bazel::windows::GetJavaWstring(env, java_argv_rest);
   std::wstring stdout_redirect = AddUncPrefixMaybe(
       bazel::windows::GetJavaWstring(env, java_stdout_redirect));
   std::wstring stderr_redirect = AddUncPrefixMaybe(
       bazel::windows::GetJavaWstring(env, java_stderr_redirect));
-  std::string cwd;
+  std::wstring cwd;
   error_msg = bazel::windows::AsShortPath(
-      bazel::windows::GetJavaUTFString(env, java_cwd),
-      [env, java_cwd]() {
-        return bazel::windows::GetJavaWstring(env, java_cwd);
-      },
-      &cwd);
+      bazel::windows::GetJavaWstring(env, java_cwd), &cwd);
   if (!error_msg.empty()) {
     result->error_ = error_msg;
     return PtrAsJlong(result);
   }
 
-  std::unique_ptr<char[]> mutable_commandline(new char[commandline.size() + 1]);
-  strncpy(mutable_commandline.get(), commandline.c_str(),
+  std::unique_ptr<WCHAR[]> mutable_commandline(
+      new WCHAR[commandline.size() + 1]);
+  wcsncpy(mutable_commandline.get(), commandline.c_str(),
           commandline.size() + 1);
 
   SECURITY_ATTRIBUTES sa = {0};
@@ -171,24 +177,24 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
   bazel::windows::AutoHandle stderr_process;
   bazel::windows::AutoHandle thread;
   PROCESS_INFORMATION process_info = {0};
-  STARTUPINFOA startup_info = {0};
+  STARTUPINFOW startup_info = {0};
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
 
   JavaByteArray env_map(env, java_env);
   if (env_map.ptr() != nullptr) {
     if (env_map.size() < 2) {
-      result->error_ = "The environment must be at least two bytes long";
+      result->error_ = L"The environment must be at least two bytes long";
       return PtrAsJlong(result);
     } else if (env_map.ptr()[env_map.size() - 1] != 0 ||
                env_map.ptr()[env_map.size() - 2] != 0) {
-      result->error_ = "Environment array must end with two null bytes";
+      result->error_ = L"Environment array must end with two null bytes";
       return PtrAsJlong(result);
     }
   }
 
   HANDLE temp_stdin_handle = INVALID_HANDLE_VALUE;
   if (!CreatePipe(&temp_stdin_handle, &result->stdin_, &sa, 0)) {
-    result->error_ = bazel::windows::GetLastErrorString("CreatePipe(stdin)");
+    result->error_ = bazel::windows::GetLastErrorString(L"CreatePipe(stdin)");
     CloseHandle(temp_stdin_handle);
     return PtrAsJlong(result);
   }
@@ -207,13 +213,15 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
         /* hTemplateFile */ NULL);
 
     if (!stdout_process.IsValid()) {
-      result->error_ = bazel::windows::GetLastErrorString("CreateFile(stdout)");
+      result->error_ =
+          bazel::windows::GetLastErrorString(L"CreateFile(stdout)");
       return PtrAsJlong(result);
     }
   } else {
     HANDLE temp_stdout_handle = INVALID_HANDLE_VALUE;
     if (!CreatePipe(&result->stdout_.handle_, &temp_stdout_handle, &sa, 0)) {
-      result->error_ = bazel::windows::GetLastErrorString("CreatePipe(stdout)");
+      result->error_ =
+          bazel::windows::GetLastErrorString(L"CreatePipe(stdout)");
       CloseHandle(temp_stdout_handle);
       return PtrAsJlong(result);
     }
@@ -250,7 +258,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
 
       if (stderr_handle == INVALID_HANDLE_VALUE) {
         result->error_ =
-            bazel::windows::GetLastErrorString("CreateFile(stderr)");
+            bazel::windows::GetLastErrorString(L"CreateFile(stderr)");
         return PtrAsJlong(result);
       }
       // stderr_process != stdout_process, so set its handle, so the AutoHandle
@@ -259,7 +267,8 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     }
   } else {
     if (!CreatePipe(&result->stderr_.handle_, &stderr_handle, &sa, 0)) {
-      result->error_ = bazel::windows::GetLastErrorString("CreatePipe(stderr)");
+      result->error_ =
+          bazel::windows::GetLastErrorString(L"CreatePipe(stderr)");
       return PtrAsJlong(result);
     }
     stderr_process = stderr_handle;
@@ -269,7 +278,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
   // allowed. Thus, we don't need to do any more setup here.
   HANDLE job = CreateJobObject(NULL, NULL);
   if (job == NULL) {
-    result->error_ = bazel::windows::GetLastErrorString("CreateJobObject()");
+    result->error_ = bazel::windows::GetLastErrorString(L"CreateJobObject()");
     return PtrAsJlong(result);
   }
 
@@ -280,7 +289,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
   if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
                                &job_info, sizeof(job_info))) {
     result->error_ =
-        bazel::windows::GetLastErrorString("SetInformationJobObject()");
+        bazel::windows::GetLastErrorString(L"SetInformationJobObject()");
     return PtrAsJlong(result);
   }
 
@@ -289,7 +298,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
   startup_info.hStdError = stderr_handle;
   startup_info.dwFlags |= STARTF_USESTDHANDLES;
 
-  BOOL ok = CreateProcessA(
+  BOOL ok = CreateProcessW(
       /* lpApplicationName */ NULL,
       /* lpCommandLine */ mutable_commandline.get(),
       /* lpProcessAttributes */ NULL,
@@ -304,7 +313,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
       /* lpProcessInformation */ &process_info);
 
   if (!ok) {
-    result->error_ = bazel::windows::GetLastErrorString("CreateProcess()");
+    result->error_ = bazel::windows::GetLastErrorString(L"CreateProcess()");
     return PtrAsJlong(result);
   }
 
@@ -324,18 +333,18 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
       result->job_ = INVALID_HANDLE_VALUE;
     } else {
       result->error_ =
-          bazel::windows::GetLastErrorString("AssignProcessToJobObject()");
+          bazel::windows::GetLastErrorString(L"AssignProcessToJobObject()");
       return PtrAsJlong(result);
     }
   }
 
   // Now that we put the process in a new job object, we can start executing it
   if (ResumeThread(thread) == -1) {
-    result->error_ = bazel::windows::GetLastErrorString("ResumeThread()");
+    result->error_ = bazel::windows::GetLastErrorString(L"ResumeThread()");
     return PtrAsJlong(result);
   }
 
-  result->error_ = "";
+  result->error_ = L"";
   return PtrAsJlong(result);
 }
 
@@ -347,7 +356,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWriteStdin
 
   JavaByteArray bytes(env, java_bytes);
   if (offset < 0 || length <= 0 || offset > bytes.size() - length) {
-    process->error_ = "Array index out of bounds";
+    process->error_ = L"Array index out of bounds";
     return -1;
   }
 
@@ -355,11 +364,11 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWriteStdin
 
   if (!::WriteFile(process->stdin_, bytes.ptr() + offset, length,
                    &bytes_written, NULL)) {
-    process->error_ = bazel::windows::GetLastErrorString("WriteFile()");
+    process->error_ = bazel::windows::GetLastErrorString(L"WriteFile()");
     bytes_written = -1;
   }
 
-  process->error_ = "";
+  process->error_ = L"";
   return bytes_written;
 }
 
@@ -386,12 +395,12 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeReadStream
 
   JavaByteArray bytes(env, java_bytes);
   if (offset < 0 || length <= 0 || offset > bytes.size() - length) {
-    stream->error_ = "Array index out of bounds";
+    stream->error_ = L"Array index out of bounds";
     return -1;
   }
 
   if (stream->handle_ == INVALID_HANDLE_VALUE || stream->closed_.load()) {
-    stream->error_ = "";
+    stream->error_ = L"";
     return 0;
   }
 
@@ -403,14 +412,14 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeReadStream
     // call interrupted" error.
     if (GetLastError() == ERROR_BROKEN_PIPE || stream->closed_.load()) {
       // End of file.
-      stream->error_ = "";
+      stream->error_ = L"";
       bytes_read = 0;
     } else {
-      stream->error_ = bazel::windows::GetLastErrorString("ReadFile()");
+      stream->error_ = bazel::windows::GetLastErrorString(L"ReadFile()");
       bytes_read = -1;
     }
   } else {
-    stream->error_ = "";
+    stream->error_ = L"";
   }
 
   return bytes_read;
@@ -423,7 +432,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetExitCod
   DWORD exit_code;
   if (!GetExitCodeProcess(process->process_, &exit_code)) {
     process->error_ =
-        bazel::windows::GetLastErrorString("GetExitCodeProcess()");
+        bazel::windows::GetLastErrorString(L"GetExitCodeProcess()");
     return -1;
   }
 
@@ -455,7 +464,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWaitFor(
       break;
 
     default:
-      process->error_ = "WaitForMultipleObjects() returned unknown result";
+      process->error_ = L"WaitForMultipleObjects() returned unknown result";
       result = 2;
       break;
   }
@@ -487,7 +496,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetProcessPid(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  process->error_ = "";
+  process->error_ = L"";
   return GetProcessId(process->process_);  // MSDN says that this cannot fail
 }
 
@@ -500,18 +509,18 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeTerminate(
   if (process->job_ != INVALID_HANDLE_VALUE) {
     if (!TerminateJobObject(process->job_, exit_code)) {
       process->error_ =
-          bazel::windows::GetLastErrorString("TerminateJobObject()");
+          bazel::windows::GetLastErrorString(L"TerminateJobObject()");
       return JNI_FALSE;
     }
   } else if (process->process_ != INVALID_HANDLE_VALUE) {
     if (!TerminateProcess(process->process_, exit_code)) {
       process->error_ =
-          bazel::windows::GetLastErrorString("TerminateProcess()");
+          bazel::windows::GetLastErrorString(L"TerminateProcess()");
       return JNI_FALSE;
     }
   }
 
-  process->error_ = "";
+  process->error_ = L"";
   return JNI_TRUE;
 }
 
@@ -550,8 +559,10 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeProcessGetLastError(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  jstring result = env->NewStringUTF(process->error_.c_str());
-  process->error_ = "";
+  jstring result =
+      env->NewString(reinterpret_cast<const jchar*>(process->error_.c_str()),
+                     process->error_.size());
+  process->error_ = L"";
   return result;
 }
 
@@ -560,7 +571,9 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeStreamGetL
     JNIEnv* env, jclass clazz, jlong stream_long) {
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);
-  jstring result = env->NewStringUTF(stream->error_.c_str());
-  stream->error_ = "";
+  jstring result =
+      env->NewString(reinterpret_cast<const jchar*>(stream->error_.c_str()),
+                     stream->error_.size());
+  stream->error_ = L"";
   return result;
 }

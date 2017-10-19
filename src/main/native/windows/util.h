@@ -17,16 +17,11 @@
 
 #include <windows.h>
 
-#include <functional>
-#include <memory>
 #include <string>
 
 namespace bazel {
 namespace windows {
 
-using std::function;
-using std::string;
-using std::unique_ptr;
 using std::wstring;
 
 // A wrapper for the `HANDLE` type that calls CloseHandle in its d'tor.
@@ -54,11 +49,11 @@ struct AutoHandle {
   HANDLE handle_;
 };
 
-string GetLastErrorString(const string& cause);
+wstring GetLastErrorString(const wstring& cause);
+wstring GetLastErrorString(const wstring& cause, DWORD error_code);
 
 // Same as `AsExecutablePathForCreateProcess` except it won't quote the result.
-string AsShortPath(string path, function<wstring()> path_as_wstring,
-                   string* result);
+wstring AsShortPath(wstring path, wstring* result);
 
 // Computes a path suitable as the executable part in CreateProcessA's cmdline.
 //
@@ -72,9 +67,6 @@ string AsShortPath(string path, function<wstring()> path_as_wstring,
 // name (e.g. "cmd.exe") that's shorter than MAX_PATH (without null-terminator).
 // In both cases, `path` must be unquoted.
 //
-// `path_as_wstring` must be a function that retrieves `path` as (or converts it
-// to) a wstring, without performing any transformations on the path.
-//
 // If this function succeeds, it returns an empty string (indicating no error),
 // and sets `result` to the resulting path, which is always quoted, and is
 // always at most MAX_PATH + 1 long (MAX_PATH - 1 without null terminator, plus
@@ -86,9 +78,7 @@ string AsShortPath(string path, function<wstring()> path_as_wstring,
 // `path`, and if that succeeds and the result is at most MAX_PATH - 1 long (not
 // including null terminator), then that will be the result (plus quotes).
 // Otherwise this function fails and returns an error message.
-string AsExecutablePathForCreateProcess(const string& path,
-                                        function<wstring()> path_as_wstring,
-                                        string* result);
+wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result);
 
 }  // namespace windows
 }  // namespace bazel

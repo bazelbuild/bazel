@@ -732,9 +732,9 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
          posix_target.c_str(), posix_name.c_str(), posix_name.c_str());
     return false;
   }
-  string error(CreateJunction(name, target));
+  wstring error(CreateJunction(name, target));
   if (!error.empty()) {
-    blaze_util::PrintError("SymlinkDirectories(%s, %s): CreateJunction: %s",
+    blaze_util::PrintError("SymlinkDirectories(%s, %s): CreateJunction: %S",
                            posix_target.c_str(), posix_name.c_str(),
                            error.c_str());
     return false;

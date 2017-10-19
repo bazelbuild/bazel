@@ -21,7 +21,6 @@
 namespace bazel {
 namespace windows {
 
-std::string GetJavaUTFString(JNIEnv* env, jstring str);
 std::wstring GetJavaWstring(JNIEnv* env, jstring str);
 
 }  // namespace windows
