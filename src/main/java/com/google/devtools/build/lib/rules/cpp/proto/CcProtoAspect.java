@@ -71,7 +71,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
   private static final Attribute.LateBoundDefault<?, Label> PROTO_TOOLCHAIN_LABEL =
       Attribute.LateBoundDefault.fromTargetConfiguration(
           ProtoConfiguration.class,
-          Label.parseAbsoluteUnchecked("@com_google_protobuf_cc//:cc_toolchain"),
+          Label.parseAbsoluteUnchecked("@com_google_protobuf//:cc_toolchain"),
           (rule, attributes, protoConfig) -> protoConfig.protoToolchainForCc());
 
   private final CppSemantics cppSemantics;

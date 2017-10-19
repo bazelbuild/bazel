@@ -58,7 +58,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
             "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
             "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
-            "local_repository(name = 'com_google_protobuf_java', path = '/protobuf')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
             "bind(name = 'tools/python', actual='//tools/python')"));
   }
