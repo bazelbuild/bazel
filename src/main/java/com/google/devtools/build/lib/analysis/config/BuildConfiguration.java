@@ -2110,7 +2110,7 @@ public final class BuildConfiguration implements BuildEvent {
     BuildEventStreamProtos.Configuration.Builder builder =
         BuildEventStreamProtos.Configuration.newBuilder()
             .setMnemonic(getMnemonic())
-            .setPlatformName(getPlatformName())
+            .setPlatformName(getCpu())
             .putAllMakeVariable(getMakeEnvironment())
             .setCpu(getCpu());
     return GenericBuildEvent.protoChaining(this).setConfiguration(builder.build()).build();
