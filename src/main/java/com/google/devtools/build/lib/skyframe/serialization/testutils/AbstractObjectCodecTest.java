@@ -15,30 +15,25 @@
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Common ObjectCodec tests. */
+/**
+ * Base class for {@link ObjectCodec} tests. This is a slim wrapper around {@link ObjectCodecTester}
+ * and exists mostly to support existing tests.
+ */
 public abstract class AbstractObjectCodecTest<T> {
 
   @Nullable protected ObjectCodec<T> underTest;
   @Nullable protected ImmutableList<T> subjects;
-
-  /**
-   * Override to false to skip testDeserializeBadDataThrowsSerializationException(). Codecs that
-   * cannot distinguish good and bad data should do this.
-   */
-  protected boolean shouldTestDeserializeBadData = true;
+  private ObjectCodecTester<T> objectCodecTester;
 
   /** Construct with the given codec and subjects. */
   protected AbstractObjectCodecTest(
@@ -57,41 +52,29 @@ public abstract class AbstractObjectCodecTest<T> {
   protected AbstractObjectCodecTest() {}
 
   @Before
-  public void checkInitialized() {
+  public void initialize() {
     Preconditions.checkNotNull(underTest);
     Preconditions.checkNotNull(subjects);
+    objectCodecTester = ObjectCodecTester.newBuilder(underTest)
+        .verificationFunction(
+            (original, deserialized) -> this.verifyDeserialization(deserialized, original))
+        .addSubjects(subjects)
+        .build();
   }
 
   @Test
   public void testSuccessfulSerializationDeserialization() throws Exception {
-    for (T subject : subjects) {
-      byte[] serialized = toBytes(subject);
-      Object deserialized = fromBytes(serialized);
-      verifyDeserialization(deserialized, subject);
-    }
+    objectCodecTester.testSerializeDeserialize();
   }
 
   @Test
   public void testSerializationRoundTripBytes() throws Exception {
-    for (T subject : subjects) {
-      byte[] serialized = toBytes(subject);
-      T deserialized = fromBytes(serialized);
-      byte[] reserialized = toBytes(deserialized);
-      assertThat(reserialized).isEqualTo(serialized);
-    }
+    objectCodecTester.testStableSerialization();
   }
 
   @Test
   public void testDeserializeBadDataThrowsSerializationException() {
-    if (!shouldTestDeserializeBadData) {
-      return;
-    }
-    try {
-      underTest.deserialize(CodedInputStream.newInstance("junk".getBytes(StandardCharsets.UTF_8)));
-      fail("Expected exception");
-    } catch (SerializationException | IOException e) {
-      // Expected.
-    }
+    objectCodecTester.testDeserializeJunkData();
   }
 
   protected T fromBytes(byte[] bytes) throws SerializationException, IOException {

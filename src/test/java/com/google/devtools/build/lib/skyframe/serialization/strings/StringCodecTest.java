@@ -14,15 +14,19 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
-import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Basic tests for {@link StringCodec}. */
 @RunWith(JUnit4.class)
-public class StringCodecTest extends AbstractObjectCodecTest<String> {
+public class StringCodecTest {
 
-  public StringCodecTest() {
-    super(new StringCodec(), "usually precomputed and supports weird unicodes: （╯°□°）╯︵┻━┻ ");
+  @Test
+  public void testCodec() throws Exception {
+    ObjectCodecTester.newBuilder(new StringCodec())
+        .addSubjects("usually precomputed and supports weird unicodes: （╯°□°）╯︵┻━┻ ")
+        .buildAndRunTests();
   }
 }

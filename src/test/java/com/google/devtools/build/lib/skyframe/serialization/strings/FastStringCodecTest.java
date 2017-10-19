@@ -15,41 +15,39 @@
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link FastStringCodec}. */
 @RunWith(JUnit4.class)
-public class FastStringCodecTest extends AbstractObjectCodecTest<String> {
+public class FastStringCodecTest {
 
-  public FastStringCodecTest() {
-    super(
-        // TODO(michajlo): Don't bother running this test if FastStringCodec isn't available.
-        FastStringCodec.isAvailable() ? new FastStringCodec() : new StringCodec(),
-        "ow now brown cow. ow now brown cow",
-        "（╯°□°）╯︵┻━┻ string with utf8/ascii",
-        "string with ascii/utf8 （╯°□°）╯︵┻━┻",
-        "last character utf8 ╯",
-        "last char only non-ascii ƒ",
-        "ƒ",
-        "╯",
-        "",
-        Character.toString((char) 0xc3));;
-  }
-
-  // hashCode is stored in String. Because we're using Unsafe to bypass standard String
-  // constructors, make sure it still works.
   @Test
-  public void testEqualsAndHashCodePreserved() throws Exception {
-    String original1 = "hello world";
-    String original2 = "dlrow olleh";
+  public void testCodec() throws Exception {
+    if (!FastStringCodec.isAvailable()) {
+      // Not available on this platform, skip test.
+      return;
+    }
 
-    // Equals tester tests equals and hash code.
-    new EqualsTester()
-        .addEqualityGroup(original1, fromBytes(toBytes(original1)))
-        .addEqualityGroup(original2, fromBytes(toBytes(original2)))
-        .testEquals();
+    ObjectCodecTester.newBuilder(new FastStringCodec())
+        .verificationFunction(
+            (original, deserialized) -> {
+              // hashCode is stored in String. Because we're using Unsafe to bypass standard String
+              // constructors, make sure it still works.
+              new EqualsTester().addEqualityGroup(original, deserialized).testEquals();
+            })
+        .addSubjects(
+            "ow now brown cow. ow now brown cow",
+            "（╯°□°）╯︵┻━┻ string with utf8/ascii",
+            "string with ascii/utf8 （╯°□°）╯︵┻━┻",
+            "last character utf8 ╯",
+            "last char only non-ascii ƒ",
+            "ƒ",
+            "╯",
+            "",
+            Character.toString((char) 0xc3))
+        .buildAndRunTests();
   }
 }
