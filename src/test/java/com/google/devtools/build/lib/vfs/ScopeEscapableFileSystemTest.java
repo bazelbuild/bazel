@@ -67,15 +67,18 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
       return ans != null ? ans.asFragment() : null;
     }
 
-    @Override public boolean supportsModifications() {
+    @Override
+    public boolean supportsModifications(Path path) {
       return true;
     }
 
-    @Override public boolean supportsSymbolicLinksNatively() {
+    @Override
+    public boolean supportsSymbolicLinksNatively(Path path) {
       return true;
     }
 
-    @Override public boolean supportsHardLinksNatively() {
+    @Override
+    public boolean supportsHardLinksNatively(Path path) {
       return true;
     }
 

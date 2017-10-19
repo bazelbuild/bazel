@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-
 import java.io.IOException;
 
 /**
@@ -175,7 +174,7 @@ public final class BinTools {
   }
 
   private void linkTool(Path sourcePath, Path linkPath) throws ExecException {
-    if (linkPath.getFileSystem().supportsSymbolicLinksNatively()) {
+    if (linkPath.getFileSystem().supportsSymbolicLinksNatively(linkPath)) {
       try {
         if (!linkPath.isSymbolicLink()) {
           // ensureSymbolicLink() does not handle the case where there is already

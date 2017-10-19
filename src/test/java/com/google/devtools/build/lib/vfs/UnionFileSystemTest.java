@@ -136,8 +136,8 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
   // read-only, even if the delegate filesystems are read/write.
   @Test
   public void testModificationFlag() throws Exception {
-    assertThat(unionfs.supportsModifications()).isTrue();
     Path outPath = unionfs.getPath("/out/foo.txt");
+    assertThat(unionfs.supportsModifications(outPath)).isTrue();
     assertThat(unionfs.createDirectory(outPath.getParentDirectory())).isTrue();
     OutputStream outFile = unionfs.getOutputStream(outPath);
     outFile.write('b');
@@ -148,7 +148,7 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     // Note that this does not destroy the underlying filesystems;
     // UnionFileSystem is just a view.
     unionfs = createDefaultUnionFileSystem(true);
-    assertThat(unionfs.supportsModifications()).isFalse();
+    assertThat(unionfs.supportsModifications(outPath)).isFalse();
 
     InputStream outFileInput = unionfs.getInputStream(outPath);
     int outFileByte = outFileInput.read();

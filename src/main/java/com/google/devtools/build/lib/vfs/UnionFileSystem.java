@@ -144,25 +144,25 @@ public class UnionFileSystem extends FileSystem {
     return delegate.resolveOneLink(adjustPath(path, delegate));
   }
 
-  private void checkModifiable() {
-    if (!supportsModifications()) {
+  private void checkModifiable(Path path) {
+    if (!supportsModifications(path)) {
       throw new UnsupportedOperationException(
           String.format("Modifications to this %s are disabled.", getClass().getSimpleName()));
     }
   }
 
   @Override
-  public boolean supportsModifications() {
+  public boolean supportsModifications(Path path) {
     return !readOnly;
   }
 
   @Override
-  public boolean supportsSymbolicLinksNatively() {
+  public boolean supportsSymbolicLinksNatively(Path path) {
     return true;
   }
 
   @Override
-  public boolean supportsHardLinksNatively() {
+  public boolean supportsHardLinksNatively(Path path) {
     return true;
   }
 
@@ -185,7 +185,7 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected boolean createDirectory(Path path) throws IOException {
-    checkModifiable();
+    checkModifiable(path);
     // When creating the exact directory that is mapped,
     // create it on both the parent's delegate and the path's delegate.
     // This is necessary both for the parent to see the directory and for the
@@ -217,7 +217,7 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected boolean delete(Path path) throws IOException {
-    checkModifiable();
+    checkModifiable(path);
     FileSystem delegate = getDelegate(path);
     return delegate.delete(adjustPath(path, delegate));
   }
@@ -230,7 +230,7 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected void setLastModifiedTime(Path path, long newTime) throws IOException {
-    checkModifiable();
+    checkModifiable(path);
     FileSystem delegate = getDelegate(path);
     delegate.setLastModifiedTime(adjustPath(path, delegate), newTime);
   }
@@ -262,8 +262,8 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
-    checkModifiable();
-    if (!supportsSymbolicLinksNatively()) {
+    checkModifiable(linkPath);
+    if (!supportsSymbolicLinksNatively(linkPath)) {
       throw new UnsupportedOperationException(
           "Attempted to create a symlink, but symlink support is disabled.");
     }
@@ -333,14 +333,14 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected void setReadable(Path path, boolean readable) throws IOException {
-    checkModifiable();
+    checkModifiable(path);
     FileSystem delegate = getDelegate(path);
     delegate.setReadable(adjustPath(path, delegate), readable);
   }
 
   @Override
   protected boolean isWritable(Path path) throws IOException {
-    if (!supportsModifications()) {
+    if (!supportsModifications(path)) {
       return false;
     }
     FileSystem delegate = getDelegate(path);
@@ -349,7 +349,7 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected void setWritable(Path path, boolean writable) throws IOException {
-    checkModifiable();
+    checkModifiable(path);
     FileSystem delegate = getDelegate(path);
     delegate.setWritable(adjustPath(path, delegate), writable);
   }
@@ -362,7 +362,7 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected void setExecutable(Path path, boolean executable) throws IOException {
-    checkModifiable();
+    checkModifiable(path);
     FileSystem delegate = getDelegate(path);
     delegate.setExecutable(adjustPath(path, delegate), executable);
   }
@@ -387,16 +387,15 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
-    checkModifiable();
+    checkModifiable(path);
     FileSystem delegate = getDelegate(path);
     return delegate.getOutputStream(adjustPath(path, delegate), append);
   }
 
   @Override
   protected void renameTo(Path sourcePath, Path targetPath) throws IOException {
-    checkModifiable();
     FileSystem sourceDelegate = getDelegate(sourcePath);
-    if (!sourceDelegate.supportsModifications()) {
+    if (!sourceDelegate.supportsModifications(sourcePath)) {
       throw new UnsupportedOperationException(
           String.format(
               "The filesystem for the source path %s does not support modifications.",
@@ -405,7 +404,7 @@ public class UnionFileSystem extends FileSystem {
     sourcePath = adjustPath(sourcePath, sourceDelegate);
 
     FileSystem targetDelegate = getDelegate(targetPath);
-    if (!targetDelegate.supportsModifications()) {
+    if (!targetDelegate.supportsModifications(targetPath)) {
       throw new UnsupportedOperationException(
           String.format(
               "The filesystem for the target path %s does not support modifications.",
@@ -427,12 +426,13 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected void createFSDependentHardLink(Path linkPath, Path originalPath) throws IOException {
-    checkModifiable();
+    checkModifiable(linkPath);
 
     FileSystem originalDelegate = getDelegate(originalPath);
     FileSystem linkDelegate = getDelegate(linkPath);
 
-    if (!originalDelegate.equals(linkDelegate) || !linkDelegate.supportsHardLinksNatively()) {
+    if (!originalDelegate.equals(linkDelegate)
+        || !linkDelegate.supportsHardLinksNatively(linkPath)) {
       throw new UnsupportedOperationException(
           "Attempted to create a hard link, but hard link support is disabled.");
     }

@@ -895,7 +895,7 @@ public class Path implements Comparable<Path>, Serializable {
    * Returns the target of the current path, which must be a symbolic link. The link contents are
    * returned exactly, and may contain an absolute or relative path. Analogous to readlink(2).
    *
-   * <p>Note: for {@link FileSystem}s where {@link FileSystem#supportsSymbolicLinksNatively()}
+   * <p>Note: for {@link FileSystem}s where {@link FileSystem#supportsSymbolicLinksNatively(Path)}
    * returns false, this method will throw an {@link UnsupportedOperationException} if the link
    * points to a non-existent file.
    *

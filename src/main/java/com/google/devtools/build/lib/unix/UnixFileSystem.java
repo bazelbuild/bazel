@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -283,17 +282,17 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public boolean supportsModifications() {
+  public boolean supportsModifications(Path path) {
     return true;
   }
 
   @Override
-  public boolean supportsSymbolicLinksNatively() {
+  public boolean supportsSymbolicLinksNatively(Path path) {
     return true;
   }
 
   @Override
-  public boolean supportsHardLinksNatively() {
+  public boolean supportsHardLinksNatively(Path path) {
     return true;
   }
 

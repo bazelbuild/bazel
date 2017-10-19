@@ -51,17 +51,17 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  public boolean supportsModifications() {
+  public boolean supportsModifications(Path path) {
     return false;
   }
 
   @Override
-  public boolean supportsSymbolicLinksNatively() {
+  public boolean supportsSymbolicLinksNatively(Path path) {
     return false;
   }
 
   @Override
-  public boolean supportsHardLinksNatively() {
+  public boolean supportsHardLinksNatively(Path path) {
     return false;
   }
 

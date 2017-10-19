@@ -163,36 +163,37 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns whether or not the FileSystem supports modifications of files and
-   * file entries.
+   * Returns whether or not the FileSystem supports modifications of files and file entries.
    *
    * <p>Returns true if FileSystem supports the following:
+   *
    * <ul>
-   * <li>{@link #setWritable(Path, boolean)}</li>
-   * <li>{@link #setExecutable(Path, boolean)}</li>
+   *   <li>{@link #setWritable(Path, boolean)}
+   *   <li>{@link #setExecutable(Path, boolean)}
    * </ul>
    *
-   * The above calls will result in an {@link UnsupportedOperationException} on
-   * a FileSystem where this method returns {@code false}.
+   * The above calls will result in an {@link UnsupportedOperationException} on a FileSystem where
+   * this method returns {@code false}.
    */
-  public abstract boolean supportsModifications();
+  public abstract boolean supportsModifications(Path path);
 
   /**
    * Returns whether or not the FileSystem supports symbolic links.
    *
    * <p>Returns true if FileSystem supports the following:
+   *
    * <ul>
-   * <li>{@link #createSymbolicLink(Path, PathFragment)}</li>
-   * <li>{@link #getFileSize(Path, boolean)} where {@code followSymlinks=false}</li>
-   * <li>{@link #getLastModifiedTime(Path, boolean)} where {@code followSymlinks=false}</li>
-   * <li>{@link #readSymbolicLink(Path)} where the link points to a non-existent file</li>
+   *   <li>{@link #createSymbolicLink(Path, PathFragment)}
+   *   <li>{@link #getFileSize(Path, boolean)} where {@code followSymlinks=false}
+   *   <li>{@link #getLastModifiedTime(Path, boolean)} where {@code followSymlinks=false}
+   *   <li>{@link #readSymbolicLink(Path)} where the link points to a non-existent file
    * </ul>
    *
-   * The above calls may result in an {@link UnsupportedOperationException} on
-   * a FileSystem where this method returns {@code false}. The implementation can try to emulate
-   * these calls at its own discretion.
+   * The above calls may result in an {@link UnsupportedOperationException} on a FileSystem where
+   * this method returns {@code false}. The implementation can try to emulate these calls at its own
+   * discretion.
    */
-  public abstract boolean supportsSymbolicLinksNatively();
+  public abstract boolean supportsSymbolicLinksNatively(Path path);
 
   /**
    * Returns whether or not the FileSystem supports hard links.
@@ -200,14 +201,14 @@ public abstract class FileSystem {
    * <p>Returns true if FileSystem supports the following:
    *
    * <ul>
-   * <li>{@link #createFSDependentHardLink(Path, Path)}
+   *   <li>{@link #createFSDependentHardLink(Path, Path)}
    * </ul>
    *
    * The above calls may result in an {@link UnsupportedOperationException} on a FileSystem where
    * this method returns {@code false}. The implementation can try to emulate these calls at its own
    * discretion.
    */
-  protected abstract boolean supportsHardLinksNatively();
+  protected abstract boolean supportsHardLinksNatively(Path path);
 
   /***
    * Returns true if file path is case-sensitive on this file system. Default is true.
@@ -260,12 +261,12 @@ public abstract class FileSystem {
   protected abstract boolean createDirectory(Path path) throws IOException;
 
   /**
-   * Returns the size in bytes of the file denoted by {@code path}. See
-   * {@link Path#getFileSize(Symlinks)} for specification.
+   * Returns the size in bytes of the file denoted by {@code path}. See {@link
+   * Path#getFileSize(Symlinks)} for specification.
    *
-   * <p>Note: for <@link FileSystem>s where {@link #supportsSymbolicLinksNatively()}
-   * returns false, this method will throw an
-   * {@link UnsupportedOperationException} if {@code followSymLinks=false}.
+   * <p>Note: for <@link FileSystem>s where {@link #supportsSymbolicLinksNatively(Path)} returns
+   * false, this method will throw an {@link UnsupportedOperationException} if {@code
+   * followSymLinks=false}.
    */
   protected abstract long getFileSize(Path path, boolean followSymlinks) throws IOException;
 
@@ -276,16 +277,14 @@ public abstract class FileSystem {
   protected abstract boolean delete(Path path) throws IOException;
 
   /**
-   * Returns the last modification time of the file denoted by {@code path}.
-   * See {@link Path#getLastModifiedTime(Symlinks)} for specification.
+   * Returns the last modification time of the file denoted by {@code path}. See {@link
+   * Path#getLastModifiedTime(Symlinks)} for specification.
    *
-   * Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively()} returns
-   * false, this method will throw an {@link UnsupportedOperationException} if
-   * {@code followSymLinks=false}.
+   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(Path)} returns
+   * false, this method will throw an {@link UnsupportedOperationException} if {@code
+   * followSymLinks=false}.
    */
-  protected abstract long getLastModifiedTime(Path path,
-                                              boolean followSymlinks)
-      throws IOException;
+  protected abstract long getLastModifiedTime(Path path, boolean followSymlinks) throws IOException;
 
   /**
    * Sets the last modification time of the file denoted by {@code path}. See
@@ -576,24 +575,20 @@ public abstract class FileSystem {
   protected abstract boolean isSpecialFile(Path path, boolean followSymlinks);
 
   /**
-   * Creates a symbolic link. See {@link Path#createSymbolicLink(Path)} for
-   * specification.
+   * Creates a symbolic link. See {@link Path#createSymbolicLink(Path)} for specification.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively()}
-   * returns false, this method will throw an
-   * {@link UnsupportedOperationException}
+   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(Path)} returns
+   * false, this method will throw an {@link UnsupportedOperationException}
    */
   protected abstract void createSymbolicLink(Path linkPath, PathFragment targetFragment)
       throws IOException;
 
   /**
-   * Returns the target of a symbolic link. See {@link Path#readSymbolicLink}
-   * for specification.
+   * Returns the target of a symbolic link. See {@link Path#readSymbolicLink} for specification.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively()}
-   * returns false, this method will throw an
-   * {@link UnsupportedOperationException} if the link points to a non-existent
-   * file.
+   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(Path)} returns
+   * false, this method will throw an {@link UnsupportedOperationException} if the link points to a
+   * non-existent file.
    *
    * @throws NotASymlinkException if the current path is not a symbolic link
    * @throws IOException if the contents of the link could not be read for any reason.
@@ -668,17 +663,15 @@ public abstract class FileSystem {
   protected abstract boolean isReadable(Path path) throws IOException;
 
   /**
-   * Sets the file to readable (if the argument is true) or non-readable (if the
-   * argument is false)
+   * Sets the file to readable (if the argument is true) or non-readable (if the argument is false)
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications()}
-   * returns false or which do not support unreadable files, this method will
-   * throw an {@link UnsupportedOperationException}.
+   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(Path)} returns false or
+   * which do not support unreadable files, this method will throw an {@link
+   * UnsupportedOperationException}.
    *
    * @throws IOException if there was an error reading or writing the file's metadata
    */
-  protected abstract void setReadable(Path path, boolean readable)
-    throws IOException;
+  protected abstract void setReadable(Path path, boolean readable) throws IOException;
 
   /**
    * Returns true iff the file represented by {@code path} is writable.
@@ -688,17 +681,14 @@ public abstract class FileSystem {
   protected abstract boolean isWritable(Path path) throws IOException;
 
   /**
-   * Sets the file to writable (if the argument is true) or non-writable (if the
-   * argument is false)
+   * Sets the file to writable (if the argument is true) or non-writable (if the argument is false)
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications()}
-   * returns false, this method will throw an
-   * {@link UnsupportedOperationException}.
+   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(Path)} returns false, this
+   * method will throw an {@link UnsupportedOperationException}.
    *
    * @throws IOException if there was an error reading or writing the file's metadata
    */
-  protected abstract void setWritable(Path path, boolean writable)
-      throws IOException;
+  protected abstract void setWritable(Path path, boolean writable) throws IOException;
 
   /**
    * Returns true iff the file represented by the path is executable.
@@ -708,27 +698,25 @@ public abstract class FileSystem {
   protected abstract boolean isExecutable(Path path) throws IOException;
 
   /**
-   * Sets the file to executable, if the argument is true. It is currently not
-   * supported to unset the executable status of a file, so {code
-   * executable=false} yields an {@link UnsupportedOperationException}.
+   * Sets the file to executable, if the argument is true. It is currently not supported to unset
+   * the executable status of a file, so {code executable=false} yields an {@link
+   * UnsupportedOperationException}.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications()}
-   * returns false, this method will throw an
-   * {@link UnsupportedOperationException}.
+   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(Path)} returns false, this
+   * method will throw an {@link UnsupportedOperationException}.
    *
    * @throws IOException if there was an error reading or writing the file's metadata
    */
   protected abstract void setExecutable(Path path, boolean executable) throws IOException;
 
   /**
-   * Sets the file permissions. If permission changes on this {@link FileSystem}
-   * are slow (e.g. one syscall per change), this method should aim to be faster
-   * than setting each permission individually. If this {@link FileSystem} does
-   * not support group or others permissions, those bits will be ignored.
+   * Sets the file permissions. If permission changes on this {@link FileSystem} are slow (e.g. one
+   * syscall per change), this method should aim to be faster than setting each permission
+   * individually. If this {@link FileSystem} does not support group or others permissions, those
+   * bits will be ignored.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications()}
-   * returns false, this method will throw an
-   * {@link UnsupportedOperationException}.
+   * <p>Note: for {@link FileSystem}s where {@link #supportsModifications(Path)} returns false, this
+   * method will throw an {@link UnsupportedOperationException}.
    *
    * @throws IOException if there was an error reading or writing the file's metadata
    */

@@ -345,7 +345,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public boolean supportsSymbolicLinksNatively() {
+  public boolean supportsSymbolicLinksNatively(Path path) {
     return false;
   }
 
