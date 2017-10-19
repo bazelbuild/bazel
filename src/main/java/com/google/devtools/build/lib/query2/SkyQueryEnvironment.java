@@ -31,6 +31,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -580,6 +581,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   }
 
+  private <R> ListenableFuture<R> safeSubmitAsync(AsyncCallable<R> callable) {
+    try {
+      return Futures.submitAsync(callable, executor);
+    } catch (RejectedExecutionException e) {
+      return Futures.immediateCancelledFuture();
+    }
+  }
+
   @ThreadSafe
   @Override
   public QueryTaskFuture<Void> eval(
@@ -588,10 +597,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       final Callback<Target> callback) {
     // TODO(bazel-team): As in here, use concurrency for the async #eval of other QueryEnvironment
     // implementations.
-    Callable<QueryTaskFutureImpl<Void>> task =
+    AsyncCallable<Void> task =
         () -> (QueryTaskFutureImpl<Void>) expr.eval(SkyQueryEnvironment.this, context, callback);
-    ListenableFuture<QueryTaskFutureImpl<Void>> futureFuture = safeSubmit(task);
-    return QueryTaskFutureImpl.ofDelegate(Futures.dereference(futureFuture));
+    return QueryTaskFutureImpl.ofDelegate(safeSubmitAsync(task));
   }
 
   @Override
