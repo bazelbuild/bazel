@@ -216,7 +216,7 @@ public class BlazeCommandEventHandler implements EventHandler {
 
     @Option(
       name = "experimental_ui_actions_shown",
-      defaultValue = "3",
+      defaultValue = "8",
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
