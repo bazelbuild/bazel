@@ -24,8 +24,6 @@ import com.google.devtools.common.options.TriState;
  * Python-related command-line options.
  */
 public class PythonOptions extends FragmentOptions {
-  static final PythonVersion DEFAULT_PYTHON_VERSION = PythonVersion.PY2;
-
   /**
    * Converter for the --force_python option.
    */
@@ -69,7 +67,11 @@ public class PythonOptions extends FragmentOptions {
   public PythonVersion hostForcePython;
 
   public PythonVersion getPythonVersion() {
-    return (forcePython == null) ? DEFAULT_PYTHON_VERSION : forcePython;
+    return getPythonVersion(PythonVersion.DEFAULT);
+  }
+
+  public PythonVersion getPythonVersion(PythonVersion defaultVersion) {
+    return (forcePython == null) ? defaultVersion : forcePython;
   }
 
   @Override

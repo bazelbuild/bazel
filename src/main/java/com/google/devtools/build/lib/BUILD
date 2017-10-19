@@ -947,6 +947,7 @@ java_library(
         ["rules/python/*.java"],
     ),
     deps = [
+        ":events",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",

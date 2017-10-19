@@ -32,6 +32,12 @@ public enum PythonVersion {
   static final PythonVersion[] ALL_VALUES =
       new PythonVersion[] { PY2, PY3, PY2AND3, PY2ONLY, PY3ONLY };
 
+  /**
+   * The Python version to use if not overridden by {@link PythonOptions#forcePython} or a rule's
+   * {@code default_python_version} or {@code srcs_version} attributes.
+   */
+  static final PythonVersion DEFAULT = PY2;
+
   static final PythonVersion[] NON_CONVERSION_VALUES =
       new PythonVersion[] { PY2AND3, PY2ONLY, PY3ONLY };
 
@@ -43,7 +49,7 @@ public enum PythonVersion {
   }
 
   public static PythonVersion defaultTargetPythonVersion() {
-    return PY2;
+    return DEFAULT;
   }
 
   private static Iterable<String> convertToStrings(PythonVersion[] values) {
@@ -61,7 +67,7 @@ public enum PythonVersion {
   public static Iterable<String> getNonConversionValues() {
     return convertToStrings(NON_CONVERSION_VALUES);
   }
-  
+
   public static Iterable<String> getTargetPythonValues() {
     return convertToStrings(TARGET_PYTHON_VALUES);
   }
