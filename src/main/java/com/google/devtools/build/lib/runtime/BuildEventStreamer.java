@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.events.Event;
@@ -391,6 +392,11 @@ public class BuildEventStreamer implements EventHandler {
   @Subscribe
   public void buildInterrupted(BuildInterruptedEvent event) {
     abortReason = AbortReason.USER_INTERRUPTED;
+  }
+
+  @Subscribe
+  public void noAnalyze(NoAnalyzeEvent event) {
+    abortReason = AbortReason.NO_ANALYZE;
   }
 
   @Subscribe

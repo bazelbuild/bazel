@@ -766,5 +766,11 @@ function test_tool_command_line() {
   expect_log_once 'chunk: "foo bar"'
 }
 
+function test_noanalyze() {
+  bazel build --noanalyze --build_event_text_file="${TEST_log}" pkg:true \
+    || fail "build failed"
+  expect_log_once '^aborted'
+  expect_log 'reason: NO_ANALYZE'
+}
 
 run_suite "Integration tests for the build event stream"

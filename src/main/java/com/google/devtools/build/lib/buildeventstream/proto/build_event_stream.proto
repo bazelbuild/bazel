@@ -219,6 +219,9 @@ message Aborted {
     // The user requested the build to be aborted (e.g., by hitting Ctl-C).
     USER_INTERRUPTED = 1;
 
+    // The user requested that no analysis be performed.
+    NO_ANALYZE = 8;
+
     // The build or target was aborted as a timeout was exceeded.
     TIME_OUT = 2;
 
