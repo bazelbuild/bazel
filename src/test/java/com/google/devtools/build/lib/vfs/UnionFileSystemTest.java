@@ -53,16 +53,11 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
   }
 
   private UnionFileSystem createDefaultUnionFileSystem() {
-    return createDefaultUnionFileSystem(false);
-  }
-
-  private UnionFileSystem createDefaultUnionFileSystem(boolean readOnly) {
     return new UnionFileSystem(
-        ImmutableMap.<PathFragment, FileSystem>of(
+        ImmutableMap.of(
             PathFragment.create("/in"), inDelegate,
             PathFragment.create("/out"), outDelegate),
-        defaultDelegate,
-        readOnly);
+        defaultDelegate);
   }
 
   @Override
@@ -136,35 +131,22 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
   // read-only, even if the delegate filesystems are read/write.
   @Test
   public void testModificationFlag() throws Exception {
-    Path outPath = unionfs.getPath("/out/foo.txt");
-    assertThat(unionfs.supportsModifications(outPath)).isTrue();
-    assertThat(unionfs.createDirectory(outPath.getParentDirectory())).isTrue();
-    OutputStream outFile = unionfs.getOutputStream(outPath);
-    outFile.write('b');
-    outFile.close();
-
-    unionfs.setExecutable(outPath, true);
-
-    // Note that this does not destroy the underlying filesystems;
-    // UnionFileSystem is just a view.
-    unionfs = createDefaultUnionFileSystem(true);
-    assertThat(unionfs.supportsModifications(outPath)).isFalse();
-
-    InputStream outFileInput = unionfs.getInputStream(outPath);
-    int outFileByte = outFileInput.read();
-    outFileInput.close();
-    assertThat(outFileByte).isEqualTo('b');
-
-    assertThat(unionfs.isExecutable(outPath)).isTrue();
-
-    // Modifying files through the unionfs isn't permitted, even if the
-    // delegates are read/write.
-    try {
-      unionfs.setExecutable(outPath, false);
-      fail("Modification to a read-only UnionFileSystem succeeded.");
-    } catch (UnsupportedOperationException expected) {
-      // OK - should fail.
-    }
+    unionfs =
+        new UnionFileSystem(
+            ImmutableMap.of(
+                PathFragment.create("/rw"), new XAttrInMemoryFs(BlazeClock.instance()),
+                PathFragment.create("/ro"),
+                    new XAttrInMemoryFs(BlazeClock.instance()) {
+                      @Override
+                      public boolean supportsModifications(Path path) {
+                        return false;
+                      }
+                    }),
+            defaultDelegate);
+    Path rwPath = unionfs.getPath("/rw/foo.txt");
+    Path roPath = unionfs.getPath("/ro/foo.txt");
+    assertThat(unionfs.supportsModifications(rwPath)).isTrue();
+    assertThat(unionfs.supportsModifications(roPath)).isFalse();
   }
 
   // Checks that roots of delegate filesystems are created outside of the
@@ -264,8 +246,7 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
         new UnionFileSystem(
             ImmutableMap.<PathFragment, FileSystem>of(
                 workingDir.getParentDirectory().asFragment(), new UnixFileSystem()),
-            defaultDelegate,
-            false);
+            defaultDelegate);
     // This is a child of the current tmpdir, and doesn't exist on its own.
     // It would be created in setup(), but of course, that didn't use a UnixFileSystem.
     unionfs.createDirectory(workingDir);
@@ -287,8 +268,7 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     unionfs =
         new UnionFileSystem(
             ImmutableMap.<PathFragment, FileSystem>of(PathFragment.create("/out/dir"), outDelegate),
-            defaultDelegate,
-            false);
+            defaultDelegate);
     Path outDir = unionfs.getPath("/out/dir/biz/bang");
     FileSystemUtils.createDirectoryAndParents(outDir);
     assertThat(outDir.isDirectory()).isTrue();
