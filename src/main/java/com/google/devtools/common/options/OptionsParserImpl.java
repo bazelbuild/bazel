@@ -24,6 +24,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
+import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -381,8 +382,9 @@ class OptionsParserImpl {
     // the OptionValueDescription.
     OptionValueDescription entry =
         optionValues.computeIfAbsent(
-            optionDefinition, OptionValueDescription::createOptionValueDescription);
-    entry.addOptionInstance(parsedOption, warnings);
+            optionDefinition,
+            def -> OptionValueDescription.createOptionValueDescription(def, optionsData));
+    ExpansionBundle expansionBundle = entry.addOptionInstance(parsedOption, warnings);
     @Nullable String unconvertedValue = parsedOption.getUnconvertedValue();
 
     // There are 3 types of flags that expand to other flag values. Expansion flags are the
@@ -406,43 +408,14 @@ class OptionsParserImpl {
       }
     }
 
-    if (optionDefinition.isExpansionOption()
-        || optionDefinition.hasImplicitRequirements()
-        || optionDefinition.isWrapperOption()) {
-      StringBuilder sourceMessage = new StringBuilder();
-      ImmutableList<String> expansionArgs;
-      if (optionDefinition.isExpansionOption()) {
-        expansionArgs = optionsData.getEvaluatedExpansion(optionDefinition);
-        sourceMessage.append("expanded from option ");
-      } else if (optionDefinition.hasImplicitRequirements()) {
-        expansionArgs = ImmutableList.copyOf(optionDefinition.getImplicitRequirements());
-        sourceMessage.append("implicit requirement of option ");
-      } else {
-        if (!unconvertedValue.startsWith("-")) {
-          // Wrapper options are the only "expansion" flag type that expand to other flags
-          // according to user input, so a malformed option is a user error in this case.
-          throw new OptionsParsingException(
-              String.format(
-                  "Invalid value format for %s. You may have meant --%s=--%s",
-                  optionDefinition, optionDefinition.getOptionName(), unconvertedValue));
-        } else {
-          expansionArgs = ImmutableList.of(unconvertedValue);
-          sourceMessage.append("unwrapped from wrapper option ");
-        }
-      }
-      String source = parsedOption.getSource();
-      sourceMessage.append(
-          (source == null)
-              ? String.format("--%s", optionDefinition.getOptionName())
-              : String.format("--%s from %s", optionDefinition.getOptionName(), source));
-
+    if (expansionBundle != null) {
       List<String> unparsed =
           parse(
               parsedOption.getPriority(),
-              o -> sourceMessage.toString(),
+              o -> expansionBundle.sourceOfExpansionArgs,
               optionDefinition.hasImplicitRequirements() ? optionDefinition : null,
               optionDefinition.isExpansionOption() ? optionDefinition : null,
-              expansionArgs);
+              expansionBundle.expansionArgs);
       if (!unparsed.isEmpty()) {
         if (optionDefinition.isWrapperOption()) {
           throw new OptionsParsingException(
