@@ -41,6 +41,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
       new CcToolchainProvider(
+          ImmutableMap.of(),
           null,
           null,
           null,
@@ -102,6 +103,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   @Nullable private final PathFragment sysroot;
 
   public CcToolchainProvider(
+      ImmutableMap<String, Object> skylarkToolchain,
       @Nullable CppConfiguration cppConfiguration,
       CToolchain toolchain,
       CppToolchainInfo toolchainInfo,
@@ -131,7 +133,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
       ImmutableMap<String, String> environment,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot) {
-    super(ImmutableMap.of(), Location.BUILTIN);
+    super(skylarkToolchain, Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
     this.toolchain = toolchain;
     this.toolchainInfo = toolchainInfo;

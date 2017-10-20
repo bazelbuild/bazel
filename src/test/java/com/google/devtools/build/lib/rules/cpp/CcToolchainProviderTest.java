@@ -36,6 +36,7 @@ public class CcToolchainProviderTest {
   public void equalityIsObjectIdentity() throws Exception {
     CcToolchainProvider a =
         new CcToolchainProvider(
+            ImmutableMap.of(),
             null,
             null,
             null,
@@ -68,6 +69,7 @@ public class CcToolchainProviderTest {
 
     CcToolchainProvider b =
         new CcToolchainProvider(
+            ImmutableMap.of(),
             null,
             null,
             null,
