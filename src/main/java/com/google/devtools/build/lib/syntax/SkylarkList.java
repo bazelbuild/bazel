@@ -359,8 +359,8 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         Mutability mutability) {
       if (left.getGlobList() == null && right.getGlobList() == null) {
         ArrayList<T> newContents = new ArrayList<>(left.size() + right.size());
-        newContents.addAll(left);
-        newContents.addAll(right);
+        addAll(newContents, left.contents);
+        addAll(newContents, right.contents);
         return new MutableList<>(newContents, /*globList=*/ null, mutability);
       } else {
         // Preserve glob criteria.
@@ -368,6 +368,14 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
             left.getGlobListOrContentsUnsafe(),
             right.getGlobListOrContentsUnsafe());
         return new MutableList<>(new ArrayList<>(newGlobList), newGlobList, mutability);
+      }
+    }
+
+    /**  More efficient {@link List#addAll} replacement when both lists are {@link ArrayList}s. */
+    private static <T> void addAll(ArrayList<T> addTo, ArrayList<? extends T> addFrom) {
+      // Hot code path, skip iterator.
+      for (int i = 0; i < addFrom.size(); i++) {
+        addTo.add(addFrom.get(i));
       }
     }
 
