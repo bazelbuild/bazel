@@ -1526,6 +1526,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   @Override
   public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
+    if (!cppOptions.enableMakeVariables) {
+      return;
+    }
+
     // hardcoded CC->gcc setting for unit tests
     globalMakeEnvBuilder.put("CC", getToolPathFragment(Tool.GCC).getPathString());
 
