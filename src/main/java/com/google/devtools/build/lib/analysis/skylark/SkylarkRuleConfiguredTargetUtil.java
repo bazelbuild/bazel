@@ -84,20 +84,14 @@ public final class SkylarkRuleConfiguredTargetUtil {
       Environment env =
           Environment.builder(mutability)
               .setCallerLabel(ruleContext.getLabel())
-              .setGlobals(
-                  ruleContext
-                      .getRule()
-                      .getRuleClassObject()
-                      .getRuleDefinitionEnvironment()
-                      .getGlobals())
               .setSemantics(skylarkSemantics)
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
               .build(); // NB: loading phase functions are not available: this is analysis already,
       // so we do *not* setLoadingPhase().
       Object target =
           ruleImplementation.call(
-              ImmutableList.<Object>of(skylarkRuleContext),
-              ImmutableMap.<String, Object>of(),
+              /*args=*/ ImmutableList.of(skylarkRuleContext),
+              /*kwargs*/ ImmutableMap.of(),
               /*ast=*/ null,
               env);
 

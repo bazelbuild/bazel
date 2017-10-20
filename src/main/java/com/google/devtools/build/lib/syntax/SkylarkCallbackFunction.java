@@ -42,7 +42,6 @@ public class SkylarkCallbackFunction {
       Environment env = Environment.builder(mutability)
           .setSemantics(funcallEnv.getSemantics())
           .setEventHandler(funcallEnv.getEventHandler())
-          .setGlobals(funcallEnv.getGlobals())
           .build();
       return callback.call(buildArgumentList(ctx, arguments), null, ast, env);
     } catch (ClassCastException | IllegalArgumentException e) {
