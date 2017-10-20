@@ -45,7 +45,7 @@ Build and test software of any size, quickly and reliably.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md)
 
-[![Build Status](https://ci.bazel.io/buildStatus/icon?job=bazel-tests)](https://ci.bazel.io/job/bazel-tests)
+[![Build Status](http://ci.bazel.io/buildStatus/icon?job=bazel-tests)](http://ci.bazel.io/job/bazel-tests)
 
 Bazel is released in 'Beta'.
 See the [product roadmap](https://bazel.build/roadmap.html) to learn about the
