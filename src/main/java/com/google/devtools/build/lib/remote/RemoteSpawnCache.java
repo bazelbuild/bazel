@@ -126,46 +126,49 @@ final class RemoteSpawnCache implements SpawnCache {
           // There's a cache miss. Fall back to local execution.
         }
       }
-      if (options.remoteUploadLocalResults) {
-        return new CacheHandle() {
-          @Override
-          public boolean hasResult() {
-            return false;
-          }
-
-          @Override
-          public SpawnResult getResult() {
-            throw new NoSuchElementException();
-          }
-
-          @Override
-          public boolean willStore() {
-            return true;
-          }
-
-          @Override
-          public void store(SpawnResult result, Collection<Path> files)
-              throws InterruptedException, IOException {
-            boolean uploadAction = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
-            try {
-              remoteCache.upload(actionKey, execRoot, files, policy.getFileOutErr(), uploadAction);
-            } catch (IOException e) {
-              if (verboseFailures) {
-                report(Event.debug("Upload to remote cache failed: " + e.getMessage()));
-              } else {
-                reportOnce(Event.warn("Some artifacts failed be uploaded to the remote cache."));
-              }
-            }
-          }
-
-          @Override
-          public void close() {}
-        };
-      } else {
-        return SpawnCache.NO_RESULT_NO_STORE;
-      }
     } finally {
       withMetadata.detach(previous);
+    }
+    if (options.remoteUploadLocalResults) {
+      return new CacheHandle() {
+        @Override
+        public boolean hasResult() {
+          return false;
+        }
+
+        @Override
+        public SpawnResult getResult() {
+          throw new NoSuchElementException();
+        }
+
+        @Override
+        public boolean willStore() {
+          return true;
+        }
+
+        @Override
+        public void store(SpawnResult result, Collection<Path> files)
+            throws InterruptedException, IOException {
+          boolean uploadAction = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
+          Context previous = withMetadata.attach();
+          try {
+            remoteCache.upload(actionKey, execRoot, files, policy.getFileOutErr(), uploadAction);
+          } catch (IOException e) {
+            if (verboseFailures) {
+              report(Event.debug("Upload to remote cache failed: " + e.getMessage()));
+            } else {
+              reportOnce(Event.warn("Some artifacts failed be uploaded to the remote cache."));
+            }
+          } finally {
+            withMetadata.detach(previous);
+          }
+        }
+
+        @Override
+        public void close() {}
+      };
+    } else {
+      return SpawnCache.NO_RESULT_NO_STORE;
     }
   }
 
