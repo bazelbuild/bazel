@@ -332,7 +332,7 @@ public class InMemoryFileSystem extends FileSystem {
     // and it may only appear as part of a contiguous prefix sequence.
 
     Stack<String> stack = new Stack<>();
-    PathFragment rootPathFragment = rootPath.asFragment();
+    PathFragment rootPathFragment = getRootDirectory().asFragment();
     for (Path p = path; !p.asFragment().equals(rootPathFragment); p = p.getParentDirectory()) {
       stack.push(p.getBaseName());
     }
@@ -408,7 +408,7 @@ public class InMemoryFileSystem extends FileSystem {
     if (followSymlinks) {
       return scopeLimitedStat(path, true);
     } else {
-      if (path.equals(rootPath)) {
+      if (path.equals(getRootDirectory())) {
         return rootInode;
       } else {
         return getNoFollowStatOrOutOfScopeParent(path);
@@ -441,7 +441,7 @@ public class InMemoryFileSystem extends FileSystem {
     if (followSymlinks) {
       return pathWalk(path, false);
     } else {
-      if (path.equals(rootPath)) {
+      if (path.equals(getRootDirectory())) {
         return rootInode;
       } else {
         return getNoFollowStatOrOutOfScopeParent(path);
@@ -582,7 +582,9 @@ public class InMemoryFileSystem extends FileSystem {
 
   @Override
   protected boolean createDirectory(Path path) throws IOException {
-    if (path.equals(rootPath)) { throw Error.EACCES.exception(path); }
+    if (path.equals(getRootDirectory())) {
+      throw Error.EACCES.exception(path);
+    }
 
     InMemoryDirectoryInfo parent;
     synchronized (this) {
@@ -608,7 +610,9 @@ public class InMemoryFileSystem extends FileSystem {
   @Override
   protected void createSymbolicLink(Path path, PathFragment targetFragment)
       throws IOException {
-    if (path.equals(rootPath)) { throw Error.EACCES.exception(path); }
+    if (path.equals(getRootDirectory())) {
+      throw Error.EACCES.exception(path);
+    }
 
     synchronized (this) {
       InMemoryDirectoryInfo parent = getDirectory(path.getParentDirectory());
@@ -659,7 +663,9 @@ public class InMemoryFileSystem extends FileSystem {
 
   @Override
   protected boolean delete(Path path) throws IOException {
-    if (path.equals(rootPath)) { throw Error.EBUSY.exception(path); }
+    if (path.equals(getRootDirectory())) {
+      throw Error.EBUSY.exception(path);
+    }
     if (!exists(path, false)) { return false; }
 
     synchronized (this) {
@@ -731,10 +737,10 @@ public class InMemoryFileSystem extends FileSystem {
   @Override
   protected void renameTo(Path sourcePath, Path targetPath)
       throws IOException {
-    if (sourcePath.equals(rootPath)) {
+    if (sourcePath.equals(getRootDirectory())) {
       throw Error.EACCES.exception(sourcePath);
     }
-    if (targetPath.equals(rootPath)) {
+    if (targetPath.equals(getRootDirectory())) {
       throw Error.EACCES.exception(targetPath);
     }
     synchronized (this) {
@@ -782,7 +788,7 @@ public class InMemoryFileSystem extends FileSystem {
       throws IOException {
 
     // Same check used when creating a symbolic link
-    if (originalPath.equals(rootPath)) {
+    if (originalPath.equals(getRootDirectory())) {
       throw Error.EACCES.exception(originalPath);
     }
 

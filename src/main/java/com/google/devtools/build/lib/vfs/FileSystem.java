@@ -119,11 +119,8 @@ public abstract class FileSystem {
     }
   }
 
-  protected final Path rootPath;
-
-  protected FileSystem() {
-    this.rootPath = getPathFactory().createRootPath(this);
-  }
+  /** Lazy-initialized on first access, always use {@link FileSystem#getRootDirectory} */
+  private Path rootPath;
 
   /** Returns filesystem-specific path factory. */
   protected PathFactory getPathFactory() {
@@ -152,13 +149,20 @@ public abstract class FileSystem {
     if (!pathName.isAbsolute()) {
       throw new IllegalArgumentException(pathName.getPathString()  + " (not an absolute path)");
     }
-    return rootPath.getRelative(pathName);
+    return getRootDirectory().getRelative(pathName);
   }
 
   /**
    * Returns a path representing the root directory of the current file system.
    */
   public final Path getRootDirectory() {
+    if (rootPath == null) {
+      synchronized (this) {
+        if (rootPath == null) {
+          rootPath = getPathFactory().createRootPath(this);
+        }
+      }
+    }
     return rootPath;
   }
 
@@ -395,7 +399,9 @@ public abstract class FileSystem {
     if (maxLinks-- == 0) {
       throw new IOException(naive + " (Too many levels of symbolic links)");
     }
-    if (linkTarget.isAbsolute()) { dir = rootPath; }
+    if (linkTarget.isAbsolute()) {
+      dir = getRootDirectory();
+    }
     for (String name : linkTarget.segments()) {
       if (name.equals(".") || name.isEmpty()) {
         // no-op
