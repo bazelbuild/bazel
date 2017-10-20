@@ -58,6 +58,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       // This Skylark environment ignores command line flags.
       com.google.devtools.build.lib.syntax.Environment buildEnv =
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
+              .useDefaultSemantics()
               .setGlobals(rule.getRuleClassObject().getRuleDefinitionEnvironment().getGlobals())
               .setEventHandler(env.getListener())
               .build();

@@ -56,6 +56,7 @@ class Skylark {
   private final Mutability mutability = Mutability.create("interpreter");
   private final Environment env =
       Environment.builder(mutability)
+          .useDefaultSemantics()
           .setGlobals(Environment.DEFAULT_GLOBALS)
           .setEventHandler(PRINT_HANDLER)
           .build();

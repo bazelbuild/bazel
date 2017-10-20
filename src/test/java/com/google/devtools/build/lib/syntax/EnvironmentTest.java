@@ -100,6 +100,7 @@ public class EnvironmentTest extends EvaluationTestCase {
     try (Mutability mut = Mutability.create("outer")) {
       outerEnv =
           Environment.builder(mut)
+              .useDefaultSemantics()
               .setGlobals(Environment.DEFAULT_GLOBALS)
               .build()
               .update("foo", "bar")
@@ -107,7 +108,9 @@ public class EnvironmentTest extends EvaluationTestCase {
     }
     try (Mutability mut = Mutability.create("inner")) {
       innerEnv = Environment.builder(mut)
-          .setGlobals(outerEnv.getGlobals()).build()
+          .useDefaultSemantics()
+          .setGlobals(outerEnv.getGlobals())
+          .build()
           .update("foo", "bat")
           .update("quux", 42);
     }
@@ -200,6 +203,7 @@ public class EnvironmentTest extends EvaluationTestCase {
     try (Mutability mutability = Mutability.create("testFrozen")) {
       env =
           Environment.builder(mutability)
+              .useDefaultSemantics()
               .setGlobals(Environment.DEFAULT_GLOBALS)
               .setEventHandler(Environment.FAIL_FAST_HANDLER)
               .build();

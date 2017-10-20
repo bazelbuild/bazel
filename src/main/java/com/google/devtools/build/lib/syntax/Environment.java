@@ -981,7 +981,9 @@ public final class Environment implements Freezable {
 
   private static Environment.Frame createConstantsGlobals() {
     try (Mutability mutability = Mutability.create("CONSTANTS")) {
-      Environment env = Environment.builder(mutability).build();
+      Environment env = Environment.builder(mutability)
+          .useDefaultSemantics()
+          .build();
       Runtime.setupConstants(env);
       return env.getGlobals();
     }
@@ -989,7 +991,9 @@ public final class Environment implements Freezable {
 
   private static Environment.Frame createDefaultGlobals() {
     try (Mutability mutability = Mutability.create("BUILD")) {
-      Environment env = Environment.builder(mutability).build();
+      Environment env = Environment.builder(mutability)
+          .useDefaultSemantics()
+          .build();
       Runtime.setupConstants(env);
       Runtime.setupMethodEnvironment(env, MethodLibrary.defaultGlobalFunctions);
       return env.getGlobals();

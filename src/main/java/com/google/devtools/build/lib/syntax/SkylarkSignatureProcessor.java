@@ -178,6 +178,7 @@ public class SkylarkSignatureProcessor {
         // Note that this Skylark environment ignores command line flags.
         Environment env =
             Environment.builder(mutability)
+                .useDefaultSemantics()
                 .setGlobals(Environment.CONSTANTS_ONLY)
                 .setEventHandler(Environment.FAIL_FAST_HANDLER)
                 .build()

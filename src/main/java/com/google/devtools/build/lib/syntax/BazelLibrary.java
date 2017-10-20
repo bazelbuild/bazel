@@ -258,7 +258,9 @@ public class BazelLibrary {
     List<BaseFunction> bazelGlobalFunctions = ImmutableList.of(select, depset, type);
 
     try (Mutability mutability = Mutability.create("BUILD")) {
-      Environment env = Environment.builder(mutability).build();
+      Environment env = Environment.builder(mutability)
+          .useDefaultSemantics()
+          .build();
       Runtime.setupConstants(env);
       Runtime.setupMethodEnvironment(env, MethodLibrary.defaultGlobalFunctions);
       Runtime.setupMethodEnvironment(env, bazelGlobalFunctions);

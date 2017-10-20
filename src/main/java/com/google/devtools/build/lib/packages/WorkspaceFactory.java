@@ -182,20 +182,22 @@ public class WorkspaceFactory {
   private void execute(BuildFileAST ast, @Nullable Map<String, Extension> importedExtensions,
       StoredEventHandler localReporter)
       throws InterruptedException {
-    // Note that this Skylark environment ignores command line flags.
-    Environment.Builder environmentBuilder =
-        Environment.builder(mutability)
-            .setGlobals(BazelLibrary.GLOBALS)
-            .setEventHandler(localReporter);
     if (importedExtensions != null) {
-      Map<String, Extension> map = new HashMap<String, Extension>(parentImportMap);
+      Map<String, Extension> map = new HashMap<>(parentImportMap);
       map.putAll(importedExtensions);
-      importMap = ImmutableMap.<String, Extension>copyOf(importedExtensions);
+      importMap = ImmutableMap.copyOf(importedExtensions);
     } else {
       importMap = parentImportMap;
     }
-    environmentBuilder.setImportedExtensions(importMap);
-    Environment workspaceEnv = environmentBuilder.setPhase(Phase.WORKSPACE).build();
+    Environment workspaceEnv =
+        Environment.builder(mutability)
+            // Note that this Skylark environment ignores command line flags.
+            .useDefaultSemantics()
+            .setGlobals(BazelLibrary.GLOBALS)
+            .setEventHandler(localReporter)
+            .setImportedExtensions(importMap)
+            .setPhase(Phase.WORKSPACE)
+            .build();
     addWorkspaceFunctions(workspaceEnv, localReporter);
     for (Map.Entry<String, Object> binding : parentVariableBindings.entrySet()) {
       try {
