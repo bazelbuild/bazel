@@ -15,7 +15,7 @@
 """Rules that allows select() to differentiate between Apple OS versions."""
 
 def _strip_version(version):
-  """Strip trailing characters from version names.
+  """Strip trailing characters that aren't digits or '.' from version names.
 
   Some OS versions look like "9.0gm", which is not useful for select()
   statements. Thus, we strip the trailing "gm" part.
