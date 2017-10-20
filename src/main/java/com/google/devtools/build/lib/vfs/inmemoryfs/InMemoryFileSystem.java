@@ -20,10 +20,9 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.ScopeEscapableFileSystem;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -38,26 +37,18 @@ import javax.annotation.Nullable;
 /**
  * This class provides a complete in-memory file system.
  *
- * <p>Naming convention: we use "path" for all {@link Path} variables, since these
- * represent *names* and we use "node" or "inode" for InMemoryContentInfo
- * variables, since these correspond to inodes in the UNIX file system.
+ * <p>Naming convention: we use "path" for all {@link Path} variables, since these represent *names*
+ * and we use "node" or "inode" for InMemoryContentInfo variables, since these correspond to inodes
+ * in the UNIX file system.
  *
- * <p>The code is structured to be as similar to the implementation of UNIX "namei"
- * as is reasonably possibly. This provides a firm reference point for many
- * concepts and makes compatibility easier to achieve.
- *
- * <p>As a scope-escapable file system, this class supports re-delegation of symbolic links
- * that escape its root. This is done through the use of {@link OutOfScopeFileStatus}
- * and {@link OutOfScopeDirectoryStatus} objects, which may be returned by
- * getDirectory, pathWalk, and scopeLimitedStat. Any code that calls one of these
- * methods (either directly or indirectly) is obligated to check the possibility
- * that its info represents an out-of-scope path. Lack of such a check will result
- * in unchecked runtime exceptions upon any request for status data (as well as
- * possible logical errors).
+ * <p>The code is structured to be as similar to the implementation of UNIX "namei" as is reasonably
+ * possibly. This provides a firm reference point for many concepts and makes compatibility easier
+ * to achieve.
  */
 @ThreadSafe
-public class InMemoryFileSystem extends ScopeEscapableFileSystem {
+public class InMemoryFileSystem extends FileSystem {
 
+  private final PathFragment scopeRoot;
   private final Clock clock;
 
   // The root inode (a directory).
@@ -83,16 +74,55 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
   }
 
   /**
-   * Creates a new InMemoryFileSystem with scope checking bound to
-   * scopeRoot, i.e. any path that's not below scopeRoot is considered
-   * to be out of scope.
+   * Creates a new InMemoryFileSystem with scope checking bound to scopeRoot, i.e. any path that's
+   * not below scopeRoot is considered to be out of scope.
    */
-  protected InMemoryFileSystem(Clock clock, PathFragment scopeRoot) {
-    super(scopeRoot);
+  public InMemoryFileSystem(Clock clock, PathFragment scopeRoot) {
+    this.scopeRoot = scopeRoot;
     this.clock = clock;
     this.rootInode = new InMemoryDirectoryInfo(clock);
     rootInode.addChild(".", rootInode);
     rootInode.addChild("..", rootInode);
+  }
+
+  /**
+   * Returns true if the given path is within this file system's scope, false otherwise.
+   *
+   * @param parentDepth the number of segments in the path's parent directory (only meaningful for
+   *     paths that begin with ".."). The parent directory itself is assumed to be in scope.
+   * @param normalizedPath input path, expected to be normalized such that all ".." and "." segments
+   *     are removed (with the exception of a possible prefix sequence of contiguous ".." segments)
+   */
+  private boolean inScope(int parentDepth, PathFragment normalizedPath) {
+    if (scopeRoot == null) {
+      return true;
+    } else if (normalizedPath.isAbsolute()) {
+      return normalizedPath.startsWith(scopeRoot);
+    } else {
+      // Efficiency note: we're not accounting for "/scope/root/../root" paths here, i.e. paths
+      // that appear to go out of scope but ultimately stay within scope. This may result in
+      // unnecessary re-delegation back into the same FS. we're choosing to forgo that
+      // optimization under the assumption that such scenarios are rare and unimportant to
+      // overall performance. We can always enhance this if needed.
+      return parentDepth - leadingParentReferences(normalizedPath) >= scopeRoot.segmentCount();
+    }
+  }
+
+  /**
+   * Given a path that's normalized (no ".." or "." segments), except for a possible prefix sequence
+   * of contiguous ".." segments, returns the size of that prefix sequence.
+   *
+   * <p>Example allowed inputs: "/absolute/path", "relative/path", "../../relative/path". Example
+   * disallowed inputs: "/absolute/path/../path2", "relative/../path", "../relative/../p".
+   */
+  private int leadingParentReferences(PathFragment normalizedPath) {
+    int leadingParentReferences = 0;
+    for (int i = 0;
+        i < normalizedPath.segmentCount() && normalizedPath.getSegment(i).equals("..");
+        i++) {
+      leadingParentReferences++;
+    }
+    return leadingParentReferences;
   }
 
   /**
@@ -110,7 +140,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
 
     private final String message;
 
-    private Error(String message) {
+    Error(String message) {
       this.message = message;
     }
 
@@ -120,7 +150,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
     }
 
     /** Implemented by exceptions that contain the extra info of which Error caused them. */
-    private static interface WithError {
+    private interface WithError {
       Error getError();
     }
 
@@ -271,7 +301,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
       if (!create)  {
         throw Error.ENOENT.exception(path);
       } else {
-        child = makeFileInfo(clock, path.asFragment());
+        child = new InMemoryFileInfo(clock);
         insert(imdi, name, child, path);
       }
     }
@@ -279,21 +309,18 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
   }
 
   /**
-   * Low-level path-to-inode lookup routine. Analogous to path_walk() in many
-   * UNIX kernels. Given 'path', walks the directory tree from the root,
-   * resolving all symbolic links, and returns the designated inode.
+   * Low-level path-to-inode lookup routine. Analogous to path_walk() in many UNIX kernels. Given
+   * 'path', walks the directory tree from the root, resolving all symbolic links, and returns the
+   * designated inode.
    *
-   * <p>If 'create' is false, the inode must exist; otherwise, it will be created
-   * and added to its parent directory, which must exist.
+   * <p>If 'create' is false, the inode must exist; otherwise, it will be created and added to its
+   * parent directory, which must exist.
    *
-   * <p>Iff the given path escapes this file system's scope, the returned value
-   * is an {@link OutOfScopeFileStatus} instance. Any code that calls this method
-   * needs to check for that possibility (via {@link ScopeEscapableStatus#outOfScope}).
+   * <p>Iff the given path escapes this file system's scope, a Error.ENOENT exception is thrown.
    *
    * <p>May fail with ENOTDIR, ENOENT, EACCES, ELOOP.
    */
-  private synchronized InMemoryContentInfo pathWalk(Path path, boolean create)
-      throws IOException {
+  private synchronized InMemoryContentInfo pathWalk(Path path, boolean create) throws IOException {
     // Implementation note: This is where we check for out-of-scope symlinks and
     // trigger re-delegation to another file system accordingly. This code handles
     // both absolute and relative symlinks. Some assumptions we make: First, only
@@ -325,7 +352,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
       if (child.isSymbolicLink()) {
         PathFragment linkTarget = ((InMemoryLinkInfo) child).getNormalizedLinkContent();
         if (!inScope(parentDepth, linkTarget)) {
-          return outOfScopeStatus(linkTarget, parentDepth, stack);
+          throw Error.ENOENT.exception(path);
         }
         if (linkTarget.isAbsolute()) {
           inode = rootInode;
@@ -345,62 +372,14 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
   }
 
   /**
-   * Helper routine for pathWalk: given a symlink target known to escape this file system's
-   * scope (and that has the form [".."]*[standard segment]+), the number of segments
-   * in the directory containing the symlink, and the remaining path segments following
-   * the symlink in the original input to pathWalk, returns an OutofScopeFileStatus
-   * initialized with an appropriate out-of-scope reformulation of pathWalk's original
-   * input.
-   */
-  private OutOfScopeFileStatus outOfScopeStatus(PathFragment linkTarget, int parentDepth,
-      Stack<String> descendantSegments) {
-
-    PathFragment escapingPath;
-    if (linkTarget.isAbsolute()) {
-      escapingPath = linkTarget;
-    } else {
-      // Relative out-of-scope paths must look like "../../../a/b/c". Find the target's
-      // parent path depth by subtracting one from parentDepth for each ".." reference.
-      // Then use that to retrieve a prefix of the scope root, which is the target's
-      // canonicalized parent path.
-      int leadingParentRefs = leadingParentReferences(linkTarget);
-      int baseDepth = parentDepth - leadingParentRefs;
-      Preconditions.checkState(baseDepth < scopeRoot.segmentCount());
-      escapingPath = baseDepth > 0
-          ? scopeRoot.subFragment(0, baseDepth)
-          : scopeRoot.subFragment(0, 0);
-      // Now add in everything that comes after the ".." sequence.
-      for (int i = leadingParentRefs; i < linkTarget.segmentCount(); i++) {
-        escapingPath = escapingPath.getRelative(linkTarget.getSegment(i));
-      }
-    }
-
-    // We've now converted the symlink to its target in canonicalized absolute path
-    // form. Since the symlink wasn't necessarily the final segment in the original
-    // input sent to pathWalk, now add in every segment that came after.
-    while (!descendantSegments.empty()) {
-      escapingPath = escapingPath.getRelative(descendantSegments.pop());
-    }
-
-    return new OutOfScopeFileStatus(escapingPath);
-  }
-
-  /**
    * Given 'path', returns the existing directory inode it designates,
    * following symbolic links.
    *
    * <p>May fail with ENOTDIR, or any exception from pathWalk.
-   *
-   * <p>Iff the given path escapes this file system's scope, this method skips
-   * ENOTDIR checking and returns an OutOfScopeDirectoryStatus instance. Any
-   * code that calls this method needs to check for that possibility
-   * (via {@link ScopeEscapableStatus#outOfScope}).
    */
   private InMemoryDirectoryInfo getDirectory(Path path) throws IOException {
     InMemoryContentInfo dirInfo = pathWalk(path, false);
-    if (dirInfo.outOfScope()) {
-      return new OutOfScopeDirectoryStatus(dirInfo.getEscapingPath());
-    } else if (!dirInfo.isDirectory()) {
+    if (!dirInfo.isDirectory()) {
       throw Error.ENOTDIR.exception(path);
     } else {
       return (InMemoryDirectoryInfo) dirInfo;
@@ -416,9 +395,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
   private synchronized InMemoryContentInfo getNoFollowStatOrOutOfScopeParent(Path path)
       throws IOException  {
     InMemoryDirectoryInfo dirInfo = getDirectory(path.getParentDirectory());
-    return dirInfo.outOfScope()
-        ? dirInfo
-        : directoryLookup(dirInfo, path.getBaseName(), /*create=*/false, path);
+    return directoryLookup(dirInfo, path.getBaseName(), /*create=*/ false, path);
   }
 
   /**
@@ -429,21 +406,12 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
   @Override
   public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
     if (followSymlinks) {
-      InMemoryContentInfo status = scopeLimitedStat(path, true);
-      return status.outOfScope()
-          ? statWithDelegator(status.getEscapingPath(), true)
-          : status;
+      return scopeLimitedStat(path, true);
     } else {
       if (path.equals(rootPath)) {
         return rootInode;
       } else {
-        InMemoryContentInfo status = getNoFollowStatOrOutOfScopeParent(path);
-        // If out of scope, status references the path's parent directory. Else it references the
-        // path itself.
-        return status.outOfScope()
-            ? getDelegatedPath(status.getEscapingPath().getRelative(
-                  path.getBaseName())).stat(Symlinks.NOFOLLOW)
-            : status;
+        return getNoFollowStatOrOutOfScopeParent(path);
       }
     }
   }
@@ -465,13 +433,10 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
   }
 
   /**
-   * Version of stat that returns an inode if the input path stays entirely within
-   * this file system's scope, otherwise an {@link OutOfScopeFileStatus}.
-   *
-   * <p>Any code that calls this method needs to check for either possibility via
-   * {@link ScopeEscapableStatus#outOfScope}.
+   * Version of stat that returns an inode if the input path stays entirely within this file
+   * system's scope, otherwise throws.
    */
-  protected InMemoryContentInfo scopeLimitedStat(Path path, boolean followSymlinks)
+  private InMemoryContentInfo scopeLimitedStat(Path path, boolean followSymlinks)
       throws IOException {
     if (followSymlinks) {
       return pathWalk(path, false);
@@ -479,12 +444,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
       if (path.equals(rootPath)) {
         return rootInode;
       } else {
-        InMemoryContentInfo status = getNoFollowStatOrOutOfScopeParent(path);
-        // If out of scope, status references the path's parent directory. Else it references the
-        // path itself.
-        return status.outOfScope()
-            ? new OutOfScopeFileStatus(status.getEscapingPath().getRelative(path.getBaseName()))
-            : status;
+        return getNoFollowStatOrOutOfScopeParent(path);
       }
     }
   }
@@ -507,13 +467,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
     // Beware, this seemingly simple code belies the complex specification of
     // FileSystem.resolveOneLink().
     InMemoryContentInfo status = scopeLimitedStat(path, false);
-    if (status.outOfScope()) {
-      return resolveOneLinkWithDelegator(status.getEscapingPath());
-    } else {
-      return status.isSymbolicLink()
-          ? ((InMemoryLinkInfo) status).getLinkContent()
-          : null;
-    }
+    return status.isSymbolicLink() ? ((InMemoryLinkInfo) status).getLinkContent() : null;
   }
 
   @Override
@@ -562,47 +516,24 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
     }
   }
 
-  /**
-   * Like {@link #exists}, but checks for existence within this filesystem's scope.
-   */
-  protected boolean scopeLimitedExists(Path path, boolean followSymlinks) {
-    try {
-      // Path#asFragment() always returns an absolute path, so inScope() is called with
-      // parentDepth = 0.
-      return inScope(0, path.asFragment()) && !scopeLimitedStat(path, followSymlinks).outOfScope();
-    } catch (IOException e) {
-      return false;
-    }
-  }
-
   @Override
   protected boolean isReadable(Path path) throws IOException {
     InMemoryContentInfo status = scopeLimitedStat(path, true);
-    return status.outOfScope()
-        ? getDelegatedPath(status.getEscapingPath()).isReadable()
-        : status.isReadable();
+    return status.isReadable();
   }
 
   @Override
   protected void setReadable(Path path, boolean readable) throws IOException {
-    InMemoryContentInfo status;
     synchronized (this) {
-      status = scopeLimitedStat(path, true);
-      if (!status.outOfScope()) {
-        status.setReadable(readable);
-        return;
-      }
+      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      status.setReadable(readable);
     }
-    // If we get here, we're out of scope.
-    getDelegatedPath(status.getEscapingPath()).setReadable(readable);
   }
 
   @Override
   protected boolean isWritable(Path path) throws IOException {
     InMemoryContentInfo status = scopeLimitedStat(path, true);
-    return status.outOfScope()
-        ? getDelegatedPath(status.getEscapingPath()).isWritable()
-        : status.isWritable();
+    return status.isWritable();
   }
 
   @Override
@@ -610,36 +541,23 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
     InMemoryContentInfo status;
     synchronized (this) {
       status = scopeLimitedStat(path, true);
-      if (!status.outOfScope()) {
-        status.setWritable(writable);
-        return;
-      }
+      status.setWritable(writable);
     }
-    // If we get here, we're out of scope.
-    getDelegatedPath(status.getEscapingPath()).setWritable(writable);
   }
 
   @Override
   protected boolean isExecutable(Path path) throws IOException {
     InMemoryContentInfo status = scopeLimitedStat(path, true);
-    return status.outOfScope()
-        ? getDelegatedPath(status.getEscapingPath()).isExecutable()
-        : status.isExecutable();
+    return status.isExecutable();
   }
 
   @Override
   protected void setExecutable(Path path, boolean executable)
       throws IOException {
-    InMemoryContentInfo status;
     synchronized (this) {
-      status = scopeLimitedStat(path, true);
-      if (!status.outOfScope()) {
-        status.setExecutable(executable);
-        return;
-      }
+      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      status.setExecutable(executable);
     }
-    // If we get here, we're out of scope.
-    getDelegatedPath(status.getEscapingPath()).setExecutable(executable);
   }
 
   @Override
@@ -662,25 +580,6 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
     return OS.getCurrent() != OS.WINDOWS;
   }
 
-  /**
-   * Constructs a new inode.  Provided so that subclasses of InMemoryFileSystem
-   * can inject subclasses of FileInfo properly.
-   */
-  protected FileInfo makeFileInfo(Clock clock, PathFragment frag) {
-    return new InMemoryFileInfo(clock);
-  }
-
-  /**
-   * Returns a new path constructed by appending the child's base name to the
-   * escaped parent path. For example, assume our file system root is /foo
-   * and /foo/link1 -> /bar. This method can be used on child = /foo/link1/link2/name
-   * and parent = /bar/link2 to return /bar/link2/name, which is a semi-resolved
-   * path bound to a different file system.
-   */
-  private Path getDelegatedPath(PathFragment escapedParent, Path child) {
-    return getDelegatedPath(escapedParent.getRelative(child.getBaseName()));
-  }
-
   @Override
   protected boolean createDirectory(Path path) throws IOException {
     if (path.equals(rootPath)) { throw Error.EACCES.exception(path); }
@@ -688,27 +587,22 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
     InMemoryDirectoryInfo parent;
     synchronized (this) {
       parent = getDirectory(path.getParentDirectory());
-      if (!parent.outOfScope()) {
-        InMemoryContentInfo child = parent.getChild(path.getBaseName());
-        if (child != null) { // already exists
-          if (child.isDirectory()) {
-            return false;
-          } else {
-            throw Error.EEXIST.exception(path);
-          }
+      InMemoryContentInfo child = parent.getChild(path.getBaseName());
+      if (child != null) { // already exists
+        if (child.isDirectory()) {
+          return false;
+        } else {
+          throw Error.EEXIST.exception(path);
         }
-
-        InMemoryDirectoryInfo newDir = new InMemoryDirectoryInfo(clock);
-        newDir.addChild(".", newDir);
-        newDir.addChild("..", parent);
-        insert(parent, path.getBaseName(), newDir, path);
-
-        return true;
       }
-    }
 
-    // If we get here, we're out of scope.
-    return getDelegatedPath(parent.getEscapingPath(), path).createDirectory();
+      InMemoryDirectoryInfo newDir = new InMemoryDirectoryInfo(clock);
+      newDir.addChild(".", newDir);
+      newDir.addChild("..", parent);
+      insert(parent, path.getBaseName(), newDir, path);
+
+      return true;
+    }
   }
 
   @Override
@@ -716,26 +610,19 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
       throws IOException {
     if (path.equals(rootPath)) { throw Error.EACCES.exception(path); }
 
-    InMemoryDirectoryInfo parent;
     synchronized (this) {
-      parent = getDirectory(path.getParentDirectory());
-      if (!parent.outOfScope()) {
-        if (parent.getChild(path.getBaseName()) != null) { throw Error.EEXIST.exception(path); }
-        insert(parent, path.getBaseName(), new InMemoryLinkInfo(clock, targetFragment), path);
-        return;
+      InMemoryDirectoryInfo parent = getDirectory(path.getParentDirectory());
+      if (parent.getChild(path.getBaseName()) != null) {
+        throw Error.EEXIST.exception(path);
       }
+      insert(parent, path.getBaseName(), new InMemoryLinkInfo(clock, targetFragment), path);
     }
-
-    // If we get here, we're out of scope.
-    getDelegatedPath(parent.getEscapingPath(), path).createSymbolicLink(targetFragment);
   }
 
   @Override
   protected PathFragment readSymbolicLink(Path path) throws IOException {
     InMemoryContentInfo status = scopeLimitedStat(path, false);
-    if (status.outOfScope()) {
-      return getDelegatedPath(status.getEscapingPath()).readSymbolicLink();
-    } else if (status.isSymbolicLink()) {
+    if (status.isSymbolicLink()) {
       Preconditions.checkState(status instanceof InMemoryLinkInfo);
       return ((InMemoryLinkInfo) status).getLinkContent();
     } else {
@@ -751,29 +638,23 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
 
   @Override
   protected Collection<Path> getDirectoryEntries(Path path) throws IOException {
-    InMemoryDirectoryInfo dirInfo;
     synchronized (this) {
-      dirInfo = getDirectory(path);
-      if (!dirInfo.outOfScope()) {
-        FileStatus status = stat(path, false);
-        Preconditions.checkState(status instanceof InMemoryContentInfo);
-        if (!((InMemoryContentInfo) status).isReadable()) {
-          throw new IOException("Directory is not readable");
-        }
-
-        Collection<String> allChildren = dirInfo.getAllChildren();
-        List<Path> result = new ArrayList<>(allChildren.size());
-        for (String child : allChildren) {
-          if (!(child.equals(".") || child.equals(".."))) {
-            result.add(path.getChild(child));
-          }
-        }
-        return result;
+      InMemoryDirectoryInfo dirInfo = getDirectory(path);
+      FileStatus status = stat(path, false);
+      Preconditions.checkState(status instanceof InMemoryContentInfo);
+      if (!((InMemoryContentInfo) status).isReadable()) {
+        throw new IOException("Directory is not readable");
       }
-    }
 
-    // If we get here, we're out of scope.
-    return getDelegatedPath(dirInfo.getEscapingPath()).getDirectoryEntries();
+      Collection<String> allChildren = dirInfo.getAllChildren();
+      List<Path> result = new ArrayList<>(allChildren.size());
+      for (String child : allChildren) {
+        if (!(child.equals(".") || child.equals(".."))) {
+          result.add(path.getChild(child));
+        }
+      }
+      return result;
+    }
   }
 
   @Override
@@ -781,19 +662,15 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
     if (path.equals(rootPath)) { throw Error.EBUSY.exception(path); }
     if (!exists(path, false)) { return false; }
 
-    InMemoryDirectoryInfo parent;
     synchronized (this) {
-      parent = getDirectory(path.getParentDirectory());
-      if (!parent.outOfScope()) {
-        InMemoryContentInfo child = parent.getChild(path.getBaseName());
-        if (child.isDirectory() && child.getSize() > 2) { throw Error.ENOTEMPTY.exception(path); }
-        unlink(parent, path.getBaseName(), path);
-        return true;
+      InMemoryDirectoryInfo parent = getDirectory(path.getParentDirectory());
+      InMemoryContentInfo child = parent.getChild(path.getBaseName());
+      if (child.isDirectory() && child.getSize() > 2) {
+        throw Error.ENOTEMPTY.exception(path);
       }
+      unlink(parent, path.getBaseName(), path);
+      return true;
     }
-
-    // If we get here, we're out of scope.
-    return getDelegatedPath(parent.getEscapingPath(), path).delete();
   }
 
   @Override
@@ -804,46 +681,29 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
 
   @Override
   protected void setLastModifiedTime(Path path, long newTime) throws IOException {
-    InMemoryContentInfo status;
     synchronized (this) {
-      status = scopeLimitedStat(path, true);
-      if (!status.outOfScope()) {
-        status.setLastModifiedTime(newTime == -1L
-                                   ? clock.currentTimeMillis()
-                                   : newTime);
-        return;
-      }
+      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      status.setLastModifiedTime(newTime == -1L ? clock.currentTimeMillis() : newTime);
     }
-
-    // If we get here, we're out of scope.
-    getDelegatedPath(status.getEscapingPath()).setLastModifiedTime(newTime);
   }
 
   @Override
   protected InputStream getInputStream(Path path) throws IOException {
-    InMemoryContentInfo status;
     synchronized (this) {
-      status = scopeLimitedStat(path, true);
-      if (!status.outOfScope()) {
-        if (status.isDirectory()) { throw Error.EISDIR.exception(path); }
-        if (!path.isReadable()) { throw Error.EACCES.exception(path); }
-        Preconditions.checkState(status instanceof FileInfo);
-        return new ByteArrayInputStream(((FileInfo) status).readContent());
+      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      if (status.isDirectory()) {
+        throw Error.EISDIR.exception(path);
       }
+      if (!path.isReadable()) {
+        throw Error.EACCES.exception(path);
+      }
+      Preconditions.checkState(status instanceof FileInfo);
+      return new ByteArrayInputStream(((FileInfo) status).readContent());
     }
-
-    // If we get here, we're out of scope.
-    return getDelegatedPath(status.getEscapingPath()).getInputStream();
   }
 
-  /**
-   * Creates a new file at the given path and returns its inode. If the path
-   * escapes this file system's scope, trivially returns an "out of scope" status.
-   * Calling code should check for both possibilities via
-   * {@link ScopeEscapableStatus#outOfScope}.
-   */
-  protected InMemoryContentInfo getOrCreateWritableInode(Path path)
-      throws IOException {
+  /** Creates a new file at the given path and returns its inode. */
+  private InMemoryContentInfo getOrCreateWritableInode(Path path) throws IOException {
     // open(WR_ONLY) of a dangling link writes through the link.  That means
     // that the usual path lookup operations have to behave differently when
     // resolving a path with the intent to create it: instead of failing with
@@ -851,9 +711,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
     // kernels do it, which is what we're trying to emulate.
     InMemoryContentInfo child = pathWalk(path, /*create=*/true);
     Preconditions.checkNotNull(child);
-    if (child.outOfScope()) {
-      return child;
-    } else if (child.isDirectory()) {
+    if (child.isDirectory()) {
       throw Error.EISDIR.exception(path);
     } else { // existing or newly-created file
       if (!child.isWritable()) { throw Error.EACCES.exception(path); }
@@ -864,74 +722,58 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
   @Override
   protected OutputStream getOutputStream(Path path, boolean append)
       throws IOException {
-    InMemoryContentInfo status;
     synchronized (this) {
-      status = getOrCreateWritableInode(path);
-      if (!status.outOfScope()) {
-        return ((FileInfo) getOrCreateWritableInode(path)).getOutputStream(append);
-      }
+      InMemoryContentInfo status = getOrCreateWritableInode(path);
+      return ((FileInfo) status).getOutputStream(append);
     }
-    // If we get here, we're out of scope.
-    return getDelegatedPath(status.getEscapingPath()).getOutputStream(append);
   }
 
   @Override
   protected void renameTo(Path sourcePath, Path targetPath)
       throws IOException {
-    if (sourcePath.equals(rootPath)) { throw Error.EACCES.exception(sourcePath); }
-    if (targetPath.equals(rootPath)) { throw Error.EACCES.exception(targetPath); }
-
-    InMemoryDirectoryInfo sourceParent;
-    InMemoryDirectoryInfo targetParent;
-
-    synchronized (this) {
-      sourceParent = getDirectory(sourcePath.getParentDirectory());
-      targetParent = getDirectory(targetPath.getParentDirectory());
-
-      // Handle the rename if both paths are within our scope.
-      if (!sourceParent.outOfScope() && !targetParent.outOfScope()) {
-        InMemoryContentInfo sourceInode = sourceParent.getChild(sourcePath.getBaseName());
-        if (sourceInode == null) { throw Error.ENOENT.exception(sourcePath); }
-        InMemoryContentInfo targetInode = targetParent.getChild(targetPath.getBaseName());
-
-        unlink(sourceParent, sourcePath.getBaseName(), sourcePath);
-        try {
-          // TODO(bazel-team): (2009) test with symbolic links.
-
-          // Precondition checks:
-          if (targetInode != null) { // already exists
-            if (targetInode.isDirectory()) {
-              if (!sourceInode.isDirectory()) {
-                throw new IOException(sourcePath + " -> " + targetPath + " (" + Error.EISDIR + ")");
-              }
-              if (targetInode.getSize() > 2) {
-                throw Error.ENOTEMPTY.exception(targetPath);
-              }
-            } else if (sourceInode.isDirectory()) {
-              throw new IOException(sourcePath + " -> " + targetPath + " (" + Error.ENOTDIR + ")");
-            }
-            unlink(targetParent, targetPath.getBaseName(), targetPath);
-          }
-          sourceInode.movedTo(targetPath);
-          insert(targetParent, targetPath.getBaseName(), sourceInode, targetPath);
-          return;
-
-        } catch (IOException e) {
-          sourceInode.movedTo(sourcePath);
-          insert(sourceParent, sourcePath.getBaseName(), sourceInode, sourcePath); // restore source
-          throw e;
-        }
-      }
+    if (sourcePath.equals(rootPath)) {
+      throw Error.EACCES.exception(sourcePath);
     }
-
-    // If we get here, either one or both paths is out of scope.
-    if (sourceParent.outOfScope() && targetParent.outOfScope()) {
-      Path delegatedSource = getDelegatedPath(sourceParent.getEscapingPath(), sourcePath);
-      Path delegatedTarget = getDelegatedPath(targetParent.getEscapingPath(), targetPath);
-      delegatedSource.renameTo(delegatedTarget);
-    } else {
-      // We don't support cross-file system renaming.
+    if (targetPath.equals(rootPath)) {
       throw Error.EACCES.exception(targetPath);
+    }
+    synchronized (this) {
+      InMemoryDirectoryInfo sourceParent = getDirectory(sourcePath.getParentDirectory());
+      InMemoryDirectoryInfo targetParent = getDirectory(targetPath.getParentDirectory());
+
+      InMemoryContentInfo sourceInode = sourceParent.getChild(sourcePath.getBaseName());
+      if (sourceInode == null) {
+        throw Error.ENOENT.exception(sourcePath);
+      }
+      InMemoryContentInfo targetInode = targetParent.getChild(targetPath.getBaseName());
+
+      unlink(sourceParent, sourcePath.getBaseName(), sourcePath);
+      try {
+        // TODO(bazel-team): (2009) test with symbolic links.
+
+        // Precondition checks:
+        if (targetInode != null) { // already exists
+          if (targetInode.isDirectory()) {
+            if (!sourceInode.isDirectory()) {
+              throw new IOException(sourcePath + " -> " + targetPath + " (" + Error.EISDIR + ")");
+            }
+            if (targetInode.getSize() > 2) {
+              throw Error.ENOTEMPTY.exception(targetPath);
+            }
+          } else if (sourceInode.isDirectory()) {
+            throw new IOException(sourcePath + " -> " + targetPath + " (" + Error.ENOTDIR + ")");
+          }
+          unlink(targetParent, targetPath.getBaseName(), targetPath);
+        }
+        sourceInode.movedTo(targetPath);
+        insert(targetParent, targetPath.getBaseName(), sourceInode, targetPath);
+        return;
+
+      } catch (IOException e) {
+        sourceInode.movedTo(sourcePath);
+        insert(sourceParent, sourcePath.getBaseName(), sourceInode, sourcePath); // restore source
+        throw e;
+      }
     }
   }
 
@@ -944,23 +786,17 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
       throw Error.EACCES.exception(originalPath);
     }
 
-    InMemoryDirectoryInfo linkParent;
     synchronized (this) {
-      linkParent = getDirectory(linkPath.getParentDirectory());
+      InMemoryDirectoryInfo linkParent = getDirectory(linkPath.getParentDirectory());
       // Same check used when creating a symbolic link
-      if (!linkParent.outOfScope()) {
-        if (linkParent.getChild(linkPath.getBaseName()) != null) {
-          throw Error.EEXIST.exception(linkPath);
-        }
-        insert(
-            linkParent,
-            linkPath.getBaseName(),
-            getDirectory(originalPath.getParentDirectory()).getChild(originalPath.getBaseName()),
-            linkPath);
-        return;
+      if (linkParent.getChild(linkPath.getBaseName()) != null) {
+        throw Error.EEXIST.exception(linkPath);
       }
+      insert(
+          linkParent,
+          linkPath.getBaseName(),
+          getDirectory(originalPath.getParentDirectory()).getChild(originalPath.getBaseName()),
+          linkPath);
     }
-    // If we get here, we're out of scope.
-    getDelegatedPath(linkParent.getEscapingPath(), originalPath).createHardLink(linkPath);
   }
 }
