@@ -264,7 +264,8 @@ public class AndroidResourcesProcessorBuilder {
     if (dependencies != null) {
       ResourceContainerConverter.addToCommandLine(dependencies, builder, AAPT2_RESOURCE_DEP_TO_ARG);
       inputs
-          .addTransitive(dependencies.getTransitiveResourceRoots())
+          .addTransitive(dependencies.getTransitiveResources())
+          .addTransitive(dependencies.getTransitiveAssets())
           .addTransitive(dependencies.getTransitiveManifests())
           .addTransitive(dependencies.getTransitiveAapt2RTxt())
           .addTransitive(dependencies.getTransitiveSymbolsBin())
@@ -328,7 +329,8 @@ public class AndroidResourcesProcessorBuilder {
     if (dependencies != null) {
       ResourceContainerConverter.addToCommandLine(dependencies, builder, RESOURCE_DEP_TO_ARG);
       inputs
-          .addTransitive(dependencies.getTransitiveResourceRoots())
+          .addTransitive(dependencies.getTransitiveResources())
+          .addTransitive(dependencies.getTransitiveAssets())
           .addTransitive(dependencies.getTransitiveManifests())
           .addTransitive(dependencies.getTransitiveRTxt())
           .addTransitive(dependencies.getTransitiveSymbolsBin());

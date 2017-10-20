@@ -76,16 +76,17 @@ public class RobolectricResourceSymbolsActionBuilder {
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
-    if (!Iterables.isEmpty(dependencies.getResources())) {
+    if (!Iterables.isEmpty(dependencies.getResourceContainers())) {
       builder.addAll(
           "--data",
           VectorArg.join(RESOURCE_CONTAINER_TO_ARG.listSeparator())
-              .each(dependencies.getResources())
+              .each(dependencies.getResourceContainers())
               .mapped(RESOURCE_CONTAINER_TO_ARG));
     }
 
     inputs
-        .addTransitive(dependencies.getTransitiveResourceRoots())
+        .addTransitive(dependencies.getTransitiveResources())
+        .addTransitive(dependencies.getTransitiveAssets())
         .addTransitive(dependencies.getTransitiveManifests())
         .addTransitive(dependencies.getTransitiveRTxt())
         .addTransitive(dependencies.getTransitiveSymbolsBin());

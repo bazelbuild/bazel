@@ -398,8 +398,36 @@ public class ResourceFilter {
    * Filters a NestedSet of resource containers that contain dependencies of the current rule. This
    * may be a no-op if this filter is empty or if resource prefiltering is disabled.
    */
-  NestedSet<ResourceContainer> filterDependencies(
+  NestedSet<ResourceContainer> filterDependencyContainers(
       RuleErrorConsumer ruleErrorConsumer, NestedSet<ResourceContainer> resources) {
+    if (!shouldFilterDependencies()) {
+      return resources;
+    }
+
+    NestedSetBuilder<ResourceContainer> builder = new NestedSetBuilder<>(resources.getOrder());
+
+    for (ResourceContainer resource : resources) {
+      builder.add(resource.filter(ruleErrorConsumer, this));
+    }
+
+    return builder.build();
+  }
+
+  /**
+   * Filters a NestedSet of artifact dependencies of the current rule. Returns a filtered copy of
+   * the input, or the input itself if no filtering needs to be done.
+   */
+  NestedSet<Artifact> filterDependencies(
+      RuleErrorConsumer ruleErrorConsumer, NestedSet<Artifact> resources) {
+    if (!shouldFilterDependencies()) {
+      return resources;
+    }
+
+    return NestedSetBuilder.wrap(
+        resources.getOrder(), filter(ruleErrorConsumer, ImmutableList.copyOf(resources)));
+  }
+
+  private boolean shouldFilterDependencies() {
     if (!isPrefiltering() || usesDynamicConfiguration()) {
       /*
        * If the filter is empty, resource prefiltering is disabled, or the resources of dependencies
@@ -415,16 +443,10 @@ public class ResourceFilter {
        * by its dependencies into a new NestedSet rather than just create a NestedSet pointing at
        * its dependencies's NestedSets.
        */
-      return resources;
+      return false;
     }
 
-    NestedSetBuilder<ResourceContainer> builder = new NestedSetBuilder<>(resources.getOrder());
-
-    for (ResourceContainer resource : resources) {
-      builder.add(resource.filter(ruleErrorConsumer, this));
-    }
-
-    return builder.build();
+    return true;
   }
 
   ImmutableList<Artifact> filter(

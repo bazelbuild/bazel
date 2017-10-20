@@ -47,7 +47,7 @@ public class LibraryRGeneratorActionBuilder {
   }
 
   public LibraryRGeneratorActionBuilder withDependencies(ResourceDependencies resourceDeps) {
-    this.deps = resourceDeps.getResources();
+    this.deps = resourceDeps.getResourceContainers();
     return this;
   }
 

@@ -82,10 +82,43 @@ public abstract class ResourceContainer {
     return Iterables.concat(getAssets(), getResources());
   }
 
+  /**
+   * Gets the directories containing the assets.
+   *
+   * TODO(b/30308041): Stop using these directories, and remove this code.
+   *
+   * @deprecated We are moving towards passing around the actual artifacts, rather than the
+   *     directories that contain them. If the resources were provided with a glob() that excludes
+   *     some files, the resource directory will still contain those files, resulting in unwanted
+   *     inputs.
+   */
+  @Deprecated
   abstract ImmutableList<PathFragment> getAssetsRoots();
 
+  /**
+   * Gets the directories containing the resources.
+   *
+   * TODO(b/30308041): Stop using these directories, and remove this code.
+   *
+   * @deprecated We are moving towards passing around the actual artifacts, rather than the
+   *     directories that contain them. If the resources were provided with a glob() that excludes
+   *     some files, the resource directory will still contain those files, resulting in unwanted
+   *     inputs.
+   */
+  @Deprecated
   abstract ImmutableList<PathFragment> getResourcesRoots();
 
+  /**
+   * Gets the directories containing the resources of a specific type.
+   *
+   * TODO(b/30308041): Stop using these directories, and remove this code.
+   *
+   * @deprecated We are moving towards passing around the actual artifacts, rather than the
+   *     directories that contain them. If the resources were provided with a glob() that excludes
+   *     some files, the resource directory will still contain those files, resulting in unwanted
+   *     inputs.
+   */
+  @Deprecated
   public ImmutableList<PathFragment> getRoots(ResourceType resourceType) {
     return resourceType == ResourceType.ASSETS ? getAssetsRoots() : getResourcesRoots();
   }

@@ -1480,7 +1480,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    */
   public static boolean shouldRegenerate(RuleContext ruleContext,
       ResourceDependencies resourceDeps) {
-    return Iterables.size(resourceDeps.getResources()) > 1
+    return Iterables.size(resourceDeps.getResourceContainers()) > 1
         || ResourceFilter.hasFilters(ruleContext)
         || ruleContext.attributes().isAttributeValueExplicitlySpecified("nocompress_extensions");
   }

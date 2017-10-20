@@ -204,12 +204,12 @@ public class ResourceContainerConverter {
     cmdBuilder.addAll(
         "--data",
         VectorArg.join(toArg.listSeparator())
-            .each(dependencies.getTransitiveResources())
+            .each(dependencies.getTransitiveResourceContainers())
             .mapped(toArg));
     cmdBuilder.addAll(
         "--directData",
         VectorArg.join(toArg.listSeparator())
-            .each(dependencies.getDirectResources())
+            .each(dependencies.getDirectResourceContainers())
             .mapped(toArg));
   }
 }

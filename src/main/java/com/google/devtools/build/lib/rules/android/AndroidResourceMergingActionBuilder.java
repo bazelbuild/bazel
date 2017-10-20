@@ -143,7 +143,8 @@ public class AndroidResourceMergingActionBuilder {
 
     if (dependencies != null) {
       ResourceContainerConverter.addToCommandLine(dependencies, builder, RESOURCE_CONTAINER_TO_ARG);
-      inputs.addTransitive(dependencies.getTransitiveResourceRoots());
+      inputs.addTransitive(dependencies.getTransitiveResources());
+      inputs.addTransitive(dependencies.getTransitiveAssets());
       inputs.addTransitive(dependencies.getTransitiveSymbolsBin());
     }
 

@@ -101,7 +101,7 @@ public class RClassGeneratorActionBuilder {
     }
     if (dependencies != null) {
       // TODO(corysmith): Remove NestedSet as we are already flattening it.
-      Iterable<ResourceContainer> depResources = dependencies.getResources();
+      Iterable<ResourceContainer> depResources = dependencies.getResourceContainers();
       if (!Iterables.isEmpty(depResources)) {
         builder.addAll(
             VectorArg.addBefore("--library")

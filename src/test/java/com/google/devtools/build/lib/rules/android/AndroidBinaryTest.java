@@ -1471,7 +1471,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .containsExactly(matchingResource, unqualifiedResource);
 
     assertThat(resourceInputPaths(dir, directResources))
-        .containsAllOf(matchingResource, unqualifiedResource);
+        .containsExactly(matchingResource, unqualifiedResource);
 
     String[] flagValues =
         flagValue("--prefilteredResources", resourceArguments(directResources)).split(",");
