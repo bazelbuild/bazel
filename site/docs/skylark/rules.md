@@ -6,7 +6,7 @@ title: Rules
 # Rules
 
 **Status: Experimental**. We may make breaking changes to the API, but we will
-  help you update your code.
+  announce them.
 
 A rule defines a series of [actions](#actions) that Bazel should perform on
 inputs to get a set of outputs. For example, a C++ binary rule might take a set
