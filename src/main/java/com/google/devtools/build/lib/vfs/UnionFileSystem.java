@@ -173,12 +173,18 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   public String getFileSystemType(Path path) {
+    try {
+      path = internalResolveSymlink(path);
+    } catch (IOException e) {
+      return "unknown";
+    }
     FileSystem delegate = getDelegate(path);
     return delegate.getFileSystemType(path);
   }
 
   @Override
   protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
+    path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     return delegate.getDigest(adjustPath(path, delegate), hashFunction);
   }
@@ -199,6 +205,7 @@ public class UnionFileSystem extends FileSystem {
     FileSystem delegate = getDelegate(path);
     Path parent = path.getParentDirectory();
     if (parent != null) {
+      parent = internalResolveSymlink(parent);
       FileSystem parentDelegate = getDelegate(parent);
       if (parentDelegate != delegate) {
         // There's a possibility it already exists on the parent, so don't die
@@ -211,8 +218,9 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected long getFileSize(Path path, boolean followSymlinks) throws IOException {
+    path = followSymlinks ? internalResolveSymlink(path) : path;
     FileSystem delegate = getDelegate(path);
-    return delegate.getFileSize(adjustPath(path, delegate), followSymlinks);
+    return delegate.getFileSize(adjustPath(path, delegate), false);
   }
 
   @Override
@@ -224,12 +232,14 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected long getLastModifiedTime(Path path, boolean followSymlinks) throws IOException {
+    path = followSymlinks ? internalResolveSymlink(path) : path;
     FileSystem delegate = getDelegate(path);
-    return delegate.getLastModifiedTime(adjustPath(path, delegate), followSymlinks);
+    return delegate.getLastModifiedTime(adjustPath(path, delegate), false);
   }
 
   @Override
   protected void setLastModifiedTime(Path path, long newTime) throws IOException {
+    path = internalResolveSymlink(path);
     checkModifiable(path);
     FileSystem delegate = getDelegate(path);
     delegate.setLastModifiedTime(adjustPath(path, delegate), newTime);
@@ -244,20 +254,35 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected boolean isDirectory(Path path, boolean followSymlinks) {
+    try {
+      path = followSymlinks ? internalResolveSymlink(path) : path;
+    } catch (IOException e) {
+      return false;
+    }
     FileSystem delegate = getDelegate(path);
-    return delegate.isDirectory(adjustPath(path, delegate), followSymlinks);
+    return delegate.isDirectory(adjustPath(path, delegate), false);
   }
 
   @Override
   protected boolean isFile(Path path, boolean followSymlinks) {
+    try {
+      path = followSymlinks ? internalResolveSymlink(path) : path;
+    } catch (IOException e) {
+      return false;
+    }
     FileSystem delegate = getDelegate(path);
-    return delegate.isFile(adjustPath(path, delegate), followSymlinks);
+    return delegate.isFile(adjustPath(path, delegate), false);
   }
 
   @Override
   protected boolean isSpecialFile(Path path, boolean followSymlinks) {
+    try {
+      path = followSymlinks ? internalResolveSymlink(path) : path;
+    } catch (IOException e) {
+      return false;
+    }
     FileSystem delegate = getDelegate(path);
-    return delegate.isSpecialFile(adjustPath(path, delegate), followSymlinks);
+    return delegate.isSpecialFile(adjustPath(path, delegate), false);
   }
 
   @Override
@@ -274,14 +299,20 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected boolean exists(Path path, boolean followSymlinks) {
+    try {
+      path = followSymlinks ? internalResolveSymlink(path) : path;
+    } catch (IOException e) {
+      return false;
+    }
     FileSystem delegate = getDelegate(path);
-    return delegate.exists(adjustPath(path, delegate), followSymlinks);
+    return delegate.exists(adjustPath(path, delegate), false);
   }
 
   @Override
-  protected FileStatus stat(final Path path, final boolean followSymlinks) throws IOException {
+  protected FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    path = followSymlinks ? internalResolveSymlink(path) : path;
     FileSystem delegate = getDelegate(path);
-    return delegate.stat(adjustPath(path, delegate), followSymlinks);
+    return delegate.stat(adjustPath(path, delegate), false);
   }
 
   // Needs to be overridden for the delegation logic, because the
@@ -289,15 +320,21 @@ public class UnionFileSystem extends FileSystem {
   // More generally, we wish to delegate all filesystem operations.
   @Override
   protected FileStatus statNullable(Path path, boolean followSymlinks) {
+    try {
+      path = followSymlinks ? internalResolveSymlink(path) : path;
+    } catch (IOException e) {
+      return null;
+    }
     FileSystem delegate = getDelegate(path);
-    return delegate.statNullable(adjustPath(path, delegate), followSymlinks);
+    return delegate.statNullable(adjustPath(path, delegate), false);
   }
 
   @Override
   @Nullable
   protected FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    path = followSymlinks ? internalResolveSymlink(path) : path;
     FileSystem delegate = getDelegate(path);
-    return delegate.statIfFound(adjustPath(path, delegate), followSymlinks);
+    return delegate.statIfFound(adjustPath(path, delegate), false);
   }
 
   /**
@@ -308,12 +345,14 @@ public class UnionFileSystem extends FileSystem {
    */
   @Override
   protected Collection<Path> getDirectoryEntries(Path path) throws IOException {
+    Path origPath = path;
+    path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     Path resolvedPath = adjustPath(path, delegate);
     Collection<Path> entries = resolvedPath.getDirectoryEntries();
     Collection<Path> result = Lists.newArrayListWithCapacity(entries.size());
     for (Path entry : entries) {
-      result.add(path.getChild(entry.getBaseName()));
+      result.add(origPath.getChild(entry.getBaseName()));
     }
     return result;
   }
@@ -321,18 +360,21 @@ public class UnionFileSystem extends FileSystem {
   // No need for the more complex logic of getDirectoryEntries; it calls it implicitly.
   @Override
   protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+    path = followSymlinks ? internalResolveSymlink(path) : path;
     FileSystem delegate = getDelegate(path);
-    return delegate.readdir(adjustPath(path, delegate), followSymlinks);
+    return delegate.readdir(adjustPath(path, delegate), false);
   }
 
   @Override
   protected boolean isReadable(Path path) throws IOException {
+    path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     return delegate.isReadable(adjustPath(path, delegate));
   }
 
   @Override
   protected void setReadable(Path path, boolean readable) throws IOException {
+    path = internalResolveSymlink(path);
     checkModifiable(path);
     FileSystem delegate = getDelegate(path);
     delegate.setReadable(adjustPath(path, delegate), readable);
@@ -343,6 +385,7 @@ public class UnionFileSystem extends FileSystem {
     if (!supportsModifications(path)) {
       return false;
     }
+    path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     return delegate.isWritable(adjustPath(path, delegate));
   }
@@ -350,18 +393,21 @@ public class UnionFileSystem extends FileSystem {
   @Override
   protected void setWritable(Path path, boolean writable) throws IOException {
     checkModifiable(path);
+    path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     delegate.setWritable(adjustPath(path, delegate), writable);
   }
 
   @Override
   protected boolean isExecutable(Path path) throws IOException {
+    path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     return delegate.isExecutable(adjustPath(path, delegate));
   }
 
   @Override
   protected void setExecutable(Path path, boolean executable) throws IOException {
+    path = internalResolveSymlink(path);
     checkModifiable(path);
     FileSystem delegate = getDelegate(path);
     delegate.setExecutable(adjustPath(path, delegate), executable);
@@ -369,24 +415,28 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
+    path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     return delegate.getFastDigest(adjustPath(path, delegate), hashFunction);
   }
 
   @Override
   protected byte[] getxattr(Path path, String name) throws IOException {
+    path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     return delegate.getxattr(adjustPath(path, delegate), name);
   }
 
   @Override
   protected InputStream getInputStream(Path path) throws IOException {
+    path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     return delegate.getInputStream(adjustPath(path, delegate));
   }
 
   @Override
   protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
+    path = internalResolveSymlink(path);
     checkModifiable(path);
     FileSystem delegate = getDelegate(path);
     return delegate.getOutputStream(adjustPath(path, delegate), append);
@@ -394,6 +444,7 @@ public class UnionFileSystem extends FileSystem {
 
   @Override
   protected void renameTo(Path sourcePath, Path targetPath) throws IOException {
+    sourcePath = internalResolveSymlink(sourcePath);
     FileSystem sourceDelegate = getDelegate(sourcePath);
     if (!sourceDelegate.supportsModifications(sourcePath)) {
       throw new UnsupportedOperationException(
@@ -428,6 +479,7 @@ public class UnionFileSystem extends FileSystem {
   protected void createFSDependentHardLink(Path linkPath, Path originalPath) throws IOException {
     checkModifiable(linkPath);
 
+    originalPath = internalResolveSymlink(originalPath);
     FileSystem originalDelegate = getDelegate(originalPath);
     FileSystem linkDelegate = getDelegate(linkPath);
 
@@ -438,5 +490,13 @@ public class UnionFileSystem extends FileSystem {
     }
     linkDelegate.createFSDependentHardLink(
         adjustPath(linkPath, linkDelegate), adjustPath(originalPath, originalDelegate));
+  }
+
+  private Path internalResolveSymlink(Path path) throws IOException {
+    while (isSymbolicLink(path)) {
+      PathFragment pathFragment = resolveOneLink(path);
+      path = path.getRelative(pathFragment);
+    }
+    return path;
   }
 }
