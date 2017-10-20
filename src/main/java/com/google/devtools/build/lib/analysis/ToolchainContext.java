@@ -84,6 +84,10 @@ public class ToolchainContext {
         new ResolvedToolchainProviders(ImmutableMap.<Label, ToolchainInfo>of());
   }
 
+  public ImmutableList<Label> getRequiredToolchains() {
+    return requiredToolchains;
+  }
+
   public void resolveToolchains(OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap) {
     if (!this.requiredToolchains.isEmpty()) {
       this.resolvedToolchainProviders =

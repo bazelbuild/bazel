@@ -220,12 +220,12 @@ public class ToolchainUtil {
       }
     }
 
-    if (valuesMissing) {
-      return null;
-    }
-
     if (!missingToolchains.isEmpty()) {
       throw new ToolchainContextException(new UnresolvedToolchainsException(missingToolchains));
+    }
+
+    if (valuesMissing) {
+      return null;
     }
 
     return builder.build();

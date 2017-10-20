@@ -48,16 +48,17 @@ EOF
 }
 
 function write_test_toolchain() {
+  toolchain_name=${1:-test_toolchain}
   mkdir -p toolchain
-  cat >> toolchain/toolchain.bzl <<EOF
-def _test_toolchain_impl(ctx):
+  cat >> toolchain/toolchain_${toolchain_name}.bzl <<EOF
+def _impl(ctx):
   toolchain = platform_common.ToolchainInfo(
       extra_label = ctx.attr.extra_label,
       extra_str = ctx.attr.extra_str)
   return [toolchain]
 
-test_toolchain = rule(
-    implementation = _test_toolchain_impl,
+${toolchain_name} = rule(
+    implementation = _impl,
     attrs = {
         'extra_label': attr.label(),
         'extra_str': attr.string(),
@@ -66,73 +67,78 @@ test_toolchain = rule(
 EOF
 
   cat >> toolchain/BUILD <<EOF
-toolchain_type(name = 'test_toolchain')
+toolchain_type(name = '${toolchain_name}')
 EOF
 }
 
 function write_test_rule() {
+  rule_name=${1:-use_toolchain}
+  toolchain_name=${2:-test_toolchain}
   mkdir -p toolchain
-  cat >> toolchain/rule.bzl <<EOF
+  cat >> toolchain/rule_${rule_name}.bzl <<EOF
 def _impl(ctx):
-  toolchain = ctx.toolchains['//toolchain:test_toolchain']
+  toolchain = ctx.toolchains['//toolchain:${toolchain_name}']
   message = ctx.attr.message
   print(
       'Using toolchain: rule message: "%s", toolchain extra_str: "%s"' %
          (message, toolchain.extra_str))
   return []
 
-use_toolchain = rule(
+${rule_name} = rule(
     implementation = _impl,
     attrs = {
         'message': attr.string(),
     },
-    toolchains = ['//toolchain:test_toolchain'],
+    toolchains = ['//toolchain:${toolchain_name}'],
 )
 EOF
 }
 
 function write_test_aspect() {
+  aspect_name=${1:-use_toolchain}
+  toolchain_name=${2:-test_toolchain}
   mkdir -p toolchain
-  cat >> toolchain/aspect.bzl <<EOF
+  cat >> toolchain/aspect_${aspect_name}.bzl <<EOF
 def _impl(target, ctx):
-  toolchain = ctx.toolchains['//toolchain:test_toolchain']
+  toolchain = ctx.toolchains['//toolchain:${toolchain_name}']
   message = ctx.rule.attr.message
   print(
       'Using toolchain in aspect: rule message: "%s", toolchain extra_str: "%s"' %
           (message, toolchain.extra_str))
   return []
 
-use_toolchain = aspect(
+${aspect_name} = aspect(
     implementation = _impl,
     attrs = {},
-    toolchains = ['//toolchain:test_toolchain'],
+    toolchains = ['//toolchain:${toolchain_name}'],
 )
 EOF
 }
 
-function write_toolchains() {
+function write_register_toolchain() {
+  toolchain_name=${1:-test_toolchain}
   cat >> WORKSPACE <<EOF
-register_toolchains('//:toolchain_1')
+register_toolchains('//:${toolchain_name}_1')
 EOF
 
   cat >> BUILD <<EOF
-load('//toolchain:toolchain.bzl', 'test_toolchain')
+load('//toolchain:toolchain_${toolchain_name}.bzl', '${toolchain_name}')
 
 # Define the toolchain.
-filegroup(name = 'dep_rule')
-test_toolchain(
-    name = 'toolchain_impl_1',
-    extra_label = ':dep_rule',
-    extra_str = 'foo from 1',
+filegroup(name = 'dep_rule_${toolchain_name}')
+${toolchain_name}(
+    name = '${toolchain_name}_impl_1',
+    extra_label = ':dep_rule_${toolchain_name}',
+    extra_str = 'foo from ${toolchain_name}',
     visibility = ['//visibility:public'])
 
 # Declare the toolchain.
 toolchain(
-    name = 'toolchain_1',
-    toolchain_type = '//toolchain:test_toolchain',
+    name = '${toolchain_name}_1',
+    toolchain_type = '//toolchain:${toolchain_name}',
     exec_compatible_with = [],
     target_compatible_with = [],
-    toolchain = ':toolchain_impl_1',
+    toolchain = ':${toolchain_name}_impl_1',
     visibility = ['//visibility:public'])
 EOF
 }
@@ -141,7 +147,7 @@ function test_toolchain_provider() {
   write_test_toolchain
 
   cat >> BUILD <<EOF
-load('//toolchain:toolchain.bzl', 'test_toolchain')
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
 load('//report:report.bzl', 'report_toolchain')
 
 filegroup(name = 'dep_rule')
@@ -165,11 +171,11 @@ EOF
 function test_toolchain_use_in_rule {
   write_test_toolchain
   write_test_rule
-  write_toolchains
+  write_register_toolchain
 
   mkdir -p demo
   cat >> demo/BUILD <<EOF
-load('//toolchain:rule.bzl', 'use_toolchain')
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
 # Use the toolchain.
 use_toolchain(
     name = 'use',
@@ -177,17 +183,124 @@ use_toolchain(
 EOF
 
   bazel build //demo:use &> $TEST_log || fail "Build failed"
-  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 1"'
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
+function test_toolchain_use_in_rule_missing {
+  write_test_toolchain
+  write_test_rule
+  #rite_register_toolchain
+  # Do not register test_toolchain to trigger the error.
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use &> $TEST_log && fail "Build failure expected"
+  expect_log 'While resolving toolchains for target //demo:use: no matching toolchains found for types //toolchain:test_toolchain'
+}
+
+function test_multiple_toolchain_use_in_rule {
+  write_test_toolchain test_toolchain_1
+  write_test_toolchain test_toolchain_2
+
+  write_register_toolchain test_toolchain_1
+  write_register_toolchain test_toolchain_2
+
+  # The rule uses two separate toolchains.
+  mkdir -p toolchain
+  cat >> toolchain/rule_use_toolchains.bzl <<EOF
+def _impl(ctx):
+  toolchain_1 = ctx.toolchains['//toolchain:test_toolchain_1']
+  toolchain_2 = ctx.toolchains['//toolchain:test_toolchain_2']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain 1 extra_str: "%s", toolchain 2 extra_str: "%s"' %
+         (message, toolchain_1.extra_str, toolchain_2.extra_str))
+  return []
+
+use_toolchains = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = [
+        '//toolchain:test_toolchain_1',
+        '//toolchain:test_toolchain_2',
+    ],
+)
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchains.bzl', 'use_toolchains')
+# Use the toolchain.
+use_toolchains(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain 1 extra_str: "foo from test_toolchain_1", toolchain 2 extra_str: "foo from test_toolchain_2"'
+}
+
+function test_multiple_toolchain_use_in_rule_one_missing {
+  write_test_toolchain test_toolchain_1
+  write_test_toolchain test_toolchain_2
+
+  write_register_toolchain test_toolchain_1
+  # Do not register test_toolchain_2 to cause the error,
+
+  # The rule uses two separate toolchains.
+  mkdir -p toolchain
+  cat >> toolchain/rule_use_toolchains.bzl <<EOF
+def _impl(ctx):
+  toolchain_1 = ctx.toolchains['//toolchain:test_toolchain_1']
+  toolchain_2 = ctx.toolchains['//toolchain:test_toolchain_2']
+  message = ctx.attr.message
+  print(
+      'Using toolchain: rule message: "%s", toolchain 1 extra_str: "%s", toolchain 2 extra_str: "%s"' %
+         (message, toolchain_1.extra_str, toolchain_2.extra_str))
+  return []
+
+use_toolchains = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    },
+    toolchains = [
+        '//toolchain:test_toolchain_1',
+        '//toolchain:test_toolchain_2',
+    ],
+)
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchains.bzl', 'use_toolchains')
+# Use the toolchain.
+use_toolchains(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build //demo:use &> $TEST_log && fail "Build failure expected"
+  expect_log 'While resolving toolchains for target //demo:use: no matching toolchains found for types //toolchain:test_toolchain_2'
 }
 
 function test_toolchain_use_in_rule_non_required_toolchain {
   write_test_toolchain
-  write_toolchains
+  write_register_toolchain
 
   # The rule argument toolchains requires one toolchain, but the implementation requests a different
   # one.
   mkdir -p toolchain
-  cat >> toolchain/rule.bzl <<EOF
+  cat >> toolchain/rule_use_toolchain.bzl <<EOF
 def _impl(ctx):
   toolchain = ctx.toolchains['//toolchain:wrong_toolchain']
   message = ctx.attr.message
@@ -208,7 +321,7 @@ EOF
   # Trigger the wrong toolchain.
   mkdir -p demo
   cat >> demo/BUILD <<EOF
-load('//toolchain:rule.bzl', 'use_toolchain')
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
 # Use the toolchain.
 use_toolchain(
     name = 'use',
@@ -222,11 +335,11 @@ EOF
 function test_toolchain_debug_messages {
   write_test_toolchain
   write_test_rule
-  write_toolchains
+  write_register_toolchain
 
   mkdir -p demo
   cat >> demo/BUILD <<EOF
-load('//toolchain:rule.bzl', 'use_toolchain')
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
 # Use the toolchain.
 use_toolchain(
     name = 'use',
@@ -237,14 +350,14 @@ EOF
     --toolchain_resolution_debug \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'ToolchainResolution: Looking for toolchain of type //toolchain:test_toolchain'
-  expect_log 'ToolchainResolution:   Selected toolchain //:toolchain_impl_1'
-  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 1"'
+  expect_log 'ToolchainResolution:   Selected toolchain //:test_toolchain_impl_1'
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
 function test_toolchain_use_in_aspect {
   write_test_toolchain
   write_test_aspect
-  write_toolchains
+  write_register_toolchain
 
   mkdir -p demo
   cat >> demo/demo.bzl <<EOF
@@ -266,19 +379,19 @@ demo(
 EOF
 
   bazel build \
-    --aspects //toolchain:aspect.bzl%use_toolchain \
+    --aspects //toolchain:aspect_use_toolchain.bzl%use_toolchain \
     //demo:demo &> $TEST_log || fail "Build failed"
-  expect_log 'Using toolchain in aspect: rule message: "bar from demo", toolchain extra_str: "foo from 1"'
+  expect_log 'Using toolchain in aspect: rule message: "bar from demo", toolchain extra_str: "foo from test_toolchain"'
 }
 
 function test_toolchain_use_in_aspect_non_required_toolchain {
   write_test_toolchain
-  write_toolchains
+  write_register_toolchain
 
   # The aspect argument toolchains requires one toolchain, but the implementation requests a
   # different one.
   mkdir -p toolchain
-  cat >> toolchain/aspect.bzl <<EOF
+  cat >> toolchain/aspect_use_toolchain.bzl <<EOF
 def _impl(target, ctx):
   toolchain = ctx.toolchains['//toolchain:wrong_toolchain']
   message = ctx.rule.attr.message
@@ -315,9 +428,9 @@ demo(
 EOF
 
   bazel build \
-    --aspects //toolchain:aspect.bzl%use_toolchain \
+    --aspects //toolchain:aspect_use_toolchain.bzl%use_toolchain \
     //demo:demo &> $TEST_log && fail "Build failure expected"
-  expect_log 'In aspect //toolchain:aspect.bzl%use_toolchain applied to demo rule //demo:demo, toolchain type //toolchain:wrong_toolchain was requested but only types \[//toolchain:test_toolchain\] are configured'
+  expect_log 'In aspect //toolchain:aspect_use_toolchain.bzl%use_toolchain applied to demo rule //demo:demo, toolchain type //toolchain:wrong_toolchain was requested but only types \[//toolchain:test_toolchain\] are configured'
 }
 
 function test_toolchain_constraints() {
@@ -330,7 +443,7 @@ register_toolchains('//:toolchain_2')
 EOF
 
   cat >> BUILD <<EOF
-load('//toolchain:toolchain.bzl', 'test_toolchain')
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
 
 # Define constraints.
 constraint_setting(name = 'setting')
@@ -376,7 +489,7 @@ EOF
 
   mkdir -p demo
   cat >> demo/BUILD <<EOF
-load('//toolchain:rule.bzl', 'use_toolchain')
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
 # Use the toolchain.
 use_toolchain(
     name = 'use',
@@ -409,7 +522,7 @@ EOF
 function test_register_toolchain_error_invalid_label() {
   write_test_toolchain
   write_test_rule
-  write_toolchains
+  write_register_toolchain
 
   cat >> WORKSPACE <<EOF
 register_toolchains('/:invalid:label:syntax')
@@ -417,7 +530,7 @@ EOF
 
   mkdir -p demo
   cat >> demo/BUILD <<EOF
-load('//toolchain:rule.bzl', 'use_toolchain')
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
 # Use the toolchain.
 use_toolchain(
     name = 'use',
@@ -431,7 +544,7 @@ EOF
 function test_register_toolchain_error_invalid_target() {
   write_test_toolchain
   write_test_rule
-  write_toolchains
+  write_register_toolchain
 
   cat > WORKSPACE <<EOF
 register_toolchains('//demo:not_a_target')
@@ -439,7 +552,7 @@ EOF
 
   mkdir -p demo
   cat >> demo/BUILD <<EOF
-load('//toolchain:rule.bzl', 'use_toolchain')
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
 # Use the toolchain.
 use_toolchain(
     name = 'use',
@@ -453,7 +566,7 @@ EOF
 function test_register_toolchain_error_target_not_a_toolchain() {
   write_test_toolchain
   write_test_rule
-  write_toolchains
+  write_register_toolchain
 
   cat >> WORKSPACE <<EOF
 register_toolchains('//demo:invalid')
@@ -467,7 +580,7 @@ genrule(
     outs = ["out.log"],
     cmd = "echo invalid > $@")
 
-load('//toolchain:rule.bzl', 'use_toolchain')
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
 # Use the toolchain.
 use_toolchain(
     name = 'use',
@@ -500,7 +613,7 @@ EOF
 
   mkdir -p demo
   cat >> demo/BUILD <<EOF
-load('//toolchain:rule.bzl', 'use_toolchain')
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
 # Use the toolchain.
 use_toolchain(
     name = 'use',
@@ -515,11 +628,11 @@ EOF
 function test_toolchain_error_invalid_target() {
   write_test_toolchain
   write_test_rule
-  write_toolchains
+  write_register_toolchain
 
   mkdir -p demo
   cat >> demo/BUILD <<EOF
-load('//toolchain:rule.bzl', 'use_toolchain')
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
 # Use the toolchain.
 use_toolchain(
     name = 'use',

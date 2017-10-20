@@ -33,8 +33,8 @@ public class RuleContextTest extends ToolchainTestCase {
   public void testMockRuleContextHasToolchains() throws Exception {
     mockToolsConfig.create("x/BUILD", "mock_toolchain_rule(name='x')");
     useConfiguration(
-        "--experimental_host_platform=//constraint:linux_plat",
-        "--experimental_platforms=//constraint:mac_plat");
+        "--experimental_host_platform=//platforms:linux",
+        "--experimental_platforms=//platforms:mac");
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//x"));
     assertThat(ruleContext.getToolchainContext().getResolvedToolchainLabels())
         .contains(Label.parseAbsolute("//toolchain:test_toolchain_1"));
