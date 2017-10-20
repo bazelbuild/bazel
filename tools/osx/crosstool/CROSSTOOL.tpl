@@ -136,10 +136,17 @@ toolchain {
     compiler_flag: "-DNDEBUG"
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
+    compiler_flag: "-Wno-unused-variable"
+    compiler_flag: "-Winit-self"
+    compiler_flag: "-Wno-extra"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+    compiler_flag: "-O0"
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fstack-protector-all"
   }
   linking_mode_flags {
     mode: DYNAMIC
@@ -171,6 +178,23 @@ toolchain {
   }
   feature {
     name: "dbg"
+  }
+  feature {
+    name: "use_glibcxx_dbg_opts"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D_GLIBCXX_DEBUG"
+        flag: "-D_GLIBCXX_DEBUG_PEDANTIC"
+        flag: "-D_GLIBCPP_CONCEPT_CHECKS"
+      }
+    }
+    requires {
+      feature: "dbg"
+    }
   }
   feature {
     name: "compile_all_modules"
@@ -1785,10 +1809,17 @@ toolchain {
     compiler_flag: "-DNDEBUG"
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
+    compiler_flag: "-Wno-unused-variable"
+    compiler_flag: "-Winit-self"
+    compiler_flag: "-Wno-extra"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+    compiler_flag: "-O0"
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fstack-protector-all"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -1817,6 +1848,23 @@ toolchain {
   }
   feature {
     name: "dbg"
+  }
+  feature {
+    name: "use_glibcxx_dbg_opts"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D_GLIBCXX_DEBUG"
+        flag: "-D_GLIBCXX_DEBUG_PEDANTIC"
+        flag: "-D_GLIBCPP_CONCEPT_CHECKS"
+      }
+    }
+    requires {
+      feature: "dbg"
+    }
   }
   feature {
     name: "compile_all_modules"
@@ -3447,10 +3495,17 @@ toolchain {
     compiler_flag: "-DNDEBUG"
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
+    compiler_flag: "-Wno-unused-variable"
+    compiler_flag: "-Winit-self"
+    compiler_flag: "-Wno-extra"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+    compiler_flag: "-O0"
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fstack-protector-all"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -3479,6 +3534,23 @@ toolchain {
   }
   feature {
     name: "dbg"
+  }
+  feature {
+    name: "use_glibcxx_dbg_opts"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D_GLIBCXX_DEBUG"
+        flag: "-D_GLIBCXX_DEBUG_PEDANTIC"
+        flag: "-D_GLIBCPP_CONCEPT_CHECKS"
+      }
+    }
+    requires {
+      feature: "dbg"
+    }
   }
   feature {
     name: "compile_all_modules"
@@ -5111,11 +5183,18 @@ toolchain {
     compiler_flag: "-DNDEBUG"
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
+    compiler_flag: "-Wno-unused-variable"
+    compiler_flag: "-Winit-self"
+    compiler_flag: "-Wno-extra"
     compiler_flag: "-DNS_BLOCK_ASSERTIONS=1"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+    compiler_flag: "-O0"
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fstack-protector-all"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -5144,6 +5223,23 @@ toolchain {
   }
   feature {
     name: "dbg"
+  }
+  feature {
+    name: "use_glibcxx_dbg_opts"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D_GLIBCXX_DEBUG"
+        flag: "-D_GLIBCXX_DEBUG_PEDANTIC"
+        flag: "-D_GLIBCPP_CONCEPT_CHECKS"
+      }
+    }
+    requires {
+      feature: "dbg"
+    }
   }
   feature {
     name: "compile_all_modules"
@@ -6804,10 +6900,17 @@ toolchain {
     compiler_flag: "-DNDEBUG"
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
+    compiler_flag: "-Wno-unused-variable"
+    compiler_flag: "-Winit-self"
+    compiler_flag: "-Wno-extra"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+    compiler_flag: "-O0"
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fstack-protector-all"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -6836,6 +6939,23 @@ toolchain {
   }
   feature {
     name: "dbg"
+  }
+  feature {
+    name: "use_glibcxx_dbg_opts"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D_GLIBCXX_DEBUG"
+        flag: "-D_GLIBCXX_DEBUG_PEDANTIC"
+        flag: "-D_GLIBCPP_CONCEPT_CHECKS"
+      }
+    }
+    requires {
+      feature: "dbg"
+    }
   }
   feature {
     name: "compile_all_modules"
@@ -8466,10 +8586,17 @@ toolchain {
     compiler_flag: "-DNDEBUG"
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
+    compiler_flag: "-Wno-unused-variable"
+    compiler_flag: "-Winit-self"
+    compiler_flag: "-Wno-extra"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+    compiler_flag: "-O0"
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fstack-protector-all"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -8498,6 +8625,23 @@ toolchain {
   }
   feature {
     name: "dbg"
+  }
+  feature {
+    name: "use_glibcxx_dbg_opts"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D_GLIBCXX_DEBUG"
+        flag: "-D_GLIBCXX_DEBUG_PEDANTIC"
+        flag: "-D_GLIBCPP_CONCEPT_CHECKS"
+      }
+    }
+    requires {
+      feature: "dbg"
+    }
   }
   feature {
     name: "compile_all_modules"
@@ -10116,10 +10260,17 @@ toolchain {
     compiler_flag: "-DNDEBUG"
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
+    compiler_flag: "-Wno-unused-variable"
+    compiler_flag: "-Winit-self"
+    compiler_flag: "-Wno-extra"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+    compiler_flag: "-O0"
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fstack-protector-all"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -10148,6 +10299,23 @@ toolchain {
   }
   feature {
     name: "dbg"
+  }
+  feature {
+    name: "use_glibcxx_dbg_opts"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D_GLIBCXX_DEBUG"
+        flag: "-D_GLIBCXX_DEBUG_PEDANTIC"
+        flag: "-D_GLIBCPP_CONCEPT_CHECKS"
+      }
+    }
+    requires {
+      feature: "dbg"
+    }
   }
   feature {
     name: "compile_all_modules"
@@ -11768,11 +11936,18 @@ toolchain {
     compiler_flag: "-DNDEBUG"
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
+    compiler_flag: "-Wno-unused-variable"
+    compiler_flag: "-Winit-self"
+    compiler_flag: "-Wno-extra"
     compiler_flag: "-DNS_BLOCK_ASSERTIONS=1"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+    compiler_flag: "-O0"
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fstack-protector-all"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -11801,6 +11976,23 @@ toolchain {
   }
   feature {
     name: "dbg"
+  }
+  feature {
+    name: "use_glibcxx_dbg_opts"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D_GLIBCXX_DEBUG"
+        flag: "-D_GLIBCXX_DEBUG_PEDANTIC"
+        flag: "-D_GLIBCPP_CONCEPT_CHECKS"
+      }
+    }
+    requires {
+      feature: "dbg"
+    }
   }
   feature {
     name: "compile_all_modules"
@@ -13449,10 +13641,17 @@ toolchain {
     compiler_flag: "-DNDEBUG"
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
+    compiler_flag: "-Wno-unused-variable"
+    compiler_flag: "-Winit-self"
+    compiler_flag: "-Wno-extra"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+    compiler_flag: "-O0"
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fstack-protector-all"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -13481,6 +13680,23 @@ toolchain {
   }
   feature {
     name: "dbg"
+  }
+  feature {
+    name: "use_glibcxx_dbg_opts"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D_GLIBCXX_DEBUG"
+        flag: "-D_GLIBCXX_DEBUG_PEDANTIC"
+        flag: "-D_GLIBCPP_CONCEPT_CHECKS"
+      }
+    }
+    requires {
+      feature: "dbg"
+    }
   }
   feature {
     name: "compile_all_modules"
@@ -15098,11 +15314,18 @@ toolchain {
     compiler_flag: "-DNDEBUG"
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
+    compiler_flag: "-Wno-unused-variable"
+    compiler_flag: "-Winit-self"
+    compiler_flag: "-Wno-extra"
     compiler_flag: "-DNS_BLOCK_ASSERTIONS=1"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+    compiler_flag: "-O0"
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fstack-protector-all"
   }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
@@ -15134,6 +15357,23 @@ toolchain {
   }
   feature {
     name: "dbg"
+  }
+  feature {
+    name: "use_glibcxx_dbg_opts"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D_GLIBCXX_DEBUG"
+        flag: "-D_GLIBCXX_DEBUG_PEDANTIC"
+        flag: "-D_GLIBCPP_CONCEPT_CHECKS"
+      }
+    }
+    requires {
+      feature: "dbg"
+    }
   }
   feature {
     name: "compile_all_modules"

@@ -117,7 +117,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
             .build();
 
     assertThat(compileActionA.getArguments())
-        .isEqualTo(
+        .containsAllIn(
             new ImmutableList.Builder<String>()
                 .addAll(commonCompileFlags)
                 .add("-fobjc-arc")
@@ -125,7 +125,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
                 .addAll(outputArgs(compileActionA.getOutputs()))
                 .build());
     assertThat(compileActionNotArc.getArguments())
-        .isEqualTo(
+        .containsAllIn(
             new ImmutableList.Builder<String>()
                 .addAll(commonCompileFlags)
                 .add("-fno-objc-arc")
@@ -179,7 +179,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
             .build();
 
     assertThat(compileActionA.getArguments())
-        .isEqualTo(
+        .containsAllIn(
             new ImmutableList.Builder<String>()
                 .addAll(commonCompileFlags)
                 .add("-fobjc-arc")
@@ -187,7 +187,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
                 .addAll(outputArgs(compileActionA.getOutputs()))
                 .build());
     assertThat(compileActionNotArc.getArguments())
-        .isEqualTo(
+        .containsAllIn(
             new ImmutableList.Builder<String>()
                 .addAll(commonCompileFlags)
                 .add("-fno-objc-arc")
@@ -221,7 +221,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
 
     assertThat(compileActionA.getArguments())
-        .containsExactlyElementsIn(
+        .containsAllIn(
             new ImmutableList.Builder<String>()
                 .add(MOCK_XCRUNWRAPPER_PATH)
                 .add(ObjcRuleClasses.CLANG)
@@ -267,7 +267,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
 
     assertThat(compileActionA.getArguments())
-        .containsExactlyElementsIn(
+        .containsAllIn(
             new ImmutableList.Builder<String>()
                 .add(MOCK_XCRUNWRAPPER_PATH)
                 .add(ObjcRuleClasses.CLANG)

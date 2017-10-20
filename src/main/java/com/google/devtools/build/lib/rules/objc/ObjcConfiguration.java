@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
 public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS =
-      ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");
+      ImmutableList.of("-O0", "-DDEBUG", "-fstack-protector", "-fstack-protector-all", "-g");
 
   @VisibleForTesting
   static final ImmutableList<String> GLIBCXX_DBG_COPTS =
@@ -50,7 +50,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @VisibleForTesting
   static final ImmutableList<String> OPT_COPTS =
       ImmutableList.of(
-          "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
+          "-Os", "-DNDEBUG", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
