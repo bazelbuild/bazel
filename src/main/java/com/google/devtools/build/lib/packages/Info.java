@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
@@ -110,6 +111,26 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   public Location getCreationLocOrNull() {
     return creationLoc;
   }
+
+  /**
+   * Returns the fields of this struct.
+   *
+   * Overrides {@link ClassObject#getKeys()}, but does not allow {@link EvalException} to
+   * be thrown.
+   */
+  @Override
+  public abstract ImmutableCollection<String> getKeys();
+
+  /**
+   * Returns the value associated with the name field in this struct,
+   * or null if the field does not exist.
+   *
+   * Overrides {@link ClassObject#getValue(String)}, but does not allow {@link EvalException} to
+   * be thrown.
+   */
+  @Nullable
+  @Override
+  public abstract Object getValue(String name);
 
   @Override
   public String errorMessage(String name) {
