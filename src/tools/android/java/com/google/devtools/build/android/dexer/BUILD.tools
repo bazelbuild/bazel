@@ -29,3 +29,10 @@ java_binary(
     visibility = ["//tools/android:__subpackages__"],
     runtime_deps = [":dexer"],
 )
+
+java_binary(
+    name = "DexFileSplitter",
+    main_class = "com.google.devtools.build.android.dexer.DexFileSplitter",
+    visibility = ["//tools/android:__subpackages__"],
+    runtime_deps = [":dexer"],
+)
