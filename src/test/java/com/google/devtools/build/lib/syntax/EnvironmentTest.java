@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Sets;
@@ -91,6 +92,18 @@ public class EnvironmentTest extends EvaluationTestCase {
     }
     eval("foo = 'bar'");
     assertThat(eval("foo")).isEqualTo("bar");
+  }
+
+  @Test
+  public void testBuilderRequiresSemantics() throws Exception {
+    try (Mutability mut = Mutability.create("test")) {
+      IllegalArgumentException expected =
+          expectThrows(
+              IllegalArgumentException.class,
+              () -> Environment.builder(mut).build());
+      assertThat(expected).hasMessageThat()
+          .contains("must call either setSemantics or useDefaultSemantics");
+    }
   }
 
   @Test
