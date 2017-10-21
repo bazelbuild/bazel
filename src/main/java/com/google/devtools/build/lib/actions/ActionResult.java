@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import java.time.Duration;
 import java.util.Set;
 
 /** Holds the result(s) of an action's execution. */
@@ -31,6 +32,18 @@ public abstract class ActionResult {
   /** Returns a builder that can be used to construct a {@link ActionResult} object. */
   public static Builder builder() {
     return new AutoValue_ActionResult.Builder();
+  }
+
+  /** Returns the cumulative command execution wall time for the {@link Action}. */
+  public Duration cumulativeCommandExecutionWallTime() {
+    long totalMillis = 0;
+    for (SpawnResult spawnResult : spawnResults()) {
+      // TODO(b/62588075): getWallTimeMillis() stores wall time of a Spawn from the JVM's
+      // perspective. But instead we should really record a Spawn's wall time (and system time, user
+      // time, etc.) from outside of the JVM.
+      totalMillis += spawnResult.getWallTimeMillis();
+    }
+    return Duration.ofMillis(totalMillis);
   }
 
   /** Creates an ActionResult given a set of SpawnResults. */

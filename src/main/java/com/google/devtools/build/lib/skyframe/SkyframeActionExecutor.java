@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
+import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Actions;
@@ -847,9 +849,11 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     // instead.
     FileOutErr outErrBuffer = actionExecutionContext.getFileOutErr();
     try {
-      // TODO(b/62588075): Now that execute() returns information about the execution, we could log
-      // the data to the invocations table.
-      action.execute(actionExecutionContext);
+      ActionResult actionResult = action.execute(actionExecutionContext);
+      if (actionResult != ActionResult.EMPTY) {
+        postEvent(new ActionResultReceivedEvent(action, actionResult));
+      }
+
       // Action terminated fine, now report the output.
       // The .showOutput() method is not necessarily a quick check: in its
       // current implementation it uses regular expression matching.
