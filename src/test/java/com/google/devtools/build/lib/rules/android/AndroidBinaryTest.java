@@ -506,6 +506,26 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
           .isEmpty();
   }
 
+  @Test
+  public void testNativeLibrary_ProvidesLinkerScriptToLinkAction() throws Exception {
+    scratch.file("java/android/app/BUILD",
+        "cc_library(name = 'native',",
+        "           srcs = ['native.cc'],",
+        "           linkopts = ['-Wl,-version-script', '$(location jni.lds)'],",
+        "           deps = ['jni.lds'],)",
+        "android_binary(name = 'app',",
+        "               srcs = ['A.java'],",
+        "               deps = [':native'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "              )");
+
+    ConfiguredTarget app = getConfiguredTarget("//java/android/app:app");
+    Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
+    Artifact linkedLib = getOnlyElement(getGeneratingAction(copiedLib).getInputs());
+    Iterable<Artifact> linkInputs = getGeneratingAction(linkedLib).getInputs();
+    assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("jni.lds");
+  }
+
   /** Regression test for http://b/33173461. */
   @Test
   public void testIncrementalDexingUsesDexArchives_binaryDependingOnAliasTarget()

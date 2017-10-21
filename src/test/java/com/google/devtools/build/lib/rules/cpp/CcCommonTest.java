@@ -825,6 +825,22 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testProvidesLinkerScriptToLinkAction() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_binary(",
+        "    name='bin',",
+        "    srcs=['b.cc'],",
+        "    linkopts=['-Wl,@$(location a.lds)'],",
+        "    deps=['a.lds'])");
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+    CppLinkAction action =
+        (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
+    Iterable<Artifact> linkInputs = action.getInputs();
+    assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("a.lds");
+  }
+
+  @Test
   public void testIncludeManglingSmoke() throws Exception {
     scratch.file(
         "third_party/a/BUILD",

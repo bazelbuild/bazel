@@ -232,6 +232,12 @@ public abstract class NativeDepsHelper {
         ltoBitcodeFilesMap.putAll(lib.getLtoBitcodeFiles());
       }
     }
+
+    Iterable<Artifact> nonCodeInputs = linkParams.getNonCodeInputs();
+    if (nonCodeInputs == null) {
+      nonCodeInputs = ImmutableList.of();
+    }
+
     builder
         .setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY)
         .setCrosstoolInputs(toolchain.getLink())
@@ -242,7 +248,8 @@ public abstract class NativeDepsHelper {
         .addLinkopts(linkopts)
         .setNativeDeps(true)
         .addLinkstamps(linkstamps)
-        .addLtoBitcodeFiles(ltoBitcodeFilesMap.build());
+        .addLtoBitcodeFiles(ltoBitcodeFilesMap.build())
+        .addNonCodeInputs(nonCodeInputs);
 
     if (!builder.getLtoBitcodeFiles().isEmpty()
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
