@@ -34,7 +34,7 @@ class OutputJar {
   // Constructor.
   OutputJar();
   // Do all that needs to be done. Can be called only once.
-  int Doit(Options *options);
+  virtual int Doit(Options *options);
   // Destructor.
   virtual ~OutputJar();
   // Add a combiner to handle the entries with given name. OutputJar will

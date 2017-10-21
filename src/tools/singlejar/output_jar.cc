@@ -89,17 +89,6 @@ int OutputJar::Doit(Options *options) {
                            EntryInfo{&build_properties_});
   }
 
-  // Process or drop Java 8 desugaring metadata, see b/65645388.  We don't want
-  // or need these files afterwards so make sure we drop them either way.
-  Combiner *desugar_checker = options_->check_desugar_deps
-                                  ? new Java8DesugarDepsChecker(
-                                        [this](const std::string &filename) {
-                                          return !NewEntry(filename);
-                                        },
-                                        options_->verbose)
-                                  : (Combiner *)new NullCombiner();
-  ExtraCombiner("META-INF/desugar_deps", desugar_checker);
-
   build_properties_.AddProperty("build.target", options_->output_jar.c_str());
   if (options_->verbose) {
     fprintf(stderr, "combined_file_name=%s\n", options_->output_jar.c_str());

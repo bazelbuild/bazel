@@ -286,7 +286,6 @@ cc_library(
     ],
     hdrs = ["combiners.h"],
     deps = [
-        "//src/main/protobuf:desugar_deps_cc_proto",
         "//third_party/zlib",
     ],
 )
