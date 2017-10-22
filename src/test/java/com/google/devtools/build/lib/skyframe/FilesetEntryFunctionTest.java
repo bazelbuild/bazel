@@ -515,7 +515,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     FilesetTraversalParams params =
         FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
             /*ownerLabel=*/ label("//foo"),
-            /*directoryToTraverse=*/ buildFile,
+            /* buildFile= */ buildFile,
             PathFragment.create("output-name"),
             /*excludes=*/ null,
             /*symlinkBehaviorMode=*/ symlinks,

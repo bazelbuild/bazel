@@ -78,7 +78,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
                 .getImplementation()
                 .call(
                     /*args=*/ ImmutableList.of(base, skylarkRuleContext),
-                    /*kwarg=*/ ImmutableMap.of(),
+                    /* kwargs= */ ImmutableMap.of(),
                     /*ast=*/ null,
                     env);
 
