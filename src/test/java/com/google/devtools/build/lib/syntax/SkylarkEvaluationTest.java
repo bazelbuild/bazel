@@ -1262,6 +1262,18 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testFunctionCallRecursion() throws Exception {
+    new SkylarkTest().testIfErrorContains("Recursion was detected when calling 'f' from 'g'",
+        "def main():",
+        "  f(5)",
+        "def f(n):",
+        "  if n > 0: g(n - 1)",
+        "def g(n):",
+        "  if n > 0: f(n - 1)",
+        "main()");
+  }
+
+  @Test
   public void testTypo() throws Exception {
     new SkylarkTest()
         .testIfErrorContains(
