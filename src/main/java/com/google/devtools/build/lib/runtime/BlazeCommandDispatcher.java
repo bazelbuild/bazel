@@ -776,27 +776,49 @@ public class BlazeCommandDispatcher {
    *     values in {@code configs} that none of the .rc files had entries for
    * @throws OptionsParsingException
    */
-  protected static void parseOptionsForCommand(List<String> rcfileNotes, Command commandAnnotation,
-      OptionsParser optionsParser, List<Pair<String, ListMultimap<String, String>>> optionsMap,
-      @Nullable Collection<String> configs, @Nullable Collection<String> unknownConfigs)
+  protected static void parseOptionsForCommand(
+      List<String> rcfileNotes,
+      Command commandAnnotation,
+      OptionsParser optionsParser,
+      List<Pair<String, ListMultimap<String, String>>> optionsMap,
+      @Nullable Collection<String> configs,
+      @Nullable Collection<String> unknownConfigs)
       throws OptionsParsingException {
     Set<String> knownConfigs = new HashSet<>();
     for (String commandToParse : getCommandNamesToParse(commandAnnotation)) {
       for (Pair<String, ListMultimap<String, String>> entry : optionsMap) {
+        String rcFile = entry.first;
         List<String> allOptions = new ArrayList<>();
         if (configs == null) {
-          allOptions.addAll(entry.second.get(commandToParse));
+          Collection<String> values = entry.second.get(commandToParse);
+          if (!values.isEmpty()) {
+            allOptions.addAll(entry.second.get(commandToParse));
+            String inherited = commandToParse.equals(commandAnnotation.name()) ? "" : "Inherited ";
+            String source =
+                rcFile.equals("client")
+                    ? "Options provided by the client"
+                    : String.format(
+                        "Reading rc options for '%s' from %s", commandAnnotation.name(), rcFile);
+            rcfileNotes.add(
+                String.format(
+                    "%s:\n  %s'%s' options: %s",
+                    source, inherited, commandToParse, Joiner.on(' ').join(values)));
+          }
         } else {
           for (String config : configs) {
-            Collection<String> values = entry.second.get(commandToParse + ":" + config);
+            String configDef = commandToParse + ":" + config;
+            Collection<String> values = entry.second.get(configDef);
             if (!values.isEmpty()) {
               allOptions.addAll(values);
               knownConfigs.add(config);
+              rcfileNotes.add(
+                  String.format(
+                      "Found applicable config definition %s in file %s: %s",
+                      configDef, rcFile, String.join(" ", values)));
             }
           }
         }
-        processOptionList(optionsParser, commandToParse,
-            commandAnnotation.name(), rcfileNotes, entry.first, allOptions);
+        processOptionList(optionsParser, rcFile, allOptions);
       }
     }
     if (unknownConfigs != null && configs != null && configs.size() > knownConfigs.size()) {
@@ -808,16 +830,10 @@ public class BlazeCommandDispatcher {
   }
 
   // Processes the option list for an .rc file - command pair.
-  private static void processOptionList(OptionsParser optionsParser, String commandToParse,
-      String originalCommand, List<String> rcfileNotes, String rcfile, List<String> rcfileOptions)
+  private static void processOptionList(
+      OptionsParser optionsParser, String rcfile, List<String> rcfileOptions)
       throws OptionsParsingException {
     if (!rcfileOptions.isEmpty()) {
-      String inherited = commandToParse.equals(originalCommand) ? "" : "Inherited ";
-      String source = rcfile.equals("client") ? "Options provided by the client"
-          : "Reading options for '" + originalCommand + "' from " + rcfile;
-      rcfileNotes.add(source + ":\n"
-          + "  " + inherited + "'" + commandToParse + "' options: "
-          + Joiner.on(' ').join(rcfileOptions));
       optionsParser.parse(PriorityCategory.RC_FILE, rcfile, rcfileOptions);
     }
   }
