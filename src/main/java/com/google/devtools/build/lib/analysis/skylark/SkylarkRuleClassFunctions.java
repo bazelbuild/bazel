@@ -222,6 +222,7 @@ public class SkylarkRuleClassFunctions {
         "A provider that is provided by every rule, even if it is not returned explicitly. "
             + "A <code>DefaultInfo</code> accepts the following parameters:"
             + "<ul>"
+            + "<li><code>executable</code></li>"
             + "<li><code>files</code></li>"
             + "<li><code>runfiles</code></li>"
             + "<li><code>data_runfiles</code></li>"
@@ -515,7 +516,7 @@ public class SkylarkRuleClassFunctions {
                     .value(true)
                     .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
                     .build());
-            builder.setOutputsDefaultExecutable();
+            builder.setExecutableSkylark();
           }
 
           if (implicitOutputs != Runtime.NONE) {

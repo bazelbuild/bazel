@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
@@ -62,6 +64,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -146,10 +149,9 @@ public final class SkylarkRuleContext implements SkylarkValue {
           + "attr struct, but their values will be single lists with all the branches of the split "
           + "merged together.";
   public static final String OUTPUTS_DOC =
-      "A <code>struct</code> containing all the output files."
-          + " The struct is generated the following way:<br>"
-          + "<ul><li>If the rule is marked as <code>executable=True</code> the struct has an "
-          + "\"executable\" field with the rules default executable <code>file</code> value."
+      "A pseudo-struct containing all the pre-declared output files."
+          + " It is generated the following way:<br>"
+          + "<ul>" + ""
           + "<li>For every entry in the rule's <code>outputs</code> dict an attr is generated with "
           + "the same name and the corresponding <code>file</code> value."
           + "<li>For every output type attribute a struct attribute is generated with the "
@@ -157,7 +159,14 @@ public final class SkylarkRuleContext implements SkylarkValue {
           + "if no value is specified in the rule."
           + "<li>For every output list type attribute a struct attribute is generated with the "
           + "same name and corresponding <code>list</code> of <code>file</code>s value "
-          + "(an empty list if no value is specified in the rule).</ul>";
+          + "(an empty list if no value is specified in the rule).</li>"
+          + "<li>DEPRECATED: If the rule is marked as <code>executable=True</code>, a field "
+          + "\"executable\" can be accessed. That will declare the rule's default executable "
+          + "<code>File</code> value. The recommended alternative is to declare an executable with "
+          + "<a href=\"actions.html#declare_file\"><code>ctx.actions.declare_file</code></a> "
+          + "and return it as the <code>executable</code> field of the rule's "
+          + "<a href=\"globals.html#DefaultInfo\"><code>DefaultInfo</code></a> provider."
+          + "</ul>";
   public static final Function<Attribute, Object> ATTRIBUTE_VALUE_EXTRACTOR_FOR_ASPECT =
       new Function<Attribute, Object>() {
         @Nullable
@@ -166,6 +175,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
           return attribute.getDefaultValue(null);
         }
       };
+  public static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
   // This field is a copy of the info from ruleContext, stored separately so it can be accessed
   // after this object has been nullified.
@@ -190,7 +200,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
 
   // TODO(bazel-team): we only need this because of the css_binary rule.
   private ImmutableMap<Artifact, Label> artifactsLabelMap;
-  private Info outputsObject;
+  private Outputs outputsObject;
 
   /**
    * Creates a new SkylarkRuleContext using ruleContext.
@@ -213,10 +223,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
     if (aspectDescriptor == null) {
       this.isForAspect = false;
       Collection<Attribute> attributes = ruleContext.getRule().getAttributes();
-      HashMap<String, Object> outputsBuilder = new HashMap<>();
-      if (ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()) {
-        addOutput(outputsBuilder, "executable", ruleContext.createOutputArtifact());
-      }
+      Outputs outputs = new Outputs(this);
+
       ImplicitOutputsFunction implicitOutputsFunction =
           ruleContext.getRule().getImplicitOutputsFunction();
 
@@ -225,8 +233,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
             (SkylarkImplicitOutputsFunction) implicitOutputsFunction;
         for (Map.Entry<String, String> entry :
             func.calculateOutputs(RawAttributeMapper.of(ruleContext.getRule())).entrySet()) {
-          addOutput(
-              outputsBuilder,
+          outputs.addOutput(
               entry.getKey(),
               ruleContext.getImplicitOutputArtifact(entry.getValue()));
         }
@@ -249,12 +256,12 @@ public final class SkylarkRuleContext implements SkylarkValue {
 
         if (type == BuildType.OUTPUT) {
           if (artifacts.size() == 1) {
-            addOutput(outputsBuilder, attrName, Iterables.getOnlyElement(artifacts));
+            outputs.addOutput(attrName, Iterables.getOnlyElement(artifacts));
           } else {
-            addOutput(outputsBuilder, attrName, Runtime.NONE);
+            outputs.addOutput(attrName, Runtime.NONE);
           }
         } else if (type == BuildType.OUTPUT_LIST) {
-          addOutput(outputsBuilder, attrName, SkylarkList.createImmutable(artifacts));
+          outputs.addOutput(attrName, SkylarkList.createImmutable(artifacts));
         } else {
           throw new IllegalArgumentException(
               "Type of " + attrName + "(" + type + ") is not output type ");
@@ -262,10 +269,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
       }
 
       this.artifactsLabelMap = artifactLabelMapBuilder.build();
-      this.outputsObject =
-          NativeProvider.STRUCT.create(
-              outputsBuilder,
-              "No attribute '%s' in outputs. Make sure you declared a rule output with this name.");
+      this.outputsObject = outputs;
 
       this.attributesCollection =
           buildAttributesCollection(
@@ -293,6 +297,123 @@ public final class SkylarkRuleContext implements SkylarkValue {
 
     makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
   }
+
+  /**
+   * Represents `ctx.outputs`.
+   *
+   * <p>A {@link ClassObject} (struct-like data structure) with "executable" field created
+   * lazily on-demand.
+   *
+   * <p>Note: There is only one {@code Outputs} object per rule context, so default
+   * (object identity) equals and hashCode suffice.
+   */
+  private static class Outputs implements ClassObject, SkylarkValue {
+    private final Map<String, Object> outputs;
+    private final SkylarkRuleContext context;
+    private boolean executableCreated = false;
+
+    public Outputs(SkylarkRuleContext context) {
+      this.outputs = new LinkedHashMap<>();
+      this.context = context;
+    }
+
+    private void addOutput(String key, Object value)
+        throws EvalException {
+      Preconditions.checkState(!context.isImmutable(),
+          "Cannot add outputs to immutable Outputs object");
+      if (outputs.containsKey(key)
+          || (context.isExecutable() && EXECUTABLE_OUTPUT_NAME.equals(key))) {
+        throw new EvalException(null, "Multiple outputs with the same key: " + key);
+      }
+      outputs.put(key, value);
+    }
+
+
+    @Override
+    public boolean isImmutable() {
+      return context.isImmutable();
+    }
+
+    @Override
+    public ImmutableCollection<String> getKeys() throws EvalException {
+      checkMutable();
+      ImmutableList.Builder<String> result = ImmutableList.builder();
+      if (context.isExecutable() && executableCreated) {
+        result.add(EXECUTABLE_OUTPUT_NAME);
+      }
+      result.addAll(outputs.keySet());
+      return result.build();
+    }
+
+    @Nullable
+    @Override
+    public Object getValue(String name) throws EvalException {
+      checkMutable();
+      if (context.isExecutable() && EXECUTABLE_OUTPUT_NAME.equals(name)) {
+        executableCreated = true;
+        // createOutputArtifact() will cache the created artifact.
+        return context.ruleContext.createOutputArtifact();
+      }
+
+      return outputs.get(name);
+    }
+
+    @Nullable
+    @Override
+    public String errorMessage(String name) {
+      return String.format(
+          "No attribute '%s' in outputs. Make sure you declared a rule output with this name.",
+          name);
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      if (isImmutable()) {
+        printer.append("ctx.outputs(for ");
+        printer.append(context.ruleLabelCanonicalName);
+        printer.append(")");
+        return;
+      }
+      boolean first = true;
+      printer.append("ctx.outputs(");
+      // Sort by key to ensure deterministic output.
+      try {
+        for (String key : Ordering.natural().sortedCopy(getKeys())) {
+          if (!first) {
+            printer.append(", ");
+          }
+          first = false;
+          printer.append(key);
+          printer.append(" = ");
+          printer.repr(getValue(key));
+        }
+        printer.append(")");
+      } catch (EvalException e) {
+        throw new AssertionError("mutable ctx.outputs should not throw", e);
+      }
+    }
+
+    private void checkMutable() throws EvalException {
+      if (isImmutable()) {
+        throw new EvalException(
+            null,
+            String.format(
+                "cannot access outputs of rule '%s' outside of its own "
+                    + "rule implementation function",
+                context.ruleLabelCanonicalName));
+      }
+    }
+
+  }
+
+  public boolean isExecutable() {
+    return ruleContext.getRule().getRuleClassObject().isExecutableSkylark();
+  }
+
+  public boolean isDefaultExecutableCreated() {
+    return this.outputsObject.executableCreated;
+  }
+
 
   /**
    * Nullifies fields of the object when it's not supposed to be used anymore to free unused memory
@@ -584,14 +705,6 @@ public final class SkylarkRuleContext implements SkylarkValue {
     }
   }
 
-  private void addOutput(HashMap<String, Object> outputsBuilder, String key, Object value)
-      throws EvalException {
-    if (outputsBuilder.containsKey(key)) {
-      throw new EvalException(null, "Multiple outputs with the same key: " + key);
-    }
-    outputsBuilder.put(key, value);
-  }
-
   @Override
   public boolean isImmutable() {
     return ruleContext == null;
@@ -787,7 +900,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   }
 
   @SkylarkCallable(structField = true, doc = OUTPUTS_DOC)
-  public Info outputs() throws EvalException {
+  public ClassObject outputs() throws EvalException {
     checkMutable("outputs");
     if (outputsObject == null) {
       throw new EvalException(Location.BUILTIN, "'outputs' is not defined");

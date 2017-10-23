@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
@@ -1328,6 +1330,214 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("integer division by zero");
   }
 
+  @Test
+  public void testOutputsObjectOrphanExecutableReportError() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "   o = ctx.outputs.executable",
+        "   return [DefaultInfo(executable = o)]",
+        "my_rule = rule(_impl, executable = True)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name = 'xxx')"
+    );
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:xxx");
+    assertContainsEvent("ERROR /workspace/test/BUILD:2:1: in my_rule rule //test:xxx: ");
+    assertContainsEvent("The following files have no generating action:");
+    assertContainsEvent("test/xxx");
+  }
+
+  @Test
+  public void testCustomExecutableUsed() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "   o = ctx.actions.declare_file('x.sh')",
+        "   ctx.actions.write(o, 'echo Stuff', is_executable = True)",
+        "   return [DefaultInfo(executable = o)]",
+        "my_rule = rule(_impl, executable = True)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name = 'xxx')"
+    );
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:xxx");
+    Artifact executable = configuredTarget.getProvider(FilesToRunProvider.class).getExecutable();
+    assertThat(executable.getRootRelativePathString()).isEqualTo("test/x.sh");
+  }
+
+  @Test
+  public void testCustomAndDefaultExecutableReportsError() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "   e = ctx.outputs.executable",
+        "   o = ctx.actions.declare_file('x.sh')",
+        "   ctx.actions.write(o, 'echo Stuff', is_executable = True)",
+        "   return [DefaultInfo(executable = o)]",
+        "my_rule = rule(_impl, executable = True)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name = 'xxx')"
+    );
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:xxx");
+    assertContainsEvent("ERROR /workspace/test/BUILD:2:1: in my_rule rule //test:xxx: ");
+    assertContainsEvent("/workspace/test/rule.bzl:5:12: The rule 'my_rule' both accesses "
+        + "'ctx.outputs.executable' and provides a different executable 'test/x.sh'. "
+        + "Do not use 'ctx.output.executable'.");
+  }
+
+
+  @Test
+  public void testCustomExecutableStrNoEffect() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "   o = ctx.actions.declare_file('x.sh')",
+        "   ctx.actions.write(o, 'echo Stuff', is_executable = True)",
+        "   print(str(ctx.outputs))",
+        "   return [DefaultInfo(executable = o)]",
+        "my_rule = rule(_impl, executable = True)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name = 'xxx')"
+    );
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:xxx");
+    Artifact executable = configuredTarget.getProvider(FilesToRunProvider.class).getExecutable();
+    assertThat(executable.getRootRelativePathString()).isEqualTo("test/x.sh");
+  }
+
+  @Test
+  public void testCustomExecutableDirNoEffect() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "   o = ctx.actions.declare_file('x.sh')",
+        "   ctx.actions.write(o, 'echo Stuff', is_executable = True)",
+        "   print(dir(ctx.outputs))",
+        "   return [DefaultInfo(executable = o)]",
+        "my_rule = rule(_impl, executable = True)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name = 'xxx')"
+    );
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:xxx");
+    Artifact executable = configuredTarget.getProvider(FilesToRunProvider.class).getExecutable();
+    assertThat(executable.getRootRelativePathString()).isEqualTo("test/x.sh");
+  }
+
+  @Test
+  public void testOutputsObjectInDifferentRuleInaccessible() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "PInfo = provider(fields = ['outputs'])",
+        "def _impl(ctx):",
+        "   o = ctx.actions.declare_file('x.sh')",
+        "   ctx.actions.write(o, 'echo Stuff', is_executable = True)",
+        "   return [PInfo(outputs = ctx.outputs), DefaultInfo(executable = o)]",
+        "my_rule = rule(_impl, executable = True)",
+        "def _dep_impl(ctx):",
+        "   o = ctx.attr.dep[PInfo].outputs.executable",
+        "   pass",
+        "my_dep_rule = rule(_dep_impl, attrs = { 'dep' : attr.label() })"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_rule', 'my_dep_rule')",
+        "my_rule(name = 'xxx')",
+        "my_dep_rule(name = 'yyy', dep = ':xxx')"
+    );
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:yyy");
+    assertContainsEvent("ERROR /workspace/test/BUILD:3:1: in my_dep_rule rule //test:yyy: ");
+    assertContainsEvent("File \"/workspace/test/rule.bzl\", line 8, in _dep_impl");
+    assertContainsEvent("ctx.attr.dep[PInfo].outputs.executable");
+    assertContainsEvent("cannot access outputs of rule '//test:xxx' outside "
+        + "of its own rule implementation function");
+  }
+
+  @Test
+  public void testOutputsObjectStringRepresentation() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "PInfo = provider(fields = ['outputs', 's'])",
+        "def _impl(ctx):",
+        "   ctx.actions.write(ctx.outputs.executable, 'echo Stuff', is_executable = True)",
+        "   ctx.actions.write(ctx.outputs.other, 'Other')",
+        "   return [PInfo(outputs = ctx.outputs, s = str(ctx.outputs))]",
+        "my_rule = rule(_impl, executable = True, outputs = { 'other' : '%{name}.other' })",
+        "def _dep_impl(ctx):",
+        "   return [PInfo(s = str(ctx.attr.dep[PInfo].outputs))]",
+        "my_dep_rule = rule(_dep_impl, attrs = { 'dep' : attr.label() })"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_rule', 'my_dep_rule')",
+        "my_rule(name = 'xxx')",
+        "my_dep_rule(name = 'yyy', dep = ':xxx')"
+    );
+
+    SkylarkKey pInfoKey = new SkylarkKey(Label.parseAbsolute("//test:rule.bzl"), "PInfo");
+
+    ConfiguredTarget targetXXX = getConfiguredTarget("//test:xxx");
+    assertThat(targetXXX.get(pInfoKey).getValue("s"))
+        .isEqualTo(
+            "ctx.outputs(executable = <generated file test/xxx>, "
+                + "other = <generated file test/xxx.other>)");
+
+    ConfiguredTarget targetYYY = getConfiguredTarget("//test:yyy");
+    assertThat(targetYYY.get(pInfoKey).getValue("s"))
+        .isEqualTo("ctx.outputs(for //test:xxx)");
+  }
+
+  @Test
+  public void testExecutableRuleWithNoExecutableReportsError() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "   pass",
+        "my_rule = rule(_impl, executable = True)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name = 'xxx')"
+    );
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:xxx");
+    assertContainsEvent("ERROR /workspace/test/BUILD:2:1: in my_rule rule //test:xxx: ");
+    assertContainsEvent("/rule.bzl:1:5: The rule 'my_rule' is executable. "
+        + "It needs to create an executable File and pass it as the 'executable' "
+        + "parameter to the DefaultInfo it returns.");
+  }
+
+
   /**
    * Skylark integration test that forces inlining.
    */
@@ -1396,6 +1606,5 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         assertThat(e).hasMessageThat().contains("//test/skylark:ext4.bzl");
       }
     }
-
   }
 }

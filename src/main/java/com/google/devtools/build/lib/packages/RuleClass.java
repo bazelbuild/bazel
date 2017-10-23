@@ -462,7 +462,7 @@ public class RuleClass {
     private boolean publicByDefault = false;
     private boolean binaryOutput = true;
     private boolean workspaceOnly = false;
-    private boolean outputsDefaultExecutable = false;
+    private boolean isExecutableSkylark = false;
     private boolean isConfigMatcher = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private RuleTransitionFactory transitionFactory;
@@ -582,7 +582,7 @@ public class RuleClass {
           publicByDefault,
           binaryOutput,
           workspaceOnly,
-          outputsDefaultExecutable,
+          isExecutableSkylark,
           implicitOutputsFunction,
           isConfigMatcher,
           transitionFactory,
@@ -929,8 +929,8 @@ public class RuleClass {
      * This rule class outputs a default executable for every rule with the same name as
      * the rules's. Only works for Skylark.
      */
-    public <TYPE> Builder setOutputsDefaultExecutable() {
-      this.outputsDefaultExecutable = true;
+    public <TYPE> Builder setExecutableSkylark() {
+      this.isExecutableSkylark = true;
       return this;
     }
 
@@ -1042,7 +1042,7 @@ public class RuleClass {
   private final boolean publicByDefault;
   private final boolean binaryOutput;
   private final boolean workspaceOnly;
-  private final boolean outputsDefaultExecutable;
+  private final boolean isExecutableSkylark;
   private final boolean isConfigMatcher;
 
   /**
@@ -1164,7 +1164,7 @@ public class RuleClass {
       boolean publicByDefault,
       boolean binaryOutput,
       boolean workspaceOnly,
-      boolean outputsDefaultExecutable,
+      boolean isExecutableSkylark,
       ImplicitOutputsFunction implicitOutputsFunction,
       boolean isConfigMatcher,
       RuleTransitionFactory transitionFactory,
@@ -1207,7 +1207,7 @@ public class RuleClass {
     validateNoClashInPublicNames(attributes);
     this.attributes = ImmutableList.copyOf(attributes);
     this.workspaceOnly = workspaceOnly;
-    this.outputsDefaultExecutable = outputsDefaultExecutable;
+    this.isExecutableSkylark = isExecutableSkylark;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
@@ -2021,8 +2021,8 @@ public class RuleClass {
   /**
    * Returns true if this rule class outputs a default executable for every rule.
    */
-  public boolean outputsDefaultExecutable() {
-    return outputsDefaultExecutable;
+  public boolean isExecutableSkylark() {
+    return isExecutableSkylark;
   }
 
   public ImmutableSet<Label> getRequiredToolchains() {
