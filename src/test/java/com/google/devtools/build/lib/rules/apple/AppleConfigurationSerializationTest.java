@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -87,13 +88,23 @@ public class AppleConfigurationSerializationTest
       return new AppleConfiguration[] {
         new AppleConfiguration(
             firstOptions,
-            "iosCpuArg"),
+            "iosCpuArg",
+            DottedVersion.fromString("10.0"),
+            DottedVersion.fromString("11.0"),
+            DottedVersion.fromString("12.0"),
+            DottedVersion.fromString("13.0"),
+            DottedVersion.fromString("14.0"),
+            DottedVersion.fromString("15.0"),
+            DottedVersion.fromString("16.0"),
+            DottedVersion.fromString("17.0"),
+            DottedVersion.fromString("18.0")),
         AppleConfiguration.create(
             BuildOptions.of(ImmutableList.of(AppleCommandLineOptions.class))
                 .get(AppleCommandLineOptions.class),
-            "another cpu")
+            "another cpu",
+            XcodeVersionProperties.unknownXcodeVersionProperties())
       };
-    } catch (OptionsParsingException e) {
+    } catch (InvalidConfigurationException | OptionsParsingException e) {
       throw new IllegalStateException(e);
     }
   }

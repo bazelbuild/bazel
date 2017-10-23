@@ -1108,6 +1108,23 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
+  public void testMissingXcodeVersion() throws Exception {
+    // The xcode_version flag uses yet another code path on top of the redirect chaser.
+    // Note that the redirect chaser throws if it can't find a package, but doesn't throw if it
+    // can't find a label in a package - that's why we use an empty package here.
+    scratch.file("xcode/BUILD");
+    useConfiguration("--xcode_version=1.2", "--xcode_version_config=//xcode:does_not_exist");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING));
+      fail();
+    } catch (InvalidConfigurationException e) {
+      assertThat(e).hasMessageThat().contains("//xcode:does_not_exist");
+    }
+  }
+
+
+  @Test
   public void testVisibilityReferencesNonexistentPackage() throws Exception {
     scratch.file("z/a/BUILD",
         "py_library(name='a', visibility=['//nonexistent:nothing'])");
