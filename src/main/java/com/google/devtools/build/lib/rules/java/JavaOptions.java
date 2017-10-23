@@ -573,6 +573,7 @@ public class JavaOptions extends FragmentOptions {
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
+    host.enableMakeVariables = enableMakeVariables;
 
     return host;
   }
