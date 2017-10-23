@@ -146,6 +146,17 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowKeywordOnlyArgs;
 
   @Option(
+    name = "incompatible_disallow_set_constructor",
+    defaultValue = "true",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help = "If set to true, disables the deprecated `set` constructor for depsets."
+  )
+  public boolean incompatibleDisallowSetConstructor;
+
+  @Option(
     name = "incompatible_disallow_toplevel_if_statement",
     defaultValue = "true",
     category = "incompatible changes",
@@ -243,6 +254,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDictLiteralHasNoDuplicates(incompatibleDictLiteralHasNoDuplicates)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowKeywordOnlyArgs(incompatibleDisallowKeywordOnlyArgs)
+        .incompatibleDisallowSetConstructor(incompatibleDisallowSetConstructor)
         .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
         .incompatibleListPlusEqualsInplace(incompatibleListPlusEqualsInplace)
         .incompatibleLoadArgumentIsLabel(incompatibleLoadArgumentIsLabel)

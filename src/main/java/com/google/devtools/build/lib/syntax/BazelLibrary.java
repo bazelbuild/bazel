@@ -114,7 +114,8 @@ public class BazelLibrary {
         defaultValue = "None"
       )
     },
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction depset =
       new BuiltinFunction("depset") {
@@ -123,11 +124,13 @@ public class BazelLibrary {
             String orderString,
             Object direct,
             Object transitive,
-            Location loc)
+            Location loc,
+            Environment env)
             throws EvalException {
           Order order;
           try {
-            order = Order.parse(orderString);
+            order = Order.parse(
+                orderString, env.getSemantics().incompatibleDisallowSetConstructor());
           } catch (IllegalArgumentException ex) {
             throw new EvalException(loc, ex);
           }
@@ -173,6 +176,52 @@ public class BazelLibrary {
   private static boolean isEmptySkylarkList(Object o) {
     return o instanceof SkylarkList && ((SkylarkList) o).isEmpty();
   }
+
+  @SkylarkSignature(
+    name = "set",
+    returnType = SkylarkNestedSet.class,
+    documentationReturnType = SkylarkNestedSet.LegacySet.class,
+    doc =
+        "A temporary alias for <a href=\"#depset\">depset</a>. "
+            + "Deprecated in favor of <code>depset</code>.",
+    parameters = {
+      @Param(
+        name = "items",
+        type = Object.class,
+        defaultValue = "[]",
+        doc = "Same as for <a href=\"#depset\">depset</a>."
+      ),
+      @Param(
+        name = "order",
+        type = String.class,
+        defaultValue = "\"default\"",
+        doc = "Same as for <a href=\"#depset\">depset</a>."
+      )
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction set =
+      new BuiltinFunction("set") {
+        public SkylarkNestedSet invoke(Object items, String order, Location loc, Environment env)
+            throws EvalException {
+          if (env.getSemantics().incompatibleDisallowSetConstructor()) {
+            throw new EvalException(
+                loc,
+                "The `set` constructor for depsets is deprecated and will be removed. Please use "
+                    + "the `depset` constructor instead. You can temporarily enable the "
+                    + "deprecated `set` constructor by passing the flag "
+                    + "--incompatible_disallow_set_constructor=false");
+          }
+          try {
+            return new SkylarkNestedSet(
+                Order.parse(order, /*forbidDeprecatedOrderNames=*/false),
+                items, loc);
+          } catch (IllegalArgumentException ex) {
+            throw new EvalException(loc, ex);
+          }
+        }
+      };
 
   @SkylarkSignature(
     name = "union",
@@ -255,7 +304,7 @@ public class BazelLibrary {
       };
 
   private static Environment.Frame createGlobals() {
-    List<BaseFunction> bazelGlobalFunctions = ImmutableList.of(select, depset, type);
+    List<BaseFunction> bazelGlobalFunctions = ImmutableList.of(select, depset, set, type);
 
     try (Mutability mutability = Mutability.create("BUILD")) {
       Environment env = Environment.builder(mutability)

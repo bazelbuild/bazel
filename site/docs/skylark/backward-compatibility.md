@@ -30,6 +30,7 @@ To check if your code will be compatible with future releases you can:
 The following are the backward incompatible changes that are implemented and
 guarded behind flags in the current release:
 
+*   [Set constructor](#set-constructor)
 *   [Keyword-only arguments](#keyword-only-arguments)
 *   [Mutating `+=`](#mutating)
 *   [Dictionary concatenation](#dictionary-concatenation)
@@ -42,6 +43,18 @@ guarded behind flags in the current release:
 *   [Dictionary literal has no duplicates](#dictionary-literal-has-no-duplicates)
 *   [New actions API](#new-actions-api)
 *   [Checked arithmetic](#checked-arithmetic)
+
+### Set constructor
+
+We are removing the `set` constructor. Use `depset` instead. `set` and `depset`
+are equivalent, you just need to do search and replace to update the old code.
+
+We are doing this to reduce confusion between the specialized
+[depset](depsets.md) data structure and Python's set datatype.
+
+*   Flag: `--incompatible_disallow_set_constructor`
+*   Default: `true`
+
 
 ### Keyword-only arguments
 
