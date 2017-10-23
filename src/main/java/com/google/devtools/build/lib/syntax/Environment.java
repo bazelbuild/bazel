@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -554,15 +553,24 @@ public final class Environment implements Freezable {
     return eventHandler;
   }
 
-  /** @return the current stack trace as a list of functions. */
-  ImmutableList<BaseFunction> getStackTrace() {
-    ImmutableList.Builder<BaseFunction> builder = new ImmutableList.Builder<>();
+  /**
+   * Returns if calling the supplied function would be a recursive call, or in other words if the
+   * supplied function is already on the stack.
+   */
+  boolean isRecursiveCall(UserDefinedFunction function) {
     for (Continuation k = continuation; k != null; k = k.continuation) {
-      builder.add(k.function);
+      if (k.function.equals(function)) {
+        return true;
+      }
     }
-    return builder.build().reverse();
+    return false;
   }
 
+  /** Returns the current function call, if it exists. */
+  @Nullable
+  BaseFunction getCurrentFunction() {
+    return continuation != null ? continuation.function : null;
+  }
 
   /**
    * Returns the FuncallExpression and the BaseFunction for the top-level call being evaluated.
