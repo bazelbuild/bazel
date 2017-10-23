@@ -44,8 +44,9 @@
 #include <algorithm>
 #include <chrono>  // NOLINT (gRPC requires this)
 #include <cinttypes>
-#include <mutex>   // NOLINT
+#include <mutex>  // NOLINT
 #include <set>
+#include <sstream>
 #include <string>
 #include <thread>  // NOLINT
 #include <utility>
@@ -352,23 +353,30 @@ static vector<string> GetArgumentArray() {
     die(jvm_args_exit_code, "%s", error.c_str());
   }
 
-  // We put all directories on the java.library.path that contain .so files.
-  string java_library_path = "-Djava.library.path=";
+  // We put all directories on java.library.path that contain .so/.dll files.
+  set<string> java_library_paths;
+  std::stringstream java_library_path;
+  java_library_path << "-Djava.library.path=";
   string real_install_dir =
       GetEmbeddedBinariesRoot(globals->options->install_base);
 
   bool first = true;
   for (const auto &it : globals->extracted_binaries) {
     if (IsSharedLibrary(it)) {
-      if (!first) {
-        java_library_path += kListSeparator;
+      string libpath(blaze::PathAsJvmFlag(
+          blaze_util::JoinPath(real_install_dir, blaze_util::Dirname(it))));
+      // Only add the library path if it's not added yet.
+      if (java_library_paths.find(libpath) == java_library_paths.end()) {
+        java_library_paths.insert(libpath);
+        if (!first) {
+          java_library_path << kListSeparator;
+        }
+        first = false;
+        java_library_path << libpath;
       }
-      first = false;
-      java_library_path += blaze::PathAsJvmFlag(
-          blaze_util::JoinPath(real_install_dir, blaze_util::Dirname(it)));
     }
   }
-  result.push_back(java_library_path);
+  result.push_back(java_library_path.str());
 
   // Force use of latin1 for file names.
   result.push_back("-Dfile.encoding=ISO-8859-1");
