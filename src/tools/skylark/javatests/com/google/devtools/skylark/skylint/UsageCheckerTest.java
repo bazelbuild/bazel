@@ -286,6 +286,8 @@ public class UsageCheckerTest {
   @Test
   public void dontReportLocalsStartingWithUnderscore() throws Exception {
     Truth.assertThat(findIssues("def f(_param):", "  _local = [[] for _x in []]")).isEmpty();
+    Truth.assertThat(findIssues("def f(unused_param):", "  unused_local = [[] for unused_x in []]"))
+        .isEmpty();
   }
 
   @Test
