@@ -47,6 +47,7 @@ import java.util.List;
 // TODO(skylark-team): Check that UPPERCASE_VARIABLES are never mutated
 public class NamingConventionsChecker extends AstVisitorWithNameResolution {
   private static final String NAME_WITH_WRONG_CASE_CATEGORY = "name-with-wrong-case";
+  private static final String PROVIDER_NAME_ENDS_IN_INFO_CATEGORY = "provider-name-suffix";
   private static final String CONFUSING_NAME_CATEGORY = "confusing-name";
   private static final ImmutableList<String> CONFUSING_NAMES = ImmutableList.of("O", "I", "l");
   private static final ImmutableSet<String> BUILTIN_NAMES;
@@ -114,6 +115,14 @@ public class NamingConventionsChecker extends AstVisitorWithNameResolution {
               NAME_WITH_WRONG_CASE_CATEGORY,
               "provider name '" + name + "' should be UpperCamelCase",
               location));
+    }
+    if (!name.endsWith("Info")) {
+      issues.add(
+          Issue.create(
+              PROVIDER_NAME_ENDS_IN_INFO_CATEGORY,
+              "provider name '" + name + "' should end in the suffix 'Info'",
+              location)
+          );
     }
   }
 

@@ -106,9 +106,15 @@ public class NamingConventionsCheckerTest {
 
   @Test
   public void testProviderNameMustBeCamelCase() throws Exception {
-    Truth.assertThat(findIssues("FooBar = provider()")).isEmpty();
+    Truth.assertThat(findIssues("FooBarInfo = provider()")).isEmpty();
     Truth.assertThat(findIssues("foo_bar = provider()").toString())
         .contains("provider name 'foo_bar' should be UpperCamelCase [name-with-wrong-case]");
+  }
+
+  @Test
+  public void testProviderNameMustEndInInfo() throws Exception {
+    Truth.assertThat(findIssues("FooBar = provider()").toString())
+        .contains("provider name 'FooBar' should end in the suffix 'Info' [provider-name-suffix]");
   }
 
   @Test
