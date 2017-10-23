@@ -193,8 +193,16 @@ function test_packages_cleared() {
       || fail "env extension count $env_count too low: did you move/rename the class?"
   local ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"
-  [[ "ct_count" -ge 18 ]] \
+  [[ "$ct_count" -ge 18 ]] \
       || fail "RuleConfiguredTarget count $ct_count too low: did you move/rename the class?"
+  local edgeless_entry_count="$(extract_histogram_count "$histo_file" \
+       'EdgelessInMemoryNodeEntry')"
+  [[ "$edgeless_entry_count" -eq 0 ]] \
+      || fail "$edgless_entry_count EdgelessInMemoryNodeEntry instances found in build keeping edges"
+  local node_entry_count="$(extract_histogram_count "$histo_file" \
+       '\.InMemoryNodeEntry')"
+  [[ "$node_entry_count" -ge 100 ]] \
+      || fail "Only $node_entry_count InMemoryNodeEntry instances found in build keeping edges"
   local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
@@ -206,14 +214,20 @@ function test_packages_cleared() {
       || fail "glob count $glob_count too high"
   env_count="$(extract_histogram_count "$histo_file" \
       'Environment\$  Extension$')"
-  # TODO(janakr): this is failing since the test was disabled and someone snuck
-  # a regression in. Fix.
   [[ "$env_count" -le 7 ]] \
       || fail "env extension count $env_count too high"
   ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"
   [[ "$ct_count" -le 1 ]] \
       || fail "too many RuleConfiguredTarget: expected at most 1, got $ct_count"
+  edgeless_entry_count="$(extract_histogram_count "$histo_file" \
+       'EdgelessInMemoryNodeEntry')"
+  [[ "$edgeless_entry_count" -ge 100 ]] \
+      || fail "Not enough ($edgless_entry_count) EdgelessInMemoryNodeEntry instances found in build discarding edges"
+  node_entry_count="$(extract_histogram_count "$histo_file" \
+       '\.InMemoryNodeEntry')"
+  [[ "$node_entry_count" -le 10 ]] \
+      || fail "Too many ($node_entry_count) InMemoryNodeEntry instances found in build discarding edges"
 }
 
 function test_actions_deleted_after_execution() {

@@ -603,7 +603,7 @@ public final class CommandEnvironment {
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);
     // Let skyframe figure out if it needs to store graph edges for this build.
-    skyframeExecutor.decideKeepIncrementalState(
+    skyframeExecutor.decideKeepIncrementalStateAndResetEvaluatorIfNecessary(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
         options.getOptions(BuildView.Options.class));
 

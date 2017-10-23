@@ -689,7 +689,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *       way).
    * </ol>
    */
-  public void decideKeepIncrementalState(boolean batch, Options viewOptions) {
+  public void decideKeepIncrementalStateAndResetEvaluatorIfNecessary(
+      boolean batch, Options viewOptions) {
     // Assume incrementality.
   }
 

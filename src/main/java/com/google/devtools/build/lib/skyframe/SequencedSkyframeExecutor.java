@@ -485,7 +485,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void decideKeepIncrementalState(boolean batch, Options viewOptions) {
+  public void decideKeepIncrementalStateAndResetEvaluatorIfNecessary(
+      boolean batch, Options viewOptions) {
     Preconditions.checkState(!active);
     if (viewOptions == null) {
       // Some blaze commands don't include the view options. Don't bother with them.
@@ -497,8 +498,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           "May only be called once if successful: %s",
           incrementalState);
       incrementalState = IncrementalState.CLEAR_EDGES_AND_ACTIONS;
-      // Graph will be recreated on next sync.
       logger.info("Set incremental state to " + incrementalState);
+      // Recreate MemoizingEvaluator so that graph is recreated with edge-clearing enabled.
+      resetEvaluator();
     }
     removeActionsAfterEvaluation.set(incrementalState == IncrementalState.CLEAR_EDGES_AND_ACTIONS);
   }
