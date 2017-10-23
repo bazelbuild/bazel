@@ -385,7 +385,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
    */
   private class DefaultMethodStubber extends ClassVisitor {
 
-    private String interfaceName;
+    private String stubbedInterfaceName;
 
     public DefaultMethodStubber() {
       super(Opcodes.ASM5);
@@ -400,8 +400,8 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         String superName,
         String[] interfaces) {
       checkArgument(BitFlags.isSet(access, Opcodes.ACC_INTERFACE));
-      checkState(interfaceName == null);
-      interfaceName = name;
+      checkState(stubbedInterfaceName == null);
+      stubbedInterfaceName = name;
     }
 
     @Override
@@ -414,7 +414,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         // methods redefined in interfaces extending another.
         recordIfInstanceMethod(access, name, desc);
         depsCollector.assumeCompanionClass(
-            internalName, InterfaceDesugaring.getCompanionClassName(interfaceName));
+            internalName, InterfaceDesugaring.getCompanionClassName(stubbedInterfaceName));
 
         // Add this method to the class we're desugaring and stub in a body to call the default
         // implementation in the interface's companion class. ijar omits these methods when setting
@@ -433,9 +433,9 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         }
         stubMethod.visitMethodInsn(
             Opcodes.INVOKESTATIC,
-            InterfaceDesugaring.getCompanionClassName(interfaceName),
+            InterfaceDesugaring.getCompanionClassName(stubbedInterfaceName),
             name,
-            InterfaceDesugaring.companionDefaultMethodDescriptor(interfaceName, desc),
+            InterfaceDesugaring.companionDefaultMethodDescriptor(stubbedInterfaceName, desc),
             /*itf*/ false);
         stubMethod.visitInsn(neededType.getReturnType().getOpcode(Opcodes.IRETURN));
 
@@ -444,15 +444,15 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         return null;
       } else if (shouldStubAsBridgeDefaultMethod(access, name, desc)) {
         recordIfInstanceMethod(access, name, desc);
-        depsCollector.assumeCompanionClass(
-            internalName, InterfaceDesugaring.getCompanionClassName(interfaceName));
         // For bridges we just copy their bodies instead of going through the companion class.
         // Meanwhile, we also need to desugar the copied method bodies, so that any calls to
         // interface methods are correctly handled.
         return new InterfaceDesugaring.InterfaceInvocationRewriter(
             DefaultMethodClassFixer.this.visitMethod(access, name, desc, (String) null, exceptions),
-            interfaceName,
-            bootclasspath);
+            stubbedInterfaceName,
+            bootclasspath,
+            depsCollector,
+            internalName);
       } else {
         return null; // we don't care about the actual code in these methods
       }

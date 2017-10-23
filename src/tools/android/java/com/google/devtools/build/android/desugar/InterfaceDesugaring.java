@@ -160,6 +160,7 @@ class InterfaceDesugaring extends ClassVisitor {
   @Override
   public MethodVisitor visitMethod(
       int access, String name, String desc, String signature, String[] exceptions) {
+    String codeOwner = internalName;
     MethodVisitor result;
     if (isInterface() && isStaticInitializer(name)) {
       result =
@@ -180,6 +181,8 @@ class InterfaceDesugaring extends ClassVisitor {
       name =
           normalizeInterfaceMethodName(
               name, isLambdaBody, BitFlags.isSet(access, Opcodes.ACC_STATIC));
+      codeOwner = getCompanionClassName(internalName);
+
       if (BitFlags.isSet(access, Opcodes.ACC_STATIC)) {
         // Completely move static interface methods, which requires rewriting call sites
         result =
@@ -226,7 +229,7 @@ class InterfaceDesugaring extends ClassVisitor {
     }
     return result != null
         ? new InterfaceInvocationRewriter(
-            result, isInterface() ? internalName : null, bootclasspath)
+            result, isInterface() ? internalName : null, bootclasspath, depsCollector, codeOwner)
         : null;
   }
 
@@ -330,12 +333,21 @@ class InterfaceDesugaring extends ClassVisitor {
     @Nullable private final String interfaceName;
 
     private final ClassReaderFactory bootclasspath;
+    private final DependencyCollector depsCollector;
+    /** Internal name that'll be used to record any dependencies on interface methods. */
+    private final String declaringClass;
 
     public InterfaceInvocationRewriter(
-        MethodVisitor dest, @Nullable String knownInterfaceName, ClassReaderFactory bootclasspath) {
+        MethodVisitor dest,
+        @Nullable String knownInterfaceName,
+        ClassReaderFactory bootclasspath,
+        DependencyCollector depsCollector,
+        String declaringClass) {
       super(Opcodes.ASM5, dest);
       this.interfaceName = knownInterfaceName;
       this.bootclasspath = bootclasspath;
+      this.depsCollector = depsCollector;
+      this.declaringClass = declaringClass;
     }
 
     @Override
@@ -361,6 +373,10 @@ class InterfaceDesugaring extends ClassVisitor {
           }
           // Reflect that InterfaceDesugaring moves and renames the lambda body method
           owner += DependencyCollector.INTERFACE_COMPANION_SUFFIX;
+          itf = false;
+          // Record dependency on companion class
+          depsCollector.assumeCompanionClass(declaringClass, owner);
+
           String expectedLambdaMethodName = LambdaDesugaring.uniqueInPackage(owner, name);
           checkState(
               name.equals(expectedLambdaMethodName),
@@ -368,7 +384,6 @@ class InterfaceDesugaring extends ClassVisitor {
               owner,
               name,
               expectedLambdaMethodName);
-          itf = false;
         } else if ((opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL)) {
           checkArgument(!owner.endsWith(DependencyCollector.INTERFACE_COMPANION_SUFFIX),
               "shouldn't consider %s an interface", owner);
@@ -379,6 +394,8 @@ class InterfaceDesugaring extends ClassVisitor {
           }
           owner += DependencyCollector.INTERFACE_COMPANION_SUFFIX;
           itf = false;
+          // Record dependency on companion class
+          depsCollector.assumeCompanionClass(declaringClass, owner);
         }
       }
       super.visitMethodInsn(opcode, owner, name, desc, itf);
