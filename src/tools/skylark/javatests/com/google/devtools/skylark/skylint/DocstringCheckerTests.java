@@ -16,6 +16,7 @@ package com.google.devtools.skylark.skylint;
 
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,11 +45,12 @@ public class DocstringCheckerTests {
         .contains("1:1-2:1: file has no module docstring [missing-docstring]");
     Truth.assertThat(errorMessage)
         .contains("2:1-3:2: function 'function' has no docstring [missing-docstring]");
-    // The following function has zero statements since the parser throws `pass` statements away.
-    // Hence we have to check this case to make sure the end location is set correctly.
-    errorMessage = findIssues("def function():", "  pass # no function docstring").toString();
-    Truth.assertThat(errorMessage)
-        .contains("1:1-2:30: function 'function' has no docstring [missing-docstring]");
+    // This function has zero statements. We want to make sure the end location is set correctly:
+    BuildFileAST ast = BuildFileAST.parseString(event -> {}, "def foo():");
+    FunctionDefStatement funDefWithEmptySuite = (FunctionDefStatement) ast.getStatements().get(0);
+    Truth.assertThat(funDefWithEmptySuite.getStatements()).isEmpty();
+    Truth.assertThat(DocstringChecker.check(ast).toString())
+        .contains("1:1-1:10: function 'foo' has no docstring [missing-docstring]");
   }
 
   @Test

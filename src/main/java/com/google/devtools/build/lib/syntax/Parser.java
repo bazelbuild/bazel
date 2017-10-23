@@ -1120,8 +1120,7 @@ public class Parser {
   // small_stmt | 'pass'
   private void parseSmallStatementOrPass(List<Statement> list) {
     if (token.kind == TokenKind.PASS) {
-      // Skip the token, don't add it to the list.
-      // It has no existence in the AST.
+      list.add(setLocation(new PassStatement(), token.left, token.right));
       expect(TokenKind.PASS);
     } else {
       list.add(parseSmallStatement());

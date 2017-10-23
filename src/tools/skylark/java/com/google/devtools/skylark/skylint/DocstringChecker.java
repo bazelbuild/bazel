@@ -83,7 +83,7 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       Location start = Location.from(node.getLocation().getStartLineAndColumn());
       Location end;
       if (node.getStatements().isEmpty()) {
-        // The function body can be empty because the parser discards `pass` statements:
+        // empty statement suites cannot come from the parser yet we should handle this gracefully:
         end = Location.from(node.getLocation().getEndLineAndColumn());
       } else {
         LineAndColumn lac = node.getStatements().get(0).getLocation().getStartLineAndColumn();

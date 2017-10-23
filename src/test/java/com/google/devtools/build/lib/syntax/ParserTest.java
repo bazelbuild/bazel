@@ -982,7 +982,8 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testPass() throws Exception {
     List<Statement> statements = parseFileForSkylark("pass\n");
-    assertThat(statements).isEmpty();
+    assertThat(statements).hasSize(1);
+    assertThat(statements.get(0)).isInstanceOf(PassStatement.class);
   }
 
   @Test
@@ -993,7 +994,7 @@ public class ParserTest extends EvaluationTestCase {
 
     assertThat(statements).hasSize(1);
     FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
-    assertThat(stmt.getStatements()).isEmpty();
+    assertThat(stmt.getStatements().get(0)).isInstanceOf(PassStatement.class);
   }
 
   @Test

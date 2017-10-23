@@ -33,6 +33,7 @@ public abstract class Statement extends ASTNode {
     FUNCTION_DEF,
     IF,
     LOAD,
+    PASS,
     RETURN,
   }
 
