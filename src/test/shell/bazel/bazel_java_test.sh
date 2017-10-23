@@ -208,6 +208,58 @@ function test_build_hello_world() {
   bazel build //java/main:main &> $TEST_log || fail "build failed"
 }
 
+# This test builds a simple java deploy jar using a java_toolchain which
+# compiles singlejar and ijar from source.
+function test_build_hello_world_with_customized_java_toolchain() {
+  write_hello_library_files
+
+  mkdir -p java/tools/jdk
+  cat >java/tools/jdk/BUILD <<'EOF'
+java_toolchain(
+    name = "customized_toolchain",
+    bootclasspath = ["@bazel_tools//tools/jdk:bootclasspath"],
+    compatible_javacopts = {
+        # Restrict protos to Java 7 so that they are compatible with Android.
+        "proto": [
+            "-source",
+            "7",
+            "-target",
+            "7",
+            "-XDallowBetterNullChecks=false",
+        ],
+    },
+    encoding = "UTF-8",
+    extclasspath = ["@bazel_tools//tools/jdk:extclasspath"],
+    forcibly_disable_header_compilation = 0,
+    genclass = ["@bazel_tools//tools/jdk:genclass"],
+    header_compiler = ["@bazel_tools//tools/jdk:turbine"],
+    ijar = ["@bazel_tools//third_party/ijar:ijar"],
+    javabuilder = ["@bazel_tools//tools/jdk:javabuilder"],
+    javac = ["//third_party/java/jdk/langtools:javac_jar"],
+    javac_supports_workers = 1,
+    jvm_opts = [
+        "-XX:+TieredCompilation",
+        "-XX:TieredStopAtLevel=1",
+        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
+    ],
+    misc = [
+        "-XDskipDuplicateBridges=true",
+        "-g",
+        "-parameters",
+    ],
+    singlejar = ["@bazel_tools//src/tools/singlejar:singlejar"],
+    source_version = "8",
+    target_version = "8",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  bazel build //java/main:main_deploy.jar \
+    --host_java_toolchain=//java/tools/jdk:customized_toolchain \
+    --java_toolchain=//java/tools/jdk:customized_toolchain \
+    &> $TEST_log || fail "build failed"
+}
+
 function test_build_with_sourcepath() {
   mkdir -p g
   cat >g/A.java <<'EOF'
