@@ -1,0 +1,1089 @@
+<!doctype html>
+<base target="_top">
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css?family=Inconsolata|Noto+Sans" rel="stylesheet">
+<style>
+body {
+  font: 16px 'Noto Sans', sans-serif;
+  color: #333;
+  margin: 0 auto 1em auto;
+  padding: 0 1em;
+  width: 960px;
+}
+
+pre {
+  font: 16px 'Inconsolata', monospace;
+}
+
+textarea {
+  font: 14px 'Inconsolata', monospace;
+}
+
+input {
+  font: 14px 'Noto Sans', sans-serif;
+}
+
+input[type=text] {
+  width: 300px;
+}
+
+label,
+.hint {
+  display: block;
+}
+
+label {
+  margin-bottom: 6px;
+}
+
+input[type=checkbox] {
+  vertical-align: middle;
+}
+
+textarea,
+input[type=text] {
+  border: 1px solid #d9d9d9;
+  border-top: 1px solid #c0c0c0;
+  line-height: 28px;
+  padding-left: 8px;
+}
+
+textarea:hover,
+input[type=text]:hover {
+  border: 1px solid #b9b9b9;
+  border-top: 1px solid #a0a0a0;
+  box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
+}
+
+textarea:focus,
+input[type=text]:focus {
+  outline: none;
+  border: 1px solid #4d90fe;
+  box-shadow: inset 0px 1px 2px rgba(0,0,0,0.3);
+}
+
+input[type=submit] {
+  font-size: 16px;
+}
+
+.hint {
+  color: #777;
+  font-size: small;
+}
+
+#result {
+  overflow: scroll;
+}
+
+#errors {
+  color: #d00;
+}
+
+#progress {
+  font-size: small;
+  padding-left: 0.5em;
+}
+
+footer {
+  font-size: 14px;
+  font-style: italic;
+}
+</style>
+
+<header>
+  <img src="https://i.imgur.com/mzAGP7m.jpg" width="960" height="320"
+       alt="Beautiful people hanging out in antiquity as depicted by Sir Lawrence Alma-Tadema in his 1881 painting Sappho and Alcaeus">
+  <h1>Bazel Maven Config Generator</h1>
+  <p>
+    This tool is intended for Java projects using the <a href="https://bazel.build/">Bazel</a>
+    build system. Using this tool makes your Bazel builds unbelievably fast, reliable, and readable.
+    Give it the Maven artifacts you directly depend upon. It generates a Bazel configuration you can
+    copy into your <code>WORKSPACE</code> file. It resolves transitive and diamond dependencies
+    automatically. 
+</header>
+
+<form id="form">
+  <p>
+    <label for="artifacts">
+      Maven Artifacts
+      <span class="hint">Only those your code directly references, i.e. jars whose classes you import; separated by <code>[\s#]+</code></span>
+    </label>
+    <textarea id="artifacts" rows="4" cols="70" required autofocus>com.google.guava:guava:20.0</textarea>
+  <p>
+    <label for="calculateChecksum">
+      <input type="checkbox" id="calculateChecksum" checked>
+      Calculate SHA-256 checksums
+      <span class="hint">You always want this, but our backend might do it slowly due to an Apps Script bug</span>
+    </label>
+  <p>
+    <label for="includeOptional">
+      <input type="checkbox" id="includeOptional">
+      Include optional dependencies
+      <span class="hint">These may or may not be needed depending on what features of the artifacts you use</span>
+    </label>
+  <p>
+    <label for="includeSauce">
+      <input type="checkbox" id="includeSauce">
+      Include source jars
+      <span class="hint">Define the <code>srcjar</code> attribute if a -sources.jar exists</span>
+    </label>
+  <p>
+    <label for="mirror">
+      <input type="checkbox" id="mirror">
+      Mirror to my Google Drive
+      <span class="hint">Jars will be mirrored to <em>your</em> Google Drive account in the 'bazel-mirror/urlhost/urlpath' folder and made public</span>
+    </label>
+  <p>
+    <input type="submit" value="Generate Bazel Config">
+    <span id="progress"></span>
+</form>
+
+<pre id="errors"></pre>
+
+<h2>Generated Configuration</h2>
+<pre id="result">java_import_external(
+    name = "com_google_code_findbugs_jsr305",
+    licenses = ["notice"],  # The Apache Software License, Version 2.0
+    jar_sha256 = "905721a0eea90a81534abb7ee6ef4ea2e5e645fa1def0a5cd88402df1b46c9ed",
+    jar_urls = [
+        "http://repo1.maven.org/maven2/com/google/code/findbugs/jsr305/1.3.9/jsr305-1.3.9.jar",
+        "http://maven.ibiblio.org/maven2/com/google/code/findbugs/jsr305/1.3.9/jsr305-1.3.9.jar",
+    ],
+)
+
+java_import_external(
+    name = "com_google_errorprone_error_prone_annotations",
+    licenses = ["notice"],  # Apache 2.0
+    jar_sha256 = "7e9c688f734ee5cf2386d3efc367d4a3e6d09130d2afeb52434e1cc2880820a4",
+    jar_urls = [
+        "http://repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.0.12/error_prone_annotations-2.0.12.jar",
+        "http://maven.ibiblio.org/maven2/com/google/errorprone/error_prone_annotations/2.0.12/error_prone_annotations-2.0.12.jar",
+    ],
+)
+
+java_import_external(
+    name = "com_google_guava",
+    licenses = ["notice"],  # The Apache Software License, Version 2.0
+    jar_sha256 = "36a666e3b71ae7f0f0dca23654b67e086e6c93d192f60ba5dfd5519db6c288c8",
+    jar_urls = [
+        "http://repo1.maven.org/maven2/com/google/guava/guava/20.0/guava-20.0.jar",
+        "http://maven.ibiblio.org/maven2/com/google/guava/guava/20.0/guava-20.0.jar",
+    ],
+    deps = [
+        "@com_google_code_findbugs_jsr305",
+        "@com_google_errorprone_error_prone_annotations",
+        "@com_google_j2objc_annotations",
+        "@org_codehaus_mojo_animal_sniffer_annotations",
+    ]
+)
+
+java_import_external(
+    name = "com_google_j2objc_annotations",
+    licenses = ["notice"],  # The Apache Software License, Version 2.0
+    jar_sha256 = "40ceb7157feb263949e0f503fe5f71689333a621021aa20ce0d0acee3badaa0f",
+    jar_urls = [
+        "http://repo1.maven.org/maven2/com/google/j2objc/j2objc-annotations/1.1/j2objc-annotations-1.1.jar",
+        "http://maven.ibiblio.org/maven2/com/google/j2objc/j2objc-annotations/1.1/j2objc-annotations-1.1.jar",
+    ],
+)
+
+java_import_external(
+    name = "org_codehaus_mojo_animal_sniffer_annotations",
+    licenses = ["notice"],  # MIT license
+    jar_sha256 = "2068320bd6bad744c3673ab048f67e30bef8f518996fa380033556600669905d",
+    jar_urls = [
+        "http://repo1.maven.org/maven2/org/codehaus/mojo/animal-sniffer-annotations/1.14/animal-sniffer-annotations-1.14.jar",
+        "http://maven.ibiblio.org/maven2/org/codehaus/mojo/animal-sniffer-annotations/1.14/animal-sniffer-annotations-1.14.jar",
+    ],
+)</pre>
+
+<script>
+/**
+ * @license
+ * Copyright 2016 Google Inc. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @fileoverview Frontend application for generating Bazel Maven configs.
+ * @author jart@google.com (Justine Tunney)
+ */
+
+var ELEMENT_NODE = 1;
+var COMMENT_NODE = 8;
+var ARTIFACT_PATTERN = new RegExp('^([-._0-9A-Za-z]*):([-._0-9A-Za-z]*):([-._0-9A-Za-z]+)$');
+var WHITESPACE_PATTERN = new RegExp('[ \t\r\n#]+');
+var CLEANSE_CHARS = new RegExp('[^_0-9A-Za-z]', 'g');
+var VERSION_RANGE_PATTERN = /^([\[(])([^,)\]]*),([^)\]]*)([\])])$/;
+
+var LICENSE_ZEAL = {
+    '': -1,
+    'unencumbered': 0,
+    'permissive': 1,
+    'notice': 2,
+    'reciprocal': 3,
+    'restricted': 4,
+    'by_exception_only': 5,
+    'TODO': 6,
+};
+
+var rpc;
+var formElement;
+var artifactsElement;
+var mirrorElement;
+var includeOptionalElement;
+var includeSauceElement;
+var resultElement;
+var errorsElement;
+var progressElement;
+var calculateChecksumElement;
+
+var xmlCache = {};
+var xmlFetching = {};
+var checksums = {};
+var mirrors = {};
+var hasSauce = {};
+var userEmail = 'unknown@gmail.com';
+
+var count = 0;
+var total = 0;
+var edges = {};
+var edgesBackwards = {};
+var discovered = {};
+var neverlink = {};
+var diamonds = [];
+
+function isString(x) {
+  return typeof x === 'string' || x instanceof String;
+}
+
+function forEach(items, callback) {
+  if (!items) {
+    return;
+  }
+  for (var i = 0; i < items.length; i++) {
+    if (callback(items[i], i) === false) {
+      break;
+    }
+  }
+}
+
+function arrayContains(array, item) {
+  for (var i = 0; i < array.length; i++) {
+    if (array[i] == item) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function preventDefault(callback) {
+  return function(ev) {
+    ev.preventDefault();
+    callback();
+    return false;
+  };
+}
+
+function isDigit(c) {
+  return '0' <= c && c <= '9';
+}
+
+function isSeparator(c) {
+  return c == '-' || c == '_' || c == ' ' || c == '.';
+}
+
+function isBreak(c) {
+  return isSeparator(c) || isDigit(c);
+}
+
+function ifElement(callback) {
+  return function(element) {
+    if (element.nodeType == ELEMENT_NODE) {
+      callback(element);
+    }
+  };
+}
+
+function consumeInt(s, i) {
+  for (; i < s.length; i++) {
+    if (!isDigit(s[i])) {
+      break;
+    }
+  }
+  return i;
+}
+
+// https://cwiki.apache.org/confluence/display/MAVENOLD/Versioning
+function compareVersions(a, b) {
+  var ai = 0;
+  var bi = 0;
+  while (true) {
+    if (ai == a.length) {
+      if (bi == b.length) {
+        return 0;
+      }
+      if (isSeparator(b[bi])) {
+        return compareVersions('0', b.slice(bi + 1, b.length));
+      }
+      return -1;
+    }
+    if (bi == b.length) {
+      return -compareVersions(b, a);
+    }
+    if (isDigit(a[ai]) && isDigit(b[bi])) {
+      var ais = ai;
+      var bis = bi;
+      ai = consumeInt(a, ai + 1);
+      bi = consumeInt(b, bi + 1);
+      var an = parseInt(a.slice(ais, ai));
+      var bn = parseInt(b.slice(bis, bi));
+      if (an < bn) {
+        return -1;
+      }
+      if (an > bn) {
+        return 1;
+      }
+      continue;
+    } else if (isDigit(a[ai])) {
+      return 1;
+    } else if (isDigit(b[bi])) {
+      return -1;
+    }
+    if (isBreak(a[ai])) {
+      if (!isBreak(b[bi])) {
+        return -1;
+      }
+    } else if (isBreak(b[bi])) {
+      return 1;
+    } else if (a[ai] < b[bi]) {
+      return -1;
+    } else if (a[ai] > b[bi]) {
+      return 1;
+    }
+    ai++;
+    bi++;
+  }
+}
+
+function testCompareVersions(want, a, b) {
+  var go = function(want, a, b) {
+    var res = compareVersions(a, b);
+    if (res != want) {
+      console.error('TEST', 'compareVersions', a, b,
+                    'wanted', want,
+                    'got', res);
+    }
+    return res == want;
+  };
+  if (go(want, a, b)) {
+    go(-want, b, a);
+  }
+}
+
+testCompareVersions( 0, '1', '1');
+testCompareVersions(-1, '1', '2');
+testCompareVersions( 0, '1.9', '1.9.0');
+testCompareVersions(-1, '1.9', '1.9.15');
+testCompareVersions(-1, '1.9.0', '1.9.15');
+testCompareVersions(-1, '1.1', '1.2.0');
+testCompareVersions(-1, '1.0.0', '1.1');
+testCompareVersions(-1, '1.0-alpha-1', '1.0');
+testCompareVersions(-1, '1.0-alpha-1', '1.0-alpha-2');
+testCompareVersions(-1, '1.0-alpha-1', '1.0-beta-1');
+testCompareVersions( 0, '2.0-0', '2.0');
+testCompareVersions(-1, '2.0', '2.0-1');
+testCompareVersions( 0, '1-SNAPSHOT', '1-SNAPSHOT');
+testCompareVersions(-1, '2.0.1', '2.0.1-123');
+testCompareVersions(-1, '2.0.1-xyz', '2.0.1');
+testCompareVersions(-1, '2.0.1-xyz', '2.0.1-123');
+
+function showProgress(message) {
+  console.log(message);
+  progressElement.innerText = '' + count + '/' + total + ': ' + message;
+}
+
+function addError(message) {
+  message = 'ERROR: ' + message;
+  console.log(message);
+  errorsElement.innerText += '\n' + message;
+}
+
+function addDiamond(message) {
+  if (!arrayContains(diamonds, message)) {
+    diamonds.push(message);
+    diamonds.sort(compareVersions);
+  }
+}
+
+function getName(pom) {
+  var left = pom['group'].replace(CLEANSE_CHARS, '_');
+  var right = pom['artifact'].replace(CLEANSE_CHARS, '_');
+  // turn names like com_google_guava_guava into com_google_guava
+  var p = -1;
+  while (p < right.length) {
+    p = right.indexOf('_', p + 1);
+    if (p == -1) {
+      p = right.length;
+    }
+    var chunk = right.slice(0, p);
+    if (left == chunk) {
+      return right;
+    }
+    chunk = '_' + chunk;
+    if (left.slice(-chunk.length) == chunk) {
+      left = left.slice(0, -chunk.length);
+      break;
+    }
+  }
+  return left + '_' + right;
+}
+
+function getXmlValue(parent, key) {
+  var nodes = parent.getElementsByTagName(key);
+  if (nodes.length == 0) {
+    return '';
+  }
+  return nodes[0].textContent.trim();
+}
+
+function extractDep(element) {
+  return {
+    'group': getXmlValue(element, 'groupId'),
+    'artifact': getXmlValue(element, 'artifactId'),
+    'version': getXmlValue(element, 'version'),
+    'scope': getXmlValue(element, 'scope'),
+    'optional': getXmlValue(element, 'optional'),
+    'classifier': getXmlValue(element, 'classifier'),
+  };
+}
+
+function extractLicense(element) {
+  return {
+    'name': getXmlValue(element, 'name'),
+    'url': getXmlValue(element, 'url'),
+  };
+}
+
+function mergeParentIntoPom(pom, parent) {
+  forEach(parent['licenses'], function(plicense) {
+    var found = false;
+    forEach(pom['licenses'], function(license) {
+      if (license['name'] == plicense['name'] || license['url'] == plicense['url']) {
+        found = true;
+        return false;
+      }
+    });
+    if (!found) {
+      pom['licenses'].push(plicense);
+    }
+  });
+  forEach(pom['deps'], function(dep) {
+    forEach(parent['deps'], function(pdep) {
+      if (dep['group'] == pdep['group'] && dep['artifact'] == pdep['artifact']) {
+        if (dep['version'] == '') {
+          dep['version'] = pdep['version'];
+        }
+        if (dep['scope'] == '') {
+          dep['scope'] = pdep['scope'];
+        }
+      }
+    });
+  });
+  for (var k in parent['props']) {
+    if (!(k in pom['props'])) {
+      pom['props'][k] = parent['props'][k];
+    }
+  }
+}
+
+function substituteProps(pom) {
+  var go = function(map) {
+    for (var k in map) {
+      var v = map[k];
+      if (!isString(v)) {
+        continue;
+      }
+      if (v.indexOf('${') != -1) {
+        for (var pk in pom['props']) {
+          var pv = pom['props'][pk];
+          v = v.replace('${' + pk + '}', pv);
+        }
+        map[k] = v;
+      }
+    }
+  };
+  go(pom['props']);
+  go(pom);
+  for (var i = 0; i < pom['deps'].length; i++) {
+    go(pom['deps'][i]);
+  }
+}
+
+function getMavenUrl(ext, server, info) {
+  return ('http://' + server + '/maven2/' +
+          info['group'].replace(new RegExp('\\.', 'g'), '/') + '/' +
+          info['artifact'] + '/' +
+          info['version'] + '/' +
+          info['artifact'] + '-' +
+          info['version'] +
+          ext);
+}
+
+function getMavenMetadataUrl(info) {
+  return ('http://repo1.maven.org/maven2/' +
+          info['group'].replace(new RegExp('\\.', 'g'), '/') + '/' +
+          info['artifact'] + '/maven-metadata.xml');
+}
+
+function parseXml(xmlText) {
+  return new DOMParser().parseFromString(xmlText, 'text/xml');
+}
+
+function fetchXml(url, callback) {
+  if (url.match(/\$\{/)) {
+    throw Error('bad url: ' + url);
+  }
+  if (url in xmlCache) {
+    callback(parseXml(xmlCache[url]));
+    return;
+  }
+  if (xmlFetching[url]) {
+    setTimeout(function() {
+      fetchXml(url, callback);
+    }, 500);
+    return;
+  }
+  total++;
+  xmlFetching[url] = true;
+  showProgress('Fetching ' + url);
+  rpc.withSuccessHandler(function(xmlText) {
+    count++;
+    xmlCache[url] = xmlText;
+    xmlFetching[url] = false;
+    callback(parseXml(xmlText));
+  }).fetchTextFromUrl(url);
+}
+
+function parseVersionRange(spec) {
+  var match = spec.match(VERSION_RANGE_PATTERN);
+  if (!match) {
+    return null;
+  }
+  return {
+    'leftInclusive': match[1] == '[',
+    'left': match[2],
+    'right': match[3],
+    'rightInclusive': match[4] == ']',
+  };
+}
+
+function isVersionInRange(range, version) {
+  var lcomp = compareVersions(range['left'], version);
+  if (lcomp < 0 || (range['leftInclusive'] && lcomp == 0)) {
+    var rcomp = compareVersions(version, range['right']);
+    if (rcomp < 0 || (range['rightInclusive'] && rcomp == 0)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function resolveVersion_(info, callback) {
+  var range = parseVersionRange(info['version']);
+  if (!range) {
+    callback(info);
+    return;
+  }
+  var url = getMavenMetadataUrl(info);
+  fetchXml(url, function(xmlDocument) {
+    var result = '';
+    var onElement = ifElement(function(child) {
+      if (child.tagName == 'metadata' ||
+          child.tagName == 'versioning' ||
+          child.tagName == 'versions') {
+        forEach(child.childNodes, onElement);
+      } else if (child.tagName == 'version') {
+        var version = child.textContent.trim();
+        if (isVersionInRange(range, version)) {
+          result = version;
+        }
+      }
+    });
+    forEach(xmlDocument.childNodes, onElement);
+    if (result == '') {
+      addError('Could not resolve version: ' + info['group'] + ':' +
+               info['artifact'] + ':' + info['version']);
+      return;
+    }
+    callback({
+      'group': info['group'],
+      'artifact': info['artifact'],
+      'version': result,
+    });
+  });
+}
+
+function getLiteralPom_(info, callback) {
+  var url = getMavenUrl('.pom', 'repo1.maven.org', info);
+  fetchXml(url, function(xmlDocument) {
+    var parent = null;
+    var pom = {
+      'group': info['group'],
+      'artifact': info['artifact'],
+      'version': info['version'],
+      'deps': [],
+      'licenses': [],
+      'props': {
+        'project.groupId': info['group'],
+        'project.version': info['version'],
+      },
+    };
+    var onElement = ifElement(function(element) {
+      if (element.tagName == 'parent') {
+        parent = extractDep(element);
+      } else if (element.tagName == 'dependencyManagement') {
+        forEach(element.childNodes, onElement);
+      } else if (element.tagName == 'dependencies') {
+        forEach(element.childNodes, ifElement(function(child) {
+          if (child.tagName == 'dependency') {
+            var dep = extractDep(child);
+            if (dep['group'] == 'jdk') {
+              return;
+            }
+            pom['deps'].push(dep);
+          }
+        }));
+      } else if (element.tagName == 'licenses') {
+        forEach(element.childNodes, ifElement(function(child) {
+          if (child.tagName == 'license') {
+            pom['licenses'].push(extractLicense(child));
+          }
+        }));
+      } else if (element.tagName == 'properties') {
+        forEach(element.childNodes, ifElement(function(child) {
+          pom['props'][child.tagName] = child.textContent.trim();
+        }));
+      }
+    });
+    forEach(xmlDocument.childNodes, ifElement(function(child) {
+      if (child.tagName == 'project') {
+        forEach(child.childNodes, onElement);
+      }
+    }));
+    if (parent != null) {
+      if (parent['group'] == '') {
+        parent['group'] = pom['group'];
+      }
+      if (parent['version'] == '') {
+        parent['version'] = pom['version'];
+      }
+      getLiteralPom_(parent, function(parentPom) {
+        mergeParentIntoPom(pom, parentPom);
+        substituteProps(pom);
+        callback(pom);
+      });
+    } else {
+      substituteProps(pom);
+      callback(pom);
+    }
+  });
+}
+
+function getPom(info, callback) {
+  resolveVersion_(info, function(resolvedInfo) {
+    getLiteralPom_(resolvedInfo, function(pom) {
+      forEach(pom['deps'], function(dep, i) {
+        if (dep['version'] == '') { 
+          addError(getName(pom) + ' missing version for dep ' + getName(dep));
+          pom['deps'].splice(i, 1);
+        }
+      });
+      callback(pom);
+    });
+  });
+}
+
+function getChecksum(ext, pom) {
+  if (!calculateChecksumElement.checked) {
+    return;
+  }
+  var url = getMavenUrl(ext, 'repo1.maven.org', pom);
+  if (url in checksums) {
+    return;
+  }
+  total++;
+  checksums[url] = 'TODO';
+  rpc.withSuccessHandler(function(checksum) {
+    count++;
+    showProgress('Got checksum for ' + getName(pom) + ext);
+    checksums[url] = checksum;
+    printDiscovered();
+  }).getSha256ForUrl(url);
+}
+
+function mirror(ext, pom) {
+  var url = getMavenUrl(ext, 'repo1.maven.org', pom);
+  if (url in mirrors) {
+    return;
+  }
+  total++;
+  rpc.withSuccessHandler(function(mirroredUrl) {
+    count++;
+    showProgress('Mirrored ' + getName(pom) + ext);
+    mirrors[url] = mirroredUrl;
+    printDiscovered();
+  }).mirrorUrl(url);
+}
+
+function getSauce(pom) {
+  var url = getMavenUrl('-sources.jar', 'repo1.maven.org', pom);
+  var name = getName(pom);
+  if (name in hasSauce) {
+    return;
+  }
+  total++;
+  rpc.withSuccessHandler(function(exists) {
+    count++;
+    hasSauce[name] = exists;
+    showProgress((exists ? 'Found' : 'No') + ' srcjar for ' + getName(pom));
+    printDiscovered();
+    if (exists) {
+      if (mirrorElement.checked) {
+        mirror('-sources.jar', pom);
+      }
+      getChecksum('-sources.jar', pom);
+    }
+  }).doesUrlExist(url);
+}
+
+// https://bazel.build/versions/master/docs/be/functions.html#licenses_args
+function guessLicenseType(license) {
+  if (license['url'].indexOf('gnu.org/licenses/agpl') != -1 ||
+      license['url'].indexOf('wtfpl.net') != -1 ||
+      license['name'].indexOf('WTFPL') != -1 ||
+      license['name'].indexOf('AGPL') != -1 ||
+      license['name'].indexOf('Affero') != -1 ||
+      license['name'].indexOf('affero') != -1 ||
+      license['name'].indexOf('Fuck') != -1 ||
+      license['name'].indexOf('fuck') != -1) {
+    return 'by_exception_only';
+  }
+  if (license['url'].indexOf('apache.org/licenses/LICENSE-2.0') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/mit') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/bsd') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/BSD') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/ISC') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/zpl') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/zlib') != -1 ||
+      license['url'].indexOf('unicode.org/copyright') != -1 ||
+      license['url'].indexOf('json.org/license') != -1 ||
+      license['url'].indexOf('gwtproject.org/terms') != -1) {
+    return 'notice';
+  }
+  if (license['url'].indexOf('www.gnu.org') != -1 ||
+      license['url'].indexOf('www.oracle.com/technetwork/java/javase/terms/license/index.html') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/sleepycat.php') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/osl') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/qtpl') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/sleepycat') != -1 ||
+      license['url'].indexOf('cr.yp.to/qmail') != -1 ||
+      license['url'].indexOf('MPL/NPL/') != -1) {
+    return 'restricted';
+  }
+  if (license['url'].indexOf('opensource.org/licenses/cpl') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/eclipse') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/apsl') != -1 ||
+      license['url'].indexOf('opensource.org/licenses/ibmpl') != -1 ||
+      license['url'].indexOf('eclipse.org/org/documents/epl') != -1 ||
+      license['url'].indexOf('eclipse.org/legal/epl') != -1) {
+    return 'reciprocal';
+  }
+  if (license['url'].indexOf('creativecommons.org/licenses/publicdomain') != -1 ||
+      license['url'].indexOf('unlicense.org') != -1) {
+    return 'unencumbered';
+  }
+  if (license['name'] == 'gpl' ||
+      license['name'] == 'lgpl' ||
+      license['name'].indexOf('GPL') != -1 ||
+      license['name'].indexOf('BCL') != -1 ||
+      license['name'].indexOf('Oracle Binary Code License') != -1 ||
+      license['name'].indexOf('Attribution-ShareAlike') != -1 ||
+      license['name'].indexOf('CC BY-SA') != -1 ||
+      license['name'].indexOf('Attribution-NoDerivs') != -1 ||
+      license['name'].indexOf('CC BY-ND') != -1 ||
+      license['name'].indexOf('Sleepycat') != -1) {
+    return 'restricted';
+  }
+  if (license['name'].indexOf('MPL') != -1 ||
+      license['name'].indexOf('Mozilla Public License') != -1 ||
+      license['name'].indexOf('Common Public License') != -1 ||
+      license['name'].indexOf('CDDL') != -1 ||
+      license['name'].indexOf('Common Development and Distribution License') != -1 ||
+      license['name'].indexOf('EPL') != -1 ||
+      license['name'].indexOf('Eclipse Public License') != -1 ||
+      license['name'].indexOf('APSL') != -1 ||
+      license['name'].indexOf('Apple Public Source License') != -1) {
+    return 'reciprocal';
+  }
+  if (license['name'].indexOf('BSD') != -1 ||
+      license['name'].indexOf('MIT') != -1 ||
+      license['name'].indexOf('X11') != -1 ||
+      license['name'].indexOf('Apache') != -1 ||
+      license['name'].indexOf('Artistic') != -1 ||
+      license['name'].indexOf('ISC') != -1 ||
+      license['name'].indexOf('ICU') != -1 ||
+      license['name'].indexOf('JSON License') != -1) {
+    return 'notice';
+  }
+  if (license['name'].indexOf('Beerware') != -1 ||
+      license['name'].indexOf('beerware') != -1 ||
+      license['name'].indexOf('Google App Engine Terms of Service') != -1) {
+    return 'permissive';
+  }
+  if (license['name'] == 'Public Domain' && license['url'] == '') {
+    return 'unencumbered';  // e.g. aopalliance
+  }
+  return 'TODO';
+}
+
+function mixLicenseTypes(current, other) {
+  return LICENSE_ZEAL[other] > LICENSE_ZEAL[current] ? other : current;
+}
+
+function printDiscovered() {
+  var c = '';
+  c += '################################################################################\n'
+  c += '# BEGIN BAZEL MAVEN CONFIG GENERATOR\n';
+  c += '#\n';
+  var artifacts = artifactsElement.value.split(WHITESPACE_PATTERN);
+  for (var i = 0; i < artifacts.length; i++) {
+    var artifact = artifacts[i];
+    if (artifact == '') {
+      continue;
+    }
+    c += '#   ' + artifact + '\n';
+  }
+  c += '#\n';
+  c += '# Include optional dependencies: ' + includeOptionalElement.checked + '\n';
+  c += '# Include source jars: ' + includeSauceElement.checked + '\n';
+  c += '# Run by: ' + userEmail + '\n';
+  c += '# Run on: ' + new Date().toISOString() + '\n';
+  for (var i = 0; i < diamonds.length; i++) {
+    c += '# Note: ' + diamonds[i] + '\n';
+  }
+  var rules = [c];
+  var names = Object.keys(discovered);
+  names.sort();
+  for (var k = 0; k < names.length; k++) {
+    var pom = discovered[names[k]];
+    var depNames = [];
+    for (var i = 0; i < pom['deps'].length; i++) {
+      var dep = pom['deps'][i];
+      if (dep['scope'] == 'test') {
+        continue;
+      }
+      if (dep['classifier'] == 'sources') {
+        continue;
+      }
+      if (dep['optional'] == 'true' && !includeOptionalElement.checked) {
+        continue;
+      }
+      var depKey = getName(dep);
+      if (depKey in discovered) {
+        var depPom = discovered[depKey];
+        depNames.push(getName(depPom));
+      }
+    }
+    var name = getName(pom);
+    var s = '';
+    s += 'java_import_external(\n';
+    s += '    name = "' + name + '",\n';
+    if (neverlink[name]) {
+      s += '    neverlink = 1,\n';
+    }
+    if (pom['licenses'].length == 0) {
+      s += '    licenses = ["TODO"],  # NO LICENSE DECLARED\n';
+    } else if (pom['licenses'].length == 1) {
+      var license = pom['licenses'][0];
+      var type = guessLicenseType(license);
+      if (type == 'TODO') {
+        s += '    # ' + license['name'].replace(/\r?\n/g, ' ') + '\n';
+        s += '    # ' + license['url'] + '\n';
+        s += '    licenses = ["' + type + '"],\n';
+      } else {
+        s += '    licenses = ["' + type + '"],  # ' + license['name'].replace(/\r?\n/g, ' ') + '\n';
+      }
+    } else {
+      var type = '';
+      for (var i = 0; i < pom['licenses'].length; i++) {
+        var license = pom['licenses'][i];
+        type = mixLicenseTypes(type, guessLicenseType(license));
+        s += '    # ' + license['name'].replace(/\r?\n/g, ' ') + '\n';
+        s += '    # ' + license['url'] + '\n';
+      }
+      s += '    licenses = ["' + type + '"],\n';
+    }
+    var url = getMavenUrl('.jar', 'repo1.maven.org', pom);
+    var url2 = getMavenUrl('.jar', 'maven.ibiblio.org', pom);
+    var checksum = url in checksums ? checksums[url] : 'TODO';
+    s += '    jar_sha256 = "' + checksum + '",\n',
+    s += '    jar_urls = [\n';
+    if (Math.random() > 0.5) {
+      s += '        "' + url + '",\n';
+      s += '        "' + url2 + '",\n';
+    } else {
+      s += '        "' + url2 + '",\n';
+      s += '        "' + url + '",\n';
+    }
+    if (url in mirrors && mirrorElement.checked) {
+      s += '        "' + mirrors[url] + '",\n';
+    }
+    s += '    ],\n';
+    if (name in hasSauce && hasSauce[name] && includeSauceElement.checked) {
+      url = getMavenUrl('-sources.jar', 'repo1.maven.org', pom);
+      url2 = getMavenUrl('-sources.jar', 'maven.ibiblio.org', pom);
+      checksum = url in checksums ? checksums[url] : 'TODO';
+      s += '    srcjar_sha256 = "' + checksum + '",\n',
+      s += '    srcjar_urls = [\n';
+      if (Math.random() > 0.5) {
+        s += '        "' + url + '",\n';
+        s += '        "' + url2 + '",\n';
+      } else {
+        s += '        "' + url2 + '",\n';
+        s += '        "' + url + '",\n';
+      }
+      if (url in mirrors && mirrorElement.checked) {
+        s += '        "' + mirrors[url] + '",\n';
+      }
+      s += '    ],\n';
+    }
+    if (depNames.length == 1) {
+      s += '    deps = ["@' + depNames[0] + '"],\n';
+    } else if (depNames.length > 0) {
+      s += '    deps = [\n';
+      for (var i = 0; i < depNames.length; i++) {
+        s += '        "@' + depNames[i] + '",\n';
+      }
+      s += '    ],\n';
+    }
+    s += ')\n';
+    rules.push(s);
+  }
+  rules.push('# END BAZEL MAVEN CONFIG GENERATOR\n' +
+             '################################################################################\n');
+  resultElement.innerText = rules.join('\n');
+}
+
+function addLiteralEdge_(map, from, to) {
+  if (!(from in map)) {
+    map[from] = [to];
+  } else {
+    if (!arrayContains(map[from], to)) {
+      map[from].push(to);
+    }
+  }
+}
+
+function addEdge(from, to) {
+  addLiteralEdge_(edges, from, to);
+  addLiteralEdge_(edgesBackwards, to, from);
+}
+
+function onPom(pom) {
+  if (includeSauceElement.checked) {
+    getSauce(pom);
+  }
+  if (mirrorElement.checked) {
+    mirror('.jar', pom);
+  }
+  getChecksum('.jar', pom);
+  var name = getName(pom);
+  showProgress('Got ' + name);
+  if (name in discovered) {
+    var old = discovered[name];
+    var cr = compareVersions(old['version'], pom['version']);
+    if (cr == 0) {
+      return;
+    } else if (cr > 0) {
+      addDiamond('Evicted ' + name + ' ' + pom['version'] + ' in favor of ' + old['version']);
+      return;
+    }
+    addDiamond('Evicted ' + name + ' ' + old['version'] + ' in favor of ' + pom['version']);
+  }
+  discovered[name] = pom;
+  printDiscovered();
+  for (var i = 0; i < pom['deps'].length; i++) {
+    var dep = pom['deps'][i];
+    if (dep['scope'] == 'test') {
+      continue;
+    }
+    if (dep['optional'] == 'true' && !includeOptionalElement.checked) {
+      continue;
+    }
+    var depName = getName(dep);
+    neverlink[depName] = (dep['scope'] == 'provided' &&
+                          (!(depName in neverlink) || neverlink[depName]));
+    addEdge(name, depName);
+    getPom(dep, onPom);
+  }
+}
+
+function onSubmit() {
+  count = 0;
+  total = 0;
+  edges = {};
+  edgesBackwards = {};
+  discovered = {};
+  neverlink = {};
+  diamonds = [];
+  errorsElement.innerText = '';
+  resultElement.innerText = '';
+  var artifacts = artifactsElement.value.split(WHITESPACE_PATTERN);
+  for (var i = 0; i < artifacts.length; i++) {
+    var artifact = artifacts[i];
+    if (artifact == '') {
+      continue;
+    }
+    var matches = ARTIFACT_PATTERN.exec(artifact);
+    if (matches == null) {
+      alert('Bad artifact string: ' + artifact);
+      continue;
+    }
+    var dep = {
+      'group': matches[1],
+      'artifact': matches[2],
+      'version': matches[3],
+    };
+    addEdge('', getName(dep));
+    getPom(dep, onPom);
+  }
+}
+
+rpc = google.script.run.withFailureHandler(addError);
+
+rpc.withSuccessHandler(function(email) {
+  userEmail = email;
+}).getUserEmail();
+
+formElement = document.getElementById('form');
+artifactsElement = document.getElementById('artifacts');
+mirrorElement = document.getElementById('mirror');
+includeOptionalElement = document.getElementById('includeOptional');
+includeSauceElement = document.getElementById('includeSauce');
+resultElement = document.getElementById('result');
+errorsElement = document.getElementById('errors');
+progressElement = document.getElementById('progress');
+calculateChecksumElement = document.getElementById('calculateChecksum');
+formElement.addEventListener('submit', preventDefault(onSubmit));
+</script>
+
