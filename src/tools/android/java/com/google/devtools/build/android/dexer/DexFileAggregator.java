@@ -17,10 +17,16 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.android.dex.Dex;
+import com.android.dex.FieldId;
+import com.android.dex.MethodId;
+import com.android.dex.ProtoId;
+import com.android.dex.TypeList;
 import com.android.dx.command.dexer.DxContext;
 import com.android.dx.merge.CollisionPolicy;
 import com.android.dx.merge.DexMerger;
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -29,6 +35,7 @@ import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.zip.ZipEntry;
@@ -45,14 +52,16 @@ class DexFileAggregator implements Closeable {
   private static final String DEX_EXTENSION = ".dex";
 
   private final ArrayList<Dex> currentShard = new ArrayList<>();
+  private final HashSet<FieldDescriptor> fieldsInCurrentShard = new HashSet<>();
+  private final HashSet<MethodDescriptor> methodsInCurrentShard = new HashSet<>();
   private final boolean forceJumbo;
+  private final int maxNumberOfIdxPerDex;
   private final int wasteThresholdPerDex;
   private final MultidexStrategy multidex;
   private final DxContext context;
   private final ListeningExecutorService executor;
   private final DexFileArchive dest;
   private final String dexPrefix;
-  private final DexLimitTracker tracker;
 
   private int nextDexFileIndex = 0;
   private ListenableFuture<Void> lastWriter = Futures.<Void>immediateFuture(null);
@@ -71,25 +80,42 @@ class DexFileAggregator implements Closeable {
     this.executor = executor;
     this.multidex = multidex;
     this.forceJumbo = forceJumbo;
+    this.maxNumberOfIdxPerDex = maxNumberOfIdxPerDex;
     this.wasteThresholdPerDex = wasteThresholdPerDex;
     this.dexPrefix = dexPrefix;
-    tracker = new DexLimitTracker(maxNumberOfIdxPerDex);
   }
 
   public DexFileAggregator add(Dex dexFile) {
     if (multidex.isMultidexAllowed()) {
       // To determine whether currentShard is "full" we track unique field and method signatures,
       // which predicts precisely the number of field and method indices.
-      if (tracker.track(dexFile) && !currentShard.isEmpty()) {
+      // Update xxxInCurrentShard first, then check if we overflowed.
+      // This can yield slightly larger .dex files than checking first, at the price of having to
+      // process the class that put us over the edge twice.
+      trackFieldsAndMethods(dexFile);
+      if (!currentShard.isEmpty()
+          && (fieldsInCurrentShard.size() > maxNumberOfIdxPerDex
+              || methodsInCurrentShard.size() > maxNumberOfIdxPerDex)) {
         // For simplicity just start a new shard to fit the given file.
         // Don't bother with waiting for a later file that might fit the old shard as in the extreme
         // we'd have to wait until the end to write all shards.
         rotateDexFile();
-        tracker.track(dexFile);
+        trackFieldsAndMethods(dexFile);
       }
     }
     currentShard.add(dexFile);
     return this;
+  }
+
+  private void trackFieldsAndMethods(Dex dexFile) {
+    int fieldCount = dexFile.fieldIds().size();
+    for (int fieldIndex = 0; fieldIndex < fieldCount; ++fieldIndex) {
+      fieldsInCurrentShard.add(FieldDescriptor.fromDex(dexFile, fieldIndex));
+    }
+    int methodCount = dexFile.methodIds().size();
+    for (int methodIndex = 0; methodIndex < methodCount; ++methodIndex) {
+      methodsInCurrentShard.add(MethodDescriptor.fromDex(dexFile, methodIndex));
+    }
   }
 
   @Override
@@ -125,7 +151,8 @@ class DexFileAggregator implements Closeable {
   private void rotateDexFile() {
     writeMergedFile(currentShard.toArray(/* apparently faster than pre-sized array */ new Dex[0]));
     currentShard.clear();
-    tracker.clear();
+    fieldsInCurrentShard.clear();
+    methodsInCurrentShard.clear();
   }
 
   private void writeMergedFile(Dex... dexes) {
@@ -184,6 +211,47 @@ class DexFileAggregator implements Closeable {
     return dexPrefix + (i == 0 ? "" : i + 1) + DEX_EXTENSION;
   }
 
+  private static String typeName(Dex dex, int typeIndex) {
+    return dex.typeNames().get(typeIndex);
+  }
+
+  @AutoValue
+  abstract static class FieldDescriptor {
+    static FieldDescriptor fromDex(Dex dex, int fieldIndex) {
+      FieldId field = dex.fieldIds().get(fieldIndex);
+      String name = dex.strings().get(field.getNameIndex());
+      String declaringClass = typeName(dex, field.getDeclaringClassIndex());
+      String type = typeName(dex, field.getTypeIndex());
+      return new AutoValue_DexFileAggregator_FieldDescriptor(declaringClass, name, type);
+    }
+
+    abstract String declaringClass();
+    abstract String fieldName();
+    abstract String fieldType();
+  }
+
+  @AutoValue
+  abstract static class MethodDescriptor {
+    static MethodDescriptor fromDex(Dex dex, int methodIndex) {
+      MethodId method = dex.methodIds().get(methodIndex);
+      ProtoId proto = dex.protoIds().get(method.getProtoIndex());
+      String name = dex.strings().get(method.getNameIndex());
+      String declaringClass = typeName(dex, method.getDeclaringClassIndex());
+      String returnType = typeName(dex, proto.getReturnTypeIndex());
+      TypeList parameterTypeIndices = dex.readTypeList(proto.getParametersOffset());
+      ImmutableList.Builder<String> parameterTypes = ImmutableList.builder();
+      for (short parameterTypeIndex : parameterTypeIndices.getTypes()) {
+        parameterTypes.add(typeName(dex, parameterTypeIndex & 0xFFFF));
+      }
+      return new AutoValue_DexFileAggregator_MethodDescriptor(
+          declaringClass, name, parameterTypes.build(), returnType);
+    }
+
+    abstract String declaringClass();
+    abstract String methodName();
+    abstract ImmutableList<String> parameterTypes();
+    abstract String returnType();
+  }
 
   private class RunDexMerger implements Callable<Dex> {
 
@@ -211,7 +279,7 @@ class DexFileAggregator implements Closeable {
 
     private final ListenableFuture<Dex> dex;
     private final String filename;
-    @SuppressWarnings ("hiding") private final DexFileArchive dest;
+    private final DexFileArchive dest;
 
     public WriteFile(String filename, ListenableFuture<Dex> dex, DexFileArchive dest) {
       this.filename = filename;

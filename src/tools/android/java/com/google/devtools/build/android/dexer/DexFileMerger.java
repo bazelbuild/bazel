@@ -47,6 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -152,7 +153,7 @@ class DexFileMerger {
     // Undocumented dx option for testing multidex logic
     @Option(
       name = "set-max-idx-number",
-      defaultValue = "" + DexFormat.MAX_MEMBER_IDX,
+      defaultValue = "" + (DexFormat.MAX_MEMBER_IDX + 1),
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Limit on fields and methods in a single dex file."
@@ -299,6 +300,48 @@ class DexFileMerger {
    */
   private static ListeningExecutorService createThreadPool() {
     return MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
+  }
+
+  /**
+   * Sorts java class names such that outer classes preceed their inner
+   * classes and "package-info" preceeds all other classes in its package.
+   *
+   * @param a {@code non-null;} first class name
+   * @param b {@code non-null;} second class name
+   * @return {@code compareTo()}-style result
+   */
+  // Copied from com.android.dx.cf.direct.ClassPathOpener
+  @VisibleForTesting
+  static int compareClassNames(String a, String b) {
+    // Ensure inner classes sort second
+    a = a.replace('$', '0');
+    b = b.replace('$', '0');
+
+    /*
+     * Assuming "package-info" only occurs at the end, ensures package-info
+     * sorts first.
+     */
+    a = a.replace("package-info", "");
+    b = b.replace("package-info", "");
+
+    return a.compareTo(b);
+  }
+
+  /**
+   * Comparator that orders {@link ZipEntry ZipEntries} {@link #LIKE_DX like Android's dx tool}.
+   */
+  private static enum ZipEntryComparator implements Comparator<ZipEntry> {
+    /**
+     * Comparator to order more or less order alphabetically by file name.  See
+     * {@link DexFileMerger#compareClassNames} for the exact name comparison.
+     */
+    LIKE_DX;
+
+    @Override
+    // Copied from com.android.dx.cf.direct.ClassPathOpener
+    public int compare(ZipEntry a, ZipEntry b) {
+      return compareClassNames(a.getName(), b.getName());
+    }
   }
 
   private DexFileMerger() {
