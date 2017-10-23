@@ -25,7 +25,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         'new_http_archive(',
         '    name = "six_archive",',
         '    urls = [',
-        '      "http://mirror.bazel.build/pypi.python.org/%s' %
+        '      "https://mirror.bazel.build/pypi.python.org/%s' %
         'packages/source/s/six/six-1.10.0.tar.gz",',
         '      "https://pypi.python.org/packages/%s' %
         'source/s/six/six-1.10.0.tar.gz",',

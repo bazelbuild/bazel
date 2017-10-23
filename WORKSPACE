@@ -130,7 +130,7 @@ http_file(
 http_archive(
     name = "bazel_toolchains",
     urls = [
-        "http://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/b2b4b38433bf2d1159360855ea4004378308711b.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/b2b4b38433bf2d1159360855ea4004378308711b.tar.gz",
         "https://github.com/bazelbuild/bazel-toolchains/archive/b2b4b38433bf2d1159360855ea4004378308711b.tar.gz",
     ],
     strip_prefix = "bazel-toolchains-b2b4b38433bf2d1159360855ea4004378308711b",
