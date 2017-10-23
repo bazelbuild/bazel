@@ -95,7 +95,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected Collection<Path> getDirectoryEntries(Path path) throws IOException {
+  protected Collection<String> getDirectoryEntries(Path path) throws IOException {
     String name = path.getPathString();
     String[] entries;
     long startTime = Profiler.nanoTimeMaybe();
@@ -104,9 +104,9 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
     }
-    Collection<Path> result = new ArrayList<>(entries.length);
+    Collection<String> result = new ArrayList<>(entries.length);
     for (String entry : entries) {
-      result.add(path.getChild(entry));
+      result.add(entry);
     }
     return result;
   }

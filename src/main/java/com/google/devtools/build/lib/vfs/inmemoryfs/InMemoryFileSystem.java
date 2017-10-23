@@ -641,7 +641,7 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
-  protected Collection<Path> getDirectoryEntries(Path path) throws IOException {
+  protected Collection<String> getDirectoryEntries(Path path) throws IOException {
     synchronized (this) {
       InMemoryDirectoryInfo dirInfo = getDirectory(path);
       FileStatus status = stat(path, false);
@@ -651,10 +651,10 @@ public class InMemoryFileSystem extends FileSystem {
       }
 
       Collection<String> allChildren = dirInfo.getAllChildren();
-      List<Path> result = new ArrayList<>(allChildren.size());
+      List<String> result = new ArrayList<>(allChildren.size());
       for (String child : allChildren) {
         if (!(child.equals(".") || child.equals(".."))) {
-          result.add(path.getChild(child));
+          result.add(child);
         }
       }
       return result;

@@ -224,7 +224,8 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
     // The path may not be a symlink, neither on Darwin nor on Linux.
     String nonLinkEntry = null;
-    for (Path p : testFS.getDirectoryEntries(rootPath)) {
+    for (String child : testFS.getDirectoryEntries(rootPath)) {
+      Path p = rootPath.getChild(child);
       if (!p.isSymbolicLink() && p.isDirectory()) {
         nonLinkEntry = p.getBaseName();
         break;

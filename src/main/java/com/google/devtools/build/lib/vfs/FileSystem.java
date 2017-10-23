@@ -619,12 +619,12 @@ public abstract class FileSystem {
   protected abstract boolean exists(Path path, boolean followSymlinks);
 
   /**
-   * Returns a collection containing the names of all entities within the
-   * directory denoted by the {@code path}.
+   * Returns a collection containing the names of all entities within the directory denoted by the
+   * {@code path}.
    *
    * @throws IOException if there was an error reading the directory entries
    */
-  protected abstract Collection<Path> getDirectoryEntries(Path path) throws IOException;
+  protected abstract Collection<String> getDirectoryEntries(Path path) throws IOException;
 
   protected static Dirent.Type direntFromStat(FileStatus stat) {
     if (stat == null) {
@@ -652,11 +652,12 @@ public abstract class FileSystem {
    * @throws IOException if there was an error reading the directory entries
    */
   protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
-    Collection<Path> children = getDirectoryEntries(path);
+    Collection<String> children = getDirectoryEntries(path);
     List<Dirent> dirents = Lists.newArrayListWithCapacity(children.size());
-    for (Path child : children) {
-      Dirent.Type type = direntFromStat(statNullable(child, followSymlinks));
-      dirents.add(new Dirent(child.getBaseName(), type));
+    for (String child : children) {
+      Path childPath = path.getChild(child);
+      Dirent.Type type = direntFromStat(statNullable(childPath, followSymlinks));
+      dirents.add(new Dirent(child, type));
     }
     return dirents;
   }

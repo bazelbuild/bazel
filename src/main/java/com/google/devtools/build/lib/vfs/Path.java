@@ -33,6 +33,7 @@ import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Objects;
@@ -514,7 +515,12 @@ public class Path implements Comparable<Path>, Serializable {
    * @throws IOException If the path does not denote a directory
    */
   public Collection<Path> getDirectoryEntries() throws IOException, FileNotFoundException {
-    return fileSystem.getDirectoryEntries(this);
+    Collection<String> entries = fileSystem.getDirectoryEntries(this);
+    Collection<Path> result = new ArrayList<>(entries.size());
+    for (String entry : entries) {
+      result.add(getChild(entry));
+    }
+    return result;
   }
 
   /**

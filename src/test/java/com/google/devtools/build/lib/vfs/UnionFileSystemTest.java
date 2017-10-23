@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
@@ -165,8 +164,12 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     // FileSystemTest.setUp() silently creates the test root on the filesystem...
     Path testDirUnderRoot = unionfs.getPath(workingDir.asFragment().subFragment(0, 1));
     assertThat(unionfs.getDirectoryEntries(unionfs.getRootDirectory()))
-        .containsExactly(foo, bar, out, testDirUnderRoot);
-    assertThat(unionfs.getDirectoryEntries(out)).containsExactly(outFile);
+        .containsExactly(
+            foo.getBaseName(),
+            bar.getBaseName(),
+            out.getBaseName(),
+            testDirUnderRoot.getBaseName());
+    assertThat(unionfs.getDirectoryEntries(out)).containsExactly(outFile.getBaseName());
 
     assertThat(defaultDelegate).isSameAs(unionfs.getDelegate(foo));
     assertThat(unionfs.adjustPath(foo, defaultDelegate).asFragment()).isEqualTo(foo.asFragment());
@@ -229,11 +232,6 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     unionfs.createDirectory(unionfs.getPath("/out"));
     unionfs.createDirectory(unionfs.getPath("/out/foo"));
     unionfs.createDirectory(unionfs.getPath("/out/foo/bar"));
-    assertThat(
-            Iterables.getOnlyElement(unionfs.getDirectoryEntries(unionfs.getPath("/out/foo")))
-                .getParentDirectory()
-                .getFileSystem())
-        .isSameAs(unionfs);
   }
 
   // Write using the VFS through a UnionFileSystem and check that the file can
