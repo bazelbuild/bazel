@@ -339,6 +339,7 @@ public final class ApplicationManifest {
       RuleContext ruleContext,
       Artifact resourceApk,
       ResourceDependencies resourceDeps,
+      @Nullable Artifact rTxt,
       boolean incremental,
       Artifact proguardCfg,
       @Nullable String packageUnderTest)
@@ -368,6 +369,7 @@ public final class ApplicationManifest {
                 .setAssetsAndResourcesFrom(data)
                 .setManifest(getManifest())
                 .setApk(resourceApk)
+                .setRTxt(rTxt)
                 .build(),
             resourceDeps
                 .getResourceContainers(), // TODO(bazel-team): Figure out if we really need to check
