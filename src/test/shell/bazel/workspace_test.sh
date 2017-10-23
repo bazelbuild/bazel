@@ -21,6 +21,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 export JAVA_RUNFILES=$BAZEL_RUNFILES
 
+SKYLARK_FLAG_MARKER="<== skylark flag test ==>"
+
 function setup_repo() {
   mkdir -p $1
   touch $1/WORKSPACE
@@ -171,6 +173,30 @@ EOF
   [ -L bazel-x ] || fail "bazel-x should be a symlink"
   bazel clean
   [ ! -L bazel-x ] || fail "bazel-x should have been removed"
+}
+
+function test_skylark_flags_affect_workspace() {
+  cat > WORKSPACE <<EOF
+load("//:macro.bzl", "macro")
+print("In workspace: ")
+macro()
+EOF
+  cat > macro.bzl <<EOF
+def macro():
+  print("In workspace macro: ")
+EOF
+  cat > BUILD <<'EOF'
+genrule(name = "x", cmd = "echo hi > $@", outs = ["x.out"], srcs = [])
+EOF
+
+  # Build with the special testing flag that appends a marker string to all
+  # print() calls.
+  bazel build //:x --internal_skylark_flag_test_canary &>"$TEST_log" \
+    || fail "Expected build to succeed"
+  expect_log "In workspace: $SKYLARK_FLAG_MARKER" \
+    "Skylark flags are not propagating to workspace evaluation"
+  expect_log "In workspace macro: $SKYLARK_FLAG_MARKER" \
+    "Skylark flags are not propagating to workspace macro evaluation"
 }
 
 function test_workspace_name() {

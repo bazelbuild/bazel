@@ -24,6 +24,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
+SKYLARK_FLAG_MARKER="<== skylark flag test ==>"
+
 # Basic test.
 function test_macro_local_repository() {
   create_new_workspace
@@ -332,6 +334,26 @@ repo(name = 'foo')
 EOF
   # Need to be in a package
   cat > BUILD
+}
+
+function test_skylark_flags_affect_repository_rule() {
+  setup_skylark_repository
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  print("In repo rule: ")
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  # Build with the special testing flag that appends a marker string to all
+  # print() calls.
+  bazel build @foo//:bar --internal_skylark_flag_test_canary >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log "In repo rule: $SKYLARK_FLAG_MARKER" \
+      "Skylark flags are not propagating to repository rules"
 }
 
 function test_skylark_repository_which_and_execute() {

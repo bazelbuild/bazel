@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
@@ -141,15 +142,19 @@ public class WorkspaceFactory {
   }
 
   /**
-   * Parses the given WORKSPACE file without resolving skylark imports.
+   * Parses the given WORKSPACE file without resolving Skylark imports, using the default Skylark
+   * semantics.
    */
   public void parse(ParserInputSource source)
       throws BuildFileContainsErrorsException, InterruptedException {
-    parse(source, null);
+    parse(source, SkylarkSemantics.DEFAULT_SEMANTICS, null);
   }
 
   @VisibleForTesting
-  public void parse(ParserInputSource source, @Nullable StoredEventHandler localReporter)
+  public void parse(
+      ParserInputSource source,
+      SkylarkSemantics skylarkSemantics,
+      @Nullable StoredEventHandler localReporter)
       throws BuildFileContainsErrorsException, InterruptedException {
     // This method is split in 2 so WorkspaceFileFunction can call the two parts separately and
     // do the Skylark load imports in between. We can't load skylark imports from
@@ -163,7 +168,7 @@ public class WorkspaceFactory {
       throw new BuildFileContainsErrorsException(
           Label.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse " + source.getPath());
     }
-    execute(buildFileAST, null, localReporter);
+    execute(buildFileAST, null, skylarkSemantics, localReporter);
   }
 
 
@@ -171,15 +176,21 @@ public class WorkspaceFactory {
    * Actually runs through the AST, calling the functions in the WORKSPACE file and adding rules
    * to the //external package.
    */
-  public void execute(BuildFileAST ast, Map<String, Extension> importedExtensions)
+  public void execute(
+      BuildFileAST ast,
+      Map<String, Extension> importedExtensions,
+      SkylarkSemantics skylarkSemantics)
       throws InterruptedException {
     Preconditions.checkNotNull(ast);
     Preconditions.checkNotNull(importedExtensions);
-    execute(ast, importedExtensions, new StoredEventHandler());
+    execute(ast, importedExtensions, skylarkSemantics, new StoredEventHandler());
   }
 
 
-  private void execute(BuildFileAST ast, @Nullable Map<String, Extension> importedExtensions,
+  private void execute(
+      BuildFileAST ast,
+      @Nullable Map<String, Extension> importedExtensions,
+      SkylarkSemantics skylarkSemantics,
       StoredEventHandler localReporter)
       throws InterruptedException {
     if (importedExtensions != null) {
@@ -191,8 +202,7 @@ public class WorkspaceFactory {
     }
     Environment workspaceEnv =
         Environment.builder(mutability)
-            // Note that this Skylark environment ignores command line flags.
-            .useDefaultSemantics()
+            .setSemantics(skylarkSemantics)
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(localReporter)
             .setImportedExtensions(importMap)
