@@ -16,13 +16,14 @@ converting an Xcode project to a Bazel project.
    - [Analyze project dependencies](#analyze-project-dependencies)
 - [Build or test an Xcode project with Bazel](#build-or-test-an-xcode-project-with-bazel)
    - [Step 1: Create the `WORKSPACE` file](#step-1-create-the-workspace-file)
-   - [Step 2: Create a `BUILD` file:](#step-2-create-a-build-file)
-      - [Step 2a: Add the application target](#step-2a-add-the-application-target)
-      - [Step 2b: (Optional) Add the test target(s)](#step-2b-optional-add-the-test-target-s)
-      - [Step 2c: Add the library target(s)](#step-2c-add-the-library-target-s)
-   - [Step 3: (Optional) Granularize the build](#step-3-optional-granularize-the-build)
-   - [Step 4: Run the build](#step-4-run-the-build)
-   - [Step 5: Generate the Xcode project with Tulsi](#step-5-generate-the-xcode-project-with-tulsi)
+   - [Step 2: (Experimental) Integrate CocoaPod dependencies](#step-2-experimental-integrate-pocoapods-dependencies)
+   - [Step 3: Create a `BUILD` file:](#step-3-create-a-build-file)
+      - [Step 3a: Add the application target](#step-3a-add-the-application-target)
+      - [Step 3b: (Optional) Add the test target(s)](#step-3b-optional-add-the-test-target-s)
+      - [Step 3c: Add the library target(s)](#step-3c-add-the-library-target-s)
+   - [Step 4: (Optional) Granularize the build](#step-4-optional-granularize-the-build)
+   - [Step 5: Run the build](#step-5-run-the-build)
+   - [Step 6: Generate the Xcode project with Tulsi](#step-6-generate-the-xcode-project-with-tulsi)
 
 ## Differences between Xcode and Bazel
 
@@ -87,19 +88,21 @@ To build or test an Xcode project with Bazel, do the following:
 
 1.  [Create the `WORKSPACE` file](#step-1-create-the-workspace-file)
 
-2.  [Create a `BUILD` file:](#step-2-create-a-build-file)
+2. [(Experimental) Integrate CocoaPods dependencies](#step-2-experimental-integrate-cocoapods-dependencies)
 
-    a.  [Add the application target](#step-2a-add-the-application-target)
+3.  [Create a `BUILD` file:](#step-3-create-a-build-file)
 
-    b.  [(Optional) Add the test target(s)](#step-2b-optional-add-the-test-target-s)
+    a.  [Add the application target](#step-3a-add-the-application-target)
 
-    c.  [Add the library target(s)](#step-2c-add-the-library-target-s)
+    b.  [(Optional) Add the test target(s)](#step-3b-optional-add-the-test-target-s)
 
-3.  [(Optional) Granularize the build](#step-3-optional-granularize-the-build)
+    c.  [Add the library target(s)](#step-3c-add-the-library-target-s)
 
-4.  [Run the build](#step-4-run-the-build)
+4.  [(Optional) Granularize the build](#step-4-optional-granularize-the-build)
 
-5.  [Generate the Xcode project with Tulsi](#step-5-generate-the-xcode-project-with-tulsi)
+5.  [Run the build](#step-5-run-the-build)
+
+6.  [Generate the Xcode project with Tulsi](#step-6-generate-the-xcode-project-with-tulsi)
 
 ### Step 1: Create the `WORKSPACE` file
 
@@ -112,21 +115,31 @@ file.
 **Note:** Place the project source code within the directory tree containing the
           `WORKSPACE` file.
 
-### Step 2: Create a `BUILD` file
+### Step 2: (Experimental) Integrate CocoaPods dependendcies
+
+To integrate CocoaPods dependencies into the Bazel workspace, you must convert
+them into Bazel packages as described in [Converting CocoaPods dependencies](migrate-cocoapods.md).
+
+**Note:** CocoaPods conversion is a manual process with many variables.CocoaPods
+integration with Bazel has not been fully verified and is not officially
+supported.
+
+
+### Step 3: Create a `BUILD` file
 
 Once you have defined the workspace and external dependencies, you need to
 create a `BUILD` file that tells Bazel how the project is structured. Create
 the `BUILD` file at the root of the Bazel workspace and configure it to do an
 initial build of the project as follows:
 
-*  [Step 2a: Add the application target](#step-2a-add-the-application-target)
-*  [Step 2b: (Optional) Add the test target(s)](#step-2b-optional-add-the-test-target-s)
-*  [Step 2c: Add the library target(s)](#step-2c-add-the-library-target-s)
+*  [Step 3a: Add the application target](#step-3a-add-the-application-target)
+*  [Step 3b: (Optional) Add the test target(s)](#step-3b-optional-add-the-test-target-s)
+*  [Step 3c: Add the library target(s)](#step-3c-add-the-library-target-s)
 
 **Tip:** To learn more about packages and other Bazel concepts, see
 [Bazel Terminology](https://docs.bazel.build/versions/master/build-ref.html).
 
-#### Step 2a: Add the application target
+#### Step 3a: Add the application target
 
 Add a [`macos_application`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-macos.md#macos_application)
 or an [`ios_application`](https://docs.bazel.build/versions/master/be/objective-c.html#ios_application)
@@ -148,7 +161,7 @@ In the target, specify the following at the minimum:
     application supports. This ensures Bazel builds the application with the
     correct API levels.
 
-#### Step 2b: (Optional) Add the test target(s)
+#### Step 3b: (Optional) Add the test target(s)
 
 Bazel's [Apple build rules](https://github.com/bazelbuild/rules_apple) support
 running library-based unit tests on iOS and macOS, as well as application-based
@@ -178,7 +191,7 @@ simulator, also specify the `ios_application` target name as the value of the
 `test_host` attribute.
 
 
-#### Step 2c: Add the library target(s)
+#### Step 3c: Add the library target(s)
 
 Add an [`objc_library`](https://docs.bazel.build/versions/master/be/objective-c.html#objc_library)
 target for each Objective C library and a [`swift_library`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-swift.md)
@@ -206,7 +219,7 @@ At this point, it is a good idea to test the build:
 
 `bazel build //:<application_target>`
 
-### Step 3: (Optional) Granularize the build
+### Step 4: (Optional) Granularize the build
 
 If the project is large, or as it grows, consider chunking it into multiple
 Bazel packages. This increased granularity provides:
@@ -240,7 +253,7 @@ Tips for granularizing the project:
 *   Build the project after each major change to the `BUILD` files and fix
     build errors as you encounter them.
 
-### Step 4: Run the build
+### Step 5: Run the build
 
 Run the fully migrated build to ensure it completes with no errors or warnings.
 Run every application and test target individually to more easily find sources
@@ -252,7 +265,7 @@ For example:
 bazel build //:my-target
 ```
 
-### Step 5: Generate the Xcode project with Tulsi
+### Step 6: Generate the Xcode project with Tulsi
 
 When building with Bazel, the `WORKSPACE` and `BUILD` files become the source
 of truth about the build. To make Xcode aware of this, you must generate a
