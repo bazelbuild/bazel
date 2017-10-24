@@ -131,7 +131,10 @@ public class TestCommand implements BlazeCommand {
       // (original exitcode=BUILD_FAILURE) or if there weren't but --noanalyze was given
       // (original exitcode=SUCCESS).
       env.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
-      return buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
+      ExitCode exitCode =
+          buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
+      env.getEventBus().post(new TestingCompleteEvent(exitCode, buildResult.getStopTime()));
+      return exitCode;
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
     // more tests

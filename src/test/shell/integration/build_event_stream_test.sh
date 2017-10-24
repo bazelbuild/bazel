@@ -714,6 +714,27 @@ function test_alias() {
   expect_not_log 'label: "//alias/actual'
 }
 
+function test_circular_dep() {
+  touch test.sh
+  chmod u+x test.sh
+  cat > BUILD <<'EOF'
+sh_test(
+  name = "circular",
+  srcs = ["test.sh"],
+  deps = ["circular"],
+)
+EOF
+  (bazel build --build_event_text_file="${TEST_log}" :circular \
+      && fail "Expected failure") || :
+  expect_log_once 'last_message: true'
+  expect_log 'name: "PARSING_FAILURE"'
+
+  (bazel test --build_event_text_file="${TEST_log}" :circular \
+      && fail "Expected failure") || :
+  expect_log_once 'last_message: true'
+  expect_log 'name: "PARSING_FAILURE"'
+}
+
 function test_missing_file() {
   cat > BUILD <<'EOF'
 filegroup(
