@@ -150,7 +150,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "experimental_objc_fastbuild_options",
-    defaultValue = "-O0,-DDEBUG",
+    defaultValue = "-O0,-DDEBUG=1",
     converter = CommaSeparatedOptionListConverter.class,
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},

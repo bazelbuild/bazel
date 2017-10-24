@@ -106,9 +106,6 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
   /** Enabled if this target has objc sources in its transitive closure. */
   private static final String CONTAINS_OBJC = "contains_objc_sources";
 
-  /** Enabled if GLIBCXX defines should be set on 'dbg' compiles. */
-  private static final String USE_GLIBCXX_DBG_OPTS_FEATURE_NAME = "use_glibcxx_dbg_opts";
-
   private static final ImmutableList<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
           "objc-compile",
@@ -455,6 +452,10 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .setCopts(
                 ImmutableList.<String>builder()
                     .addAll(getCompileRuleCopts())
+                    .addAll(
+                        ruleContext
+                            .getFragment(ObjcConfiguration.class)
+                            .getCoptsForCompilationMode())
                     .addAll(extraCompileArgs)
                     .build())
             .addIncludeDirs(priorityHeaders)
@@ -546,9 +547,6 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     }
     if (objcProvider.is(Flag.USES_OBJC)) {
       activatedCrosstoolSelectables.add(CONTAINS_OBJC);
-    }
-    if (configuration.getOptions().get(ObjcCommandLineOptions.class).debugWithGlibcxx) {
-      activatedCrosstoolSelectables.add(USE_GLIBCXX_DBG_OPTS_FEATURE_NAME);
     }
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());

@@ -134,7 +134,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static final String MOCK_XCRUNWRAPPER_PATH =
       toolsRepoExecPath("tools/objc/xcrunwrapper");
   protected static final ImmutableList<String> FASTBUILD_COPTS =
-      ImmutableList.of("-O0", "-DDEBUG");
+      ImmutableList.of("-O0", "-DDEBUG=1");
 
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
       DottedVersion.fromString(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
@@ -2582,7 +2582,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction compileActionA = compileAction("//x:x", "a.o");
 
     assertThat(compileActionA.getArguments())
-        .containsAllIn(allExpectedCoptsBuilder.build());
+        .containsAllIn(allExpectedCoptsBuilder.build()).inOrder();
 
   }
 
