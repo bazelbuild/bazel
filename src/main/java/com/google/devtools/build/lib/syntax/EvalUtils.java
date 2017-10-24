@@ -186,7 +186,7 @@ public final class EvalUtils {
       return parent;
     }
     Preconditions.checkArgument(SkylarkValue.class.isAssignableFrom(c),
-        "%s is not allowed as a Skylark value", c);
+        "%s is not allowed as a Skylark value (getSkylarkType() failed)", c);
     return c;
   }
 

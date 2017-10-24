@@ -602,9 +602,14 @@ public abstract class SkylarkType implements Serializable {
    * Throws EvalException if the type of the object is not allowed to be present in Skylark.
    */
   static void checkTypeAllowedInSkylark(Object object, Location loc) throws EvalException {
+    // TODO(bazel-team): Unify this check with the logic in EvalUtils.getSkylarkType(). Might
+    // break some providers whose contents don't implement SkylarkValue, aren't wrapped in
+    // SkylarkList, etc.
     if (!isTypeAllowedInSkylark(object)) {
       throw new EvalException(
-          loc, "internal error: type '" + object.getClass().getSimpleName() + "' is not allowed");
+          loc,
+          "internal error: type '" + object.getClass().getSimpleName() + "' is not allowed as a "
+              + "Skylark value (checkTypeAllowedInSkylark() failed)");
     }
   }
 
