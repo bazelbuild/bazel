@@ -1013,15 +1013,17 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
       ctTop = PackageIdentifier.createInMainRepo(ctTop.getPackageFragment());
     }
     CppConfiguration defaultLibs = create(loader, "--cpu=piii");
-    assertThat(defaultLibs.getStaticRuntimeLibsLabel())
+    CcToolchainProvider defaultLibsToolchain = getCcToolchainProvider(defaultLibs);
+    assertThat(defaultLibsToolchain.getStaticRuntimeLibsLabel())
         .isEqualTo(Label.create(ctTop, "static-runtime-libs-piii"));
-    assertThat(defaultLibs.getDynamicRuntimeLibsLabel())
+    assertThat(defaultLibsToolchain.getDynamicRuntimeLibsLabel())
         .isEqualTo(Label.create(ctTop, "dynamic-runtime-libs-piii"));
 
     CppConfiguration customLibs = create(loader, "--cpu=k8");
-    assertThat(customLibs.getStaticRuntimeLibsLabel())
+    CcToolchainProvider customLibsToolchain = getCcToolchainProvider(customLibs);
+    assertThat(customLibsToolchain.getStaticRuntimeLibsLabel())
         .isEqualTo(Label.create(ctTop, "static-group"));
-    assertThat(customLibs.getDynamicRuntimeLibsLabel())
+    assertThat(customLibsToolchain.getDynamicRuntimeLibsLabel())
         .isEqualTo(Label.create(ctTop, "dynamic-group"));
   }
 

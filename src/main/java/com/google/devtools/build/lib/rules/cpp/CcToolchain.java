@@ -228,6 +228,31 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
+    PlatformConfiguration platformConfig =
+        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
+
+    CToolchain toolchain = null;
+    if (platformConfig
+        .getEnabledToolchainTypes()
+        .contains(CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
+      toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration);
+    }
+
+    CppToolchainInfo toolchainInfo = null;
+    if (toolchain != null) {
+      try {
+        toolchainInfo =
+            new CppToolchainInfo(
+                toolchain,
+                cppConfiguration.getCrosstoolTopPathFragment(),
+                cppConfiguration.getCcToolchainRuleLabel());
+      } catch (InvalidConfigurationException e) {
+        ruleContext.throwWithRuleError(e.getMessage());
+      }
+    } else {
+      toolchainInfo = cppConfiguration.getCppToolchainInfo();
+    }
+
     Path fdoZip = ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT
         ? cppConfiguration.getFdoZip()
         : null;
@@ -269,7 +294,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     // Static runtime inputs.
     TransitiveInfoCollection staticRuntimeLibDep = selectDep(ruleContext, "static_runtime_libs",
-        cppConfiguration.getStaticRuntimeLibsLabel());
+        toolchainInfo.getStaticRuntimeLibsLabel());
     final NestedSet<Artifact> staticRuntimeLinkInputs;
     final Artifact staticRuntimeLinkMiddleman;
     if (cppConfiguration.supportsEmbeddedRuntimes()) {
@@ -296,7 +321,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     // Dynamic runtime inputs.
     TransitiveInfoCollection dynamicRuntimeLibDep = selectDep(ruleContext, "dynamic_runtime_libs",
-        cppConfiguration.getDynamicRuntimeLibsLabel());
+        toolchainInfo.getDynamicRuntimeLibsLabel());
     NestedSet<Artifact> dynamicRuntimeLinkSymlinks;
     List<Artifact> dynamicRuntimeLinkInputs = new ArrayList<>();
     Artifact dynamicRuntimeLinkMiddleman;
@@ -358,31 +383,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       builtInIncludeDirectories = cppConfiguration.getBuiltInIncludeDirectories(sysroot);
     } catch (InvalidConfigurationException e) {
       ruleContext.ruleError(e.getMessage());
-    }
-
-    PlatformConfiguration platformConfig =
-        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
-
-    CToolchain toolchain = null;
-    if (platformConfig
-        .getEnabledToolchainTypes()
-        .contains(CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
-      toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration);
-    }
-
-    CppToolchainInfo toolchainInfo = null;
-    if (toolchain != null) {
-      try {
-        toolchainInfo =
-            new CppToolchainInfo(
-                toolchain,
-                cppConfiguration.getCrosstoolTopPathFragment(),
-                cppConfiguration.getCcToolchainRuleLabel());
-      } catch (InvalidConfigurationException e) {
-        ruleContext.throwWithRuleError(e.getMessage());
-      }
-    } else {
-      toolchainInfo = cppConfiguration.getCppToolchainInfo();
     }
 
     coverageEnvironment.add(

@@ -605,24 +605,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns a label that references the library files needed to statically
-   * link the C++ runtime (i.e. libgcc.a, libgcc_eh.a, libstdc++.a) for the
-   * target architecture.
-   */
-  public Label getStaticRuntimeLibsLabel() {
-    return cppToolchainInfo.getStaticRuntimeLibsLabel();
-  }
-
-  /**
-   * Returns a label that references the library files needed to dynamically
-   * link the C++ runtime (i.e. libgcc_s.so, libstdc++.so) for the target
-   * architecture.
-   */
-  public Label getDynamicRuntimeLibsLabel() {
-    return cppToolchainInfo.getDynamicRuntimeLibsLabel();
-  }
-
-  /**
    * Returns the label of the <code>cc_compiler</code> rule for the C++ configuration.
    */
   public Label getCcToolchainRuleLabel() {

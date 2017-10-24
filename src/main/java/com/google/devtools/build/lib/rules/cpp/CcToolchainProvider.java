@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -401,6 +402,24 @@ public final class CcToolchainProvider extends ToolchainInfo {
   // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
   public String getAbiGlibcVersion() {
     return toolchainInfo.getAbiGlibcVersion();
+  }
+
+  /**
+   * Returns a label that references the library files needed to statically
+   * link the C++ runtime (i.e. libgcc.a, libgcc_eh.a, libstdc++.a) for the
+   * target architecture.
+   */
+  public Label getStaticRuntimeLibsLabel() {
+    return toolchainInfo.getStaticRuntimeLibsLabel();
+  }
+
+  /**
+   * Returns a label that references the library files needed to dynamically
+   * link the C++ runtime (i.e. libgcc_s.so, libstdc++.so) for the target
+   * architecture.
+   */
+  public Label getDynamicRuntimeLibsLabel() {
+    return toolchainInfo.getDynamicRuntimeLibsLabel();
   }
 
   @SkylarkCallable(
