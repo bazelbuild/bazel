@@ -60,7 +60,7 @@ import javax.annotation.Nullable;
  *
  * <p>DO NOT USE DIRECTLY! Use RuleContext.getExpander() instead.
  */
-public class LocationExpander {
+final class LocationExpander {
 
   /**
    * List of options to tweak the LocationExpander.
@@ -329,7 +329,7 @@ public class LocationExpander {
    * @param labelMap map of labels to build artifacts
    * @return map of all possible target locations
    */
-  private static Map<Label, Collection<Artifact>> buildLocationMap(
+  static Map<Label, Collection<Artifact>> buildLocationMap(
       RuleContext ruleContext,
       Map<Label, ? extends Collection<Artifact>> labelMap,
       boolean allowDataAttributeEntriesInLabel) {

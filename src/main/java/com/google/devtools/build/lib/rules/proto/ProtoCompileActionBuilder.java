@@ -205,6 +205,11 @@ public class ProtoCompileActionBuilder {
                 }
                 return value.toString();
               }
+
+              @Override
+              public String lookupFunction(String name, String param) throws ExpansionException {
+                throw new ExpansionException(String.format("$(%s) not defined", name));
+              }
             });
       } catch (ExpansionException e) {
         // Squeelch. We don't throw this exception in the lookupMakeVariable implementation above,
