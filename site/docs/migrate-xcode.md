@@ -115,14 +115,14 @@ file.
 **Note:** Place the project source code within the directory tree containing the
           `WORKSPACE` file.
 
-### Step 2: (Experimental) Integrate CocoaPods dependendcies
+### Step 2: (Experimental) Integrate CocoaPods dependencies
 
 To integrate CocoaPods dependencies into the Bazel workspace, you must convert
 them into Bazel packages as described in [Converting CocoaPods dependencies](migrate-cocoapods.md).
 
-**Note:** CocoaPods conversion is a manual process with many variables.CocoaPods
-integration with Bazel has not been fully verified and is not officially
-supported.
+**Note:** CocoaPods conversion is a manual process with many variables.
+CocoaPods integration with Bazel has not been fully verified and is not
+officially supported.
 
 
 ### Step 3: Create a `BUILD` file
