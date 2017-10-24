@@ -228,7 +228,11 @@ function new_step() {
   else
     new_line="\n"
   fi
-  display -n "$new_line$LEAVES  $1"
+  if [ -t 2 ]; then
+    display -n "$new_line$LEAVES  $1"
+  else
+    display -n "$new_line$1"
+  fi
 }
 
 function git_sha1() {
