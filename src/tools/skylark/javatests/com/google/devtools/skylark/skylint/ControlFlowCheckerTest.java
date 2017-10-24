@@ -68,7 +68,7 @@ public class ControlFlowCheckerTest {
             .toString();
     Truth.assertThat(messages)
         .contains(
-            "1:1-5:26: some but not all execution paths of 'some_function' return a value"
+            "1:1-5:10: some but not all execution paths of 'some_function' return a value"
                 + " [missing-return-value]");
     Truth.assertThat(messages)
         .contains(
@@ -137,7 +137,7 @@ public class ControlFlowCheckerTest {
                     "  # return missing here")
                 .toString())
         .contains(
-            "1:1-5:23: some but not all execution paths of 'some_function' return a value"
+            "1:1-4:14: some but not all execution paths of 'some_function' return a value"
                 + " [missing-return-value]");
   }
 
@@ -152,7 +152,7 @@ public class ControlFlowCheckerTest {
                     "  # return missing here")
                 .toString())
         .contains(
-            "1:1-5:23: some but not all execution paths of 'some_function' return a value"
+            "1:1-4:14: some but not all execution paths of 'some_function' return a value"
                 + " [missing-return-value]");
   }
 

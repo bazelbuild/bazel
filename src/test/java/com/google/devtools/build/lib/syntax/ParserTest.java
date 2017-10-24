@@ -565,6 +565,32 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(getText(input, stmt)).isEqualTo(input);
   }
 
+  @Test
+  public void testIfStatementPosition() throws Exception {
+    assertStatementLocationCorrect(ParsingLevel.LOCAL_LEVEL, "if True:\n  pass");
+    assertStatementLocationCorrect(
+        ParsingLevel.LOCAL_LEVEL, "if True:\n  pass\nelif True:\n  pass");
+    assertStatementLocationCorrect(ParsingLevel.LOCAL_LEVEL, "if True:\n  pass\nelse:\n  pass");
+  }
+
+  @Test
+  public void testForStatementPosition() throws Exception {
+    assertStatementLocationCorrect(ParsingLevel.LOCAL_LEVEL, "for x in []:\n  pass");
+  }
+
+  @Test
+  public void testDefStatementPosition() throws Exception {
+    assertStatementLocationCorrect(ParsingLevel.TOP_LEVEL, "def foo():\n  pass");
+  }
+
+  private void assertStatementLocationCorrect(ParsingLevel level, String stmtStr) {
+    Statement stmt = parseStatement(level, stmtStr);
+    assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
+    // Also try it with another token at the end (newline), which broke the location in the past.
+    stmt = parseStatement(level, stmtStr + "\n");
+    assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
+  }
+
   private void assertExpressionLocationCorrect(String exprStr) {
     Expression expr = parseExpression(exprStr);
     assertThat(getText(exprStr, expr)).isEqualTo(exprStr);
