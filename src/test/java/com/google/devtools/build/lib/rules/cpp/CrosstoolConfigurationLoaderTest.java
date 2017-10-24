@@ -189,8 +189,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     assertThat(toolchain.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("/path-to-ar"));
 
-    assertThat(toolchain.getAbi()).isEqualTo("abi-version");
-    assertThat(toolchain.getAbiGlibcVersion()).isEqualTo("abi-libc-version");
+    assertThat(ccProvider.getAbi()).isEqualTo("abi-version");
+    assertThat(ccProvider.getAbiGlibcVersion()).isEqualTo("abi-libc-version");
 
     assertThat(toolchain.supportsGoldLinker()).isTrue();
     assertThat(toolchain.supportsStartEndLib()).isFalse();
@@ -499,8 +499,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchainA.getTargetCpu()).isEqualTo("piii");
     assertThat(toolchainA.getTargetLibc()).isEqualTo("target-libc-A");
     assertThat(toolchainA.getCompiler()).isEqualTo("compiler-A");
-    assertThat(toolchainA.getAbi()).isEqualTo("abi-version-A");
-    assertThat(toolchainA.getAbiGlibcVersion()).isEqualTo("abi-libc-version-A");
+    assertThat(ccProviderA.getAbi()).isEqualTo("abi-version-A");
+    assertThat(ccProviderA.getAbiGlibcVersion()).isEqualTo("abi-libc-version-A");
     assertThat(toolchainA.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("path/to/ar-A"));
     assertThat(toolchainA.getToolPathFragment(Tool.CPP)).isEqualTo(getToolPath("path/to/cpp-A"));
     assertThat(toolchainA.getToolPathFragment(Tool.GCC)).isEqualTo(getToolPath("path/to/gcc-A"));
@@ -631,8 +631,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchainC.getTargetCpu()).isEqualTo("piii");
     assertThat(toolchainC.getTargetLibc()).isEqualTo("target-libc-C");
     assertThat(toolchainC.getCompiler()).isEqualTo("compiler-C");
-    assertThat(toolchainC.getAbi()).isEqualTo("abi-version-C");
-    assertThat(toolchainC.getAbiGlibcVersion()).isEqualTo("abi-libc-version-C");
+    assertThat(ccProviderC.getAbi()).isEqualTo("abi-version-C");
+    assertThat(ccProviderC.getAbiGlibcVersion()).isEqualTo("abi-libc-version-C");
     // Don't bother with testing the list of tools again.
     assertThat(toolchainC.supportsGoldLinker()).isFalse();
     assertThat(toolchainC.supportsStartEndLib()).isFalse();
@@ -973,6 +973,14 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "}"
                 + "default_toolchain {"
                 + "  cpu: \"k8\""
+                + "  toolchain_identifier: \"custom-libs\""
+                + "}"
+                + "default_toolchain {"
+                + "  cpu: \"darwin\""
+                + "  toolchain_identifier: \"custom-libs\""
+                + "}"
+                + "default_toolchain {"
+                + "  cpu: \"x64_windows\""
                 + "  toolchain_identifier: \"custom-libs\""
                 + "}"
                 + "toolchain {" // "default-libs": runtime libraries in default locations.

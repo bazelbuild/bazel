@@ -630,28 +630,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the abi we're using, which is a gcc version. E.g.: "gcc-3.4".
-   * Note that in practice we might be using gcc-3.4 as ABI even when compiling
-   * with gcc-4.1.0, because ABIs are backwards compatible.
-   */
-  // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
-  public String getAbi() {
-    return cppToolchainInfo.getAbi();
-  }
-
-  /**
-   * Returns the glibc version used by the abi we're using.  This is a
-   * glibc version number (e.g., "2.2.2").  Note that in practice we
-   * might be using glibc 2.2.2 as ABI even when compiling with
-   * gcc-4.2.2, gcc-4.3.1, or gcc-4.4.0 (which use glibc 2.3.6),
-   * because ABIs are backwards compatible.
-   */
-  // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
-  public String getAbiGlibcVersion() {
-    return cppToolchainInfo.getAbiGlibcVersion();
-  }
-
-  /**
    * Returns the configured features of the toolchain. Rules should not call this directly, but
    * instead use {@code CcToolchainProvider.getFeatures}.
    */
@@ -1569,7 +1547,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // CcToolchainProvider.
     globalMakeEnvBuilder.putAll(getAdditionalMakeVariables());
 
-    globalMakeEnvBuilder.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
+    globalMakeEnvBuilder.put("ABI_GLIBC_VERSION", cppToolchainInfo.getAbiGlibcVersion());
     globalMakeEnvBuilder.put("ABI", cppToolchainInfo.getAbi());
   }
 

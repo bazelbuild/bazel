@@ -382,6 +382,27 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return toolchainInfo.getToolPathFragment(tool);
   }
 
+  /**
+   * Returns the abi we're using, which is a gcc version. E.g.: "gcc-3.4". Note that in practice we
+   * might be using gcc-3.4 as ABI even when compiling with gcc-4.1.0, because ABIs are backwards
+   * compatible.
+   */
+  // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
+  public String getAbi() {
+    return toolchainInfo.getAbi();
+  }
+
+  /**
+   * Returns the glibc version used by the abi we're using. This is a glibc version number (e.g.,
+   * "2.2.2"). Note that in practice we might be using glibc 2.2.2 as ABI even when compiling with
+   * gcc-4.2.2, gcc-4.3.1, or gcc-4.4.0 (which use glibc 2.3.6), because ABIs are backwards
+   * compatible.
+   */
+  // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
+  public String getAbiGlibcVersion() {
+    return toolchainInfo.getAbiGlibcVersion();
+  }
+
   @SkylarkCallable(
     name = "unfiltered_compiler_options_do_not_use",
     doc =
