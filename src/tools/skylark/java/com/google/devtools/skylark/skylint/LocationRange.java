@@ -30,7 +30,10 @@ public class LocationRange {
 
   public LocationRange(Location start, Location end) {
     Preconditions.checkArgument(
-        Location.compare(start, end) <= 0, "end location should be after start location");
+        Location.compare(start, end) <= 0,
+        "end location (%s) should be after start location (%s)",
+        end,
+        start);
     this.start = start;
     this.end = end;
   }
