@@ -55,6 +55,7 @@ public class ApkManifestActionTest {
             createArtifact("/workspace/androidsdk/frameworkAidl"),
             null, // aidlLib, optional
             createArtifact("/workspace/androidsdk/androidJar"),
+            null, // sourceProperties, optional
             createArtifact("/workspace/androidsdk/shrinkedAndroidJar"),
             createArtifact("/workspace/androidsdk/annotationsJar"),
             createArtifact("/workspace/androidsdk/mainDexClasses"),

@@ -33,6 +33,7 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
       Artifact frameworkAidl,
       @Nullable TransitiveInfoCollection aidlLib,
       Artifact androidJar,
+      @Nullable Artifact sourceProperties,
       Artifact shrinkedAndroidJar,
       Artifact annotationsJar,
       Artifact mainDexClasses,
@@ -52,6 +53,7 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
         frameworkAidl,
         aidlLib,
         androidJar,
+        sourceProperties,
         shrinkedAndroidJar,
         annotationsJar,
         mainDexClasses,
@@ -102,6 +104,9 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
   public abstract TransitiveInfoCollection getAidlLib();
 
   public abstract Artifact getAndroidJar();
+
+  @Nullable
+  public abstract Artifact getSourceProperties();
 
   public abstract Artifact getShrinkedAndroidJar();
 

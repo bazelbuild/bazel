@@ -303,6 +303,18 @@ java_test(
     ],
 )
 
+java_test(
+    name = "AndroidSdkTest",
+    srcs = ["AndroidSdkTest.java"],
+    runtime_deps = ["//src/test/java/com/google/devtools/build/lib:testutil"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:android-rules",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [

@@ -414,6 +414,8 @@ public final class AndroidRuleClasses {
           .add(attr("aidl", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("aidl_lib", LABEL).allowedFileTypes(JavaSemantics.JAR))
           .add(attr("android_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(JavaSemantics.JAR))
+          // TODO(b/67903726): Make this attribute mandatory after updating all android_sdk rules.
+          .add(attr("source_properties", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("shrinked_android_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("annotations_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("main_dex_classes", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))

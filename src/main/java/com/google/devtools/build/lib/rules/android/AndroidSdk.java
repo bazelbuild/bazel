@@ -59,6 +59,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     Artifact frameworkAidl = ruleContext.getPrerequisiteArtifact("framework_aidl", Mode.HOST);
     TransitiveInfoCollection aidlLib = ruleContext.getPrerequisite("aidl_lib", Mode.TARGET);
     Artifact androidJar = ruleContext.getPrerequisiteArtifact("android_jar", Mode.HOST);
+    Artifact sourceProperties = ruleContext.getHostPrerequisiteArtifact("source_properties");
     Artifact shrinkedAndroidJar =
         ruleContext.getPrerequisiteArtifact("shrinked_android_jar", Mode.HOST);
     Artifact annotationsJar = ruleContext.getPrerequisiteArtifact("annotations_jar", Mode.HOST);
@@ -76,6 +77,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
                 frameworkAidl,
                 aidlLib,
                 androidJar,
+                sourceProperties,
                 shrinkedAndroidJar,
                 annotationsJar,
                 mainDexClasses,
