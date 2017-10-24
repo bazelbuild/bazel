@@ -377,6 +377,28 @@ public class DocstringUtilsTest {
   }
 
   @Test
+  public void noRepeatedErrorAboutWrongOrder() throws Exception {
+    List<DocstringParseError> errors = new ArrayList<>();
+    DocstringInfo info =
+        DocstringUtils.parseDocstring(
+            "summary\n"
+                + "\n"
+                + "  Args:\n"
+                + "    param1: foo\n"
+                + "\n"
+                + "  line 1\n"
+                + "  line 2\n",
+            2,
+            errors);
+    Truth.assertThat(info.summary).isEqualTo("summary");
+    Truth.assertThat(info.parameters).hasSize(1);
+    Truth.assertThat(info.longDescription).isEqualTo("line 1\nline 2");
+    Truth.assertThat(errors).hasSize(1);
+    Truth.assertThat(errors.get(0).toString())
+        .isEqualTo("6: description body should go before the special sections");
+  }
+
+  @Test
   public void invalidParameterDoc() throws Exception {
     List<DocstringParseError> errors = new ArrayList<>();
     DocstringInfo info =
