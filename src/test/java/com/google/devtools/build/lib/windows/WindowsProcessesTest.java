@@ -357,6 +357,20 @@ public class WindowsProcessesTest {
   }
 
   @Test
+  public void testRedirectedErrorStream() throws Exception {
+    process =
+        WindowsProcesses.createProcess(
+            mockBinary, mockArgs("O-one", "E-two"), null, null, null, null, true);
+    assertNoProcessError();
+    byte[] buf = new byte[6];
+    assertThat(readStdout(buf, 0, 3)).isEqualTo(3);
+    assertThat(readStdout(buf, 3, 3)).isEqualTo(3);
+    assertThat(new String(buf, UTF8)).isEqualTo("onetwo");
+    assertThat(readStderr(buf, 0, 1)).isEqualTo(0);
+    WindowsProcesses.waitFor(process, -1);
+  }
+
+  @Test
   public void testAppendToExistingFile() throws Exception {
     String stdoutFile = System.getenv("TEST_TMPDIR") + "\\stdout_atef";
     String stderrFile = System.getenv("TEST_TMPDIR") + "\\stderr_atef";

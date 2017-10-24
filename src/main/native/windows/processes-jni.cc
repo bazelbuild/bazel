@@ -131,11 +131,78 @@ static std::wstring AsExecutableForCreateProcess(JNIEnv* env, jstring path,
       bazel::windows::GetJavaWstring(env, path), result);
 }
 
+// The following CreateProcessWithExplicitHandles function is from oldnewthing.
+// https://blogs.msdn.microsoft.com/oldnewthing/20111216-00/?p=8873
+// We need it to prevent unintended handles being inherited by child process,
+// see http://support.microsoft.com/kb/315939
+static BOOL CreateProcessWithExplicitHandles(
+    /* __in_opt    */ LPCWSTR lpApplicationName,
+    /* __inout_opt */ LPWSTR lpCommandLine,
+    /* __in_opt    */ LPSECURITY_ATTRIBUTES lpProcessAttributes,
+    /* __in_opt    */ LPSECURITY_ATTRIBUTES lpThreadAttributes,
+    /* __in        */ BOOL bInheritHandles,
+    /* __in        */ DWORD dwCreationFlags,
+    /* __in_opt    */ LPVOID lpEnvironment,
+    /* __in_opt    */ LPCWSTR lpCurrentDirectory,
+    /* __in        */ LPSTARTUPINFOW lpStartupInfo,
+    /* __out       */ LPPROCESS_INFORMATION lpProcessInformation,
+    /* __in        */ DWORD cHandlesToInherit,
+    /* __in_ecount(cHandlesToInherit) */ HANDLE* rgHandlesToInherit) {
+  BOOL fSuccess;
+  BOOL fInitialized = FALSE;
+  SIZE_T size = 0;
+  LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList = NULL;
+
+  fSuccess = cHandlesToInherit < 0xFFFFFFFF / sizeof(HANDLE) &&
+             lpStartupInfo->cb == sizeof(*lpStartupInfo);
+  if (!fSuccess) {
+    SetLastError(ERROR_INVALID_PARAMETER);
+  }
+  if (fSuccess) {
+    fSuccess = InitializeProcThreadAttributeList(NULL, 1, 0, &size) ||
+               GetLastError() == ERROR_INSUFFICIENT_BUFFER;
+  }
+  if (fSuccess) {
+    lpAttributeList = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(
+        HeapAlloc(GetProcessHeap(), 0, size));
+    fSuccess = lpAttributeList != NULL;
+  }
+  if (fSuccess) {
+    fSuccess = InitializeProcThreadAttributeList(lpAttributeList, 1, 0, &size);
+  }
+  if (fSuccess) {
+    fInitialized = TRUE;
+    fSuccess = UpdateProcThreadAttribute(
+        lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+        rgHandlesToInherit, cHandlesToInherit * sizeof(HANDLE), NULL, NULL);
+  }
+  if (fSuccess) {
+    STARTUPINFOEXW info;
+    ZeroMemory(&info, sizeof(info));
+    info.StartupInfo = *lpStartupInfo;
+    info.StartupInfo.cb = sizeof(info);
+    info.lpAttributeList = lpAttributeList;
+    fSuccess = CreateProcessW(
+        lpApplicationName, lpCommandLine, lpProcessAttributes,
+        lpThreadAttributes, bInheritHandles,
+        dwCreationFlags | EXTENDED_STARTUPINFO_PRESENT, lpEnvironment,
+        lpCurrentDirectory, &info.StartupInfo, lpProcessInformation);
+  }
+
+  if (fInitialized) {
+    DeleteProcThreadAttributeList(lpAttributeList);
+  }
+  if (lpAttributeList) {
+    HeapFree(GetProcessHeap(), 0, lpAttributeList);
+  }
+  return fSuccess;
+}
+
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProcess(
     JNIEnv* env, jclass clazz, jstring java_argv0, jstring java_argv_rest,
     jbyteArray java_env, jstring java_cwd, jstring java_stdout_redirect,
-    jstring java_stderr_redirect) {
+    jstring java_stderr_redirect, jboolean redirectErrorStream) {
   NativeProcess* result = new NativeProcess();
 
   std::wstring argv0;
@@ -240,7 +307,9 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
   // stdout_process's or stderr_process's d'tor doing so.
   HANDLE stderr_handle = INVALID_HANDLE_VALUE;
 
-  if (!stderr_redirect.empty()) {
+  if (redirectErrorStream) {
+    stderr_handle = stdout_process;
+  } else if (!stderr_redirect.empty()) {
     result->stderr_.close();
     if (stdout_redirect == stderr_redirect) {
       stderr_handle = stdout_process;
@@ -293,12 +362,14 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     return PtrAsJlong(result);
   }
 
+  startup_info.cb = sizeof(STARTUPINFOW);
   startup_info.hStdInput = stdin_process;
   startup_info.hStdOutput = stdout_process;
   startup_info.hStdError = stderr_handle;
   startup_info.dwFlags |= STARTF_USESTDHANDLES;
 
-  BOOL ok = CreateProcessW(
+  HANDLE handlesToInherit[3] = {stdin_process, stdout_process, stderr_handle};
+  BOOL ok = CreateProcessWithExplicitHandles(
       /* lpApplicationName */ NULL,
       /* lpCommandLine */ mutable_commandline.get(),
       /* lpProcessAttributes */ NULL,
@@ -310,7 +381,9 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
       /* lpEnvironment */ env_map.ptr(),
       /* lpCurrentDirectory */ cwd.empty() ? nullptr : cwd.c_str(),
       /* lpStartupInfo */ &startup_info,
-      /* lpProcessInformation */ &process_info);
+      /* lpProcessInformation */ &process_info,
+      /* cHandlesToInherit */ (stderr_handle == stdout_process) ? 2 : 3,
+      /* rgHandlesToInherit */ handlesToInherit);
 
   if (!ok) {
     result->error_ = bazel::windows::GetLastErrorString(L"CreateProcess()");
@@ -468,21 +541,6 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWaitFor(
       result = 2;
       break;
   }
-
-  // Close the pipe handles so that any pending nativeReadStream() calls
-  // return. This will call CancelIoEx() on the file handles in order to make
-  // ReadFile() in nativeReadStream() return; otherwise, CloseHandle() would
-  // hang.
-  //
-  // This protects against a subprocess being created, it passing the write
-  // side of the stdout/stderr pipes to a subprocess, then dying. In that case,
-  // if we didn't do this, the Java side of the code would hang waiting for the
-  // streams to finish.
-  //
-  // An alternative implementation would be to rely on job control terminating
-  // the subprocesses, but we don't want to assume that it's always available.
-  process->stdout_.close();
-  process->stderr_.close();
 
   if (process->stdin_ != INVALID_HANDLE_VALUE) {
     CloseHandle(process->stdin_);

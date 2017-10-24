@@ -595,21 +595,10 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   CloseHandle(processInfo.hThread);
 }
 
-// Returns whether assigning the given process to a job failed because nested
-// jobs are not available on the current system.
-static bool IsFailureDueToNestedJobsNotSupported(HANDLE process) {
-  BOOL is_in_job;
-  if (!IsProcessInJob(process, NULL, &is_in_job)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "IsFailureDueToNestedJobsNotSupported: IsProcessInJob");
-    return false;
-  }
-
-  if (!is_in_job) {
-    // Not in a job.
-    return false;
-  }
-  return !IsWindows8OrGreater();
+// Returns whether nested jobs are not available on the current system.
+static bool NestedJobsSupported() {
+  // Nested jobs are supported from Windows 8
+  return IsWindows8OrGreater();
 }
 
 // Run the given program in the current working directory, using the given
@@ -624,20 +613,23 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
 
   PROCESS_INFORMATION processInfo = {0};
 
-  HANDLE job = CreateJobObject(NULL, NULL);
-  if (job == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "ExecuteProgram(%s): CreateJobObject", exe.c_str());
-  }
+  HANDLE job = INVALID_HANDLE_VALUE;
+  if (NestedJobsSupported()) {
+    job = CreateJobObject(NULL, NULL);
+    if (job == NULL) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "ExecuteProgram(%s): CreateJobObject", exe.c_str());
+    }
 
-  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
-  job_info.BasicLimitInformation.LimitFlags =
-      JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
+    job_info.BasicLimitInformation.LimitFlags =
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 
-  if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
-                               &job_info, sizeof(job_info))) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "ExecuteProgram(%s): SetInformationJobObject", exe.c_str());
+    if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
+                                 &job_info, sizeof(job_info))) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "ExecuteProgram(%s): SetInformationJobObject", exe.c_str());
+    }
   }
 
   BOOL success = CreateProcessA(
@@ -657,18 +649,23 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
          "ExecuteProgram(%s): CreateProcess(%s)", exe.c_str(), cmdline.cmdline);
   }
 
-  // We will try to put the launched process into a Job object. This will make
-  // Windows reliably kill all child processes that the process itself may
-  // launch once the process exits. On Windows systems that don't support nested
-  // jobs, this may fail if we are already running inside a job ourselves. In
-  // this case, we'll continue anyway, because we assume that our parent is
-  // handling process management for us.
-  if (!AssignProcessToJobObject(job, processInfo.hProcess) &&
-      !IsFailureDueToNestedJobsNotSupported(processInfo.hProcess)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "ExecuteProgram(%s): AssignProcessToJobObject", exe.c_str());
+  // On Windows versions that support nested jobs (Windows 8 and above), we
+  // assign the Bazel server to a job object. Every process that Bazel creates,
+  // as well as all their child processes, will be assigned to this job object.
+  // When the Bazel server terminates the OS can reliably kill the entire
+  // process tree under it. On Windows versions that don't support nested jobs
+  // (Windows 7), we don't assign the Bazel server to a big job object. Instead,
+  // when Bazel creates new processes, it does so using the JNI library. The
+  // library assigns individual job objects to each subprocess. This way when
+  // these processes terminate, the OS can kill all their subprocesses. Bazel's
+  // own subprocesses are not in a job object though, so we only create
+  // subprocesses via the JNI library.
+  if (job != INVALID_HANDLE_VALUE) {
+    if (!AssignProcessToJobObject(job, processInfo.hProcess)) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "ExecuteProgram(%s): AssignProcessToJobObject", exe.c_str());
+    }
   }
-
   // Now that we potentially put the process into a new job object, we can start
   // running it.
   if (ResumeThread(processInfo.hThread) == -1) {
