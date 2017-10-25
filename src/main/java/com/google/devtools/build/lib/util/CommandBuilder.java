@@ -141,10 +141,12 @@ public final class CommandBuilder {
       // args can contain whitespace, so figure out the first word
       String argv0 = modifiedArgv.get(0);
       String command = ARGV_SPLITTER.split(argv0).iterator().next();
-      
+
       // Automatically enable CMD.EXE use if we are executing something else besides "*.exe" file.
+      // When use CMD.EXE to invoke a bat/cmd file, the file path must have '\' instead of '/'
       if (!command.toLowerCase().endsWith(".exe")) {
         useShell = true;
+        modifiedArgv.set(0, argv0.replace('/', '\\'));
       }
     } else {
       // This is degenerate "/bin/sh -c" case. We ensure that Windows behavior is identical
