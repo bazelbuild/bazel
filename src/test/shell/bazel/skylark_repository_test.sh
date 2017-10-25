@@ -24,8 +24,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
-SKYLARK_FLAG_MARKER="<== skylark flag test ==>"
-
 # Basic test.
 function test_macro_local_repository() {
   create_new_workspace
@@ -348,12 +346,22 @@ def _impl(repository_ctx):
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
+  MARKER="<== skylark flag test ==>"
+
+  bazel build @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log "In repo rule: " "Did not find repository rule print output"
+  expect_not_log "$MARKER" \
+      "Marker string '$MARKER' was seen even though \
+      --internal_skylark_flag_test_canary wasn't passed"
+
   # Build with the special testing flag that appends a marker string to all
   # print() calls.
   bazel build @foo//:bar --internal_skylark_flag_test_canary >& $TEST_log \
     || fail "Expected build to succeed"
-  expect_log "In repo rule: $SKYLARK_FLAG_MARKER" \
-      "Skylark flags are not propagating to repository rules"
+  expect_log "In repo rule: $MARKER" \
+      "Skylark flags are not propagating to repository rule implementation \
+      function evaluation"
 }
 
 function test_skylark_repository_which_and_execute() {

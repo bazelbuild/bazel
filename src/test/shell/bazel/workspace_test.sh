@@ -21,8 +21,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 export JAVA_RUNFILES=$BAZEL_RUNFILES
 
-SKYLARK_FLAG_MARKER="<== skylark flag test ==>"
-
 function setup_repo() {
   mkdir -p $1
   touch $1/WORKSPACE
@@ -189,13 +187,24 @@ EOF
 genrule(name = "x", cmd = "echo hi > $@", outs = ["x.out"], srcs = [])
 EOF
 
+  MARKER="<== skylark flag test ==>"
+
+  # Sanity check.
+  bazel build //:x &>"$TEST_log" \
+    || fail "Expected build to succeed"
+  expect_log "In workspace: " "Did not find workspace print output"
+  expect_log "In workspace macro: " "Did not find workspace macro print output"
+  expect_not_log "$MARKER" \
+    "Marker string '$MARKER' was seen even though \
+    --internal_skylark_flag_test_canary wasn't passed"
+
   # Build with the special testing flag that appends a marker string to all
   # print() calls.
   bazel build //:x --internal_skylark_flag_test_canary &>"$TEST_log" \
     || fail "Expected build to succeed"
-  expect_log "In workspace: $SKYLARK_FLAG_MARKER" \
+  expect_log "In workspace: $MARKER" \
     "Skylark flags are not propagating to workspace evaluation"
-  expect_log "In workspace macro: $SKYLARK_FLAG_MARKER" \
+  expect_log "In workspace macro: $MARKER" \
     "Skylark flags are not propagating to workspace macro evaluation"
 }
 
