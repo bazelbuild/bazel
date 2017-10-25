@@ -102,11 +102,11 @@ flag (but this flag will invalidate every action of the build).
 it uses a repository rule to automatically create the
 C++ configuration files for Bazel by looking for the local C++ compiler, the
 environment and the flags the C++ compiler supports.
--
-  [Go repositories](https://github.com/bazelbuild/rules_go/blob/67bc217b6210a0922d76d252472b87e9a6118fdf/go/private/go_repositories.bzl#L195)
+
+- [Go repositories](https://github.com/bazelbuild/rules_go/blob/67bc217b6210a0922d76d252472b87e9a6118fdf/go/private/go_repositories.bzl#L195)
   uses several `repository_rule` to defines the list of dependencies
   needed to use the Go rules.
--
-  [maven_jar](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/maven_rules.bzl#L281)
+
+- [maven_jar](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/maven_rules.bzl#L281)
   is a reimplementation of the native `maven_jar` rule using the
   `maven` tool.
