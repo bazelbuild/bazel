@@ -23,6 +23,7 @@ import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.ExternalPackageBuilder;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -84,10 +85,8 @@ public class SkylarkRepositoryContextTest {
         new FuncallExpression(new Identifier("test"), ImmutableList.<Passed>of());
     ast.setLocation(Location.BUILTIN);
     Rule rule =
-        packageBuilder
-            .externalPackageData()
-            .createAndAddRepositoryRule(
-                packageBuilder, buildRuleClass(attributes), null, kwargs, ast);
+        ExternalPackageBuilder.createAndAddRepositoryRule(
+            packageBuilder, buildRuleClass(attributes), null, kwargs, ast);
     HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
     context =
         new SkylarkRepositoryContext(

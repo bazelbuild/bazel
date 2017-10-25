@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.ExternalPackageBuilder;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
@@ -173,11 +174,8 @@ public class SkylarkRepositoryModule {
         PackageContext context = PackageFactory.getContext(env, ast);
         @SuppressWarnings("unchecked")
         Map<String, Object> attributeValues = (Map<String, Object>) args[0];
-        return context
-            .getBuilder()
-            .externalPackageData()
-            .createAndAddRepositoryRule(
-                context.getBuilder(), ruleClass, null, attributeValues, ast);
+        return ExternalPackageBuilder.createAndAddRepositoryRule(
+            context.getBuilder(), ruleClass, null, attributeValues, ast);
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }

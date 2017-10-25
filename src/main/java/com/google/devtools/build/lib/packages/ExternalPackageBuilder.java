@@ -31,7 +31,7 @@ import java.util.Map;
  */
 public class ExternalPackageBuilder {
 
-  public Rule createAndAddRepositoryRule(
+  public static Rule createAndAddRepositoryRule(
       Package.Builder pkg,
       RuleClass ruleClass,
       RuleClass bindRuleClass,

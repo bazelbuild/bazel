@@ -255,10 +255,10 @@ public class WorkspaceFactory {
   }
 
   /**
-   * Adds the various values returned by the parsing of the previous workspace file parts.
-   * {@code aPackage} is the package returned by the parent WorkspaceFileFunction, {@code importMap}
-   * is the list of load statements imports computed by the parent WorkspaceFileFunction and
-   * {@code variableBindings} the list of top level variable bindings of that same call.
+   * Adds the various values returned by the parsing of the previous workspace file parts. {@code
+   * aPackage} is the package returned by the parent WorkspaceFileFunction, {@code importMap} is the
+   * list of load statements imports computed by the parent WorkspaceFileFunction and {@code
+   * variableBindings} the list of top level variable bindings of that same call.
    */
   public void setParent(
       Package aPackage,
@@ -305,9 +305,7 @@ public class WorkspaceFactory {
             + "description of the project, using underscores as separators, e.g., "
             + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must "
             + "start with a letter and can only contain letters, numbers, and underscores.",
-    parameters = {
-      @Param(name = "name", type = String.class, doc = "the name of the workspace.")
-    },
+    parameters = {@Param(name = "name", type = String.class, doc = "the name of the workspace.")},
     useAst = true,
     useEnvironment = true
   )
@@ -331,19 +329,13 @@ public class WorkspaceFactory {
                 Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
                 RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
                 RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
-                Map<String, Object> kwargs = ImmutableMap.<String, Object>of(
-                    "name", name, "path", ".");
+                Map<String, Object> kwargs =
+                    ImmutableMap.<String, Object>of("name", name, "path", ".");
                 try {
                   // This effectively adds a "local_repository(name = "<ws>", path = ".")"
                   // definition to the WORKSPACE file.
-                  builder
-                      .externalPackageData()
-                      .createAndAddRepositoryRule(
-                          builder,
-                          localRepositoryRuleClass,
-                          bindRuleClass,
-                          kwargs,
-                          ast);
+                  ExternalPackageBuilder.createAndAddRepositoryRule(
+                      builder, localRepositoryRuleClass, bindRuleClass, kwargs, ast);
                 } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
                   throw new EvalException(ast.getLocation(), e.getMessage());
                 }
@@ -374,15 +366,13 @@ public class WorkspaceFactory {
           try {
             Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
             RuleClass ruleClass = ruleFactory.getRuleClass("bind");
-            builder
-                .externalPackageData()
-                .addBindRule(
-                    builder,
-                    ruleClass,
-                    nameLabel,
-                    actual == null ? null : Label.parseAbsolute(actual),
-                    ast.getLocation(),
-                    ruleFactory.getAttributeContainer(ruleClass));
+            ExternalPackageBuilder.addBindRule(
+                builder,
+                ruleClass,
+                nameLabel,
+                actual == null ? null : Label.parseAbsolute(actual),
+                ast.getLocation(),
+                ruleFactory.getAttributeContainer(ruleClass));
           } catch (RuleFactory.InvalidRuleException
               | Package.NameConflictException
               | LabelSyntaxException e) {
@@ -474,16 +464,15 @@ public class WorkspaceFactory {
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =
-              builder
-                  .externalPackageData()
-                  .createAndAddRepositoryRule(builder, ruleClass, bindRuleClass, kwargs, ast);
+              ExternalPackageBuilder.createAndAddRepositoryRule(
+                  builder, ruleClass, bindRuleClass, kwargs, ast);
           if (!isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
                 ast.getLocation(), rule + "'s name field must be a legal workspace name");
           }
-        } catch (
-            RuleFactory.InvalidRuleException | Package.NameConflictException | LabelSyntaxException
-                e) {
+        } catch (RuleFactory.InvalidRuleException
+            | Package.NameConflictException
+            | LabelSyntaxException e) {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }
         return NONE;

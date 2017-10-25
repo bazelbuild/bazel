@@ -766,8 +766,6 @@ public class Package {
     protected Map<Label, Path> subincludes = null;
     protected ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
 
-    protected ExternalPackageBuilder externalPackageData = new ExternalPackageBuilder();
-
     protected List<Label> registeredToolchainLabels = new ArrayList<>();
 
     /**
@@ -1394,10 +1392,6 @@ public class Package {
       pkg.finishInit(this);
       alreadyBuilt = true;
       return pkg;
-    }
-
-    public ExternalPackageBuilder externalPackageData() {
-      return externalPackageData;
     }
 
     public Package build() throws InterruptedException, NoSuchPackageException {
