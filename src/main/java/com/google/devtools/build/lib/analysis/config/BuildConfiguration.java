@@ -752,11 +752,16 @@ public final class BuildConfiguration implements BuildEvent {
     )
     public boolean legacyExternalRunfiles;
 
+    @Deprecated
     @Option(
       name = "check_fileset_dependencies_recursively",
       defaultValue = "true",
       category = "semantics",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      deprecationWarning = "Setting this to false is unsupported and will go away soon as it leads "
+          + "to incorrect results. Please contact kush@ with your use case if you need "
+          + "to continue setting this flag to false. If you're setting this to true then stop "
+          + "setting this flag to stop this warning.",
       effectTags = { OptionEffectTag.AFFECTS_OUTPUTS },
       help =
           "If false, fileset targets will, whenever possible, create "
