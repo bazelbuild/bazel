@@ -441,7 +441,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   private Node<Target> getSubincludeTarget(final Label label, Package pkg) {
-    return getNode(new FakeSubincludeTarget(label, pkg));
+    return getNode(new FakeLoadTarget(label, pkg));
   }
 
   @Override

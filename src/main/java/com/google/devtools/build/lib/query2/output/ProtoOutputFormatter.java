@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
+import com.google.devtools.build.lib.query2.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
@@ -298,7 +298,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
       targetPb.setType(SOURCE_FILE);
       targetPb.setSourceFile(input);
-    } else if (target instanceof FakeSubincludeTarget) {
+    } else if (target instanceof FakeLoadTarget) {
       Label label = target.getLabel();
       SourceFile.Builder input = SourceFile.newBuilder()
                                            .setName(label.toString());

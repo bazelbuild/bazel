@@ -782,7 +782,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   private static Target getSubincludeTarget(Label label, Package pkg) {
-    return new FakeSubincludeTarget(label, pkg);
+    return new FakeLoadTarget(label, pkg);
   }
 
   @ThreadSafe

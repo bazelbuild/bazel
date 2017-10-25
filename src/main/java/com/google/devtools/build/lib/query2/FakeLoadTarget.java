@@ -27,14 +27,14 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A fake Target - Use only so that "blaze query" can report subincluded files as Targets.
+ * A fake Target - Use only so that "blaze query" can report Load files as Targets.
  */
-public class FakeSubincludeTarget implements Target {
+public class FakeLoadTarget implements Target {
 
   private final Label label;
   private final Package pkg;
 
-  FakeSubincludeTarget(Label label, Package pkg) {
+  FakeLoadTarget(Label label, Package pkg) {
     this.label = Preconditions.checkNotNull(label);
     this.pkg = Preconditions.checkNotNull(pkg);
   }
@@ -101,10 +101,10 @@ public class FakeSubincludeTarget implements Target {
 
   @Override
   public boolean equals(Object obj) {
-    if (!(obj instanceof FakeSubincludeTarget)) {
+    if (!(obj instanceof FakeLoadTarget)) {
       return false;
     }
-    FakeSubincludeTarget other = (FakeSubincludeTarget) obj;
+    FakeLoadTarget other = (FakeLoadTarget) obj;
     return label.equals(other.label) && pkg.equals(other.pkg);
   }
 
