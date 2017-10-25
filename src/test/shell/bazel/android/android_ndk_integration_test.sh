@@ -45,7 +45,6 @@ android_binary(
         "MainActivity.java",
         "Jni.java",
     ],
-    legacy_native_support = 0,
     manifest = "AndroidManifest.xml",
     deps = [
         ":lib",

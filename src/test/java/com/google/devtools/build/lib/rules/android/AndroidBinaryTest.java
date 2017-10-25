@@ -405,7 +405,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               srcs = ['A.java'],",
         "               deps = [':native', '//java/android/common:common'],",
         "               manifest = 'AndroidManifest.xml',",
-        "               legacy_native_support = 0,",
         "              )");
   }
 
