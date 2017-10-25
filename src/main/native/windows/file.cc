@@ -45,7 +45,9 @@ int IsJunctionOrDirectorySymlink(const WCHAR* path) {
 wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
   DWORD size = ::GetLongPathNameW(path, NULL, 0);
   if (size == 0) {
-    return GetLastErrorString(L"GetLongPathNameW");
+    DWORD err_code = GetLastError();
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"GetLongPathNameW", path,
+                            err_code);
   }
   result->reset(new WCHAR[size]);
   ::GetLongPathNameW(path, result->get(), size);
@@ -113,10 +115,8 @@ wstring CreateJunction(const wstring& junction_name,
        /* two copies of the string are stored */ 2) /
       sizeof(WCHAR);
   if (target.size() > kMaxJunctionTargetLen) {
-    std::wstringstream error;
-    error << L"junction target is too long (" << target.size()
-          << L" characters, limit: " << kMaxJunctionTargetLen << L")";
-    return error.str();
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateJunction", target,
+                            L"target is too long");
   }
   const wstring name = HasUncPrefix(junction_name.c_str())
                            ? junction_name
@@ -124,12 +124,16 @@ wstring CreateJunction(const wstring& junction_name,
 
   // Junctions are directories, so create one
   if (!::CreateDirectoryW(name.c_str(), NULL)) {
-    return wstring(L"CreateDirectoryW failed");
+    DWORD err_code = GetLastError();
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateJunction", name,
+                            err_code);
   }
 
   AutoHandle handle(OpenDirectory(name.c_str(), true));
   if (!handle.IsValid()) {
-    return wstring(L"OpenDirectory failed");
+    DWORD err_code = GetLastError();
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"OpenDirectory", name,
+                            err_code);
   }
 
   uint8_t reparse_buffer_bytes[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
@@ -177,7 +181,9 @@ wstring CreateJunction(const wstring& junction_name,
                          reparse_buffer->header.ReparseDataLength +
                              sizeof(JunctionDescription::Header),
                          NULL, 0, &bytes_returned, NULL)) {
-    return wstring(L"DeviceIoControl(FSCTL_SET_REPARSE_POINT) failed");
+    DWORD err_code = GetLastError();
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeviceIoControl", L"",
+                            err_code);
   }
   return L"";
 }

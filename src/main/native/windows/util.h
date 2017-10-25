@@ -49,8 +49,16 @@ struct AutoHandle {
   HANDLE handle_;
 };
 
-wstring GetLastErrorString(const wstring& cause);
-wstring GetLastErrorString(const wstring& cause, DWORD error_code);
+#define WSTR1(x) L##x
+#define WSTR(x) WSTR1(x)
+
+wstring MakeErrorMessage(const wchar_t* file, int line,
+                         const wchar_t* failed_func, const wstring& func_arg,
+                         const wstring& message);
+wstring MakeErrorMessage(const wchar_t* file, int line,
+                         const wchar_t* failed_func, const wstring& func_arg,
+                         DWORD error_code);
+wstring GetLastErrorString(DWORD error_code);
 
 // Same as `AsExecutablePathForCreateProcess` except it won't quote the result.
 wstring AsShortPath(wstring path, wstring* result);

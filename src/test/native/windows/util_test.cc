@@ -234,8 +234,8 @@ static void DeleteDirsUnder(const wstring& basedir,
                                 /* const WCHAR* */ error_msg)         \
   {                                                                   \
     wstring actual;                                                   \
-    ASSERT_CONTAINS(AsExecutablePathForCreateProcess(input, &actual), \
-                    error_msg);                                       \
+    wstring result(AsExecutablePathForCreateProcess(input, &actual)); \
+    ASSERT_CONTAINS(result, error_msg);                               \
   }
 
 // This is a macro so the assertions will have the correct line number.
@@ -249,13 +249,12 @@ static void DeleteDirsUnder(const wstring& basedir,
 
 TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
   ASSERT_SHORTENING_FAILS(L"", L"should not be empty");
-  ASSERT_SHORTENING_FAILS(L"\"cmd.exe\"", L"should not be quoted");
-  ASSERT_SHORTENING_FAILS(L"/dev/null", L"path='/dev/null' is absolute");
-  ASSERT_SHORTENING_FAILS(L"/usr/bin/bash",
-                          L"path='/usr/bin/bash' is absolute");
-  ASSERT_SHORTENING_FAILS(L"foo\\bar.exe", L"absolute");
-  ASSERT_SHORTENING_FAILS(L"foo\\..\\bar.exe", L"normalized");
-  ASSERT_SHORTENING_FAILS(L"\\bar.exe", L"path='\\bar.exe' is absolute");
+  ASSERT_SHORTENING_FAILS(L"\"cmd.exe\"", L"path should not be quoted");
+  ASSERT_SHORTENING_FAILS(L"/dev/null", L"path is absolute without a drive");
+  ASSERT_SHORTENING_FAILS(L"/usr/bin/bash", L"path is absolute without a");
+  ASSERT_SHORTENING_FAILS(L"foo\\bar.exe", L"path is not absolute");
+  ASSERT_SHORTENING_FAILS(L"foo\\..\\bar.exe", L"path is not normalized");
+  ASSERT_SHORTENING_FAILS(L"\\bar.exe", L"path is absolute");
 
   wstring dummy = L"hello";
   while (dummy.size() < MAX_PATH) {
@@ -295,7 +294,7 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
     if (i > 0) {
       ASSERT_EQ(::GetFileAttributesW(wfilename.c_str()),
                 INVALID_FILE_ATTRIBUTES);
-      ASSERT_SHORTENING_FAILS(wfilename.c_str(), L"GetShortPathName failed");
+      ASSERT_SHORTENING_FAILS(wfilename.c_str(), L"GetShortPathNameW");
     }
 
     // Create the file, now we should be able to shorten it when i=0, but not
@@ -309,7 +308,7 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
       // The wfilename was too long to begin with, and it was impossible to
       // shorten any of the segments (since we deliberately created them that
       // way), so shortening failed.
-      ASSERT_SHORTENING_FAILS(wfilename.c_str(), L"would not shorten");
+      ASSERT_SHORTENING_FAILS(wfilename.c_str(), L"cannot shorten the path");
     }
     DELETE_FILE(wfilename);
   }
@@ -327,7 +326,7 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
   ASSERT_GT(wshortenable.size(), MAX_PATH);
 
   // Attempt to shorten. It will fail because the file doesn't exist yet.
-  ASSERT_SHORTENING_FAILS(wshortenable, L"GetShortPathName failed");
+  ASSERT_SHORTENING_FAILS(wshortenable, L"GetShortPathNameW");
 
   // Create the file so shortening will succeed.
   CREATE_FILE(wshortenable);

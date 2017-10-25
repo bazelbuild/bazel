@@ -17,6 +17,7 @@
 #include <windows.h>
 
 #include <memory>
+#include <sstream>
 #include <string>
 
 #include "src/main/native/jni.h"
@@ -24,26 +25,30 @@
 #include "src/main/native/windows/jni-util.h"
 #include "src/main/native/windows/util.h"
 
-static void MaybeReportLastError(const std::wstring& reason, JNIEnv* env,
-                                 jobjectArray error_msg_holder) {
-  if (error_msg_holder != nullptr &&
-      env->GetArrayLength(error_msg_holder) > 0) {
-    std::wstring error_str = bazel::windows::GetLastErrorString(reason);
-    jstring error_msg = env->NewString(
-        reinterpret_cast<const jchar*>(error_str.c_str()), error_str.size());
-    env->SetObjectArrayElement(error_msg_holder, 0, error_msg);
-  }
+static bool CanReportError(JNIEnv* env, jobjectArray error_msg_holder) {
+  return error_msg_holder != nullptr &&
+         env->GetArrayLength(error_msg_holder) > 0;
+}
+
+static void ReportLastError(const std::wstring& error_str, JNIEnv* env,
+                            jobjectArray error_msg_holder) {
+  jstring error_msg = env->NewString(
+      reinterpret_cast<const jchar*>(error_str.c_str()), error_str.size());
+  env->SetObjectArrayElement(error_msg_holder, 0, error_msg);
 }
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeIsJunction(
     JNIEnv* env, jclass clazz, jstring path, jobjectArray error_msg_holder) {
-  int result = bazel::windows::IsJunctionOrDirectorySymlink(
-      bazel::windows::GetJavaWstring(env, path).c_str());
-  if (result == bazel::windows::IS_JUNCTION_ERROR) {
-    MaybeReportLastError(std::wstring(L"GetFileAttributes(") +
-                             bazel::windows::GetJavaWstring(env, path) + L")",
-                         env, error_msg_holder);
+  std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
+  int result = bazel::windows::IsJunctionOrDirectorySymlink(wpath.c_str());
+  if (result == bazel::windows::IS_JUNCTION_ERROR &&
+      CanReportError(env, error_msg_holder)) {
+    DWORD err_code = GetLastError();
+    ReportLastError(
+        bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                         L"nativeIsJunction", wpath, err_code),
+        env, error_msg_holder);
   }
   return result;
 }
@@ -53,13 +58,13 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeGetLo
     JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder,
     jobjectArray error_msg_holder) {
   std::unique_ptr<WCHAR[]> result;
-  std::wstring err_msg(bazel::windows::GetLongPath(
-      bazel::windows::GetJavaWstring(env, path).c_str(), &result));
-  if (!err_msg.empty()) {
-    MaybeReportLastError(std::wstring(L"GetLongPathName(") +
-                             bazel::windows::GetJavaWstring(env, path) +
-                             L"): " + err_msg,
-                         env, error_msg_holder);
+  std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
+  std::wstring error(bazel::windows::GetLongPath(wpath.c_str(), &result));
+  if (!error.empty() && CanReportError(env, error_msg_holder)) {
+    ReportLastError(
+        bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                         L"nativeGetLongPath", wpath, error),
+        env, error_msg_holder);
     return JNI_FALSE;
   }
   env->SetObjectArrayElement(
@@ -73,11 +78,14 @@ extern "C" JNIEXPORT jboolean JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeCreateJunction(
     JNIEnv* env, jclass clazz, jstring name, jstring target,
     jobjectArray error_msg_holder) {
-  std::wstring error(bazel::windows::CreateJunction(
-      bazel::windows::GetJavaWstring(env, name),
-      bazel::windows::GetJavaWstring(env, target)));
-  if (!error.empty()) {
-    MaybeReportLastError(error, env, error_msg_holder);
+  std::wstring wname(bazel::windows::GetJavaWstring(env, name));
+  std::wstring wtarget(bazel::windows::GetJavaWstring(env, target));
+  std::wstring error(bazel::windows::CreateJunction(wname, wtarget));
+  if (!error.empty() && CanReportError(env, error_msg_holder)) {
+    ReportLastError(bazel::windows::MakeErrorMessage(
+                        WSTR(__FILE__), __LINE__, L"nativeCreateJunction",
+                        wname + L", " + wtarget, error),
+                    env, error_msg_holder);
     return JNI_FALSE;
   }
   return JNI_TRUE;

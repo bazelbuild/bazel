@@ -28,11 +28,23 @@ namespace windows {
 using std::wstring;
 using std::wstringstream;
 
-wstring GetLastErrorString(const wstring& cause) {
-  return GetLastErrorString(cause, GetLastError());
+wstring MakeErrorMessage(const wchar_t* file, int line,
+                         const wchar_t* failed_func, const wstring& func_arg,
+                         const wstring& message) {
+  wstringstream result;
+  result << L"ERROR: " << file << L"(" << line << L"): " << failed_func << L"("
+         << func_arg << L"): " << message;
+  return result.str();
 }
 
-wstring GetLastErrorString(const wstring& cause, DWORD error_code) {
+wstring MakeErrorMessage(const wchar_t* file, int line,
+                         const wchar_t* failed_func, const wstring& func_arg,
+                         DWORD error_code) {
+  return MakeErrorMessage(file, line, failed_func, func_arg,
+                          GetLastErrorString(error_code));
+}
+
+wstring GetLastErrorString(DWORD error_code) {
   if (error_code == 0) {
     return L"";
   }
@@ -46,12 +58,13 @@ wstring GetLastErrorString(const wstring& cause, DWORD error_code) {
   if (size == 0) {
     wstringstream err;
     DWORD format_message_error = GetLastError();
-    err << cause << L": Error " << error_code
-        << L"; cannot format message due to error " << format_message_error;
+    err << L"Error code " << error_code
+        << L"; cannot format message due to error code "
+        << format_message_error;
     return err.str();
   }
 
-  wstring result(cause + L": " + message);
+  wstring result(message);
   HeapFree(GetProcessHeap(), LMEM_FIXED, message);
   return result;
 }
@@ -77,21 +90,26 @@ wstring AsShortPath(wstring path, wstring* result) {
     return L"";
   }
   if (path[0] == '"') {
-    return wstring(L"path should not be quoted");
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"AsShortPath", path,
+                            L"path should not be quoted");
   }
   if (IsSeparator(path[0])) {
-    return wstring(L"path='") + path + L"' is absolute";
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"AsShortPath", path,
+                            L"path is absolute without a drive letter");
   }
   if (Contains(path, L"/./") || Contains(path, L"\\.\\") ||
       Contains(path, L"/..") || Contains(path, L"\\..")) {
-    return wstring(L"path='") + path + L"' is not normalized";
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"AsShortPath", path,
+                            L"path is not normalized");
   }
   if (path.size() >= MAX_PATH && !HasSeparator(path)) {
-    return wstring(L"path='") + path + L"' is just a file name but too long";
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"AsShortPath", path,
+                            L"path is just a file name but too long");
   }
   if (HasSeparator(path) &&
       !(isalpha(path[0]) && path[1] == L':' && IsSeparator(path[2]))) {
-    return wstring(L"path='") + path + L"' is not an absolute path";
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"AsShortPath", path,
+                            L"path is not absolute");
   }
   // At this point we know the path is either just a file name (shorter than
   // MAX_PATH), or an absolute, normalized, Windows-style path (of any length).
@@ -120,14 +138,15 @@ wstring AsShortPath(wstring path, wstring* result) {
   WCHAR wshort[kMaxShortPath];
   DWORD wshort_size = ::GetShortPathNameW(wlong.c_str(), NULL, 0);
   if (wshort_size == 0) {
-    return GetLastErrorString(wstring(L"GetShortPathName failed (path=") +
-                              path + L")");
+    DWORD err_code = GetLastError();
+    wstring res = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                   L"GetShortPathNameW", wlong, err_code);
+    return res;
   }
 
   if (wshort_size >= kMaxShortPath) {
-    return wstring(
-               L"GetShortPathName would not shorten the path enough (path=") +
-           path + L")";
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"GetShortPathNameW",
+                            wlong, L"cannot shorten the path enough");
   }
   GetShortPathNameW(wlong.c_str(), wshort, kMaxShortPath);
   result->assign(wshort + 4);
@@ -136,16 +155,20 @@ wstring AsShortPath(wstring path, wstring* result) {
 
 wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result) {
   if (path.empty()) {
-    return L"path should not be empty";
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                            L"AsExecutablePathForCreateProcess", path,
+                            L"path should not be empty");
   }
   wstring error = AsShortPath(path, result);
-  if (error.empty()) {
-    // Quote the path in case it's something like "c:\foo\app name.exe".
-    // Do this unconditionally, there's no harm in quoting. Quotes are not
-    // allowed inside paths so we don't need to escape quotes.
-    QuotePath(*result, result);
+  if (!error.empty()) {
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                            L"AsExecutablePathForCreateProcess", path, error);
   }
-  return error;
+  // Quote the path in case it's something like "c:\foo\app name.exe".
+  // Do this unconditionally, there's no harm in quoting. Quotes are not
+  // allowed inside paths so we don't need to escape quotes.
+  QuotePath(*result, result);
+  return L"";
 }
 
 }  // namespace windows
