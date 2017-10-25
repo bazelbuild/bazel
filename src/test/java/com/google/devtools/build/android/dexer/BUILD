@@ -22,6 +22,8 @@ java_library(
             exclude = [
                 "NoAndroidSdkStubTest.java",
                 "AllTests.java",
+                # TODO(kmb,ajmichael): need 2nd Java 7 Jar for this test
+                "DexFileSplitterTest.java",
             ],
         ),
         "//conditions:default": ["NoAndroidSdkStubTest.java"],
