@@ -222,6 +222,9 @@ message Aborted {
     // The user requested that no analysis be performed.
     NO_ANALYZE = 8;
 
+    // The user requested that no build be carried out.
+    NO_BUILD = 9;
+
     // The build or target was aborted as a timeout was exceeded.
     TIME_OUT = 2;
 

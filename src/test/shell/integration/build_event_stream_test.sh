@@ -794,4 +794,11 @@ function test_noanalyze() {
   expect_log 'reason: NO_ANALYZE'
 }
 
+function test_nobuild() {
+  bazel build --nobuild --build_event_text_file="${TEST_log}" pkg:true \
+    || fail "build failed"
+  expect_log_once '^aborted'
+  expect_log 'reason: NO_BUILD'
+}
+
 run_suite "Integration tests for the build event stream"

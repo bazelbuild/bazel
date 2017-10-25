@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -254,6 +255,8 @@ public final class BuildTool {
               configurations,
               analysisResult.getPackageRoots(),
               request.getTopLevelArtifactContext());
+        } else {
+          getReporter().post(new NoExecutionEvent());
         }
         String delayedErrorMsg = analysisResult.getError();
         if (delayedErrorMsg != null) {
