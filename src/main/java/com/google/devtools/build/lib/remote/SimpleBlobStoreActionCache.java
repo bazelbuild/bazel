@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -53,7 +52,6 @@ import java.util.Collection;
  */
 @ThreadSafe
 public final class SimpleBlobStoreActionCache implements RemoteActionCache {
-  private static final int MAX_MEMORY_KBYTES = 512 * 1024;
   private static final int MAX_BLOB_SIZE_FOR_INLINE = 10 * 1024;
 
   private final SimpleBlobStore blobStore;
@@ -244,21 +242,11 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
     dest.setExecutable(executable);
   }
 
-  private void checkBlobSize(long blobSizeKBytes, String type) {
-    Preconditions.checkArgument(
-        blobSizeKBytes < MAX_MEMORY_KBYTES,
-        type + ": maximum blob size exceeded: %sK > %sK.",
-        blobSizeKBytes,
-        MAX_MEMORY_KBYTES);
-  }
-
   public Digest uploadBlob(byte[] blob) throws IOException, InterruptedException {
     return uploadBlob(blob, Digests.computeDigest(blob));
   }
 
   private Digest uploadBlob(byte[] blob, Digest digest) throws IOException, InterruptedException {
-    int blobSizeKBytes = blob.length / 1024;
-    checkBlobSize(blobSizeKBytes, "Upload");
     return uploadStream(digest, new ByteArrayInputStream(blob));
   }
 
@@ -284,8 +272,6 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
     if (digest.getSizeBytes() == 0) {
       return new byte[0];
     }
-    // This unconditionally downloads the whole blob into memory!
-    checkBlobSize(digest.getSizeBytes() / 1024, "Download");
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     downloadBlob(digest, out);
     return out.toByteArray();
@@ -311,7 +297,6 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
       return new byte[0];
     }
     // This unconditionally downloads the whole blob into memory!
-    checkBlobSize(digest.getSizeBytes() / 1024, "Download Action Result");
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     boolean success = blobStore.getActionResult(digest.getHash(), out);
     if (!success) {
