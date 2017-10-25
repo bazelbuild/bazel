@@ -200,4 +200,11 @@ public class TemplateExpanderTest {
     assertThat(expand("$${file%:.*8}")).isEqualTo("${file%:.*8}");
     assertThat(expand("$$(basename file)")).isEqualTo("$(basename file)");
   }
+
+  // Regression test: check that the parameter is trimmed before expanding.
+  @Test
+  public void testFunctionExpansionIsTrimmed() throws Exception {
+    context.functions.put("foo", (String p) -> "FOO(" + p + ")");
+    assertThat(expand("$(foo  baz )")).isEqualTo("FOO(baz)");
+  }
 }
