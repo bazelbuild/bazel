@@ -926,6 +926,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DOS_MACOSX"
+        flag: "-fno-autolink"
       }
     }
   }
@@ -2581,6 +2582,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DOS_IOS"
+        flag: "-fno-autolink"
       }
     }
   }
@@ -4243,6 +4245,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DOS_IOS"
+        flag: "-fno-autolink"
       }
     }
   }
@@ -5908,6 +5911,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DOS_TVOS"
+        flag: "-fno-autolink"
       }
     }
   }
@@ -7600,6 +7604,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DOS_IOS"
+        flag: "-fno-autolink"
       }
     }
   }
@@ -9262,6 +9267,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DOS_IOS"
+        flag: "-fno-autolink"
       }
     }
   }
@@ -10912,6 +10918,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DOS_IOS"
+        flag: "-fno-autolink"
       }
     }
   }
@@ -12565,6 +12572,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DOS_TVOS"
+        flag: "-fno-autolink"
       }
     }
   }
@@ -14245,6 +14253,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DOS_IOS"
+        flag: "-fno-autolink"
       }
     }
   }
@@ -15898,6 +15907,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DOS_IOS"
+        flag: "-fno-autolink"
       }
     }
   }
