@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -51,7 +51,7 @@ public class JavaRuntimeAlias implements RuleConfiguredTargetFactory {
     if (runtime != null) {
       builder
           .addNativeDeclaredProvider(runtime.get(JavaRuntimeInfo.PROVIDER))
-          .addNativeDeclaredProvider(runtime.get(MakeVariableInfo.PROVIDER))
+          .addNativeDeclaredProvider(runtime.get(TemplateVariableInfo.PROVIDER))
           .addProvider(RunfilesProvider.class, runtime.getProvider(RunfilesProvider.class))
           .addProvider(MiddlemanProvider.class, runtime.getProvider(MiddlemanProvider.class))
           .setFilesToBuild(runtime.getProvider(FileProvider.class).getFilesToBuild());
@@ -69,7 +69,7 @@ public class JavaRuntimeAlias implements RuleConfiguredTargetFactory {
           .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
           .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
           .addNativeDeclaredProvider(runtimeInfo)
-          .addNativeDeclaredProvider(new MakeVariableInfo(ImmutableMap.of(
+          .addNativeDeclaredProvider(new TemplateVariableInfo(ImmutableMap.of(
               "JAVABASE", jvm.getJavaHome().getPathString(),
               "JAVA", jvm.getJavaExecutable().getPathString())));
     }

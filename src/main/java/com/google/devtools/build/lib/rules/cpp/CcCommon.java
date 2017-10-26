@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -704,10 +704,10 @@ public final class CcCommon {
                 featureConfiguration.getCommandLine(
                     CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME, buildVariables));
     String oldCcFlags = "";
-    MakeVariableInfo makeVariableInfo =
-        toolchain.get(MakeVariableInfo.PROVIDER);
-    if (makeVariableInfo != null) {
-      oldCcFlags = makeVariableInfo.getMakeVariables().getOrDefault(
+    TemplateVariableInfo templateVariableInfo =
+        toolchain.get(TemplateVariableInfo.PROVIDER);
+    if (templateVariableInfo != null) {
+      oldCcFlags = templateVariableInfo.getVariables().getOrDefault(
           CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, "");
     }
     return FluentIterable.of(oldCcFlags)

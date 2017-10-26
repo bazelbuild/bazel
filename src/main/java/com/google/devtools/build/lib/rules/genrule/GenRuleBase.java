@@ -26,12 +26,12 @@ import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
@@ -286,7 +286,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     private final RuleContext ruleContext;
     private final NestedSet<Artifact> resolvedSrcs;
     private final NestedSet<Artifact> filesToBuild;
-    private final Iterable<MakeVariableInfo> toolchains;
+    private final Iterable<TemplateVariableInfo> toolchains;
 
     public CommandResolverContext(
         RuleContext ruleContext,
@@ -301,7 +301,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       this.resolvedSrcs = resolvedSrcs;
       this.filesToBuild = filesToBuild;
       this.toolchains = ruleContext.getPrerequisites(
-          "toolchains", Mode.TARGET, MakeVariableInfo.PROVIDER);
+          "toolchains", Mode.TARGET, TemplateVariableInfo.PROVIDER);
     }
 
     public RuleContext getRuleContext() {
@@ -309,8 +309,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     }
 
     private String resolveVariableFromToolchains(String variableName) {
-      for (MakeVariableInfo info : toolchains) {
-        String result = info.getMakeVariables().get(variableName);
+      for (TemplateVariableInfo info : toolchains) {
+        String result = info.getVariables().get(variableName);
         if (result != null) {
           return result;
         }

@@ -21,7 +21,7 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MakeVariableInfo;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -492,7 +492,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     ConfiguredTarget ccToolchainA = getCcToolchainTarget(toolchainA);
     CcToolchainProvider ccProviderA =
         (CcToolchainProvider) ccToolchainA.get(ToolchainInfo.PROVIDER);
-    MakeVariableInfo makeProviderA = ccToolchainA.get(MakeVariableInfo.PROVIDER);
+    TemplateVariableInfo makeProviderA = ccToolchainA.get(TemplateVariableInfo.PROVIDER);
     assertThat(toolchainA.getToolchainIdentifier()).isEqualTo("toolchain-identifier-A");
     assertThat(toolchainA.getHostSystemName()).isEqualTo("host-system-name-A");
     assertThat(toolchainA.getTargetGnuSystemName()).isEqualTo("target-system-name-A");
@@ -591,7 +591,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .containsExactly("ld-embed-flag-A-1", "ld-embed-flag-A-2")
         .inOrder();
 
-    assertThat(makeProviderA.getMakeVariables().entrySet())
+    assertThat(makeProviderA.getVariables().entrySet())
         .containsExactlyElementsIn(
             ImmutableMap.<String, String>builder()
                 .put("SOME_MAKE_VARIABLE-A-1", "make-variable-value-A-1")

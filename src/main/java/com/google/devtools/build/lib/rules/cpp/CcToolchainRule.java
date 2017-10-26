@@ -22,10 +22,10 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Rule;
@@ -84,7 +84,7 @@ public final class CcToolchainRule implements RuleDefinition {
     return builder
         .setUndocumented()
         .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
-        .advertiseProvider(MakeVariableInfo.class)
+        .advertiseProvider(TemplateVariableInfo.class)
         .add(attr("output_licenses", LICENSE))
         .add(attr("cpu", STRING).mandatory())
         .add(attr("compiler", STRING))

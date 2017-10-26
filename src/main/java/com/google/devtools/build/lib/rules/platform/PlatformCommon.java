@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -29,6 +30,17 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
   doc = "Functions for Skylark to interact with the platform APIs."
 )
 public class PlatformCommon {
+
+  @SkylarkCallable(
+      name = TemplateVariableInfo.SKYLARK_NAME,
+      doc = "The provider used to retrieve the provider that contains the template variables "
+          + "defined by a particular toolchain, for example by calling "
+          + "ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo].make_variables[<name>]",
+      structField = true
+  )
+  public Provider getMakeVariableProvider() {
+    return TemplateVariableInfo.PROVIDER;
+  }
 
   @SkylarkCallable(
     name = PlatformInfo.SKYLARK_NAME,

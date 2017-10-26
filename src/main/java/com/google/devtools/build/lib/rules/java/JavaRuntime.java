@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -75,7 +75,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     JavaRuntimeInfo javaRuntime = new JavaRuntimeInfo(
         filesToBuild, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath);
 
-    MakeVariableInfo makeVariableInfo = new MakeVariableInfo(ImmutableMap.of(
+    TemplateVariableInfo templateVariableInfo = new TemplateVariableInfo(ImmutableMap.of(
         "JAVA", javaBinaryExecPath.getPathString(),
         "JAVABASE", javaHome.getPathString()));
 
@@ -84,7 +84,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(javaRuntime)
         .addProvider(MiddlemanProvider.class, new MiddlemanProvider(middleman))
-        .addNativeDeclaredProvider(makeVariableInfo)
+        .addNativeDeclaredProvider(templateVariableInfo)
         .build();
   }
 

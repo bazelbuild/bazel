@@ -22,28 +22,28 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
 /** Provides access to make variables from the current fragments. */
-@SkylarkModule(name = "MakeVariables", doc = "Make variables exposed by the current target.")
+@SkylarkModule(name = "TemplateVariables", doc = "Make variables exposed by the current target.")
 @Immutable
-public final class MakeVariableInfo extends NativeInfo {
-  public static final String SKYLARK_NAME = "MakeVariableInfo";
+public final class TemplateVariableInfo extends NativeInfo {
+  public static final String SKYLARK_NAME = "TemplateVariableInfo";
 
-  public static final NativeProvider<MakeVariableInfo> PROVIDER =
-      new NativeProvider<MakeVariableInfo>(MakeVariableInfo.class, SKYLARK_NAME) {};
+  public static final NativeProvider<TemplateVariableInfo> PROVIDER =
+      new NativeProvider<TemplateVariableInfo>(TemplateVariableInfo.class, SKYLARK_NAME) {};
 
-  private final ImmutableMap<String, String> makeVariables;
+  private final ImmutableMap<String, String> variables;
 
-  public MakeVariableInfo(ImmutableMap<String, String> makeVariables) {
+  public TemplateVariableInfo(ImmutableMap<String, String> variables) {
     super(PROVIDER);
-    this.makeVariables = makeVariables;
+    this.variables = variables;
   }
 
   @SkylarkCallable(
-    name = "make_variables",
+    name = "variables",
     doc = "Returns the make variables defined by this target.",
     structField = true
   )
-  public ImmutableMap<String, String> getMakeVariables() {
-    return makeVariables;
+  public ImmutableMap<String, String> getVariables() {
+    return variables;
   }
 
   @Override

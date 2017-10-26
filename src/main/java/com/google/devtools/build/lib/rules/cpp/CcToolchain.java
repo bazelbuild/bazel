@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
-import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -440,13 +440,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             builtInIncludeDirectories,
             sysroot);
 
-    MakeVariableInfo makeVariableInfo =
+    TemplateVariableInfo templateVariableInfo =
         createMakeVariableProvider(cppConfiguration, sysroot);
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(ccProvider)
-            .addNativeDeclaredProvider(makeVariableInfo)
+            .addNativeDeclaredProvider(templateVariableInfo)
             .addProvider(
                 fdoSupport.getFdoSupport().createFdoSupportProvider(ruleContext, profileArtifact))
             .setFilesToBuild(crosstool)
@@ -617,7 +617,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
-  private MakeVariableInfo createMakeVariableProvider(
+  private TemplateVariableInfo createMakeVariableProvider(
       CppConfiguration cppConfiguration, PathFragment sysroot) {
 
     HashMap<String, String> makeVariables =
@@ -630,7 +630,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       ccFlags = ccFlags.isEmpty() ? sysrootFlag : ccFlags + " " + sysrootFlag;
       makeVariables.put(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, ccFlags);
     }
-    return new MakeVariableInfo(ImmutableMap.copyOf(makeVariables));
+    return new TemplateVariableInfo(ImmutableMap.copyOf(makeVariables));
   }
 
   /**

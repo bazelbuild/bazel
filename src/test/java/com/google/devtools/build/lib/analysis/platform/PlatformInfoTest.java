@@ -19,7 +19,9 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -185,5 +187,44 @@ public class PlatformInfoTest extends BuildViewTestCase {
         "       '//constraint:foo',",
         "       '//constraint:foo',",
         "    ])");
+  }
+
+  @Test
+  public void proxyTemplateVariableInfo() throws Exception {
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  return struct(",
+        "      providers = [ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo]])",
+        "crule = rule(_impl, attrs = { '_cc_toolchain': attr.label(default=Label('//a:a')) })");
+
+    scratch.file("a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='a')",
+        "crule(name='r')",
+        "genrule(name='g', srcs=[], outs=['go'], toolchains=[':r'], cmd='VAR $(CC)')");
+
+    SpawnAction action = (SpawnAction) getGeneratingAction(getConfiguredTarget("//a:g"), "a/go");
+    assertThat(action.getArguments().get(2)).containsMatch("VAR .*gcc");
+  }
+
+  @Test
+  public void makeVariableInfo() throws Exception {
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  return struct(",
+        "      variables = ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo].variables)",
+        "crule = rule(_impl, attrs = { '_cc_toolchain': attr.label(default=Label('//a:a')) })");
+
+    scratch.file("a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='a')",
+        "crule(name='r')");
+    ConfiguredTarget ct = getConfiguredTarget("//a:r");
+
+    @SuppressWarnings("unchecked")
+    Map<String, String> makeVariables = (Map<String, String>) ct.get("variables");
+    assertThat(makeVariables).containsKey("CC_FLAGS");
   }
 }
