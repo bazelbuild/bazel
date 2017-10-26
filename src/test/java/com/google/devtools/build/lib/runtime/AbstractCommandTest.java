@@ -138,6 +138,7 @@ public class AbstractCommandTest {
     Collections.addAll(result, optionClasses);
     result.add(BlazeCommandEventHandler.Options.class);
     result.add(CommonCommandOptions.class);
+    result.add(ClientOptions.class);
     result.add(SkylarkSemanticsOptions.class);
     return result;
   }

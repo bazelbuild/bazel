@@ -40,17 +40,15 @@ public class BlazeCommandUtils {
           BlazeServerStartupOptions.class,
           HostJvmStartupOptions.class);
 
-  /**
-   * The set of option-classes that are common to all Blaze commands.
-   */
+  /** The set of option-classes that are common to all Blaze commands. */
   private static final ImmutableList<Class<? extends OptionsBase>> COMMON_COMMAND_OPTIONS =
       ImmutableList.of(
           BlazeCommandEventHandler.Options.class,
           CommonCommandOptions.class,
+          ClientOptions.class,
           // Skylark options aren't applicable to all commands, but making them a common option
           // allows users to put them in the common section of the bazelrc. See issue #3538.
           SkylarkSemanticsOptions.class);
-
 
   private BlazeCommandUtils() {}
 

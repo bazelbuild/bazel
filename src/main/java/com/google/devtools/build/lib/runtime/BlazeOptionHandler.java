@@ -167,7 +167,7 @@ public class BlazeOptionHandler {
 
     // Command-specific options from .blazerc passed in via --default_override
     // and --rc_source. A no-op if none are provided.
-    CommonCommandOptions rcFileOptions = optionsParser.getOptions(CommonCommandOptions.class);
+    ClientOptions rcFileOptions = optionsParser.getOptions(ClientOptions.class);
     List<Pair<String, ListMultimap<String, String>>> optionsMap =
         getOptionsMap(
             eventHandler,
@@ -404,13 +404,13 @@ public class BlazeOptionHandler {
   static List<Pair<String, ListMultimap<String, String>>> getOptionsMap(
       EventHandler eventHandler,
       List<String> rcFiles,
-      List<CommonCommandOptions.OptionOverride> overrides,
+      List<ClientOptions.OptionOverride> overrides,
       Set<String> validCommands) {
     List<Pair<String, ListMultimap<String, String>>> result = new ArrayList<>();
 
     String lastRcFile = null;
     ListMultimap<String, String> lastMap = null;
-    for (CommonCommandOptions.OptionOverride override : overrides) {
+    for (ClientOptions.OptionOverride override : overrides) {
       if (override.blazeRc < 0 || override.blazeRc >= rcFiles.size()) {
         eventHandler.handle(
             Event.warn("inconsistency in generated command line args. Ignoring bogus argument\n"));
