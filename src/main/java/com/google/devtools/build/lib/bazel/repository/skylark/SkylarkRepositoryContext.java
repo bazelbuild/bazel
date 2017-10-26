@@ -142,7 +142,17 @@ public class SkylarkRepositoryContext {
             + "relative to the repository directory. If the path is a label, it will resolve to "
             + "the path of the corresponding file. Note that remote repositories are executed "
             + "during the analysis phase and thus cannot depends on a target result (the "
-            + "label should point to a non-generated file)."
+            + "label should point to a non-generated file).",
+    parameters = {
+      @Param(
+        name = "path",
+        allowedTypes = {
+          @ParamType(type = String.class),
+          @ParamType(type = Label.class),
+        },
+        doc = "string or label from which to create a path from"
+      )
+    }
   )
   public SkylarkPath path(Object path) throws EvalException, InterruptedException {
     return getPath("path()", path);
