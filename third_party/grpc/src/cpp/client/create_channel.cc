@@ -54,7 +54,7 @@ std::shared_ptr<Channel> CreateCustomChannel(
     const grpc::string& target,
     const std::shared_ptr<ChannelCredentials>& creds,
     const ChannelArguments& args) {
-  internal::GrpcLibrary
+  __attribute__((unused)) internal::GrpcLibrary
       init_lib;  // We need to call init in case of a bad creds.
   ChannelArguments cp_args = args;
   std::ostringstream user_agent_prefix;
