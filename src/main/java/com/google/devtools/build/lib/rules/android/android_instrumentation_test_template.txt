@@ -52,16 +52,14 @@ data_deps=$(join_paths ${WORKSPACE_DIR} "," ${data_deps})
 device_broker_type="%device_broker_type%"
 test_label="%test_label%"
 
-target_apks="%target_apks%"
-target_apks=$(join_paths ${WORKSPACE_DIR} "," ${target_apks})
+target_apk="%target_apk%"
 
-instrumentation_apks="%instrumentation_apks%"
-instrumentation_apks=$(join_paths ${WORKSPACE_DIR} "," ${instrumentation_apks})
+instrumentation_apk="%instrumentation_apk%"
 
 support_apks="%support_apks%"
 support_apks=$(join_paths ${WORKSPACE_DIR} "," ${support_apks})
 
-apks_to_install="${support_apks}${target_apks}${instrumentation_apks}"
+apks_to_install="${support_apks}${target_apk},${instrumentation_apk}"
 
 declare -A device_script_fixtures=( %device_script_fixtures% )
 
