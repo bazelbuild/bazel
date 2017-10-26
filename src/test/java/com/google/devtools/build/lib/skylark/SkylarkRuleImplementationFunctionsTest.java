@@ -507,6 +507,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "ruleContext.expand_location('$(locations :abc)')");
   }
 
+  /** Regression test to check that expand_location allows ${var} and $$. */
+  @Test
+  public void testExpandLocationWithDollarSignsAndCurlys() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:bar");
+    assertThat((String)
+        evalRuleContextCode(
+            ruleContext, "ruleContext.expand_location('${abc} $(echo) $$ $')"))
+        .isEqualTo("${abc} $(echo) $$ $");
+  }
+
   /**
    * Invokes ctx.expand_location() with the given parameters and checks whether this led to the
    * expected result
