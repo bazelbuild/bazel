@@ -770,10 +770,7 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
     std::this_thread::sleep_until(next_attempt_time);
     if (!server_startup->IsStillAlive()) {
       globals->option_processor->PrintStartupOptionsProvenanceMessage();
-      fprintf(stderr,
-              "\nunexpected pipe read status: %s\n"
-              "Server presumed dead. Now printing '%s':\n",
-              blaze_util::GetLastErrorString().c_str(),
+      fprintf(stderr, "\nServer crashed during startup. Now printing '%s':\n",
               globals->jvm_log_file.c_str());
       WriteFileToStderrOrDie(globals->jvm_log_file.c_str());
       exit(blaze_exit_code::INTERNAL_ERROR);
