@@ -20,6 +20,8 @@
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/discard_graph_edges_lib.sh" \
+  || { echo "${CURRENT_DIR}/discard_graph_edges_lib.sh not found!" >&2; exit 1; }
 
 #### SETUP #############################################################
 
@@ -31,9 +33,6 @@ function set_up() {
   echo "cc_library(name='system_malloc', srcs=[])"                           >> testing/BUILD || fail
   echo "int main() {return 0;}"         > testing/mytest.cc || fail
 }
-
-STARTUP_FLAGS="--batch"
-BUILD_FLAGS="--keep_going --discard_analysis_cache"
 
 #### TESTS #############################################################
 
@@ -113,14 +112,6 @@ EOF
       || fail "Expected success"
   [[ -e "bazel-bin/foo/foo.out.aspect" ]] || fail "Aspect foo not run"
   [[ -e "bazel-bin/foo/dep.out.aspect" ]] || fail "Aspect bar not run"
-}
-
-function extract_histogram_count() {
-  local histofile="$1"
-  local item="$2"
-  # We can't use + here because Macs don't recognize it as a special character by default.
-  grep "$item" "$histofile" | sed -e 's/^ *[0-9][0-9]*: *\([0-9][0-9]*\) .*$/\1/' \
-      || fail "Couldn't get item from $histofile"
 }
 
 function prepare_histogram() {
@@ -231,60 +222,7 @@ function test_packages_cleared() {
 }
 
 function test_actions_deleted_after_execution() {
-  rm -rf histodump
-  mkdir -p histodump || fail "Couldn't create directory"
-  readonly local wait_fifo="$TEST_TMPDIR/wait_fifo"
-  readonly local server_pid_file="$TEST_TMPDIR/server_pid.txt"
-  cat > histodump/BUILD <<EOF || fail "Couldn't create BUILD file"
-genrule(name = 'action0',
-        outs = ['wait.out'],
-        local = 1,
-        cmd = 'cat $wait_fifo > /dev/null; touch \$@'
-        )
-EOF
-  for i in $(seq 1 3); do
-    iminus=$((i-1))
-    cat >> histodump/BUILD <<EOF || fail "Couldn't append"
-genrule(name = 'action${i}',
-        srcs = [':action${iminus}'],
-        outs = ['histo.${i}'],
-        local = 1,
-        cmd = 'server_pid=\$\$(cat $server_pid_file) ; ' +
-              '${bazel_javabase}/bin/jmap -histo:live \$\$server_pid > ' +
-              '\$(location histo.${i}) ' +
-              '|| echo "server_pid in genrule: \$\$server_pid"'
-       )
-EOF
-  done
-  mkfifo "$wait_fifo"
-  local readonly histo_root="$(bazel info "${PRODUCT_NAME}-genfiles" \
-      2> /dev/null)/histodump/histo."
-  bazel clean >& "$TEST_log" || fail "Couldn't clean"
-  bazel $STARTUP_FLAGS build --show_timestamps $BUILD_FLAGS \
-      //histodump:action3 >> "$TEST_log" 2>&1 &
-  server_pid=$!
-  echo "server_pid in main thread is ${server_pid}" >> "$TEST_log"
-  echo "$server_pid" > "$server_pid_file"
-  echo "Finished writing pid to fifo at " >> "$TEST_log"
-  date >> "$TEST_log"
-  echo "" > "$wait_fifo"
-  # Wait for previous command to finish.
-  wait "$server_pid" || fail "Bazel command failed"
-  local genrule_action_count=100
-  for i in $(seq 1 3); do
-    local histo_file="$histo_root$i"
-    local new_genrule_action_count="$(extract_histogram_count "$histo_file" \
-        "GenRuleAction$")"
-    if [[ "$new_genrule_action_count" -ge "$genrule_action_count" ]]; then
-      cat "$histo_file" >> "$TEST_log"
-      fail "Number of genrule actions did not decrease: $new_genrule_action_count vs. $genrule_action_count"
-    fi
-    if [[ -z "$new_genrule_action_count" ]]; then
-      cat "$histo_file" >> "$TEST_log"
-      fail "No genrule actions? Class may have been renamed"
-    fi
-    genrule_action_count="$new_genrule_action_count"
-  done
+  run_test_actions_deleted_after_execution bazel "$bazel_javabase" '' ''
 }
 
 # Action conflicts can cause deletion of nodes, and deletion is tricky with no edges.

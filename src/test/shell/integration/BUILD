@@ -197,11 +197,20 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_library(
+    name = "discard_graph_edges_lib",
+    testonly = 1,
+    srcs = ["discard_graph_edges_lib.sh"],
+)
+
 sh_test(
     name = "discard_graph_edges_test",
     size = "medium",
     srcs = ["discard_graph_edges_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":discard_graph_edges_lib.sh",
+        ":test-deps",
+    ],
     shard_count = 5,
 )
 
