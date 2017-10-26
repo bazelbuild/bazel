@@ -42,7 +42,7 @@ its dependencies.
 
 Download and install [Xcode](https://developer.apple.com/xcode/downloads/).
 Xcode contains the compilers, SDKs, and other tools required by Bazel to build 
-apps for all of Apples platforms (including iOS).
+Apple applications.
 
 ### Get the sample project
 
@@ -107,7 +107,7 @@ touch $WORKSPACE/WORKSPACE
 open -a Xcode $WORKSPACE/WORKSPACE
 ```
 
-This creates and open the empty `WORKSPACE` file.
+This creates and opens the empty `WORKSPACE` file.
 
 ### Update the WORKSPACE file
 
@@ -127,11 +127,11 @@ http_archive(
 
 **NOTE:** Please check the 
 [Apple build rules releases](https://github.com/bazelbuild/rules_apple/releases)
-and use the URL of the latest release available in the `urls` parameter of
-your `git_repository` rule. You will need to update the `strip_prefix` parameter
+and use the URL of the latest release available in the `urls` attribute of
+your `http_archive` rule. You will need to update the `strip_prefix` attribute
 accordingly as well.
 
-**NOTE2:** The `name` parameter of the `git_repository` rule *must* be
+**NOTE2:** The `name` attribute of the `http_archive` rule *must* be
 `build_bazel_rules_apple`. The Apple rules depend on this name internally.
 
 ## Review the source files
@@ -161,8 +161,7 @@ load("@build_bazel_rules_apple//apple:ios.bzl", "ios_application")
 ```
 
 We only need to load the `ios_application` rule because currently the 
-`objc_library` rule is built into the bazel package. Eventually the
-`objc_library` rule will need to be loaded as well.
+`objc_library` rule is built into the bazel package.
 
 ### Add an objc_library rule
 
@@ -215,8 +214,9 @@ ios_application(
     deps = [":UrlGetClasses"],
 )
 ```
-**NOTE:** Please update the `minimum_os_version` parameter to the minimum version
-of iOS that you plan to support.
+
+**NOTE:** Please update the `minimum_os_version` attribute to the minimum
+version of iOS that you plan to support.
 
 Note how the `deps` attribute references the output of the `UrlGetClasses` rule
 you added to the `BUILD` file above.
@@ -266,8 +266,6 @@ The `.ipa` file and other outputs are located in the
 ### Run and debug the app in the simulator
 
 You can now run the app from Xcode using the iOS Simulator. First, [generate an Xcode project using Tulsi](http://tulsi.bazel.io/).
-
-**TODO:** Better documentation on using Tulsi
 
 Then, open the project in Xcode, choose an iOS Simulator as the runtime scheme,
 and click **Run**.
