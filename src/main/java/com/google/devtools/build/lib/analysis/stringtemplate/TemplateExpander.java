@@ -15,10 +15,12 @@ package com.google.devtools.build.lib.analysis.stringtemplate;
 
 /**
  * Simple string template expansion. String templates consist of text interspersed with
- * <code>$(variable)</code> or <code>$(function value)</code> references, which are replaced by
- * strings.
+ * <code>$(variable)</code> references, which are replaced by strings.
+ *
+ * <p>Note that neither <code>$(location x)</code> nor Make-isms are treated specially in any way by
+ * this class.
  */
-public final class TemplateExpander {
+public class TemplateExpander {
   private final char[] buffer;
   private final int length;
   private int offset;
@@ -79,22 +81,13 @@ public final class TemplateExpander {
           result.append('$');
         } else {
           String var = scanVariable();
-          int spaceIndex = var.indexOf(' ');
-          if (spaceIndex < 0) {
-            String value = context.lookupVariable(var);
-            // To prevent infinite recursion for the ignored shell variables
-            if (!value.equals(var)) {
-              // recursively expand using Make's ":=" semantics:
-              value = expand(value, context, depth + 1);
-            }
-            result.append(value);
-          } else {
-            String name = var.substring(0, spaceIndex);
-            // Trim the string to remove leading and trailing whitespace.
-            String param = var.substring(spaceIndex + 1).trim();
-            String value = context.lookupFunction(name, param);
-            result.append(value);
+          String value = context.lookupVariable(var);
+          // To prevent infinite recursion for the ignored shell variables
+          if (!value.equals(var)) {
+            // recursively expand using Make's ":=" semantics:
+            value = expand(value, context, depth + 1);
           }
+          result.append(value);
         }
       } else {
         result.append(c);
@@ -116,7 +109,7 @@ public final class TemplateExpander {
   private String scanVariable() throws ExpansionException {
     char c = buffer[offset];
     switch (c) {
-      case '(': { // looks like $(SRCS)
+      case '(': { // $(SRCS)
         offset++;
         int start = offset;
         while (offset < length && buffer[offset] != ')') {
@@ -127,8 +120,7 @@ public final class TemplateExpander {
         }
         return new String(buffer, start, offset - start);
       }
-      // We only parse ${variable} syntax to provide a better error message.
-      case '{': { // looks like ${SRCS}
+      case '{': { // ${SRCS}
         offset++;
         int start = offset;
         while (offset < length && buffer[offset] != '}') {

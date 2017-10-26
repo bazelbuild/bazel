@@ -105,10 +105,10 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     assertExpansionFails("$(locationz) not defined", "//test");
 
     genrule("$(locationz )");
-    assertExpansionFails("$(locationz) not defined", "//test");
+    assertExpansionFails("$(locationz ) not defined", "//test");
 
     genrule("$(locationz foo )");
-    assertExpansionFails("$(locationz) not defined", "//test");
+    assertExpansionFails("$(locationz foo ) not defined", "//test");
   }
 
   @Test
@@ -233,10 +233,10 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     assertExpansionFails("$(locationsz) not defined", "//test");
 
     genrule("$(locationsz )");
-    assertExpansionFails("$(locationsz) not defined", "//test");
+    assertExpansionFails("$(locationsz ) not defined", "//test");
 
     genrule("$(locationsz foo )");
-    assertExpansionFails("$(locationsz) not defined", "//test");
+    assertExpansionFails("$(locationsz foo ) not defined", "//test");
   }
 
   @Test
@@ -447,8 +447,8 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     assertNoEvents();
 
     genrule("$(basename file)");
-    assertExpansionFails("$(basename) not defined", "//test");
-    assertContainsEvent("$(basename) not defined");
+    assertExpansionFails("$(basename file) not defined", "//test");
+    assertContainsEvent("$(basename file) not defined");
   }
 
   @Test

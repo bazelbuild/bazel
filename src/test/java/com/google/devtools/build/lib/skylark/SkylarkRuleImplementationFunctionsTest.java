@@ -172,7 +172,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
       setupSkylarkFunction(line);
       fail();
     } catch (EvalException e) {
-      assertThat(e).hasMessageThat().isEqualTo(errorMsg);
+      assertThat(e).hasMessage(errorMsg);
     }
   }
 

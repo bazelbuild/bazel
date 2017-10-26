@@ -14,29 +14,18 @@
 package com.google.devtools.build.lib.analysis.stringtemplate;
 
 /**
- * Interface to be implemented by callers of {@link TemplateExpander} which defines the expansion of
- * each template variable and function.
+ * Interface to be implemented by callers of MakeVariableExpander which defines the expansion of
+ * each "Make" variable.
  */
 public interface TemplateContext {
 
   /**
-   * Returns the expansion of the specified template variable.
+   * Returns the expansion of the specified "Make" variable.
    *
-   * @param name the variable to expand
-   * @return the expansion of the variable
-   * @throws ExpansionException if the given variable was not defined or there was any other error
-   *     during expansion
+   * @param name the variable to expand.
+   * @return the expansion of the variable.
+   * @throws ExpansionException if the variable "var" was not defined or
+   *     there was any other error while expanding "var".
    */
   String lookupVariable(String name) throws ExpansionException;
-
-  /**
-   * Returns the expansion of the specified template function with the given parameter.
-   *
-   * @param name the function name
-   * @param param the function parameter
-   * @return the expansion of the function applied to the parameter
-   * @throws ExpansionException if the function was not defined, or if the function application
-   *     failed for some reason
-   */
-  String lookupFunction(String name, String param) throws ExpansionException;
 }

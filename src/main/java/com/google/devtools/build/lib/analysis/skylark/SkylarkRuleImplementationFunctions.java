@@ -20,12 +20,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
-import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
-import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -319,34 +318,16 @@ public class SkylarkRuleImplementationFunctions {
             throws EvalException {
           ctx.checkMutable("expand_location");
           try {
-            return ctx
-                .getRuleContext()
-                .getExpander(new FakeTemplateContext())
-                .withExecLocations(
-                    makeLabelMap(targets.getContents(TransitiveInfoCollection.class, "targets")))
-                .expand(/*attributeName=*/null, input);
+            return new LocationExpander(
+                    ctx.getRuleContext(),
+                    makeLabelMap(targets.getContents(TransitiveInfoCollection.class, "targets")),
+                    LocationExpander.Options.EXEC_PATHS)
+                .expand(input);
           } catch (IllegalStateException ise) {
             throw new EvalException(loc, ise);
           }
         }
       };
-
-  /**
-   * This class only exists for backwards compatibility. Previously, we were using LocationExpander
-   * directly, which passes through all unrecognized $() expressions.
-   */
-  private static final class FakeTemplateContext implements TemplateContext {
-    @Override
-    public String lookupVariable(String name) throws ExpansionException {
-      return String.format("$$(%s)", name);
-    }
-
-    @Override
-    public String lookupFunction(String name, String param) throws ExpansionException {
-      // Variables get recursively expanded, functions don't.
-      return String.format("$(%s %s)", name, param);
-    }
-  }
 
   /**
    * Builds a map: Label -> List of files from the given labels

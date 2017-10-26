@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
-import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
@@ -955,8 +954,8 @@ public final class RuleContext extends TargetContext
     initConfigurationMakeVariableContext(ImmutableList.copyOf(makeVariableSuppliers));
   }
 
-  public Expander getExpander(TemplateContext templateContext) {
-    return new Expander(this, templateContext);
+  public Expander getExpander(ConfigurationMakeVariableContext makeVariableContext) {
+    return new Expander(this, makeVariableContext);
   }
 
   public Expander getExpander() {

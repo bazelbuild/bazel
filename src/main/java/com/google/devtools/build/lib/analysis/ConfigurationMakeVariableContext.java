@@ -105,9 +105,4 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
     }
     return SkylarkDict.<String, String>copyOf(null, map);
   }
-
-  @Override
-  public String lookupFunction(String name, String param) throws ExpansionException {
-    throw new ExpansionException(String.format("$(%s) not defined", name));
-  }
 }
