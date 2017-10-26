@@ -81,7 +81,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
     }
 
     @Override
-    public BazelPackageLoader build() {
+    public BazelPackageLoader buildImpl() {
       return new BazelPackageLoader(this);
     }
 

@@ -1607,8 +1607,8 @@ public final class PackageFactory {
    * Called by a caller of {@link #createPackageFromPreprocessingAst} after this caller has fully
    * loaded the package.
    */
-  public void afterDoneLoadingPackage(Package pkg) {
-    packageBuilderHelper.onLoadingComplete(pkg);
+  public void afterDoneLoadingPackage(Package pkg, SkylarkSemantics skylarkSemantics) {
+    packageBuilderHelper.onLoadingComplete(pkg, skylarkSemantics);
   }
 
   /**

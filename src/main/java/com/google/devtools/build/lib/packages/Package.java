@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
@@ -713,9 +714,10 @@ public class Package {
 
       /**
        * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} is completely
-       * done loading the given {@link Package}.
+       * done loading the given {@link Package}. {@code skylarkSemantics} are the semantics used to
+       * evaluate the build.
        */
-      void onLoadingComplete(Package pkg);
+      void onLoadingComplete(Package pkg, SkylarkSemantics skylarkSemantics);
     }
 
     /** {@link Helper} that simply calls the {@link Package} constructor. */
@@ -731,7 +733,7 @@ public class Package {
       }
 
       @Override
-      public void onLoadingComplete(Package pkg) {
+      public void onLoadingComplete(Package pkg, SkylarkSemantics skylarkSemantics) {
       }
     }
 

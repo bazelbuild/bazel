@@ -423,6 +423,10 @@ public class PackageFunction implements SkyFunction {
    */
   private SkyValue getExternalPackage(Environment env, Path packageLookupPath)
       throws PackageFunctionException, InterruptedException {
+    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return null;
+    }
     RootedPath workspacePath = RootedPath.toRootedPath(
         packageLookupPath, Label.EXTERNAL_PACKAGE_FILE_NAME);
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
@@ -458,7 +462,7 @@ public class PackageFunction implements SkyFunction {
     }
 
     if (packageFactory != null) {
-      packageFactory.afterDoneLoadingPackage(pkg);
+      packageFactory.afterDoneLoadingPackage(pkg, skylarkSemantics);
     }
     return new PackageValue(pkg);
   }
@@ -621,7 +625,7 @@ public class PackageFunction implements SkyFunction {
     // We know this SkyFunction will not be called again, so we can remove the cache entry.
     packageFunctionCache.invalidate(packageId);
 
-    packageFactory.afterDoneLoadingPackage(pkg);
+    packageFactory.afterDoneLoadingPackage(pkg, skylarkSemantics);
     return new PackageValue(pkg);
   }
 
