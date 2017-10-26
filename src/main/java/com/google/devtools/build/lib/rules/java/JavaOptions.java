@@ -496,6 +496,19 @@ public class JavaOptions extends FragmentOptions {
   public OneVersionEnforcementLevel enforceOneVersion;
 
   @Option(
+    name = "one_version_enforcement_on_java_tests",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "When enabled, and with experimental_one_version_enforcement set to a non-NONE value,"
+            + " enforce one version on java_test targets. This flag can be disabled to improve"
+            + " incremental test performance at the expense of missing potential one version"
+            + " violations."
+  )
+  public boolean enforceOneVersionOnJavaTests;
+
+  @Option(
     name = "experimental_allow_runtime_deps_on_neverlink",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -570,6 +583,8 @@ public class JavaOptions extends FragmentOptions {
     host.strictJavaDeps = strictJavaDeps;
 
     host.enforceOneVersion = enforceOneVersion;
+    // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
+    host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;

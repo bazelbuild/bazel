@@ -302,18 +302,24 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         ruleContext, deployJar, common.getBootClasspath(), mainClass, semantics, filesBuilder);
 
     if (javaConfig.oneVersionEnforcementLevel() != OneVersionEnforcementLevel.OFF) {
-      builder.addOutputGroup(
-          OutputGroupProvider.HIDDEN_TOP_LEVEL,
-          OneVersionCheckActionBuilder.newBuilder()
-              .withEnforcementLevel(javaConfig.oneVersionEnforcementLevel())
-              .outputArtifact(
-                  ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
-              .useToolchain(JavaToolchainProvider.fromRuleContext(ruleContext))
-              .checkJars(
-                  NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath())
-                      .add(classJar)
-                      .build())
-              .build(ruleContext));
+      // This JavaBinary class is also the implementation for java_test targets (via the
+      // {Google,Bazel}JavaTest subclass). java_test targets can have their one version enforcement
+      // disabled with a second flag (to avoid the incremental build performance cost at the expense
+      // of safety.)
+      if (javaConfig.enforceOneVersionOnJavaTests() || !isJavaTestRule(ruleContext)) {
+        builder.addOutputGroup(
+            OutputGroupProvider.HIDDEN_TOP_LEVEL,
+            OneVersionCheckActionBuilder.newBuilder()
+                .withEnforcementLevel(javaConfig.oneVersionEnforcementLevel())
+                .outputArtifact(
+                    ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
+                .useToolchain(JavaToolchainProvider.fromRuleContext(ruleContext))
+                .checkJars(
+                    NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath())
+                        .add(classJar)
+                        .build())
+                .build(ruleContext));
+      }
     }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
@@ -575,7 +581,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       ImmutableList<Artifact> bootclasspath, String mainClassName, JavaSemantics semantics,
       NestedSetBuilder<Artifact> filesBuilder) throws InterruptedException {
     // We only support proguarding tests so Proguard doesn't try to proguard itself.
-    if (!ruleContext.getRule().getRuleClass().endsWith("_test")) {
+    if (!isJavaTestRule(ruleContext)) {
       return false;
     }
     ProguardOutput output =
@@ -586,6 +592,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     }
     output.addAllToSet(filesBuilder);
     return true;
+  }
+
+  private static boolean isJavaTestRule(RuleContext ruleContext) {
+    return ruleContext.getRule().getRuleClass().endsWith("_test");
   }
 
   private static class JavaBinaryProguardHelper extends ProguardHelper {
