@@ -27,10 +27,17 @@ import java.util.Collection;
 public abstract class BuildCompletingEvent implements BuildEvent {
   private final ExitCode exitCode;
   private final long finishTimeMillis;
+  private final Collection<BuildEventId> children;
 
-  public BuildCompletingEvent(ExitCode exitCode, long finishTimeMillis) {
+  public BuildCompletingEvent(
+      ExitCode exitCode, long finishTimeMillis, Collection<BuildEventId> children) {
     this.exitCode = exitCode;
     this.finishTimeMillis = finishTimeMillis;
+    this.children = children;
+  }
+
+  public BuildCompletingEvent(ExitCode exitCode, long finishTimeMillis) {
+    this(exitCode, finishTimeMillis, ImmutableList.of());
   }
 
   public ExitCode getExitCode() {
@@ -44,7 +51,7 @@ public abstract class BuildCompletingEvent implements BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.of();
+    return children;
   }
 
   @Override

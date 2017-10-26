@@ -291,6 +291,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     streamer.buildEvent(startEvent);
 
+    assertThat(streamer.isClosed()).isFalse();
     List<BuildEvent> afterFirstEvent = transport.getEvents();
     assertThat(afterFirstEvent).hasSize(1);
     assertThat(afterFirstEvent.get(0).getEventId()).isEqualTo(startEvent.getEventId());
@@ -298,6 +299,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
 
+    assertThat(streamer.isClosed()).isTrue();
     List<BuildEvent> finalStream = transport.getEvents();
     assertThat(finalStream).hasSize(3);
     assertThat(ImmutableSet.of(finalStream.get(1).getEventId(), finalStream.get(2).getEventId()))
@@ -332,6 +334,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(startEvent);
     streamer.buildEvent(unexpectedEvent);
 
+    assertThat(streamer.isClosed()).isFalse();
     List<BuildEvent> eventsSeen = transport.getEvents();
     assertThat(eventsSeen).hasSize(3);
     assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
@@ -374,6 +377,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         new GenericBuildEvent(testId("unexpected"), ImmutableSet.<BuildEventId>of());
 
     streamer.buildEvent(unexpectedEvent);
+
+    assertThat(streamer.isClosed()).isFalse();
     List<BuildEvent> allEventsSeen = transport.getEvents();
     assertThat(allEventsSeen).hasSize(4);
     assertThat(allEventsSeen.get(3).getEventId()).isEqualTo(unexpectedEvent.getEventId());
@@ -409,6 +414,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(lateReference);
     streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
 
+    assertThat(streamer.isClosed()).isTrue();
     List<BuildEvent> eventsSeen = transport.getEvents();
     int earlyEventCount = 0;
     for (BuildEvent event : eventsSeen) {
@@ -442,6 +448,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(failedTarget);
     streamer.buildEvent(rootCause);
 
+    assertThat(streamer.isClosed()).isFalse();
     List<BuildEvent> allEventsSeen = transport.getEvents();
     assertThat(allEventsSeen).hasSize(4);
     assertThat(allEventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
@@ -474,6 +481,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(failedTarget);
     streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
 
+    assertThat(streamer.isClosed()).isTrue();
     List<BuildEvent> allEventsSeen = transport.getEvents();
     assertThat(allEventsSeen).hasSize(6);
     assertThat(allEventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
@@ -503,6 +511,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(waitingForStart);
     streamer.buildEvent(startEvent);
 
+    assertThat(streamer.isClosed()).isFalse();
     List<BuildEvent> allEventsSeen = transport.getEvents();
     assertThat(allEventsSeen).hasSize(2);
     assertThat(allEventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
@@ -538,6 +547,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(startEvent);
     streamer.buildEvent(reportingArtifacts);
 
+    assertThat(streamer.isClosed()).isFalse();
     List<BuildEvent> allEventsSeen = transport.getEvents();
     List<BuildEventStreamProtos.BuildEvent> eventProtos = transport.getEventProtos();
     assertThat(allEventsSeen).hasSize(7);
@@ -582,6 +592,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(startEvent);
     streamer.buildEvent(unexpectedEvent);
 
+    assertThat(streamer.isClosed()).isFalse();
     List<BuildEvent> eventsSeen = transport.getEvents();
     assertThat(eventsSeen).hasSize(3);
     assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
@@ -631,6 +642,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(firstWithConfiguration);
     streamer.buildEvent(secondWithConfiguration);
 
+    assertThat(streamer.isClosed()).isFalse();
     List<BuildEvent> allEventsSeen = transport.getEvents();
     assertThat(allEventsSeen).hasSize(7);
     assertThat(allEventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
@@ -667,6 +679,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.flush();
     streamer.buildEvent(startEvent);
 
+    assertThat(streamer.isClosed()).isFalse();
     List<BuildEvent> eventsSeen = transport.getEvents();
     assertThat(eventsSeen).hasSize(3);
     assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
@@ -709,6 +722,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.registerOutErrProvider(outErr);
     streamer.flush();
     streamer.buildEvent(unexpectedStartEvent);
+
+    assertThat(streamer.isClosed()).isFalse();
 
     List<BuildEvent> eventsSeen = transport.getEvents();
     assertThat(eventsSeen).hasSize(3);
@@ -754,6 +769,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(orderEvent);
     streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
 
+    assertThat(streamer.isClosed()).isTrue();
     List<BuildEvent> eventsSeen = transport.getEvents();
     assertThat(eventsSeen).hasSize(4);
     assertThat(eventsSeen.get(0).getEventId()).isEqualTo(BuildEventId.buildStartedId());
@@ -762,5 +778,63 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         .isEqualTo(
             ImmutableSet.of(BuildEventId.buildFinished(), ProgressEvent.INITIAL_PROGRESS_UPDATE));
     assertThat(transport.getEventProtos().get(3).getLastMessage()).isTrue();
+  }
+
+  @Test
+  public void testFinalEventsLate() throws Exception {
+    // Verify that we correctly handle late events (i.e., events coming only after the
+    // BuildCompleteEvent) that are sent to the streamer after the BuildCompleteEvent.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventId.buildFinished()));
+    BuildEventId lateId = testId("late event");
+    BuildEvent finishedEvent = new BuildCompleteEvent(new BuildResult(0), ImmutableList.of(lateId));
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(finishedEvent);
+    assertThat(streamer.isClosed()).isFalse();
+    streamer.buildEvent(new GenericBuildEvent(lateId, ImmutableSet.of()));
+    assertThat(streamer.isClosed()).isTrue();
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(4);
+    assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    assertThat(eventsSeen.get(1).getEventId()).isEqualTo(BuildEventId.buildFinished());
+    assertThat(ImmutableSet.of(eventsSeen.get(2).getEventId(), eventsSeen.get(3).getEventId()))
+        .isEqualTo(ImmutableSet.of(lateId, ProgressEvent.INITIAL_PROGRESS_UPDATE));
+  }
+
+  @Test
+  public void testFinalEventsEarly() throws Exception {
+    // Verify that we correctly handle late events (i.e., events coming only after the
+    // BuildCompleteEvent) that are sent to the streamer before the BuildCompleteEvent,
+    // but with an order constraint to come afterwards.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventId.buildFinished()));
+    BuildEventId lateId = testId("late event");
+    BuildEvent finishedEvent = new BuildCompleteEvent(new BuildResult(0), ImmutableList.of(lateId));
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(
+        new GenericOrderEvent(
+            lateId, ImmutableSet.of(), ImmutableList.of(BuildEventId.buildFinished())));
+    streamer.buildEvent(finishedEvent);
+    assertThat(streamer.isClosed()).isTrue();
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(4);
+    assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    assertThat(eventsSeen.get(1).getEventId()).isEqualTo(BuildEventId.buildFinished());
+    assertThat(ImmutableSet.of(eventsSeen.get(2).getEventId(), eventsSeen.get(3).getEventId()))
+        .isEqualTo(ImmutableSet.of(lateId, ProgressEvent.INITIAL_PROGRESS_UPDATE));
   }
 }

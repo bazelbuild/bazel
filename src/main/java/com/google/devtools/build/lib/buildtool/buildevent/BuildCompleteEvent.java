@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 
 import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildtool.BuildResult;
+import java.util.Collection;
 
 /**
  * This event is fired from BuildTool#stopRequest().
@@ -27,12 +30,14 @@ import com.google.devtools.build.lib.buildtool.BuildResult;
 public final class BuildCompleteEvent extends BuildCompletingEvent {
   private final BuildResult result;
 
-  /**
-   * Construct the BuildCompleteEvent.
-   */
-  public BuildCompleteEvent(BuildResult result) {
-    super(result.getExitCondition(), result.getStopTime());
+  /** Construct the BuildCompleteEvent. */
+  public BuildCompleteEvent(BuildResult result, Collection<BuildEventId> children) {
+    super(result.getExitCondition(), result.getStopTime(), children);
     this.result = checkNotNull(result);
+  }
+
+  public BuildCompleteEvent(BuildResult result) {
+    this(result, ImmutableList.<BuildEventId>of());
   }
 
   /**
