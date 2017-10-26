@@ -15,43 +15,55 @@
 #include "src/tools/singlejar/options.h"
 
 #include "src/tools/singlejar/diag.h"
-#include "src/tools/singlejar/token_stream.h"
 
 void Options::ParseCommandLine(int argc, const char * const argv[]) {
   ArgTokenStream tokens(argc, argv);
   std::string optarg;
   while (!tokens.AtEnd()) {
-    if (tokens.MatchAndSet("--output", &output_jar) ||
-        tokens.MatchAndSet("--main_class", &main_class) ||
-        tokens.MatchAndSet("--java_launcher", &java_launcher) ||
-        tokens.MatchAndSet("--deploy_manifest_lines", &manifest_lines) ||
-        tokens.MatchAndSet("--sources", &input_jars) ||
-        tokens.MatchAndSet("--resources", &resources) ||
-        tokens.MatchAndSet("--classpath_resources", &classpath_resources) ||
-        tokens.MatchAndSet("--include_prefixes", &include_prefixes) ||
-        tokens.MatchAndSet("--exclude_build_data", &exclude_build_data) ||
-        tokens.MatchAndSet("--compression", &force_compression) ||
-        tokens.MatchAndSet("--dont_change_compression",
-                           &preserve_compression) ||
-        tokens.MatchAndSet("--normalize", &normalize_timestamps) ||
-        tokens.MatchAndSet("--no_duplicates", &no_duplicates) ||
-        tokens.MatchAndSet("--verbose", &verbose) ||
-        tokens.MatchAndSet("--warn_duplicate_resources",
-                           &warn_duplicate_resources) ||
-        tokens.MatchAndSet("--nocompress_suffixes", &nocompress_suffixes) ||
-        tokens.MatchAndSet("--check_desugar_deps", &check_desugar_deps)) {
-      continue;
-    } else if (tokens.MatchAndSet("--build_info_file", &optarg)) {
-      build_info_files.push_back(optarg);
-      continue;
-    } else if (tokens.MatchAndSet("--extra_build_info", &optarg)) {
-      build_info_lines.push_back(optarg);
+    if (ParseToken(&tokens)) {
       continue;
     } else {
       diag_errx(1, "Bad command line argument %s", tokens.token().c_str());
     }
   }
 
+  PostValidateOptions();
+}
+
+bool Options::ParseToken(ArgTokenStream *tokens) {
+  std::string optarg;
+
+  if (tokens->MatchAndSet("--output", &output_jar) ||
+      tokens->MatchAndSet("--main_class", &main_class) ||
+      tokens->MatchAndSet("--java_launcher", &java_launcher) ||
+      tokens->MatchAndSet("--deploy_manifest_lines", &manifest_lines) ||
+      tokens->MatchAndSet("--sources", &input_jars) ||
+      tokens->MatchAndSet("--resources", &resources) ||
+      tokens->MatchAndSet("--classpath_resources", &classpath_resources) ||
+      tokens->MatchAndSet("--include_prefixes", &include_prefixes) ||
+      tokens->MatchAndSet("--exclude_build_data", &exclude_build_data) ||
+      tokens->MatchAndSet("--compression", &force_compression) ||
+      tokens->MatchAndSet("--dont_change_compression", &preserve_compression) ||
+      tokens->MatchAndSet("--normalize", &normalize_timestamps) ||
+      tokens->MatchAndSet("--no_duplicates", &no_duplicates) ||
+      tokens->MatchAndSet("--verbose", &verbose) ||
+      tokens->MatchAndSet("--warn_duplicate_resources",
+                          &warn_duplicate_resources) ||
+      tokens->MatchAndSet("--nocompress_suffixes", &nocompress_suffixes) ||
+      tokens->MatchAndSet("--check_desugar_deps", &check_desugar_deps)) {
+    return true;
+  } else if (tokens->MatchAndSet("--build_info_file", &optarg)) {
+    build_info_files.push_back(optarg);
+    return true;
+  } else if (tokens->MatchAndSet("--extra_build_info", &optarg)) {
+    build_info_lines.push_back(optarg);
+    return true;
+  }
+
+  return false;
+}
+
+void Options::PostValidateOptions() {
   if (output_jar.empty()) {
     diag_errx(1, "Use --output <output_jar> to specify the output file name");
   }

@@ -93,9 +93,9 @@ TEST(OptionsTest, MultiOptargs) {
   options.ParseCommandLine(arraysize(args), args);
 
   ASSERT_EQ(3, options.input_jars.size());
-  EXPECT_EQ("jar1", options.input_jars[0]);
-  EXPECT_EQ("jar2", options.input_jars[1]);
-  EXPECT_EQ("jar3", options.input_jars[2]);
+  EXPECT_EQ("jar1", options.input_jars[0].first);
+  EXPECT_EQ("jar2", options.input_jars[1].first);
+  EXPECT_EQ("jar3", options.input_jars[2].first);
   ASSERT_EQ(2, options.resources.size());
   EXPECT_EQ("res1", options.resources[0]);
   EXPECT_EQ("res2", options.resources[1]);

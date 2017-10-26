@@ -282,7 +282,11 @@ bool OutputJar::Open() {
 }
 
 bool OutputJar::AddJar(int jar_path_index) {
-  const std::string& input_jar_path = options_->input_jars[jar_path_index];
+  const std::string &input_jar_path =
+      options_->input_jars[jar_path_index].first;
+  const std::string &input_jar_aux_label =
+      options_->input_jars[jar_path_index].second;
+
   InputJar input_jar;
   if (!input_jar.Open(input_jar_path)) {
     return false;
@@ -336,7 +340,7 @@ bool OutputJar::AddJar(int jar_path_index) {
         known_members_.emplace(service_path, EntryInfo{service_handler});
       }
     } else {
-      ExtraHandler(jar_entry);
+      ExtraHandler(jar_entry, &input_jar_aux_label);
     }
 
     // Install a new entry unless it is already present. All the plain (non-dir)
@@ -363,10 +367,11 @@ bool OutputJar::AddJar(int jar_path_index) {
       if (options_->no_duplicates ||
           (options_->no_duplicate_classes &&
            ends_with(file_name, file_name_length, ".class"))) {
-        diag_errx(1, "%s:%d: %.*s is present both in %s and %s", __FILE__,
-                  __LINE__, file_name_length, file_name,
-                  options_->input_jars[entry_info.input_jar_index_].c_str(),
-                  input_jar_path.c_str());
+        diag_errx(
+            1, "%s:%d: %.*s is present both in %s and %s", __FILE__, __LINE__,
+            file_name_length, file_name,
+            options_->input_jars[entry_info.input_jar_index_].first.c_str(),
+            input_jar_path.c_str());
       } else {
         duplicate_entries_++;
         continue;
@@ -913,4 +918,4 @@ bool OutputJar::WriteBytes(const void *buffer, size_t count) {
   return written == count;
 }
 
-void OutputJar::ExtraHandler(const CDH *) {}
+void OutputJar::ExtraHandler(const CDH *, const std::string *) {}
