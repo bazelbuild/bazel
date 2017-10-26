@@ -16,7 +16,7 @@ converting an Xcode project to a Bazel project.
    - [Analyze project dependencies](#analyze-project-dependencies)
 - [Build or test an Xcode project with Bazel](#build-or-test-an-xcode-project-with-bazel)
    - [Step 1: Create the `WORKSPACE` file](#step-1-create-the-workspace-file)
-   - [Step 2: (Experimental) Integrate CocoaPod dependencies](#step-2-experimental-integrate-pocoapods-dependencies)
+   - [Step 2: (Experimental) Integrate CocoaPod dependencies](#step-2-experimental-integrate-cocoapods-dependencies)
    - [Step 3: Create a `BUILD` file:](#step-3-create-a-build-file)
       - [Step 3a: Add the application target](#step-3a-add-the-application-target)
       - [Step 3b: (Optional) Add the test target(s)](#step-3b-optional-add-the-test-target-s)
