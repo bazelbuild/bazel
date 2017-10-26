@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static com.google.devtools.build.lib.util.FileTypeSet.ANY_FILE;
+import static com.google.devtools.build.lib.util.FileTypeSet.NO_FILE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -945,6 +946,11 @@ public final class AndroidRuleClasses {
                   .cfg(HOST)
                   .exec()
                   .value(env.getToolsLabel("//tools/android:resource_extractor")))
+          .add(
+              attr("instruments", BuildType.LABEL)
+                  .undocumented("blocked by android_instrumentation_test")
+                  .allowedRuleClasses("android_binary")
+                  .allowedFileTypes(NO_FILE))
           .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
           .build();
       }

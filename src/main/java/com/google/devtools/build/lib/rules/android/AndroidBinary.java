@@ -621,6 +621,21 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext);
 
+    // If this is an instrumentation APK, create the provider for android_instrumentation_test.
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("instruments")) {
+      Artifact targetApk =
+          ruleContext
+              .getPrerequisite("instruments", Mode.TARGET)
+              .getProvider(ApkProvider.class)
+              .getApk();
+      Artifact instrumentationApk = zipAlignedApk;
+
+      AndroidInstrumentationInfo instrumentationProvider =
+          new AndroidInstrumentationInfo(targetApk, instrumentationApk);
+
+      builder.addNativeDeclaredProvider(instrumentationProvider);
+    }
+
     androidCommon.addTransitiveInfoProviders(
         builder,
         androidSemantics,
