@@ -273,4 +273,12 @@ public final class BuildEventId implements Serializable {
     return new BuildEventId(
         BuildEventStreamProtos.BuildEventId.newBuilder().setBuildFinished(finishedId).build());
   }
+
+  public static BuildEventId buildToolLogs() {
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setBuildToolLogs(
+                BuildEventStreamProtos.BuildEventId.BuildToolLogsId.getDefaultInstance())
+            .build());
+  }
 }

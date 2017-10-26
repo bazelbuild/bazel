@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
@@ -585,7 +586,8 @@ public final class BuildTool {
     result.setExitCondition(exitCondition);
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
-    env.getEventBus().post(new BuildCompleteEvent(result));
+    env.getEventBus()
+        .post(new BuildCompleteEvent(result, ImmutableList.of(BuildEventId.buildToolLogs())));
   }
 
   private void reportTargets(AnalysisResult analysisResult) {

@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.buildtool.buildevent;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.util.ExitCode;
 
 /**
@@ -31,6 +33,6 @@ public class TestingCompleteEvent extends BuildCompletingEvent {
    * @param finishTimeMillis the finish time in milliseconds since the epoch.
    */
   public TestingCompleteEvent(ExitCode exitCode, long finishTimeMillis) {
-    super(exitCode, finishTimeMillis);
+    super(exitCode, finishTimeMillis, ImmutableList.of(BuildEventId.buildToolLogs()));
   }
 }

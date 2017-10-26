@@ -241,7 +241,9 @@ function test_basic() {
   expect_log 'build_finished'
   expect_log 'SUCCESS'
   expect_log 'finish_time'
+  expect_log_once 'last_message: true'
   expect_not_log 'aborted'
+  expect_log_once '^build_tool_logs'
 
   # Target kind for the sh_test
   expect_log 'target_kind:.*sh'
@@ -305,6 +307,8 @@ function test_suite() {
     || fail "bazel test failed"
   expect_log 'pkg:true'
   expect_not_log 'aborted'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_test_summary() {
@@ -333,6 +337,8 @@ function test_test_inidivual_results() {
   expect_log 'status.*PASSED'
   expect_log_once '^test_summary '
   expect_not_log 'aborted'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_test_attempts() {
@@ -451,6 +457,8 @@ function test_extra_action() {
     --experimental_action_listener=pkg:listener \
     pkg:output_files_and_tags || fail "bazel build with listener failed"
   expect_log '^action'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_action_ids() {
@@ -482,6 +490,8 @@ function test_aspect_artifacts() {
   expect_not_log 'aborted'
   count=`grep '^configured' "${TEST_log}" | wc -l`
   [ "${count}" -eq 2 ] || fail "Expected 2 configured events, found $count."
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_failing_aspect() {
@@ -491,6 +501,8 @@ function test_failing_aspect() {
     pkg:output_files_and_tags && fail "expected failure") || true
   expect_log 'aspect.*failing_aspect'
   expect_log '^finished'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_build_only() {
@@ -505,6 +517,8 @@ function test_build_only() {
   expect_log 'build_finished'
   expect_log 'finish_time'
   expect_log 'SUCCESS'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_query() {
@@ -523,6 +537,7 @@ function test_query() {
   expect_log '//pkg:slow'
   expect_log '^finished'
   expect_log 'name: "SUCCESS"'
+  expect_log 'last_message: true'
 }
 
 function test_command_whitelisting() {
@@ -578,6 +593,8 @@ function test_root_cause_early() {
   local ncomplete=`grep -n '^completed' $TEST_log | cut -f 1 -d :`
   [ $naction -lt $ncomplete ] \
       || fail "failed action not before completed target"
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_action_conf() {
@@ -602,6 +619,8 @@ function test_loading_failure() {
   expect_log_once 'reason: LOADING_FAILURE'
   expect_log 'description.*BUILD file not found on package path'
   expect_not_log 'expanded'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_visibility_failure() {
@@ -616,6 +635,8 @@ function test_visibility_failure() {
          //visibility:cannotsee && fail "build failure expected") || true
   expect_log_once 'reason: ANALYSIS_FAILURE'
   expect_log_once '^aborted'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_loading_failure_keep_going() {
@@ -626,6 +647,8 @@ function test_loading_failure_keep_going() {
   expect_log_once 'reason: LOADING_FAILURE'
   expect_log_once '^expanded'
   expect_log 'description.*BUILD file not found on package path'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 # TODO(aehlig): readd, once we stop reporting the important artifacts
@@ -665,6 +688,8 @@ function test_srcfiles() {
   expect_log 'SUCCESS'
   expect_log_once '^configuration'
   expect_not_log 'aborted'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_test_fails_to_build() {
@@ -673,6 +698,8 @@ function test_test_fails_to_build() {
   expect_not_log '^test_summary'
   expect_log 'last_message: true'
   expect_log 'BUILD_FAILURE'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_no_tests_found() {
@@ -681,6 +708,8 @@ function test_no_tests_found() {
   expect_not_log '^test_summary'
   expect_log 'last_message: true'
   expect_log 'NO_TESTS_FOUND'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_no_tests_found_build_failure() {
@@ -690,6 +719,8 @@ function test_no_tests_found_build_failure() {
   expect_log 'last_message: true'
   expect_log 'yet testing was requested'
   expect_log 'BUILD_FAILURE'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_alias() {
@@ -792,6 +823,8 @@ function test_noanalyze() {
     || fail "build failed"
   expect_log_once '^aborted'
   expect_log 'reason: NO_ANALYZE'
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
 }
 
 function test_nobuild() {
