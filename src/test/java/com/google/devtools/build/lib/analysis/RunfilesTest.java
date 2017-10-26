@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -407,5 +408,26 @@ public class RunfilesTest extends FoundationTestCase {
     Runfiles runfilesC = runfilesA.merge(runfilesB);
     assertThat(runfilesC.getSymlinksAsMap(null).get(sympathA)).isEqualTo(artifactA);
     assertThat(runfilesC.getSymlinksAsMap(null).get(sympathB)).isEqualTo(artifactB);
+  }
+
+  @Test
+  public void testOnlyExtraMiddlemenNotConsideredEmpty() {
+    Root root = Root.middlemanRoot(scratch.resolve("execroot"), scratch.resolve("execroot/out"));
+    Artifact mm = new Artifact(PathFragment.create("a-middleman"), root);
+    Runfiles runfiles = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm).build();
+    assertThat(runfiles.isEmpty()).isFalse();
+  }
+
+  @Test
+  public void testMergingExtraMiddlemen() {
+    Root root = Root.middlemanRoot(scratch.resolve("execroot"), scratch.resolve("execroot/out"));
+    Artifact mm1 = new Artifact(PathFragment.create("middleman-1"), root);
+    Artifact mm2 = new Artifact(PathFragment.create("middleman-2"), root);
+    Runfiles runfiles1 = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm1).build();
+    Runfiles runfiles2 = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm2).build();
+    Runfiles runfilesMerged =
+        new Runfiles.Builder("TESTING").merge(runfiles1).merge(runfiles2).build();
+    assertThat(runfilesMerged.getExtraMiddlemen())
+        .containsExactlyElementsIn(ImmutableList.of(mm1, mm2));
   }
 }

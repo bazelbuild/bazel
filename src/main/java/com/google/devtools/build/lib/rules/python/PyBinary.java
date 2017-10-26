@@ -107,7 +107,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
                   ruleContext.getWorkspaceName(),
                   ruleContext.getConfiguration().legacyExternalRunfiles())
               .merge(commonRunfiles)
-              .addArtifact(runfilesSupport.getRunfilesMiddleman())
+              .addLegacyExtraMiddleman(runfilesSupport.getRunfilesMiddleman())
               .build();
     } else {
       dataRunfiles = commonRunfiles;

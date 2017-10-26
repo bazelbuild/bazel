@@ -201,6 +201,12 @@ public final class Runfiles {
   private final NestedSet<SymlinkEntry> rootSymlinks;
 
   /**
+   * A set of middlemen artifacts. {@link RuleConfiguredTargetBuilder} adds these to the {@link
+   * FilesToRunProvider} of binaries that include this runfiles tree in their runfiles.
+   */
+  private final NestedSet<Artifact> extraMiddlemen;
+
+  /**
    * Interface used for adding empty files to the runfiles at the last minute. Mainly to support
    * python-related rules adding __init__.py files.
    */
@@ -294,6 +300,7 @@ public final class Runfiles {
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
       NestedSet<PruningManifest> pruningManifests,
+      NestedSet<Artifact> extraMiddlemen,
       EmptyFilesSupplier emptyFilesSupplier,
       ConflictPolicy conflictPolicy,
       boolean legacyExternalRunfiles) {
@@ -301,6 +308,7 @@ public final class Runfiles {
     this.unconditionalArtifacts = Preconditions.checkNotNull(artifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
+    this.extraMiddlemen = Preconditions.checkNotNull(extraMiddlemen);
     this.pruningManifests = Preconditions.checkNotNull(pruningManifests);
     this.emptyFilesSupplier = Preconditions.checkNotNull(emptyFilesSupplier);
     this.conflictPolicy = conflictPolicy;
@@ -329,6 +337,10 @@ public final class Runfiles {
    */
   public Iterable<Artifact> getUnconditionalArtifactsWithoutMiddlemen() {
     return Iterables.filter(unconditionalArtifacts, Artifact.MIDDLEMAN_FILTER);
+  }
+
+  public NestedSet<Artifact> getExtraMiddlemen() {
+    return extraMiddlemen;
   }
 
   /**
@@ -641,8 +653,11 @@ public final class Runfiles {
    * Returns if there are no runfiles.
    */
   public boolean isEmpty() {
-    return unconditionalArtifacts.isEmpty() && symlinks.isEmpty() && rootSymlinks.isEmpty()
-        && pruningManifests.isEmpty();
+    return unconditionalArtifacts.isEmpty()
+        && symlinks.isEmpty()
+        && rootSymlinks.isEmpty()
+        && pruningManifests.isEmpty()
+        && extraMiddlemen.isEmpty();
   }
 
   /**
@@ -753,6 +768,7 @@ public final class Runfiles {
         NestedSetBuilder.stableOrder();
     private NestedSetBuilder<PruningManifest> pruningManifestsBuilder =
         NestedSetBuilder.stableOrder();
+    private NestedSetBuilder<Artifact> extraMiddlemenBuilder = NestedSetBuilder.stableOrder();
     private EmptyFilesSupplier emptyFilesSupplier = DUMMY_EMPTY_FILES_SUPPLIER;
 
     /** Build the Runfiles object with this policy */
@@ -804,9 +820,16 @@ public final class Runfiles {
      * Builds a new Runfiles object.
      */
     public Runfiles build() {
-      return new Runfiles(suffix, artifactsBuilder.build(), symlinksBuilder.build(),
-          rootSymlinksBuilder.build(), pruningManifestsBuilder.build(),
-          emptyFilesSupplier, conflictPolicy, legacyExternalRunfiles);
+      return new Runfiles(
+          suffix,
+          artifactsBuilder.build(),
+          symlinksBuilder.build(),
+          rootSymlinksBuilder.build(),
+          pruningManifestsBuilder.build(),
+          extraMiddlemenBuilder.build(),
+          emptyFilesSupplier,
+          conflictPolicy,
+          legacyExternalRunfiles);
     }
 
     /**
@@ -1051,6 +1074,17 @@ public final class Runfiles {
     }
 
     /**
+     * Add extra middlemen artifacts that should be built by reverse dependency binaries. This
+     * method exists solely to support the unfortunate legacy behavior of some rules; new uses
+     * should not be added.
+     */
+    public Builder addLegacyExtraMiddleman(Artifact middleman) {
+      Preconditions.checkArgument(middleman.isMiddlemanArtifact(), middleman);
+      extraMiddlemenBuilder.add(middleman);
+      return this;
+    }
+
+    /**
      * Add the other {@link Runfiles} object transitively.
      */
     public Builder merge(Runfiles runfiles) {
@@ -1097,6 +1131,7 @@ public final class Runfiles {
       if (includePruningManifests) {
         pruningManifestsBuilder.addTransitive(runfiles.getPruningManifests());
       }
+      extraMiddlemenBuilder.addTransitive(runfiles.getExtraMiddlemen());
       if (emptyFilesSupplier == DUMMY_EMPTY_FILES_SUPPLIER) {
         emptyFilesSupplier = runfiles.getEmptyFilesProvider();
       } else {
