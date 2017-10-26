@@ -125,13 +125,11 @@ http_archive(
 )
 ```
 
-**NOTE:** Please check the 
-[Apple build rules releases](https://github.com/bazelbuild/rules_apple/releases)
-and use the URL of the latest release available in the `urls` attribute of
-your `http_archive` rule. You will need to update the `strip_prefix` attribute
-accordingly as well.
+**NOTE:** "Always use the 
+[latest version of the build_apple rules](https://github.com/bazelbuild/rules_apple/releases)
+in the `urls` and `strip_prefix` attributes."
 
-**NOTE2:** The `name` attribute of the `http_archive` rule *must* be
+**NOTE 2:** The `name` attribute of the `http_archive` rule *must* be
 `build_bazel_rules_apple`. The Apple rules depend on this name internally.
 
 ## Review the source files
