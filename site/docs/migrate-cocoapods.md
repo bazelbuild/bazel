@@ -22,19 +22,19 @@ If you're using CocoaPods, you need to:
 3.  Document the dependency tree, including the hierarchy of the `Podspecs`,
     resource URLs, filenames, and version numbers.
 
-## Converting a Podspec to a Bazel package
+## Converting a `Podspec` to a Bazel package
 
-To convert a Podspec dependency to a Bazel package, do the following:
+To convert a `Podspec` dependency to a Bazel package, do the following:
 
-1. Download each Podspec and decompress it into its own directory within the
-   Bazel workspace. All Podspecs must reside within the same Bazel workspace for
-   Tulsi to be aware of them for inclusion in the Xcode project.
+1. Download each `Podspec` and decompress it into its own directory within the
+   Bazel workspace. All `Podspec`s must reside within the same Bazel workspace
+   for Tulsi to be aware of them for inclusion in the Xcode project.
 
-2. Within the Podspec directory, create a `BUILD` file that specifies the
+2. Within the `Podspec` directory, create a `BUILD` file that specifies the
    library target(s) referencing the source and header files on which your
    project depends.
 
-3. Based on your project's dependency tree, add the Podspec target(s) as
+3. Based on your project's dependency tree, add the `Podspec`s target(s) as
    dependencies to the appropriate targets in the project's `BUILD` file(s).
 
 4. In the project's `BUILD` files, configure package visibility as desired.
