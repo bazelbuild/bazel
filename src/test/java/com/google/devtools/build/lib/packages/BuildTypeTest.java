@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -22,13 +23,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SelectorList;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -375,6 +379,51 @@ public class BuildTypeTest {
     } catch (ConversionException e) {
       assertThat(e).hasMessageThat().contains("expected value of type 'list(label)'");
     }
+  }
+
+  @Test
+  public void testSelectorList_concatenate_selectorList() throws Exception {
+    SelectorList selectorList =
+        SelectorList.of(
+            new SelectorValue(ImmutableMap.of("//conditions:a", ImmutableList.of("//a:a")), ""));
+    List<String> list = ImmutableList.of("//a:a", "//b:b");
+
+    // Creating a SelectorList from a SelectorList and a list should work properly.
+    SelectorList result = SelectorList.of(Location.BUILTIN, selectorList, list);
+    assertThat(result).isNotNull();
+    assertThat(result.getType()).isAssignableTo(List.class);
+  }
+
+  @Test
+  public void testSelectorList_concatenate_selectorValue() throws Exception {
+    SelectorValue selectorValue =
+        new SelectorValue(ImmutableMap.of("//conditions:a", ImmutableList.of("//a:a")), "");
+    List<String> list = ImmutableList.of("//a:a", "//b:b");
+
+    // Creating a SelectorList from a SelectorValue and a list should work properly.
+    SelectorList result = SelectorList.of(Location.BUILTIN, selectorValue, list);
+    assertThat(result).isNotNull();
+    assertThat(result.getType()).isAssignableTo(List.class);
+  }
+
+  @Test
+  public void testSelectorList_concatenate_differentListTypes() throws Exception {
+    List<String> list = ImmutableList.of("//a:a", "//b:b");
+    List<String> arrayList = new ArrayList<>();
+    arrayList.add("//a:a");
+
+    // Creating a SelectorList from two lists of different types should work properly.
+    SelectorList result = SelectorList.of(Location.BUILTIN, list, arrayList);
+    assertThat(result).isNotNull();
+    assertThat(result.getType()).isAssignableTo(List.class);
+  }
+
+  @Test
+  public void testSelectorList_concatenate_invalidType() throws Exception {
+    List<String> list = ImmutableList.of("//a:a", "//b:b");
+
+    // Creating a SelectorList from a list and a non-list should fail.
+    assertThrows(EvalException.class, () -> SelectorList.of(Location.BUILTIN, list, "A string"));
   }
 
   /**
