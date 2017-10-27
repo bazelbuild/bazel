@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -72,7 +73,8 @@ public abstract class ResourceContainer {
 
   abstract ImmutableList<Artifact> getAssets();
 
-  abstract ImmutableList<Artifact> getResources();
+  @VisibleForTesting
+  public abstract ImmutableList<Artifact> getResources();
 
   public ImmutableList<Artifact> getArtifacts(ResourceType resourceType) {
     return resourceType == ResourceType.ASSETS ? getAssets() : getResources();
