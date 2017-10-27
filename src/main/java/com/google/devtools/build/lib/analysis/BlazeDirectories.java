@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.serialization.PathCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -88,14 +87,6 @@ public final class BlazeDirectories {
     String relativeOutputPath = getRelativeOutputPath(productName);
     this.outputPath = execRoot.getRelative(getRelativeOutputPath());
     this.localOutputPath = outputBase.getRelative(relativeOutputPath);
-  }
-
-  /**
-   * Returns the Filesystem that all of our directories belong to. Handy for
-   * resolving absolute paths.
-   */
-  public FileSystem getFileSystem() {
-    return serverDirectories.getFileSystem();
   }
 
   public ServerDirectories getServerDirectories() {

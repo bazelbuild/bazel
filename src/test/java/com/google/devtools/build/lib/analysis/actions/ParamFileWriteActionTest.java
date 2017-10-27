@@ -165,7 +165,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
       }
     };
 
-    Executor executor = new TestExecutorBuilder(directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     return new ActionExecutionContext(executor, null, ActionInputPrefetcher.NONE, null,
         new FileOutErr(), ImmutableMap.<String, String>of(), artifactExpander);
   }

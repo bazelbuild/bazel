@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -116,6 +117,10 @@ public class ActionExecutionContext implements Closeable {
 
   public MetadataHandler getMetadataHandler() {
     return metadataHandler;
+  }
+
+  public FileSystem getFileSystem() {
+    return executor.getFileSystem();
   }
 
   public Path getExecRoot() {

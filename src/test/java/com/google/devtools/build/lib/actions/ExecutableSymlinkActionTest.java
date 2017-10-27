@@ -46,7 +46,7 @@ public class ExecutableSymlinkActionTest {
     inputRoot = Root.asDerivedRoot(inputDir);
     outputRoot = Root.asDerivedRoot(scratch.dir("/out"));
     outErr = new TestFileOutErr();
-    executor = new DummyExecutor(inputDir);
+    executor = new DummyExecutor(scratch.getFileSystem(), inputDir);
   }
 
   private ActionExecutionContext createContext() {

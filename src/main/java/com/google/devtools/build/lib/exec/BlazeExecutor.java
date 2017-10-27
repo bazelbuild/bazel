@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsClassProvider;
 import java.util.HashMap;
@@ -54,6 +55,7 @@ public final class BlazeExecutor implements Executor {
 
   private final boolean verboseFailures;
   private final boolean showSubcommands;
+  private final FileSystem fileSystem;
   private final Path execRoot;
   private final Reporter reporter;
   private final EventBus eventBus;
@@ -77,6 +79,7 @@ public final class BlazeExecutor implements Executor {
    * shutdown() when you're done with this executor.
    */
   public BlazeExecutor(
+      FileSystem fileSystem,
       Path execRoot,
       Reporter reporter,
       EventBus eventBus,
@@ -89,6 +92,7 @@ public final class BlazeExecutor implements Executor {
     ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
     this.verboseFailures = executionOptions.verboseFailures;
     this.showSubcommands = executionOptions.showSubcommands;
+    this.fileSystem = fileSystem;
     this.execRoot = execRoot;
     this.reporter = reporter;
     this.eventBus = eventBus;
@@ -138,6 +142,11 @@ public final class BlazeExecutor implements Executor {
     for (ActionContextProvider factory : contextProviders) {
       factory.executorCreated(allContexts);
     }
+  }
+
+  @Override
+  public FileSystem getFileSystem() {
+    return fileSystem;
   }
 
   @Override

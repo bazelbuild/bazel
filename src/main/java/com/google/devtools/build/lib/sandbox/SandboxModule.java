@@ -48,7 +48,7 @@ public final class SandboxModule extends BlazeModule {
     BlazeDirectories blazeDirs = cmdEnv.getDirectories();
     String productName = cmdEnv.getRuntime().getProductName();
     SandboxOptions sandboxOptions = request.getOptions(SandboxOptions.class);
-    FileSystem fs = blazeDirs.getFileSystem();
+    FileSystem fs = cmdEnv.getRuntime().getFileSystem();
 
     if (sandboxOptions.sandboxBase.isEmpty()) {
       sandboxBase = blazeDirs.getOutputBase().getRelative(productName + "-sandbox");

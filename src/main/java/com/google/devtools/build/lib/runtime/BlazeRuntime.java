@@ -122,6 +122,7 @@ public final class BlazeRuntime {
 
   private static final Logger logger = Logger.getLogger(BlazeRuntime.class.getName());
 
+  private final FileSystem fileSystem;
   private final Iterable<BlazeModule> blazeModules;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
   private final Clock clock;
@@ -153,6 +154,7 @@ public final class BlazeRuntime {
   private BlazeWorkspace workspace;
 
   private BlazeRuntime(
+      FileSystem fileSystem,
       QueryEnvironmentFactory queryEnvironmentFactory,
       ImmutableList<QueryFunction> queryFunctions,
       ImmutableList<OutputFormatter> queryOutputFormatters,
@@ -171,6 +173,7 @@ public final class BlazeRuntime {
       String productName,
       PathConverter pathToUriConverter) {
     // Server state
+    this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
     overrideCommands(commands);
 
@@ -281,6 +284,10 @@ public final class BlazeRuntime {
       env.getReporter().handle(Event.error("Error while creating profile file: " + e.getMessage()));
     }
     return false;
+  }
+
+  public FileSystem getFileSystem() {
+    return fileSystem;
   }
 
   public BlazeWorkspace getWorkspace() {
@@ -959,18 +966,21 @@ public final class BlazeRuntime {
     ServerDirectories serverDirectories =
         new ServerDirectories(installBasePath, outputBasePath, startupOptions.installMD5);
     Clock clock = BlazeClock.instance();
-    BlazeRuntime.Builder runtimeBuilder = new BlazeRuntime.Builder()
-        .setProductName(productName)
-        .setServerDirectories(serverDirectories)
-        .setStartupOptionsProvider(options)
-        .setClock(clock)
-        .setAbruptShutdownHandler(abruptShutdownHandler)
-        // TODO(bazel-team): Make BugReportingExceptionHandler the default.
-        // See bug "Make exceptions in EventBus subscribers fatal"
-        .setEventBusExceptionHandler(
-            startupOptions.fatalEventBusExceptions || !BlazeVersionInfo.instance().isReleasedBlaze()
-                ? new BlazeRuntime.BugReportingExceptionHandler()
-                : new BlazeRuntime.RemoteExceptionHandler());
+    BlazeRuntime.Builder runtimeBuilder =
+        new BlazeRuntime.Builder()
+            .setProductName(productName)
+            .setFileSystem(fs)
+            .setServerDirectories(serverDirectories)
+            .setStartupOptionsProvider(options)
+            .setClock(clock)
+            .setAbruptShutdownHandler(abruptShutdownHandler)
+            // TODO(bazel-team): Make BugReportingExceptionHandler the default.
+            // See bug "Make exceptions in EventBus subscribers fatal"
+            .setEventBusExceptionHandler(
+                startupOptions.fatalEventBusExceptions
+                        || !BlazeVersionInfo.instance().isReleasedBlaze()
+                    ? new BlazeRuntime.BugReportingExceptionHandler()
+                    : new BlazeRuntime.RemoteExceptionHandler());
 
     if (System.getenv("TEST_TMPDIR") != null
         && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
@@ -1103,6 +1113,7 @@ public final class BlazeRuntime {
    * an exception. Please plan appropriately.
    */
   public static class Builder {
+    private FileSystem fileSystem;
     private ServerDirectories serverDirectories;
     private Clock clock;
     private Runnable abruptShutdownHandler;
@@ -1122,8 +1133,13 @@ public final class BlazeRuntime {
       Preconditions.checkNotNull(clock);
 
       for (BlazeModule module : blazeModules) {
-        module.blazeStartup(startupOptionsProvider,
-            BlazeVersionInfo.instance(), instanceId, serverDirectories, clock);
+        module.blazeStartup(
+            startupOptionsProvider,
+            BlazeVersionInfo.instance(),
+            instanceId,
+            fileSystem,
+            serverDirectories,
+            clock);
       }
       ServerBuilder serverBuilder = new ServerBuilder();
       serverBuilder.addQueryOutputFormatters(OutputFormatter.getDefaultFormatters());
@@ -1142,7 +1158,7 @@ public final class BlazeRuntime {
       Package.Builder.Helper packageBuilderHelper = null;
       for (BlazeModule module : blazeModules) {
         Package.Builder.Helper candidateHelper =
-            module.getPackageBuilderHelper(ruleClassProvider, serverDirectories.getFileSystem());
+            module.getPackageBuilderHelper(ruleClassProvider, fileSystem);
         if (candidateHelper != null) {
           Preconditions.checkState(packageBuilderHelper == null,
               "more than one module defines a package builder helper");
@@ -1173,6 +1189,7 @@ public final class BlazeRuntime {
       }
 
       return new BlazeRuntime(
+          fileSystem,
           serverBuilder.getQueryEnvironmentFactory(),
           serverBuilder.getQueryFunctions(),
           serverBuilder.getQueryOutputFormatters(),
@@ -1194,6 +1211,11 @@ public final class BlazeRuntime {
 
     public Builder setProductName(String productName) {
       this.productName = productName;
+      return this;
+    }
+
+    public Builder setFileSystem(FileSystem fileSystem) {
+      this.fileSystem = fileSystem;
       return this;
     }
 

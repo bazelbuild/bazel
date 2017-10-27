@@ -112,7 +112,8 @@ public class StandaloneSpawnStrategyTest {
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase), workspaceDir, "mock-product-name");
     // This call implicitly symlinks the integration bin tools into the exec root.
-    IntegrationMock.get().getIntegrationBinTools(directories, TestConstants.WORKSPACE_NAME);
+    IntegrationMock.get()
+        .getIntegrationBinTools(fileSystem, directories, TestConstants.WORKSPACE_NAME);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(ExecutionOptions.class);
     optionsParser.parse("--verbose_failures");
     LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
@@ -125,6 +126,7 @@ public class StandaloneSpawnStrategyTest {
     Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
     this.executor =
         new BlazeExecutor(
+            fileSystem,
             execRoot,
             reporter,
             bus,

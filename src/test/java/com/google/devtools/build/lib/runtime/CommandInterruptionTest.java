@@ -352,6 +352,7 @@ public final class CommandInterruptionTest {
         new ServerDirectories(scratch.dir("install"), scratch.dir("output"));
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
+            .setFileSystem(scratch.getFileSystem())
             .setProductName(productName)
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(

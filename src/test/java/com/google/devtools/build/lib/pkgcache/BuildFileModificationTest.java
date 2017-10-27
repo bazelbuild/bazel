@@ -82,6 +82,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
             analysisMock
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, scratch.getFileSystem()),
+            fileSystem,
             directories,
             null, /* workspaceStatusActionFactory */
             ruleClassProvider.getBuildInfoFactories(),

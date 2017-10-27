@@ -994,17 +994,23 @@ public class Path implements Comparable<Path>, Serializable {
     return fileSystem.getFileSize(this, followSymlinks.toBoolean());
   }
 
+  /** Please prefer to use {@link #delete(FileSystem)}. */
+  public boolean delete() throws IOException {
+    return fileSystem.delete(this);
+  }
+
   /**
-   * Deletes the file denoted by this path, not following symbolic links.
-   * Returns normally iff the file doesn't exist after the call: true if this
-   * call deleted the file, false if the file already didn't exist.  Throws an
-   * exception if the file could not be deleted for any reason.
+   * Deletes the file denoted by this path, not following symbolic links. Returns normally iff the
+   * file doesn't exist after the call: true if this call deleted the file, false if the file
+   * already didn't exist. Throws an exception if the file could not be deleted for any reason.
+   *
+   * <p>This is a migration method. The method (and its FileSystem-less counterpart) will be deleted
+   * once the FileSystem instance is removed from Path.
    *
    * @return true iff the file was actually deleted by this call
-   * @throws IOException if the deletion failed but the file was present prior
-   *         to the call
+   * @throws IOException if the deletion failed but the file was present prior to the call
    */
-  public boolean delete() throws IOException {
+  public boolean delete(FileSystem fileSystem) throws IOException {
     return fileSystem.delete(this);
   }
 

@@ -621,6 +621,7 @@ public class LoadingPhaseRunnerTest {
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
               pkgFactory,
+              fs,
               directories,
               null, /* workspaceStatusActionFactory -- not used */
               ruleClassProvider.getBuildInfoFactories(),

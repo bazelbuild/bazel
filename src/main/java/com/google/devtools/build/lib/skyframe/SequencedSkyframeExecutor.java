@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -120,6 +121,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private SequencedSkyframeExecutor(
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
+      FileSystem fileSystem,
       BlazeDirectories directories,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
@@ -134,6 +136,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     super(
         evaluatorSupplier,
         pkgFactory,
+        fileSystem,
         directories,
         workspaceStatusActionFactory,
         buildInfoFactories,
@@ -150,6 +153,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   public static SequencedSkyframeExecutor create(
       PackageFactory pkgFactory,
+      FileSystem fileSystem,
       BlazeDirectories directories,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
@@ -165,6 +169,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         new SequencedSkyframeExecutor(
             InMemoryMemoizingEvaluator.SUPPLIER,
             pkgFactory,
+            fileSystem,
             directories,
             workspaceStatusActionFactory,
             buildInfoFactories,

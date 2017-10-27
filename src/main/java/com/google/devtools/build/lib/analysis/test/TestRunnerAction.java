@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -349,13 +350,13 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   /**
    * Deletes <b>all</b> possible test outputs.
    *
-   * TestRunnerAction potentially can create many more non-declared outputs - xml output,
-   * coverage data file and logs for failed attempts. All those outputs are uniquely
-   * identified by the test log base name with arbitrary prefix and extension.
+   * <p>TestRunnerAction potentially can create many more non-declared outputs - xml output,
+   * coverage data file and logs for failed attempts. All those outputs are uniquely identified by
+   * the test log base name with arbitrary prefix and extension.
    */
   @Override
-  protected void deleteOutputs(Path execRoot) throws IOException {
-    super.deleteOutputs(execRoot);
+  protected void deleteOutputs(FileSystem fileSystem, Path execRoot) throws IOException {
+    super.deleteOutputs(fileSystem, execRoot);
 
     // We do not rely on globs, as it causes quadratic behavior in --runs_per_test and test
     // shard count.

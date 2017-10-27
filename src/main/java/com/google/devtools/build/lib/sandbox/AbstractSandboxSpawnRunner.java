@@ -60,7 +60,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.verboseFailures = cmdEnv.getOptions().getOptions(ExecutionOptions.class).verboseFailures;
     this.inaccessiblePaths =
-        sandboxOptions.getInaccessiblePaths(cmdEnv.getDirectories().getFileSystem());
+        sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
   }
 
   @Override

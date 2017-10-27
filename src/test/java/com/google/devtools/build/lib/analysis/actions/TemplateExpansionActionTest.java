@@ -101,7 +101,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testExpansion() throws Exception {
-    Executor executor = new TestExecutorBuilder(directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     create().execute(createContext(executor));
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
     String expected = Joiner.on('\n').join("key=foo", "value=bar");
@@ -181,7 +181,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   private void executeTemplateExpansion(String expected, List<Substitution> substitutions)
       throws Exception {
-    Executor executor = new TestExecutorBuilder(directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     createWithArtifact(substitutions).execute(createContext(executor));
     String actual = FileSystemUtils.readContent(output, StandardCharsets.UTF_8);
     assertThat(actual).isEqualTo(expected);

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
 import javax.annotation.Nullable;
@@ -41,23 +42,24 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 @TestSpec(size = Suite.SMALL_TESTS)
 public class BlazeExecutorTest {
+  private FileSystem fileSystem;
   private BlazeDirectories directories;
   private BinTools binTools;
 
   @Before
   public final void setUpDirectoriesAndTools() throws Exception {
-    InMemoryFileSystem fs = new InMemoryFileSystem();
+    fileSystem = new InMemoryFileSystem();
     directories =
         new BlazeDirectories(
-            new ServerDirectories(fs.getPath("/install"), fs.getPath("/base")),
-            fs.getPath("/workspace"),
+            new ServerDirectories(fileSystem.getPath("/install"), fileSystem.getPath("/base")),
+            fileSystem.getPath("/workspace"),
             "mock-product-name");
     binTools = BinTools.empty(directories);
   }
 
   @Test
   public void testDebugPrintActionContexts() throws Exception {
-    TestExecutorBuilder builder = new TestExecutorBuilder(directories, binTools);
+    TestExecutorBuilder builder = new TestExecutorBuilder(fileSystem, directories, binTools);
     OptionsParser parser = OptionsParser.newOptionsParser(TestExecutorBuilder.DEFAULT_OPTIONS);
     parser.parse("--debug_print_action_contexts");
 

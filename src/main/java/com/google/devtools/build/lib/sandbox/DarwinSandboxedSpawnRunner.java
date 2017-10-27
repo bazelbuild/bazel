@@ -105,7 +105,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.productName = productName;
-    this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getDirectories().getFileSystem());
+    this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
     this.processWrapper = ProcessWrapperRunner.getProcessWrapper(cmdEnv);
     this.localEnvProvider = new XCodeLocalEnvProvider();
     this.timeoutGraceSeconds = timeoutGraceSeconds;

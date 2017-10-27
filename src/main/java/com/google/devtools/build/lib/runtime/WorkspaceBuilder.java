@@ -78,6 +78,7 @@ public final class WorkspaceBuilder {
     SkyframeExecutor skyframeExecutor =
         skyframeExecutorFactory.create(
             packageFactory,
+            runtime.getFileSystem(),
             directories,
             workspaceStatusActionFactory,
             ruleClassProvider.getBuildInfoFactories(),

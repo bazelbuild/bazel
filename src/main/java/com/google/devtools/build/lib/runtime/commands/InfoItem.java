@@ -498,7 +498,7 @@ public abstract class InfoItem {
         return print("unknown");
       }
       // Tunnel through a Path object in order to normalize the representation of the path.
-      Path javaHomePath = env.getDirectories().getFileSystem().getPath(javaHome);
+      Path javaHomePath = env.getRuntime().getFileSystem().getPath(javaHome);
       return print(javaHomePath.getPathString());
     }
   }

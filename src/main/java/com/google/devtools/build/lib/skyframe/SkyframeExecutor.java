@@ -184,6 +184,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       new MemoizingEvaluator.EmittedEventState();
   private final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
+  private final FileSystem fileSystem;
   private final BlazeDirectories directories;
   protected final ExternalFilesHelper externalFilesHelper;
   @Nullable protected OutputService outputService;
@@ -290,6 +291,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected SkyframeExecutor(
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
+      FileSystem fileSystem,
       BlazeDirectories directories,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
@@ -311,6 +313,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         syscalls, cyclesReporter, pkgLocator, numPackagesLoaded, this);
     this.resourceManager = ResourceManager.instance();
     this.skyframeActionExecutor = new SkyframeActionExecutor(eventBus, statusReporterRef);
+    this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
     ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder = ImmutableMap.builder();
     for (BuildInfoFactory factory : buildInfoFactories) {
@@ -1840,7 +1843,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @VisibleForTesting
   public FileSystem getFileSystemForTesting() {
-    return directories.getFileSystem();
+    return fileSystem;
   }
 
   @VisibleForTesting

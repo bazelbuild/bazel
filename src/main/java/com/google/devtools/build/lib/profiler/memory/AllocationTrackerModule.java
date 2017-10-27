@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.syntax.Callstack;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.UUID;
 
@@ -57,6 +58,7 @@ public class AllocationTrackerModule extends BlazeModule {
       OptionsProvider startupOptions,
       BlazeVersionInfo versionInfo,
       UUID instanceId,
+      FileSystem fileSystem,
       ServerDirectories directories,
       Clock clock) {
     String memoryTrackerPropery = System.getProperty("RULE_MEMORY_TRACKER");

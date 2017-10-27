@@ -376,7 +376,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   protected void buildArtifacts(Builder builder, Artifact... artifacts)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException {
-    buildArtifacts(builder, new DummyExecutor(rootDirectory), artifacts);
+    buildArtifacts(builder, new DummyExecutor(fileSystem, rootDirectory), artifacts);
   }
 
   protected void buildArtifacts(Builder builder, Executor executor, Artifact... artifacts)

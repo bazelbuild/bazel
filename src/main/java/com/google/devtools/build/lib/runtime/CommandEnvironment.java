@@ -612,7 +612,7 @@ public final class CommandEnvironment {
     if (inWorkspace()) {
       workingDirectory = workspace.getRelative(commonOptions.clientCwd);
     } else {
-      workspace = FileSystemUtils.getWorkingDirectory(getDirectories().getFileSystem());
+      workspace = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());
       workingDirectory = workspace;
     }
     this.relativeWorkingDirectory = workingDirectory.relativeTo(workspace);

@@ -81,6 +81,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
+  private final FileSystem fileSystem;
   private final BlazeDirectories blazeDirs;
   private final Path execRoot;
   private final boolean allowNetwork;
@@ -99,6 +100,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path inaccessibleHelperDir,
       int timeoutGraceSeconds) {
     super(cmdEnv, sandboxBase);
+    this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.blazeDirs = cmdEnv.getDirectories();
     this.execRoot = cmdEnv.getExecRoot();
     this.productName = productName;
@@ -242,14 +244,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private ImmutableSet<Path> getTmpfsPaths() {
     ImmutableSet.Builder<Path> tmpfsPaths = ImmutableSet.builder();
     for (String tmpfsPath : getSandboxOptions().sandboxTmpfsPath) {
-      tmpfsPaths.add(blazeDirs.getFileSystem().getPath(tmpfsPath));
+      tmpfsPaths.add(fileSystem.getPath(tmpfsPath));
     }
     return tmpfsPaths.build();
   }
 
   private SortedMap<Path, Path> getReadOnlyBindMounts(
       BlazeDirectories blazeDirs, Path sandboxExecRoot) throws UserExecException {
-    Path tmpPath = blazeDirs.getFileSystem().getPath("/tmp");
+    Path tmpPath = fileSystem.getPath("/tmp");
     final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
     if (blazeDirs.getWorkspace().startsWith(tmpPath)) {
       bindMounts.put(blazeDirs.getWorkspace(), blazeDirs.getWorkspace());
@@ -260,7 +262,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     for (ImmutableMap.Entry<String, String> additionalMountPath :
         getSandboxOptions().sandboxAdditionalMounts) {
       try {
-        final Path mountTarget = blazeDirs.getFileSystem().getPath(additionalMountPath.getValue());
+        final Path mountTarget = fileSystem.getPath(additionalMountPath.getValue());
         // If source path is relative, treat it as a relative path inside the execution root
         final Path mountSource = sandboxExecRoot.getRelative(additionalMountPath.getKey());
         // If a target has more than one source path, the latter one will take effect.

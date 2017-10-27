@@ -781,7 +781,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     // Delete the outputs before executing the action, just to ensure that
     // the action really does produce the outputs.
     try {
-      action.prepare(context.getExecRoot());
+      action.prepare(context.getFileSystem(), context.getExecRoot());
       createOutputDirectories(action);
     } catch (IOException e) {
       reportError("failed to delete output files before executing action", e, action, null);

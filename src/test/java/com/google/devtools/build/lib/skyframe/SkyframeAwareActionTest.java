@@ -68,7 +68,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
   @Before
   public final void createExecutor() throws Exception {
-    executor = new DummyExecutor(rootDirectory);
+    executor = new DummyExecutor(fileSystem, rootDirectory);
   }
 
   private static final class TrackingEvaluationProgressReceiver

@@ -473,6 +473,7 @@ public class IncrementalLoadingTest {
               loadingMock
                   .getPackageFactoryBuilderForTesting(directories)
                   .build(loadingMock.createRuleClassProvider(), fs),
+              fs,
               directories,
               null, /* workspaceStatusActionFactory */
               loadingMock.createRuleClassProvider().getBuildInfoFactories(),

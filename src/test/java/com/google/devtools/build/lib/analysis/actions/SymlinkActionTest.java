@@ -73,7 +73,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testSymlink() throws Exception {
-    Executor executor = new TestExecutorBuilder(directories, null).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories, null).build();
     ActionResult actionResult =
         action.execute(
             new ActionExecutionContext(

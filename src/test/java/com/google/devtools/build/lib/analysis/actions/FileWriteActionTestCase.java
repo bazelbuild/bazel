@@ -54,7 +54,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
 
   @Before
   public final void createExecutorAndContext() throws Exception {
-    executor = new TestExecutorBuilder(directories, binTools).build();
+    executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     context = new ActionExecutionContext(executor, null, ActionInputPrefetcher.NONE, null,
         new FileOutErr(), ImmutableMap.<String, String>of(), null);
   }

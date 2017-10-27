@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.PathCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -66,14 +65,6 @@ public final class ServerDirectories {
     Preconditions.checkArgument(hash.bits() == Hashing.md5().bits(),
                                 "Hash '%s' has %s bits", hash, hash.bits());
     return hash;
-  }
-
-  /**
-   * Returns the Filesystem that all of our directories belong to. Handy for
-   * resolving absolute paths.
-   */
-  public FileSystem getFileSystem() {
-    return installBase.getFileSystem();
   }
 
   /**

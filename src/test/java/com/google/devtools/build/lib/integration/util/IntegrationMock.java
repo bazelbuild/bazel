@@ -17,9 +17,9 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -36,12 +36,13 @@ public class IntegrationMock {
    * Populates the _embedded_binaries/ directory, containing all binaries/libraries, by symlinking
    * directories#getEmbeddedBinariesRoot() to the test's runfiles tree.
    */
-  public BinTools getIntegrationBinTools(BlazeDirectories directories, String workspaceName)
+  public BinTools getIntegrationBinTools(
+      FileSystem fileSystem, BlazeDirectories directories, String workspaceName)
       throws IOException {
     Path embeddedDir = directories.getEmbeddedBinariesRoot();
     FileSystemUtils.createDirectoryAndParents(embeddedDir);
 
-    Path runfiles = directories.getFileSystem().getPath(BlazeTestUtils.runfilesDir());
+    Path runfiles = fileSystem.getPath(BlazeTestUtils.runfilesDir());
     // Copy over everything in embedded_scripts.
     Collection<Path> files = new ArrayList<>();
     for (String embeddedScriptPath : TestConstants.EMBEDDED_SCRIPTS_PATHS) {

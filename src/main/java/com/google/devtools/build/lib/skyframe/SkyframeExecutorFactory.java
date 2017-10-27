@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -35,6 +36,7 @@ public interface SkyframeExecutorFactory {
    *
    * @param tsgm timestamp granularity monitor
    * @param pkgFactory the package factory
+   * @param fileSystem the Blaze file system
    * @param directories Blaze directories
    * @param workspaceStatusActionFactory a factory for creating WorkspaceStatusAction objects
    * @param buildInfoFactories list of BuildInfoFactories
@@ -47,6 +49,7 @@ public interface SkyframeExecutorFactory {
    */
   SkyframeExecutor create(
       PackageFactory pkgFactory,
+      FileSystem fileSystem,
       BlazeDirectories directories,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,

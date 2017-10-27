@@ -420,8 +420,8 @@ public class CppCompileAction extends AbstractAction
 
   /**
    * Returns the list of additional inputs found by dependency discovery, during action preparation,
-   * and clears the stored list. {@link #prepare} must be called before this method is called, on
-   * each action execution.
+   * and clears the stored list. {@link Action#prepare} must be called before this method is called,
+   * on each action execution.
    */
   public Iterable<Artifact> getAdditionalInputs() {
     Iterable<Artifact> result = Preconditions.checkNotNull(additionalInputs);

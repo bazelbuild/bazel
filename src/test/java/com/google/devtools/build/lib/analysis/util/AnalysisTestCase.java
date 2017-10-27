@@ -161,6 +161,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       PackageFactory pkgFactory, ImmutableList<BuildInfoFactory> buildInfoFactories) {
     return SequencedSkyframeExecutor.create(
         pkgFactory,
+        fileSystem,
         directories,
         workspaceStatusActionFactory,
         buildInfoFactories,

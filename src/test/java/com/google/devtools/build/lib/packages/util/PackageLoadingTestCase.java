@@ -112,6 +112,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     SkyframeExecutor skyframeExecutor =
         SequencedSkyframeExecutor.create(
             packageFactory,
+            fileSystem,
             directories,
             null, /* workspaceStatusActionFactory */
             ruleClassProvider.getBuildInfoFactories(),

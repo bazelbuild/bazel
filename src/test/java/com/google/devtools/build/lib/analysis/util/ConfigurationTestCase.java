@@ -114,6 +114,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             pkgFactory,
+            fileSystem,
             directories,
             workspaceStatusActionFactory,
             ruleClassProvider.getBuildInfoFactories(),

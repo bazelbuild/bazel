@@ -229,7 +229,7 @@ public class ExecutionTool {
       // client.
       cache =
           new SingleBuildFileCache(
-              env.getExecRoot().getPathString(), env.getDirectories().getFileSystem());
+              env.getExecRoot().getPathString(), env.getRuntime().getFileSystem());
     }
     this.fileCache = cache;
     this.prefetcher = builder.getActionInputPrefetcher();
@@ -302,6 +302,7 @@ public class ExecutionTool {
   private BlazeExecutor createExecutor()
       throws ExecutorInitException {
     return new BlazeExecutor(
+        runtime.getFileSystem(),
         env.getExecRoot(),
         getReporter(),
         env.getEventBus(),
