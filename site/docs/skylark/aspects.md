@@ -381,7 +381,7 @@ file_count_rule(
 ```
 
 This demonstrates how to pass the ``extension`` parameter into the aspect
-via the rule. Since the ``extension`` paramter has a default value in the
+via the rule. Since the ``extension`` parameter has a default value in the
 rule implementation, ``extension`` would be considered an optional parameter.
 
 When the ``file_count`` target is built, our aspect will be evaluated for 
