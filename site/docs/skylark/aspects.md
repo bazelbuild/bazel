@@ -91,9 +91,9 @@ def _print_aspect_impl(target, ctx):
     if hasattr(ctx.rule.attr, "srcs"):
         # Iterate through the files that make up the sources and 
         # print their paths.
-        sources = [f for src in ctx.rule.attr.srcs for f in src.files]
-        for source in sources:
-            print(source.path)
+        for src in ctx.rule.attr.srcs:
+            for f in src.files:
+                print(f.path)
     return [PrintProvider()]
 
 print_aspect = aspect(
@@ -136,9 +136,9 @@ def _print_aspect_impl(target, ctx):
     if hasattr(ctx.rule.attr, "srcs"):
         # Iterate through the files that make up the sources and 
         # print their paths.
-        sources = [f for src in ctx.rule.attr.srcs for f in src.files]
-        for source in sources:
-            print(source.path)
+        for src in ctx.rule.attr.srcs:
+            for f in src.files:
+                print(f.path)    
     return [_PrintProvider()]
 ```
 
@@ -193,13 +193,10 @@ def _file_count_aspect_impl(target, ctx):
     # Make sure the rule has a srcs attribute.
     if hasattr(ctx.rule.attr, "srcs"):
         # Iterate through the sources counting files
-        sources = [f for src in ctx.rule.attr.srcs for f in src.files]
-        if ctx.attr.extension == "*":
-          count = len(sources)
-        else:
-          for source in sources:
-            if source.path.endswith(ctx.attr.extension):
-              count = count + 1
+        for src in ctx.rule.attr.srcs:
+            for f in src.files:
+                if ctx.attr.extension == "*" or f.path.endswith(ctx.attr.extension):
+                    count = count + 1
     # Get the counts from our dependencies.
     for dep in ctx.rule.attr.deps:
         count = count + dep[FileCount].count
@@ -308,13 +305,10 @@ def _file_count_aspect_impl(target, ctx):
     # Make sure the rule has a srcs attribute.
     if hasattr(ctx.rule.attr, "srcs"):
         # Iterate through the sources counting files
-        sources = [f for src in ctx.rule.attr.srcs for f in src.files]
-        if ctx.attr.extension == "*":
-          count = len(sources)
-        else:
-          for source in sources:
-            if source.path.endswith(ctx.attr.extension):
-              count = count + 1
+        for src in ctx.rule.attr.srcs:
+            for f in src.files:
+                if ctx.attr.extension == "*" or f.path.endswith(ctx.attr.extension):
+                    count = count + 1
     # Get the counts from our dependencies.
     for dep in ctx.rule.attr.deps:
         count = count + dep[FileCount].count
