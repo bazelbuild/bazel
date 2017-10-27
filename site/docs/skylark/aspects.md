@@ -79,26 +79,23 @@ of the original graph.
 
 This example demonstrates how to recursively print the source files for a 
 rule and all of its  dependencies that have a `deps` attribute. It shows 
-how to define an empty provider, an aspect implementation and an aspect 
-definition. It invokes the aspect from the bazel command line.
+an aspect implementation, an aspect definition and how to invoke the aspect
+from the bazel command line.
 
 ```python
-# Our rule returns nothing so generate an empty provider.
-PrintProvider = provider()
-
 def _print_aspect_impl(target, ctx):
     # Make sure the rule has a srcs attribute.
-    if hasattr(ctx.rule.attr, "srcs"):
+    if hasattr(ctx.rule.attr, 'srcs'):
         # Iterate through the files that make up the sources and 
         # print their paths.
         for src in ctx.rule.attr.srcs:
             for f in src.files:
                 print(f.path)
-    return [PrintProvider()]
+    return []
 
 print_aspect = aspect(
     implementation = _print_aspect_impl,
-    attr_aspects = ["deps"],
+    attr_aspects = ['deps'],
 )
 ```
 
@@ -109,7 +106,7 @@ Let's break the example up into it's parts and examine each one individually.
 ```python
 print_aspect = aspect(
     implementation = _print_aspect_impl,
-    attr_aspects = ["deps"],
+    attr_aspects = ['deps'],
 )
 ```
 Aspect definitions are similar to rule definitions, and defined using
@@ -122,24 +119,22 @@ Just like a rule, an aspect has an implementation function which in this case is
 In this case the aspect will propagate along the ``deps`` attribute of the rules 
 that it is applied to. 
 
-Another common argument for `attr_aspects` is `["*"]` which would propagate the
+Another common argument for `attr_aspects` is `['*']` which would propagate the
 aspect to all attributes of a rule.
 
 ### Aspect implementation
 
 ```python
-# Our rule returns nothing so generate an empty provider.
-PrintProvider = provider()
 
 def _print_aspect_impl(target, ctx):
     # Make sure the rule has a srcs attribute.
-    if hasattr(ctx.rule.attr, "srcs"):
+    if hasattr(ctx.rule.attr, 'srcs'):
         # Iterate through the files that make up the sources and 
         # print their paths.
         for src in ctx.rule.attr.srcs:
             for f in src.files:
                 print(f.path)    
-    return [_PrintProvider()]
+    return []
 ```
 
 Aspect implementation functions are similiar to the rule implementation
@@ -152,10 +147,10 @@ functions. They return [providers](rules.md#providers), can generate
 
 The implementation function can access the attributes of the target rule via
 [`ctx.rule.attr`](lib/ctx.html#rule). It can examine providers that are
-provided  by the target to which it is applied (via the `target` argument).
+provided by the target to which it is applied (via the `target` argument).
 
-In this example the implementation doesn't return anything so `PrintProvider` is
-just a constructor for an empty provider.
+Aspects are required to return a list of providers. In this example the aspect 
+does not provide anything, so it returns an empty list.
 
 ### Invoking the aspect using the command line
 
@@ -184,18 +179,18 @@ FileCount.bzl file:
 ```python
 FileCount = provider(
     fields = {
-        'count' : "number of files"
+        'count' : 'number of files'
     }
 )
 
 def _file_count_aspect_impl(target, ctx):
     count = 0
     # Make sure the rule has a srcs attribute.
-    if hasattr(ctx.rule.attr, "srcs"):
+    if hasattr(ctx.rule.attr, 'srcs'):
         # Iterate through the sources counting files
         for src in ctx.rule.attr.srcs:
             for f in src.files:
-                if ctx.attr.extension == "*" or f.path.endswith(ctx.attr.extension):
+                if ctx.attr.extension == '*' or f.path.endswith(ctx.attr.extension):
                     count = count + 1
     # Get the counts from our dependencies.
     for dep in ctx.rule.attr.deps:
@@ -203,21 +198,21 @@ def _file_count_aspect_impl(target, ctx):
     return [FileCount(count = count)]
 
 file_count_aspect = aspect(implementation = _file_count_aspect_impl,
-    attr_aspects = ["deps"],
+    attr_aspects = ['deps'],
     attrs = {
-      "extension" : attr.string(values = ["*", ".h", ".cc"]),
+        'extension' : attr.string(values = ['*', '.h', '.cc']),
     }
 )
 
 def _file_count_rule_impl(ctx):
-  for dep in ctx.attr.deps:
-    print(dep[FileCount].count)
+    for dep in ctx.attr.deps:
+        print(dep[FileCount].count)
   
 file_count_rule = rule(
     implementation =  _file_count_rule_impl,
     attrs = {
         'deps' : attr.label_list(aspects = [file_count_aspect]),
-        'extension' : attr.string(default = "*"),
+        'extension' : attr.string(default = '*'),
     },
 )
 ```
@@ -245,9 +240,9 @@ cc_binary(
 )
 
 file_count_rule(
-  name = 'file_count',
-  deps = ['app'],
-  extension = ".h",
+    name = 'file_count',
+    deps = ['app'],
+    extension = '.h',
 )
 ```
 
@@ -255,9 +250,9 @@ file_count_rule(
 
 ```python
 file_count_aspect = aspect(implementation = _file_count_aspect_impl,
-    attr_aspects = ["deps"],
+    attr_aspects = ['deps'],
     attrs = {
-      "extension" : attr.string(values = ["*", ".h", ".cc"]),
+      'extension' : attr.string(values = ['*', '.h', '.cc']),
     }
 )
 ```
@@ -267,7 +262,7 @@ In this example we are again propagating the aspect via the ``deps`` attribute.
 ``attrs`` defines a set of attributes for an aspect. Public aspect attributes 
 are of type ``string`` and are called parameters. Parameters must have a``values`` 
 attribute specified on them. In this case we have a parameter called ``extension`` 
-that is allowed to have "\*", ".h", or ".cc" as a value. 
+that is allowed to have '\*', '.h', or '.cc' as a value. 
 
 Parameter values for the aspect are taken from the string attribute with the same 
 name of the rule requesting the aspect (see the definition of ``file_count_rule``). 
@@ -283,10 +278,10 @@ demonstrates how you could pass in a tool to a aspect:
 ```python
 ...
     attrs = {
-      "_protoc" : attr.label(
-          default = Label("//tools:protoc"),
-          executable = True
-      )
+        '_protoc' : attr.label(
+            default = Label('//tools:protoc'),
+            executable = True
+        )
     }
 ...
 ```
@@ -296,18 +291,18 @@ demonstrates how you could pass in a tool to a aspect:
 ```python
 FileCount = provider(
     fields = {
-        'count' : "number of files"
+        'count' : 'number of files'
     }
 )
 
 def _file_count_aspect_impl(target, ctx):
     count = 0
     # Make sure the rule has a srcs attribute.
-    if hasattr(ctx.rule.attr, "srcs"):
+    if hasattr(ctx.rule.attr, 'srcs'):
         # Iterate through the sources counting files
         for src in ctx.rule.attr.srcs:
             for f in src.files:
-                if ctx.attr.extension == "*" or f.path.endswith(ctx.attr.extension):
+                if ctx.attr.extension == '*' or f.path.endswith(ctx.attr.extension):
                     count = count + 1
     # Get the counts from our dependencies.
     for dep in ctx.rule.attr.deps:
@@ -325,7 +320,9 @@ using the ``fields`` attribute.
 The set of providers for an aspect application A(X) is the union of providers
 that come from the implementation of a rule for target X and from
 the implementation of aspect A. It is an error if a target and an aspect that
-is applied to it each provide a provider with the same name.
+is applied to it each provide a provider with the same name. The providers that 
+a rule implementation propagates are created and frozen before aspects are
+applied and cannot be modified from an aspect.
 
 The parameters and private attributes are passed in the attributes of the 
 ``ctx``. In this example we reference the ``extension`` parameter to decide
@@ -339,21 +336,21 @@ In this example , ``ctx.rule.attr.deps`` are Target objects that are the
 results of applying the aspect to the 'deps' of the original target to which 
 the aspect has been applied. 
 
-In the example the aspect to accesses the ``FileCount`` provider to accumulate 
-the total number of files.
+In the example the aspect to accesses the ``FileCount`` provider from the 
+target's dependencies to accumulate the total transitive number of files. 
 
 ### Invoking the aspect from a rule
 
 ```python
 def _file_count_rule_impl(ctx):
-  for dep in ctx.attr.deps:
-    print(dep[FileCount].count)
+    for dep in ctx.attr.deps:
+        print(dep[FileCount].count)
   
 file_count_rule = rule(
     implementation =  _file_count_rule_impl,
     attrs = {
         'deps' : attr.label_list(aspects = [file_count_aspect]),
-        'extension' : attr.string(default = "*"),
+        'extension' : attr.string(default = '*'),
     },
 )
 ```
@@ -363,7 +360,7 @@ the ``ctx.attr.deps``.
 
 The rule definition demonstrates how to define a parameter (``extension``) 
 and give it a default value (``*``). Note that having a default value that 
-was not one of ".cc", ".h", or "\*" would be an error due to the restrictions 
+was not one of '.cc', '.h', or '\*' would be an error due to the restrictions 
 placed on the parameter in the aspect definition.
 
 ### Invoking an aspect through a target rule
@@ -377,9 +374,9 @@ cc_binary(
 )
 
 file_count_rule(
-  name = 'file_count',
-  deps = ['app'],
-  extension = ".h",
+    name = 'file_count',
+    deps = ['app'],
+    extension = '.h',
 )
 ```
 
