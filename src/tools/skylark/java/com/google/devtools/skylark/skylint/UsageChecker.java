@@ -199,7 +199,22 @@ public class UsageChecker extends AstVisitorWithNameResolution {
       return;
     }
     String message = "unused binding of '" + name + "'";
-    if (nameInfo.kind == Kind.PARAMETER) {
+    if (nameInfo.kind == Kind.IMPORTED && !nameInfo.name.startsWith("_")) {
+      message +=
+          ". If you want to re-export a symbol, use the following pattern:\n"
+              + "\n"
+              + "load(..., _"
+              + name
+              + " = '"
+              + name
+              + "', ...)\n"
+              + name
+              + " = _"
+              + name
+              + "\n"
+              + "\n"
+              + "More details in the documentation.";
+    } else if (nameInfo.kind == Kind.PARAMETER) {
       message +=
           ". If this is intentional, "
               + "you can add `_ignore = [<param1>, <param2>, ...]` to the function body.";
