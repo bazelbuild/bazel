@@ -340,6 +340,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
   }
 
+  // TODO(b/68330014): Deprecate and remove this flag.
   @Option(
     name = "xcode_toolchain",
     defaultValue = "null",
@@ -348,9 +349,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help =
         "The identifier of an Xcode toolchain to use for builds. Currently only the toolchains "
-            + "that ship with Xcode are supported. For example, in addition to the default "
-            + "toolchain Xcode 8 has 'com.apple.dt.toolchain.Swift_2_3' which can be used for "
-            + "building legacy Swift code."
+            + "that ship with Xcode are supported."
   )
   public String xcodeToolchain;
 
