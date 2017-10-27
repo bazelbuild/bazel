@@ -374,7 +374,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           "addRuleDefinition(new %s()) should be called before build()", definitionClass.getName());
 
       RuleDefinition.Metadata metadata = instance.getMetadata();
-      checkArgument(ruleClassMap.get(metadata.name()) == null, metadata.name());
+      checkArgument(
+          ruleClassMap.get(metadata.name()) == null,
+          "The rule " + metadata.name() + " was committed already, use another name");
 
       List<Class<? extends RuleDefinition>> ancestors = metadata.ancestors();
 
