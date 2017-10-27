@@ -65,7 +65,7 @@ public class WorkspaceAttributeMapper {
     if (value instanceof SelectorList) {
       String message;
       if (rule.getLocation().getPath().getBaseName().equals(
-          Label.EXTERNAL_PACKAGE_FILE_NAME.getPathString())) {
+          Label.WORKSPACE_FILE_NAME.getPathString())) {
         message = "select() cannot be used in WORKSPACE files";
       } else {
         message = "select() cannot be used in macros called from WORKSPACE files";

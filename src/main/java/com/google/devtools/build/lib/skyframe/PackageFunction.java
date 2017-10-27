@@ -428,7 +428,7 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
     RootedPath workspacePath = RootedPath.toRootedPath(
-        packageLookupPath, Label.EXTERNAL_PACKAGE_FILE_NAME);
+        packageLookupPath, Label.WORKSPACE_FILE_NAME);
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
     PackageValue workspace = null;
     try {

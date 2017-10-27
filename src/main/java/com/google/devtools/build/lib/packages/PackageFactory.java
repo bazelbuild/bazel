@@ -1384,7 +1384,7 @@ public final class PackageFactory {
       ExtendedEventHandler eventHandler)
       throws NoSuchPackageException, InterruptedException {
     Package externalPkg = newExternalPackageBuilder(
-        buildFile.getRelative("WORKSPACE"), "TESTING").build();
+        buildFile.getRelative(Label.WORKSPACE_FILE_NAME), "TESTING").build();
     return createPackageForTesting(packageId, externalPkg, buildFile, locator, eventHandler);
   }
 
