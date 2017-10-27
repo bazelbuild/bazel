@@ -14,9 +14,16 @@
 
 package com.google.devtools.skylark.skylint;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.skylark.skylint.Linter.FileFacade;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -24,7 +31,7 @@ import org.junit.runners.JUnit4;
 /** Tests the lint done by {@link DeprecationChecker}. */
 @RunWith(JUnit4.class)
 public class DeprecationCheckerTest {
-  private static List<Issue> findIssues(String... lines) {
+  private static List<Issue> findIssuesIgnoringDependencies(String... lines) {
     String content = String.join("\n", lines);
     BuildFileAST ast =
         BuildFileAST.parseString(
@@ -32,13 +39,14 @@ public class DeprecationCheckerTest {
               throw new IllegalArgumentException(event.getMessage());
             },
             content);
-    return DeprecationChecker.check(ast);
+    return DeprecationChecker.check(
+        Paths.get("/fake"), ast, _path -> content.getBytes(StandardCharsets.ISO_8859_1));
   }
 
   @Test
   public void symbolDeprecatedInSameFile() {
     String errorMessages =
-        findIssues(
+        findIssuesIgnoringDependencies(
                 "def f():",
                 "  g()",
                 "  h()",
@@ -74,7 +82,7 @@ public class DeprecationCheckerTest {
   @Test
   public void deprecatedFunctionAliasing() {
     String errorMessages =
-        findIssues(
+        findIssuesIgnoringDependencies(
                 "def f():",
                 "  h = g",
                 "  h()",
@@ -91,7 +99,7 @@ public class DeprecationCheckerTest {
   @Test
   public void functionNotDeprecated() {
     Truth.assertThat(
-            findIssues(
+            findIssuesIgnoringDependencies(
                 "def f():",
                 "  g()",
                 "def g():",
@@ -104,28 +112,27 @@ public class DeprecationCheckerTest {
   @Test
   public void noWarningsInsideDeprecatedFunctions() {
     Truth.assertThat(
-        findIssues(
-            "def f():",
-            "  '''A deprecated function calling another deprecated function -> no warning",
-            "",
-            "  Deprecated:",
-            "    This function is deprecated.",
-            "  '''",
-            "  g()",
-            "",
-            "def g():",
-            "  '''Another deprecated function",
-            "",
-            "  Deprecated:",
-            "    This function is deprecated.'''"
-        )
-    ).isEmpty();
+            findIssuesIgnoringDependencies(
+                "def f():",
+                "  '''A deprecated function calling another deprecated function -> no warning",
+                "",
+                "  Deprecated:",
+                "    This function is deprecated.",
+                "  '''",
+                "  g()",
+                "",
+                "def g():",
+                "  '''Another deprecated function",
+                "",
+                "  Deprecated:",
+                "    This function is deprecated.'''"))
+        .isEmpty();
   }
 
   @Test
   public void shadowingWorks() {
     Truth.assertThat(
-            findIssues(
+            findIssuesIgnoringDependencies(
                 "def f():",
                 "  bad = good",
                 "  bad()",
@@ -136,5 +143,84 @@ public class DeprecationCheckerTest {
                 "  Deprecated:",
                 "    reason'''"))
         .isEmpty();
+  }
+
+  private static final Map<String, String> files =
+      ImmutableMap.<String, String>builder()
+          .put("/WORKSPACE", "")
+          .put("/pkg1/BUILD", "")
+          .put(
+              "/pkg1/foo.bzl",
+              String.join(
+                  "\n",
+                  "load('//pkg2:bar.bzl', 'baz', foo = 'bar') # test aliasing",
+                  "load(':qux.bzl', 'qux') # test package label",
+                  "foo()",
+                  "qux()"))
+          .put(
+              "/pkg1/qux.bzl",
+              String.join(
+                  "\n",
+                  "load(':does_not_exist.bzl', 'foo') # test error handling",
+                  "def qux():",
+                  "  '''qux",
+                  "",
+                  "  Deprecated:",
+                  "    qux is deprecated'''",
+                  "return"))
+          .put("/pkg2/BUILD", "")
+          .put(
+              "/pkg2/bar.bzl",
+              String.join(
+                  "\n",
+                  "load('//pkg2/pkg3:baz.bzl', bar = 'baz') # test aliasing",
+                  "bar()",
+                  "def baz():",
+                  "  '''baz",
+                  "",
+                  "  Deprecated:",
+                  "    baz is deprecated",
+                  "  '''"))
+          .put("/pkg2/pkg3/BUILD", "")
+          .put(
+              "/pkg2/pkg3/baz.bzl",
+              String.join(
+                  "\n",
+                  "def baz():",
+                  "  '''baz",
+                  "",
+                  "  Deprecated:",
+                  "    baz is deprecated",
+                  "  '''"))
+          .build();
+
+  private static final FileFacade testFileFacade = DependencyAnalyzerTest.toFileFacade(files);
+
+  private static List<Issue> findIssuesIncludingDependencies(String pathString) throws IOException {
+    Path path = Paths.get(pathString);
+    return DeprecationChecker.check(path, testFileFacade.readAst(path), testFileFacade);
+  }
+
+  @Test
+  public void deprecatedFunctionsInDirectDependency() throws Exception {
+    String errorMessages = findIssuesIncludingDependencies("/pkg1/foo.bzl").toString();
+    Truth.assertThat(errorMessages)
+        .contains(
+            "4:1-4:3: usage of 'qux' (imported from /pkg1/qux.bzl)"
+                + " is deprecated: qux is deprecated");
+    errorMessages = findIssuesIncludingDependencies("/pkg2/bar.bzl").toString();
+    Truth.assertThat(errorMessages)
+        .contains(
+            "2:1-2:3: usage of 'bar' (imported from /pkg2/pkg3/baz.bzl, named 'baz' there)"
+                + " is deprecated: baz is deprecated");
+  }
+
+  @Test
+  public void deprecatedFunctionsInTransitiveDependencies() throws Exception {
+    String errorMessages = findIssuesIncludingDependencies("/pkg1/foo.bzl").toString();
+    Truth.assertThat(errorMessages)
+        .contains(
+            "3:1-3:3: usage of 'foo' (imported from /pkg2/pkg3/baz.bzl, named 'baz' there)"
+                + " is deprecated: baz is deprecated");
   }
 }

@@ -16,6 +16,7 @@ package com.google.devtools.skylark.skylint;
 
 import com.google.common.truth.Truth;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,11 +38,18 @@ public class LinterTest {
             "  return",
             "  'unreachable and unused string literal'",
             "_unusedVar = function() + {}",
-            "load(':foo.bzl', 'bar')");
+            "load(':dep.bzl', 'bar')");
     final String errorMessages =
         new Linter()
-            .setFileContentsReader(p -> file.getBytes(StandardCharsets.ISO_8859_1))
-            .lint(Paths.get("foo"))
+            .setFileContentsReader(
+                p -> {
+                  if ("/foo.bzl".equals(p.toString())) {
+                    return file.getBytes(StandardCharsets.ISO_8859_1);
+                  } else {
+                    throw new NoSuchFileException(p.toString());
+                  }
+                })
+            .lint(Paths.get("/foo.bzl"))
             .toString();
     Truth.assertThat(errorMessages).contains("'+' operator is deprecated"); // bad operation checker
     Truth.assertThat(errorMessages).contains("unreachable statement"); // control flow checker
