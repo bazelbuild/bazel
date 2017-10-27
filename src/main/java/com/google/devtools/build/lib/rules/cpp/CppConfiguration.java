@@ -612,14 +612,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the configured features of the toolchain. Rules should not call this directly, but
-   * instead use {@code CcToolchainProvider.getFeatures}.
-   */
-  public CcToolchainFeatures getFeatures() {
-    return cppToolchainInfo.getFeatures();
-  }
-
-  /**
    * Returns the configured current compilation mode. Rules should not call this directly, but
    * instead use {@code CcToolchainProvider.getCompilationMode}.
    */

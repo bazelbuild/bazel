@@ -342,8 +342,9 @@ public abstract class CompilationSupport {
     this.usePch = usePch;
     // TODO(b/62143697): Remove this check once all rules are using the crosstool support.
     if (ruleContext
-        .attributes()
-        .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
+            .attributes()
+            .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)
+        || ruleContext.attributes().has(":j2objc_cc_toolchain", BuildType.LABEL)) {
       if (toolchain == null) {
         toolchain =  CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
       }

@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
@@ -551,8 +550,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
     try {
-      return configuration
-          .getFragment(CppConfiguration.class)
+      return toolchain
           .getFeatures()
           .getFeatureConfiguration(
               FeatureSpecification.create(
