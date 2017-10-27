@@ -26,10 +26,8 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Map;
 
-/**
- * A builder that helps constructing the //external package.
- */
-public class ExternalPackageBuilder {
+/** A helper for the {@link WorkspaceFactory} to create repository rules */
+public class WorkspaceFactoryHelper {
 
   public static Rule createAndAddRepositoryRule(
       Package.Builder pkg,

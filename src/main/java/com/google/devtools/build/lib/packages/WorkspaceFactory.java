@@ -334,7 +334,7 @@ public class WorkspaceFactory {
                 try {
                   // This effectively adds a "local_repository(name = "<ws>", path = ".")"
                   // definition to the WORKSPACE file.
-                  ExternalPackageBuilder.createAndAddRepositoryRule(
+                  WorkspaceFactoryHelper.createAndAddRepositoryRule(
                       builder, localRepositoryRuleClass, bindRuleClass, kwargs, ast);
                 } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
                   throw new EvalException(ast.getLocation(), e.getMessage());
@@ -366,7 +366,7 @@ public class WorkspaceFactory {
           try {
             Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
             RuleClass ruleClass = ruleFactory.getRuleClass("bind");
-            ExternalPackageBuilder.addBindRule(
+            WorkspaceFactoryHelper.addBindRule(
                 builder,
                 ruleClass,
                 nameLabel,
@@ -464,7 +464,7 @@ public class WorkspaceFactory {
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =
-              ExternalPackageBuilder.createAndAddRepositoryRule(
+              WorkspaceFactoryHelper.createAndAddRepositoryRule(
                   builder, ruleClass, bindRuleClass, kwargs, ast);
           if (!isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
