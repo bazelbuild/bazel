@@ -16,7 +16,6 @@ package com.google.devtools.skylark.skylint;
 
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,7 +23,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests the lint done by {@link DocstringChecker}. */
 @RunWith(JUnit4.class)
-public class DocstringCheckerTests {
+public class DocstringCheckerTest {
   private static List<Issue> findIssues(String... lines) {
     String content = String.join("\n", lines);
     BuildFileAST ast =
@@ -44,13 +43,20 @@ public class DocstringCheckerTests {
     Truth.assertThat(errorMessage)
         .contains("1:1-2:1: file has no module docstring [missing-docstring]");
     Truth.assertThat(errorMessage)
-        .contains("2:1-3:2: function 'function' has no docstring [missing-docstring]");
-    // This function has zero statements. We want to make sure the end location is set correctly:
-    BuildFileAST ast = BuildFileAST.parseString(event -> {}, "def foo():");
-    FunctionDefStatement funDefWithEmptySuite = (FunctionDefStatement) ast.getStatements().get(0);
-    Truth.assertThat(funDefWithEmptySuite.getStatements()).isEmpty();
-    Truth.assertThat(DocstringChecker.check(ast).toString())
-        .contains("1:1-1:10: function 'foo' has no docstring [missing-docstring]");
+        .contains(
+            "2:1-3:2: function 'function' has no docstring"
+                + " (if this function is intended to be private,"
+                + " the name should start with an underscore: '_function')"
+                + " [missing-docstring]");
+    // The following function has zero statements since the parser throws `pass` statements away.
+    // Hence we have to check this case to make sure the end location is set correctly.
+    errorMessage = findIssues("def function():", "  pass # no function docstring").toString();
+    Truth.assertThat(errorMessage)
+        .contains(
+            "1:1-2:2: function 'function' has no docstring"
+                + " (if this function is intended to be private,"
+                + " the name should start with an underscore: '_function')"
+                + " [missing-docstring]");
   }
 
   @Test
@@ -58,7 +64,7 @@ public class DocstringCheckerTests {
     List<Issue> errors =
         findIssues(
             "\"\"\" module docstring \"\"\"",
-            "def f(param1, param2):",
+            "def f(param1, *args, **kwargs):",
             "  \"\"\"summary",
             "",
             "  more description",
@@ -68,6 +74,14 @@ public class DocstringCheckerTests {
     Truth.assertThat(errors.toString())
         .contains(
             "3:3-6:3: incomplete docstring: the function parameters are not documented"
+                + " (no 'Args:' section found)\n"
+                + "The parameter documentation should look like this:\n"
+                + "\n"
+                + "Args:\n"
+                + "  param1: ...\n"
+                + "  *args: ...\n"
+                + "  **kwargs: ...\n"
+                + "\n"
                 + " [inconsistent-docstring]");
   }
 
@@ -178,7 +192,7 @@ public class DocstringCheckerTests {
     Truth.assertThat(errors.toString())
         .contains(
             "3:3-6:5: incomplete docstring: the return value is not documented"
-                + " [inconsistent-docstring]");
+                + " (no 'Returns:' section found) [inconsistent-docstring]");
   }
 
   @Test

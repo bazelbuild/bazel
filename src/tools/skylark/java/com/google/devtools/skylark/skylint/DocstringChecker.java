@@ -89,10 +89,17 @@ public class DocstringChecker extends SyntaxTreeVisitor {
         LineAndColumn lac = node.getStatements().get(0).getLocation().getStartLineAndColumn();
         end = new Location(lac.getLine(), lac.getColumn() - 1); // right before the first statement
       }
+      String name = node.getIdentifier().getName();
       issues.add(
           new Issue(
               MISSING_DOCSTRING_CATEGORY,
-              "function '" + node.getIdentifier().getName() + "' has no docstring",
+              "function '"
+                  + name
+                  + "' has no docstring"
+                  + " (if this function is intended to be private,"
+                  + " the name should start with an underscore: '_"
+                  + name
+                  + "')",
               new LocationRange(start, end)));
     }
     if (functionDocstring == null) {
@@ -119,7 +126,8 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       issues.add(
           Issue.create(
               INCONSISTENT_DOCSTRING_CATEGORY,
-              "incomplete docstring: the return value is not documented",
+              "incomplete docstring: the return value is not documented"
+                  + " (no 'Returns:' section found)",
               docstringLiteral.getLocation()));
     }
     List<String> documentedParams = new ArrayList<>();
@@ -148,11 +156,18 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       List<String> declaredParams,
       List<Issue> issues) {
     if (documentedParams.isEmpty() && !declaredParams.isEmpty()) {
+      StringBuilder message =
+          new StringBuilder("incomplete docstring: the function parameters are not documented")
+              .append(" (no 'Args:' section found)\n")
+              .append("The parameter documentation should look like this:\n\n")
+              .append("Args:\n");
+      for (String param : declaredParams) {
+        message.append("  ").append(param).append(": ...\n");
+      }
+      message.append("\n");
       issues.add(
           Issue.create(
-              INCONSISTENT_DOCSTRING_CATEGORY,
-              "incomplete docstring: the function parameters are not documented",
-              docstringLiteral.getLocation()));
+              INCONSISTENT_DOCSTRING_CATEGORY, message.toString(), docstringLiteral.getLocation()));
       return;
     }
     for (String param : declaredParams) {
