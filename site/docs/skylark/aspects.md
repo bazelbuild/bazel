@@ -99,7 +99,7 @@ print_aspect = aspect(
 )
 ```
 
-Let's break the example up into it's parts and examine each one individually.
+Let's break the example up into its parts and examine each one individually.
 
 ### Aspect definition
 
