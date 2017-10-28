@@ -190,7 +190,7 @@ def _file_count_aspect_impl(target, ctx):
         # Iterate through the sources counting files
         for src in ctx.rule.attr.srcs:
             for f in src.files:
-                if ctx.attr.extension == '*' or f.path.endswith(ctx.attr.extension):
+                if ctx.attr.extension == '*' or ctx.attr.extension == f.extension:
                     count = count + 1
     # Get the counts from our dependencies.
     for dep in ctx.rule.attr.deps:
@@ -200,7 +200,7 @@ def _file_count_aspect_impl(target, ctx):
 file_count_aspect = aspect(implementation = _file_count_aspect_impl,
     attr_aspects = ['deps'],
     attrs = {
-        'extension' : attr.string(values = ['*', '.h', '.cc']),
+        'extension' : attr.string(values = ['*', 'h', 'cc']),
     }
 )
 
@@ -242,7 +242,7 @@ cc_binary(
 file_count_rule(
     name = 'file_count',
     deps = ['app'],
-    extension = '.h',
+    extension = 'h',
 )
 ```
 
@@ -252,7 +252,7 @@ file_count_rule(
 file_count_aspect = aspect(implementation = _file_count_aspect_impl,
     attr_aspects = ['deps'],
     attrs = {
-      'extension' : attr.string(values = ['*', '.h', '.cc']),
+      'extension' : attr.string(values = ['*', 'h', 'cc']),
     }
 )
 ```
@@ -262,7 +262,7 @@ In this example we are again propagating the aspect via the ``deps`` attribute.
 ``attrs`` defines a set of attributes for an aspect. Public aspect attributes 
 are of type ``string`` and are called parameters. Parameters must have a``values`` 
 attribute specified on them. In this case we have a parameter called ``extension`` 
-that is allowed to have '\*', '.h', or '.cc' as a value. 
+that is allowed to have '``*``', '``h``', or '``cc``' as a value. 
 
 Parameter values for the aspect are taken from the string attribute with the same 
 name of the rule requesting the aspect (see the definition of ``file_count_rule``). 
@@ -302,7 +302,7 @@ def _file_count_aspect_impl(target, ctx):
         # Iterate through the sources counting files
         for src in ctx.rule.attr.srcs:
             for f in src.files:
-                if ctx.attr.extension == '*' or f.path.endswith(ctx.attr.extension):
+                if ctx.attr.extension == '*' or ctx.attr.extension == f.extension:
                     count = count + 1
     # Get the counts from our dependencies.
     for dep in ctx.rule.attr.deps:
@@ -360,7 +360,7 @@ the ``ctx.attr.deps``.
 
 The rule definition demonstrates how to define a parameter (``extension``) 
 and give it a default value (``*``). Note that having a default value that 
-was not one of '.cc', '.h', or '\*' would be an error due to the restrictions 
+was not one of '``cc``', '``h``', or '``*``' would be an error due to the restrictions 
 placed on the parameter in the aspect definition.
 
 ### Invoking an aspect through a target rule
@@ -376,7 +376,7 @@ cc_binary(
 file_count_rule(
     name = 'file_count',
     deps = ['app'],
-    extension = '.h',
+    extension = 'h',
 )
 ```
 
