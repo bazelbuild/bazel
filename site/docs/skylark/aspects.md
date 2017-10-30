@@ -5,10 +5,10 @@ title: Aspects
 
 # Aspects
 
-<!--  [TOC] -->
+<!-- [TOC] -->
 
 **Status: Experimental**. We may make breaking changes to the API, but we will
-  announce them.
+announce them.
 
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Some typical scenarios when aspects can be useful:
@@ -78,8 +78,8 @@ of the original graph.
 ## Simple example
 
 This example demonstrates how to recursively print the source files for a 
-rule and all of its  dependencies that have a `deps` attribute. It shows 
-an aspect implementation, an aspect definition and how to invoke the aspect
+rule and all of its dependencies that have a `deps` attribute. It shows 
+an aspect implementation, an aspect definition, and how to invoke the aspect
 from the bazel command line.
 
 ```python
@@ -133,13 +133,13 @@ def _print_aspect_impl(target, ctx):
         # print their paths.
         for src in ctx.rule.attr.srcs:
             for f in src.files:
-                print(f.path)    
+                print(f.path)
     return []
 ```
 
 Aspect implementation functions are similiar to the rule implementation
 functions. They return [providers](rules.md#providers), can generate
-[actions](rules.md#actions) and take two arguments:
+[actions](rules.md#actions), and take two arguments:
 
 *    `target`: the [target](lib/Target.html) the aspect is being applied to.
 *    `ctx`: [`ctx`](lib/ctx.html) object that can be used to access attributes and
@@ -209,7 +209,7 @@ def _file_count_rule_impl(ctx):
         print(dep[FileCount].count)
   
 file_count_rule = rule(
-    implementation =  _file_count_rule_impl,
+    implementation = _file_count_rule_impl,
     attrs = {
         'deps' : attr.label_list(aspects = [file_count_aspect]),
         'extension' : attr.string(default = '*'),
@@ -252,7 +252,7 @@ file_count_rule(
 file_count_aspect = aspect(implementation = _file_count_aspect_impl,
     attr_aspects = ['deps'],
     attrs = {
-      'extension' : attr.string(values = ['*', 'h', 'cc']),
+        'extension' : attr.string(values = ['*', 'h', 'cc']),
     }
 )
 ```
@@ -347,7 +347,7 @@ def _file_count_rule_impl(ctx):
         print(dep[FileCount].count)
   
 file_count_rule = rule(
-    implementation =  _file_count_rule_impl,
+    implementation = _file_count_rule_impl,
     attrs = {
         'deps' : attr.label_list(aspects = [file_count_aspect]),
         'extension' : attr.string(default = '*'),
@@ -355,7 +355,7 @@ file_count_rule = rule(
 )
 ```
 
-The rule implementation  demonstrates how to access the ``FileCount`` via 
+The rule implementation demonstrates how to access the ``FileCount`` via 
 the ``ctx.attr.deps``.
 
 The rule definition demonstrates how to define a parameter (``extension``) 
