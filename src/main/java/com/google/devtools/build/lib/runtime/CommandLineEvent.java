@@ -357,7 +357,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
               OptionList.newBuilder()
                   .addAllOption(
                       getOptionListFromParsedOptionDescriptions(
-                          commandOptions.asCompleteListOfParsedOptions())))
+                          commandOptions.asListOfCanonicalOptions())))
           .build();
     }
 

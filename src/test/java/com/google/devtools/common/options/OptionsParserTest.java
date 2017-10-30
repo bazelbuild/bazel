@@ -1697,7 +1697,7 @@ public class OptionsParserTest {
         OptionPriority.PriorityCategory.COMMAND_LINE,
         "command line source",
         Arrays.asList("--alpha=alphaValueSetOnCommandLine", "--gamma=gammaValueSetOnCommandLine"));
-    List<OptionValueDescription> result = parser.asListOfEffectiveOptions();
+    List<OptionValueDescription> result = parser.asListOfOptionValues();
     assertThat(result).isNotNull();
     assertThat(result).hasSize(5);
     HashMap<String,OptionValueDescription> map = new HashMap<String,OptionValueDescription>();
@@ -1889,7 +1889,7 @@ public class OptionsParserTest {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "null",
-      expansion = {"--a=0"}
+      expansion = {"--a=cExpansion"}
     )
     public Void c;
 
@@ -1907,7 +1907,7 @@ public class OptionsParserTest {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "null",
-      implicitRequirements = {"--a==1"}
+      implicitRequirements = {"--a=eRequirement"}
     )
     public String e;
 
@@ -1916,7 +1916,7 @@ public class OptionsParserTest {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "null",
-      implicitRequirements = {"--b==1"}
+      implicitRequirements = {"--b=fRequirement"}
     )
     public String f;
 
@@ -1952,12 +1952,12 @@ public class OptionsParserTest {
 
   @Test
   public void canonicalizeExpands() throws Exception {
-    assertThat(canonicalize(Yesterday.class, "--c")).containsExactly("--a=0");
+    assertThat(canonicalize(Yesterday.class, "--c")).containsExactly("--a=cExpansion");
   }
 
   @Test
   public void canonicalizeExpansionOverridesExplicit() throws Exception {
-    assertThat(canonicalize(Yesterday.class, "--a=x", "--c")).containsExactly("--a=0");
+    assertThat(canonicalize(Yesterday.class, "--a=x", "--c")).containsExactly("--a=cExpansion");
   }
 
   @Test
@@ -1972,9 +1972,11 @@ public class OptionsParserTest {
   }
 
   @Test
-  public void canonicalizeImplicitDepsAtEnd() throws Exception {
-    assertThat(canonicalize(Yesterday.class, "--e=y", "--a=x"))
-        .isEqualTo(Arrays.asList("--a=x", "--e=y"));
+  public void canonicalizeImplicitDepsNotListed() throws Exception {
+    // e's requirement overrides the explicit "a" here, so the "a" value is not in the canonical
+    // form - the effective value is implied and the overridden value is lost.
+    assertThat(canonicalize(Yesterday.class, "--a=x", "--e=y"))
+        .isEqualTo(Arrays.asList("--e=y"));
   }
 
   @Test
@@ -1983,9 +1985,12 @@ public class OptionsParserTest {
   }
 
   @Test
-  public void canonicalizeDoesNotSortImplicitDeps() throws Exception {
+  public void implicitDepsDoNotAffectCanonicalOrder() throws Exception {
+    // e requires a value of a that is overridden and should therefore be absent.
+    // f requires a value of b, that is absent because it is implied. Neither of these affects
+    // the order of the canonical list.
     assertThat(canonicalize(Yesterday.class, "--f=z", "--e=y", "--a=x"))
-        .containsExactly("--a=x", "--f=z", "--e=y").inOrder();
+        .containsExactly("--a=x", "--e=y", "--f=z").inOrder();
   }
 
   @Test

@@ -21,18 +21,18 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -67,17 +67,6 @@ class OptionsParserImpl {
    * becomes {@code --foo=0}.
    */
   private final List<ParsedOptionDescription> parsedOptions = new ArrayList<>();
-
-  /**
-   * The options for use with the canonicalize command are stored separately from parsedOptions so
-   * that invocation policy can modify the values for canonicalization (e.g. override user-specified
-   * values with default values) without corrupting the data used to represent the user's original
-   * invocation for {@link #asListOfExplicitOptions()} and {@link #asCompleteListOfParsedOptions()}.
-   * A LinkedHashMultimap is used so that canonicalization happens in the correct order and multiple
-   * values can be stored for flags that allow multiple values.
-   */
-  private final Multimap<OptionDefinition, ParsedOptionDescription> canonicalizeValues =
-      LinkedHashMultimap.create();
 
   private final List<String> warnings = new ArrayList<>();
 
@@ -135,36 +124,28 @@ class OptionsParserImpl {
         .collect(toCollection(ArrayList::new));
   }
 
-  /**
-   * Implements {@link OptionsParser#canonicalize}.
-   */
-  List<String> asCanonicalizedList() {
-    return canonicalizeValues
-        .values()
+  private Stream<ParsedOptionDescription> asStreamOfCanonicalParsedOptions() {
+    return optionValues
+        .keySet()
         .stream()
-        // Sort implicit requirement options to the end, keeping their existing order, and sort
-        // the other options alphabetically.
-        .sorted(
-            (v1, v2) -> {
-              if (v1.getOptionDefinition().hasImplicitRequirements()) {
-                return v2.getOptionDefinition().hasImplicitRequirements() ? 0 : 1;
-              }
-              if (v2.getOptionDefinition().hasImplicitRequirements()) {
-                return -1;
-              }
-              return v1.getOptionDefinition()
-                  .getOptionName()
-                  .compareTo(v2.getOptionDefinition().getOptionName());
-            })
-        // Ignore expansion options.
-        .filter(value -> !value.getOptionDefinition().isExpansionOption())
-        .map(ParsedOptionDescription::getDeprecatedCanonicalForm)
-        .collect(toCollection(ArrayList::new));
+        .sorted()
+        .map(optionDefinition -> optionValues.get(optionDefinition).getCanonicalInstances())
+        .flatMap(Collection::stream);
   }
 
-  /**
-   * Implements {@link OptionsParser#asListOfEffectiveOptions()}.
-   */
+  /** Implements {@link OptionsParser#canonicalize}. */
+  List<String> asCanonicalizedList() {
+    return asStreamOfCanonicalParsedOptions()
+        .map(ParsedOptionDescription::getDeprecatedCanonicalForm)
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  /** Implements {@link OptionsParser#canonicalize}. */
+  List<ParsedOptionDescription> asCanonicalizedListOfParsedOptions() {
+    return asStreamOfCanonicalParsedOptions().collect(ImmutableList.toImmutableList());
+  }
+
+  /** Implements {@link OptionsParser#asListOfOptionValues()}. */
   List<OptionValueDescription> asListOfEffectiveOptions() {
     List<OptionValueDescription> result = new ArrayList<>();
     for (Map.Entry<String, OptionDefinition> mapEntry : optionsData.getAllOptionDefinitions()) {
@@ -196,8 +177,6 @@ class OptionsParserImpl {
 
   OptionValueDescription clearValue(OptionDefinition optionDefinition)
       throws OptionsParsingException {
-    // Actually remove the value from various lists tracking effective options.
-    canonicalizeValues.removeAll(optionDefinition);
     return optionValues.remove(optionDefinition);
   }
 
@@ -401,11 +380,6 @@ class OptionsParserImpl {
       // Log explicit options and expanded options in the order they are parsed (can be sorted
       // later). This information is needed to correctly canonicalize flags.
       parsedOptions.add(parsedOption);
-      if (optionDefinition.allowsMultiple()) {
-        canonicalizeValues.put(optionDefinition, parsedOption);
-      } else {
-        canonicalizeValues.replaceValues(optionDefinition, ImmutableList.of(parsedOption));
-      }
     }
 
     if (expansionBundle != null) {

@@ -57,10 +57,20 @@ public interface OptionsProvider extends OptionsClassProvider {
   List<ParsedOptionDescription> asListOfExplicitOptions();
 
   /**
-   * Returns a list of all options, including undocumented ones, and their
-   * effective values. There is no guaranteed ordering for the result.
+   * Returns a list of the parsed options whose values are in the final value of the option, i.e.
+   * the options that were added explicitly, expanded if necessary to the valued options they
+   * affect. This will not include values that were set and then overridden by a later value of the
+   * same option.
+   *
+   * <p>The list includes undocumented options.
    */
-  List<OptionValueDescription> asListOfEffectiveOptions();
+  List<ParsedOptionDescription> asListOfCanonicalOptions();
+
+  /**
+   * Returns a list of all options, including undocumented ones, and their effective values. There
+   * is no guaranteed ordering for the result.
+   */
+  List<OptionValueDescription> asListOfOptionValues();
 
   /**
    * Canonicalizes the list of options that this OptionsParser has parsed. The

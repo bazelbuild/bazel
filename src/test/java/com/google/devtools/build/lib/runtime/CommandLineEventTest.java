@@ -283,17 +283,16 @@ public class CommandLineEventTest {
     assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("testblaze");
     assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(2);
     assertThat(line.getSections(2).getChunkList().getChunk(0)).isEqualTo("someCommandName");
-    // In the canonical line, expect the rc option to show up before the higher priority options.
+    // In the canonical line, expect the options in alphabetical order.
     assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(4);
     assertThat(line.getSections(3).getOptionList().getOption(0).getCombinedForm())
-        .isEqualTo("--test_multiple_string=baz");
+        .isEqualTo("--expanded_c=2");
     assertThat(line.getSections(3).getOptionList().getOption(1).getCombinedForm())
-        .isEqualTo("--test_string=foo");
+        .isEqualTo("--test_multiple_string=baz");
     assertThat(line.getSections(3).getOptionList().getOption(2).getCombinedForm())
         .isEqualTo("--test_multiple_string=bar");
     assertThat(line.getSections(3).getOptionList().getOption(3).getCombinedForm())
-        .isEqualTo("--expanded_c=2");
-
+        .isEqualTo("--test_string=foo");
     assertThat(line.getSections(4).getChunkList().getChunkCount()).isEqualTo(0);
   }
 
@@ -351,19 +350,14 @@ public class CommandLineEventTest {
     assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(2);
     assertThat(line.getSections(2).getChunkList().getChunk(0)).isEqualTo("someCommandName");
 
-    // TODO(b/19881919) Expansion options shouldn't be listed along with their expansions, this
-    // could cause duplicate values for repeatable flags. There should be 4 flags here, without
-    // test_expansion listed.
-    assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(5);
+    assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(4);
     assertThat(line.getSections(3).getOptionList().getOption(0).getCombinedForm())
-        .isEqualTo("--test_expansion");
-    assertThat(line.getSections(3).getOptionList().getOption(1).getCombinedForm())
         .isEqualTo("--noexpanded_a");
-    assertThat(line.getSections(3).getOptionList().getOption(2).getCombinedForm())
+    assertThat(line.getSections(3).getOptionList().getOption(1).getCombinedForm())
         .isEqualTo("--expanded_b=false");
-    assertThat(line.getSections(3).getOptionList().getOption(3).getCombinedForm())
+    assertThat(line.getSections(3).getOptionList().getOption(2).getCombinedForm())
         .isEqualTo("--expanded_c 42");
-    assertThat(line.getSections(3).getOptionList().getOption(4).getCombinedForm())
+    assertThat(line.getSections(3).getOptionList().getOption(3).getCombinedForm())
         .isEqualTo("--expanded_d bar");
     assertThat(line.getSections(4).getChunkList().getChunkCount()).isEqualTo(0);
   }

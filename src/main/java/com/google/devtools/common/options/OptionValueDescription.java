@@ -25,6 +25,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * The value of an option.
@@ -72,6 +73,16 @@ public abstract class OptionValueDescription {
       sourceOfExpansionArgs = source;
     }
   }
+
+  /**
+   * Returns the canonical instances of this option - the instances that affect the current value.
+   *
+   * <p>For options that do not have values in their own right, this should be the empty list. In
+   * contrast, the DefaultOptionValue does not have a canonical form at all, since it was never set,
+   * and is null.
+   */
+  @Nullable
+  abstract List<ParsedOptionDescription> getCanonicalInstances();
 
   /**
    * For the given option, returns the correct type of OptionValueDescription, to which unparsed
@@ -124,6 +135,11 @@ public abstract class OptionValueDescription {
       throw new IllegalStateException(
           "Cannot add values to the default option value. Create a modifiable "
               + "OptionValueDescription using createOptionValueDescription() instead.");
+    }
+
+    @Override
+    ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
+      return null;
     }
   }
 
@@ -227,6 +243,16 @@ public abstract class OptionValueDescription {
       return null;
     }
 
+    @Override
+    ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
+      // If the current option is an implicit requirement, we don't need to list this value since
+      // the parent implies it. In this case, it is sufficient to not list this value at all.
+      if (effectiveOptionInstance.getImplicitDependent() == null) {
+        return ImmutableList.of(effectiveOptionInstance);
+      }
+      return ImmutableList.of();
+    }
+
     @VisibleForTesting
     ParsedOptionDescription getEffectiveOptionInstance() {
       return effectiveOptionInstance;
@@ -289,6 +315,18 @@ public abstract class OptionValueDescription {
       }
       return null;
     }
+
+    @Override
+    ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
+      return parsedOptions
+          .asMap()
+          .entrySet()
+          .stream()
+          .sorted(Comparator.comparing(Entry::getKey))
+          .map(Entry::getValue)
+          .flatMap(Collection::stream)
+          .collect(ImmutableList.toImmutableList());
+    }
   }
 
   /**
@@ -336,6 +374,13 @@ public abstract class OptionValueDescription {
               ? String.format("expanded from %s", optionDefinition)
               : String.format(
                   "expanded from %s (source %s)", optionDefinition, parsedOption.getSource()));
+    }
+
+    @Override
+    ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
+      // The options this expands to are incorporated in their own right - this option does
+      // not have a canonical form.
+      return ImmutableList.of();
     }
   }
 
@@ -417,6 +462,13 @@ public abstract class OptionValueDescription {
               ? String.format("unwrapped from %s", optionDefinition)
               : String.format(
                   "unwrapped from %s (source %s)", optionDefinition, parsedOption.getSource()));
+    }
+
+    @Override
+    ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
+      // No wrapper options get listed in the canonical form - the options they are wrapping will
+      // be in the right place.
+      return ImmutableList.of();
     }
   }
 }

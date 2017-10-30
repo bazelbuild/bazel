@@ -680,7 +680,12 @@ public class OptionsParser implements OptionsProvider {
   }
 
   @Override
-  public List<OptionValueDescription> asListOfEffectiveOptions() {
+  public List<ParsedOptionDescription> asListOfCanonicalOptions() {
+    return impl.asCanonicalizedListOfParsedOptions();
+  }
+
+  @Override
+  public List<OptionValueDescription> asListOfOptionValues() {
     return impl.asListOfEffectiveOptions();
   }
 
