@@ -693,11 +693,18 @@ $ bazel fetch //...
     configuration:
     <code class='flag'>--compiler</code>,
     <code class='flag'>--use_ijars</code>,
-    <code class='flag'>--java_toolchain</code>,
     If <code class='flag'>--host_crosstool_top</code> is used, then the value of
     <code class='flag'>--host_cpu</code> is used to look up a
     <code>default_toolchain</code> in the Crosstool
     (ignoring <code class='flag'>--compiler</code>) for the host configuration.
+  </li>
+  <li>
+    Use the value of <code class="flag">--host_javabase</code> for
+    <code class='flag'>--javabase</code>
+  </li>
+  <li>
+    Use the value of <code class="flag">--host_java_toolchain</code> for
+    <code class='flag'>--java_toolchain</code>
   </li>
   <li>Use optimized builds for C++ code (<code>-c opt</code>).
   </li>
@@ -1777,6 +1784,13 @@ The default is <code>armeabi-v7a</code>.
   source files.
 </p>
 
+<h4 id='flag--host_java_toolchain'><code class='flag'>--host_java_toolchain <var>label</var></code></h4>
+<p>
+  If not specified, bazel uses the value of <code class='flag'>--java_toolchain</code> to compile
+  code in the host configuration, i.e., tools run during the build. The main purpose of this flag
+  is to enable cross-compilation.
+</p>
+
 <h4 id='flag--javabase'><code class='flag'>--javabase (<var>path</var>|<var>label</var>)</code></h4>
 <p>
   This option sets the <i>label</i> or the <i>path</i> of the base Java installation to
@@ -1786,6 +1800,13 @@ The default is <code>armeabi-v7a</code>.
   The various  <a href='be/make-variables.html'>"Make" variables</a> for
   Java (<code>JAVABASE</code>, <code>JAVA</code>, <code>JAVAC</code> and
   <code>JAR</code>) are derived from this option.
+</p>
+
+<h4 id='flag--host_javabase'><code class='flag'>--host_javabase <var>label</var></code></h4>
+<p>
+  If not specified, bazel uses the value of <code class='flag'>--javabase</code>
+  in the host configuration, i.e., for Java-based tools that run during the build.
+  The main purpose of this flag is to enable cross-compilation.
 </p>
 
 <p>
