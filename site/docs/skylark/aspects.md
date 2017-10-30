@@ -116,7 +116,7 @@ Just like a rule, an aspect has an implementation function which in this case is
 ``_print_aspect_impl``. 
 
 ``attr_aspects`` is a list of rule attributes along which the aspect propagates. 
-In this case the aspect will propagate along the ``deps`` attribute of the rules 
+In this case, the aspect will propagate along the ``deps`` attribute of the rules 
 that it is applied to. 
 
 Another common argument for `attr_aspects` is `['*']` which would propagate the
@@ -149,7 +149,7 @@ The implementation function can access the attributes of the target rule via
 [`ctx.rule.attr`](lib/ctx.html#rule). It can examine providers that are
 provided by the target to which it is applied (via the `target` argument).
 
-Aspects are required to return a list of providers. In this example the aspect 
+Aspects are required to return a list of providers. In this example, the aspect 
 does not provide anything, so it returns an empty list.
 
 ### Invoking the aspect using the command line
@@ -257,7 +257,7 @@ file_count_aspect = aspect(implementation = _file_count_aspect_impl,
 )
 ```
 
-In this example we are again propagating the aspect via the ``deps`` attribute.
+In this example, we are again propagating the aspect via the ``deps`` attribute.
 
 ``attrs`` defines a set of attributes for an aspect. Public aspect attributes 
 are of type ``string`` and are called parameters. Parameters must have a``values`` 
@@ -313,7 +313,7 @@ def _file_count_aspect_impl(target, ctx):
 Just like a rule implementation function, an aspect implementation function
 returns a struct of providers that are accessible to its dependencies.
 
-In this example the ``FileCount`` is defined as a provider that has one field
+In this example, the ``FileCount`` is defined as a provider that has one field
 ``count``. It is best practice to explicitly define the fields of a provider
 using the ``fields`` attribute.
 
@@ -325,18 +325,18 @@ a rule implementation propagates are created and frozen before aspects are
 applied and cannot be modified from an aspect.
 
 The parameters and private attributes are passed in the attributes of the 
-``ctx``. In this example we reference the ``extension`` parameter to decide
+``ctx``. In this example, we reference the ``extension`` parameter to decide
 what files to count.
 
 For returning providers, the values of attributes along which
 the aspect is propagated (from the `attr_aspect` list) are replaced with
 the results of an application of the aspect to them. For example, if target
 X has Y and Z in its deps, `ctx.rule.attr.deps` for A(X) will be [A(Y), A(Z)].
-In this example , ``ctx.rule.attr.deps`` are Target objects that are the 
+In this example, ``ctx.rule.attr.deps`` are Target objects that are the 
 results of applying the aspect to the 'deps' of the original target to which 
 the aspect has been applied. 
 
-In the example the aspect to accesses the ``FileCount`` provider from the 
+In the example, the aspect to accesses the ``FileCount`` provider from the 
 target's dependencies to accumulate the total transitive number of files. 
 
 ### Invoking the aspect from a rule
