@@ -66,7 +66,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       Entry<SkyKey, ErrorInfo> error = errors.iterator().next();
       ErrorInfo errorInfo = error.getValue();
       SkyKey topLevel = error.getKey();
-      Label topLevelLabel = (Label) topLevel.argument();
+      Label topLevelLabel = ((TransitiveTargetKey) topLevel).getLabel();
       if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
         skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), topLevel, eventHandler);
         errorAboutLoadingFailure(topLevelLabel, null, eventHandler);
@@ -84,7 +84,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       SkyKey key = errorEntry.getKey();
       ErrorInfo errorInfo = errorEntry.getValue();
       Preconditions.checkState(key.functionName().equals(SkyFunctions.TRANSITIVE_TARGET), errorEntry);
-      Label topLevelLabel = (Label) key.argument();
+      Label topLevelLabel = ((TransitiveTargetKey) key).getLabel();
       if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
         skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
       }
@@ -97,11 +97,10 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       }
       warnAboutLoadingFailure(topLevelLabel, eventHandler);
     }
-    for (Label topLevelLabel : result.<Label>keyNames()) {
-      SkyKey topLevelTransitiveTargetKey = TransitiveTargetValue.key(topLevelLabel);
+    for (TransitiveTargetKey topLevelTransitiveTargetKey : result.<TransitiveTargetKey>keyNames()) {
       TransitiveTargetValue topLevelTransitiveTargetValue = result.get(topLevelTransitiveTargetKey);
       if (topLevelTransitiveTargetValue.getTransitiveRootCauses() != null) {
-        warnAboutLoadingFailure(topLevelLabel, eventHandler);
+        warnAboutLoadingFailure(topLevelTransitiveTargetKey.getLabel(), eventHandler);
       }
     }
     return false;
@@ -122,7 +121,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   private static boolean isDirectErrorFromTopLevelLabel(Label label, Set<Label> topLevelLabels,
       ErrorInfo errorInfo) {
     return errorInfo.getException() != null && topLevelLabels.contains(label)
-        && Iterables.contains(errorInfo.getRootCauses(), TransitiveTargetValue.key(label));
+        && Iterables.contains(errorInfo.getRootCauses(), TransitiveTargetKey.of(label));
   }
 
   private static void errorAboutLoadingFailure(

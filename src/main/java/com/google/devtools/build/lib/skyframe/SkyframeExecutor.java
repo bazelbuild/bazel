@@ -1449,7 +1449,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         fragmentsMap.put(key.getLabel(), allFragments);
       } else {
         depsToEvaluate.add(key);
-        transitiveFragmentSkyKeys.add(TransitiveTargetValue.key(key.getLabel()));
+        transitiveFragmentSkyKeys.add(TransitiveTargetKey.of(key.getLabel()));
       }
     }
     EvaluationResult<SkyValue> fragmentsResult = evaluateSkyKeys(
@@ -1460,11 +1460,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     for (Dependency key : keys) {
       if (!depsToEvaluate.contains(key)) {
         // No fragments to compute here.
-      } else if (fragmentsResult.getError(TransitiveTargetValue.key(key.getLabel())) != null) {
+      } else if (fragmentsResult.getError(TransitiveTargetKey.of(key.getLabel())) != null) {
         labelsWithErrors.add(key.getLabel());
       } else {
         TransitiveTargetValue ttv =
-            (TransitiveTargetValue) fragmentsResult.get(TransitiveTargetValue.key(key.getLabel()));
+            (TransitiveTargetValue) fragmentsResult.get(TransitiveTargetKey.of(key.getLabel()));
         fragmentsMap.put(key.getLabel(), ttv.getTransitiveConfigFragments().toSet());
       }
     }
@@ -1683,7 +1683,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         throws InterruptedException {
       List<SkyKey> valueNames = new ArrayList<>();
       for (Label label : labelsToVisit) {
-        valueNames.add(TransitiveTargetValue.key(label));
+        valueNames.add(TransitiveTargetKey.of(label));
       }
       return buildDriver.evaluate(valueNames, keepGoing, parallelThreads, eventHandler);
     }

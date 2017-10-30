@@ -44,6 +44,11 @@ public class TransitiveTraversalFunction
     extends TransitiveBaseTraversalFunction<FirstErrorMessageAccumulator> {
 
   @Override
+  Label argumentFromKey(SkyKey key) {
+    return (Label) key.argument();
+  }
+
+  @Override
   SkyKey getKey(Label label) {
     return TransitiveTraversalValue.key(label);
   }

@@ -400,7 +400,7 @@ public final class SkyframeBuildView {
       if (culprit.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
         return ((ConfiguredTargetKey) culprit.argument()).getLabel();
       } else if (culprit.functionName().equals(SkyFunctions.TRANSITIVE_TARGET)) {
-        return (Label) culprit.argument();
+        return ((TransitiveTargetKey) culprit).getLabel();
       } else {
         return labelToLoad;
       }

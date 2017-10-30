@@ -105,8 +105,13 @@ public class TransitiveTargetFunction
   }
 
   @Override
+  Label argumentFromKey(SkyKey key) {
+    return ((TransitiveTargetKey) key).getLabel();
+  }
+
+  @Override
   SkyKey getKey(Label label) {
-    return TransitiveTargetValue.key(label);
+    return TransitiveTargetKey.of(label);
   }
 
   @Override
@@ -130,7 +135,7 @@ public class TransitiveTargetFunction
 
     for (Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
         depEntries) {
-      Label depLabel = (Label) entry.getKey().argument();
+      Label depLabel = ((TransitiveTargetKey) entry.getKey()).getLabel();
       TransitiveTargetValue transitiveTargetValue;
       try {
         transitiveTargetValue = (TransitiveTargetValue) entry.getValue().get();

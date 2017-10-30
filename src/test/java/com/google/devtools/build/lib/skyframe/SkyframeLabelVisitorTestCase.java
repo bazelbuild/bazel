@@ -153,7 +153,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
                 .getGraphForTesting());
     List<SkyKey> startingKeys = new ArrayList<>();
     for (Label label : startingLabels) {
-      startingKeys.add(TransitiveTargetValue.key(label));
+      startingKeys.add(TransitiveTargetKey.of(label));
     }
     Iterable<SkyKey> nodesToVisit = new ArrayList<>(startingKeys);
     Set<SkyKey> visitedNodes = new HashSet<>();
@@ -181,7 +181,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
             new Function<SkyKey, Label>() {
               @Override
               public Label apply(SkyKey skyKey) {
-                return (Label) skyKey.argument();
+                return ((TransitiveTargetKey) skyKey).getLabel();
               }
             }));
   }

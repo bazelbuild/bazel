@@ -171,7 +171,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // the first TransitiveTargetValue call happens on its dep (in trimConfigurations), so Bazel
     // associates the error with the dep, which is misleading.
     if (configuration != null && configuration.trimConfigurations()
-        && env.getValue(TransitiveTargetValue.key(lc.getLabel())) == null) {
+        && env.getValue(TransitiveTargetKey.of(lc.getLabel())) == null) {
       return null;
     }
 
