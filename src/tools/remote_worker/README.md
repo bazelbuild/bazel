@@ -40,9 +40,3 @@ As you can see, the specific behavior of the sandbox can be tuned via the flags
   no network connectivity except for its own "localhost". Note that due to a Linux kernel issue this
   might result in a loss of performance if you run many actions in parallel. For long running tests
   it probably won't matter much, though.
-
-## Hazelcast caching
-
-You can also use a Hazelcast server for the distributed cache as follows:
-Suppose your Hazelcast server is listening on address:port. Then, run the
-remote worker with --hazelcast_node=address:port.

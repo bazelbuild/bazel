@@ -134,6 +134,18 @@ public class RemoteWorkerOptions extends OptionsBase {
   )
   public int jobs;
 
+  @Option(
+    name = "hazelcast_standalone_listen_port",
+    defaultValue = "0",
+    category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Runs an embedded hazelcast server that listens to this port. The server does not join"
+            + " any cluster. This is useful for testing."
+  )
+  public int hazelcastStandaloneListenPort;
+
   private static final int MAX_JOBS = 16384;
 
   /** Converter for jobs: [0, MAX_JOBS] or "auto". */

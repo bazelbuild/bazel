@@ -44,12 +44,12 @@ Bazel currently supports the following digest functions with the remote worker: 
 
 ### Hazelcast with REST interface
 
-[Hazelcast](https://hazelcast.org/) is a distributed in-memory cache which can be used by Bazel as a remote cache.
+[Hazelcast](https://hazelcast.org/) is a distributed in-memory cache which can be used by Bazel as a remote cache. You can download the standalone Hazelcast server [here](https://hazelcast.org/download/).
 
-A simple single-machine setup is to run a single Hazelcast server with REST enabled. The REST endpoint will be `http://localhost:5701/hazelcast/rest/maps/cache`. Run with:
+A simple single-machine setup is to run a single Hazelcast server with REST enabled. The REST endpoint will be `http://localhost:5701/hazelcast/rest/maps/`. Run the Hazelcast server with REST using this command:
 
 ```
-java -cp third_party/hazelcast/hazelcast-3.6.4.jar -Dhazelcast.rest.enabled=true com.hazelcast.core.server.StartServer
+java -cp hazelcast-all-3.8.5.jar -Dhazelcast.rest.enabled=true com.hazelcast.core.server.StartServer
 ```
 
 You can also use Bazel with a Hazelcast cluster - as long as REST is enabled -, and also customize the configuration. Please see the Hazelcast [documentation](http://docs.hazelcast.org/docs/3.6/manual/html-single/index.html) for more details.
@@ -127,7 +127,7 @@ build --strategy=Closure=remote
 
 ### Running the sample gRPC cache server
 
-Bazel currently provides a sample gRPC CAS implementation with a SimpleBlobStore or Hazelcast as caching backend. To use it you need to clone from [Bazel](https://github.com/bazelbuild/bazel) and then build it with:
+Bazel currently provides a sample gRPC CAS implementation with a SimpleBlobStore as caching backend. To use it you need to clone from [Bazel](https://github.com/bazelbuild/bazel) and then build it with:
 
 ```
 bazel build //src/tools/remote_worker
@@ -138,18 +138,3 @@ The following command will then start the cache server listening on port 8080 us
 ```
 bazel-bin/src/tools/remote_worker/remote_worker --listen_port=8080
 ```
-
-To connect to a running instance of Hazelcast instead, use:
-
-```
-bazel-bin/src/tools/remote_worker/remote_worker --listen_port=8080 --hazelcast_node=address:port
-```
-
-If you want to change Hazelcast settings to enable distributed memory cache you can provide your own hazelcast.xml with the following command:
-
-```
-bazel-bin/src/tools/remote_worker/remote_worker --jvm_flags=-Dhazelcast.config=/path/to/hz.xml --listen_port 8080
-```
-
-You can copy and edit the [default](https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-default.xml) Hazelcast configuration. Refer to Hazelcast [manual](http://docs.hazelcast.org/docs/3.6/manual/html-single/index.html#checking-configuration)
-for more details.

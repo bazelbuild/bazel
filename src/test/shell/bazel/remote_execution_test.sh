@@ -217,9 +217,9 @@ EOF
   bazel clean --expunge >& $TEST_log
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
       --spawn_strategy=remote \
-      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps/cache \
+      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
       //a:test >& $TEST_log \
-      || fail "Failed to build //a:test with remote gRPC cache service"
+      || fail "Failed to build //a:test with remote REST cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote cache generated different result"
   # Check that persistent connections are closed after the build. Is there a good cross-platform way
