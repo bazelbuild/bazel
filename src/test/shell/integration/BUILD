@@ -302,6 +302,13 @@ cc_binary(
     malloc = "//base:system_malloc",
 )
 
+sh_test(
+    name = "prelude_test",
+    size = "medium",
+    srcs = ["prelude_test.sh"],
+    data = [":test-deps"],
+)
+
 ########################################################################
 # Test suites.
 
