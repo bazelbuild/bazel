@@ -81,7 +81,11 @@ public class StatementWithoutEffectChecker extends SyntaxTreeVisitor {
       // list]
       return;
     }
-    issues.add(Issue.create(NO_EFFECT_CATEGORY, "expression result not used", node.getLocation()));
+    String message = "expression result not used";
+    if (expr instanceof ListComprehension && !topLevel) {
+      message += ". Use a for-loop instead instead of a list comprehension.";
+    }
+    issues.add(Issue.create(NO_EFFECT_CATEGORY, message, node.getLocation()));
   }
 
   @Override

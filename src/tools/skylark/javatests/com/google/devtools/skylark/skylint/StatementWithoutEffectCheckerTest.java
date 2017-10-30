@@ -58,7 +58,9 @@ public class StatementWithoutEffectCheckerTest {
             findIssues(
                     "def f():", "  [print(x) for x in range(5)] # should be replaced by for-loop")
                 .toString())
-        .contains("2:3-2:30: expression result not used [no-effect]");
+        .contains(
+            "2:3-2:30: expression result not used."
+                + " Use a for-loop instead instead of a list comprehension. [no-effect]");
   }
 
   @Test
