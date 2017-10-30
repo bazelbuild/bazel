@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -40,6 +41,8 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.FileTarget;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
@@ -2330,17 +2333,24 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   // regression test for b/14288948
   @Test
   public void testEmptyListAsProguardSpec() throws Exception {
-    scratchConfiguredTarget("java/foo", "abin",
+    scratch.file(
+        "java/foo/BUILD",
         "android_binary(",
         "    name = 'abin',",
         "    srcs = ['a.java'],",
         "    proguard_specs = [],",
         "    manifest = 'AndroidManifest.xml')");
+    Rule rule = getTarget("//java/foo:abin").getAssociatedRule();
+    assertNoEvents();
+    ImmutableList<String> implicitOutputFilenames =
+        rule.getOutputFiles().stream().map(FileTarget::getName).collect(toImmutableList());
+    assertThat(implicitOutputFilenames).doesNotContain("abin_proguard.jar");
   }
 
   @Test
   public void testConfigurableProguardSpecsEmptyList() throws Exception {
-    scratchConfiguredTarget("java/foo", "abin",
+    scratch.file(
+        "java/foo/BUILD",
         "android_binary(",
         "    name = 'abin',",
         "    srcs = ['a.java'],",
@@ -2348,7 +2358,11 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': [],",
         "    }),",
         "    manifest = 'AndroidManifest.xml')");
+    Rule rule = getTarget("//java/foo:abin").getAssociatedRule();
     assertNoEvents();
+    ImmutableList<String> implicitOutputFilenames =
+        rule.getOutputFiles().stream().map(FileTarget::getName).collect(toImmutableList());
+    assertThat(implicitOutputFilenames).contains("abin_proguard.jar");
   }
 
   @Test
@@ -3809,5 +3823,45 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget b1 = getConfiguredTarget("//java/com/google/android/instr:b1");
     AndroidInstrumentationInfo provider = b1.get(AndroidInstrumentationInfo.PROVIDER);
     assertThat(provider).isNull();
+  }
+
+  /**
+   * 'proguard_specs' attribute gets read by an implicit outputs function: the
+   * current heuristic is that if this attribute is configurable, we assume its
+   * contents are non-empty and thus create the mybinary_proguard.jar output.
+   * Test that here.
+   */
+  @Test
+  public void testConfigurableProguardSpecs() throws Exception {
+    scratch.file("conditions/BUILD",
+        "config_setting(",
+        "    name = 'a',",
+        "    values = {'test_arg': 'a'})",
+        "config_setting(",
+        "    name = 'b',",
+        "    values = {'test_arg': 'b'})");
+    scratchConfiguredTarget("java/foo", "abin",
+        "android_binary(",
+        "    name = 'abin',",
+        "    srcs = ['a.java'],",
+        "    proguard_specs = select({",
+        "        '//conditions:a': [':file1.pro'],",
+        "        '//conditions:b': [],",
+        "        '//conditions:default': [':file3.pro'],",
+        "    }) + [",
+        // Add a long list here as a regression test for b/68238721
+        "        'file4.pro',",
+        "        'file5.pro',",
+        "        'file6.pro',",
+        "        'file7.pro',",
+        "        'file8.pro',",
+        "    ],",
+        "    manifest = 'AndroidManifest.xml')");
+    checkProguardUse(
+        "//java/foo:abin",
+        "abin_proguard.jar",
+        /*expectMapping=*/ false,
+        /*passes=*/ null,
+        getAndroidJarPath());
   }
 }

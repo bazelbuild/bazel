@@ -321,9 +321,10 @@ public final class AndroidRuleClasses {
   public static boolean hasProguardSpecs(AttributeMap rule) {
     // The below is a hack to support configurable attributes (proguard_specs seems like
     // too valuable an attribute to make nonconfigurable, and we don't currently
-    // have the ability to know the configuration when determining implicit outputs).
-    // An IllegalArgumentException gets triggered if the attribute instance is configurable.
-    // We assume, heuristically, that means every configurable value is a non-empty list.
+    // have the ability to know the configuration when determining implicit outputs). So if the
+    // attribute is configurable, we create the proguard implicit output. At analysis time, we know
+    // the actual value of proguard_specs, and if it is empty we do not use the proguarded jar for
+    // dexing. If the user explicitly tries to build the proguard jar, it will fail.
     //
     // TODO(bazel-team): find a stronger approach for this. One simple approach is to somehow
     // receive 'rule' as an AggregatingAttributeMapper instead of a RawAttributeMapper,
@@ -332,12 +333,8 @@ public final class AndroidRuleClasses {
     // to somehow determine implicit outputs after the configuration is known. A third
     // approach is to refactor the Android rule logic to avoid these dependencies in the
     // first place.
-    try {
-      return !rule.get("proguard_specs", LABEL_LIST).isEmpty();
-    } catch (IllegalArgumentException e) {
-      // We assume at this point the attribute instance is configurable.
-      return true;
-    }
+    return rule.isConfigurable("proguard_specs")
+        || !rule.get("proguard_specs", LABEL_LIST).isEmpty();
   }
 
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_IMPLICIT_OUTPUTS =
