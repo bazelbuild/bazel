@@ -583,8 +583,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "libtop.jar.dex.zip",
             "top_resources.jar.dex.zip",
             // dep's dex archives
-            "libdep.jar.dex.zip",
-            "dep_resources.jar.dex.zip");
+            "libdep.jar.dex.zip");
   }
 
   @Test
