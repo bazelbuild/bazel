@@ -101,7 +101,7 @@ EOF
   check_eq "outer from test_prelude_external_repository, outer workspace" "$output" "unexpected output in gr.out"
 
   output=$(cat bazel-genfiles/external/imported_workspace/gr_inner.out)
-  check_eq "inner from test_prelude_external_repository, outer workspace" "$output" "unexpected output in gr_inner.out"
+  check_eq "inner from test_prelude_external_repository, inner workspace" "$output" "unexpected output in gr_inner.out"
 }
 
 run_suite "prelude"
