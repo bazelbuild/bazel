@@ -254,9 +254,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         result = graphFactory.prepareAndGet(roots, loadingPhaseThreads, universeEvalEventHandler);
       }
 
-      if (roots.size() == 1 && Iterables.getOnlyElement(roots).equals(universeKey)) {
-        checkEvaluationResult(result);
-      }
+      checkEvaluationResult(roots, result);
 
       packageSemaphore = makeFreshPackageMultisetSemaphore();
       graph = result.getWalkableGraph();
@@ -301,27 +299,28 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return packageSemaphore;
   }
 
-  /**
-   * The {@link EvaluationResult} is from the evaluation of a single PrepareDepsOfPatterns node. We
-   * expect to see either a single successfully evaluated value or a cycle in the result.
-   */
-  private void checkEvaluationResult(EvaluationResult<SkyValue> result) {
-    Collection<SkyValue> values = result.values();
-    if (!values.isEmpty()) {
-      Preconditions.checkState(
-          values.size() == 1,
-          "Universe query \"%s\" returned multiple values unexpectedly (%s values in result)",
-          universeScope,
-          values.size());
-      Preconditions.checkNotNull(result.get(universeKey), result);
-    } else {
-      // No values in the result, so there must be an error. We expect the error to be a cycle.
-      boolean foundCycle = !Iterables.isEmpty(result.getError().getCycleInfo());
-      Preconditions.checkState(
-          foundCycle,
-          "Universe query \"%s\" failed with non-cycle error: %s",
-          universeScope,
-          result.getError());
+  protected void checkEvaluationResult(Set<SkyKey> roots, EvaluationResult<SkyValue> result)
+      throws QueryException {
+    // If the only root is the universe key, we expect to see either a single successfully evaluated
+    // value or a cycle in the result.
+    if (roots.size() == 1 && Iterables.getOnlyElement(roots).equals(universeKey)) {
+      Collection<SkyValue> values = result.values();
+      if (!values.isEmpty()) {
+        Preconditions.checkState(
+            values.size() == 1,
+            "Universe query \"%s\" returned multiple values unexpectedly (%s values in result)",
+            universeScope,
+            values.size());
+        Preconditions.checkNotNull(result.get(universeKey), result);
+      } else {
+        // No values in the result, so there must be an error. We expect the error to be a cycle.
+        boolean foundCycle = !Iterables.isEmpty(result.getError().getCycleInfo());
+        Preconditions.checkState(
+            foundCycle,
+            "Universe query \"%s\" failed with non-cycle error: %s",
+            universeScope,
+            result.getError());
+      }
     }
   }
 
