@@ -3246,42 +3246,40 @@ adb -s deadbeef install ...
     You must enable memory tracking for this to work.</li>
 </ul>
 
- -->
-<h4 id='memory-tracking'>Memory tracking</h4>
-<p>
-  Some <code>dump</code> commands require memory tracking. To turn this on, you have to pass
-  startup flags to Bazel:
-</p>
-<ul>
-  <li><code>--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar</code></li>
-  <li><code>--host_jvm_args=-DBLAZE_MEMORY_TRACKER=1</code></li>
-</ul>
-<p>
-  The java-agent is checked into bazel at
-  third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar, so make
-  sure you adjust <code>$BAZEL</code> for where you keep your bazel repository.
+  <h4 id='memory-tracking'>Memory tracking</h4>
+  <p>
+    Some <code>dump</code> commands require memory tracking. To turn this on, you have to pass
+    startup flags to Bazel:
+  </p>
+  <ul>
+    <li><code>--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar</code></li>
+    <li><code>--host_jvm_args=-DBLAZE_MEMORY_TRACKER=1</code></li>
+  </ul>
+  <p>
+    The java-agent is checked into bazel at
+    third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar, so make
+    sure you adjust <code>$BAZEL</code> for where you keep your bazel repository.
 
-  Do not forget to keep passing these options to Bazel for every command or the server will
-  restart.
-</p>
-<p>Example:</p>
-<pre>
-  % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
-  --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
-  build --nobuild &lt;targets&gt;
+    Do not forget to keep passing these options to Bazel for every command or the server will
+    restart.
+  </p>
+  <p>Example:</p>
+  <pre>
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
+    build --nobuild &lt;targets&gt;
 
-  # Dump rules
-  % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
-  --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
-  dump --rules
+    # Dump rules
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
+    dump --rules
 
-  # Dump Skylark heap and analyze it with pprof
-  % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
-  --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
-  dump --skylark_memory=$HOME/prof.gz
-  % pprof -flame $HOME/prof.gz
-</pre>
-
+    # Dump Skylark heap and analyze it with pprof
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
+    dump --skylark_memory=$HOME/prof.gz
+    % pprof -flame $HOME/prof.gz
+  </pre>
 <h3 id='analyze-profile'>The <code>analyze-profile</code> command</h3>
 
 <p>
