@@ -230,7 +230,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
       helper.enableCcNativeLibrariesProvider();
       // TODO(dougk): Configure output artifact with action_config
       // once proto compile action is configurable from the crosstool.
-      if (!ruleContext.getFragment(CppConfiguration.class).supportsDynamicLinker()) {
+      if (!ccToolchain(ruleContext).supportsDynamicLinker()) {
         helper.setCreateDynamicLibrary(false);
       }
       TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();

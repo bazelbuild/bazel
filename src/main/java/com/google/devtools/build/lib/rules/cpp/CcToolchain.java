@@ -297,7 +297,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         toolchainInfo.getStaticRuntimeLibsLabel());
     final NestedSet<Artifact> staticRuntimeLinkInputs;
     final Artifact staticRuntimeLinkMiddleman;
-    if (cppConfiguration.supportsEmbeddedRuntimes()) {
+    if (toolchainInfo.supportsEmbeddedRuntimes()) {
       staticRuntimeLinkInputs = staticRuntimeLibDep
           .getProvider(FileProvider.class)
           .getFilesToBuild();
@@ -325,7 +325,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> dynamicRuntimeLinkSymlinks;
     List<Artifact> dynamicRuntimeLinkInputs = new ArrayList<>();
     Artifact dynamicRuntimeLinkMiddleman;
-    if (cppConfiguration.supportsEmbeddedRuntimes()) {
+    if (toolchainInfo.supportsEmbeddedRuntimes()) {
       NestedSetBuilder<Artifact> dynamicRuntimeLinkSymlinksBuilder = NestedSetBuilder.stableOrder();
       for (Artifact artifact : dynamicRuntimeLibDep
           .getProvider(FileProvider.class).getFilesToBuild()) {

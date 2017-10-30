@@ -311,6 +311,36 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return cppConfiguration == null ? null : cppConfiguration.getCompilationMode();
   }
 
+  /**
+   * Returns whether the toolchain supports the gold linker.
+   */
+  public boolean supportsGoldLinker() {
+    return toolchainInfo.supportsGoldLinker();
+  }
+
+  /**
+   * Returns whether the toolchain supports dynamic linking.
+   */
+  public boolean supportsDynamicLinker() {
+    return toolchainInfo.supportsDynamicLinker();
+  }
+
+  /**
+   * Returns whether the toolchain supports linking C/C++ runtime libraries
+   * supplied inside the toolchain distribution.
+   */
+  public boolean supportsEmbeddedRuntimes() {
+    return toolchainInfo.supportsEmbeddedRuntimes();
+  }
+
+  /**
+   * Returns whether the toolchain supports EXEC_ORIGIN libraries resolution.
+   */
+  public boolean supportsExecOrigin() {
+    // We're rolling out support for this in the same release that also supports embedded runtimes.
+    return toolchainInfo.supportsEmbeddedRuntimes();
+  }
+
   @Nullable
   public CppConfiguration getCppConfiguration() {
     return cppConfiguration;

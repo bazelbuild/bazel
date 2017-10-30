@@ -192,10 +192,10 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProvider.getAbi()).isEqualTo("abi-version");
     assertThat(ccProvider.getAbiGlibcVersion()).isEqualTo("abi-libc-version");
 
-    assertThat(toolchain.supportsGoldLinker()).isTrue();
+    assertThat(ccProvider.supportsGoldLinker()).isTrue();
     assertThat(toolchain.supportsStartEndLib()).isFalse();
     assertThat(toolchain.supportsInterfaceSharedObjects()).isFalse();
-    assertThat(toolchain.supportsEmbeddedRuntimes()).isFalse();
+    assertThat(ccProvider.supportsEmbeddedRuntimes()).isFalse();
     assertThat(toolchain.toolchainNeedsPic()).isFalse();
     assertThat(toolchain.supportsFission()).isTrue();
 
@@ -513,9 +513,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .isEqualTo(getToolPath("path/to/objdump-A"));
     assertThat(toolchainA.getToolPathFragment(Tool.STRIP))
         .isEqualTo(getToolPath("path/to/strip-A"));
-    assertThat(toolchainA.supportsGoldLinker()).isTrue();
+    assertThat(ccProviderA.supportsGoldLinker()).isTrue();
     assertThat(toolchainA.supportsStartEndLib()).isTrue();
-    assertThat(toolchainA.supportsEmbeddedRuntimes()).isTrue();
+    assertThat(ccProviderA.supportsEmbeddedRuntimes()).isTrue();
     assertThat(toolchainA.toolchainNeedsPic()).isTrue();
 
     assertThat(toolchainA.getCompilerOptions(NO_FEATURES))
@@ -634,10 +634,10 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderC.getAbi()).isEqualTo("abi-version-C");
     assertThat(ccProviderC.getAbiGlibcVersion()).isEqualTo("abi-libc-version-C");
     // Don't bother with testing the list of tools again.
-    assertThat(toolchainC.supportsGoldLinker()).isFalse();
+    assertThat(ccProviderC.supportsGoldLinker()).isFalse();
     assertThat(toolchainC.supportsStartEndLib()).isFalse();
     assertThat(toolchainC.supportsInterfaceSharedObjects()).isFalse();
-    assertThat(toolchainC.supportsEmbeddedRuntimes()).isFalse();
+    assertThat(ccProviderC.supportsEmbeddedRuntimes()).isFalse();
     assertThat(toolchainC.toolchainNeedsPic()).isFalse();
     assertThat(toolchainC.supportsFission()).isFalse();
 

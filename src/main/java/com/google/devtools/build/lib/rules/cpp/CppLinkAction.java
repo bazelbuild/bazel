@@ -534,13 +534,14 @@ public final class CppLinkAction extends AbstractAction
     return mandatoryInputs;
   }
 
-  /**
-   * Determines whether or not this link should output a symbol counts file.
-   */
+  /** Determines whether or not this link should output a symbol counts file. */
   public static boolean enableSymbolsCounts(
-      CppConfiguration cppConfiguration, boolean fake, LinkTargetType linkType) {
+      CppConfiguration cppConfiguration,
+      boolean supportsGoldLinker,
+      boolean fake,
+      LinkTargetType linkType) {
     return cppConfiguration.getSymbolCounts()
-        && cppConfiguration.supportsGoldLinker()
+        && supportsGoldLinker
         && linkType == LinkTargetType.EXECUTABLE
         && !fake;
   }

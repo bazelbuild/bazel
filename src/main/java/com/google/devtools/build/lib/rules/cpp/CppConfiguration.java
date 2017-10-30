@@ -620,24 +620,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns whether the toolchain supports the gold linker.
-   */
-  public boolean supportsGoldLinker() {
-    return cppToolchainInfo.supportsGoldLinker();
-  }
-
-  /**
    * Returns whether the toolchain supports the --start-lib/--end-lib options.
    */
   public boolean supportsStartEndLib() {
     return cppToolchainInfo.supportsStartEndLib();
-  }
-
-  /**
-   * Returns whether the toolchain supports dynamic linking.
-   */
-  public boolean supportsDynamicLinker() {
-    return cppToolchainInfo.supportsDynamicLinker();
   }
 
   /**
@@ -647,22 +633,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean supportsInterfaceSharedObjects() {
     return cppToolchainInfo.supportsInterfaceSharedObjects();
-  }
-
-  /**
-   * Returns whether the toolchain supports linking C/C++ runtime libraries
-   * supplied inside the toolchain distribution.
-   */
-  public boolean supportsEmbeddedRuntimes() {
-    return cppToolchainInfo.supportsEmbeddedRuntimes();
-  }
-
-  /**
-   * Returns whether the toolchain supports EXEC_ORIGIN libraries resolution.
-   */
-  public boolean supportsExecOrigin() {
-    // We're rolling out support for this in the same release that also supports embedded runtimes.
-    return cppToolchainInfo.supportsEmbeddedRuntimes();
   }
 
   /**

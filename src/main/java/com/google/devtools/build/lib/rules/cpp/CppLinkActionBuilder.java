@@ -292,7 +292,7 @@ public class CppLinkActionBuilder {
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.toolchain = toolchain;
     this.fdoSupport = fdoSupport;
-    if (cppConfiguration.supportsEmbeddedRuntimes() && toolchain != null) {
+    if (toolchain.supportsEmbeddedRuntimes() && toolchain != null) {
       runtimeSolibDir = toolchain.getDynamicRuntimeSolibDir();
     }
     this.featureConfiguration = featureConfiguration;
