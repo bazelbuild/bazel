@@ -172,8 +172,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     TriState incrementalAttr =
         TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing"));
     if (incrementalAttr == TriState.NO
-        || (getAndroidConfig(ruleContext).getIncrementalDexingBinaries().isEmpty()
-            && incrementalAttr != TriState.YES)) {
+        || (!getAndroidConfig(ruleContext).useIncrementalDexing()
+            && incrementalAttr == TriState.AUTO)) {
       // Dex archives will never be used, so don't bother setting them up.
       return result.build();
     }

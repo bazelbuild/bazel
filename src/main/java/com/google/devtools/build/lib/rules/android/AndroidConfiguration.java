@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -41,16 +40,13 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
@@ -78,36 +74,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   public static final class ApkSigningMethodConverter extends EnumConverter<ApkSigningMethod> {
     public ApkSigningMethodConverter() {
       super(ApkSigningMethod.class, "apk signing method");
-    }
-  }
-
-  /**
-   * Converter for a set of {@link AndroidBinaryType}s.
-   */
-  public static final class AndroidBinaryTypesConverter
-      implements Converter<Set<AndroidBinaryType>> {
-
-    private final EnumConverter<AndroidBinaryType> elementConverter =
-        new EnumConverter<AndroidBinaryType>(AndroidBinaryType.class, "Android binary type") {};
-    private final Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
-
-    public AndroidBinaryTypesConverter() {}
-
-    @Override
-    public ImmutableSet<AndroidBinaryType> convert(String input) throws OptionsParsingException {
-      if ("all".equals(input)) {
-        return ImmutableSet.copyOf(AndroidBinaryType.values());
-      }
-      ImmutableSet.Builder<AndroidBinaryType> result = ImmutableSet.builder();
-      for (String opt : splitter.split(input)) {
-        result.add(elementConverter.convert(opt));
-      }
-      return result.build();
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "comma-separated list of: " + elementConverter.getTypeDescription();
     }
   }
 
@@ -148,11 +114,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     private ConfigurationDistinguisher(String suffix) {
       this.suffix = suffix;
     }
-  }
-
-  /** Types of android binaries as {@link AndroidBinary#dex} distinguishes them. */
-  public enum AndroidBinaryType {
-    MONODEX, MULTIDEX_UNSHARDED, MULTIDEX_SHARDED
   }
 
   /**
@@ -409,21 +370,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       help = "Does most of the work for dexing separately for each Jar file."
     )
     public boolean incrementalDexing;
-
-    // Do not use on the command line.
-    // The idea is that this option lets us gradually turn on incremental dexing for different
-    // binaries.  Users should rely on --noincremental_dexing to turn it off.
-    // TODO(b/31711689): remove this flag from config files and here
-    @Option(
-      name = "incremental_dexing_binary_types",
-      defaultValue = "all",
-      converter = AndroidBinaryTypesConverter.class,
-      implicitRequirements = "--incremental_dexing",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Kinds of binaries to incrementally dex if --incremental_dexing is true."
-    )
-    public Set<AndroidBinaryType> incrementalDexingBinaries;
 
     /** Whether to look for incrementally dex protos built with java_lite_proto_library. */
     // TODO(b/31711689): remove this flag from config files and here
@@ -726,7 +672,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.desugarJava8 = desugarJava8;
       host.checkDesugarDeps = checkDesugarDeps;
       host.incrementalDexing = incrementalDexing;
-      host.incrementalDexingBinaries = incrementalDexingBinaries;
       host.incrementalDexingForLiteProtos = incrementalDexingForLiteProtos;
       host.incrementalDexingErrorOnMissedJars = incrementalDexingErrorOnMissedJars;
       host.assumeMinSdkVersion = assumeMinSdkVersion;
@@ -771,7 +716,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final String cpu;
   private final boolean incrementalNativeLibs;
   private final ConfigurationDistinguisher configurationDistinguisher;
-  private final ImmutableSet<AndroidBinaryType> incrementalDexingBinaries;
+  private final boolean incrementalDexing;
   private final boolean incrementalDexingForLiteProtos;
   private final boolean incrementalDexingErrorOnMissedJars;
   private final boolean assumeMinSdkVersion;
@@ -805,11 +750,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.incrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
-    if (options.incrementalDexing) {
-      this.incrementalDexingBinaries = ImmutableSet.copyOf(options.incrementalDexingBinaries);
-    } else {
-      this.incrementalDexingBinaries = ImmutableSet.of();
-    }
+    this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingForLiteProtos = options.incrementalDexingForLiteProtos;
     this.incrementalDexingErrorOnMissedJars = options.incrementalDexingErrorOnMissedJars;
     this.assumeMinSdkVersion = options.assumeMinSdkVersion;
@@ -861,10 +802,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns when to use incremental dexing using {@link DexArchiveProvider}.
+   * Returns whether to use incremental dexing.
    */
-  public ImmutableSet<AndroidBinaryType> getIncrementalDexingBinaries() {
-    return incrementalDexingBinaries;
+  public boolean useIncrementalDexing() {
+    return incrementalDexing;
   }
 
   /**
@@ -905,8 +846,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Regardless of {@link #getIncrementalDexingBinaries}, incremental dexing must not be used for
-   * binaries that list any of these flags in their {@code dexopts} attribute.
+   * Incremental dexing must not be used for binaries that list any of these flags in their
+   * {@code dexopts} attribute.
    */
   public ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing() {
     return targetDexoptsThatPreventIncrementalDexing;

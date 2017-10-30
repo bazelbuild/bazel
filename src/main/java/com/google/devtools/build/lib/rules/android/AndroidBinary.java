@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryMobileInstall.MobileInstallResourceApks;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidBinaryType;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -980,14 +979,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     // Always OFF if finalJarIsDerived
-    ImmutableSet<AndroidBinaryType> incrementalDexing =
+    boolean usesDexArchives =
         getEffectiveIncrementalDexing(
             ruleContext, dexopts, !Objects.equals(binaryJar, proguardedJar));
     Artifact inclusionFilterJar =
         isBinaryJarFiltered && Objects.equals(binaryJar, proguardedJar) ? binaryJar : null;
     if (multidexMode == MultidexMode.OFF) {
       // Single dex mode: generate classes.dex directly from the input jar.
-      if (incrementalDexing.contains(AndroidBinaryType.MONODEX)) {
+      if (usesDexArchives) {
         Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
         Artifact jarToDex = getDxArtifact(ruleContext, "classes.jar");
         createShuffleJarAction(ruleContext, true, (Artifact) null, ImmutableList.of(jarToDex),
@@ -1023,7 +1022,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         Artifact javaResourceJar =
             createShuffleJarAction(
                 ruleContext,
-                incrementalDexing.contains(AndroidBinaryType.MULTIDEX_SHARDED),
+                usesDexArchives,
                 /*proguardedJar*/ !Objects.equals(binaryJar, proguardedJar) ? proguardedJar : null,
                 shards,
                 common,
@@ -1039,7 +1038,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           Artifact shard = shards.get(i - 1);
           Artifact shardDex = getDxArtifact(ruleContext, "shard" + i + ".dex.zip");
           shardDexesBuilder.add(shardDex);
-          if (incrementalDexing.contains(AndroidBinaryType.MULTIDEX_SHARDED)) {
+          if (usesDexArchives) {
             // If there's a main dex list then the first shard contains exactly those files.
             // To work with devices that lack native multi-dex support we need to make sure that
             // the main dex list becomes one dex file if at all possible.
@@ -1070,7 +1069,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 .addOutput(classesDex)
                 .addCommandLine(mergeCommandLine)
                 .build(ruleContext));
-        if (incrementalDexing.contains(AndroidBinaryType.MULTIDEX_SHARDED)) {
+        if (usesDexArchives) {
           // Using the deploy jar for java resources gives better "bazel mobile-install" performance
           // with incremental dexing b/c bazel can create the "incremental" and "split resource"
           // APKs earlier (b/c these APKs don't depend on code being dexed here).  This is also done
@@ -1079,7 +1078,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         }
         return new DexingOutput(classesDex, javaResourceJar, shardDexes);
       } else {
-        if (incrementalDexing.contains(AndroidBinaryType.MULTIDEX_UNSHARDED)) {
+        if (usesDexArchives) {
           Artifact jarToDex = AndroidBinary.getDxArtifact(ruleContext, "classes.jar");
           createShuffleJarAction(ruleContext, true, (Artifact) null, ImmutableList.of(jarToDex),
               common, inclusionFilterJar, dexopts, androidSemantics, attributes, derivedJarFunction,
@@ -1102,27 +1101,31 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
   }
 
-  private static ImmutableSet<AndroidBinaryType> getEffectiveIncrementalDexing(
+  /**
+   * Returns whether incremental dexing should actually be used based on the --incremental_dexing
+   * flag, the incremental_dexing attribute and the target's dexopts.
+   */
+  private static boolean getEffectiveIncrementalDexing(
       RuleContext ruleContext, List<String> dexopts, boolean isBinaryProguarded) {
     TriState override = ruleContext.attributes().get("incremental_dexing", BuildType.TRISTATE);
-    // Ignore --incremental_dexing_binary_types if the incremental_dexing attribute is set, but
-    // raise an error if proguard is enabled (b/c incompatible with incremental dexing ATM).
+    // Raise an error if proguard is enabled (b/c incompatible with incremental dexing ATM).
     if (isBinaryProguarded && override == TriState.YES) {
       ruleContext.attributeError("incremental_dexing",
           "target cannot be incrementally dexed because it uses Proguard");
-      return ImmutableSet.of();
+      return false;
     }
     if (isBinaryProguarded || override == TriState.NO) {
-      return ImmutableSet.of();
+      // proguard and the attribute silently ignore the --incremental_dexing flag.
+      return false;
     }
-    ImmutableSet<AndroidBinaryType> result =
-        override == TriState.YES
-            ? ImmutableSet.copyOf(AndroidBinaryType.values())
-            : AndroidCommon.getAndroidConfig(ruleContext).getIncrementalDexingBinaries();
-    if (!result.isEmpty()) {
+    AndroidConfiguration config = AndroidCommon.getAndroidConfig(ruleContext);
+    if (override == TriState.YES || config.useIncrementalDexing()) {
       Iterable<String> blacklistedDexopts =
           DexArchiveAspect.blacklistedDexopts(ruleContext, dexopts);
-      if (!Iterables.isEmpty(blacklistedDexopts)) {
+      if (Iterables.isEmpty(blacklistedDexopts)) {
+        // target's dexopts are all compatible with incremental dexing.
+        return true;
+      } else {
         // target's dexopts include flags blacklisted with --non_incremental_per_target_dexopts. If
         // incremental_dexing attribute is explicitly set for this target then we'll warn and
         // incrementally dex anyway.  Otherwise, just don't incrementally dex.
@@ -1130,21 +1133,23 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           Iterable<String> ignored =
               Iterables.filter(
                   blacklistedDexopts,
-                  Predicates.not(
-                      Predicates.in(
-                          AndroidCommon.getAndroidConfig(ruleContext)
-                              .getDexoptsSupportedInIncrementalDexing())));
+                  Predicates.not(Predicates.in(config.getDexoptsSupportedInIncrementalDexing())));
           ruleContext.attributeWarning("incremental_dexing",
               String.format("Using incremental dexing even though dexopts %s indicate this target "
                       + "may be unsuitable for incremental dexing for the moment.%s",
                   blacklistedDexopts,
-                  Iterables.isEmpty(ignored) ? "" : " These will be ignored: " + ignored));
+                  Iterables.isEmpty(ignored) ? "" : " Ignored dexopts: " + ignored));
+          return true;
         } else {
-          result = ImmutableSet.of();
+          // If there are incompatible dexopts and the attribute is not set, we silently don't run
+          // incremental dexing.
+          return false;
         }
       }
+    } else {
+      // attribute is auto and flag is false
+      return false;
     }
-    return result;
   }
 
   private static void createDexMergerAction(

@@ -532,8 +532,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testIncrementalDexingUsesDexArchives_binaryDependingOnAliasTarget()
       throws Exception {
-    useConfiguration("--incremental_dexing", "--incremental_dexing_binary_types=all",
-        "--experimental_desugar_for_android");
     scratch.file(
         "java/com/google/android/BUILD",
         "android_library(",
@@ -616,7 +614,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testIncrementalDexingDisabledWithProguard() throws Exception {
-    useConfiguration("--incremental_dexing", "--incremental_dexing_binary_types=all");
     scratch.file(
         "java/com/google/android/BUILD",
         "android_binary(",
