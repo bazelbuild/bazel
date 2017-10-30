@@ -70,7 +70,7 @@ public class RecursivePkgValue implements SkyValue {
    * A RecursivePkgKey is a tuple of a {@link RootedPath}, {@code rootedPath}, defining the
    * directory to recurse beneath in search of packages, and an {@link ImmutableSet} of {@link
    * PathFragment}s, {@code excludedPaths}, relative to {@code rootedPath.getRoot}, defining the
-   * set of subdirectories beneath {@code rootedPath} to skip.
+   * set of subdirectories strictly beneath {@code rootedPath} to skip.
    *
    * <p>Throws {@link IllegalArgumentException} if {@code excludedPaths} contains any paths that
    * are equal to {@code rootedPath} or that are not beneath {@code rootedPath}.

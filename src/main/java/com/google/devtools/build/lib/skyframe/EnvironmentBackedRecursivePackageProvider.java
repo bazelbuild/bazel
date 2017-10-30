@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -141,9 +142,13 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
       roots.add(repositoryValue.getPath());
     }
 
+    if (blacklistedSubdirectories.contains(directory)) {
+      return ImmutableList.of();
+    }
+    PathFragment.checkAllPathsAreUnder(blacklistedSubdirectories, directory);
+
     LinkedHashSet<PathFragment> packageNames = new LinkedHashSet<>();
     for (Path root : roots) {
-      PathFragment.checkAllPathsAreUnder(blacklistedSubdirectories, directory);
       RecursivePkgValue lookup = (RecursivePkgValue) env.getValue(RecursivePkgValue.key(
           repository, RootedPath.toRootedPath(root, directory), blacklistedSubdirectories));
       if (lookup == null) {

@@ -169,12 +169,13 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-    PathFragment.checkAllPathsAreUnder(blacklistedSubdirectories, directory);
-    PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory);
-
-    if (excludedSubdirectories.contains(directory)) {
+    if (blacklistedSubdirectories.contains(directory)
+        || excludedSubdirectories.contains(directory)) {
       return ImmutableList.of();
     }
+
+    PathFragment.checkAllPathsAreUnder(blacklistedSubdirectories, directory);
+    PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory);
 
     // Check that this package is covered by at least one of our universe patterns.
     boolean inUniverse = false;

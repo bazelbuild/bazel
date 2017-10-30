@@ -239,10 +239,13 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         BatchCallback<Void, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
+      PathFragment directoryPathFragment = TargetPatternResolverUtil.getPathFragment(directory);
+      if (blacklistedSubdirectories.contains(directoryPathFragment)) {
+        return;
+      }
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(), excludedSubdirectories);
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
-      PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
       List<Path> roots = new ArrayList<>();
       if (repository.isMain()) {
         roots.addAll(pkgPath.getPathEntries());
@@ -262,7 +265,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       }
 
       for (Path root : roots) {
-        RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
+        RootedPath rootedPath = RootedPath.toRootedPath(root, directoryPathFragment);
         env.getValues(
             ImmutableList.of(
                 PrepareDepsOfTargetsUnderDirectoryValue.key(
