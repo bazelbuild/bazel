@@ -18,7 +18,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -53,6 +55,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
@@ -65,6 +68,7 @@ import com.google.errorprone.annotations.FormatString;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -459,8 +463,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    */
   public class ActionSpawn extends BaseSpawn {
 
-    private final List<Artifact> filesets = new ArrayList<>();
-
+    private final ImmutableList<Artifact> filesets;
     private final ImmutableMap<String, String> effectiveEnvironment;
 
     /**
@@ -477,11 +480,13 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           SpawnAction.this.getRunfilesSupplier(),
           SpawnAction.this,
           resourceSet);
+      ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
       for (Artifact input : getInputs()) {
         if (input.isFileset()) {
-          filesets.add(input);
+          builder.add(input);
         }
       }
+      filesets = builder.build();
       LinkedHashMap<String, String> env = new LinkedHashMap<>(SpawnAction.this.getEnvironment());
       if (clientEnv != null) {
         for (String var : SpawnAction.this.getClientEnvironmentVariables()) {
@@ -503,17 +508,68 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
     @Override
     public ImmutableList<Artifact> getFilesetManifests() {
-      return ImmutableList.copyOf(filesets);
+      return filesets;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Iterable<? extends ActionInput> getInputFiles() {
-      // Remove Fileset directories in inputs list. Instead, these are
-      // included as manifests in getEnvironment().
-      List<Artifact> inputs = Lists.newArrayList(getInputs());
-      inputs.removeAll(filesets);
-      inputs.removeAll(this.getRunfilesSupplier().getManifests());
-      return inputs;
+      Iterable<? extends ActionInput> inputs = getInputs();
+      ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
+      if (filesets.isEmpty() && manifests.isEmpty()) {
+        return inputs;
+      }
+      // TODO(buchgr): These optimizations shouldn't exists. Instead getInputFiles() should
+      // directly return a NestedSet. In order to do this, rules need to be updated to
+      // provide inputs as nestedsets and store manifest files and filesets separately.
+      if (inputs instanceof NestedSet) {
+        return new FilesetAndManifestFilteringNestedSetView<>(
+            (NestedSet<ActionInput>) inputs, filesets, manifests);
+      } else {
+        return new FilesetAndManifestFilteringIterable<>(inputs, filesets, manifests);
+      }
+    }
+  }
+
+  /**
+   * Remove Fileset directories in inputs list. Instead, these are included as manifests in
+   * getEnvironment().
+   */
+  private static class FilesetAndManifestFilteringIterable<E> implements Iterable<E> {
+
+    private final Iterable<E> inputs;
+    private final ImmutableSet<Artifact> exclude;
+
+    FilesetAndManifestFilteringIterable(
+        Iterable<E> inputs, ImmutableList<Artifact> filesets, ImmutableList<Artifact> manifests) {
+      this.inputs = inputs;
+      this.exclude = ImmutableSet.<Artifact>builder().addAll(filesets).addAll(manifests).build();
+    }
+
+    @Override
+    public Iterator<E> iterator() {
+      return Iterators.filter(inputs.iterator(), (e) -> !exclude.contains(e));
+    }
+  }
+
+  /**
+   * The same as {@link FilesetAndManifestFilteringIterable} but retains the information that this
+   * the input files are stored as NestedSets.
+   */
+  private static class FilesetAndManifestFilteringNestedSetView<E> extends NestedSetView<E>
+      implements Iterable<E> {
+
+    private final FilesetAndManifestFilteringIterable<E> filteredInputs;
+
+    FilesetAndManifestFilteringNestedSetView(
+        NestedSet<E> set, ImmutableList<Artifact> filesets, ImmutableList<Artifact> manifests) {
+      super(set);
+      this.filteredInputs = new FilesetAndManifestFilteringIterable<E>(set, filesets, manifests);
+    }
+
+    @Override
+    public Iterator<E> iterator() {
+      return filteredInputs.iterator();
     }
   }
 
