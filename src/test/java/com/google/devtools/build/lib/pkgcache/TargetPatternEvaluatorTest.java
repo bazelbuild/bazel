@@ -805,6 +805,19 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
         .containsExactlyElementsIn(allTestRules);
   }
 
+  @Test
+  public void testTestSuiteExclusion() throws Exception {
+    // This step doesn't do test_suite expansion of the individual target patterns. Doing so
+    // would cause an exclusion of the targets in a package to exclude all tests referred to in test
+    // suites in that package.
+    scratch.file(
+        "parent/excluded/BUILD",
+        "test_suite(name = 'test_suite', tests = ['//parent/other:specific_test'])");
+    scratch.file("parent/other/BUILD", "cc_test(name = 'specific_test')");
+    assertThat(parseList("parent/...", "-parent/excluded/...")).containsExactlyElementsIn(
+        labels("//parent/other:specific_test"));
+  }
+
   /** Regression test for bug: "blaze test "no targets found" warning now fatal" */
   @Test
   public void testNoTestsInRecursivePattern() throws Exception {
