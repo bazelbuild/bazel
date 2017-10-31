@@ -60,6 +60,8 @@ public abstract class MultisetSemaphore<T> {
    */
   public abstract void releaseAll(Set<T> valuesToRelease);
 
+  public abstract int estimateCurrentNumUniqueValues();
+
   /**
    * Returns a {@link MultisetSemaphore} with a backing {@link Semaphore} that has an unbounded
    * number of permits; that is, {@link #acquireAll} will never block.
@@ -122,6 +124,12 @@ public abstract class MultisetSemaphore<T> {
     @Override
     public void releaseAll(Set<T> valuesToRelease) {
     }
+
+    @Override
+    public int estimateCurrentNumUniqueValues() {
+      // We can't give a good estimate since we don't track values at all.
+      return 0;
+    }
   }
 
   private static class NaiveMultisetSemaphore<T> extends MultisetSemaphore<T> {
@@ -161,6 +169,15 @@ public abstract class MultisetSemaphore<T> {
         }
       }
       semaphore.release(numUniqueValuesToRelease);
+    }
+
+    @Override
+    public int estimateCurrentNumUniqueValues() {
+      // Notes:
+      //   (1) The race here is completely benign; we're just supposed to return an estimate.
+      //   (2) See the javadoc for Multiset#size, which explains to use entrySet().size() to get the
+      //       number of unique values.
+      return actualValues.entrySet().size();
     }
   }
 }
