@@ -177,7 +177,8 @@ public abstract class ResourceContainer {
    * Returns a copy of this container with filtered resources, or the original if no resources
    * should be filtered. The original container is unchanged.
    */
-  public ResourceContainer filter(RuleErrorConsumer ruleErrorConsumer, ResourceFilter filter) {
+  public ResourceContainer filter(
+      RuleErrorConsumer ruleErrorConsumer, ResourceFilterFactory filter) {
     ImmutableList<Artifact> filteredResources = filter.filter(ruleErrorConsumer, getResources());
 
     if (filteredResources.size() == getResources().size()) {

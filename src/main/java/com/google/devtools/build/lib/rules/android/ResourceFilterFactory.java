@@ -56,7 +56,7 @@ import javax.annotation.Nullable;
  * and {@link #hashCode()} methods. Failure to do so isn't just bad practice; it could seriously
  * interfere with Bazel's caching performance.
  */
-public class ResourceFilter {
+public class ResourceFilterFactory {
   public static final String RESOURCE_CONFIGURATION_FILTERS_NAME = "resource_configuration_filters";
   public static final String DENSITIES_NAME = "densities";
 
@@ -127,7 +127,7 @@ public class ResourceFilter {
    * @param filterBehavior the behavior of this filter.
    */
   @VisibleForTesting
-  ResourceFilter(
+  ResourceFilterFactory(
       ImmutableList<String> configFilters,
       ImmutableList<String> densities,
       FilterBehavior filterBehavior) {
@@ -194,12 +194,12 @@ public class ResourceFilter {
       }
     }
 
-    // Create a sorted copy so that ResourceFilter objects with the same filters are treated the
+    // Create a sorted copy so that ResourceFilterFactory objects with the same filters are treated
     // the same regardless of the ordering of those filters.
     return ImmutableList.sortedCopyOf(builder.build());
   }
 
-  static ResourceFilter fromRuleContext(RuleContext ruleContext) {
+  static ResourceFilterFactory fromRuleContext(RuleContext ruleContext) {
     Preconditions.checkNotNull(ruleContext);
 
     if (!ruleContext.isLegalFragment(AndroidConfiguration.class)) {
@@ -207,35 +207,35 @@ public class ResourceFilter {
     }
 
     return forBaseAndAttrs(
-        ruleContext.getFragment(AndroidConfiguration.class).getResourceFilter(),
+        ruleContext.getFragment(AndroidConfiguration.class).getResourceFilterFactory(),
         ruleContext.attributes());
   }
 
   @VisibleForTesting
-  static ResourceFilter forBaseAndAttrs(ResourceFilter base, AttributeMap attrs) {
+  static ResourceFilterFactory forBaseAndAttrs(ResourceFilterFactory base, AttributeMap attrs) {
     return base.withAttrsFrom(attrs);
   }
 
   /**
-   * Creates a new {@link ResourceFilter} based on this object's properties, overridden by any
-   * filters specified in the passed {@link AttributeMap}.
+   * Creates a new {@link ResourceFilterFactory} based on this object's properties, overridden by
+   * any filters specified in the passed {@link AttributeMap}.
    *
    * <p>A new object will always be returned, as returning the same object across multiple rules (as
    * would be done with {@link FilterBehavior#FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION}) causes
    * problems.
    */
-  ResourceFilter withAttrsFrom(AttributeMap attrs) {
+  ResourceFilterFactory withAttrsFrom(AttributeMap attrs) {
     if (!hasFilters(attrs)) {
-      return new ResourceFilter(configFilters, densities, filterBehavior);
+      return new ResourceFilterFactory(configFilters, densities, filterBehavior);
     }
 
-    return new ResourceFilter(
+    return new ResourceFilterFactory(
         extractFilters(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME),
         extractFilters(attrs, DENSITIES_NAME),
         filterBehavior);
   }
 
-  ResourceFilter withoutDynamicConfiguration() {
+  ResourceFilterFactory withoutDynamicConfiguration() {
     if (!usesDynamicConfiguration()) {
       return this;
     }
@@ -384,13 +384,13 @@ public class ResourceFilter {
     }
   }
 
-  static ResourceFilter empty(RuleContext ruleContext) {
+  static ResourceFilterFactory empty(RuleContext ruleContext) {
     return empty(fromRuleContext(ruleContext).filterBehavior);
   }
 
   @VisibleForTesting
-  static ResourceFilter empty(FilterBehavior filterBehavior) {
-    return new ResourceFilter(
+  static ResourceFilterFactory empty(FilterBehavior filterBehavior) {
+    return new ResourceFilterFactory(
         ImmutableList.<String>of(), ImmutableList.<String>of(), filterBehavior);
   }
 
@@ -753,16 +753,16 @@ public class ResourceFilter {
   /**
    * {@inheritDoc}
    *
-   * <p>ResourceFilter requires an accurately overridden equals() method to work correctly with
-   * Bazel's caching and dynamic configuration.
+   * <p>ResourceFilterFactory requires an accurately overridden equals() method to work correctly
+   * with Bazel's caching and dynamic configuration.
    */
   @Override
   public boolean equals(Object object) {
-    if (!(object instanceof ResourceFilter)) {
+    if (!(object instanceof ResourceFilterFactory)) {
       return false;
     }
 
-    ResourceFilter other = (ResourceFilter) object;
+    ResourceFilterFactory other = (ResourceFilterFactory) object;
 
     return filterBehavior == other.filterBehavior
         && configFilters.equals(other.configFilters)
@@ -776,17 +776,17 @@ public class ResourceFilter {
   }
 
   /**
-   * Converts command line settings for the filter behavior into an empty {@link ResourceFilter}
-   * object.
+   * Converts command line settings for the filter behavior into an empty {@link
+   * ResourceFilterFactory} object.
    */
   public static final class Converter
-      implements com.google.devtools.common.options.Converter<ResourceFilter> {
+      implements com.google.devtools.common.options.Converter<ResourceFilterFactory> {
     private final FilterBehavior.Converter filterEnumConverter = new FilterBehavior.Converter();
 
     @Override
-    public ResourceFilter convert(String input) throws OptionsParsingException {
+    public ResourceFilterFactory convert(String input) throws OptionsParsingException {
 
-      return ResourceFilter.empty(filterEnumConverter.convert(input));
+      return empty(filterEnumConverter.convert(input));
     }
 
     @Override
@@ -804,7 +804,7 @@ public class ResourceFilter {
       return null;
     }
 
-    if (!ruleClass.equals("android_binary") || !ResourceFilter.hasFilters(attrs)) {
+    if (!ruleClass.equals("android_binary") || !hasFilters(attrs)) {
       // This target doesn't specify any filtering settings, so dynamically configured resource
       // filtering would be a waste of time.
       // If the target's dependencies include android_binary targets, those dependencies might
@@ -825,8 +825,8 @@ public class ResourceFilter {
   private static final class RemoveDynamicallyConfiguredResourceFilteringTransition
       extends BaseDynamicallyConfiguredResourceFilteringTransition {
     @Override
-    ResourceFilter getNewResourceFilter(ResourceFilter oldResourceFilter) {
-      return oldResourceFilter.withoutDynamicConfiguration();
+    ResourceFilterFactory getNewResourceFilter(ResourceFilterFactory oldResourceFilterFactory) {
+      return oldResourceFilterFactory.withoutDynamicConfiguration();
     }
   }
 
@@ -840,8 +840,8 @@ public class ResourceFilter {
     }
 
     @Override
-    ResourceFilter getNewResourceFilter(ResourceFilter oldResourceFilter) {
-      return oldResourceFilter.withAttrsFrom(attrs);
+    ResourceFilterFactory getNewResourceFilter(ResourceFilterFactory oldResourceFilterFactory) {
+      return oldResourceFilterFactory.withAttrsFrom(attrs);
     }
 
     @VisibleForTesting
@@ -858,11 +858,13 @@ public class ResourceFilter {
 
       AndroidConfiguration.Options androidOptions =
           newOptions.get(AndroidConfiguration.Options.class);
-      androidOptions.resourceFilter = getNewResourceFilter(androidOptions.resourceFilter);
+      androidOptions.resourceFilterFactory =
+          getNewResourceFilter(androidOptions.resourceFilterFactory);
 
       return newOptions;
     }
 
-    abstract ResourceFilter getNewResourceFilter(ResourceFilter oldResourceFilter);
+    abstract ResourceFilterFactory getNewResourceFilter(
+        ResourceFilterFactory oldResourceFilterFactory);
   }
 }

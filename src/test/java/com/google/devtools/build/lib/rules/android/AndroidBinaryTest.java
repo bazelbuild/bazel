@@ -1444,8 +1444,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     // Validate resource filters are not passed to execution, since they were applied in analysis
     List<String> args = resourceArguments(directResources);
     assertThat(args)
-        .doesNotContain(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
-    assertThat(args).doesNotContain(ResourceFilter.DENSITIES_NAME);
+        .doesNotContain(ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
+    assertThat(args).doesNotContain(ResourceFilterFactory.DENSITIES_NAME);
     if (densities.isEmpty()) {
       assertThat(args).doesNotContain("--densitiesForManifest");
     } else {

@@ -117,8 +117,8 @@ public class LocalResourceContainerTest extends ResourceTestBase {
   private void assertFilter(
       ImmutableList<Artifact> unfilteredResources, ImmutableList<Artifact> filteredResources)
       throws Exception {
-    ResourceFilter filter =
-        new FakeResourceFilter(ImmutableMap.of(unfilteredResources, filteredResources));
+    ResourceFilterFactory filter =
+        new FakeResourceFilterFactory(ImmutableMap.of(unfilteredResources, filteredResources));
     ImmutableList<PathFragment> unfilteredResourcesRoots = getResourceRoots(unfilteredResources);
     LocalResourceContainer unfiltered =
         new LocalResourceContainer(
@@ -146,10 +146,10 @@ public class LocalResourceContainerTest extends ResourceTestBase {
     }
   }
 
-  private static class FakeResourceFilter extends ResourceFilter {
+  private static class FakeResourceFilterFactory extends ResourceFilterFactory {
     private final Map<ImmutableList<Artifact>, ImmutableList<Artifact>> filterInputToOutputMap;
 
-    FakeResourceFilter(
+    FakeResourceFilterFactory(
         Map<ImmutableList<Artifact>, ImmutableList<Artifact>> filterInputToOutputMap) {
       super(
           ImmutableList.<String>of(),

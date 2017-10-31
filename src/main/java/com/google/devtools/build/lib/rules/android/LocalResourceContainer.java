@@ -378,12 +378,13 @@ public final class LocalResourceContainer {
    * Filters this object.
    *
    * @return a new {@link LocalResourceContainer} with resources filtered by the passed {@link
-   *     ResourceFilter}, or this object if no resources should be filtered.
+   *     ResourceFilterFactory}, or this object if no resources should be filtered.
    */
   public LocalResourceContainer filter(
-      RuleErrorConsumer ruleErrorConsumer, ResourceFilter resourceFilter)
+      RuleErrorConsumer ruleErrorConsumer, ResourceFilterFactory resourceFilterFactory)
       throws RuleErrorException {
-    ImmutableList<Artifact> filteredResources = resourceFilter.filter(ruleErrorConsumer, resources);
+    ImmutableList<Artifact> filteredResources = resourceFilterFactory
+        .filter(ruleErrorConsumer, resources);
 
     if (filteredResources.size() == resources.size()) {
       // Nothing was filtered out

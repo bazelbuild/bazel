@@ -71,7 +71,7 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact rTxtOut;
   private Artifact sourceJarOut;
   private boolean debug = false;
-  private ResourceFilter resourceFilter;
+  private ResourceFilterFactory resourceFilterFactory;
   private List<String> uncompressedExtensions = Collections.emptyList();
   private Artifact apkOut;
   private final AndroidSdkProvider sdk;
@@ -101,7 +101,7 @@ public class AndroidResourcesProcessorBuilder {
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     this.ruleContext = ruleContext;
     this.spawnActionBuilder = new SpawnAction.Builder();
-    this.resourceFilter = ResourceFilter.empty(ruleContext);
+    this.resourceFilterFactory = ResourceFilterFactory.empty(ruleContext);
   }
 
   /**
@@ -139,9 +139,9 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
-  public AndroidResourcesProcessorBuilder setResourceFilter(
-      ResourceFilter resourceFilter) {
-    this.resourceFilter = resourceFilter;
+  public AndroidResourcesProcessorBuilder setResourceFilterFactory(
+      ResourceFilterFactory resourceFilterFactory) {
+    this.resourceFilterFactory = resourceFilterFactory;
     return this;
   }
 
@@ -439,21 +439,22 @@ public class AndroidResourcesProcessorBuilder {
       builder.addExecPath("--packagePath", apkOut);
       outs.add(apkOut);
     }
-    if (resourceFilter.hasConfigurationFilters()) {
+    if (resourceFilterFactory.hasConfigurationFilters()) {
       // Always pass filters to aapt, even if we filtered in analysis, since aapt is stricter and
       // might remove resources that we previously accepted.
-      builder.add("--resourceConfigs", resourceFilter.getConfigurationFilterString());
+      builder.add("--resourceConfigs", resourceFilterFactory.getConfigurationFilterString());
     }
-    if (resourceFilter.hasDensities()) {
+    if (resourceFilterFactory.hasDensities()) {
       // If we did not filter by density in analysis, filter in execution. Otherwise, don't filter
       // in execution, but still pass the densities so they can be added to the manifest.
-      if (resourceFilter.isPrefiltering()) {
-        builder.add("--densitiesForManifest", resourceFilter.getDensityString());
+      if (resourceFilterFactory.isPrefiltering()) {
+        builder.add("--densitiesForManifest", resourceFilterFactory.getDensityString());
       } else {
-        builder.add("--densities", resourceFilter.getDensityString());
+        builder.add("--densities", resourceFilterFactory.getDensityString());
       }
     }
-    ImmutableList<String> filteredResources = resourceFilter.getResourcesToIgnoreInExecution();
+    ImmutableList<String> filteredResources =
+        resourceFilterFactory.getResourcesToIgnoreInExecution();
     if (!filteredResources.isEmpty()) {
       builder.addAll("--prefilteredResources", VectorArg.join(",").each(filteredResources));
     }

@@ -560,7 +560,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
       name = "experimental_android_resource_filtering_method",
-      converter = ResourceFilter.Converter.class,
+      converter = ResourceFilterFactory.Converter.class,
       defaultValue = "filter_in_execution",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -575,10 +575,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
               + "in analysis, possibly making the build even faster (especially in systems that "
               + "do not cache the results of those dependencies)."
     )
-    // The ResourceFilter object holds the filtering behavior as well as settings for which
+    // The ResourceFilterFactory object holds the filtering behavior as well as settings for which
     // resources should be filtered. The filtering behavior is set from the command line, but the
     // other settings default to empty and are set or modified via dynamic configuration.
-    public ResourceFilter resourceFilter;
+    public ResourceFilterFactory resourceFilterFactory;
 
     @Option(
       name = "experimental_android_compress_java_resources",
@@ -732,7 +732,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final AndroidManifestMerger manifestMerger;
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
-  private final ResourceFilter resourceFilter;
+  private final ResourceFilterFactory resourceFilterFactory;
   private final boolean compressJavaResources;
   private final boolean includeLibraryResourceJars;
   private final boolean exportsManifestDefault;
@@ -769,7 +769,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
-    this.resourceFilter = options.resourceFilter;
+    this.resourceFilterFactory = options.resourceFilterFactory;
     this.compressJavaResources = options.compressJavaResources;
     this.includeLibraryResourceJars = options.includeLibraryResourceJars;
     this.exportsManifestDefault = options.exportsManifestDefault;
@@ -894,8 +894,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return useSingleJarApkBuilder;
   }
 
-  public ResourceFilter getResourceFilter() {
-    return resourceFilter;
+  public ResourceFilterFactory getResourceFilterFactory() {
+    return resourceFilterFactory;
   }
 
   public boolean useParallelDex2Oat() {
@@ -943,7 +943,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   public String getOutputDirectoryName() {
     // We expect this value to be null most of the time - it will only become non-null when a
     // dynamically configured transition changes the configuration's resource filter object.
-    String resourceFilterSuffix = resourceFilter.getOutputDirectorySuffix();
+    String resourceFilterSuffix = resourceFilterFactory.getOutputDirectorySuffix();
 
     if (configurationDistinguisher.suffix == null) {
       return resourceFilterSuffix;
@@ -959,7 +959,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   @Nullable
   @Override
   public PatchTransition topLevelConfigurationHook(Target toTarget) {
-    return resourceFilter.getTopLevelPatchTransition(
+    return resourceFilterFactory.getTopLevelPatchTransition(
         toTarget.getAssociatedRule().getRuleClass(),
         AggregatingAttributeMapper.of(toTarget.getAssociatedRule()));
   }

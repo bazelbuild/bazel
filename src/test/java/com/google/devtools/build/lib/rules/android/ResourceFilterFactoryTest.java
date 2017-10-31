@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.rules.android.ResourceFilter.AddDynamicallyConfiguredResourceFilteringTransition;
-import com.google.devtools.build.lib.rules.android.ResourceFilter.FilterBehavior;
+import com.google.devtools.build.lib.rules.android.ResourceFilterFactory.AddDynamicallyConfiguredResourceFilteringTransition;
+import com.google.devtools.build.lib.rules.android.ResourceFilterFactory.FilterBehavior;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,11 +34,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests {@link ResourceFilter}. */
+/** Tests {@link ResourceFilterFactory}. */
 // TODO(asteinb): Test behavior not already covered in this test, and, when practical, move unit
 // tests currently located in {@link AndroidBinaryTest} to this class instead.
 @RunWith(JUnit4.class)
-public class ResourceFilterTest extends ResourceTestBase {
+public class ResourceFilterFactoryTest extends ResourceTestBase {
 
   /**
    * Tests that, when filtering with dynamic configuration, dependencies are not filtered (since
@@ -145,7 +145,7 @@ public class ResourceFilterTest extends ResourceTestBase {
 
     assertThat(
             errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME))
+                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
         .hasSize(1);
   }
 
@@ -160,7 +160,7 @@ public class ResourceFilterTest extends ResourceTestBase {
 
     assertThat(
             errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME))
+                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
         .hasSize(1);
   }
 
@@ -175,7 +175,7 @@ public class ResourceFilterTest extends ResourceTestBase {
 
     assertThat(
             errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME))
+                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
         .hasSize(1);
   }
 
@@ -190,7 +190,7 @@ public class ResourceFilterTest extends ResourceTestBase {
 
     assertThat(
             errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME))
+                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
         .hasSize(1);
   }
 
@@ -210,7 +210,7 @@ public class ResourceFilterTest extends ResourceTestBase {
 
     assertThat(
             errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME))
+                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
         .hasSize(1);
   }
 
@@ -227,7 +227,8 @@ public class ResourceFilterTest extends ResourceTestBase {
             "values-sr-Latn/foo.xml",
             "values-sr-rLatn/foo.xml"));
 
-    errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
 
   @Test
@@ -242,7 +243,7 @@ public class ResourceFilterTest extends ResourceTestBase {
 
     assertThat(
             errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME))
+                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
         .hasSize(1);
   }
 
@@ -258,7 +259,8 @@ public class ResourceFilterTest extends ResourceTestBase {
             "values-es-rUS/foo.xml",
             "values-es-419/foo.xml"));
 
-    errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
 
   /**
@@ -279,29 +281,32 @@ public class ResourceFilterTest extends ResourceTestBase {
             "When referring to locale qualifiers with regions, use of qualifier 'en_US' is"
                 + " deprecated. Use 'en-rUS' instead.");
 
-    ResourceFilter filter =
-        new ResourceFilter(badQualifiers, ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
+    ResourceFilterFactory filter =
+        new ResourceFilterFactory(
+            badQualifiers, ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
 
     filter.filter(errorConsumer, ImmutableList.of());
     assertThat(
             errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME))
+                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
         .containsExactlyElementsIn(expectedWarnings);
     errorConsumer.assertNoRuleWarnings();
 
     // Filtering again with this filter should not produce additional warnings
     filter.filter(errorConsumer, ImmutableList.of());
-    errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
     errorConsumer.assertNoRuleWarnings();
 
     // Filtering with a new filter should produce warnings again, since it is working on a different
     // target
     filter =
-        new ResourceFilter(badQualifiers, ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
+        new ResourceFilterFactory(
+            badQualifiers, ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
     filter.filter(errorConsumer, ImmutableList.of());
     assertThat(
             errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME))
+                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
         .containsExactlyElementsIn(expectedWarnings);
     errorConsumer.assertNoRuleWarnings();
   }
@@ -326,27 +331,30 @@ public class ResourceFilterTest extends ResourceTestBase {
             "For resource folder values-es_US, when referring to locale qualifiers with regions, "
                 + "use of qualifier 'es_US' is deprecated. Use 'es-rUS' instead.");
 
-    ResourceFilter filter =
-        new ResourceFilter(
+    ResourceFilterFactory filter =
+        new ResourceFilterFactory(
             ImmutableList.of("en"), ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
 
     filter.filter(errorConsumer, badResources);
     assertThat(errorConsumer.getAndClearRuleWarnings()).containsExactlyElementsIn(expectedWarnings);
-    errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
 
     // Filtering again with this filter should not produce additional warnings
     filter.filter(errorConsumer, badResources);
     errorConsumer.assertNoRuleWarnings();
-    errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
 
     // Filtering with a new filter should produce warnings again, since it is working on a different
     // target
     filter =
-        new ResourceFilter(
+        new ResourceFilterFactory(
             ImmutableList.of("en"), ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
     filter.filter(errorConsumer, badResources);
     assertThat(errorConsumer.getAndClearRuleWarnings()).containsExactlyElementsIn(expectedWarnings);
-    errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
 
   @Test
@@ -403,19 +411,19 @@ public class ResourceFilterTest extends ResourceTestBase {
 
     ImmutableList<Artifact> allArtifacts =
         ImmutableList.copyOf(Iterables.concat(expectedResources, unexpectedResources));
-    ResourceFilter resourceFilter =
+    ResourceFilterFactory resourceFilterFactory =
         makeResourceFilter(resourceConfigurationFilters, densities, filterBehavior);
-    ImmutableList<Artifact> filtered = resourceFilter.filter(errorConsumer, allArtifacts);
+    ImmutableList<Artifact> filtered = resourceFilterFactory.filter(errorConsumer, allArtifacts);
 
     assertThat(filtered).containsExactlyElementsIn(expectedResources).inOrder();
 
     if (filterBehavior == FilterBehavior.FILTER_IN_ANALYSIS) {
-      assertThat(resourceFilter.getResourcesToIgnoreInExecution())
+      assertThat(resourceFilterFactory.getResourcesToIgnoreInExecution())
           .containsExactlyElementsIn(resourcesToDiscard);
     } else {
       // Either we are not filtering in analysis, or this target's dependencies were also filtered.
       // In both cases, no resources should be ignored in execution.
-      assertThat(resourceFilter.getResourcesToIgnoreInExecution()).isEmpty();
+      assertThat(resourceFilterFactory.getResourcesToIgnoreInExecution()).isEmpty();
     }
   }
 
@@ -487,9 +495,9 @@ public class ResourceFilterTest extends ResourceTestBase {
   @Test
   public void testGetOutputDirectoryDensitiesAreDifferentFromDensityConfigurationFilters()
       throws Exception {
-    ResourceFilter configurationFilter =
+    ResourceFilterFactory configurationFilter =
         makeResourceFilter("hdpi", "", FilterBehavior.FILTER_IN_ANALYSIS);
-    ResourceFilter densityFilter =
+    ResourceFilterFactory densityFilter =
         makeResourceFilter("", "hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
 
     assertThat(configurationFilter.getOutputDirectorySuffix())
@@ -510,53 +518,55 @@ public class ResourceFilterTest extends ResourceTestBase {
    */
   @Test
   public void testGetOutputDirectoryDifferentlyOrdered() throws Exception {
-    ResourceFilter first =
+    ResourceFilterFactory first =
         makeResourceFilter("en,fr", "hdpi,ldpi", FilterBehavior.FILTER_IN_ANALYSIS);
-    ResourceFilter second =
+    ResourceFilterFactory second =
         makeResourceFilter("fr,en", "ldpi,hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
     assertThat(first.getOutputDirectorySuffix()).isEqualTo(second.getOutputDirectorySuffix());
   }
 
   @Test
   public void testGetOutputDirectoryDuplicated() throws Exception {
-    ResourceFilter duplicated =
+    ResourceFilterFactory duplicated =
         makeResourceFilter("en,en", "hdpi,hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
-    ResourceFilter normal = makeResourceFilter("en", "hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
+    ResourceFilterFactory normal =
+        makeResourceFilter("en", "hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
 
     assertThat(duplicated.getOutputDirectorySuffix()).isEqualTo(normal.getOutputDirectorySuffix());
   }
 
-  private ResourceFilter makeResourceFilter(
+  private ResourceFilterFactory makeResourceFilter(
       String resourceConfigurationFilters, String densities, FilterBehavior behavior)
       throws Exception {
     return makeResourceFilter(
         ImmutableList.of(resourceConfigurationFilters), ImmutableList.of(densities), behavior);
   }
 
-  private ResourceFilter makeResourceFilter(
+  private ResourceFilterFactory makeResourceFilter(
       ImmutableList<String> resourceConfigurationFilters,
       ImmutableList<String> densities,
       FilterBehavior behavior)
       throws Exception {
 
-    return ResourceFilter.forBaseAndAttrs(
-        ResourceFilter.empty(behavior), getAttributeMap(resourceConfigurationFilters, densities));
+    return ResourceFilterFactory.forBaseAndAttrs(
+        ResourceFilterFactory.empty(behavior),
+        getAttributeMap(resourceConfigurationFilters, densities));
   }
 
   private AttributeMap getAttributeMap(
       ImmutableList<String> resourceConfigurationFilters, ImmutableList<String> densities) {
     return FakeAttributeMapper.builder()
         .withStringList(
-            ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME, resourceConfigurationFilters)
-        .withStringList(ResourceFilter.DENSITIES_NAME, densities)
+            ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME, resourceConfigurationFilters)
+        .withStringList(ResourceFilterFactory.DENSITIES_NAME, densities)
         .build();
   }
 
   @Test
   public void testWithAttrsFromAttrsNotSpecified() throws Exception {
     assertThat(
-            ResourceFilter.forBaseAndAttrs(
-                    ResourceFilter.empty(FilterBehavior.FILTER_IN_ANALYSIS),
+            ResourceFilterFactory.forBaseAndAttrs(
+                    ResourceFilterFactory.empty(FilterBehavior.FILTER_IN_ANALYSIS),
                     FakeAttributeMapper.empty())
                 .hasFilters())
         .isFalse();
@@ -592,7 +602,8 @@ public class ResourceFilterTest extends ResourceTestBase {
                 ImmutableList.of("hdpi"),
                 FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
                 false))
-        .isSameAs(ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
+        .isSameAs(
+            ResourceFilterFactory.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
   }
 
   @Test
@@ -603,7 +614,8 @@ public class ResourceFilterTest extends ResourceTestBase {
                 ImmutableList.<String>of(),
                 FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
                 true))
-        .isSameAs(ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
+        .isSameAs(
+            ResourceFilterFactory.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
   }
 
   @Test
@@ -621,12 +633,13 @@ public class ResourceFilterTest extends ResourceTestBase {
 
     AddDynamicallyConfiguredResourceFilteringTransition addTransition =
         (AddDynamicallyConfiguredResourceFilteringTransition) transition;
-    ResourceFilter foundFilter =
-        ResourceFilter.forBaseAndAttrs(
-            ResourceFilter.empty(FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
+    ResourceFilterFactory foundFilter =
+        ResourceFilterFactory.forBaseAndAttrs(
+            ResourceFilterFactory.empty(
+                FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
             addTransition.getAttrs());
 
-    ResourceFilter expectedFilter =
+    ResourceFilterFactory expectedFilter =
         makeResourceFilter(
             resourceConfigurationFilters,
             densities,
@@ -650,8 +663,8 @@ public class ResourceFilterTest extends ResourceTestBase {
     assertPatchTransition(
         makeResourceFilter(
             "en", "ldpi", FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
-        ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION,
-        ResourceFilter.empty(FilterBehavior.FILTER_IN_ANALYSIS));
+        ResourceFilterFactory.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION,
+        ResourceFilterFactory.empty(FilterBehavior.FILTER_IN_ANALYSIS));
   }
 
   @Test
@@ -662,8 +675,8 @@ public class ResourceFilterTest extends ResourceTestBase {
     AttributeMap attrs = getAttributeMap(resourceConfigurationFilters, densities);
 
     assertPatchTransition(
-        ResourceFilter.empty(FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
-        new ResourceFilter.AddDynamicallyConfiguredResourceFilteringTransition(attrs),
+        ResourceFilterFactory.empty(FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
+        new ResourceFilterFactory.AddDynamicallyConfiguredResourceFilteringTransition(attrs),
         makeResourceFilter(
             resourceConfigurationFilters,
             densities,
@@ -671,29 +684,30 @@ public class ResourceFilterTest extends ResourceTestBase {
   }
 
   private void assertPatchTransition(
-      ResourceFilter oldResourceFilter,
+      ResourceFilterFactory oldResourceFilterFactory,
       PatchTransition transition,
-      ResourceFilter expectedNewResourceFilter) {
-    AndroidConfiguration.Options oldAndroidOptions = getAndroidOptions(oldResourceFilter);
+      ResourceFilterFactory expectedNewResourceFilterFactory) {
+    AndroidConfiguration.Options oldAndroidOptions = getAndroidOptions(oldResourceFilterFactory);
 
     BuildOptions oldOptions = BuildOptions.builder().add(oldAndroidOptions).build();
     BuildOptions newOptions = transition.apply(oldOptions);
 
     // The old options should not have been changed
-    assertThat(oldAndroidOptions.resourceFilter).isSameAs(oldResourceFilter);
-    assertThat(oldAndroidOptions).isEqualTo(getAndroidOptions(oldResourceFilter));
+    assertThat(oldAndroidOptions.resourceFilterFactory).isSameAs(oldResourceFilterFactory);
+    assertThat(oldAndroidOptions).isEqualTo(getAndroidOptions(oldResourceFilterFactory));
 
-    // Besides the ResourceFilter, the new options should be the same as the old ones
+    // Besides the ResourceFilterFactory, the new options should be the same as the old ones
     assertThat(newOptions.getOptions()).hasSize(1);
     AndroidConfiguration.Options newAndroidOptions =
         newOptions.get(AndroidConfiguration.Options.class);
-    assertThat(newAndroidOptions).isEqualTo(getAndroidOptions(expectedNewResourceFilter));
+    assertThat(newAndroidOptions).isEqualTo(getAndroidOptions(expectedNewResourceFilterFactory));
   }
 
-  private AndroidConfiguration.Options getAndroidOptions(ResourceFilter resourceFilter) {
+  private AndroidConfiguration.Options getAndroidOptions(
+      ResourceFilterFactory resourceFilterFactory) {
     AndroidConfiguration.Options androidOptions =
         (AndroidConfiguration.Options) new AndroidConfiguration.Options().getDefault();
-    androidOptions.resourceFilter = resourceFilter;
+    androidOptions.resourceFilterFactory = resourceFilterFactory;
 
     return androidOptions;
   }

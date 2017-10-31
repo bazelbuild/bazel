@@ -86,8 +86,8 @@ java_test(
 )
 
 java_test(
-    name = "ResourceFilterTest",
-    srcs = ["ResourceFilterTest.java"],
+    name = "ResourceFilterFactoryTest",
+    srcs = ["ResourceFilterFactoryTest.java"],
     deps = [
         ":ResourceTestBase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",

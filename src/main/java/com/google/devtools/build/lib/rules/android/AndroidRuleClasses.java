@@ -289,10 +289,9 @@ public final class AndroidRuleClasses {
   }
 
   /**
-   * Turns off dynamic resource filtering for non-Android targets. This prevents unnecessary
-   * build graph bloat. For example, there's no point analyzing distinct cc_library targets for
-   * different resource filter configurations because cc_library semantics doesn't care about
-   * filters.
+   * Turns off dynamic resource filtering for non-Android targets. This prevents unnecessary build
+   * graph bloat. For example, there's no point analyzing distinct cc_library targets for different
+   * resource filter configurations because cc_library semantics doesn't care about filters.
    */
   public static final RuleTransitionFactory REMOVE_DYNAMIC_RESOURCE_FILTERING =
       new RuleTransitionFactory() {
@@ -303,7 +302,8 @@ public final class AndroidRuleClasses {
         @Override
         public Attribute.Transition buildTransitionFor(Rule depRule) {
           return keepFilterRuleClasses.contains(depRule.getRuleClass())
-              ? null : ResourceFilter.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;
+              ? null
+              : ResourceFilterFactory.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;
         }
       };
 

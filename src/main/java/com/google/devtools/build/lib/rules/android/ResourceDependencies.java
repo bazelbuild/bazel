@@ -356,7 +356,8 @@ public final class ResourceDependencies {
    * Returns a copy of this instance with filtered resources. The original object is unchanged, and
    * may be returned if no filtering should be done.
    */
-  public ResourceDependencies filter(RuleErrorConsumer ruleErrorConsumer, ResourceFilter filter) {
+  public ResourceDependencies filter(
+      RuleErrorConsumer ruleErrorConsumer, ResourceFilterFactory filter) {
     NestedSet<Artifact> filteredResources =
         filter.filterDependencies(ruleErrorConsumer, transitiveResources);
 

@@ -244,7 +244,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDeps,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-              ResourceFilter.fromRuleContext(ruleContext),
+              ResourceFilterFactory.fromRuleContext(ruleContext),
               ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
@@ -907,7 +907,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               .withPrimary(resourceApk.getPrimaryResource())
               .withDependencies(resourceApk.getResourceDependencies())
               .setTargetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
-              .setResourceFilter(ResourceFilter.fromRuleContext(ruleContext))
+              .setResourceFilterFactory(ResourceFilterFactory.fromRuleContext(ruleContext))
               .setUncompressedExtensions(
                   ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"))
               .build();
@@ -1502,7 +1502,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   public static boolean shouldRegenerate(RuleContext ruleContext,
       ResourceDependencies resourceDeps) {
     return Iterables.size(resourceDeps.getResourceContainers()) > 1
-        || ResourceFilter.hasFilters(ruleContext)
+        || ResourceFilterFactory.hasFilters(ruleContext)
         || ruleContext.attributes().isAttributeValueExplicitlySpecified("nocompress_extensions");
   }
 
