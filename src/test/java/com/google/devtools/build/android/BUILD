@@ -262,6 +262,19 @@ java_test(
     ],
 )
 
+java_test(
+    name = "ZipFilterActionTest",
+    size = "small",
+    srcs = ["ZipFilterActionTest.java"],
+    deps = [
+        "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 java_library(
     name = "test_utils",
     testonly = 1,

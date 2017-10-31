@@ -38,6 +38,13 @@ java_binary(
     ],
 )
 
+java_binary(
+    name = "ZipFilterAction",
+    main_class = "com.google.devtools.build.android.ZipFilterAction",
+    visibility = ["//visibility:private"],
+    runtime_deps = [":android_builder_lib"],
+)
+
 java_library(
     name = "android_builder_lib",
     srcs = glob([
@@ -46,6 +53,8 @@ java_library(
         "aapt2/*.java",
     ]),
     deps = [
+        "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
+        "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/android/java/com/google/devtools/build/android/junctions",
         "//src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_java_pb",
@@ -56,6 +65,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party/java/android_databinding:exec",
         "//third_party/java/aosp_gradle_core",
+        "//third_party/java/jcommander",
         "//third_party/protobuf:protobuf_java",
     ],
 )
