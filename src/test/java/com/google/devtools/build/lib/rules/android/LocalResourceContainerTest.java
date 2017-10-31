@@ -51,7 +51,7 @@ public class LocalResourceContainerTest extends ResourceTestBase {
     }
 
     errorConsumer.assertAttributeError(
-        "resources", "is not in the expected resource directory structure");
+        "resource_files", "is not in the expected resource directory structure");
   }
 
   @Test
@@ -64,7 +64,7 @@ public class LocalResourceContainerTest extends ResourceTestBase {
     }
 
     errorConsumer.assertAttributeError(
-        "resources", "All resources must share a common directory");
+        "resource_files", "All resources must share a common directory");
   }
 
   @Test
@@ -86,7 +86,7 @@ public class LocalResourceContainerTest extends ResourceTestBase {
 
   private ImmutableList<PathFragment> getResourceRoots(ImmutableList<Artifact> artifacts)
       throws Exception {
-    return LocalResourceContainer.getResourceRoots(errorConsumer, artifacts);
+    return LocalResourceContainer.getResourceRoots(errorConsumer, artifacts, "resource_files");
   }
 
   @Test

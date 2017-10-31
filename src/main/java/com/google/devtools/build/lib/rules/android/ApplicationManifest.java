@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -350,16 +349,12 @@ public final class ApplicationManifest {
     resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
 
     LocalResourceContainer data =
-        new LocalResourceContainer.Builder(ruleContext)
-            .withAssets(
+        LocalResourceContainer.forAssetsAndResources(
+                ruleContext,
+                "assets",
                 AndroidCommon.getAssetDir(ruleContext),
-                ruleContext.getPrerequisitesIf(
-                    // TODO(bazel-team): Remove the ResourceType construct.
-                    ResourceType.ASSETS.getAttribute(), Mode.TARGET, FileProvider.class))
-            .withResources(
-                ruleContext.getPrerequisites(
-                    "local_resource_files", Mode.TARGET, FileProvider.class))
-            .build().filter(ruleContext, resourceFilter);
+                "local_resource_files")
+            .filter(ruleContext, resourceFilter);
 
     // Now that the LocalResourceContainer has been filtered, we can build a filtered resource
     // container from it.
@@ -524,15 +519,8 @@ public final class ApplicationManifest {
       Artifact proguardCfg)
       throws InterruptedException, RuleErrorException {
     LocalResourceContainer data =
-        new LocalResourceContainer.Builder(ruleContext)
-            .withAssets(
-                AndroidCommon.getAssetDir(ruleContext),
-                ruleContext.getPrerequisitesIf(
-                    // TODO(bazel-team): Remove the ResourceType construct.
-                    ResourceType.ASSETS.getAttribute(), Mode.TARGET, FileProvider.class))
-            .withResources(
-                ruleContext.getPrerequisites("resource_files", Mode.TARGET, FileProvider.class))
-            .build();
+        LocalResourceContainer.forAssetsAndResources(
+            ruleContext, "assets", AndroidCommon.getAssetDir(ruleContext), "resource_files");
 
     // Filter the resources during analysis to prevent processing of dependencies on unwanted
     // resources during execution.
@@ -610,15 +598,8 @@ public final class ApplicationManifest {
       @Nullable Artifact featureAfter)
       throws InterruptedException, RuleErrorException {
     LocalResourceContainer data =
-        new LocalResourceContainer.Builder(ruleContext)
-            .withAssets(
-                AndroidCommon.getAssetDir(ruleContext),
-                ruleContext.getPrerequisitesIf(
-                    // TODO(bazel-team): Remove the ResourceType construct.
-                    ResourceType.ASSETS.getAttribute(), Mode.TARGET, FileProvider.class))
-            .withResources(
-                ruleContext.getPrerequisites("resource_files", Mode.TARGET, FileProvider.class))
-            .build()
+        LocalResourceContainer.forAssetsAndResources(
+                ruleContext, "assets", AndroidCommon.getAssetDir(ruleContext), "resource_files")
             .filter(ruleContext, resourceFilter);
 
     resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
@@ -697,15 +678,8 @@ public final class ApplicationManifest {
     // resources during execution.
     ResourceFilter resourceFilter = ResourceFilter.fromRuleContext(ruleContext);
     LocalResourceContainer data =
-        new LocalResourceContainer.Builder(ruleContext)
-            .withAssets(
-                AndroidCommon.getAssetDir(ruleContext),
-                ruleContext.getPrerequisitesIf(
-                    // TODO(bazel-team): Remove the ResourceType construct.
-                    ResourceType.ASSETS.getAttribute(), Mode.TARGET, FileProvider.class))
-            .withResources(
-                ruleContext.getPrerequisites("resource_files", Mode.TARGET, FileProvider.class))
-            .build()
+        LocalResourceContainer.forAssetsAndResources(
+                ruleContext, "assets", AndroidCommon.getAssetDir(ruleContext), "resource_files")
             .filter(ruleContext, resourceFilter);
     resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
     ResourceContainer.Builder builder =

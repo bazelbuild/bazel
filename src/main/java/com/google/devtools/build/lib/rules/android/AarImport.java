@@ -99,9 +99,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
     ResourceApk resourceApk =
         androidManifest.packAarWithDataAndResources(
             ruleContext,
-            new LocalResourceContainer.Builder(ruleContext)
-                .withResources(ImmutableList.of(resourcesProvider))
-                .build(),
+            LocalResourceContainer.forResourceFileProvider(
+                ruleContext, resourcesProvider, "resources"),
             ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LOCAL_SYMBOLS),
