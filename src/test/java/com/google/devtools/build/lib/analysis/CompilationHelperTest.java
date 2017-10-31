@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.UncheckedActio
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import java.io.IOException;
 import java.util.List;
@@ -45,12 +46,16 @@ public class CompilationHelperTest extends BuildViewTestCase {
 
   private List<Artifact> getAggregatingMiddleman(
       ConfiguredTarget rule, BuildConfiguration configuration, boolean withSolib) throws Exception {
+    RuleContext ruleContext = getRuleContext(rule, analysisEnvironment);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     return CppHelper.getAggregatingMiddlemanForTesting(
-        getRuleContext(rule, analysisEnvironment),
+        ruleContext,
         ActionsTestUtil.NULL_ACTION_OWNER,
         "middleman",
         rule.getProvider(FileProvider.class).getFilesToBuild(),
         withSolib,
+        toolchain.getSolibDirectory(),
         configuration);
   }
 

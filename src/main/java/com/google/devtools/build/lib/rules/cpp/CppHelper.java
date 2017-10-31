@@ -584,46 +584,75 @@ public class CppHelper {
   }
 
   /**
-   * Returns a middleman for all files to build for the given configured target,
-   * substituting shared library artifacts with corresponding solib symlinks. If
-   * multiple calls are made, then it returns the same artifact for configurations
-   * with the same internal directory.
+   * Returns a middleman for all files to build for the given configured target, substituting shared
+   * library artifacts with corresponding solib symlinks. If multiple calls are made, then it
+   * returns the same artifact for configurations with the same internal directory.
    *
-   * <p>The resulting middleman only aggregates the inputs and must be expanded
-   * before populating the set of files necessary to execute an action.
+   * <p>The resulting middleman only aggregates the inputs and must be expanded before populating
+   * the set of files necessary to execute an action.
    */
-  static List<Artifact> getAggregatingMiddlemanForCppRuntimes(RuleContext ruleContext,
-      String purpose, Iterable<Artifact> artifacts, String solibDirOverride,
+  static List<Artifact> getAggregatingMiddlemanForCppRuntimes(
+      RuleContext ruleContext,
+      String purpose,
+      Iterable<Artifact> artifacts,
+      String solibDir,
+      String solibDirOverride,
       BuildConfiguration configuration) {
-    return getMiddlemanInternal(ruleContext, ruleContext.getActionOwner(), purpose,
-        artifacts, true, true, solibDirOverride, configuration);
+    return getMiddlemanInternal(
+        ruleContext,
+        ruleContext.getActionOwner(),
+        purpose,
+        artifacts,
+        true,
+        true,
+        solibDir,
+        solibDirOverride,
+        configuration);
   }
 
   @VisibleForTesting
   public static List<Artifact> getAggregatingMiddlemanForTesting(
-      RuleContext ruleContext, ActionOwner owner, String purpose, Iterable<Artifact> artifacts,
-      boolean useSolibSymlinks, BuildConfiguration configuration) {
+      RuleContext ruleContext,
+      ActionOwner owner,
+      String purpose,
+      Iterable<Artifact> artifacts,
+      boolean useSolibSymlinks,
+      String solibDir,
+      BuildConfiguration configuration) {
     return getMiddlemanInternal(
-        ruleContext, owner, purpose, artifacts, useSolibSymlinks, false, null, configuration);
+        ruleContext,
+        owner,
+        purpose,
+        artifacts,
+        useSolibSymlinks,
+        false,
+        solibDir,
+        null,
+        configuration);
   }
 
-  /**
-   * Internal implementation for getAggregatingMiddlemanForCppRuntimes.
-   */
+  /** Internal implementation for getAggregatingMiddlemanForCppRuntimes. */
   private static List<Artifact> getMiddlemanInternal(
-      RuleContext ruleContext, ActionOwner actionOwner, String purpose,
-      Iterable<Artifact> artifacts, boolean useSolibSymlinks, boolean isCppRuntime,
-      String solibDirOverride, BuildConfiguration configuration) {
+      RuleContext ruleContext,
+      ActionOwner actionOwner,
+      String purpose,
+      Iterable<Artifact> artifacts,
+      boolean useSolibSymlinks,
+      boolean isCppRuntime,
+      String solibDir,
+      String solibDirOverride,
+      BuildConfiguration configuration) {
     MiddlemanFactory factory = ruleContext.getAnalysisEnvironment().getMiddlemanFactory();
     if (useSolibSymlinks) {
       List<Artifact> symlinkedArtifacts = new ArrayList<>();
       for (Artifact artifact : artifacts) {
         Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename()));
-        symlinkedArtifacts.add(isCppRuntime
-            ? SolibSymlinkAction.getCppRuntimeSymlink(
-                ruleContext, artifact, solibDirOverride, configuration)
-            : SolibSymlinkAction.getDynamicLibrarySymlink(
-                ruleContext, artifact, false, true, configuration));
+        symlinkedArtifacts.add(
+            isCppRuntime
+                ? SolibSymlinkAction.getCppRuntimeSymlink(
+                    ruleContext, artifact, solibDir, solibDirOverride, configuration)
+                : SolibSymlinkAction.getDynamicLibrarySymlink(
+                    ruleContext, solibDir, artifact, false, true, configuration));
       }
       artifacts = symlinkedArtifacts;
       purpose += "_with_solib";

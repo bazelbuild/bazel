@@ -523,8 +523,13 @@ public final class CcCommon {
    * @return mangled symlink artifact.
    */
   public Artifact getDynamicLibrarySymlink(Artifact library, boolean preserveName) {
-    return  SolibSymlinkAction.getDynamicLibrarySymlink(
-        ruleContext, library, preserveName, true, ruleContext.getConfiguration());
+    return SolibSymlinkAction.getDynamicLibrarySymlink(
+        ruleContext,
+        ccToolchain.getSolibDirectory(),
+        library,
+        preserveName,
+        true,
+        ruleContext.getConfiguration());
   }
 
   /**

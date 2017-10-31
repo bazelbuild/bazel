@@ -1587,7 +1587,7 @@ public class CppLinkActionBuilder {
           configuration
               .getBinDirectory(ruleContext.getRule().getRepository())
               .getExecPath()
-              .getRelative(cppConfiguration.getSolibDirectory());
+              .getRelative(toolchain.getSolibDirectory());
       String runtimeSolibName = runtimeSolibDir != null ? runtimeSolibDir.getBaseName() : null;
       boolean runtimeRpath =
           runtimeSolibDir != null
@@ -1617,7 +1617,7 @@ public class CppLinkActionBuilder {
         // and the second could use $ORIGIN/../_solib_[arch]. But since this is a shared
         // artifact, both are symlinks to the same place, so
         // there's no *one* RPATH setting that fits all targets involved in the sharing.
-        rpathRoot = cppConfiguration.getSolibDirectory() + "/";
+        rpathRoot = toolchain.getSolibDirectory() + "/";
         if (runtimeRpath) {
           runtimeRpathRoots.add("../" + runtimeSolibName + "/");
         }
@@ -1635,7 +1635,7 @@ public class CppLinkActionBuilder {
 
         rpathRoot =
             Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
-                + cppConfiguration.getSolibDirectory()
+                + toolchain.getSolibDirectory()
                 + "/";
 
         if (isNativeDeps) {

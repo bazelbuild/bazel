@@ -587,7 +587,7 @@ public final class LinkCommandLine extends CommandLine {
         CppModel.PREPROCESSOR_DEFINES_VARIABLE_NAME,
         computeAllLinkstampDefines());
     // For dynamic libraries, produce position independent code.
-    if (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY && cppConfiguration.toolchainNeedsPic()) {
+    if (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY && ccProvider.toolchainNeedsPic()) {
       linkstampVariables.addStringVariable(CppModel.PIC_VARIABLE_NAME, "");
     }
     return linkstampVariables.build();

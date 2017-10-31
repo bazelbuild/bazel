@@ -1500,6 +1500,7 @@ public final class CppModel {
       Artifact libraryLink =
           SolibSymlinkAction.getDynamicLibrarySymlink(
               ruleContext,
+              ccToolchain.getSolibDirectory(),
               interfaceLibrary.getArtifact(),
               /* preserveName= */ false,
               /* prefixConsumer= */ false,
@@ -1509,6 +1510,7 @@ public final class CppModel {
       Artifact implLibraryLink =
           SolibSymlinkAction.getDynamicLibrarySymlink(
               ruleContext,
+              ccToolchain.getSolibDirectory(),
               dynamicLibrary.getArtifact(),
               /* preserveName= */ false,
               /* prefixConsumer= */ false,

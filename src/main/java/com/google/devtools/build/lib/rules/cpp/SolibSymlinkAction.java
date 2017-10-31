@@ -87,44 +87,54 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   /**
-   * Replaces shared library artifact with mangled symlink and creates related
-   * symlink action. For artifacts that should retain filename (e.g. libraries
-   * with SONAME tag), link is created to the parent directory instead.
+   * Replaces shared library artifact with mangled symlink and creates related symlink action. For
+   * artifacts that should retain filename (e.g. libraries with SONAME tag), link is created to the
+   * parent directory instead.
    *
-   * This action is performed to minimize number of -rpath entries used during
-   * linking process (by essentially "collecting" as many shared libraries as
-   * possible in the single directory), since we will be paying quadratic price
-   * for each additional entry on the -rpath.
+   * <p>This action is performed to minimize number of -rpath entries used during linking process
+   * (by essentially "collecting" as many shared libraries as possible in the single directory),
+   * since we will be paying quadratic price for each additional entry on the -rpath.
    *
    * @param ruleContext rule context, that requested symlink.
+   * @param solibDir String giving the solib directory
    * @param library Shared library artifact that needs to be mangled.
    * @param preserveName whether to preserve the name of the library
-   * @param prefixConsumer whether to prefix the output artifact name with the label of the
-   *     consumer
+   * @param prefixConsumer whether to prefix the output artifact name with the label of the consumer
    * @return mangled symlink artifact.
    */
-  public static Artifact getDynamicLibrarySymlink(final RuleContext ruleContext,
-                                                       final Artifact library,
-                                                       boolean preserveName,
-                                                       boolean prefixConsumer,
-                                                       BuildConfiguration configuration) {
-    PathFragment mangledName = getMangledName(
-        ruleContext, library.getRootRelativePath(), preserveName, prefixConsumer,
-        configuration.getFragment(CppConfiguration.class));
+  public static Artifact getDynamicLibrarySymlink(
+      final RuleContext ruleContext,
+      String solibDir,
+      final Artifact library,
+      boolean preserveName,
+      boolean prefixConsumer,
+      BuildConfiguration configuration) {
+    PathFragment mangledName =
+        getMangledName(
+            ruleContext,
+            solibDir,
+            library.getRootRelativePath(),
+            preserveName,
+            prefixConsumer,
+            configuration.getFragment(CppConfiguration.class));
     return getDynamicLibrarySymlinkInternal(
         ruleContext, library, mangledName, configuration);
   }
 
-   /**
+  /**
    * Version of {@link #getDynamicLibrarySymlink} for the special case of C++ runtime libraries.
    * These are handled differently than other libraries: neither their names nor directories are
    * mangled, i.e. libstdc++.so.6 is symlinked from _solib_[arch]/libstdc++.so.6
    */
-  public static Artifact getCppRuntimeSymlink(RuleContext ruleContext, Artifact library,
-      String solibDirOverride, BuildConfiguration configuration) {
-    PathFragment solibDir = PathFragment.create(solibDirOverride != null
-        ? solibDirOverride
-        : configuration.getFragment(CppConfiguration.class).getSolibDirectory());
+  public static Artifact getCppRuntimeSymlink(
+      RuleContext ruleContext,
+      Artifact library,
+      String toolchainProvidedSolibDir,
+      String solibDirOverride,
+      BuildConfiguration configuration) {
+    PathFragment solibDir =
+        PathFragment.create(
+            solibDirOverride != null ? solibDirOverride : toolchainProvidedSolibDir);
     PathFragment symlinkName = solibDir.getRelative(library.getRootRelativePath().getBaseName());
     return getDynamicLibrarySymlinkInternal(ruleContext, library, symlinkName, configuration);
   }
@@ -147,35 +157,35 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   /**
-   * Returns the name of the symlink that will be created for a library, given
-   * its name.
+   * Returns the name of the symlink that will be created for a library, given its name.
    *
    * @param ruleContext rule context that requests symlink
+   * @param solibDir a String giving the solib directory
    * @param libraryPath the root-relative path of the library
    * @param preserveName true if filename should be preserved
    * @param prefixConsumer true if the result should be prefixed with the label of the consumer
    * @returns root relative path name
    */
-  public static PathFragment getMangledName(RuleContext ruleContext,
-                                            PathFragment libraryPath,
-                                            boolean preserveName,
-                                            boolean prefixConsumer,
-                                            CppConfiguration cppConfiguration) {
+  public static PathFragment getMangledName(
+      RuleContext ruleContext,
+      String solibDir,
+      PathFragment libraryPath,
+      boolean preserveName,
+      boolean prefixConsumer,
+      CppConfiguration cppConfiguration) {
     String escapedRulePath = Actions.escapedPath(
         "_" + ruleContext.getLabel());
     String soname = getDynamicLibrarySoname(libraryPath, preserveName);
-    PathFragment solibDir = PathFragment.create(cppConfiguration.getSolibDirectory());
+    PathFragment solibDirPath = PathFragment.create(solibDir);
     if (preserveName) {
       String escapedLibraryPath =
           Actions.escapedPath("_" + libraryPath.getParentDirectory().getPathString());
-      PathFragment mangledDir = solibDir.getRelative(prefixConsumer
-          ? escapedRulePath + "__" + escapedLibraryPath
-          : escapedLibraryPath);
+      PathFragment mangledDir =
+          solibDirPath.getRelative(
+              prefixConsumer ? escapedRulePath + "__" + escapedLibraryPath : escapedLibraryPath);
       return mangledDir.getRelative(soname);
     } else {
-      return solibDir.getRelative(prefixConsumer
-          ? escapedRulePath + "__" + soname
-          : soname);
+      return solibDirPath.getRelative(prefixConsumer ? escapedRulePath + "__" + soname : soname);
     }
   }
 

@@ -196,7 +196,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchain.supportsStartEndLib()).isFalse();
     assertThat(toolchain.supportsInterfaceSharedObjects()).isFalse();
     assertThat(ccProvider.supportsEmbeddedRuntimes()).isFalse();
-    assertThat(toolchain.toolchainNeedsPic()).isFalse();
+    assertThat(ccProvider.toolchainNeedsPic()).isFalse();
     assertThat(toolchain.supportsFission()).isTrue();
 
     assertThat(ccProvider.getBuiltInIncludeDirectories())
@@ -516,7 +516,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderA.supportsGoldLinker()).isTrue();
     assertThat(toolchainA.supportsStartEndLib()).isTrue();
     assertThat(ccProviderA.supportsEmbeddedRuntimes()).isTrue();
-    assertThat(toolchainA.toolchainNeedsPic()).isTrue();
+    assertThat(ccProviderA.toolchainNeedsPic()).isTrue();
 
     assertThat(toolchainA.getCompilerOptions(NO_FEATURES))
         .containsExactly(
@@ -638,7 +638,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchainC.supportsStartEndLib()).isFalse();
     assertThat(toolchainC.supportsInterfaceSharedObjects()).isFalse();
     assertThat(ccProviderC.supportsEmbeddedRuntimes()).isFalse();
-    assertThat(toolchainC.toolchainNeedsPic()).isFalse();
+    assertThat(ccProviderC.toolchainNeedsPic()).isFalse();
     assertThat(toolchainC.supportsFission()).isFalse();
 
     assertThat(toolchainC.getCompilerOptions(NO_FEATURES)).isEmpty();
