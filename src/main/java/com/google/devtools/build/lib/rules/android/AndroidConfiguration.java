@@ -914,7 +914,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return exportsManifestDefault;
   }
 
-  boolean generateRobolectricRClass() {
+  public boolean generateRobolectricRClass() {
     return generateRobolectricRClass;
   }
 
