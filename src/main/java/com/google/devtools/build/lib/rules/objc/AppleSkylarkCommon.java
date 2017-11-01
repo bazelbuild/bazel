@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -312,6 +313,31 @@ public class AppleSkylarkCommon {
       XcodeConfigProvider xcodeConfig, ApplePlatform platform) {
     return AppleConfiguration.appleTargetPlatformEnv(
         platform, xcodeConfig.getSdkVersionForPlatform(platform));
+  }
+
+  @SkylarkCallable(
+      name = "multi_arch_split",
+      doc = "A configuration transition for rule attributes to build dependencies in one or"
+          + " more Apple platforms. "
+          + "<p>Use of this transition requires that the 'platform_type' and 'minimum_os_version'"
+          + " string attributes are defined and mandatory on the rule.</p>"
+          + "<p>The value of the platform_type attribute will dictate the target architectures "
+          + " for which dependencies along this configuration transition will be built.</p>"
+          + "<p>Options are:</p>"
+          + "<ul>"
+          + "<li><code>ios</code>: architectures gathered from <code>--ios_multi_cpus</code>.</li>"
+          + "<li><code>macos</code>: architectures gathered from <code>--macos_cpus</code>.</li>"
+          + "<li><code>tvos</code>: architectures gathered from <code>--tvos_cpus</code>.</li>"
+          + "<li><code>watchos</code>: architectures gathered from <code>--watchos_cpus</code>."
+          + "</li></ul>"
+          + "<p>minimum_os_version should be a dotted version string such as '7.3', and is used to"
+          + " set the minimum operating system on the configuration similarly based on platform"
+          + " type. For example, specifying platform_type 'ios' and minimum_os_version '8.0' will"
+          + " ensure that dependencies are built with minimum iOS version '8.0'.",
+      structField = true
+  )
+  public SplitTransitionProvider getMultiArchSplitProvider() {
+    return new MultiArchSplitTransitionProvider();
   }
 
   @SkylarkSignature(

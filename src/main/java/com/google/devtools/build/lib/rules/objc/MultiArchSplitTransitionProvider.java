@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -42,7 +44,7 @@ import java.util.stream.Collectors;
  * {@link SplitTransitionProvider} implementation for multi-architecture apple rules which can
  * accept different apple platform types (such as ios or watchos).
  */
-public class MultiArchSplitTransitionProvider implements SplitTransitionProvider {
+public class MultiArchSplitTransitionProvider implements SplitTransitionProvider, SkylarkValue {
 
   @VisibleForTesting
   static final String UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT =
@@ -145,6 +147,16 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
     }
 
     return new AppleBinaryTransition(platformType, minimumOsVersion);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("apple_common.multi_arch_split");
   }
 
   /**
