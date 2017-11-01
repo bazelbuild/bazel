@@ -662,6 +662,17 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean allowResourcesAttr;
 
+    @Option(
+        name = "experimental_android_inherit_resources_in_tests",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "If true, local_resource_files indicates that resource files should be inherited"
+            + "from deps in android_test targets. Otherwise, resources will not be inherited from"
+            + " deps for those targets."
+    )
+    public boolean inheritResourcesInTests;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -743,6 +754,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useManifestFromResourceApk;
   private final boolean allowAndroidResources;
   private final boolean allowResourcesAttr;
+  private final boolean inheritResourcesInTests;
 
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
@@ -780,6 +792,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useManifestFromResourceApk = options.useManifestFromResourceApk;
     this.allowAndroidResources = options.allowAndroidResources;
     this.allowResourcesAttr = options.allowResourcesAttr;
+    this.inheritResourcesInTests = options.inheritResourcesInTests;
 
     if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
       // TODO(bazel-team): Still needed? See DexArchiveAspect
@@ -932,6 +945,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean allowResourcesAttr() {
     return this.allowResourcesAttr;
+  }
+
+  public boolean inheritResourcesInTests() {
+    return this.inheritResourcesInTests;
   }
 
   @Override
