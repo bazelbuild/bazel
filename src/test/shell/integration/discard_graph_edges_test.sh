@@ -46,6 +46,22 @@ function test_test() {
     || fail "Expected success"
 }
 
+function test_failed_build() {
+  mkdir -p foo || fail "Couldn't make directory"
+  cat > foo/BUILD <<'EOF' || fail "Couldn't make BUILD file"
+cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])
+cc_library(name = 'bar', srcs = ['bar.cc'])
+EOF
+  touch foo/foo.cc || fail "Couldn't make foo.cc"
+  echo "#ERROR" > foo/bar.cc || fail "Couldn't make bar.cc"
+  bazel $STARTUP_FLAGS build $BUILD_FLAGS //foo:foo >& "$TEST_log" \
+      && fail "Expected failure"
+  exit_code=$?
+  [ $exit_code -eq 1 ] || fail "Wrong exit code: $exit_code"
+  expect_log "#ERROR"
+  expect_not_log "Graph edges not stored"
+}
+
 # bazel info inherits from bazel build, but it doesn't have much in common with it.
 function test_info() {
   bazel $STARTUP_FLAGS info $BUILD_FLAGS >& $TEST_log || fail "Expected success"
@@ -265,7 +281,7 @@ genrule(name='foo',
 EOF
 
   # --nocache_test_results to make log-grepping easier.
-  bazel $STARTUP_FLAGS test $BUILD_FLAGS \
+  bazel $STARTUP_FLAGS test --keep_going $BUILD_FLAGS \
       --nocache_test_results //conflict:foo //testing:mytest >& $TEST_log \
       && fail "Expected failure"
   exit_code=$?
@@ -302,11 +318,6 @@ EOF
 
 function test_no_batch() {
   bazel $STARTUP_FLAGS --nobatch test $BUILD_FLAGS //testing:mytest >& $TEST_log \
-    || fail "Expected success"
-}
-
-function test_no_keep_going() {
-  bazel $STARTUP_FLAGS test $BUILD_FLAGS --nokeep_going //testing:mytest >& $TEST_log \
     || fail "Expected success"
 }
 

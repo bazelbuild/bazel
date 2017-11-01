@@ -199,16 +199,6 @@ public class ParallelEvaluator extends AbstractParallelEvaluator implements Eval
       }
     }
 
-    // We delay this check until we know that some kind of evaluation is necessary, since !keepGoing
-    // and !keepsEdges are incompatible only in the case of a failed evaluation -- there is no
-    // need to be overly harsh to callers who are just trying to retrieve a cached result.
-    Preconditions.checkState(
-        evaluatorContext.keepGoing()
-            || !(graph instanceof InMemoryGraphImpl)
-            || ((InMemoryGraphImpl) graph).keepsEdges(),
-        "nokeep_going evaluations are not allowed if graph edges are not kept: %s",
-        skyKeys);
-
     Profiler.instance().startTask(ProfilerTask.SKYFRAME_EVAL, skyKeySet);
     try {
       return doMutatingEvaluation(skyKeySet);

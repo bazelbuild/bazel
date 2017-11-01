@@ -497,7 +497,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       // Some blaze commands don't include the view options. Don't bother with them.
       return;
     }
-    if (batch && viewOptions.keepGoing && viewOptions.discardAnalysisCache) {
+    if (batch && viewOptions.discardAnalysisCache) {
       Preconditions.checkState(
           incrementalState == IncrementalState.NORMAL,
           "May only be called once if successful: %s",

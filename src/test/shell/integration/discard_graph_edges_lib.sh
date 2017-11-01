@@ -17,7 +17,7 @@
 # discard_graph_edges_lib.sh: functions needed by discard_graph_edges_test.sh
 
 STARTUP_FLAGS="--batch"
-BUILD_FLAGS="--keep_going --discard_analysis_cache"
+BUILD_FLAGS="--discard_analysis_cache"
 
 function extract_histogram_count() {
   local histofile="$1"
