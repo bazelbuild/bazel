@@ -48,9 +48,6 @@ build_test(name = ...)
   <a href="{{ page.version_prefix }}/docs/skylark/index.html">Skylark</a>
   module <code>tools/build_rules/build_test.bzl</code> and import the symbol
   <code>build_test</code> in the local environment. This is useful for
-  <a href="{{ page.version_prefix }}/docs/skylark/index.html">Skylark</a>
-  module <code>tools/build_rules/build_test.bzl</code> and import the symbol
-  <code>build_test</code> in the local environment. This is useful for
   using macros or for sharing values between multiple BUILD files. By
   using more arguments, you can load more symbols at once.</p>
 
