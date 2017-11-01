@@ -41,6 +41,11 @@ alias(
 )
 
 alias(
+    name = "dexsharder",
+    actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileSplitter",
+)
+
+alias(
     name = "desugar_java8",
     actual = "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
 )
