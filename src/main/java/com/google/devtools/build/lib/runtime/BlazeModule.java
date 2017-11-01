@@ -233,7 +233,7 @@ public abstract class BlazeModule {
   /**
    * Called when Blaze shuts down.
    *
-   * <p>If you are also implementing {@link #shutdownOnCrash()}, consider putting the common
+   * <p>If you are also implementing {@link #blazeShutdownOnCrash()}, consider putting the common
    * shutdown code in the latter and calling that other hook from here.
    */
   public void blazeShutdown() {
