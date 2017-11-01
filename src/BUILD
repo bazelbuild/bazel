@@ -385,6 +385,12 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "remote",
+    values = {"define": "EXECUTOR=remote"},
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
