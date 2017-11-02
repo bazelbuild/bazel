@@ -126,6 +126,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     Command command = buildCommand(spawn.getArguments(), spawn.getEnvironment());
     Action action =
         buildAction(
+            execRoot,
             spawn.getOutputFiles(),
             digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
@@ -258,6 +259,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   }
 
   static Action buildAction(
+      Path execRoot,
       Collection<? extends ActionInput> outputs,
       Digest command,
       Digest inputRoot,
@@ -267,12 +269,19 @@ class RemoteSpawnRunner implements SpawnRunner {
     action.setCommandDigest(command);
     action.setInputRootDigest(inputRoot);
     ArrayList<String> outputPaths = new ArrayList<>();
+    ArrayList<String> outputDirectoryPaths = new ArrayList<>();
     for (ActionInput output : outputs) {
-      outputPaths.add(output.getExecPathString());
+      String pathString = output.getExecPathString();
+      if (execRoot.getRelative(pathString).isDirectory()) {
+        outputDirectoryPaths.add(pathString);
+      } else {
+        outputPaths.add(pathString);
+      }
     }
     Collections.sort(outputPaths);
-    // TODO: output directories should be handled here, when they are supported.
+    Collections.sort(outputDirectoryPaths);
     action.addAllOutputFiles(outputPaths);
+    action.addAllOutputDirectories(outputDirectoryPaths);
     if (platform != null) {
       action.setPlatform(platform);
     }
