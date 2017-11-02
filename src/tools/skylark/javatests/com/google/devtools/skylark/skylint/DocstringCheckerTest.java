@@ -68,12 +68,12 @@ public class DocstringCheckerTest {
             "  \"\"\"summary",
             "",
             "  more description",
-            "\"\"\"",
+            "  \"\"\"",
             "  pass");
     Truth.assertThat(errors).hasSize(1);
     Truth.assertThat(errors.toString())
         .contains(
-            "3:3-6:3: incomplete docstring: the function parameters are not documented"
+            "3:3-6:5: incomplete docstring: the function parameters are not documented"
                 + " (no 'Args:' section found)\n"
                 + "The parameter documentation should look like this:\n"
                 + "\n"
@@ -216,7 +216,9 @@ public class DocstringCheckerTest {
                 "\"\"\"This is a module docstring",
                 "\n\"\"\"",
                 "def function():",
-                "  \"\"\" This is a function docstring\n\"\"\""))
+                "  \"\"\" This is a function docstring",
+                "",
+                "  \"\"\""))
         .isEmpty();
   }
 

@@ -219,7 +219,7 @@ public final class DocstringUtils {
     /** Start offset of the current line. */
     private int startOfLineOffset = 0;
     /** End offset of the current line. */
-    private int endOfLineOffset = -1;
+    private int endOfLineOffset = 0;
     /** Current line number within the docstring. */
     private int lineNumber = 0;
     /**
@@ -261,11 +261,18 @@ public final class DocstringUtils {
       if (startOfLineOffset >= docstring.length()) {
         return false;
       }
-      blankLineBefore = line.isEmpty();
-      startOfLineOffset = endOfLineOffset + 1;
+      blankLineBefore = line.trim().isEmpty();
+      startOfLineOffset = endOfLineOffset;
       if (startOfLineOffset >= docstring.length()) {
+        // Previous line was the last; previous line had no trailing newline character.
         line = "";
         return false;
+      }
+      // If not the first line, advance start past the newline character. In the case where there is
+      // no more content, then the previous line was the second-to-last line and this last line is
+      // empty.
+      if (docstring.charAt(startOfLineOffset) == '\n') {
+        startOfLineOffset += 1;
       }
       lineNumber++;
       endOfLineOffset = docstring.indexOf('\n', startOfLineOffset);
@@ -274,9 +281,18 @@ public final class DocstringUtils {
       }
       String originalLine = docstring.substring(startOfLineOffset, endOfLineOffset);
       originalLines.add(originalLine);
-      line = originalLine;
-      int indentation = getIndentation(line);
-      if (!line.isEmpty()) {
+      int indentation = getIndentation(originalLine);
+      if (endOfLineOffset == docstring.length() && startOfLineOffset != 0) {
+        if (!originalLine.trim().isEmpty()) {
+          error("closing docstring quote should be on its own line, indented the same as the "
+              + "opening quote");
+        } else if (indentation != baselineIndentation) {
+          error("closing docstring quote should be indented the same as the opening quote");
+        }
+      }
+      if (originalLine.trim().isEmpty()) {
+        line = "";
+      } else {
         if (indentation < baselineIndentation) {
           error(
               "line indented too little (here: "
@@ -288,9 +304,19 @@ public final class DocstringUtils {
         } else {
           startOfLineOffset += baselineIndentation;
         }
+        line = docstring.substring(startOfLineOffset, endOfLineOffset);
       }
-      line = docstring.substring(startOfLineOffset, endOfLineOffset);
       return true;
+    }
+
+    /**
+     * Returns whether the current line is the last one in the docstring.
+     *
+     * <p>It is possible for both this function and {@link #eof} to return true if all content has
+     * been exhausted, or if the last line is empty.
+     */
+    private boolean onLastLine() {
+      return endOfLineOffset >= docstring.length();
     }
 
     private boolean eof() {
@@ -360,7 +386,9 @@ public final class DocstringUtils {
             if (deprecated.isEmpty() && nonStandardDeprecation.isEmpty()) {
               nonStandardDeprecation = checkForNonStandardDeprecation(line);
             }
-            longDescriptionLines.add(line);
+            if (!(onLastLine() && line.trim().isEmpty())) {
+              longDescriptionLines.add(line);
+            }
             nextLine();
         }
       }
