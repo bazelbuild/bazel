@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -55,8 +56,26 @@ public interface AndroidSemantics {
    * Returns the manifest to be used when compiling a given rule.
    * @throws InterruptedException
    */
-  ApplicationManifest getManifestForRule(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException;
+  default ApplicationManifest getManifestForRule(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
+    ApplicationManifest result = ApplicationManifest.fromRule(ruleContext);
+    Artifact manifest = result.getManifest();
+    if (manifest.getFilename().equals("AndroidManifest.xml")) {
+      return result;
+    } else {
+      /*
+       * If the manifest file is not named AndroidManifest.xml, we create a symlink named
+       * AndroidManifest.xml to it. aapt requires the manifest to be named as such.
+       */
+      Artifact manifestSymlink =
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMLINKED_MANIFEST);
+      SymlinkAction symlinkAction =
+          new SymlinkAction(
+              ruleContext.getActionOwner(), manifest, manifestSymlink, "Renaming Android manifest");
+      ruleContext.registerAction(symlinkAction);
+      return ApplicationManifest.fromExplicitManifest(ruleContext, manifestSymlink);
+    }
+  }
 
   /**
    * Returns the name of the file in which the file names of native dependencies are listed.
