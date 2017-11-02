@@ -190,7 +190,7 @@ public class UsageChecker extends AstVisitorWithNameResolution {
       return;
     }
     if ((nameInfo.kind == Kind.LOCAL || nameInfo.kind == Kind.PARAMETER)
-        && (name.startsWith("_") || name.startsWith("unused_"))) {
+        && (name.startsWith("_") || name.startsWith("unused_") || name.startsWith("UNUSED_"))) {
       // local variables starting with an underscore need not be used
       return;
     }

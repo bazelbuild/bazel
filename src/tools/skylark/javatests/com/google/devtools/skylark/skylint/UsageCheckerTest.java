@@ -306,6 +306,8 @@ public class UsageCheckerTest {
     Truth.assertThat(findIssues("def f(_param):", "  _local = [[] for _x in []]")).isEmpty();
     Truth.assertThat(findIssues("def f(unused_param):", "  unused_local = [[] for unused_x in []]"))
         .isEmpty();
+    Truth.assertThat(findIssues("def f():", "  UNUSED_CONSTANT = 'unused'"))
+        .isEmpty();
   }
 
   @Test
