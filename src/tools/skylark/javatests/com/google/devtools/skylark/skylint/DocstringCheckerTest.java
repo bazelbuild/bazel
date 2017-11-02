@@ -38,22 +38,21 @@ public class DocstringCheckerTest {
   @Test
   public void reportMissingDocString() throws Exception {
     String errorMessage =
-        findIssues("# no module docstring", "def function():", "  return # no function docstring")
+        findIssues(
+                "# no module docstring",
+                "def function():",
+                "  # no function docstring",
+                "  print(1) # make sure the function is long enough",
+                "  print(2)",
+                "  print(3)",
+                "  print(4)",
+                "  print(5)")
             .toString();
     Truth.assertThat(errorMessage)
         .contains("1:1-2:1: file has no module docstring [missing-docstring]");
     Truth.assertThat(errorMessage)
         .contains(
-            "2:1-3:2: function 'function' has no docstring"
-                + " (if this function is intended to be private,"
-                + " the name should start with an underscore: '_function')"
-                + " [missing-docstring]");
-    // The following function has zero statements since the parser throws `pass` statements away.
-    // Hence we have to check this case to make sure the end location is set correctly.
-    errorMessage = findIssues("def function():", "  pass # no function docstring").toString();
-    Truth.assertThat(errorMessage)
-        .contains(
-            "1:1-2:2: function 'function' has no docstring"
+            "2:1-4:2: function 'function' has no docstring"
                 + " (if this function is intended to be private,"
                 + " the name should start with an underscore: '_function')"
                 + " [missing-docstring]");
@@ -240,6 +239,12 @@ public class DocstringCheckerTest {
                 "\"\"\" Module docstring\n\"\"\"",
                 "def _private_function():",
                 "  pass # no docstring necessary for private functions"))
+        .isEmpty();
+  }
+
+  @Test
+  public void dontReportShortFunctionWithoutDocstring() throws Exception {
+    Truth.assertThat(findIssues("\"\"\"Module docstring\"\"\"", "def function():", "  pass"))
         .isEmpty();
   }
 

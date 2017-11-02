@@ -141,6 +141,7 @@ The analyzer **requires docstrings** for:
 
 *   each **module** (.bzl file)
 *   each **public function** (i.e. a function not starting with an underscore)
+    that contains at least 5 statements
 
 If a **function has a multi-line docstring**, you also have to document (in
 order):

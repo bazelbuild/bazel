@@ -17,11 +17,13 @@ package com.google.devtools.skylark.skylint;
 import static com.google.devtools.skylark.skylint.DocstringUtils.extractDocstring;
 
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
+import com.google.devtools.build.lib.syntax.ASTNode;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import com.google.devtools.build.lib.syntax.Parameter;
 import com.google.devtools.build.lib.syntax.ReturnStatement;
+import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import com.google.devtools.skylark.skylint.DocstringUtils.DocstringInfo;
@@ -37,6 +39,8 @@ public class DocstringChecker extends SyntaxTreeVisitor {
   private static final String MISSING_DOCSTRING_CATEGORY = "missing-docstring";
   private static final String INCONSISTENT_DOCSTRING_CATEGORY = "inconsistent-docstring";
   private static final String BAD_DOCSTRING_FORMAT_CATEGORY = "bad-docstring-format";
+  /** If a function is at least this many statements long, a docstring is required. */
+  private static final int FUNCTION_LENGTH_DOCSTRING_THRESHOLD = 5;
 
   private final List<Issue> issues = new ArrayList<>();
   private boolean containsReturnWithValue = false;
@@ -79,7 +83,9 @@ public class DocstringChecker extends SyntaxTreeVisitor {
     containsReturnWithValue = false;
     super.visit(node);
     StringLiteral functionDocstring = extractDocstring(node.getStatements());
-    if (functionDocstring == null && !node.getIdentifier().getName().startsWith("_")) {
+    if (functionDocstring == null
+        && !node.getIdentifier().getName().startsWith("_")
+        && countNestedStatements(node) >= FUNCTION_LENGTH_DOCSTRING_THRESHOLD) {
       Location start = Location.from(node.getLocation().getStartLineAndColumn());
       Location end;
       if (node.getStatements().isEmpty()) {
@@ -114,6 +120,21 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       checkMultilineFunctionDocstring(
           node, functionDocstring, info, containsReturnWithValue, issues);
     }
+  }
+
+  private static class StatementCounter extends SyntaxTreeVisitor {
+    public int count = 0;
+
+    @Override
+    public void visitBlock(List<Statement> statements) {
+      count += statements.size();
+    }
+  }
+
+  private static int countNestedStatements(ASTNode node) {
+    StatementCounter counter = new StatementCounter();
+    counter.visit(node);
+    return counter.count;
   }
 
   private static void checkMultilineFunctionDocstring(
