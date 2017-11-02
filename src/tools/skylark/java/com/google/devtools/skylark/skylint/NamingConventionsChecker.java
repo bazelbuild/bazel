@@ -180,6 +180,9 @@ public class NamingConventionsChecker extends AstVisitorWithNameResolution {
   }
 
   private static boolean isUpperCamelCase(String name) {
+    if (name.startsWith("_")) {
+      name = name.substring(1); // private providers are allowed
+    }
     return !name.contains("_") && Character.isUpperCase(name.charAt(0));
   }
 
