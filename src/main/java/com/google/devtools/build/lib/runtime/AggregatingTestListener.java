@@ -26,6 +26,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
@@ -261,6 +262,7 @@ public class AggregatingTestListener {
   }
 
   private LabelAndConfiguration asKey(ConfiguredTarget target) {
-    return LabelAndConfiguration.of(target);
+    return LabelAndConfiguration.of(
+        AliasProvider.getDependencyLabel(target), target.getConfiguration());
   }
 }

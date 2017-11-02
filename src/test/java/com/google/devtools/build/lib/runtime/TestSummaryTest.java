@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
@@ -452,8 +453,11 @@ public class TestSummaryTest {
   }
 
   private ConfiguredTarget target(String path, String targetName) throws Exception {
+    BuildConfiguration configuration = Mockito.mock(BuildConfiguration.class);
+    when(configuration.checksum()).thenReturn("abcdef");
     ConfiguredTarget target = Mockito.mock(ConfiguredTarget.class);
     when(target.getLabel()).thenReturn(Label.create(path, targetName));
+    when(target.getConfiguration()).thenReturn(configuration);
     return target;
   }
 

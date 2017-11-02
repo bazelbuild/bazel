@@ -341,6 +341,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     when(filteringComplete.getTestTargets()).thenReturn(ImmutableSet.of(targetA, targetB));
     TestSummary testSummary = Mockito.mock(TestSummary.class);
     when(testSummary.getTarget()).thenReturn(targetA);
+    when(testSummary.getLabel()).thenReturn(labelA);
 
     stateTracker.testFilteringComplete(filteringComplete);
     stateTracker.testSummary(testSummary);
@@ -374,6 +375,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     TestSummary testSummary = Mockito.mock(TestSummary.class);
     when(testSummary.getStatus()).thenReturn(BlazeTestStatus.PASSED);
     when(testSummary.getTarget()).thenReturn(targetA);
+    when(testSummary.getLabel()).thenReturn(labelA);
 
     stateTracker.testFilteringComplete(filteringComplete);
     stateTracker.testSummary(testSummary);
@@ -404,6 +406,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     TestSummary testSummary = Mockito.mock(TestSummary.class);
     when(testSummary.getStatus()).thenReturn(BlazeTestStatus.FAILED);
     when(testSummary.getTarget()).thenReturn(targetA);
+    when(testSummary.getLabel()).thenReturn(labelA);
 
     stateTracker.testFilteringComplete(filteringComplete);
     stateTracker.testSummary(testSummary);
@@ -507,6 +510,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     TestSummary testSummary = Mockito.mock(TestSummary.class);
     when(testSummary.getStatus()).thenReturn(BlazeTestStatus.PASSED);
     when(testSummary.getTarget()).thenReturn(bartestTarget);
+    when(testSummary.getLabel()).thenReturn(bartestLabel);
 
     if (actions >= 1) {
       stateTracker.actionStarted(new ActionStartedEvent(foobuildAction, 123456789));

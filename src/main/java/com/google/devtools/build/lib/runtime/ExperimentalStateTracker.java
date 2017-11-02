@@ -549,8 +549,8 @@ class ExperimentalStateTracker {
         } else {
           terminalWriter.failStatus();
         }
-        terminalWriter.append(
-            shortenedLabelString(mostRecentTest.getTarget().getLabel(), width - prefix.length()));
+        terminalWriter.append(shortenedLabelString(
+            mostRecentTest.getLabel(), width - prefix.length()));
         terminalWriter.normal();
       }
       return true;

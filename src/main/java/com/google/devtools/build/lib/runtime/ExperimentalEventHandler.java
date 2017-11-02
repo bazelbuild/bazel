@@ -591,7 +591,7 @@ public class ExperimentalEventHandler implements EventHandler {
         setEventKindColor(EventKind.ERROR);
         terminal.writeString("" + summary.getStatus() + ": ");
         terminal.resetTerminal();
-        terminal.writeString(summary.getTarget().getLabel().toString());
+        terminal.writeString(summary.getLabel().toString());
         terminal.writeString(" (Summary)");
         crlf();
         for (Path logPath : summary.getFailedLogs()) {
