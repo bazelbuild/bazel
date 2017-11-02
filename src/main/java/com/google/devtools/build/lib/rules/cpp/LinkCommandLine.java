@@ -488,7 +488,7 @@ public final class LinkCommandLine extends CommandLine {
       return ImmutableList.copyOf(batchCommand);
     }
   }
-  
+
   private boolean isSharedNativeLibrary() {
     return nativeDeps && cppConfiguration.shareNativeDeps();
   }
@@ -587,7 +587,8 @@ public final class LinkCommandLine extends CommandLine {
         CppModel.PREPROCESSOR_DEFINES_VARIABLE_NAME,
         computeAllLinkstampDefines());
     // For dynamic libraries, produce position independent code.
-    if (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY && ccProvider.toolchainNeedsPic()) {
+    if (cppConfiguration.forcePic()
+        || (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY && ccProvider.toolchainNeedsPic())) {
       linkstampVariables.addStringVariable(CppModel.PIC_VARIABLE_NAME, "");
     }
     return linkstampVariables.build();
