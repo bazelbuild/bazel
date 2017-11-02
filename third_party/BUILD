@@ -521,7 +521,7 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.32.jar"],
+    jars = ["truth/truth-0.36.jar"],
 )
 
 java_import(
