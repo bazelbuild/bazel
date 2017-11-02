@@ -16,13 +16,9 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
@@ -35,74 +31,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests that {@code CppLinkAction} is populated with the correct build variables. */
 @RunWith(JUnit4.class)
-public class LinkBuildVariablesTest extends BuildViewTestCase {
-
-  private CppLinkAction getCppLinkAction(ConfiguredTarget target, Link.LinkTargetType type) {
-    Artifact linkerOutput = null;
-    switch (type) {
-      case STATIC_LIBRARY:
-      case ALWAYS_LINK_STATIC_LIBRARY:
-        linkerOutput = getBinArtifact("lib" + target.getLabel().getName() + ".a", target);
-        break;
-      case PIC_STATIC_LIBRARY:
-      case ALWAYS_LINK_PIC_STATIC_LIBRARY:
-        linkerOutput = getBinArtifact("lib" + target.getLabel().getName() + "pic.a", target);
-        break;
-      case DYNAMIC_LIBRARY:
-        linkerOutput = getBinArtifact("lib" + target.getLabel().getName() + ".so", target);
-        break;
-      case EXECUTABLE:
-        linkerOutput = getExecutable(target);
-        break;
-      default:
-        throw new IllegalArgumentException(
-            String.format("Cannot get CppLinkAction for link type %s", type));
-    }
-    return (CppLinkAction) getGeneratingAction(linkerOutput);
-  }
-
-  /** Returns active build variables for a link action of given type for given target. */
-  protected Variables getLinkBuildVariables(ConfiguredTarget target, Link.LinkTargetType type) {
-    return getCppLinkAction(target, type).getLinkCommandLine().getBuildVariables();
-  }
-
-  /** Returns the value of a given sequence variable in context of the given Variables instance. */
-  protected List<String> getSequenceVariableValue(Variables variables, String variable)
-      throws Exception {
-    FeatureConfiguration mockFeatureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  flag_set {",
-                "  action: 'foo'",
-                "    flag_group {",
-                "      iterate_over: '" + variable + "'",
-                "      flag: '%{" + variable + "}'",
-                "    }",
-                "  }",
-                "}")
-            .getFeatureConfiguration(
-                FeatureSpecification.create(ImmutableSet.of("a"), ImmutableSet.<String>of()));
-    return mockFeatureConfiguration.getCommandLine("foo", variables);
-  }
-
-  /** Returns the value of a given string variable in context of the given Variables instance. */
-  protected String getVariableValue(Variables variables, String variable) throws Exception {
-    FeatureConfiguration mockFeatureConfiguration =
-        CcToolchainFeaturesTest.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  flag_set {",
-                "  action: 'foo'",
-                "    flag_group {",
-                "      flag: '%{" + variable + "}'",
-                "    }",
-                "  }",
-                "}")
-            .getFeatureConfiguration(
-                FeatureSpecification.create(ImmutableSet.of("a"), ImmutableSet.<String>of()));
-    return Iterables.getOnlyElement(mockFeatureConfiguration.getCommandLine("foo", variables));
-  }
+public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Test
   public void testLinkstampBuildVariable() throws Exception {

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
@@ -74,7 +75,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     ObjcProtoProvider objcProtoProvider = topTarget.getProvider(ObjcProtoProvider.class);
     assertThat(objcProtoProvider).isNotNull();
     assertThat(Artifact.toExecPaths(objcProtoProvider.getProtobufHeaders()))
-        .containsExactly("objcproto/include/header.h");
+        .containsExactly(TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "objcproto/include/header.h");
 
     Artifact header = Iterables.getOnlyElement(objcProtoProvider.getProtobufHeaders());
     PathFragment includePath = header.getExecPath().getParentDirectory();
