@@ -103,7 +103,7 @@ public interface SpawnResult {
      * The remote execution system did not allow the request due to missing authorization or
      * authentication.
      */
-    NOT_AUTHORIZED,
+    NOT_AUTHORIZED(true),
 
     /**
      * The Spawn was malformed.
