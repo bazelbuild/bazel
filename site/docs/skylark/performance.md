@@ -109,6 +109,13 @@ If you need any transformations on the depset contents, look at
 The best string argument is a constant as its memory will be shared between
 all instances of your rule.
 
+* If the args are too long for the command line an `ctx.actions.args()` object
+can be conditionally or unconditionally written to a param file using
+[`ctx.actions.args#use_param_file`](lib/Args.html#use_param_file). This is
+done behind the scenes when the action is executed. If you need to explictly
+control the params file you can write it manually using
+[`ctx.actions.write`](lib/actions.html#write).
+
 Example:
 
 ```
@@ -140,7 +147,7 @@ def _to_short_path(files):
 
 When building an action using [ctx.actions.run](lib/actions.html?#run), do not
 forget that the `inputs` field accepts a depset. Use this whenever inputs are
-collected from dependencies.
+collected from dependencies transitively.
 
 ```
 inputs = depset(...)
