@@ -60,7 +60,7 @@ public class StatementWithoutEffectCheckerTest {
                 .toString())
         .contains(
             "2:3-2:30: expression result not used."
-                + " Use a for-loop instead instead of a list comprehension. [no-effect]");
+                + " Use a for-loop instead of a list comprehension. [no-effect]");
   }
 
   @Test
