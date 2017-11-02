@@ -250,6 +250,8 @@ public class MobileInstallCommand implements BlazeCommand {
       cmdLine.add("--adb_arg");
       cmdLine.add(adbArg);
     }
+    cmdLine.add("--build_id");
+    cmdLine.add(env.getCommandId().toString());
 
     Path workingDir = env.getBlazeWorkspace().getOutputPath().getParentDirectory();
     com.google.devtools.build.lib.shell.Command command =
