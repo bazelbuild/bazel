@@ -158,7 +158,8 @@ public class UsageCheckerTest {
                 "  print(y)")
             .toString();
     Truth.assertThat(message)
-        .contains("8:3-8:3: variable 'y' may not have been initialized [uninitialized-variable]");
+        .containsMatch(
+            "8:3-8:3: variable 'y' may not have been initialized. .+ \\[uninitialized-variable\\]");
   }
 
   @Test
@@ -166,7 +167,8 @@ public class UsageCheckerTest {
     String message =
         findIssues("def some_function():", "  for _ in []:", "    y = 1", "  print(y)").toString();
     Truth.assertThat(message)
-        .contains("4:9-4:9: variable 'y' may not have been initialized [uninitialized-variable]");
+        .containsMatch(
+            "4:9-4:9: variable 'y' may not have been initialized. .+ \\[uninitialized-variable\\]");
   }
 
   @Test

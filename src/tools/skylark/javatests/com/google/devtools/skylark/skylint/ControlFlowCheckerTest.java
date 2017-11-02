@@ -52,8 +52,10 @@ public class ControlFlowCheckerTest {
                     "    return x")
                 .toString())
         .contains(
-            "1:1-5:12: some but not all execution paths of 'some_function' return a value"
-                + " [missing-return-value]");
+            "1:1-5:12: some but not all execution paths of 'some_function' return a value."
+                + " If you know these cannot happen,"
+                + " add the statement `fail('unreachable')` to them."
+                + " For more details, have a look at the documentation. [missing-return-value]");
   }
 
   @Test
@@ -68,8 +70,10 @@ public class ControlFlowCheckerTest {
             .toString();
     Truth.assertThat(messages)
         .contains(
-            "1:1-5:10: some but not all execution paths of 'some_function' return a value"
-                + " [missing-return-value]");
+            "1:1-5:10: some but not all execution paths of 'some_function' return a value."
+                + " If you know these cannot happen,"
+                + " add the statement `fail('unreachable')` to them."
+                + " For more details, have a look at the documentation. [missing-return-value]");
     Truth.assertThat(messages)
         .contains(
             "5:5-5:10: return value missing (you can `return None` if this is desired)"
@@ -89,8 +93,10 @@ public class ControlFlowCheckerTest {
                     "    return not x")
                 .toString())
         .contains(
-            "1:1-7:16: some but not all execution paths of 'f' return a value"
-                + " [missing-return-value]");
+            "1:1-7:16: some but not all execution paths of 'f' return a value."
+                + " If you know these cannot happen,"
+                + " add the statement `fail('unreachable')` to them."
+                + " For more details, have a look at the documentation. [missing-return-value]");
   }
 
   @Test
@@ -107,8 +113,10 @@ public class ControlFlowCheckerTest {
                     "    return x")
                 .toString())
         .contains(
-            "1:1-8:12: some but not all execution paths of 'f' return a value"
-                + " [missing-return-value]");
+            "1:1-8:12: some but not all execution paths of 'f' return a value."
+                + " If you know these cannot happen,"
+                + " add the statement `fail('unreachable')` to them."
+                + " For more details, have a look at the documentation. [missing-return-value]");
   }
 
   @Test
@@ -121,9 +129,9 @@ public class ControlFlowCheckerTest {
                     "  elif not x:",
                     "    return not x")
                 .toString())
-        .contains(
-            "1:1-5:16: some but not all execution paths of 'some_function' return a value"
-                + " [missing-return-value]");
+        .containsMatch(
+            "1:1-5:16: some but not all execution paths of 'some_function' return a value."
+                + " .+ \\[missing-return-value\\]");
   }
 
   @Test
@@ -136,9 +144,9 @@ public class ControlFlowCheckerTest {
                     "  print('foo')",
                     "  # return missing here")
                 .toString())
-        .contains(
-            "1:1-4:14: some but not all execution paths of 'some_function' return a value"
-                + " [missing-return-value]");
+        .containsMatch(
+            "1:1-4:14: some but not all execution paths of 'some_function' return a value."
+                + " .+ \\[missing-return-value\\]");
   }
 
   @Test
@@ -151,9 +159,9 @@ public class ControlFlowCheckerTest {
                     "  print('foo')",
                     "  # return missing here")
                 .toString())
-        .contains(
-            "1:1-4:14: some but not all execution paths of 'some_function' return a value"
-                + " [missing-return-value]");
+        .containsMatch(
+            "1:1-4:14: some but not all execution paths of 'some_function' return a value."
+                + " .+ \\[missing-return-value\\]");
   }
 
   @Test
@@ -166,9 +174,9 @@ public class ControlFlowCheckerTest {
                 "  return x")
             .toString();
     Truth.assertThat(messages)
-        .contains(
-            "1:1-4:10: some but not all execution paths of 'some_function' return a value"
-                + " [missing-return-value]");
+        .containsMatch(
+            "1:1-4:10: some but not all execution paths of 'some_function' return a value."
+                + " .+ \\[missing-return-value\\]");
     Truth.assertThat(messages)
         .contains(
             "3:5-3:10: return value missing (you can `return None` if this is desired)"

@@ -236,7 +236,13 @@ public class UsageChecker extends AstVisitorWithNameResolution {
       issues.add(
           Issue.create(
               UNINITIALIZED_VARIABLE_CATEGORY,
-              "variable '" + info.name + "' may not have been initialized",
+              "variable '"
+                  + info.name
+                  + "' may not have been initialized."
+                  + " If you believe this is wrong, you can add `fail('unreachable')"
+                  + " to the branches where it is not initialized"
+                  + " or initialize it with `None` at the beginning."
+                  + " For more details, have a look at the documentation.",
               node.getLocation()));
     }
   }
