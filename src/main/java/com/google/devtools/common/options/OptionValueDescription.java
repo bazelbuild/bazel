@@ -14,7 +14,6 @@
 
 package com.google.devtools.common.options;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -114,7 +113,7 @@ public abstract class OptionValueDescription {
     return new DefaultOptionValueDescription(option);
   }
 
-  static class DefaultOptionValueDescription extends OptionValueDescription {
+  private static class DefaultOptionValueDescription extends OptionValueDescription {
 
     private DefaultOptionValueDescription(OptionDefinition optionDefinition) {
       super(optionDefinition);
@@ -147,7 +146,7 @@ public abstract class OptionValueDescription {
    * The form of a value for a default type of flag, one that does not accumulate multiple values
    * and has no expansion.
    */
-  static class SingleOptionValueDescription extends OptionValueDescription {
+  private static class SingleOptionValueDescription extends OptionValueDescription {
     private ParsedOptionDescription effectiveOptionInstance;
     private Object effectiveValue;
 
@@ -199,6 +198,11 @@ public abstract class OptionValueDescription {
         // Output warnings if there is conflicting options set different values in a way that might
         // not have been obvious to the user, such as through expansions and implicit requirements.
         if (!effectiveValue.equals(newValue)) {
+          boolean samePriorityCategory =
+              parsedOption
+                  .getPriority()
+                  .getPriorityCategory()
+                  .equals(effectiveOptionInstance.getPriority().getPriorityCategory());
           if ((implicitDependent != null) && (optionThatDependsOnEffectiveValue != null)) {
             if (!implicitDependent.equals(optionThatDependsOnEffectiveValue)) {
               warnings.add(
@@ -206,8 +210,7 @@ public abstract class OptionValueDescription {
                       "%s is implicitly defined by both %s and %s",
                       optionDefinition, optionThatDependsOnEffectiveValue, implicitDependent));
             }
-          } else if ((implicitDependent != null)
-              && parsedOption.getPriority().equals(effectiveOptionInstance.getPriority())) {
+          } else if ((implicitDependent != null) && samePriorityCategory) {
             warnings.add(
                 String.format(
                     "%s is implicitly defined by %s; the implicitly set value "
@@ -219,7 +222,7 @@ public abstract class OptionValueDescription {
                     "A new value for %s overrides a previous implicit setting of that "
                         + "option by %s",
                     optionDefinition, optionThatDependsOnEffectiveValue));
-          } else if ((parsedOption.getPriority().equals(effectiveOptionInstance.getPriority()))
+          } else if (samePriorityCategory
               && ((optionThatExpandedToEffectiveValue == null) && (expandedFrom != null))) {
             // Create a warning if an expansion option overrides an explicit option:
             warnings.add(
@@ -252,15 +255,10 @@ public abstract class OptionValueDescription {
       }
       return ImmutableList.of();
     }
-
-    @VisibleForTesting
-    ParsedOptionDescription getEffectiveOptionInstance() {
-      return effectiveOptionInstance;
-    }
   }
 
   /** The form of a value for an option that accumulates multiple values on the command line. */
-  static class RepeatableOptionValueDescription extends OptionValueDescription {
+  private static class RepeatableOptionValueDescription extends OptionValueDescription {
     ListMultimap<OptionPriority, ParsedOptionDescription> parsedOptions;
     ListMultimap<OptionPriority, Object> optionValues;
 
@@ -334,7 +332,7 @@ public abstract class OptionValueDescription {
    * in place to other options. This should be used for both flags with a static expansion defined
    * in {@link Option#expansion()} and flags with an {@link Option#expansionFunction()}.
    */
-  static class ExpansionOptionValueDescription extends OptionValueDescription {
+  private static class ExpansionOptionValueDescription extends OptionValueDescription {
     private final List<String> expansion;
 
     private ExpansionOptionValueDescription(
@@ -385,7 +383,8 @@ public abstract class OptionValueDescription {
   }
 
   /** The form of a value for a flag with implicit requirements. */
-  static class OptionWithImplicitRequirementsValueDescription extends SingleOptionValueDescription {
+  private static class OptionWithImplicitRequirementsValueDescription
+      extends SingleOptionValueDescription {
 
     private OptionWithImplicitRequirementsValueDescription(OptionDefinition optionDefinition) {
       super(optionDefinition);
@@ -429,7 +428,7 @@ public abstract class OptionValueDescription {
   }
 
   /** Form for options that contain other options in the value text to which they expand. */
-  static final class WrapperOptionValueDescription extends OptionValueDescription {
+  private static final class WrapperOptionValueDescription extends OptionValueDescription {
 
     WrapperOptionValueDescription(OptionDefinition optionDefinition) {
       super(optionDefinition);

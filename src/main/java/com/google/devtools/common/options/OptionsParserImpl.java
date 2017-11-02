@@ -32,6 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -70,15 +71,19 @@ class OptionsParserImpl {
 
   private final List<String> warnings = new ArrayList<>();
 
+  /**
+   * Since parse() expects multiple calls to it with the same {@link PriorityCategory} to be treated
+   * as though the args in the later call have higher priority over the earlier calls, we need to
+   * track the high water mark of option priority at each category. Each call to parse will start at
+   * this level.
+   */
+  private final Map<PriorityCategory, OptionPriority> nextPriorityPerPriorityCategory =
+      Stream.of(PriorityCategory.values())
+          .collect(Collectors.toMap(p -> p, OptionPriority::lowestOptionPriorityAtCategory));
+
   private boolean allowSingleDashLongOptions = false;
 
-  private ArgsPreProcessor argsPreProcessor =
-      new ArgsPreProcessor() {
-        @Override
-        public List<String> preProcess(List<String> args) throws OptionsParsingException {
-          return args;
-        }
-      };
+  private ArgsPreProcessor argsPreProcessor = args -> args;
 
   /** Create a new parser object. Do not accept a null OptionsData object. */
   OptionsParserImpl(OptionsData optionsData) {
@@ -261,12 +266,24 @@ class OptionsParserImpl {
    * order.
    */
   List<String> parse(
-      OptionPriority.PriorityCategory priority,
+      PriorityCategory priorityCat,
       Function<OptionDefinition, String> sourceFunction,
       List<String> args)
       throws OptionsParsingException {
-    return parse(
-        OptionPriority.lowestOptionPriorityAtCategory(priority), sourceFunction, null, null, args);
+    ResidueAndPriority residueAndPriority =
+        parse(nextPriorityPerPriorityCategory.get(priorityCat), sourceFunction, null, null, args);
+    nextPriorityPerPriorityCategory.put(priorityCat, residueAndPriority.nextPriority);
+    return residueAndPriority.residue;
+  }
+
+  private static final class ResidueAndPriority {
+    List<String> residue;
+    OptionPriority nextPriority;
+
+    public ResidueAndPriority(List<String> residue, OptionPriority nextPriority) {
+      this.residue = residue;
+      this.nextPriority = nextPriority;
+    }
   }
 
   /**
@@ -277,7 +294,7 @@ class OptionsParserImpl {
    * <p>The method treats options that have neither an implicitDependent nor an expandedFrom value
    * as explicitly set.
    */
-  private List<String> parse(
+  private ResidueAndPriority parse(
       OptionPriority priority,
       Function<OptionDefinition, String> sourceFunction,
       OptionDefinition implicitDependent,
@@ -304,6 +321,7 @@ class OptionsParserImpl {
           identifyOptionAndPossibleArgument(
               arg, argsIterator, priority, sourceFunction, implicitDependent, expandedFrom);
       handleNewParsedOption(parsedOption);
+      priority = OptionPriority.nextOptionPriority(priority);
     }
 
     // Go through the final values and make sure they are valid values for their option. Unlike any
@@ -313,7 +331,7 @@ class OptionsParserImpl {
       valueDescription.getValue();
     }
 
-    return unparsedArgs;
+    return new ResidueAndPriority(unparsedArgs, priority);
   }
 
   /**
@@ -383,20 +401,20 @@ class OptionsParserImpl {
     }
 
     if (expansionBundle != null) {
-      List<String> unparsed =
+      ResidueAndPriority residueAndPriority =
           parse(
-              parsedOption.getPriority(),
+              OptionPriority.getLockedPriority(parsedOption.getPriority()),
               o -> expansionBundle.sourceOfExpansionArgs,
               optionDefinition.hasImplicitRequirements() ? optionDefinition : null,
               optionDefinition.isExpansionOption() ? optionDefinition : null,
               expansionBundle.expansionArgs);
-      if (!unparsed.isEmpty()) {
+      if (!residueAndPriority.residue.isEmpty()) {
         if (optionDefinition.isWrapperOption()) {
           throw new OptionsParsingException(
               "Unparsed options remain after unwrapping "
                   + unconvertedValue
                   + ": "
-                  + Joiner.on(' ').join(unparsed));
+                  + Joiner.on(' ').join(residueAndPriority.residue));
         } else {
           // Throw an assertion here, because this indicates an error in the definition of this
           // option's expansion or requirements, not with the input as provided by the user.
@@ -404,7 +422,7 @@ class OptionsParserImpl {
               "Unparsed options remain after processing "
                   + unconvertedValue
                   + ": "
-                  + Joiner.on(' ').join(unparsed));
+                  + Joiner.on(' ').join(residueAndPriority.residue));
         }
       }
     }

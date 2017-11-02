@@ -19,14 +19,10 @@ import static com.google.devtools.common.options.OptionsParser.newOptionsParser;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ListMultimap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
-import com.google.devtools.common.options.OptionValueDescription.RepeatableOptionValueDescription;
-import com.google.devtools.common.options.OptionValueDescription.SingleOptionValueDescription;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -40,12 +36,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.junit.Test;
@@ -1107,14 +1101,17 @@ public class OptionsParserTest {
 
     // In order to have access to the ParsedOptionDescription tracked by the value of 'underlying'
     // we have to know that this option is a "single valued" option.
-    SingleOptionValueDescription underlyingDescription =
-        (SingleOptionValueDescription) parser.getOptionValueDescription("underlying");
-    assertThat(underlyingDescription).isNotNull();
-    assertThat(underlyingDescription.getSourceString()).matches("expanded from option '--expands'");
-    assertThat(underlyingDescription.getEffectiveOptionInstance()).isNotNull();
-    assertThat(underlyingDescription.getEffectiveOptionInstance().getExpandedFrom())
+    OptionValueDescription optionValue = parser.getOptionValueDescription("underlying");
+    assertThat(optionValue).isNotNull();
+    assertThat(optionValue.getSourceString()).matches("expanded from option '--expands'");
+    assertThat(optionValue.getCanonicalInstances()).isNotNull();
+    assertThat(optionValue.getCanonicalInstances()).hasSize(1);
+
+    ParsedOptionDescription effectiveInstance = optionValue.getCanonicalInstances().get(0);
+    assertThat(effectiveInstance.getExpandedFrom())
         .isSameAs(expansionDescription.getOptionDefinition());
-    assertThat(underlyingDescription.getEffectiveOptionInstance().getImplicitDependent()).isNull();
+    assertThat(effectiveInstance.getImplicitDependent()).isNull();
+
     assertThat(parser.getWarnings()).isEmpty();
   }
 
@@ -1227,11 +1224,10 @@ public class OptionsParserTest {
     assertThat(result.getOptionDefinition().getOptionName()).isEqualTo("simple");
     assertThat(result.getValue()).isEqualTo("abc");
     assertThat(result.getSourceString()).isEqualTo("my description");
+    assertThat(result.getCanonicalInstances()).isNotNull();
+    assertThat(result.getCanonicalInstances()).hasSize(1);
 
-    // To check that the option tracks origin correctly, we need to check information that is
-    // specific to a single-valued option.
-    SingleOptionValueDescription singleOptionResult = (SingleOptionValueDescription) result;
-    ParsedOptionDescription singleOptionInstance = singleOptionResult.getEffectiveOptionInstance();
+    ParsedOptionDescription singleOptionInstance = result.getCanonicalInstances().get(0);
     assertThat(singleOptionInstance.getPriority().getPriorityCategory())
         .isEqualTo(OptionPriority.PriorityCategory.COMMAND_LINE);
     assertThat(singleOptionInstance.getOptionDefinition().isExpansionOption()).isFalse();
@@ -1340,23 +1336,21 @@ public class OptionsParserTest {
   }
 
   @Test
-  public void tesDependentOriginIsPropagatedToOption() throws OptionsParsingException {
+  public void testDependentOriginIsPropagatedToOption() throws OptionsParsingException {
     OptionsParser parser = OptionsParser.newOptionsParser(ImplicitDependencyWarningOptions.class);
     parser.parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, Arrays.asList("--first"));
-    OptionValueDescription originalOption = parser.getOptionValueDescription("first");
-    assertThat(originalOption).isNotNull();
+    OptionValueDescription first = parser.getOptionValueDescription("first");
+    assertThat(first).isNotNull();
+    assertThat(first.getCanonicalInstances()).hasSize(1);
 
-    // In order to have access to the ParsedOptionDescription tracked by the value of 'underlying'
-    // we have to know that this option is a "single valued" option.
-    SingleOptionValueDescription requiredOption =
-        (SingleOptionValueDescription) parser.getOptionValueDescription("second");
-    assertThat(requiredOption).isNotNull();
-    assertThat(requiredOption.getSourceString())
-        .matches("implicit requirement of option '--first'");
-    assertThat(requiredOption.getEffectiveOptionInstance()).isNotNull();
-    assertThat(requiredOption.getEffectiveOptionInstance().getExpandedFrom()).isNull();
-    assertThat(requiredOption.getEffectiveOptionInstance().getImplicitDependent())
-        .isSameAs(originalOption.getOptionDefinition());
+    OptionValueDescription second = parser.getOptionValueDescription("second");
+    assertThat(second).isNotNull();
+    assertThat(second.getSourceString()).matches("implicit requirement of option '--first'");
+    // Implicit requirements don't get listed as canonical. Check that this claims to be empty,
+    // which tells us that the option instance is correctly tracking that is originated as an
+    // implicit requirement.
+    assertThat(second.getCanonicalInstances()).isNotNull();
+    assertThat(second.getCanonicalInstances()).hasSize(0);
     assertThat(parser.getWarnings()).isEmpty();
   }
 
@@ -1683,10 +1677,11 @@ public class OptionsParserTest {
       Object expectedValue,
       OptionPriority.PriorityCategory expectedPriority,
       String expectedSource,
-      SingleOptionValueDescription actual) {
+      OptionValueDescription actual) {
     assertOptionValue(expectedName, expectedValue, actual);
     assertThat(actual.getSourceString()).isEqualTo(expectedSource);
-    assertThat(actual.getEffectiveOptionInstance().getPriority().getPriorityCategory())
+    assertThat(actual.getCanonicalInstances()).isNotEmpty();
+    assertThat(actual.getCanonicalInstances().get(0).getPriority().getPriorityCategory())
         .isEqualTo(expectedPriority);
   }
 
@@ -1712,13 +1707,13 @@ public class OptionsParserTest {
         "alphaValueSetOnCommandLine",
         OptionPriority.PriorityCategory.COMMAND_LINE,
         "command line source",
-        (SingleOptionValueDescription) map.get("alpha"));
+        map.get("alpha"));
     assertOptionValue(
         "gamma",
         "gammaValueSetOnCommandLine",
         OptionPriority.PriorityCategory.COMMAND_LINE,
         "command line source",
-        (SingleOptionValueDescription) map.get("gamma"));
+        map.get("gamma"));
     assertOptionValue("beta", "betaDefaultValue", map.get("beta"));
     assertOptionValue("delta", "deltaDefaultValue", map.get("delta"));
     assertOptionValue("echo", "echoDefaultValue", map.get("echo"));
@@ -1758,41 +1753,34 @@ public class OptionsParserTest {
   public void listOptionsHaveCorrectPriorities() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ListExample.class);
     parser.parse(
-        OptionPriority.PriorityCategory.COMMAND_LINE,
-        "command line source",
-        Arrays.asList("--alpha=cli"));
+        PriorityCategory.COMMAND_LINE,
+        "command line source, part 1",
+        Arrays.asList("--alpha=cli1", "--alpha=cli2"));
     parser.parse(
-        OptionPriority.PriorityCategory.RC_FILE,
-        "rc file origin",
-        Arrays.asList("--alpha=rc1", "--alpha=rc2"));
+        PriorityCategory.COMMAND_LINE,
+        "command line source, part 2",
+        Arrays.asList("--alpha=cli3", "--alpha=cli4"));
+    parser.parse(
+        PriorityCategory.RC_FILE, "rc file origin", Arrays.asList("--alpha=rc1", "--alpha=rc2"));
 
     OptionValueDescription alphaValue = parser.getOptionValueDescription("alpha");
-    assertThat(alphaValue).isInstanceOf(RepeatableOptionValueDescription.class);
 
-    // Rearrange the parsed options so we can group them by PriorityCategory.
-    RepeatableOptionValueDescription alpha = (RepeatableOptionValueDescription) alphaValue;
+    List<ParsedOptionDescription> parsedOptions = alphaValue.getCanonicalInstances();
+    System.out.println("parsedOptions:\n" + parsedOptions);
 
-    ListMultimap<PriorityCategory, ParsedOptionDescription> parsedOptions =
-        ArrayListMultimap.create();
-    for (Entry<OptionPriority, Collection<ParsedOptionDescription>> entry :
-        alpha.parsedOptions.asMap().entrySet()) {
-      parsedOptions.putAll(entry.getKey().getPriorityCategory(), entry.getValue());
-    }
-    assertThat(parsedOptions).containsKey(OptionPriority.PriorityCategory.RC_FILE);
-    assertThat(parsedOptions).containsKey(OptionPriority.PriorityCategory.COMMAND_LINE);
-    List<ParsedOptionDescription> rcOptions =
-        parsedOptions.get(OptionPriority.PriorityCategory.RC_FILE);
-    List<ParsedOptionDescription> cliOptions =
-        parsedOptions.get(OptionPriority.PriorityCategory.COMMAND_LINE);
-
-    assertThat(rcOptions).hasSize(2);
-    assertThat(rcOptions.get(0).getSource()).matches("rc file origin");
-    assertThat(rcOptions.get(0).getUnconvertedValue()).matches("rc1");
-    assertThat(rcOptions.get(1).getSource()).matches("rc file origin");
-    assertThat(rcOptions.get(1).getUnconvertedValue()).matches("rc2");
-    assertThat(cliOptions).hasSize(1);
-    assertThat(cliOptions.get(0).getSource()).matches("command line source");
-    assertThat(cliOptions.get(0).getUnconvertedValue()).matches("cli");
+    assertThat(parsedOptions).hasSize(6);
+    assertThat(parsedOptions.get(0).getSource()).matches("rc file origin");
+    assertThat(parsedOptions.get(0).getUnconvertedValue()).matches("rc1");
+    assertThat(parsedOptions.get(1).getSource()).matches("rc file origin");
+    assertThat(parsedOptions.get(1).getUnconvertedValue()).matches("rc2");
+    assertThat(parsedOptions.get(2).getSource()).matches("command line source, part 1");
+    assertThat(parsedOptions.get(2).getUnconvertedValue()).matches("cli1");
+    assertThat(parsedOptions.get(3).getSource()).matches("command line source, part 1");
+    assertThat(parsedOptions.get(3).getUnconvertedValue()).matches("cli2");
+    assertThat(parsedOptions.get(4).getSource()).matches("command line source, part 2");
+    assertThat(parsedOptions.get(4).getUnconvertedValue()).matches("cli3");
+    assertThat(parsedOptions.get(5).getSource()).matches("command line source, part 2");
+    assertThat(parsedOptions.get(5).getUnconvertedValue()).matches("cli4");
     assertThat(parser.getWarnings()).isEmpty();
   }
 
@@ -1837,32 +1825,15 @@ public class OptionsParserTest {
         Arrays.asList("--alpha=rc1,rc2,rc3"));
 
     OptionValueDescription alphaValue = parser.getOptionValueDescription("alpha");
-    assertThat(alphaValue).isInstanceOf(RepeatableOptionValueDescription.class);
+    List<ParsedOptionDescription> parsedOptions = alphaValue.getCanonicalInstances();
 
-    // Rearrange the parsed options so we can group them by PriorityCategory.
-    RepeatableOptionValueDescription alpha = (RepeatableOptionValueDescription) alphaValue;
-    ListMultimap<PriorityCategory, ParsedOptionDescription> parsedOptions =
-        ArrayListMultimap.create();
-    for (Entry<OptionPriority, Collection<ParsedOptionDescription>> entry :
-        alpha.parsedOptions.asMap().entrySet()) {
-      parsedOptions.putAll(entry.getKey().getPriorityCategory(), entry.getValue());
-    }
-
-    assertThat(parsedOptions).containsKey(OptionPriority.PriorityCategory.RC_FILE);
-    assertThat(parsedOptions).containsKey(OptionPriority.PriorityCategory.COMMAND_LINE);
-    List<ParsedOptionDescription> rcOptions =
-        parsedOptions.get(OptionPriority.PriorityCategory.RC_FILE);
-    List<ParsedOptionDescription> cliOptions =
-        parsedOptions.get(OptionPriority.PriorityCategory.COMMAND_LINE);
-
-    assertThat(rcOptions).hasSize(1);
-    assertThat(rcOptions.get(0).getSource()).matches("rc file origin");
-    assertThat(rcOptions.get(0).getUnconvertedValue()).matches("rc1,rc2,rc3");
-    assertThat(cliOptions).hasSize(2);
-    assertThat(cliOptions.get(0).getSource()).matches("command line source");
-    assertThat(cliOptions.get(0).getUnconvertedValue()).matches("one");
-    assertThat(cliOptions.get(1).getSource()).matches("command line source");
-    assertThat(cliOptions.get(1).getUnconvertedValue()).matches("two,three");
+    assertThat(parsedOptions).hasSize(3);
+    assertThat(parsedOptions.get(0).getSource()).matches("rc file origin");
+    assertThat(parsedOptions.get(0).getUnconvertedValue()).matches("rc1,rc2,rc3");
+    assertThat(parsedOptions.get(1).getSource()).matches("command line source");
+    assertThat(parsedOptions.get(1).getUnconvertedValue()).matches("one");
+    assertThat(parsedOptions.get(2).getSource()).matches("command line source");
+    assertThat(parsedOptions.get(2).getUnconvertedValue()).matches("two,three");
     assertThat(parser.getWarnings()).isEmpty();
   }
 

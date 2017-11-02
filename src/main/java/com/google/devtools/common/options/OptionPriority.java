@@ -26,18 +26,42 @@ import java.util.Objects;
 public class OptionPriority implements Comparable<OptionPriority> {
   private final PriorityCategory priorityCategory;
   private final int index;
+  private final boolean locked;
 
-  private OptionPriority(PriorityCategory priorityCategory, int index) {
+  private OptionPriority(PriorityCategory priorityCategory, int index, boolean locked) {
     this.priorityCategory = priorityCategory;
     this.index = index;
+    this.locked = locked;
   }
 
-  public static OptionPriority lowestOptionPriorityAtCategory(PriorityCategory category) {
-    return new OptionPriority(category, 0);
+  /** Get the first OptionPriority for that category. */
+  static OptionPriority lowestOptionPriorityAtCategory(PriorityCategory category) {
+    return new OptionPriority(category, 0, false);
   }
 
-  public static OptionPriority nextOptionPriority(OptionPriority priority) {
-    return new OptionPriority(priority.priorityCategory, priority.index + 1);
+  /**
+   * Get the priority for the option following this one. In normal, incremental option parsing, the
+   * returned priority would compareTo as after the current one. Does not increment locked
+   * priorities.
+   */
+  static OptionPriority nextOptionPriority(OptionPriority priority) {
+    if (priority.locked) {
+      return priority;
+    }
+    return new OptionPriority(priority.priorityCategory, priority.index + 1, false);
+  }
+
+  /**
+   * Return a priority for this option that will avoid priority increases by calls to
+   * nextOptionPriority.
+   *
+   * <p>Some options are expanded in-place, and need to be all parsed at the priority of the
+   * original option. In this case, parsing one of these after another should not cause the option
+   * to be considered as higher priority than the ones before it (this would cause overlap between
+   * the expansion of --expansion_flag and a option following it in the same list of options).
+   */
+  public static OptionPriority getLockedPriority(OptionPriority priority) {
+    return new OptionPriority(priority.priorityCategory, priority.index, true);
   }
 
   public PriorityCategory getPriorityCategory() {
@@ -64,6 +88,11 @@ public class OptionPriority implements Comparable<OptionPriority> {
   @Override
   public int hashCode() {
     return Objects.hash(priorityCategory, index);
+  }
+
+  @Override
+  public String toString() {
+    return String.format("OptionPriority(%s,%s)", priorityCategory, index);
   }
 
   /**
