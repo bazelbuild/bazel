@@ -142,7 +142,7 @@ initial build of the project as follows:
 #### Step 3a: Add the application target
 
 Add a [`macos_application`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-macos.md#macos_application)
-or an [`ios_application`](https://docs.bazel.build/versions/master/be/objective-c.html#ios_application)
+or an [`ios_application`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-ios.md#ios_application)
 rule target. This target builds a macOS or iOS application bundle, respectively.
 In the target, specify the following at the minimum:
 
