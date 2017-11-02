@@ -300,7 +300,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
    */
   @Nullable
   public CcToolchainFeatures getFeatures() {
-    return toolchainInfo.getFeatures();
+    return cppConfiguration == null ? null : cppConfiguration.getFeatures();
   }
 
   /**

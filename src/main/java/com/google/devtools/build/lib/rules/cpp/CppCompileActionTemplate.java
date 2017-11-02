@@ -39,7 +39,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   private final CppCompileActionBuilder cppCompileActionBuilder;
   private final Artifact sourceTreeArtifact;
   private final Artifact outputTreeArtifact;
-  private final CcToolchainProvider toolchain;
+  private final CppConfiguration cppConfiguration;
   private final Iterable<ArtifactCategory> categories;
   private final ActionOwner actionOwner;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -49,25 +49,25 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
    * Creates an CppCompileActionTemplate.
    * @param sourceTreeArtifact the TreeArtifact that contains source files to compile.
    * @param outputTreeArtifact the TreeArtifact that contains compilation outputs.
-   * @param cppCompileActionBuilder An almost completely configured {@link CppCompileActionBuilder}
+   * @param cppCompileActionBuilder An almost completely configured  {@link CppCompileActionBuilder}
    *     without the input and output files set. It is used as a template to instantiate expanded
    *     {CppCompileAction}s.
-   * @param toolchain the CcToolchainProvider representing the c++ toolchain for this action
-   * @param categories A list of {@link ArtifactCategory} used to calculate output file name from a
-   *     source file name.
+   * @param cppConfiguration configuration for cpp.
+   * @param categories A list of {@link ArtifactCategory} used to calculate output file name from
+   *     a source file name.
    * @param actionOwner the owner of this {@link ActionTemplate}.
    */
   CppCompileActionTemplate(
       Artifact sourceTreeArtifact,
       Artifact outputTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
-      CcToolchainProvider toolchain,
+      CppConfiguration cppConfiguration,
       Iterable<ArtifactCategory> categories,
       ActionOwner actionOwner) {
     this.cppCompileActionBuilder = cppCompileActionBuilder;
     this.sourceTreeArtifact = sourceTreeArtifact;
     this.outputTreeArtifact = outputTreeArtifact;
-    this.toolchain = toolchain;
+    this.cppConfiguration = cppConfiguration;
     this.categories = categories;
     this.actionOwner = actionOwner;
     this.mandatoryInputs = cppCompileActionBuilder.buildMandatoryInputs();
@@ -124,7 +124,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     String outputName = FileSystemUtils.removeExtension(
         inputTreeFileArtifact.getParentRelativePath().getPathString());
     for (ArtifactCategory category : categories) {
-      outputName = toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
+      outputName = cppConfiguration.getFeatures().getArtifactNameForCategory(category, outputName);
     }
     return outputName;
   }

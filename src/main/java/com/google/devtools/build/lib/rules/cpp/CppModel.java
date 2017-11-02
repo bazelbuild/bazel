@@ -1165,14 +1165,13 @@ public final class CppModel {
         coptsFilter,
         features);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
-    CppCompileActionTemplate actionTemplate =
-        new CppCompileActionTemplate(
-            sourceArtifact,
-            outputFiles,
-            builder,
-            ccToolchain,
-            outputCategories,
-            ruleContext.getActionOwner());
+    CppCompileActionTemplate actionTemplate = new CppCompileActionTemplate(
+        sourceArtifact,
+        outputFiles,
+        builder,
+        cppConfiguration,
+        outputCategories,
+        ruleContext.getActionOwner());
     env.registerAction(actionTemplate);
 
     return outputFiles;

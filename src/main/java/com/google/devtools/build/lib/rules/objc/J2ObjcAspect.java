@@ -262,7 +262,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         CompilationSupport compilationSupport =
             new CompilationSupport.Builder()
                 .setRuleContext(ruleContext)
-                .setToolchainProvider(ccToolchain)
                 .setIntermediateArtifacts(ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext))
                 .doNotUsePch()
                 .build();

@@ -176,7 +176,6 @@ public class MultiArchBinarySupport {
           new CompilationSupport.Builder()
               .setRuleContext(ruleContext)
               .setConfig(dependencySpecificConfiguration.config())
-              .setToolchainProvider(dependencySpecificConfiguration.toolchain())
               .setOutputGroupCollector(outputMapCollector)
               .build();
 
