@@ -930,7 +930,6 @@ public class CppLinkActionBuilder {
         interfaceOutputLibrary,
         fake,
         isLtoIndexing,
-        allLtoArtifacts,
         linkCommandLine,
         configuration.getVariableShellEnvironment(),
         configuration.getLocalShellEnvironment(),
@@ -1025,6 +1024,11 @@ public class CppLinkActionBuilder {
   public CppLinkActionBuilder setCrosstoolInputs(NestedSet<Artifact> inputs) {
     this.crosstoolInputs = inputs;
     return this;
+  }
+
+  /** Returns the set of LTO artifacts created during build() */
+  public Iterable<LtoBackendArtifacts> getAllLtoBackendArtifacts() {
+    return allLtoArtifacts;
   }
 
   /**
