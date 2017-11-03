@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -42,13 +41,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ObjcSkylarkTest extends ObjcRuleTestCase {
-
-  @Override
-  protected void useConfiguration(String... args) throws Exception {
-    // Do not test crosstool for skylark tests.
-    useConfiguration(ObjcCrosstoolMode.OFF, args);
-  }
-
   @Test
   public void testSkylarkRuleCanDependOnNativeAppleRule() throws Exception {
     scratch.file("examples/rule/BUILD");

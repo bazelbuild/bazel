@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos;
 import java.util.List;
 import java.util.Map;
@@ -277,12 +276,6 @@ public class IosTestTest extends ObjcRuleTestCase {
     String commandLine = Joiner.on(" ").join(action.getArguments());
     assertThat(commandLine).contains("-bundle");
     assertThat(commandLine).contains("-Xlinker -rpath -Xlinker @loader_path/Frameworks");
-  }
-
-  @Test
-  public void testXcTest_linkAction_Crosstool() throws Exception {
-    useConfiguration(ObjcCrosstoolMode.ALL);
-    testXcTest_linkAction();
   }
 
   @Test

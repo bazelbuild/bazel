@@ -145,7 +145,6 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     String dummyMinimumOsValue = "13.579";
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool",
-        "--experimental_objc_crosstool=all",
         "--apple_crosstool_transition",
         "--cpu=darwin_x86_64",
         "--macos_minimum_os=" + dummyMinimumOsValue);
@@ -211,7 +210,6 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     String dummyMinimumOsValue = "13.579";
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool",
-        "--experimental_objc_crosstool=all",
         "--apple_crosstool_transition",
         "--cpu=darwin_x86_64");
     scratch.file(

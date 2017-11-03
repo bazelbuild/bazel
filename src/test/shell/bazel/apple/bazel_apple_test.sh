@@ -169,7 +169,6 @@ std::string GetString() { return "h3ll0"; }
 EOF
 
   bazel build --verbose_failures //package:lipo_out \
-    --experimental_objc_crosstool=all \
     --apple_crosstool_transition \
     --ios_multi_cpus=i386,x86_64 \
     --xcode_version=$XCODE_VERSION \
@@ -245,7 +244,6 @@ std::string GetString() { return "h3ll0"; }
 EOF
 
   bazel build --verbose_failures //package:lipo_out \
-      --experimental_objc_crosstool=library \
       --apple_crosstool_transition \
       --watchos_cpus=armv7k \
       --xcode_version=$XCODE_VERSION \

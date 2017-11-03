@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 
 /**
  * Transition that produces a configuration that causes c++ toolchain selection to use the
@@ -88,8 +87,7 @@ public class AppleCrosstoolTransition implements PatchTransition {
    * Returns true if the given options imply use of AppleCrosstoolTransition for all apple targets.
    */
   public static boolean appleCrosstoolTransitionIsAppliedForAllObjc(BuildOptions options) {
-    return (options.get(AppleCommandLineOptions.class).enableAppleCrosstoolTransition
-        || options.get(ObjcCommandLineOptions.class).objcCrosstoolMode != ObjcCrosstoolMode.OFF);
+    return options.get(AppleCommandLineOptions.class).enableAppleCrosstoolTransition;
   }
 
   /**

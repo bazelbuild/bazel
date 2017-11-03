@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -238,38 +237,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "when signing."
   )
   public boolean deviceDebugEntitlements;
-
-  /** Specifies the circumstances under which a CROSSTOOL is used for objc in this configuration. */
-  public enum ObjcCrosstoolMode {
-    /** The CROSSTOOL is used for all objc compile, archive, and link actions. */
-    ALL,
-
-    /**
-     * The CROSSTOOL is used for all objc compile and archive actions originating from an
-     * objc_library target.
-     */
-    LIBRARY,
-
-    /** The CROSSTOOL is not used for any objc action. */
-    OFF
-  }
-
-  /** Converter for {@link ObjcCrosstoolMode}. */
-  public static class ObjcCrosstoolUsageConverter extends EnumConverter<ObjcCrosstoolMode> {
-    public ObjcCrosstoolUsageConverter() {
-      super(ObjcCrosstoolMode.class, "objc crosstool mode");
-    }
-  }
-
-  @Option(
-    name = "experimental_objc_crosstool",
-    defaultValue = "all",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    converter = ObjcCrosstoolUsageConverter.class
-  )
-  public ObjcCrosstoolMode objcCrosstoolMode;
 
   @Option(
     name = "objc_use_dotd_pruning",

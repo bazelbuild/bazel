@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -795,7 +794,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testLinksImplicitFrameworksWithCrosstoolIos() throws Exception {
     useConfiguration(
-        ObjcCrosstoolMode.ALL,
         "--ios_multi_cpus=x86_64",
         "--ios_sdk_version=10.0",
         "--ios_minimum_os=8.0");
@@ -811,7 +809,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testLinksImplicitFrameworksWithCrosstoolWatchos() throws Exception {
     useConfiguration(
-        ObjcCrosstoolMode.ALL,
         "--watchos_cpus=i386",
         "--watchos_sdk_version=3.0",
         "--watchos_minimum_os=2.0");
@@ -827,7 +824,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testLinksImplicitFrameworksWithCrosstoolTvos() throws Exception {
     useConfiguration(
-        ObjcCrosstoolMode.ALL,
         "--tvos_cpus=x86_64",
         "--tvos_sdk_version=10.1",
         "--tvos_minimum_os=10.0");
@@ -843,7 +839,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testLinksImplicitFrameworksWithCrosstoolMacos() throws Exception {
     useConfiguration(
-        ObjcCrosstoolMode.ALL,
         "--macos_cpus=x86_64",
         "--macos_sdk_version=10.11",
         "--macos_minimum_os=10.11");
@@ -861,7 +856,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testLinkCocoaFeatureWithCrosstoolMacos() throws Exception {
     useConfiguration(
-        ObjcCrosstoolMode.ALL,
         "--macos_cpus=x86_64",
         "--macos_sdk_version=10.11",
         "--macos_minimum_os=10.11");

@@ -27,8 +27,6 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.Set;
@@ -86,32 +84,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         String.format(MultiArchSplitTransitionProvider.UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT,
             "meow_meow_os"),
         "apple_static_library(name = 'test', platform_type = 'meow_meow_os')");
-  }
-
-  @Test
-  public void testCanUseCrosstool() throws Exception {
-    useConfiguration(ObjcCrosstoolMode.ALL);
-    RULE_TYPE.scratchTarget(scratch);
-
-    // If the target is indeed using the c++ backend, then its archive action should be a
-    // CppLinkAction.
-    Action lipoLibAction = lipoLibAction("//x:x");
-    Artifact archive = getFirstArtifactEndingWith(lipoLibAction.getInputs(), ".a");
-    Action archiveAction = getGeneratingAction(archive);
-    assertThat(archiveAction).isInstanceOf(CppLinkAction.class);
-  }
-
-  @Test
-  public void testCanUseCrosstool_multiArch() throws Exception {
-    useConfiguration(ObjcCrosstoolMode.ALL, "--ios_multi_cpus=i386,x86_64");
-    RULE_TYPE.scratchTarget(scratch);
-
-    // If the target is indeed using the c++ backend, then its archive action should be a
-    // CppLinkAction.
-    Action lipoLibAction = lipoLibAction("//x:x");
-    Artifact archive = getFirstArtifactEndingWith(lipoLibAction.getInputs(), ".a");
-    Action archiveAction = getGeneratingAction(archive);
-    assertThat(archiveAction).isInstanceOf(CppLinkAction.class);
   }
 
   @Test
