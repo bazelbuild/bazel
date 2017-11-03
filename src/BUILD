@@ -421,7 +421,6 @@ filegroup(
         "//src/test/py/bazel:srcs",
         "//src/test/shell:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
-        "//src/tools/benchmark:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/runfiles:srcs",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:srcs",
