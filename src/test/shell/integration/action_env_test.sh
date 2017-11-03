@@ -218,4 +218,22 @@ function test_action_env_changes_honored {
 
 }
 
+function assert_source_date_epoch {
+  local expected="$1"
+  shift 1
+  bazel build //pkg:showenv "$@" || fail "//pkg:showenv failed to build"
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "SOURCE_DATE_EPOCH=$expected"
+}
+
+function test_source_date_epoch_propagation {
+  bazel clean --expunge
+  assert_source_date_epoch 1
+  SOURCE_DATE_EPOCH=2 assert_source_date_epoch 2 --action_env SOURCE_DATE_EPOCH
+  assert_source_date_epoch 1
+
+  bazel clean --expunge
+  SOURCE_DATE_EPOCH=2 assert_source_date_epoch 1
+}
+
 run_suite "Tests for bazel's handling of environment variables in actions"
