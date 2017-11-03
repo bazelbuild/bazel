@@ -22,13 +22,17 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.ResourceFilterFactory.AddDynamicallyConfiguredResourceFilteringTransition;
 import com.google.devtools.build.lib.rules.android.ResourceFilterFactory.FilterBehavior;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,25 +44,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ResourceFilterFactoryTest extends ResourceTestBase {
 
-  /**
-   * Tests that, when filtering with dynamic configuration, dependencies are not filtered (since
-   * they were already filtered when they were built).
-   */
-  @Test
-  public void testFilterDependenciesDynamicConfiguration() throws Exception {
-    NestedSet<ResourceContainer> resourceContainers =
-        getResourceContainers(
-            getResources("values-en/foo.xml", "values-fr/foo.xml"),
-            getResources("drawable-hdpi/foo.png", "drawable-ldpi/foo.png"));
-
-    assertThat(
-            makeResourceFilter(
-                    "en", "hdpi", FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION)
-                .filterDependencyContainers(errorConsumer, resourceContainers))
-        .isSameAs(resourceContainers);
-  }
-
-  private NestedSet<ResourceContainer> getResourceContainers(ImmutableList<Artifact>... resources) {
+  private NestedSet<ResourceContainer> getResourceContainers(ImmutableList<Artifact>... resources)
+      throws LabelSyntaxException {
     NestedSetBuilder<ResourceContainer> builder = NestedSetBuilder.naiveLinkOrder();
     for (ImmutableList<Artifact> resourceList : resources) {
       builder.add(getResourceContainer(resourceList));
@@ -66,10 +53,17 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     return builder.build();
   }
 
-  private ResourceContainer getResourceContainer(ImmutableList<Artifact> resources) {
+  private ResourceContainer getResourceContainer(ImmutableList<Artifact> resources)
+      throws LabelSyntaxException {
     // Get dummy objects for irrelevant values required by the builder.
     Artifact manifest = getResource("manifest");
-    Label label = manifest.getOwnerLabel();
+
+    // Include a hashCode of the resources in the label. A hack in ResourceContainer currently means
+    // that class has a limited hashCode method that doesn't take resources into account.
+    // TODO(bazel-team): Remove this hack once that one no longer exists.
+    Label label =
+        Label.create(
+            manifest.getOwnerLabel().getPackageName(), "resourceContainer_" + resources.hashCode());
 
     return ResourceContainer.builder()
         .setResources(resources)
@@ -268,7 +262,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
    * problem in each resource filter object.
    */
   @Test
-  public void testFilterDeprecatedQualifierFormatsAttributeWarnings() {
+  public void testFilterDeprecatedQualifierFormatsAttributeWarnings() throws RuleErrorException {
     ImmutableList<String> badQualifiers =
         ImmutableList.of("en_US", "sr-Latn", "es-419", "mcc310-en_US", "sr_rLatn", "es_419");
 
@@ -285,7 +279,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         new ResourceFilterFactory(
             badQualifiers, ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
 
-    filter.filter(errorConsumer, ImmutableList.of());
+    doFilter(filter, ImmutableList.of());
     assertThat(
             errorConsumer.getAndClearAttributeWarnings(
                 ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
@@ -293,7 +287,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     errorConsumer.assertNoRuleWarnings();
 
     // Filtering again with this filter should not produce additional warnings
-    filter.filter(errorConsumer, ImmutableList.of());
+    doFilter(filter, ImmutableList.of());
     errorConsumer.assertNoAttributeWarnings(
         ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
     errorConsumer.assertNoRuleWarnings();
@@ -303,7 +297,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     filter =
         new ResourceFilterFactory(
             badQualifiers, ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
-    filter.filter(errorConsumer, ImmutableList.of());
+    doFilter(filter, ImmutableList.of());
     assertThat(
             errorConsumer.getAndClearAttributeWarnings(
                 ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
@@ -312,21 +306,21 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
   }
 
   @Test
-  public void testFilterDeprecatedQualifierFormatsRuleWarnings() {
+  public void testFilterDeprecatedQualifierFormatsRuleWarnings() throws RuleErrorException {
     ImmutableList<Artifact> badResources =
         getResources(
             "values-es_US/foo.xml",
-            "drawables-sr-Latn/foo.xml",
-            "stylables-es-419/foo.xml",
+            "drawable-sr-Latn/foo.xml",
+            "layout-es-419/foo.xml",
             "values-mcc310-es_US/foo.xml",
             "values-sr_rLatn/foo.xml",
-            "drawables-es_419/foo.xml");
+            "drawable-es_419/foo.xml");
 
     ImmutableList<String> expectedWarnings =
         ImmutableList.of(
-            "For resource folder drawables-sr-Latn, when referring to Serbian in Latin characters, "
+            "For resource folder drawable-sr-Latn, when referring to Serbian in Latin characters, "
                 + "use of qualifier 'sr-Latn' is deprecated. Use 'b+sr+Latn' instead.",
-            "For resource folder stylables-es-419, when referring to Spanish for Latin America and "
+            "For resource folder layout-es-419, when referring to Spanish for Latin America and "
                 + "the Caribbean, use of qualifier 'es-419' is deprecated. Use 'b+es+419' instead.",
             "For resource folder values-es_US, when referring to locale qualifiers with regions, "
                 + "use of qualifier 'es_US' is deprecated. Use 'es-rUS' instead.");
@@ -335,13 +329,13 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         new ResourceFilterFactory(
             ImmutableList.of("en"), ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
 
-    filter.filter(errorConsumer, badResources);
+    doFilter(filter, badResources);
     assertThat(errorConsumer.getAndClearRuleWarnings()).containsExactlyElementsIn(expectedWarnings);
     errorConsumer.assertNoAttributeWarnings(
         ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
 
     // Filtering again with this filter should not produce additional warnings
-    filter.filter(errorConsumer, badResources);
+    doFilter(filter, badResources);
     errorConsumer.assertNoRuleWarnings();
     errorConsumer.assertNoAttributeWarnings(
         ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
@@ -351,7 +345,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     filter =
         new ResourceFilterFactory(
             ImmutableList.of("en"), ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
-    filter.filter(errorConsumer, badResources);
+    doFilter(filter, badResources);
     assertThat(errorConsumer.getAndClearRuleWarnings()).containsExactlyElementsIn(expectedWarnings);
     errorConsumer.assertNoAttributeWarnings(
         ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
@@ -413,17 +407,82 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         ImmutableList.copyOf(Iterables.concat(expectedResources, unexpectedResources));
     ResourceFilterFactory resourceFilterFactory =
         makeResourceFilter(resourceConfigurationFilters, densities, filterBehavior);
-    ImmutableList<Artifact> filtered = resourceFilterFactory.filter(errorConsumer, allArtifacts);
+    ImmutableList<Artifact> filtered = doFilter(resourceFilterFactory, allArtifacts);
 
     assertThat(filtered).containsExactlyElementsIn(expectedResources).inOrder();
 
-    if (filterBehavior == FilterBehavior.FILTER_IN_ANALYSIS) {
+    // Only dependencies need to be tracked for ignoring in execution
+    assertThat(resourceFilterFactory.getResourcesToIgnoreInExecution()).isEmpty();
+  }
+
+  @Test
+  public void testFilterLocalAndTransitive() throws Exception {
+    Artifact localResourceToKeep = getResource("drawable-en-hdpi/foo.png");
+    Artifact localResourceToDiscard = getResource("drawable-en-ldpi/foo.png");
+
+    // These resources go in different ResourceContainers to ensure we are filter across all
+    // resources.
+    Artifact transitiveResourceToKeep = getResource("transitive/drawable-en-hdpi/foo.png");
+    Artifact transitiveResourceToDiscard = getResource("transitive/drawable-en-ldpi/foo.png");
+
+    LocalResourceContainer localResources =
+        LocalResourceContainer.forResources(
+            errorConsumer, ImmutableList.of(localResourceToKeep, localResourceToDiscard));
+
+    NestedSet<ResourceContainer> containers =
+        getResourceContainers(
+            ImmutableList.of(transitiveResourceToDiscard),
+            ImmutableList.of(transitiveResourceToKeep));
+
+    ResourceDependencies resourceDependencies =
+        ResourceDependencies.empty()
+            .withResources(
+                containers,
+                containers,
+                new NestedSetBuilder<Artifact>(Order.NAIVE_LINK_ORDER)
+                    .add(transitiveResourceToDiscard)
+                    .add(transitiveResourceToKeep)
+                    .build());
+
+    ResourceFilterFactory resourceFilterFactory =
+        makeResourceFilter("en", "hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
+    ResourceFilter filter =
+        resourceFilterFactory.getResourceFilter(
+            errorConsumer, resourceDependencies, localResources);
+
+    assertThat(localResources.filter(errorConsumer, filter).getResources())
+        .containsExactly(localResourceToKeep);
+
+    ResourceDependencies filteredResourceDeps = resourceDependencies.filter(filter);
+
+    assertThat(filteredResourceDeps.getTransitiveResources())
+        .containsExactly(transitiveResourceToKeep);
+
+    for (NestedSet<ResourceContainer> returnedContainers :
+        ImmutableList.of(
+            filteredResourceDeps.getTransitiveResourceContainers(),
+            filteredResourceDeps.getDirectResourceContainers())) {
+
+      assertThat(returnedContainers).hasSize(2);
+
+      Iterator<ResourceContainer> transitiveContainers = returnedContainers.iterator();
+
+      // The first transitive resource container was the one with the resource to discard
+      assertThat(transitiveContainers.hasNext()).isTrue();
+      assertThat(transitiveContainers.next().getResources()).isEmpty();
+
+      // The second transitive resource container was the one with the resource to keep
+      assertThat(transitiveContainers.hasNext()).isTrue();
+      assertThat(transitiveContainers.next().getResources())
+          .containsExactly(transitiveResourceToKeep);
+
+      // No resource containers were added.
+      assertThat(transitiveContainers.hasNext()).isFalse();
+
+      // We tell the resource processing actions to ignore references to filtered resources from
+      // dependencies.
       assertThat(resourceFilterFactory.getResourcesToIgnoreInExecution())
-          .containsExactlyElementsIn(resourcesToDiscard);
-    } else {
-      // Either we are not filtering in analysis, or this target's dependencies were also filtered.
-      // In both cases, no resources should be ignored in execution.
-      assertThat(resourceFilterFactory.getResourcesToIgnoreInExecution()).isEmpty();
+          .containsExactly("drawable-en-ldpi/foo.png");
     }
   }
 
@@ -560,6 +619,23 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
             ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME, resourceConfigurationFilters)
         .withStringList(ResourceFilterFactory.DENSITIES_NAME, densities)
         .build();
+  }
+
+  private ImmutableList<Artifact> doFilter(
+      ResourceFilterFactory resourceFilterFactory, ImmutableList<Artifact> artifacts)
+      throws RuleErrorException {
+    LocalResourceContainer localResourceContainer =
+        LocalResourceContainer.forResources(errorConsumer, artifacts);
+
+    ResourceDependencies resourceDeps = ResourceDependencies.empty();
+
+    ResourceFilter filter =
+        resourceFilterFactory.getResourceFilter(
+            errorConsumer, resourceDeps, localResourceContainer);
+
+    assertThat(resourceDeps.filter(filter)).isSameAs(resourceDeps);
+
+    return localResourceContainer.filter(errorConsumer, filter).getResources();
   }
 
   @Test

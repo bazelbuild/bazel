@@ -22,26 +22,24 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -395,75 +393,35 @@ public class ResourceFilterFactory {
   }
 
   /**
-   * Filters a NestedSet of resource containers that contain dependencies of the current rule. This
-   * may be a no-op if this filter is empty or if resource prefiltering is disabled.
+   * Gets an {@link ResourceFilter} that can be used to filter collections of artifacts.
+   *
+   * <p>In density-based filtering, the presence of one resource can affect whether another is
+   * accepted or rejected. As such, both local and dependent resources must be passed.
    */
-  NestedSet<ResourceContainer> filterDependencyContainers(
-      RuleErrorConsumer ruleErrorConsumer, NestedSet<ResourceContainer> resources) {
-    if (!shouldFilterDependencies()) {
-      return resources;
-    }
-
-    NestedSetBuilder<ResourceContainer> builder = new NestedSetBuilder<>(resources.getOrder());
-
-    for (ResourceContainer resource : resources) {
-      builder.add(resource.filter(ruleErrorConsumer, this));
-    }
-
-    return builder.build();
-  }
-
-  /**
-   * Filters a NestedSet of artifact dependencies of the current rule. Returns a filtered copy of
-   * the input, or the input itself if no filtering needs to be done.
-   */
-  NestedSet<Artifact> filterDependencies(
-      RuleErrorConsumer ruleErrorConsumer, NestedSet<Artifact> resources) {
-    if (!shouldFilterDependencies()) {
-      return resources;
-    }
-
-    return NestedSetBuilder.wrap(
-        resources.getOrder(), filter(ruleErrorConsumer, ImmutableList.copyOf(resources)));
-  }
-
-  private boolean shouldFilterDependencies() {
-    if (!isPrefiltering() || usesDynamicConfiguration()) {
-      /*
-       * If the filter is empty, resource prefiltering is disabled, or the resources of dependencies
-       * have already been filtered thanks to dynamic configuration, just return the original,
-       * rather than make a copy.
-       *
-       * Resources should only be prefiltered in top-level android targets (such as android_binary).
-       * The output of resource processing, which includes the input NestedSet<ResourceContainer>
-       * returned by this method, is exposed to other actions via the AndroidResourcesProvider. If
-       * this method did a no-op copy and collapse in those cases, rather than just return the
-       * original NestedSet, we would lose all of the advantages around memory and time that
-       * NestedSets provide: each android_library target would have to copy the resources provided
-       * by its dependencies into a new NestedSet rather than just create a NestedSet pointing at
-       * its dependencies's NestedSets.
-       */
-      return false;
-    }
-
-    return true;
-  }
-
-  ImmutableList<Artifact> filter(
-      RuleErrorConsumer ruleErrorConsumer, ImmutableList<Artifact> artifacts) {
+  ResourceFilter getResourceFilter(
+      RuleErrorConsumer ruleErrorConsumer,
+      ResourceDependencies resourceDeps,
+      LocalResourceContainer localResources)
+      throws RuleErrorException {
     if (!isPrefiltering()) {
-      return artifacts;
+      return ResourceFilter.empty();
     }
 
+    ImmutableList<FolderConfiguration> folderConfigs = getConfigurationFilters(ruleErrorConsumer);
+
+    ImmutableSet.Builder<Artifact> keptArtifacts = ImmutableSet.builder();
     List<BestArtifactsForDensity> bestArtifactsForAllDensities = new ArrayList<>();
     for (Density density : getDensities(ruleErrorConsumer)) {
       bestArtifactsForAllDensities.add(new BestArtifactsForDensity(ruleErrorConsumer, density));
     }
 
-    ImmutableList<FolderConfiguration> folderConfigs = getConfigurationFilters(ruleErrorConsumer);
-
-    Set<Artifact> keptArtifactsNotFilteredByDensity = new HashSet<>();
-    for (Artifact artifact : artifacts) {
+    // Look at the local and transitive resources.
+    // TODO(b/68265485): In FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION, this will collapse the
+    // NestedSet of resources at each node of the build graph. Instead, we should only filter local
+    // resources at each non-binary target, and then filter both local and transitive resources in
+    // the binary.
+    for (Artifact artifact :
+        Iterables.concat(localResources.getResources(), resourceDeps.getTransitiveResources())) {
       FolderConfiguration config = getConfigForArtifact(ruleErrorConsumer, artifact);
 
       // aapt explicitly ignores the version qualifier; duplicate this behavior here.
@@ -474,7 +432,7 @@ public class ResourceFilterFactory {
       }
 
       if (!shouldFilterByDensity(artifact)) {
-        keptArtifactsNotFilteredByDensity.add(artifact);
+        keptArtifacts.add(artifact);
         continue;
       }
 
@@ -483,46 +441,33 @@ public class ResourceFilterFactory {
       }
     }
 
-    // Build the output by iterating through the input so that contents of both have the same order.
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
-    for (Artifact artifact : artifacts) {
-
-      boolean kept = false;
-      if (keptArtifactsNotFilteredByDensity.contains(artifact)) {
-        builder.add(artifact);
-        kept = true;
-      } else {
-        for (BestArtifactsForDensity bestArtifactsForDensity : bestArtifactsForAllDensities) {
-          if (bestArtifactsForDensity.contains(artifact)) {
-            builder.add(artifact);
-            kept = true;
-            break;
-          }
-        }
-      }
-
-      // In FilterBehavior.FILTER_IN_ANALYSIS, this class needs to record any resources that were
-      // filtered out so that resource processing ignores references to them in symbols files of
-      // dependencies.
-      if (!kept && !usesDynamicConfiguration()) {
-        String parentDir = artifact.getPath().getParentDirectory().getBaseName();
-        filteredResources.add(parentDir + "/" + artifact.getFilename());
-      }
+    for (BestArtifactsForDensity bestArtifactsForDensity : bestArtifactsForAllDensities) {
+      keptArtifacts.addAll(bestArtifactsForDensity.get());
     }
 
-    // TODO(asteinb): We should only build a new list if some artifacts were filtered out. If
-    // nothing was filtered, we can be more efficient by returning the original list instead.
-    return builder.build();
+    return ResourceFilter.of(
+        keptArtifacts.build(),
+        (artifact) -> {
+          // This class needs to record any dependent resources that were filtered out so that
+          // resource processing ignores references to them in symbols files of  dependencies.
+          String parentDir = artifact.getPath().getParentDirectory().getBaseName();
+          filteredResources.add(parentDir + "/" + artifact.getFilename());
+        });
   }
 
   /**
-   * Tracks the best artifact for a desired density for each combination of filename and non-density
-   * qualifiers.
+   * Tracks the best artifacts for a desired density for each combination of filename and
+   * non-density qualifiers.
+   *
+   * <p>Filtering resources from multiple targets at once means we may get multiple resources with
+   * the same filename and qualifiers (including density) - we accept all of them with the best
+   * density, and the unwanted ones will be removed during resource merging.
    */
   private class BestArtifactsForDensity {
     private final RuleErrorConsumer ruleErrorConsumer;
     private final Density desiredDensity;
-    private final Map<String, Artifact> nameAndConfigurationToBestArtifact = new HashMap<>();
+    private final Multimap<String, Artifact> nameAndConfigurationToBestArtifacts =
+        HashMultimap.create();
 
     public BestArtifactsForDensity(RuleErrorConsumer ruleErrorConsumer, Density density) {
       this.ruleErrorConsumer = ruleErrorConsumer;
@@ -538,25 +483,38 @@ public class ResourceFilterFactory {
 
       // We want to find a single best artifact for each combination of non-density qualifiers and
       // filename. Combine those two values to create a single unique key.
-      // We also need to include the path to the resource, otherwise resource conflicts (multiple
-      // resources with the same name but different locations) might accidentally get resolved here
-      // (possibly incorrectly). Resource conflicts should be resolve during merging in execution
-      // instead.
+      // We might encounter resource conflicts (multiple resources with the same name but different
+      // locations) - in that case, we might have multiple best artifacts. In that case, keep them
+      // all, and resource conflicts should will resolved during merging in execution.
       config.setDensityQualifier(null);
-      Path qualifierDir = artifact.getPath().getParentDirectory();
-      String resourceDir = qualifierDir.getParentDirectory().toString();
       String nameAndConfiguration =
-          Joiner.on('/').join(resourceDir, config.getUniqueKey(), artifact.getFilename());
+          Joiner.on('/').join(config.getUniqueKey(), artifact.getFilename());
 
-      Artifact currentBest = nameAndConfigurationToBestArtifact.get(nameAndConfiguration);
+      Collection<Artifact> currentBest =
+          nameAndConfigurationToBestArtifacts.get(nameAndConfiguration);
 
-      if (currentBest == null || computeAffinity(artifact) < computeAffinity(currentBest)) {
-        nameAndConfigurationToBestArtifact.put(nameAndConfiguration, artifact);
+      if (currentBest.isEmpty()) {
+        nameAndConfigurationToBestArtifacts.put(nameAndConfiguration, artifact);
+        return;
+      }
+
+      double affinity = computeAffinity(artifact);
+      // All of the current best artifacts should have the same density, so get the affinity of an
+      // arbitrary one.
+      double currentAffinity = computeAffinity(currentBest.iterator().next());
+
+      if (affinity == currentAffinity) {
+        nameAndConfigurationToBestArtifacts.put(nameAndConfiguration, artifact);
+      }
+
+      if (affinity < currentAffinity) {
+        nameAndConfigurationToBestArtifacts.removeAll(nameAndConfiguration);
+        nameAndConfigurationToBestArtifacts.put(nameAndConfiguration, artifact);
       }
     }
 
-    public boolean contains(Artifact artifact) {
-      return nameAndConfigurationToBestArtifact.containsValue(artifact);
+    public Collection<Artifact> get() {
+      return nameAndConfigurationToBestArtifacts.values();
     }
 
     /**
@@ -734,15 +692,14 @@ public class ResourceFilterFactory {
     return filterBehavior == FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION;
   }
 
-  /*
-   * TODO: Stop tracking these once {@link FilterBehavior#FILTER_IN_ANALYSIS} is fully replaced by
-   * {@link FilterBehavior#FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION}.
+  /**
+   * Gets a list of resource names that should be ignored by resource processing if they don't
+   * exist.
    *
-   * <p>Currently, when using {@link FilterBehavior#FILTER_IN_ANALYSIS}, android_library targets do
-   * no filtering, and all resources are built into their symbol files. The android_binary target
-   * filters out these resources in analysis. However, the filtered resources must be passed to
-   * resource processing at execution time so the code knows to ignore resources that were filtered
-   * out. Without this, resource processing code would see references to those resources in
+   * <p>A target might filter out some of its dependency's targets. However, those filtered targets
+   * have already been built into symbols files. The filtered resources must be passed to resource
+   * processing at execution time so the code knows to ignore resources that were filtered out.
+   * Without this, resource processing code would see references to those resources in
    * dependencies's symbol files, but then be unable to follow those references or know whether they
    * were missing due to resource filtering or a bug.
    */

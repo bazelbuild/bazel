@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceTyp
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -180,9 +181,9 @@ public final class LocalResourceContainer {
    * Creates a {@link LocalResourceContainer} containing the resources included in a {@link
    * FileProvider}.
    *
-   * <p>In general, {@link #forAssetsAndResources(RuleContext, String, String, String)} should be
-   * used instead. No assets or transitive resources will be included in the container produced by
-   * this method.
+   * <p>In general, {@link #forAssetsAndResources(RuleContext, String, PathFragment, String)} should
+   * be used instead. No assets or transitive resources will be included in the container produced
+   * by this method.
    *
    * @param ruleContext the current context
    * @param resourceFileProvider the provider containing resources
@@ -378,22 +379,39 @@ public final class LocalResourceContainer {
    * Filters this object.
    *
    * @return a new {@link LocalResourceContainer} with resources filtered by the passed {@link
-   *     ResourceFilterFactory}, or this object if no resources should be filtered.
+   *     ResourceFilter}, or this object if no resources should be filtered.
    */
   public LocalResourceContainer filter(
-      RuleErrorConsumer ruleErrorConsumer, ResourceFilterFactory resourceFilterFactory)
+      RuleErrorConsumer ruleErrorConsumer, ResourceFilter resourceFilter)
       throws RuleErrorException {
-    ImmutableList<Artifact> filteredResources = resourceFilterFactory
-        .filter(ruleErrorConsumer, resources);
+    Optional<ImmutableList<Artifact>> filtered =
+        resourceFilter.maybeFilter(resources, /* isDependency= */ false);
 
-    if (filteredResources.size() == resources.size()) {
+    if (!filtered.isPresent()) {
       // Nothing was filtered out
       return this;
     }
 
+    return withResources(ruleErrorConsumer, filtered.get(), "resource_files");
+  }
+
+  @VisibleForTesting
+  static LocalResourceContainer forResources(
+      RuleErrorConsumer ruleErrorConsumer, ImmutableList<Artifact> resources)
+      throws RuleErrorException {
     return new LocalResourceContainer(
-        filteredResources,
-        getResourceRoots(ruleErrorConsumer, filteredResources, "resource_files"),
+        resources,
+        getResourceRoots(ruleErrorConsumer, resources, "resource_files"),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  private LocalResourceContainer withResources(
+      RuleErrorConsumer ruleErrorConsumer, ImmutableList<Artifact> resources, String resourcesAttr)
+      throws RuleErrorException {
+    return new LocalResourceContainer(
+        resources,
+        getResourceRoots(ruleErrorConsumer, resources, resourcesAttr),
         assets,
         assetRoots);
   }

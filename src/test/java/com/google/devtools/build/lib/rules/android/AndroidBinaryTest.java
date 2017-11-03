@@ -1432,14 +1432,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(resourceInputPaths(dir, directResources)).containsAllIn(expectedResources);
     assertThat(resourceInputPaths(dir, directResources)).containsNoneIn(unexpectedResources);
 
-    if (expectedFiltered.isEmpty()) {
-      assertThat(resourceArguments(directResources)).doesNotContain("--prefilteredResources");
-    } else {
-      String[] flagValues =
-          flagValue("--prefilteredResources", resourceArguments(directResources)).split(",");
-      assertThat(flagValues).asList().containsAllIn(expectedFiltered);
-      assertThat(flagValues).hasLength(expectedFiltered.size());
-    }
+    // Only transitive resources need to be ignored when filtered,, and there aren't any here.
+    assertThat(resourceArguments(directResources)).doesNotContain("--prefilteredResources");
 
     // Validate resource filters are not passed to execution, since they were applied in analysis
     List<String> args = resourceArguments(directResources);
@@ -1494,6 +1488,54 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     String[] flagValues =
         flagValue("--prefilteredResources", resourceArguments(directResources)).split(",");
     assertThat(flagValues).asList().containsExactly("values-fr/foo.xml");
+  }
+
+  @Test
+  public void testFilteredTransitiveResourcesDifferentDensities() throws Exception {
+    String dir = "java/r/android";
+
+    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_analysis");
+
+    ConfiguredTarget binary =
+        scratchConfiguredTarget(
+            dir,
+            "bin",
+            "android_binary(name = 'bin',",
+            "  manifest = 'AndroidManifest.xml',",
+            "  resource_configuration_filters = ['en'],",
+            "  densities = ['hdpi'],",
+            "  deps = [':invalid', ':best', ':other', ':multiple'],",
+            ")",
+            "android_library(name = 'invalid',",
+            "  manifest = 'AndroidManifest.xml',",
+            "  resource_files = ['invalid/res/drawable-fr-hdpi/foo.png'],",
+            ")",
+            "android_library(name = 'best',",
+            "  manifest = 'AndroidManifest.xml',",
+            "  resource_files = ['best/res/drawable-en-hdpi/foo.png'],",
+            ")",
+            "android_library(name = 'other',",
+            "  manifest = 'AndroidManifest.xml',",
+            "  resource_files = ['other/res/drawable-en-mdpi/foo.png'],",
+            ")",
+            "android_library(name = 'multiple',",
+            "  manifest = 'AndroidManifest.xml',",
+            "  resource_files = [",
+            "    'multiple/res/drawable-en-hdpi/foo.png',",
+            "    'multiple/res/drawable-en-mdpi/foo.png'],",
+            ")");
+
+    ResourceContainer directResources = getResourceContainer(binary, /* transitive= */ false);
+
+    // All of the resources are transitive
+    assertThat(resourceContentsPaths(dir, directResources)).isEmpty();
+
+    // Only the best matches should be used. This includes multiple best matches, even given a
+    // single density filter, since they are each from a different dependency. This duplication
+    // would be resolved during merging.
+    assertThat(resourceInputPaths(dir, directResources))
+        .containsExactly(
+            "best/res/drawable-en-hdpi/foo.png", "multiple/res/drawable-en-hdpi/foo.png");
   }
 
   @Test
