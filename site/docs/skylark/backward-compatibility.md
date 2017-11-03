@@ -21,7 +21,7 @@ Backward incompatible changes are introduced gradually:
 To check if your code will be compatible with future releases you can:
 
 *   Build your code with the flag `--all_incompatible_changes`. This flag
-    enables all backward incomaptible changes, and so you can ensure your code
+    enables all backward incompatible changes, and so you can ensure your code
     is compatible with upcoming changes.
 *   Use boolean flags to enable/disable specific backward incompatible changes.
 
