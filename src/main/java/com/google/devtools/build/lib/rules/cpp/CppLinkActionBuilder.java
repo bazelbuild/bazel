@@ -525,7 +525,9 @@ public class CppLinkActionBuilder {
   }
 
   private Iterable<LtoBackendArtifacts> createLtoArtifacts(
-      PathFragment ltoOutputRootPrefix, NestedSet<LibraryToLink> uniqueLibraries) {
+      PathFragment ltoOutputRootPrefix,
+      NestedSet<LibraryToLink> uniqueLibraries,
+      ImmutableSet<String> features) {
     Set<Artifact> compiled = new LinkedHashSet<>();
     for (LibraryToLink lib : uniqueLibraries) {
       compiled.addAll(lib.getLtoBitcodeFiles().keySet());
@@ -550,11 +552,25 @@ public class CppLinkActionBuilder {
       }
     }
 
+    List<String> argv = new ArrayList<>();
+    argv.addAll(toolchain.getLinkOptions());
+    argv.addAll(cppConfiguration.getCompilerOptions(features));
     ImmutableList.Builder<LtoBackendArtifacts> ltoOutputs = ImmutableList.builder();
     for (Artifact a : allBitcode.values()) {
       LtoBackendArtifacts ltoArtifacts =
           new LtoBackendArtifacts(
-              ltoOutputRootPrefix, a, allBitcode, ruleContext, configuration, linkArtifactFactory);
+              ltoOutputRootPrefix,
+              a,
+              allBitcode,
+              ruleContext,
+              configuration,
+              linkArtifactFactory,
+              featureConfiguration,
+              toolchain,
+              fdoSupport,
+              usePicForLtoBackendActions,
+              cppConfiguration.useFission(),
+              argv);
       ltoOutputs.add(ltoArtifacts);
     }
     return ltoOutputs.build();
@@ -672,7 +688,7 @@ public class CppLinkActionBuilder {
       // Use the originalUniqueLibraries which contains the full bitcode files
       // needed by the LTO backends (as opposed to the minimized bitcode files
       // that can be used by the LTO indexing step).
-      allLtoArtifacts = createLtoArtifacts(ltoOutputRootPrefix, originalUniqueLibraries);
+      allLtoArtifacts = createLtoArtifacts(ltoOutputRootPrefix, originalUniqueLibraries, features);
     }
 
     @Nullable Artifact thinltoParamFile = null;
@@ -864,23 +880,6 @@ public class CppLinkActionBuilder {
         renamedNonLibraryInputs.add(renamed == null ? a : renamed);
       }
       expandedNonLibraryInputs = renamedNonLibraryInputs;
-    } else if (isLtoIndexing && allLtoArtifacts != null) {
-      for (LtoBackendArtifacts a : allLtoArtifacts) {
-        List<String> argv = new ArrayList<>();
-        argv.addAll(toolchain.getLinkOptions());
-        argv.addAll(cppConfiguration.getCompilerOptions(features));
-        a.setCommandLine(argv);
-
-        a.scheduleLtoBackendAction(
-            ruleContext,
-            featureConfiguration,
-            toolchain,
-            fdoSupport,
-            usePicForLtoBackendActions,
-            cppConfiguration.useFission(),
-            configuration,
-            linkArtifactFactory);
-      }
     }
 
     // getPrimaryInput returns the first element, and that is a public interface - therefore the
