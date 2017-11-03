@@ -86,6 +86,28 @@ of overlapping targets. This happens when building your tests
 iterate a depset (explicitly or implicitly), or take its size, you are
 effectively calling `to_list`. This functionality will soon be removed.
 
+### Never call `len(depset)`
+
+It is O(N) to get the number of items in a depset. It is however
+O(1) to check if a depset is empty. This includes checking the truthiness
+of a depset:
+
+```
+def _impl(ctx):
+  args = ctx.actions.args()
+  files = depset(...)
+
+  # Bad, has to iterate over entire depset to get length
+  if len(files) == 0:
+    args.add("--files")
+    args.add(files)
+
+  # Good, O(1)
+  if files:
+    args.add("--files")
+    args.add(files)
+```
+
 ## Use `ctx.actions.args()` for command lines
 
 When building command lines you should use [ctx.actions.args()](lib/Args.html).
