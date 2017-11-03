@@ -224,6 +224,9 @@ py_binary(
             "@openjdk_linux//file",
         ],
     }) if (suffix == "_with_jdk") else []),
+    visibility = [
+        "//src/test:__subpackages__",  # For integration tests
+    ],
 ) for suffix in [
     "",
     "_with_jdk",

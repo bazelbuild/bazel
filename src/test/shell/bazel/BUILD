@@ -187,6 +187,23 @@ sh_test(
     ],
 )
 
+genquery(
+    name = "embedded_tools_deps",
+    expression = "kind(\"cc_(binary|library)\", deps(//src:embedded_tools_srcs))",
+    scope = ["//src:embedded_tools_srcs"],
+)
+
+sh_test(
+    name = "embedded_tools_deps_test",
+    size = "medium",
+    srcs = ["embedded_tools_deps_test.sh"],
+    data = [
+        ":embedded_tools_deps",
+        ":test-deps",
+        "//src/test/shell/bazel/testdata:embedded_tools_deps_test_data",
+    ],
+)
+
 # TODO(bazel-team): zip is non-deterministic because of file timestamp,
 # we should use a custom zip version (SingleJar?).
 genrule(
