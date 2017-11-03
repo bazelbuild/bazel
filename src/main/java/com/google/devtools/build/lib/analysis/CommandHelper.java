@@ -159,23 +159,10 @@ public final class CommandHelper {
   }
 
   /**
-   * Resolves a command, and expands known locations for $(location) variables. This method supports
-   * legacy heuristic label expansion, which replaces strings that look like labels with their
-   * corresponding file names. Use {@link #resolveCommandAndExpandLabels} instead.
-   */
-  public String resolveCommandAndHeuristicallyExpandLabels(
-      String command, @Nullable String attribute, boolean enableLegacyHeuristicLabelExpansion) {
-    command = resolveCommandAndExpandLabels(command, attribute, false);
-    if (enableLegacyHeuristicLabelExpansion) {
-      command = expandLabels(command, labelMap);
-    }
-    return command;
-  }
-
-  /**
    * Resolves a command, and expands known locations for $(location)
    * variables.
    */
+  @Deprecated // Only exists to support a legacy Skylark API.
   public String resolveCommandAndExpandLabels(
       String command, @Nullable String attribute, boolean allowDataInLabel) {
     LocationExpander expander;
@@ -201,7 +188,7 @@ public final class CommandHelper {
    * <p>If the expansion fails, an attribute error is reported and the original
    * expression is returned.
    */
-  private <T extends Iterable<Artifact>> String expandLabels(String expr, Map<Label, T> labelMap) {
+  public String expandLabelsHeuristically(String expr) {
     try {
       return LabelExpander.expand(expr, labelMap, ruleContext.getLabel());
     } catch (LabelExpander.NotUniqueExpansionException nuee) {

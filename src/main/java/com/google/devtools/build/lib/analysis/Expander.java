@@ -73,6 +73,14 @@ public final class Expander {
   }
 
   /**
+   * Returns a new instance that also expands locations, passing {@link Options#EXEC_PATHS} to the
+   * underlying {@link LocationTemplateContext}.
+   */
+  public Expander withExecLocations() {
+    return withLocations(Options.EXEC_PATHS);
+  }
+
+  /**
    * Returns a new instance that also expands locations, passing the given location map, as well as
    * {@link Options#EXEC_PATHS} to the underlying {@link LocationTemplateContext}.
    */

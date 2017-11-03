@@ -82,18 +82,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns an {@link Iterable} of {@link NestedSet}s, which will be added to the genrule's inputs
-   * using the {@link NestedSetBuilder#addTransitive} method.
-   *
-   * <p>GenRule implementations can override this method to better control what inputs are needed
-   * for specific command inputs.
-   */
-  protected Iterable<NestedSet<Artifact>> getExtraInputArtifacts(
-      RuleContext ruleContext, String command) {
-    return ImmutableList.of();
-  }
-
-  /**
    * Returns {@code true} if the rule should be stamped.
    *
    * <p>Genrule implementations can set this based on the rule context, including by defining their
@@ -153,17 +141,22 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    String baseCommand = commandHelper.resolveCommandAndHeuristicallyExpandLabels(
-        ruleContext.attributes().get("cmd", Type.STRING),
-        "cmd",
-        ruleContext.attributes().get("heuristic_label_expansion", Type.BOOLEAN));
+    String baseCommand = ruleContext.attributes().get("cmd", Type.STRING);
+    // Expand template variables and functions.
+    String command = ruleContext
+        .getExpander(new CommandResolverContext(ruleContext, resolvedSrcs, filesToBuild))
+        .withExecLocations()
+        .expand("cmd", baseCommand);
 
-    // Adds the genrule environment setup script before the actual shell command
-    String command = String.format("source %s; %s",
+    // Heuristically expand things that look like labels.
+    if (ruleContext.attributes().get("heuristic_label_expansion", Type.BOOLEAN)) {
+      command = commandHelper.expandLabelsHeuristically(command);
+    }
+
+    // Add the genrule environment setup script before the actual shell command.
+    command = String.format("source %s; %s",
         ruleContext.getPrerequisiteArtifact("$genrule_setup", Mode.HOST).getExecPath(),
-        baseCommand);
-
-    command = resolveCommand(command, ruleContext, resolvedSrcs, filesToBuild);
+        command);
 
     String messageAttr = ruleContext.attributes().get("message", Type.STRING);
     String message = messageAttr.isEmpty() ? "Executing genrule" : messageAttr;
@@ -205,10 +198,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       // If javac is used, silently throw in the jdk filegroup as a dependency.
       // Note we expand Java-related variables with the *host* configuration.
       inputs.addTransitive(JavaHelper.getHostJavabaseInputs(ruleContext));
-    }
-
-    for (NestedSet<Artifact> extraInputs : getExtraInputArtifacts(ruleContext, baseCommand)) {
-      inputs.addTransitive(extraInputs);
     }
 
     if (isStampingEnabled(ruleContext)) {
@@ -262,19 +251,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       return Iterables.getOnlyElement(filesToBuild);
     }
     return null;
-  }
-
-  /**
-   * Resolves any variables, including make and genrule-specific variables, in the command and
-   * returns the expanded command.
-   *
-   * <p>GenRule implementations may override this method to perform additional expansions.
-   */
-  protected String resolveCommand(String command, final RuleContext ruleContext,
-      final NestedSet<Artifact> resolvedSrcs, final NestedSet<Artifact> filesToBuild) {
-    return ruleContext
-        .getExpander(new CommandResolverContext(ruleContext, resolvedSrcs, filesToBuild))
-        .expand("cmd", command);
   }
 
   /**
