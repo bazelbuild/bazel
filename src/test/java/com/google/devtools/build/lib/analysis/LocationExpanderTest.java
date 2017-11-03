@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -60,8 +62,9 @@ public class LocationExpanderTest {
   private LocationExpander makeExpander(RuleErrorConsumer ruleErrorConsumer) throws Exception {
     return new LocationExpander(
         ruleErrorConsumer,
-        (String s) -> "one(" + s + ")",
-        (String s) -> "more(" + s + ")");
+        ImmutableMap.<String, Function<String, String>>of(
+            "location", (String s) -> "one(" + s + ")",
+            "locations", (String s) -> "more(" + s + ")"));
   }
 
   private String expand(String input) throws Exception {
