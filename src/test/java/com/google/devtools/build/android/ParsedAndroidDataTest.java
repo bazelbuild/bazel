@@ -337,8 +337,6 @@ public class ParsedAndroidDataTest {
     DataSource otherRootValuesPath = DataSource.of(otherRoot.resolve("res/values/attr.xml"));
     FullyQualifiedName idSomeId = fqnFactory.parse("id/some_id");
 
-
-
     Truth.assertAbout(parsedAndroidData)
         .that(dataSet)
         .isEqualTo(
@@ -382,10 +380,9 @@ public class ParsedAndroidDataTest {
                 ImmutableMap.<DataKey, DataResource>of(
                     idSomeId, // key
                     DataResourceXml.createWithNoNamespace(
-                        rootValuesPath, IdXmlResourceValue.of()) // value
+                        otherRootValuesPath, IdXmlResourceValue.of()) // value
                     ),
                 ImmutableMap.<DataKey, DataAsset>of()));
-
   }
 
   @Test

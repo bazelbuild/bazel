@@ -22,8 +22,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Jimfs;
-import com.google.common.truth.FailureStrategy;
-import com.google.common.truth.SubjectFactory;
+import com.google.common.truth.Subject;
 import com.google.devtools.build.android.AndroidDataBuilder.ResourceType;
 import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidDataMerger.SourceChecker;
@@ -180,7 +179,7 @@ public class AndroidDataMergerTest {
                     file("layout/exit").root(directRoot).source("res/layout/exit.xml"))
                 .combining(
                     xml("id/exit")
-                        .root(directRoot)
+                        .root(transitiveRoot)
                         .source("values/ids.xml")
                         .value(IdXmlResourceValue.of()))
                 .build());
@@ -244,7 +243,7 @@ public class AndroidDataMergerTest {
                     file("layout/exit").root(directRoot).source("res/layout/exit.xml"))
                 .combining(
                     xml("id/exit")
-                        .root(directRoot)
+                        .root(transitiveRoot)
                         .source("values/ids.xml")
                         .value(IdXmlResourceValue.of()))
                 .build());
@@ -463,6 +462,11 @@ public class AndroidDataMergerTest {
     Path primaryRoot = fileSystem.getPath("primary");
     Path directRoot = fileSystem.getPath("direct");
     Path transitiveRoot = fileSystem.getPath("transitive");
+    DataSource primaryStrings = DataSource.of(primaryRoot.resolve("res/values/strings.xml"));
+    DataSource transitive1String =
+        DataSource.of(transitiveRoot.resolve("1/res/values/strings.xml"));
+    DataSource transitive2String =
+        DataSource.of(transitiveRoot.resolve("2/res/values/strings.xml"));
 
     ParsedAndroidData transitiveDependency =
         ParsedAndroidDataBuilder.buildOn(transitiveRoot, fqnFactory)
@@ -498,7 +502,7 @@ public class AndroidDataMergerTest {
                 .overwritable(
                     xml("string/exit")
                         .root(primaryRoot)
-                        .source("values/strings.xml")
+                        .source(primaryStrings.overwrite(transitive1String, transitive2String))
                         .value(SimpleXmlResourceValue.createWithValue(Type.STRING, "way out")))
                 .build(),
             ParsedAndroidDataBuilder.empty());
@@ -585,13 +589,13 @@ public class AndroidDataMergerTest {
     assertThat(loggingHandler.warnings)
         .containsExactly(
             MergeConflict.of(
-                fullyQualifiedName,
-                DataResourceXml.createWithNoNamespace(
-                    directRoot.resolve("res/values/strings.xml"),
-                    SimpleXmlResourceValue.createWithValue(Type.STRING, "no way out")),
-                DataResourceXml.createWithNoNamespace(
-                    transitiveRoot.resolve("res/values/strings.xml"),
-                    SimpleXmlResourceValue.createWithValue(Type.STRING, "wrong way out")))
+                    fullyQualifiedName,
+                    DataResourceXml.createWithNoNamespace(
+                        primaryRoot.resolve("res/values/strings.xml"),
+                        SimpleXmlResourceValue.createWithValue(Type.STRING, "no way out")),
+                    DataResourceXml.createWithNoNamespace(
+                        transitiveRoot.resolve("res/values/strings.xml"),
+                        SimpleXmlResourceValue.createWithValue(Type.STRING, "wrong way out")))
                 .toConflictMessage());
   }
 
@@ -677,7 +681,7 @@ public class AndroidDataMergerTest {
             ParsedAndroidDataBuilder.buildOn(fqnFactory)
                 .overwritable(
                     xml("string/exit")
-                        .source(primaryStrings.overwrite(directStrings))
+                        .source(primaryStrings.overwrite(directStrings, transitiveStrings))
                         .value(SimpleXmlResourceValue.createWithValue(Type.STRING, "way out")))
                 .build(),
             ParsedAndroidDataBuilder.empty());
@@ -945,7 +949,7 @@ public class AndroidDataMergerTest {
                     file("layout/zzDirect").source(directLayout))
                 .combining(
                     xml("id/back_door").source(transitiveLayout).value(IdXmlResourceValue.of()),
-                    xml("id/slide").source(directLayout).value(IdXmlResourceValue.of()))
+                    xml("id/slide").source(transitiveLayout).value(IdXmlResourceValue.of()))
                 .build());
     assertAbout(unwrittenMergedAndroidData).that(data).isEqualTo(expected);
   }
@@ -1164,10 +1168,14 @@ public class AndroidDataMergerTest {
   public void mergeAssetsTransitiveConflictWithPrimaryOverride() throws Exception {
     Path primaryRoot = fileSystem.getPath("primary");
     Path transitiveRoot = fileSystem.getPath("transitive");
+    DataSource transitiveSource =
+        DataSource.of(transitiveRoot.resolve("assets/hunting/of/the/snark.txt"));
+    DataSource primarySource =
+        DataSource.of(primaryRoot.resolve("assets/hunting/of/the/snark.txt"));
 
     ParsedAndroidData transitiveDependency =
         ParsedAndroidDataBuilder.buildOn(transitiveRoot)
-            .assets(file().source("hunting/of/the/snark.txt"))
+            .assets(file().source(transitiveSource))
             .build();
 
     ParsedAndroidData directDependency = ParsedAndroidDataBuilder.empty();
@@ -1185,7 +1193,7 @@ public class AndroidDataMergerTest {
         UnwrittenMergedAndroidData.of(
             primary.getManifest(),
             ParsedAndroidDataBuilder.buildOn(primaryRoot)
-                .assets(file().source("hunting/of/the/snark.txt"))
+                .assets(file().source(primarySource.overwrite(transitiveSource)))
                 .build(),
             ParsedAndroidDataBuilder.empty());
     assertAbout(unwrittenMergedAndroidData).that(data).isEqualTo(expected);
@@ -1255,13 +1263,13 @@ public class AndroidDataMergerTest {
             MergeConflict.of(
                     RelativeAssetPath.Factory.of(directRoot.resolve("assets"))
                         .create(directRoot.resolve("assets/hunting/of/the/snark.txt")),
-                    DataValueFile.of(directRoot.resolve("assets/hunting/of/the/snark.txt")),
+                    DataValueFile.of(primaryRoot.resolve("assets/hunting/of/the/snark.txt")),
                     DataValueFile.of(transitiveRoot.resolve("assets/hunting/of/the/snark.txt")))
                 .toConflictMessage());
   }
 
   @Test
-  public void mergeAssetsDirectTransitivePrimaryConflictWithPrimaryOverride() throws Exception {
+  public void imergeAssetsDirectTransitivePrimaryConflictWithPrimaryOverride() throws Exception {
     Path primaryRoot = fileSystem.getPath("primary");
     Path directRoot = fileSystem.getPath("direct");
     Path transitiveRoot = fileSystem.getPath("transitive");
@@ -1269,6 +1277,8 @@ public class AndroidDataMergerTest {
     DataSource primarySource =
         DataSource.of(primaryRoot.resolve("assets/hunting/of/the/snark.txt"));
     DataSource directSource = DataSource.of(directRoot.resolve("assets/hunting/of/the/snark.txt"));
+    DataSource transitiveSource =
+        DataSource.of(transitiveRoot.resolve("assets/hunting/of/the/snark.txt"));
 
     ParsedAndroidData transitiveDependency =
         ParsedAndroidDataBuilder.buildOn(transitiveRoot)
@@ -1289,26 +1299,19 @@ public class AndroidDataMergerTest {
     UnwrittenMergedAndroidData data =
         AndroidDataMerger.createWithDefaults()
             .merge(transitiveDependency, directDependency, primary, true, true);
-    
+
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
             primary.getManifest(),
             ParsedAndroidDataBuilder.buildOn(primaryRoot)
-                .assets(file().source(primarySource.overwrite(directSource)))
+                .assets(file().source(primarySource.overwrite(directSource, transitiveSource)))
                 .build(),
             ParsedAndroidDataBuilder.empty());
     assertAbout(unwrittenMergedAndroidData).that(data).isEqualTo(expected);
   }
 
-  final SubjectFactory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>
-      unwrittenMergedAndroidData =
-          new SubjectFactory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>() {
-            @Override
-            public UnwrittenMergedAndroidDataSubject getSubject(
-                FailureStrategy fs, UnwrittenMergedAndroidData that) {
-              return new UnwrittenMergedAndroidDataSubject(fs, that);
-            }
-          };
+  final Subject.Factory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>
+      unwrittenMergedAndroidData = UnwrittenMergedAndroidDataSubject.FACTORY;
 
   private static final class TestLoggingHandler extends Handler {
     public final List<String> warnings = new ArrayList<String>();
