@@ -32,6 +32,9 @@ For more information on using Bazel, see
 
 ## <a name="bash"></a>Getting bash completion
 
+**Note:** If you installed Bazel using the custom APT repository, the bash completion script
+is already installed in `/etc/bash_completion.d`.
+
 Bazel comes with a bash completion script, which the installer copies into the
 `bin` directory. If you ran the installer with `--user`, this will be
 `$HOME/.bazel/bin`. If you ran the installer as root, this will be
