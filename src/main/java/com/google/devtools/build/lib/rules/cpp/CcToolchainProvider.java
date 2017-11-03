@@ -506,6 +506,44 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return cppConfiguration.getLinkOptionsDoNotUse(/* sysroot= */ null);
   }
 
+  /**
+   * Returns test-only link options such that certain test-specific features can be configured
+   * separately (e.g. lazy binding).
+   */
+  public ImmutableList<String> getTestOnlyLinkOptions() {
+    return toolchainInfo.getTestOnlyLinkOptions();
+  }
+
+  /** Returns the system name which is required by the toolchain to run. */
+  public String getHostSystemName() {
+    return toolchainInfo.getHostSystemName();
+  }
+
+  /**
+   * Returns the list of options to be used with 'objcopy' when converting binary files to object
+   * files, or {@code null} if this operation is not supported.
+   */
+  public ImmutableList<String> getObjCopyOptionsForEmbedding() {
+    return toolchainInfo.getObjCopyOptionsForEmbedding();
+  }
+
+  /**
+   * Returns the list of options to be used with 'ld' when converting binary files to object files,
+   * or {@code null} if this operation is not supported.
+   */
+  public ImmutableList<String> getLdOptionsForEmbedding() {
+    return toolchainInfo.getLdOptionsForEmbedding();
+  }
+
+  /** Returns the GNU System Name */
+  @SkylarkCallable(
+    name = "target_gnu_system_name",
+    structField = true,
+    doc = "The GNU System Name."
+  )
+  public String getTargetGnuSystemName() {
+    return toolchainInfo.getTargetGnuSystemName();
+  }
 
   // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
   // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they

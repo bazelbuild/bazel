@@ -381,7 +381,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       coverage = crosstool;
     }
 
-    PathFragment sysroot = calculateSysroot(ruleContext);
+    PathFragment sysroot = calculateSysroot(ruleContext, toolchainInfo.getDefaultSysroot());
 
     ImmutableList<PathFragment> builtInIncludeDirectories = null;
     try {
@@ -432,7 +432,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             context,
             supportsParamFiles,
             supportsHeaderParsing,
-            getBuildVariables(ruleContext),
+            getBuildVariables(ruleContext, toolchainInfo.getDefaultSysroot()),
             getBuiltinIncludes(ruleContext),
             coverageEnvironment.build(),
             cppConfiguration.supportsInterfaceSharedObjects()
@@ -642,13 +642,15 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
    * Returns {@link Variables} instance with build variables that only depend on the toolchain.
    *
    * @param ruleContext the rule context
+   * @param defaultSysroot the default sysroot
    * @throws RuleErrorException if there are configuration errors making it impossible to resolve
    *     certain build variables of this toolchain
    */
-  private final Variables getBuildVariables(RuleContext ruleContext) throws RuleErrorException {
+  private final Variables getBuildVariables(RuleContext ruleContext, PathFragment defaultSysroot)
+      throws RuleErrorException {
     Variables.Builder variables = new Variables.Builder();
 
-    PathFragment sysroot = calculateSysroot(ruleContext);
+    PathFragment sysroot = calculateSysroot(ruleContext, defaultSysroot);
     if (sysroot != null) {
       variables.addStringVariable(CppModel.SYSROOT_VARIABLE_NAME, sysroot.getPathString());
     }
@@ -660,7 +662,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
   /**
    * Add local build variables from subclasses into {@link Variables} returned from {@link
-   * #getBuildVariables(RuleContext)}.
+   * #getBuildVariables(RuleContext, PathFragment)}.
    *
    * <p>This method is meant to be overridden by subclasses of CcToolchain.
    */
@@ -679,13 +681,11 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return ImmutableMap.<String, String>of();
   }
 
-  private PathFragment calculateSysroot(RuleContext ruleContext) {
+  private PathFragment calculateSysroot(RuleContext ruleContext, PathFragment defaultSysroot) {
 
     TransitiveInfoCollection sysrootTarget = ruleContext.getPrerequisite(":libc_top", Mode.TARGET);
     if (sysrootTarget == null) {
-      CppConfiguration cppConfiguration =
-          Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
-      return cppConfiguration.getDefaultSysroot();
+      return defaultSysroot;
     }
 
     return sysrootTarget.getLabel().getPackageFragment();

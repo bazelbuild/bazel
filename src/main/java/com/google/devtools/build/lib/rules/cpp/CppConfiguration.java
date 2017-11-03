@@ -552,13 +552,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppToolchainInfo.getCrosstoolTopPathFragment();
   }
 
-  /**
-   * Returns the system name which is required by the toolchain to run.
-   */
-  public String getHostSystemName() {
-    return cppToolchainInfo.getHostSystemName();
-  }
-
   @Override
   public String toString() {
     return cppToolchainInfo.toString();
@@ -933,33 +926,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags,
       Iterable<String> features) {
     return cppToolchainInfo.getSharedLibraryLinkOptions(flags, features);
-  }
-
-  /**
-   * Returns test-only link options such that certain test-specific features can be configured
-   * separately (e.g. lazy binding).
-   */
-  public ImmutableList<String> getTestOnlyLinkOptions() {
-    return cppToolchainInfo.getTestOnlyLinkOptions();
-  }
-
-
-  /**
-   * Returns the list of options to be used with 'objcopy' when converting
-   * binary files to object files, or {@code null} if this operation is not
-   * supported.
-   */
-  public ImmutableList<String> getObjCopyOptionsForEmbedding() {
-    return cppToolchainInfo.getObjCopyOptionsForEmbedding();
-  }
-
-  /**
-   * Returns the list of options to be used with 'ld' when converting
-   * binary files to object files, or {@code null} if this operation is not
-   * supported.
-   */
-  public ImmutableList<String> getLdOptionsForEmbedding() {
-    return cppToolchainInfo.getLdOptionsForEmbedding();
   }
 
   /**
@@ -1597,10 +1563,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           "The built-in sysroot '" + defaultSysroot + "' is not normalized.");
     }
     return defaultSysroot;
-  }
-
-  public PathFragment getDefaultSysroot() {
-    return cppToolchainInfo.getDefaultSysroot();
   }
 
   @Override

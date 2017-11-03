@@ -349,7 +349,7 @@ public final class LinkCommandLine extends CommandLine {
 
     // Extra test-specific link options.
     if (useTestOnlyFlags) {
-      toolchainFlags.addAll(cppConfiguration.getTestOnlyLinkOptions());
+      toolchainFlags.addAll(ccProvider.getTestOnlyLinkOptions());
     }
 
     toolchainFlags.addAll(ccProvider.getLinkOptions());
