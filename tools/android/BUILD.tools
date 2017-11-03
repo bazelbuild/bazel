@@ -168,6 +168,7 @@ py_binary(
         "aar_native_libs_zip_creator.py",
     ],
     deps = [
+        ":junction_lib",
         "//third_party/py/gflags",
     ],
 )
