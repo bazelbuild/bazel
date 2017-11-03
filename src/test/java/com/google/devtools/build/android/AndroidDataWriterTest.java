@@ -251,8 +251,6 @@ public class AndroidDataWriterTest {
                 source.resolve("AndroidManifest.xml"), direct, ParsedAndroidDataBuilder.empty())
             .write(mergedDataWriter);
 
-
-
     assertAbout(paths).that(actual.getManifest()).exists();
     assertAbout(paths).that(actual.getResourceDir().resolve("values/values.xml")).exists();
     assertAbout(paths)
@@ -264,9 +262,9 @@ public class AndroidDataWriterTest {
             "<integer name='zoo'>54321</integer>",
             "<!-- " + fs.getPath("source/res/values/strings.xml") + " --><eat-comment/>",
             "<string name='foo'>meow</string>",
+            "<!-- " + fs.getPath("source/res/values/integers.xml") + " --><eat-comment/>",
             "<public name='foo' type='integer' id='0x7f040000'/>",
             "<public name='foo' type='string' id='0x7f050000'/>",
-            "<!-- " + fs.getPath("source/res/values/integers.xml") + " --><eat-comment/>",
             "<public name='zoo' type='integer' />",
             END_RESOURCES);
   }
