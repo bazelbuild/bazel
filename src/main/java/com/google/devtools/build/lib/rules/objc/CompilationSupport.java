@@ -96,7 +96,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
@@ -443,8 +442,7 @@ public class CompilationSupport {
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
     try {
-      return configuration
-          .getFragment(CppConfiguration.class)
+      return toolchain
           .getFeatures()
           .getFeatureConfiguration(
               FeatureSpecification.create(
@@ -640,8 +638,9 @@ public class CompilationSupport {
     this.usePch = usePch;
     // TODO(b/62143697): Remove this check once all rules are using the crosstool support.
     if (ruleContext
-        .attributes()
-        .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
+            .attributes()
+            .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)
+        || ruleContext.attributes().has(":j2objc_cc_toolchain", BuildType.LABEL)) {
       if (toolchain == null) {
         toolchain =  CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
       }
