@@ -119,7 +119,8 @@ done
 #
 # For case 1, $0 will be a regular file, and the runfiles tree will be
 # at $0.runfiles.
-# For case 2 or 3, $0 will be a symlink to the file seen in case 1.
+# For case 2, $0 will be a symlink to the file seen in case 1.
+# For case 3, we use Y's runfiles tree, which will be a superset of X's.
 # For case 4, $JAVA_RUNFILES and $TEST_SRCDIR should already be set.
 # Case 5 is handled like case 1.
 # Case 6 is handled like case 3.
@@ -145,7 +146,7 @@ if [[ "$SINGLEJAR" != 1 || "%needs_runfiles%" == 1 ]]; then
       fi
       if [[ $self == *.runfiles/* ]]; then
         JAVA_RUNFILES="${self%.runfiles/*}.runfiles"
-        # don't break; this value is only a last resort for case 6b
+        break
       fi
       if [[ ! -L "$self" ]]; then
         break
