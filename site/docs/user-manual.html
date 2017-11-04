@@ -455,10 +455,6 @@ Subtractive patterns:
   under 'contrib' depends on something under 'contrib' though, in order to
   build the former bazel has to build the latter too. As usual, the '--' is
   required to prevent '-f' from being interpreted as an option.
-
-  Note that test suite expansion is performed only after the full list of target patterns is
-  evaluated. That means if an exclusion matches a test_suite target, only the test_suite itself
-  is excluded, not all of the individual test targets.
 </pre>
 <p>
   Whereas <a href="build-ref.html#labels">labels</a> are used
