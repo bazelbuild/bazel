@@ -488,7 +488,7 @@ public abstract class DependencyResolver {
       LateBoundDefault<FragmentT, ValueT> lateBoundDefault,
       Rule rule,
       AttributeMap attributeMap,
-      BuildConfiguration config) {
+      BuildConfiguration config) throws EvalException {
     Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
     // TODO(b/65746853): remove this when nothing uses it anymore
     if (BuildConfiguration.class.equals(fragmentClass)) {

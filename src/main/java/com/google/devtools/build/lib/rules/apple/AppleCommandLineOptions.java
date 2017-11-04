@@ -331,7 +331,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
    * changed from the default using the {@code xcode_version_config} build flag.
    */
   // TODO(cparsons): Update all callers to reference the actual xcode_version_config flag value.
-  static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
+  @VisibleForTesting
+  public static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
 
   /** Converter for --default_ios_provisioning_profile. */
   public static class DefaultProvisioningProfileConverter extends DefaultLabelConverter {

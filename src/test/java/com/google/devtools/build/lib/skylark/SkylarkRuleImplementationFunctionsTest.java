@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -2040,6 +2041,138 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     } catch (AssertionError e) {
       assertThat(e).hasMessageThat().contains("cannot modify frozen value");
     }
+  }
+
+  @Test
+  public void testConfigurationField_invalidFragment() throws Exception {
+    scratch.file("test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  return struct()",
+
+        "main_rule = rule(implementation = _impl,",
+        "    attrs = { '_myattr': attr.label(",
+        "        default = configuration_field(",
+        "        fragment = 'notarealfragment', name = 'method_name')),",
+        "    },",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load('//test:main_rule.bzl', 'main_rule')",
+        "main_rule(name='main')");
+
+    AssertionError expected =
+        expectThrows(AssertionError.class,
+            () -> getConfiguredTarget("//test:main"));
+
+    assertThat(expected).hasMessageThat()
+        .contains("invalid configuration fragment name 'notarealfragment'");
+  }
+
+  @Test
+  public void testConfigurationField_doesNotChangeFragmentAccess() throws Exception {
+    scratch.file("test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  return struct(platform = ctx.fragments.apple.single_arch_platform)",
+
+        "main_rule = rule(implementation = _impl,",
+        "    attrs = { '_myattr': attr.label(",
+        "        default = configuration_field(",
+        "        fragment = 'apple', name = 'xcode_config_label')),",
+        "    },",
+        "    fragments = [],",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load('//test:main_rule.bzl', 'main_rule')",
+        "main_rule(name='main')");
+
+    AssertionError expected =
+        expectThrows(AssertionError.class,
+            () -> getConfiguredTarget("//test:main"));
+
+    assertThat(expected).hasMessageThat()
+        .contains("has to declare 'apple' as a required fragment in target configuration");
+  }
+
+  @Test
+  public void testConfigurationField_invalidFieldName() throws Exception {
+    scratch.file("test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  return struct()",
+
+        "main_rule = rule(implementation = _impl,",
+        "    attrs = { '_myattr': attr.label(",
+        "        default = configuration_field(",
+        "        fragment = 'apple', name = 'notarealfield')),",
+        "    },",
+        "    fragments = ['apple'],",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load('//test:main_rule.bzl', 'main_rule')",
+        "main_rule(name='main')");
+
+    AssertionError expected =
+        expectThrows(AssertionError.class,
+            () -> getConfiguredTarget("//test:main"));
+
+    assertThat(expected).hasMessageThat()
+        .contains("invalid configuration field name 'notarealfield' on fragment 'apple'");
+  }
+
+  // Verifies that configuration_field can only be used on 'private' attributes.
+  @Test
+  public void testConfigurationField_invalidVisibility() throws Exception {
+    scratch.file("test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  return struct()",
+
+        "main_rule = rule(implementation = _impl,",
+        "    attrs = { 'myattr': attr.label(",
+        "        default = configuration_field(",
+        "        fragment = 'apple', name = 'xcode_config_label')),",
+        "    },",
+        "    fragments = ['apple'],",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load('//test:main_rule.bzl', 'main_rule')",
+        "main_rule(name='main')");
+
+    AssertionError expected =
+        expectThrows(AssertionError.class,
+            () -> getConfiguredTarget("//test:main"));
+
+    assertThat(expected).hasMessageThat()
+        .contains("When an attribute value is a function, "
+            + "the attribute must be private (i.e. start with '_')");
+  }
+
+  // Verifies that configuration_field can only be used on 'label' attributes.
+  @Test
+  public void testConfigurationField_invalidAttributeType() throws Exception {
+    scratch.file("test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  return struct()",
+
+        "main_rule = rule(implementation = _impl,",
+        "    attrs = { '_myattr': attr.int(",
+        "        default = configuration_field(",
+        "        fragment = 'apple', name = 'xcode_config_label')),",
+        "    },",
+        "    fragments = ['apple'],",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load('//test:main_rule.bzl', 'main_rule')",
+        "main_rule(name='main')");
+
+    AssertionError expected =
+        expectThrows(AssertionError.class,
+            () -> getConfiguredTarget("//test:main"));
+
+    assertThat(expected).hasMessageThat()
+        .contains("argument 'default' has type 'SkylarkLateBoundDefault', but should be 'int'");
   }
 
   private void setupThrowFunction(BuiltinFunction func) throws Exception {

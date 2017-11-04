@@ -93,4 +93,10 @@ public interface RuleClassProvider {
    * Retrieves an aspect from the aspect factory map using the key provided
    */
   NativeAspectClass getNativeAspectClass(String key);
+
+  /**
+   * Retrieves a {@link Map} from skylark configuration fragment name to configuration fragment
+   * class.
+   */
+  Map<String, Class<?>> getConfigurationFragmentMap();
 }

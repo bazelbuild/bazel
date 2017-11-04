@@ -1601,6 +1601,8 @@ public class RuleClass {
         // that depends on non-computed default attribute values, and that condition predicate is
         // evaluated by the call to Attribute#getDefaultValue.
         attrsWithComputedDefaults.add(attr);
+      } else if (attr.isLateBound()) {
+        rule.setAttributeValue(attr, attr.getLateBoundDefault(), /*explicit=*/ false);
       } else {
         Object defaultValue = getAttributeNoncomputedDefaultValue(attr, pkgBuilder);
         rule.setAttributeValue(attr, defaultValue, /*explicit=*/ false);

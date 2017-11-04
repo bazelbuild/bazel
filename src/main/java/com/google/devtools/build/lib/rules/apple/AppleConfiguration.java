@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
@@ -416,6 +417,12 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the label of the xcode_config rule to use for resolving the host system xcode version.
    */
+  @SkylarkConfigurationField(
+      name = "xcode_config_label",
+      doc = "Returns the target denoted by the value of the --xcode_version_config flag",
+      defaultLabel = AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL,
+      defaultInToolRepository = true
+  )
   public Label getXcodeConfigLabel() {
     return xcodeConfigLabel;
   }
