@@ -380,7 +380,9 @@ public class LocalSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
     assertThat(result.exitCode()).isEqualTo(-1);
     assertThat(result.setupSuccess()).isFalse();
-    assertThat(result.getWallTimeMillis()).isEqualTo(0);
+    assertThat(result.getWallTime().isPresent()).isFalse();
+    assertThat(result.getUserTime().isPresent()).isFalse();
+    assertThat(result.getSystemTime().isPresent()).isFalse();
     assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     assertThat(FileSystemUtils.readContent(fs.getPath("/out/stderr"), StandardCharsets.UTF_8))
@@ -403,7 +405,9 @@ public class LocalSpawnRunnerTest {
     assertThat(reply.status()).isEqualTo(SpawnResult.Status.LOCAL_ACTION_NOT_ALLOWED);
     assertThat(reply.exitCode()).isEqualTo(-1);
     assertThat(reply.setupSuccess()).isFalse();
-    assertThat(reply.getWallTimeMillis()).isEqualTo(0);
+    assertThat(reply.getWallTime().isPresent()).isFalse();
+    assertThat(reply.getUserTime().isPresent()).isFalse();
+    assertThat(reply.getSystemTime().isPresent()).isFalse();
     assertThat(reply.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     // TODO(ulfjack): Maybe we should only lock after checking?

@@ -47,6 +47,7 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -153,7 +154,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     long startTime = System.currentTimeMillis();
     WorkResponse response = execInWorker(key, workRequest, policy);
-    long wallTimeMillis = System.currentTimeMillis() - startTime;
+    Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
 
     FileOutErr outErr = policy.getFileOutErr();
     response.getOutputBytes().writeTo(outErr.getErrorStream());
@@ -161,7 +162,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     return new SpawnResult.Builder()
         .setExitCode(response.getExitCode())
         .setStatus(SpawnResult.Status.SUCCESS)
-        .setWallTimeMillis(wallTimeMillis)
+        .setWallTime(wallTime)
         .build();
   }
 

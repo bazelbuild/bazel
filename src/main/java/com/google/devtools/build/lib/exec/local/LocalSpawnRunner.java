@@ -317,10 +317,10 @@ public final class LocalSpawnRunner implements SpawnRunner {
               .build();
         }
         setState(State.SUCCESS);
-        long wallTimeMillis = System.currentTimeMillis() - startTime;
+        Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
         boolean wasTimeout =
             result.getTerminationStatus().timedout()
-                || (useProcessWrapper && wasTimeout(policy.getTimeout(), wallTimeMillis));
+                || (useProcessWrapper && wasTimeout(policy.getTimeout(), wallTime));
         Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
         int exitCode =
             status == Status.TIMEOUT
@@ -330,13 +330,13 @@ public final class LocalSpawnRunner implements SpawnRunner {
             .setStatus(status)
             .setExitCode(exitCode)
             .setExecutorHostname(hostName)
-            .setWallTimeMillis(wallTimeMillis)
+            .setWallTime(wallTime)
             .build();
       } finally {
         // Delete the temp directory tree, so the next action that this thread executes will get a
         // fresh, empty temp directory.
         // File deletion tends to be slow on Windows, so deleting this tree may take several
-        // seconds. Delete it after having measured the wallTimeMillis.
+        // seconds. Delete it after having measured the wallTime.
         try {
           FileSystemUtils.deleteTree(tmpDir);
         } catch (IOException ignored) {
@@ -356,8 +356,8 @@ public final class LocalSpawnRunner implements SpawnRunner {
       return path == null ? "/dev/null" : path.getPathString();
     }
 
-    private boolean wasTimeout(Duration timeout, long wallTimeMillis) {
-      return !timeout.isZero() && wallTimeMillis > timeout.toMillis();
+    private boolean wasTimeout(Duration timeout, Duration wallTime) {
+      return !timeout.isZero() && wallTime.compareTo(timeout) > 0;
     }
   }
 
