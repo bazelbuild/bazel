@@ -122,7 +122,7 @@ function create_release_commit() {
 function apply_cherry_picks() {
   echo "Applying cherry-picks"
   # Apply cherry-picks
-  for i in $@; do
+  for i in "$@"; do
     local previous_head="$(git rev-parse HEAD)"
     echo "  Cherry-picking $i"
     git cherry-pick $i >/dev/null || {

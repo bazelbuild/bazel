@@ -131,7 +131,7 @@ function test_all_help_topics_succeed() {
               awk '{print $1}') \
           startup_options \
           target-syntax)
-  for topic in ${topics[@]}; do
+  for topic in "${topics[@]}"; do
     bazel help $topic >$TEST_log 2>&1 || {
        fail "help $topic failed"
        expect_not_log .  # print the log
