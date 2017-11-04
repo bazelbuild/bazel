@@ -319,7 +319,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
         setState(State.SUCCESS);
         Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
         boolean wasTimeout =
-            result.getTerminationStatus().timedout()
+            result.getTerminationStatus().timedOut()
                 || (useProcessWrapper && wasTimeout(policy.getTimeout(), wallTime));
         Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
         int exitCode =
