@@ -56,7 +56,7 @@ TOOLARGS=()
 # By default, have ibtool compile storyboards (to stay compatible with the
 # native rules). If the command line includes "--link", we use it instead.
 ACTION=--compile
-for i in $@; do
+for i in "$@"; do
   if [ -e "$i" ]; then
     if [[ "$i" == *.zip ]]; then
       unzip -qq "$i" -d "$LINKDIR"
