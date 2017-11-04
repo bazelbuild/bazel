@@ -472,7 +472,7 @@ function cleanup_workspace() {
     cd ${WORKSPACE_DIR}
     bazel clean >> $TEST_log 2>&1 # Clean up the output base
 
-    for i in $(ls); do
+    for i in *; do
       if ! is_tools_directory "$i"; then
         rm -fr "$i"
       fi
