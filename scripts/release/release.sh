@@ -146,7 +146,7 @@ function apply_cherry_picks() {
 function find_last_release() {
   local branch="${1:-HEAD}"
   local baseline="${2:-$(get_release_baseline "${branch}")}"
-  local changes="$(git log --pretty=format:%H "${baseline}~".."${branch}")"
+  local changes="$(git log --pretty=format:%H "${baseline}~..${branch}")"
   for i in ${changes}; do
     if git notes --ref=release show $i &>/dev/null; then
       echo $i
