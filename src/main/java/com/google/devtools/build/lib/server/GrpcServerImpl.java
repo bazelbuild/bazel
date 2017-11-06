@@ -701,6 +701,7 @@ public class GrpcServerImpl implements RPCServer {
       }
     }
 
+    logger.info("About to shutdown due to idleness");
     signalShutdown();
   }
 
