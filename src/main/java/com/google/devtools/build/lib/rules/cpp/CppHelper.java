@@ -92,7 +92,7 @@ public class CppHelper {
       ImmutableList.of("deps", "srcs");
 
   /** Base label of the c++ toolchain category. */
-  public static final String TOOLCHAIN_TYPE_LABEL = "//tools/cpp:toolchain_category";
+  public static final String TOOLCHAIN_TYPE_LABEL = "//tools/cpp:toolchain_type";
 
   /** Returns label used to select resolved cc_toolchain instances based on platform. */
   public static Label getCcToolchainType(String toolsRepository) {

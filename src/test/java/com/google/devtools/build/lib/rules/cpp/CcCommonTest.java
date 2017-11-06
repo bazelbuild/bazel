@@ -969,7 +969,7 @@ public class CcCommonTest extends BuildViewTestCase {
     @Override
     public Metadata getMetadata() {
       return Metadata.builder()
-          .name("toolchain_type")
+          .name("cc_toolchain_type")
           .factoryClass(BazelToolchainType.class)
           .ancestors(BaseRuleClasses.BaseRule.class)
           .build();

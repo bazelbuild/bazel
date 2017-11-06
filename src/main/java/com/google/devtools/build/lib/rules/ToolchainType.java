@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.TreeMap;
 
@@ -30,19 +32,37 @@ import java.util.TreeMap;
  * Abstract base class for {@code toolchain_type}.
  */
 public class ToolchainType implements RuleConfiguredTargetFactory {
-  private final ImmutableMap<Label, Class<? extends BuildConfiguration.Fragment>> fragmentMap;
+  private ImmutableMap<Label, Class<? extends BuildConfiguration.Fragment>> fragmentMap;
+  private final Function<RuleContext, ImmutableMap<Label, Class<? extends Fragment>>>
+      fragmentMapFromRuleContext;
   private final ImmutableMap<Label, ImmutableMap<String, String>> hardcodedVariableMap;
 
   protected ToolchainType(
       ImmutableMap<Label, Class<? extends BuildConfiguration.Fragment>> fragmentMap,
       ImmutableMap<Label, ImmutableMap<String, String>> hardcodedVariableMap) {
     this.fragmentMap = fragmentMap;
+    this.fragmentMapFromRuleContext = null;
+    this.hardcodedVariableMap = hardcodedVariableMap;
+  }
+
+  // This constructor is required to allow for toolchains that depend on the tools repository,
+  // which depends on RuleContext.
+  protected ToolchainType(
+      Function<RuleContext, ImmutableMap<Label, Class<? extends Fragment>>>
+          fragmentMapFromRuleContext,
+      ImmutableMap<Label, ImmutableMap<String, String>> hardcodedVariableMap) {
+    this.fragmentMap = null;
+    this.fragmentMapFromRuleContext = fragmentMapFromRuleContext;
     this.hardcodedVariableMap = hardcodedVariableMap;
   }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    if (fragmentMap == null && fragmentMapFromRuleContext != null) {
+      this.fragmentMap = fragmentMapFromRuleContext.apply(ruleContext);
+    }
+
     // This cannot be an ImmutableMap.Builder because that asserts when a key is duplicated
     TreeMap<String, String> makeVariables = new TreeMap<>();
     Class<? extends BuildConfiguration.Fragment> fragmentClass =

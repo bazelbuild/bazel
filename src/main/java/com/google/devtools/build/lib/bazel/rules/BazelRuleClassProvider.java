@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.bazel.rules.BazelToolchainType.BazelToolchainTypeRule;
+import com.google.devtools.build.lib.bazel.rules.CcToolchainType.CcToolchainTypeRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
@@ -191,6 +192,7 @@ public class BazelRuleClassProvider {
         @Override
         public void init(Builder builder) {
           builder.addRuleDefinition(new BazelToolchainTypeRule());
+          builder.addRuleDefinition(new CcToolchainTypeRule());
           builder.addRuleDefinition(new GenRuleBaseRule());
           builder.addRuleDefinition(new BazelGenRuleRule());
         }
@@ -217,6 +219,8 @@ public class BazelRuleClassProvider {
           builder.addConfigurationOptions(BuildConfiguration.Options.class);
           builder.addWorkspaceFileSuffix(
               "register_toolchains('@bazel_tools//tools/cpp:dummy_cc_toolchain')\n");
+          builder.addWorkspaceFileSuffix(
+              "register_toolchains('@bazel_tools//tools/cpp:dummy_cc_toolchain_type')\n");
         }
 
         @Override

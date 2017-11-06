@@ -233,12 +233,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public void addWorkspaceFilePrefix(String contents) {
+    public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
+      return this;
     }
 
-    public void addWorkspaceFileSuffix(String contents) {
+    public Builder addWorkspaceFileSuffix(String contents) {
       defaultWorkspaceFileSuffix.append(contents);
+      return this;
     }
 
     public Builder setPrelude(String preludeLabelString) {
