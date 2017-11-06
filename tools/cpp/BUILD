@@ -106,12 +106,12 @@ cc_toolchain(
 
 cc_toolchain(
     name = "cc-compiler-darwin",
-    all_files = ":empty",
-    compiler_files = ":empty",
+    all_files = ":osx_wrapper",
+    compiler_files = ":osx_wrapper",
     cpu = "darwin",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
-    linker_files = ":empty",
+    linker_files = ":osx_wrapper",
     objcopy_files = ":empty",
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
@@ -203,6 +203,11 @@ filegroup(
 filegroup(
     name = "link_dynamic_library",
     srcs = ["link_dynamic_library.sh"],
+)
+
+filegroup(
+    name = "osx_wrapper",
+    srcs = ["osx_cc_wrapper.sh"],
 )
 
 filegroup(name = "toolchain_category")
