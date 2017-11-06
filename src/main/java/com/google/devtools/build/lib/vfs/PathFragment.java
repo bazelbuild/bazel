@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -45,7 +47,8 @@ import java.util.Set;
  */
 @Immutable
 @ThreadSafe
-public abstract class PathFragment implements Comparable<PathFragment>, Serializable {
+public abstract class PathFragment
+    implements Comparable<PathFragment>, Serializable, SkylarkPrintable {
   private static final Helper HELPER =
       OS.getCurrent() == OS.WINDOWS ? WindowsPathFragment.HELPER : UnixPathFragment.HELPER;
 
@@ -451,18 +454,17 @@ public abstract class PathFragment implements Comparable<PathFragment>, Serializ
   }
 
   /**
-   * Returns the path formed by appending the single non-special segment
-   * "baseName" to this path.
+   * Returns the path formed by appending the single non-special segment "baseName" to this path.
    *
-   * <p>You should almost always use {@link #getRelative} instead, which has
-   * the same performance characteristics if the given name is a valid base
-   * name, and which also works for '.', '..', and strings containing '/'.
+   * <p>You should almost always use {@link #getRelative} instead, which has the same performance
+   * characteristics if the given name is a valid base name, and which also works for '.', '..', and
+   * strings containing '/'.
    *
-   * @throws IllegalArgumentException if {@code baseName} is not a valid base
-   *     name according to {@link FileSystemUtils#checkBaseName}
+   * @throws IllegalArgumentException if {@code baseName} is not a valid base name according to
+   *     {@link #checkBaseName}
    */
   public PathFragment getChild(String baseName) {
-    FileSystemUtils.checkBaseName(baseName);
+    checkBaseName(baseName);
     baseName = StringCanonicalizer.intern(baseName);
     String[] newSegments = Arrays.copyOf(segments, segments.length + 1);
     newSegments[newSegments.length - 1] = baseName;
@@ -733,5 +735,22 @@ public abstract class PathFragment implements Comparable<PathFragment>, Serializ
   @Override
   public String toString() {
     return getPathString();
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append(getPathString());
+  }
+
+  private static void checkBaseName(String baseName) {
+    if (baseName.length() == 0) {
+      throw new IllegalArgumentException("Child must not be empty string ('')");
+    }
+    if (baseName.equals(".") || baseName.equals("..")) {
+      throw new IllegalArgumentException("baseName must not be '" + baseName + "'");
+    }
+    if (baseName.indexOf('/') != -1) {
+      throw new IllegalArgumentException("baseName must not contain a slash: '" + baseName + "'");
+    }
   }
 }

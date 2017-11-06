@@ -273,7 +273,6 @@ java_library(
         "skylarkinterface/*.java",
     ]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//third_party:jsr305",
     ],
 )
@@ -291,7 +290,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-util",

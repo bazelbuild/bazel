@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.List;
@@ -150,8 +151,11 @@ public class WorkspaceFactoryTest {
           root);
       Exception exception = null;
       try {
+        byte[] bytes =
+            FileSystemUtils.readWithKnownFileSize(
+                workspaceFilePath, workspaceFilePath.getFileSize());
         factory.parse(
-            ParserInputSource.create(workspaceFilePath),
+            ParserInputSource.create(bytes, workspaceFilePath.asFragment()),
             SkylarkSemantics.DEFAULT_SEMANTICS,
             eventHandler);
       } catch (BuildFileContainsErrorsException e) {

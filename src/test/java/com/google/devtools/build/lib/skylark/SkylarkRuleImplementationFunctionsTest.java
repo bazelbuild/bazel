@@ -670,9 +670,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
    * usually write those files using UTF-8 encoding. Currently, the string-valued 'substitutions'
    * parameter of the template_action function contains a hack that assumes its input is a UTF-8
    * encoded string which has been ingested as Latin 1. The hack converts the string to its
-   * "correct" UTF-8 value. Once {@link com.google.devtools.build.lib.syntax.ParserInputSource#create(com.google.devtools.build.lib.vfs.Path)}
-   * parses files using UTF-8 and the hack for the substituations parameter is removed, this test
-   * will fail.
+   * "correct" UTF-8 value. Once {@link
+   * com.google.devtools.build.lib.syntax.ParserInputSource#create(byte[],
+   * com.google.devtools.build.lib.vfs.PathFragment)} parses files using UTF-8 and the hack for the
+   * substituations parameter is removed, this test will fail.
    */
   @Test
   public void testCreateTemplateActionWithWrongEncoding() throws Exception {
