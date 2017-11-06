@@ -586,7 +586,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       throws ActionExecutionException {
     int missingCount = 0;
     int actionFailures = 0;
-    boolean catastrophe = false;
     // Only populate input data if we have the input values, otherwise they'll just go unused.
     // We still want to loop through the inputs to collect missing deps errors. During the
     // evaluator "error bubbling", we may get one last chance at reporting errors even though
@@ -637,10 +636,11 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         }
       } catch (ActionExecutionException e) {
         actionFailures++;
-        if (firstActionExecutionException == null) {
+        // Prefer a catastrophic exception as the one we propagate.
+        if (firstActionExecutionException == null
+            || !firstActionExecutionException.isCatastrophe() && e.isCatastrophe()) {
           firstActionExecutionException = e;
         }
-        catastrophe = catastrophe || e.isCatastrophe();
         rootCauses.addTransitive(e.getRootCauses());
       }
     }
@@ -651,8 +651,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         // having to copy the root causes to the upwards transitive closure.
         throw firstActionExecutionException;
       }
-      throw new ActionExecutionException(firstActionExecutionException.getMessage(),
-          firstActionExecutionException.getCause(), action, rootCauses.build(), catastrophe,
+      throw new ActionExecutionException(
+          firstActionExecutionException.getMessage(),
+          firstActionExecutionException.getCause(),
+          action,
+          rootCauses.build(),
+          firstActionExecutionException.isCatastrophe(),
           firstActionExecutionException.getExitCode());
     }
 
