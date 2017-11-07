@@ -68,18 +68,31 @@ public class Linter {
         }
       };
 
+  private boolean singleFileMode = false;
   private final Set<String> disabledChecks = new LinkedHashSet<>();
+  private final Set<String> disabledCategories = new LinkedHashSet<>();
 
   public Linter setFileContentsReader(FileFacade reader) {
     this.fileFacade = reader;
     return this;
   }
 
-  public Linter disable(String checkName) {
+  public Linter disableCheck(String checkName) {
     if (!nameToCheck.containsKey(checkName)) {
       throw new IllegalArgumentException("Unknown check '" + checkName + "' cannot be disabled.");
     }
     disabledChecks.add(checkName);
+    return this;
+  }
+
+  public Linter disableCategory(String categoryName) {
+    disabledCategories.add(categoryName);
+    return this;
+  }
+
+  /** Disables checks that require analyzing multiple files. */
+  public Linter setSingleFileMode() {
+    singleFileMode = true;
     return this;
   }
 
@@ -108,12 +121,15 @@ public class Linter {
       }
       issues.addAll(entry.getValue().check(ast));
     }
-    for (Entry<String, MultiFileCheck> entry : nameToMultiFileCheck.entrySet()) {
-      if (disabledChecks.contains(entry.getKey())) {
-        continue;
+    if (!singleFileMode) {
+      for (Entry<String, MultiFileCheck> entry : nameToMultiFileCheck.entrySet()) {
+        if (disabledChecks.contains(entry.getKey())) {
+          continue;
+        }
+        issues.addAll(entry.getValue().check(path, ast, fileFacade));
       }
-      issues.addAll(entry.getValue().check(path, ast, fileFacade));
     }
+    issues.removeIf(issue -> disabledCategories.contains(issue.category));
     issues.sort(Issue::compareLocation);
     return issues;
   }
