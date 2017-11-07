@@ -22,6 +22,7 @@ sh_test(
     size = "large",
     srcs = ["android_integration_test.sh"],
     data = [
+        "sample.aar",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
