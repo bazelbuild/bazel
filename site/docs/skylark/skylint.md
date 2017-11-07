@@ -11,7 +11,7 @@ This document explains how to use the Skylark linter.
 
 <!-- [TOC] -->
 
-## The linter CLI tool {#running-cli}
+## The linter CLI tool
 
 ### Building the linter
 
@@ -44,7 +44,7 @@ false positives.
 
 ### Deprecations
 
-#### Deprecating functions (docstring format) [deprecated-symbol] {#deprecating-functions}
+#### Deprecating functions (docstring format) [deprecated-symbol]
 
 <a name="deprecated-symbol"></a>
 To deprecate a function, add a `Deprecated:` section to the docstring, similarly
@@ -66,7 +66,7 @@ def bar():
 Note that the explanation starts on the next line after `Deprecated:` and may
 occupy multiple lines, with all lines indented by two spaces.
 
-#### Using the operator + on dictionaries [deprecated-plus-dict] {#deprecated-plus-dict}
+#### Using the operator + on dictionaries [deprecated-plus-dict]
 
 The `+` operator (and similarly `+=`) is deprecated for dictionaries. Instead,
 use the following:
@@ -79,7 +79,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 dicts.add(d1, d2, d3) # instead of d1 + d2 + d3
 ```
 
-### Docstrings {#docstrings}
+### Docstrings
 
 <a name="missing-docstring"></a>
 <a name="bad-docstring-format"></a>
@@ -124,7 +124,7 @@ def example_function2(foo, bar):
   return 'baz'
 ```
 
-#### Indentation {#indentation}
+#### Indentation
 
 If the linter gives you confusing error messages, **check the indentation of the
 docstring**. (The indentation rules are the same as [for
@@ -134,7 +134,7 @@ edge cases. If the indentation is wrong, the analyzer may not recognize some
 sections, such as `Args:`, which may then lead to further errors about missing
 documentation for the parameters.
 
-#### What to document [inconsistent-docstring] {#what-to-document}
+#### What to document [inconsistent-docstring]
 
 <a name="inconsistent-docstring"></a>
 The analyzer **requires docstrings** for:
@@ -150,9 +150,9 @@ order):
 *   the **return value** if the function returns a value, i.e. it contains
     `return foo` instead of just `return`
 *   a **deprecation warning** if the function is deprecated, cf. the
-    [deprecation section](#deprecating-functions) above
+    [deprecation section](#deprecated-symbol) above
 
-### Naming conventions {#naming-conventions}
+### Naming conventions
 
 <a name="name-with-wrong-case"></a>
 <a name="provider-name-suffix"></a>
@@ -184,13 +184,13 @@ In detail, the rules are the following:
     *   **only** to ignore the result of an assignment, as in `a, _ = tuple`.
     *   **never** to read the value of `_`, e.g. `f(_)`.
 
-### Statements without effects [no-effect] {#no-effect}
+### Statements without effects [no-effect]
 
 If a statement is just an expression that is not a function call, the analyzer
 warns `expression result not used`. Most likely, you forgot to do something with
 that value. Examples: `1 + foo()`, `foo[bar]`.
 
-#### List comprehensions {#list-comprehensions}
+#### List comprehensions
 
 List comprehensions inside a function should be transformed to a for-loop.
 This transformation is not possible at the top level because for-loops are only
@@ -210,7 +210,7 @@ def baz():
     do_something_with(foo)
 ```
 
-### Return value lint [missing-return-value] {#missing-return-value}
+### Return value lint [missing-return-value]
 
 If a function returns with a value (`return foo`) in some execution paths and
 without one (just `return` or reaching the end of a function) in other execution
@@ -219,7 +219,7 @@ probably forgot to return the right value in some execution paths. If this is
 not the case, you should make your intent clear by writing `return None`
 instead.
 
-#### Example {#example}
+#### Example
 
 ```
 def foo():
@@ -232,7 +232,7 @@ def foo():
     return True
 ```
 
-#### "I know the else-branch cannot happen" {#else-branch-impossible}
+#### "I know the else-branch cannot happen"
 
 Suppose you have code like this:
 
@@ -248,7 +248,7 @@ def foo():
 In such a case, just add `fail("unreachable")` or something along these lines
 to the end of the function in order to silence the warning.
 
-### Uninitialized variables [uninitialized-variable] {#uninitialized-variable}
+### Uninitialized variables [uninitialized-variable]
 
 If a variable is not initialized before it's used on every execution path, the
 analyzer warns about it:
@@ -271,7 +271,7 @@ If your code is more complex and it is impossible to determine statically that a
 variable is initialized before usage, just initialize the variable with `None`
 before using it.
 
-### Unused bindings [unused-binding] {#unused-binding}
+### Unused bindings [unused-binding]
 
 If a binding of an identifier is not used, the analyzer warns about it:
 
@@ -300,7 +300,7 @@ The analyzer warns about unused identifiers except in the following cases:
     opposed to global variables, where the underscore signifies that it is
     private).
 
-#### Silencing the warning {#silence-unused}
+#### Silencing the warning
 
 If you want to **silence the warning**, you can do one of the following:
 
@@ -309,7 +309,7 @@ If you want to **silence the warning**, you can do one of the following:
     underscore.
 *   Look at the special cases below.
 
-#### Unused parameters with fixed names {#unused-parameters}
+#### Unused parameters with fixed names
 
 In case of a parameter whose name you cannot change (because you have to conform
 to some API), you can use the following pattern:
@@ -325,7 +325,7 @@ def foo(param1, param2):
 This way, the parameters are used for the assignment of the ignored variable
 `_ignore`. Hence the analyzer will not warn.
 
-#### Re-exporting `load()`ed names {#re-exporting-loaded-names}
+#### Re-exporting `load()`ed names
 
 If you want to `load()` a name just to re-export it (and not use it in the
 current file), use the following pattern.
@@ -342,7 +342,7 @@ foo = _foo
 
 This way, the name is still re-exported but doesn't generate a warning.
 
-### Miscellaneous lints {#misc}
+### Miscellaneous lints
 
 *   **unreachable statements** [unreachable-statement]
 *   **Load statements** must be **at the top** of the file (after the docstring)
