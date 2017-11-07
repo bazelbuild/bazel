@@ -30,6 +30,11 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+if [ "${PLATFORM-}" != "darwin" ] && [ "${PLATFORM-}" != "linux" ]; then
+  echo "We only run this test on a Darwin or Linux machine."
+  exit 0
+fi
+
 # Load the dependencies of //src:embedded_tools_srcs in the current workspace
 # using the output of genquery //src/test/shell/bazel:embedded_tools_deps.
 current_deps=${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/embedded_tools_deps
