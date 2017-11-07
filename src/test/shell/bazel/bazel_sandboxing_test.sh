@@ -579,10 +579,9 @@ EOF
   target_folder="${target_root}/x86_64-unknown-linux-gnu/sysroot/lib64"
   target="${target_folder}/ld-2.19.so"
 
-  # Download the toolchain package and unpack it.
-  wget -q https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz
+  # Unpack the toolchain.
   mkdir downloaded_toolchain
-  tar -xf mount_path_toolchain.tar.gz -C ./downloaded_toolchain
+  tar -xf ${TEST_SRCDIR}/mount_path_toolchain/file/mount_path_toolchain.tar.gz -C ./downloaded_toolchain
   chmod -R 0755 downloaded_toolchain
 
   # Replace the target_root_placeholder with the actual target_root

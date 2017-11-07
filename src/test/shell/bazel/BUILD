@@ -386,7 +386,10 @@ sh_test(
     name = "bazel_sandboxing_test",
     size = "large",
     srcs = ["bazel_sandboxing_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@mount_path_toolchain//file",
+    ],
     tags = ["local"],
 )
 
