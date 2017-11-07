@@ -32,7 +32,7 @@ public final class SimpleBlobStoreFactory {
   private SimpleBlobStoreFactory() {}
 
   public static SimpleBlobStore createRest(RemoteOptions options) throws IOException {
-    return new RestBlobStore(options.remoteRestCache, options.restCachePoolSize);
+    return new RestBlobStore(options.remoteRestCache, options.restCachePoolSize, options.restCacheAuthHeader);
   }
 
   public static SimpleBlobStore createLocalDisk(RemoteOptions options, Path workingDirectory)
