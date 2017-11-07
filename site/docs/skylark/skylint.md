@@ -68,6 +68,7 @@ occupy multiple lines, with all lines indented by two spaces.
 
 #### Using the operator + on dictionaries [deprecated-plus-dict]
 
+<a name="deprecated-plus-dict"></a>
 The `+` operator (and similarly `+=`) is deprecated for dictionaries. Instead,
 use the following:
 
@@ -186,6 +187,7 @@ In detail, the rules are the following:
 
 ### Statements without effects [no-effect]
 
+<a name="no-effect"></a>
 If a statement is just an expression that is not a function call, the analyzer
 warns `expression result not used`. Most likely, you forgot to do something with
 that value. Examples: `1 + foo()`, `foo[bar]`.
@@ -212,6 +214,7 @@ def baz():
 
 ### Return value lint [missing-return-value]
 
+<a name="missing-return-value"></a>
 If a function returns with a value (`return foo`) in some execution paths and
 without one (just `return` or reaching the end of a function) in other execution
 paths, the analyzer will warn about this. The reason for this is that you
@@ -250,6 +253,7 @@ to the end of the function in order to silence the warning.
 
 ### Uninitialized variables [uninitialized-variable]
 
+<a name="uninitialized-variable"></a>
 If a variable is not initialized before it's used on every execution path, the
 analyzer warns about it:
 
@@ -273,6 +277,7 @@ before using it.
 
 ### Unused bindings [unused-binding]
 
+<a name="unused-binding"></a>
 If a binding of an identifier is not used, the analyzer warns about it:
 
 ```
@@ -344,6 +349,6 @@ This way, the name is still re-exported but doesn't generate a warning.
 
 ### Miscellaneous lints
 
-*   **unreachable statements** [unreachable-statement]
-*   **Load statements** must be **at the top** of the file (after the docstring)
+*   <a name="unreachable-statement"></a>**unreachable statements** [unreachable-statement]
+*   <a name="load-at-top"></a>**Load statements** must be **at the top** of the file (after the docstring)
     [load-at-top]
