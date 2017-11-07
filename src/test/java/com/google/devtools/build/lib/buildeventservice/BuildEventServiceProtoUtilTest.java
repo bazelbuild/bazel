@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildeventservice;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.v1.BuildEvent;
 import com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished;
@@ -58,7 +59,7 @@ public class BuildEventServiceProtoUtilTest {
           PROJECT_ID,
           COMMAND_NAME,
           clock,
-          ImmutableList.of(ADDITIONAL_KEYWORD));
+          ImmutableSet.of(ADDITIONAL_KEYWORD));
 
   @Test
   public void testBuildEnqueued() {

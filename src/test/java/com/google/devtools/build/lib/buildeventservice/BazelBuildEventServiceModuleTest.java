@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -249,5 +250,13 @@ public class BazelBuildEventServiceModuleTest {
             "bar",
             "fetch");
     assertThat(buildEventStreamer).isNull();
+  }
+
+  @Test
+  public void testKeywords() throws Exception {
+    besOptions.besKeywords = ImmutableList.of("keyword0", "keyword1", "keyword0");
+    BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
+    assertThat(module.keywords(besOptions))
+        .containsExactly("user_keyword=keyword0", "user_keyword=keyword1");
   }
 }

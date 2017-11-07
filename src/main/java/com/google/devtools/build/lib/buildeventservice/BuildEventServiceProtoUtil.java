@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.buildeventservice;
 import static com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished.FinishType.FINISHED;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.v1.BuildEvent;
 import com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished;
@@ -35,7 +35,7 @@ import com.google.devtools.build.v1.StreamId;
 import com.google.devtools.build.v1.StreamId.BuildComponent;
 import com.google.protobuf.Any;
 import com.google.protobuf.util.Timestamps;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
@@ -48,7 +48,7 @@ public final class BuildEventServiceProtoUtil {
   private final AtomicInteger streamSequenceNumber;
   private final String commandName;
   private final Clock clock;
-  private final List<String> additionalKeywords;
+  private final Set<String> additionalKeywords;
 
   public BuildEventServiceProtoUtil(
       String buildRequestId,
@@ -56,7 +56,7 @@ public final class BuildEventServiceProtoUtil {
       @Nullable String projectId,
       String commandName,
       Clock clock,
-      List<String> additionalKeywords) {
+      Set<String> additionalKeywords) {
     this.buildRequestId = buildRequestId;
     this.buildInvocationId = buildInvocationId;
     this.projectId = projectId;
@@ -192,8 +192,8 @@ public final class BuildEventServiceProtoUtil {
   }
 
   /** Keywords used by BES subscribers to filter notifications */
-  private ImmutableList<String> getKeywords() {
-    return ImmutableList.<String>builder()
+  private ImmutableSet<String> getKeywords() {
+    return ImmutableSet.<String>builder()
         .add("command_name=" + commandName)
         .add("protocol_name=BEP")
         .addAll(additionalKeywords)
