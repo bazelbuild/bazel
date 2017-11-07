@@ -19,8 +19,7 @@
             },
             "targets": [
                 "//scripts/packages",
-                "//site:jekyll-tree",
-                "//src/tools/benchmark/webapp:site"
+                "//site:jekyll-tree"
             ]
         },
         "opts": ["-c opt"]
