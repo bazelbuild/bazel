@@ -93,7 +93,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     eventCollector.clear();
 
     genrule("$(location foo bar");
-    assertExpansionFails("unterminated variable reference", "//test");
+    assertExpansionFails("unterminated $(location) expression", "//test");
 
     genrule("$(location");
     assertExpansionFails("unterminated variable reference", "//test");
@@ -221,7 +221,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     eventCollector.clear();
 
     genrule("$(locations foo bar");
-    assertExpansionFails("unterminated variable reference", "//test");
+    assertExpansionFails("unterminated $(locations) expression", "//test");
 
     genrule("$(locations");
     assertExpansionFails("unterminated variable reference", "//test");
