@@ -212,72 +212,64 @@ abstract class ReverseDepsUtility {
         case CHECK:
           Preconditions.checkState(
               reverseDepsAsSet.contains(key),
-              "Reverse dep not present: %s %s %s %s %s",
+              "Reverse dep not present: %s %s %s %s",
               keyToConsolidate,
               reverseDepsAsSet,
-              newData,
               dataToConsolidate,
               entry);
           Preconditions.checkState(
               newData.add(key),
-              "Duplicate new reverse dep: %s %s %s %s %s",
+              "Duplicate new reverse dep: %s %s %s %s",
               keyToConsolidate,
               reverseDepsAsSet,
-              newData,
               dataToConsolidate,
               entry);
           break;
         case REMOVE:
           Preconditions.checkState(
               reverseDepsAsSet.remove(key),
-              "Reverse dep to be removed not present: %s %s %s %s %s",
+              "Reverse dep to be removed not present: %s %s %s %s",
               keyToConsolidate,
               reverseDepsAsSet,
-              newData,
               dataToConsolidate,
               entry);
           Preconditions.checkState(
               newData.remove(key),
-              "Reverse dep to be removed not present: %s %s %s %s %s",
+              "Reverse dep to be removed not present: %s %s %s %s",
               keyToConsolidate,
               reverseDepsAsSet,
-              newData,
               dataToConsolidate,
               entry);
           break;
         case REMOVE_OLD:
           Preconditions.checkState(
               reverseDepsAsSet.remove(key),
-              "Reverse dep to be removed not present: %s %s %s %s %s",
+              "Reverse dep to be removed not present: %s %s %s %s",
               keyToConsolidate,
               reverseDepsAsSet,
-              newData,
               dataToConsolidate,
               entry);
           Preconditions.checkState(
               !newData.contains(key),
-              "Reverse dep shouldn't have been added to new: %s %s %s %s %s",
+              "Reverse dep shouldn't have been added to new: %s %s %s %s",
               keyToConsolidate,
               reverseDepsAsSet,
-              newData,
               dataToConsolidate,
               entry);
           break;
         case ADD:
           Preconditions.checkState(
               reverseDepsAsSet.add(key),
-              "Duplicate reverse deps: %s %s %s %s %s",
+              "Duplicate reverse deps: %s %s %s %s",
               keyToConsolidate,
               reverseDeps,
-              newData,
               dataToConsolidate,
               entry);
           Preconditions.checkState(
               newData.add(key),
-              "Duplicate new reverse deps: %s %s %s %s %s",
+              "Duplicate new reverse deps: %s %s %s %s",
               keyToConsolidate,
               reverseDeps,
-              newData,
               dataToConsolidate,
               entry);
           break;

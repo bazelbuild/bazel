@@ -173,12 +173,11 @@ class ArtifactFunction implements SkyFunction {
           (ActionExecutionValue)
               Preconditions.checkNotNull(
                   expandedActionValueMap.get(expandedActionExecutionKeys.get(i)),
-                  "Missing tree value: %s %s %s %s %s",
+                  "Missing tree value: %s %s %s %s",
                   treeArtifact,
                   actionTemplate,
                   expansionValue,
-                  expandedActionValueMap,
-                  expandedActionExecutionKeys);
+                  expandedActionValueMap);
       Iterable<TreeFileArtifact> treeFileArtifacts =
           Iterables.transform(
               Iterables.filter(

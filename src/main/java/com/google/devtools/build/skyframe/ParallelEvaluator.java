@@ -345,7 +345,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator implements Eval
       if (errorEntry.isDone()) {
         Preconditions.checkState(
             firstIteration,
-            "Non-leaf done node reached: %s %s %s  %s %s",
+            "Non-leaf done node reached: %s %s %s %s %s",
             errorKey,
             leafFailure,
             roots,

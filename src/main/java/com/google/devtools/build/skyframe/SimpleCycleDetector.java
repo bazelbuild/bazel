@@ -394,13 +394,7 @@ class SimpleCycleDetector implements CycleDetector {
       if (cycleLength == 1) {
         // Remove the direct children remaining to visit of the cycle node.
         Preconditions.checkState(
-            unvisitedDeps.contains(descendant),
-            "%s %s %s %s %s",
-            key,
-            descendant,
-            cycleChild,
-            unvisitedDeps,
-            entry);
+            unvisitedDeps.contains(descendant), "%s %s %s %s", key, descendant, cycleChild, entry);
         it.remove();
       }
     }
