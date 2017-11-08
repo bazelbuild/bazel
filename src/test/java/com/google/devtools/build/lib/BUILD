@@ -1330,6 +1330,21 @@ java_test(
 )
 
 java_test(
+    name = "ProtoCommonTest",
+    srcs = ["rules/proto/ProtoCommonTest.java"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ProtoCompileActionBuilderTest",
     srcs = ["rules/proto/ProtoCompileActionBuilderTest.java"],
     deps = [
