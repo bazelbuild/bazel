@@ -941,9 +941,6 @@ public class BuildConfiguration implements BuildEvent {
 
     @Option(
       name = "auto_cpu_environment_group",
-      // TODO(b/67853005): Remove when all usage of experimental_auto_cpu_environment_group is
-      // removed
-      oldName = "experimental_auto_cpu_environment_group",
       converter = EmptyToNullLabelConverter.class,
       defaultValue = "",
       category = "flags",
