@@ -62,6 +62,9 @@ public class GitCloner {
   private static final Pattern GITHUB_URL = Pattern.compile(
       "(?:git@|https?://)github\\.com[:/](\\w+)/(\\w+)\\.git");
 
+  private static final Pattern GITHUB_VERSION_FORMAT = Pattern.compile(
+      "v(\\d+\\.)*\\d+");
+
   private GitCloner() {
     // Only static methods in this class
   }
@@ -291,16 +294,20 @@ public class GitCloner {
     String repositoryName = matcher.group(2);
     String downloadUrl =
         "https://github.com/"
-            + UrlEscapers.urlPathSegmentEscaper().escape(
-                user + "/" + repositoryName + "/archive/" + descriptor.ref + ".tar.gz");
+            + UrlEscapers.urlFragmentEscaper()
+                .escape(user + "/" + repositoryName + "/archive/" + descriptor.ref + ".tar.gz");
     try {
       FileSystemUtils.createDirectoryAndParents(descriptor.directory);
       Path tgz = downloader.download(ImmutableList.of(new URL(downloadUrl)), uncheckedSha256,
           Optional.of("tar.gz"), descriptor.directory, eventHandler, clientEnvironment);
+      String github_ref = descriptor.ref;
+      if (github_ref.startsWith("v") && GITHUB_VERSION_FORMAT.matcher(github_ref).matches()) {
+        github_ref = github_ref.substring(1);
+      }
       DecompressorValue.decompress(DecompressorDescriptor.builder()
           .setArchivePath(tgz)
           // GitHub puts the contents under a directory called <repo>-<commit>.
-          .setPrefix(repositoryName + "-" + descriptor.ref)
+          .setPrefix(repositoryName + "-" + github_ref)
           .setRepositoryPath(descriptor.directory)
           .build());
     } catch (InterruptedException | IOException e) {

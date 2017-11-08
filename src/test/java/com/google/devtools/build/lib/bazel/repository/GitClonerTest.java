@@ -19,9 +19,11 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyListOf;
 import static org.mockito.Matchers.anyMapOf;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -82,6 +84,14 @@ public class GitClonerTest extends BuildViewTestCase {
 
     HttpDownloadValue value = GitCloner.clone(
         rule, outputDirectory, eventHandler, clientEnvironment, downloader);
+    verify(downloader)
+        .download(
+            eq(ImmutableList.of(new URL("https://github.com/foo/bar/archive/1.2.3.tar.gz"))),
+            any(String.class),
+            eq(Optional.of("tar.gz")),
+            eq(outputDirectory),
+            any(ExtendedEventHandler.class),
+            anyMapOf(String.class, String.class));
     assertThat(value).isNotNull();
     assertThat(value.getPath()).isEqualTo(outputDirectory);
   }
