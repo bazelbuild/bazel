@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
@@ -38,7 +39,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;

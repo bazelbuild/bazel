@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.BitSet;
 import java.util.EnumSet;
 

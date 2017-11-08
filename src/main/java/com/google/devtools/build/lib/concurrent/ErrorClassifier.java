@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 
 /** A classifier for {@link Error}s and {@link Exception}s. Used by {@link AbstractQueueVisitor}. */
 public abstract class ErrorClassifier {

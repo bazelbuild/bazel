@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.cmdline;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 
 /**
  * Indicates that a target label cannot be parsed.

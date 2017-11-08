@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore;
 
+import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

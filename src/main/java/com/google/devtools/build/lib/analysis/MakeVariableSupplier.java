@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.util.Preconditions;
 import javax.annotation.Nullable;
 
 /**

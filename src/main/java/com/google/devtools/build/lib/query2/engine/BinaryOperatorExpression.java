@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;

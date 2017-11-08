@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 

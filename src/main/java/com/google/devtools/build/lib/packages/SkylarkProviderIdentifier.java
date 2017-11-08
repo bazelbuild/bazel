@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 import java.util.Objects;
 import javax.annotation.Nullable;
 

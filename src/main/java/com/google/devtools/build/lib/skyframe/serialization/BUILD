@@ -11,7 +11,6 @@ java_library(
     name = "serialization",
     srcs = glob(["**/*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

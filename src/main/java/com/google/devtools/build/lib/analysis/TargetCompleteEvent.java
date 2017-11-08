@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 

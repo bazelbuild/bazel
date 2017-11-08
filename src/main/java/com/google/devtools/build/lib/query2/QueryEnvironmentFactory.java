@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import java.util.List;
 import java.util.Set;

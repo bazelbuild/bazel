@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Dummy ConfiguredTarget for package groups. Contains no functionality, since

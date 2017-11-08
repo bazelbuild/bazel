@@ -14,8 +14,9 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /** Utility for generating a call to the one-version binary. */
 public final class OneVersionCheckActionBuilder {

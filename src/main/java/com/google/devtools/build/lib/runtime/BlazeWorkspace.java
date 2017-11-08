@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.devtools.build.lib.profiler.AutoProfiler.profiledAndLogged;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;

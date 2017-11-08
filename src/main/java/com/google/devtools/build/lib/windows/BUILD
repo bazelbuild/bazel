@@ -15,7 +15,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/shell",

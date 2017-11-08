@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -56,7 +57,6 @@ import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;

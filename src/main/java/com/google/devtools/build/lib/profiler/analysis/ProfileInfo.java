@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.CRITICAL_PATH;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
@@ -29,7 +30,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedInputStream;

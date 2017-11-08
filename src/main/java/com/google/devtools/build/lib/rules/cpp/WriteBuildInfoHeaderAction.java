@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;

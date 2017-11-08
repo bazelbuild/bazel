@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;

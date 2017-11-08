@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import com.google.devtools.build.lib.util.Preconditions;
-
+import com.google.common.base.Preconditions;
 import java.io.IOException;
-
 import javax.annotation.Nullable;
 
 /**

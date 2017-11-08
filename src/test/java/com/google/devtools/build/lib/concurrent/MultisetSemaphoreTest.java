@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;

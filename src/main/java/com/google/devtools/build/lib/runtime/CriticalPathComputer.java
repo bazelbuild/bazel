@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;

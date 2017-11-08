@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /** Supplies information needed when a dependency serves as an {@code xctest_app}. */
 @Immutable

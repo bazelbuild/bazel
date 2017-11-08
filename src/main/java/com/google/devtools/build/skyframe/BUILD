@@ -16,7 +16,6 @@ java_library(
     srcs = SKYFRAME_OBJECT_SRCS,
     visibility = ["//visibility:public"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",

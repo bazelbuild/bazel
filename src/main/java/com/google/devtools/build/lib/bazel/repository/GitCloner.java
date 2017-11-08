@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.UrlEscapers;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;

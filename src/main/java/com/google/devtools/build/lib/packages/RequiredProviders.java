@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;

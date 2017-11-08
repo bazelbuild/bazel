@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.base.Preconditions;
 import com.google.common.io.Files;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;

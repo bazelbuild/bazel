@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.profiler.chart;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 
 /**
  * A bar in a row of a Gantt Chart.

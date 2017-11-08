@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Basic implementation of {@link SkyKey}. Potentially non-optimal from a memory perspective, since

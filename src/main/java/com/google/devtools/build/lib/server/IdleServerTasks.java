@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.server;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;

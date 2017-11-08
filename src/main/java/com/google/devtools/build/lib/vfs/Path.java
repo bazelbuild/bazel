@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import java.io.File;

@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /** Serialize a {@link Rule} as its protobuf representation. */
 public class RuleFormatter {

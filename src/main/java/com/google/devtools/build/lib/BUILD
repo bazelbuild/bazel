@@ -83,7 +83,6 @@ java_library(
     }),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -100,7 +99,6 @@ java_library(
         "util/VarInt.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
     ],
@@ -139,7 +137,6 @@ java_library(
     name = "classpath-util",
     srcs = ["util/Classpath.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//third_party:guava",
     ],
 )
@@ -186,7 +183,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect",
     ],
@@ -194,7 +190,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
@@ -224,7 +219,6 @@ java_library(
     srcs = glob(["events/*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:io",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
@@ -370,7 +364,6 @@ java_library(
         "rules/java/JavaToolchainDataParser.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/protobuf:build_java_proto",

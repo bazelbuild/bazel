@@ -20,7 +20,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
@@ -43,7 +42,6 @@ java_library(
     deps = [
         ":pathfragment",
         "//src/main/java/com/google/devtools/build/lib:base-util",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

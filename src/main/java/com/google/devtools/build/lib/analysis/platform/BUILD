@@ -32,7 +32,6 @@ java_library(
     srcs = UTIL_SRCS,
     deps = [
         ":platform",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib:skylark-provider-collection",
         "//third_party:guava",
     ],

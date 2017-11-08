@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;

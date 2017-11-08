@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Collection;
 import java.util.Set;
 

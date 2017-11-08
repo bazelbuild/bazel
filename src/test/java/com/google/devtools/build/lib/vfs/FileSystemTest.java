@@ -18,11 +18,11 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Preconditions;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import java.io.File;
 import java.io.FileNotFoundException;

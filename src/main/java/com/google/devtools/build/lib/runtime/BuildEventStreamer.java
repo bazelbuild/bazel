@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.events.Event.of;
 import static com.google.devtools.build.lib.events.EventKind.PROGRESS;
-import static com.google.devtools.build.lib.util.Preconditions.checkArgument;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;

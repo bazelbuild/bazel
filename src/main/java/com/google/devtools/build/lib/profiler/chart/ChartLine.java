@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.profiler.chart;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 
 /**
  * A chart line. Such lines can be used to connect boxes.
