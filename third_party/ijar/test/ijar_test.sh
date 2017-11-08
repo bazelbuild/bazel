@@ -41,7 +41,7 @@ shift
 source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 
 function cleanup() {
-  rm -fr "$TEST_TMPDIR"/*
+  rm -fr "${TEST_TMPDIR:-sentinel}"/*
 }
 
 trap cleanup EXIT
