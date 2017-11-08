@@ -469,12 +469,17 @@ string StartupOptions::GetJvm() {
   string jdk_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "jre/lib/rt.jar");
   // If just the JRE is installed
   string jre_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "lib/rt.jar");
+  // rt.jar does not exist in java 9+ so check for java instead
+  string jre_java = blaze_util::JoinPath(GetHostJavabase(), "bin/java");
+  string jre_java_exe = blaze_util::JoinPath(GetHostJavabase(), "bin/java.exe");
   if (blaze_util::CanReadFile(jdk_rt_jar) ||
-      blaze_util::CanReadFile(jre_rt_jar)) {
+      blaze_util::CanReadFile(jre_rt_jar) ||
+      blaze_util::CanReadFile(jre_java) ||
+      blaze_util::CanReadFile(jre_java_exe)) {
     return java_program;
   }
   fprintf(stderr, "Problem with java installation: "
-      "couldn't find/access rt.jar in %s\n", GetHostJavabase().c_str());
+      "couldn't find/access rt.jar or java in %s\n", GetHostJavabase().c_str());
   exit(1);
 }
 
