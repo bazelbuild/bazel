@@ -10,7 +10,7 @@ OS=$1
 ARCH=$2
 MAKE_TARGET=$3
 
-if [[ $# < 3 ]]; then
+if [[ $# -lt 3 ]]; then
   echo "No arguments provided. This script is intended to be run from Maven."
   exit 1
 fi

@@ -58,7 +58,7 @@ DIR=$(mktemp -d)
 
 # Copy over well-known types.
 mkdir -p ${DIR}/include/google/protobuf/compiler
-for PROTO in ${WELL_KNOWN_TYPES[@]}; do
+for PROTO in "${WELL_KNOWN_TYPES[@]}"; do
   cp -f ../src/${PROTO} ${DIR}/include/${PROTO}
 done
 
