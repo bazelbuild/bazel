@@ -525,6 +525,11 @@ java_import(
 )
 
 java_import(
+    name = "truth8",
+    jars = ["truth8/truth-java8-extension-0.36.jar"],
+)
+
+java_import(
     name = "xz",
     jars = ["xz/xz-1.5.jar"],
 )
