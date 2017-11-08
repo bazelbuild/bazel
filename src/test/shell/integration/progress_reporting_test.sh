@@ -25,7 +25,7 @@ set -eu
 
 # TODO(b/37617303): make tests UI-independent
 add_to_bazelrc "build --noexperimental_ui"
-add_to_bazelrc "build --workspace_status_command="$(which true)" --nostamp"
+add_to_bazelrc "build --workspace_status_command=$(which true) --nostamp"
 add_to_bazelrc "build --show_progress_rate_limit=-1"
 add_to_bazelrc "build --genrule_strategy=local"
 

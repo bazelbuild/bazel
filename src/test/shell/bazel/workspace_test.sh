@@ -104,7 +104,7 @@ genrule(
 EOF
   bazel fetch //:test || fail "Fetch failed"
   bazel build //:test || echo "Expected build to succeed"
-  check_eq "12" "$(cat bazel-genfiles/test.out | tr -d '[[:space:]]')"
+  check_eq "12" "$(cat bazel-genfiles/test.out | tr -d '[:space:]')"
 }
 
 # Regression test for issue #724: NullPointerException in WorkspaceFile

@@ -105,8 +105,8 @@ EOF
 function test_maven_jar_with_classifier_skylark() {
   setup_zoo
   version="1.21"
-  packaging = "jar"
-  classifier = "sources"
+  packaging="jar"
+  classifier="sources"
   serve_artifact com.example.carnivore carnivore $version $packaging $classifier
   setup_local_maven_settings_xml "http://localhost:$fileserver_port"
 

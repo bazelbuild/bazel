@@ -100,7 +100,7 @@ function generate_release_notes() {
   for i in "${RELNOTES_TYPES[@]}"; do
     eval "RELNOTES_${i}=()"
   done
-  for i in $@; do
+  for i in "$@"; do
     extract_release_note $i
   done
 }

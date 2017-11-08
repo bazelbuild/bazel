@@ -270,7 +270,7 @@ EOF
   cp ${PRODUCT_NAME}-bin/$pkg/java/hello/hello_deploy.jar $pkg/ugly/
 
   $pkg/ugly/hello build.target build.time build.timestamp \
-      main.class=hello.Hello "$expected_build_data" 2>&1 >>$TEST_log
+      main.class=hello.Hello "$expected_build_data" >> $TEST_log 2>&1
   expect_log 'Hello, World!'
 }
 

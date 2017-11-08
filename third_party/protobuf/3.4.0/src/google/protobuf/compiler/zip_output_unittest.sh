@@ -81,7 +81,7 @@ if $JAR c $TEST_TMPDIR/testzip.proto > /dev/null; then
     || fail 'jar failed.'
 
   # Check that -interface.jar timestamps are normalized:
-  if [[ "$(TZ=UTC $JAR tvf $TEST_TMPDIR/testzip.jar)" != *'Tue Jan 01 00:00:00 UTC 1980'* ]]; then
+  if [ "$(TZ=UTC $JAR tvf $TEST_TMPDIR/testzip.jar)" != *'Tue Jan 01 00:00:00 UTC 1980'* ]; then
     fail 'Zip did not contain normalized timestamps'
   fi
 

@@ -36,7 +36,7 @@ get_proto_files() {
 }
 
 sort_files() {
-  for FILE in $@; do
+  for FILE in "$@"; do
     echo $FILE
   done | LC_ALL=C sort | uniq
 }
