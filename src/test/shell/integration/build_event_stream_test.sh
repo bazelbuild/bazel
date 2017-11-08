@@ -587,6 +587,7 @@ function test_root_cause_early() {
   # precisely on report on a completed target; moreover, the action has
   # to be reported first.
   expect_log_once '^action'
+  expect_log 'type: "Genrule"'
   expect_log_once '^completed'
   expect_not_log 'success: true'
   local naction=`grep -n '^action' $TEST_log | cut -f 1 -d :`

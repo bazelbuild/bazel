@@ -399,6 +399,9 @@ message NamedSetOfFiles {
 message ActionExecuted {
   bool success = 1;
 
+  // The mnemonic of the action that was executed
+  string type = 8;
+
   // The exit code of the action, if it is available.
   int32 exit_code = 2;
 

@@ -115,7 +115,10 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration {
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.ActionExecuted.Builder actionBuilder =
-        BuildEventStreamProtos.ActionExecuted.newBuilder().setSuccess(getException() == null);
+        BuildEventStreamProtos.ActionExecuted.newBuilder()
+            .setSuccess(getException() == null)
+            .setType(action.getMnemonic());
+
     if (exception != null && exception.getExitCode() != null) {
       actionBuilder.setExitCode(exception.getExitCode().getNumericExitCode());
     }
