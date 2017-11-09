@@ -104,16 +104,6 @@ java_library(
     ],
 )
 
-# Varargs-avoiding overloads of Preconditions functions.
-java_library(
-    name = "preconditions",
-    srcs = ["util/Preconditions.java"],
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
 # I/O utilities.
 java_library(
     name = "io",
@@ -171,7 +161,6 @@ java_library(
             "util/ExitCode.java",
             "util/JavaClock.java",
             "util/OS.java",
-            "util/Preconditions.java",
             "util/ProcessUtils.java",
             "util/SingleLineFormatter.java",
             "util/StringCanonicalizer.java",
