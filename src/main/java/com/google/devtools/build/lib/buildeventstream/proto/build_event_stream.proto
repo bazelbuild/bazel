@@ -421,6 +421,9 @@ message ActionExecuted {
 
   // Primary output; only provided for successful actions.
   File primary_output = 6;
+
+  // The command-line of the action, if the action is a command.
+  repeated string command_line = 9;
 }
 
 // Collection of all output files belonging to that output group.

@@ -27,12 +27,16 @@ import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * This event is fired during the build, when an action is executed. It contains information about
  * the action: the Action itself, and the output file names its stdout and stderr are recorded in.
  */
 public class ActionExecutedEvent implements BuildEventWithConfiguration {
+  private static final Logger logger = Logger.getLogger(ActionExecutedEvent.class.getName());
+
   private final Action action;
   private final ActionExecutionException exception;
   private final Path stdout;
@@ -151,6 +155,14 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration {
           BuildEventStreamProtos.File.newBuilder()
               .setUri(pathConverter.apply(action.getPrimaryOutput().getPath()))
               .build());
+    }
+    try {
+      if (action instanceof CommandAction) {
+        actionBuilder.addAllCommandLine(((CommandAction) action).getArguments());
+      }
+    } catch (CommandLineExpansionException e) {
+      // Command-line not avaiable, so just not report it
+      logger.log(Level.INFO, "Could no compute commandline of reported action", e);
     }
     return GenericBuildEvent.protoChaining(this).setAction(actionBuilder.build()).build();
   }
