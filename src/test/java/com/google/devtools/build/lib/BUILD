@@ -337,6 +337,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "//third_party:truth8",
     ],
 )
 
@@ -745,6 +746,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "//third_party:truth8",
     ],
 )
 
@@ -1195,6 +1197,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "//third_party:truth8",
     ],
 )
 
