@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplic
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -259,7 +260,10 @@ public interface JavaSemantics {
       NestedSet<Artifact> classpath,
       boolean includeBuildData,
       Compression compression,
-      Artifact launcher);
+      Artifact launcher,
+      boolean usingNativeSinglejar,
+      OneVersionEnforcementLevel oneVersionEnforcementLevel,
+      Artifact oneVersionWhitelistArtifact);
 
   /**
    * Creates the action that writes the Java executable stub script.

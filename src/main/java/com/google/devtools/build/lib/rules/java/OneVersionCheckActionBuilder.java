@@ -93,9 +93,7 @@ public final class OneVersionCheckActionBuilder {
     if (enforcementLevel == OneVersionEnforcementLevel.WARNING) {
       oneVersionArgsBuilder.add("--succeed_on_found_violations");
     }
-    oneVersionArgsBuilder.addAll(
-        "--inputs",
-        VectorArg.of(jarsToCheck).mapped(OneVersionCheckActionBuilder::jarAndTargetArg));
+    oneVersionArgsBuilder.addAll("--inputs", jarAndTargetVectorArg(jarsToCheck));
     CustomCommandLine oneVersionArgs = oneVersionArgsBuilder.build();
     ruleContext.registerAction(
         new SpawnAction.Builder()
@@ -110,6 +108,10 @@ public final class OneVersionCheckActionBuilder {
             .setProgressMessage("Checking for one-version violations in %s", ruleContext.getLabel())
             .build(ruleContext));
     return outputArtifact;
+  }
+
+  public static VectorArg<String> jarAndTargetVectorArg(NestedSet<Artifact> jarsToCheck) {
+    return VectorArg.of(jarsToCheck).mapped(OneVersionCheckActionBuilder::jarAndTargetArg);
   }
 
   private static String jarAndTargetArg(Artifact jar) {

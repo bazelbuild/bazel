@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -684,9 +685,23 @@ public class BazelJavaSemantics implements JavaSemantics {
       NestedSet<Artifact> classpath,
       boolean includeBuildData,
       Compression compression,
-      Artifact launcher) {
-    return DeployArchiveBuilder.defaultSingleJarCommandLine(output, mainClass, manifestLines,
-        buildInfoFiles, resources, classpath, includeBuildData, compression, launcher).build();
+      Artifact launcher,
+      boolean usingNativeSinglejar,
+      // Explicitly ignoring params since Bazel doesn't yet support one version
+      OneVersionEnforcementLevel oneVersionEnforcementLevel,
+      Artifact oneVersionWhitelistArtifact) {
+    return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
+            output,
+            mainClass,
+            manifestLines,
+            buildInfoFiles,
+            resources,
+            classpath,
+            includeBuildData,
+            compression,
+            launcher,
+            usingNativeSinglejar)
+        .build();
   }
 
   @Override
