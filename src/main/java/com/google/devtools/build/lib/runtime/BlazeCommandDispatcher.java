@@ -260,12 +260,11 @@ public class BlazeCommandDispatcher {
 
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     BlazeOptionHandler optionHandler =
-        new BlazeOptionHandler(
+        BlazeOptionHandler.getHandler(
             runtime,
             workspace,
             command,
             commandAnnotation,
-            commandName,
             // Provide the options parser so that we can cache OptionsData here.
             createOptionsParser(command),
             invocationPolicy);
@@ -588,8 +587,7 @@ public class BlazeCommandDispatcher {
    * classes.
    *
    * <p>An overriding method should first call this method and can then override default values
-   * directly or by calling {@link BlazeOptionHandler#parseOptionsForCommand} for command-specific
-   * options.
+   * directly or by calling {@link BlazeOptionHandler#parseOptions} for command-specific options.
    */
   private OptionsParser createOptionsParser(BlazeCommand command)
       throws OptionsParser.ConstructionException {

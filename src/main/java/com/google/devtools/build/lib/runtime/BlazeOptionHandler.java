@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
@@ -44,14 +43,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Level;
-import javax.annotation.Nullable;
 
 /**
  * Handles parsing the blaze command arguments.
  *
  * <p>This class manages rc options, default options, and invocation policy.
  */
-public class BlazeOptionHandler {
+public abstract class BlazeOptionHandler {
   // Keep in sync with options added in OptionProcessor::AddRcfileArgsAndOptions()
   private static final ImmutableSet<String> INTERNAL_COMMAND_OPTIONS =
       ImmutableSet.of(
@@ -63,30 +61,38 @@ public class BlazeOptionHandler {
           "client_env",
           "client_cwd");
 
-  private final BlazeRuntime runtime;
-  private final OptionsParser optionsParser;
-  private final BlazeWorkspace workspace;
-  private final BlazeCommand command;
-  private final Command commandAnnotation;
-  private final String commandName;
-  private final InvocationPolicy invocationPolicy;
-  private final List<String> rcfileNotes = new ArrayList<>();
+  protected final BlazeRuntime runtime;
+  protected final OptionsParser optionsParser;
+  protected final BlazeWorkspace workspace;
+  protected final BlazeCommand command;
+  protected final Command commandAnnotation;
+  protected final InvocationPolicy invocationPolicy;
+  protected final List<String> rcfileNotes = new ArrayList<>();
 
-  public BlazeOptionHandler(
+  private BlazeOptionHandler(
       BlazeRuntime runtime,
       BlazeWorkspace workspace,
       BlazeCommand command,
       Command commandAnnotation,
-      String commandName,
       OptionsParser optionsParser,
       InvocationPolicy invocationPolicy) {
     this.runtime = runtime;
     this.workspace = workspace;
     this.command = command;
     this.commandAnnotation = commandAnnotation;
-    this.commandName = commandName;
     this.optionsParser = optionsParser;
     this.invocationPolicy = invocationPolicy;
+  }
+
+  public static BlazeOptionHandler getHandler(
+      BlazeRuntime runtime,
+      BlazeWorkspace workspace,
+      BlazeCommand command,
+      Command commandAnnotation,
+      OptionsParser optionsParser,
+      InvocationPolicy invocationPolicy) {
+    return new FixPointConfigExpansionRcHandler(
+        runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
   }
 
   // Return options as OptionsProvider so the options can't be easily modified after we've
@@ -111,7 +117,9 @@ public class BlazeOptionHandler {
     if (!workspace.getDirectories().inWorkspace()) {
       eventHandler.handle(
           Event.error(
-              "The '" + commandName + "' command is only supported from within a workspace."));
+              "The '"
+                  + commandAnnotation.name()
+                  + "' command is only supported from within a workspace."));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
@@ -144,6 +152,50 @@ public class BlazeOptionHandler {
     return ExitCode.SUCCESS;
   }
 
+  /**
+   * Parses the unconditional options from .rc files for the current command.
+   *
+   * <p>This is not as trivial as simply taking the list of options for the specified command
+   * because commands can inherit arguments from each other, and we have to respect that (e.g. if an
+   * option is specified for 'build', it needs to take effect for the 'test' command, too). More
+   * specific commands should have priority over the broader commands (say a "build" option that
+   * conflicts with a "common" option should override the common one regardless of order.)
+   *
+   * <p>For each command, the options are parsed in rc order. This uses the master rc file first,
+   * and follows import statements. This is the order in which they were passed by the client.
+   */
+  void parseRcOptions(
+      EventHandler eventHandler, ListMultimap<String, RcChunkOfArgs> commandToRcArgs)
+      throws OptionsParsingException {
+    for (String commandToParse : getCommandNamesToParse(commandAnnotation)) {
+      // Get all args defined for this command (or "common"), grouped by rc chunk.
+      for (RcChunkOfArgs rcArgs : commandToRcArgs.get(commandToParse)) {
+        if (!rcArgs.args.isEmpty()) {
+          String inherited = commandToParse.equals(commandAnnotation.name()) ? "" : "Inherited ";
+          String source =
+              rcArgs.rcFile.equals("client")
+                  ? "Options provided by the client"
+                  : String.format(
+                      "Reading rc options for '%s' from %s",
+                      commandAnnotation.name(), rcArgs.rcFile);
+          rcfileNotes.add(
+              String.format(
+                  "%s:\n  %s'%s' options: %s",
+                  source, inherited, commandToParse, Joiner.on(' ').join(rcArgs.args)));
+        }
+        optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.rcFile, rcArgs.args);
+      }
+    }
+  }
+
+  /**
+   * Expand the values of --config according to the definitions provided in the rc files and the
+   * applicable command.
+   */
+  abstract void expandConfigOptions(
+      EventHandler eventHandler, ListMultimap<String, RcChunkOfArgs> commandToRcArgs)
+      throws OptionsParsingException;
+
   private void parseArgsAndConfigs(List<String> args, ExtendedEventHandler eventHandler)
       throws OptionsParsingException {
     Path workspaceDirectory = workspace.getWorkspace();
@@ -165,17 +217,16 @@ public class BlazeOptionHandler {
     optionsParser.parseWithSourceFunction(
         PriorityCategory.COMMAND_LINE, commandOptionSourceFunction, cmdLineAfterCommand);
 
-    // Command-specific options from .blazerc passed in via --default_override
-    // and --rc_source. A no-op if none are provided.
+    // Command-specific options from .blazerc passed in via --default_override and --rc_source.
     ClientOptions rcFileOptions = optionsParser.getOptions(ClientOptions.class);
-    List<Pair<String, ListMultimap<String, String>>> optionsMap =
-        getOptionsMap(
+    ListMultimap<String, RcChunkOfArgs> commandToRcArgs =
+        structureRcOptionsAndConfigs(
             eventHandler,
             rcFileOptions.rcSource,
             rcFileOptions.optionsOverrides,
             runtime.getCommandMap().keySet());
+    parseRcOptions(eventHandler, commandToRcArgs);
 
-    parseOptionsForCommand(rcfileNotes, commandAnnotation, optionsParser, optionsMap, null, null);
     if (commandAnnotation.builds()) {
       // splits project files from targets in the traditional sense
       ProjectFileSupport.handleProjectFiles(
@@ -187,35 +238,7 @@ public class BlazeOptionHandler {
           commandAnnotation.name());
     }
 
-    // Fix-point iteration until all configs are loaded.
-    List<String> configsLoaded = ImmutableList.of();
-    Set<String> unknownConfigs = new LinkedHashSet<>();
-    CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
-    while (!commonOptions.configs.equals(configsLoaded)) {
-      Set<String> missingConfigs = new LinkedHashSet<>(commonOptions.configs);
-      missingConfigs.removeAll(configsLoaded);
-      parseOptionsForCommand(
-          rcfileNotes,
-          commandAnnotation,
-          optionsParser,
-          optionsMap,
-          missingConfigs,
-          unknownConfigs);
-      configsLoaded = commonOptions.configs;
-      commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
-    }
-    if (!unknownConfigs.isEmpty()) {
-      if (commonOptions.allowUndefinedConfigs) {
-        eventHandler.handle(
-            Event.warn(
-                "Config values are not defined in any .rc file: "
-                    + Joiner.on(", ").join(unknownConfigs)));
-      } else {
-        throw new OptionsParsingException(
-            "Config values are not defined in any .rc file: "
-                + Joiner.on(", ").join(unknownConfigs));
-      }
-    }
+    expandConfigOptions(eventHandler, commandToRcArgs);
   }
 
   /**
@@ -264,7 +287,7 @@ public class BlazeOptionHandler {
       // BlazeCommand.editOptions, so the code needs to be safe regardless of the actual flag
       // values. At the time of this writing, editOptions was only used as a convenience feature or
       // to improve the user experience, but not required for safety or correctness.
-      optionsPolicyEnforcer.enforce(optionsParser, commandName);
+      optionsPolicyEnforcer.enforce(optionsParser, commandAnnotation.name());
       // Print warnings for odd options usage
       for (String warning : optionsParser.getWarnings()) {
         eventHandler.handle(Event.warn(warning));
@@ -277,92 +300,100 @@ public class BlazeOptionHandler {
   }
 
   /**
-   * Parses the options from .rc files for a command invocation. It works in one of two modes;
-   * either it loads the non-config options, or the config options that are specified in the {@code
-   * configs} parameter.
+   * Implements the legacy way of expanding blazerc and config expansions.
    *
-   * <p>This method adds every option pertaining to the specified command to the options parser. To
-   * do that, it needs the command -> option mapping that is generated from the .rc files.
+   * <p>--config options are expanded in a fixed point expansion at the end of the rc option block.
+   * Their expansion is defined in the rc file, and is triggered by the presence of a {@code
+   * --config=someConfigName} option somewhere in the user's options. The resulting option order is
+   * {@code <rc options> <config expansions> <command line options>}, where all of the config values
+   * mentioned are in the mid segment, regardless of whether they were defined in an rc file, on the
+   * command line, or in the expansion of other config values that were triggered earlier. If the
+   * same config value is provided twice (say, once on the command line and once in another config
+   * expansion) it will only be expanded once.
    *
-   * <p>It is not as trivial as simply taking the list of options for the specified command because
-   * commands can inherit arguments from each other, and we have to respect that (e.g. if an option
-   * is specified for 'build', it needs to take effect for the 'test' command, too).
-   *
-   * <p>Note that the order in which the options are parsed is well-defined: all options from the
-   * same rc file are parsed at the same time, and the rc files are handled in the order in which
-   * they were passed in from the client.
-   *
-   * @param rcfileNotes note message that would be printed during parsing
-   * @param commandAnnotation the command for which options should be parsed.
-   * @param optionsParser parser to receive parsed options.
-   * @param optionsMap .rc files in structured format: a list of pairs, where the first part is the
-   *     name of the rc file, and the second part is a multimap of command name (plus config, if
-   *     present) to the list of options for that command
-   * @param configs the configs for which to parse options; if {@code null}, non-config options are
-   *     parsed
-   * @param unknownConfigs optional; a collection that the method will populate with the config
-   *     values in {@code configs} that none of the .rc files had entries for
-   * @throws OptionsParsingException
+   * <p>This behavior is relatively well-defined, but the final order of options is not intuitive.
+   * As a simple example, consider a user specified command line with --config=foo last. Most users
+   * expect the expansion of --config=foo to override earlier flags in their command line if
+   * necessary, but this is not the case. This is why we are phasing out this behavior. We will
+   * maintain the old behavior to avoid breaking users during a transition period.
    */
-  protected static void parseOptionsForCommand(
-      List<String> rcfileNotes,
-      Command commandAnnotation,
-      OptionsParser optionsParser,
-      List<Pair<String, ListMultimap<String, String>>> optionsMap,
-      @Nullable Collection<String> configs,
-      @Nullable Collection<String> unknownConfigs)
-      throws OptionsParsingException {
-    Set<String> knownConfigs = new HashSet<>();
-    for (String commandToParse : getCommandNamesToParse(commandAnnotation)) {
-      for (Pair<String, ListMultimap<String, String>> entry : optionsMap) {
-        String rcFile = entry.first;
-        List<String> allOptions = new ArrayList<>();
-        if (configs == null) {
-          Collection<String> values = entry.second.get(commandToParse);
-          if (!values.isEmpty()) {
-            allOptions.addAll(entry.second.get(commandToParse));
-            String inherited = commandToParse.equals(commandAnnotation.name()) ? "" : "Inherited ";
-            String source =
-                rcFile.equals("client")
-                    ? "Options provided by the client"
-                    : String.format(
-                        "Reading rc options for '%s' from %s", commandAnnotation.name(), rcFile);
-            rcfileNotes.add(
-                String.format(
-                    "%s:\n  %s'%s' options: %s",
-                    source, inherited, commandToParse, Joiner.on(' ').join(values)));
-          }
+  public static final class FixPointConfigExpansionRcHandler extends BlazeOptionHandler {
+
+    private FixPointConfigExpansionRcHandler(
+        BlazeRuntime runtime,
+        BlazeWorkspace workspace,
+        BlazeCommand command,
+        Command commandAnnotation,
+        OptionsParser optionsParser,
+        InvocationPolicy invocationPolicy) {
+      super(runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
+    }
+
+    @Override
+    void expandConfigOptions(
+        EventHandler eventHandler, ListMultimap<String, RcChunkOfArgs> commandToRcArgs)
+        throws OptionsParsingException {
+      // Fix-point iteration until all configs are loaded.
+      List<String> configsLoaded = ImmutableList.of();
+      Set<String> unknownConfigs = new LinkedHashSet<>();
+      CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
+      while (!commonOptions.configs.equals(configsLoaded)) {
+        // Parse the configs we have not seen yet.
+        Set<String> missingConfigs = new LinkedHashSet<>(commonOptions.configs);
+        missingConfigs.removeAll(configsLoaded);
+        parseConfigOptionsForCommand(commandToRcArgs, missingConfigs, unknownConfigs);
+        // Refresh the list of config values we've processed to be the list of config values we had
+        // before the call to parseConfigOptionsForCommand.
+        configsLoaded = commonOptions.configs;
+        commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
+      }
+      if (!unknownConfigs.isEmpty()) {
+        if (commonOptions.allowUndefinedConfigs) {
+          eventHandler.handle(
+              Event.warn(
+                  "Config values are not defined in any .rc file: "
+                      + Joiner.on(", ").join(unknownConfigs)));
         } else {
-          for (String config : configs) {
-            String configDef = commandToParse + ":" + config;
-            Collection<String> values = entry.second.get(configDef);
-            if (!values.isEmpty()) {
-              allOptions.addAll(values);
-              knownConfigs.add(config);
-              rcfileNotes.add(
-                  String.format(
-                      "Found applicable config definition %s in file %s: %s",
-                      configDef, rcFile, String.join(" ", values)));
-            }
-          }
+          throw new OptionsParsingException(
+              "Config values are not defined in any .rc file: "
+                  + Joiner.on(", ").join(unknownConfigs));
         }
-        processOptionList(optionsParser, rcFile, allOptions);
       }
     }
-    if (unknownConfigs != null && configs != null && configs.size() > knownConfigs.size()) {
-      configs
-          .stream()
-          .filter(Predicates.not(Predicates.in(knownConfigs)))
-          .forEachOrdered(unknownConfigs::add);
-    }
-  }
 
-  // Processes the option list for an .rc file - command pair.
-  private static void processOptionList(
-      OptionsParser optionsParser, String rcfile, List<String> rcfileOptions)
-      throws OptionsParsingException {
-    if (!rcfileOptions.isEmpty()) {
-      optionsParser.parse(PriorityCategory.RC_FILE, rcfile, rcfileOptions);
+    /**
+     * Go through the configs given and parse their expansion if a definition was found.
+     *
+     * @param configs the configs for which to parse options.
+     * @param unknownConfigs a collection that the method will populate with the config values in
+     *     {@code configs} that none of the .rc files had entries for.
+     */
+    private void parseConfigOptionsForCommand(
+        ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
+        Collection<String> configs,
+        Collection<String> unknownConfigs)
+        throws OptionsParsingException {
+      Set<String> knownConfigs = new HashSet<>();
+      for (String commandToParse : getCommandNamesToParse(commandAnnotation)) {
+        for (String config : configs) {
+          String configDef = commandToParse + ":" + config;
+          for (RcChunkOfArgs rcArgs : commandToRcArgs.get(configDef)) {
+            // Track that we've found at least 1 definition for this config value.
+            knownConfigs.add(config);
+            rcfileNotes.add(
+                String.format(
+                    "Found applicable config definition %s in file %s: %s",
+                    configDef, rcArgs.rcFile, String.join(" ", rcArgs.args)));
+            optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.rcFile, rcArgs.args);
+          }
+        }
+      }
+      if (configs.size() > knownConfigs.size()) {
+        configs
+            .stream()
+            .filter(Predicates.not(Predicates.in(knownConfigs)))
+            .forEachOrdered(unknownConfigs::add);
+      }
     }
   }
 
@@ -396,28 +427,66 @@ public class BlazeOptionHandler {
   }
 
   /**
-   * Convert a list of option override specifications to a more easily digestible form.
+   * We receive the rc file arguments from the client in an order that maintains the location of
+   * "import" statements, expanding the imported rc file in place so that its args override previous
+   * args in the file and are overridden by later arguments. We cannot group the args by rc file for
+   * parsing, as we would lose this ordering, so we store them in these "chunks."
    *
-   * @param overrides list of option override specifications
+   * <p>Each chunk comes from a single rc file, but the args stored here may not contain the entire
+   * file if its contents were interrupted by an import statement.
+   */
+  static class RcChunkOfArgs {
+    public RcChunkOfArgs(String rcFile, List<String> args) {
+      this.rcFile = rcFile;
+      this.args = args;
+    }
+
+    // The name of the rc file, usually a path.
+    String rcFile;
+    // The list of arguments specified in this rc "chunk". This is all for a single command (or
+    // command:config definition), as different commands will be grouped together, so this list of
+    // arguments can all be parsed as a continuous group.
+    List<String> args;
+
+    @Override
+    public boolean equals(Object o) {
+      if (o instanceof RcChunkOfArgs) {
+        RcChunkOfArgs other = (RcChunkOfArgs) o;
+        return rcFile.equals(other.rcFile) && args.equals(other.args);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return rcFile.hashCode() + args.hashCode();
+    }
+  }
+
+  /**
+   * The rc options are passed via {@link ClientOptions#optionsOverrides} and {@link
+   * ClientOptions#rcSource}, which is basically a line-by-line transfer of the rc files read by the
+   * client. This is not a particularly useful format for expanding the options, so this method
+   * structures the list so that it is easier to find the arguments that apply to a command, or to
+   * find the definitions of a config value.
    */
   @VisibleForTesting
-  static List<Pair<String, ListMultimap<String, String>>> getOptionsMap(
+  static ListMultimap<String, RcChunkOfArgs> structureRcOptionsAndConfigs(
       EventHandler eventHandler,
       List<String> rcFiles,
-      List<ClientOptions.OptionOverride> overrides,
+      List<ClientOptions.OptionOverride> rawOverrides,
       Set<String> validCommands) {
-    List<Pair<String, ListMultimap<String, String>>> result = new ArrayList<>();
+    ListMultimap<String, RcChunkOfArgs> commandToRcArgs = ArrayListMultimap.create();
 
     String lastRcFile = null;
-    ListMultimap<String, String> lastMap = null;
-    for (ClientOptions.OptionOverride override : overrides) {
+    ListMultimap<String, String> commandToArgMapForLastRc = null;
+    for (ClientOptions.OptionOverride override : rawOverrides) {
       if (override.blazeRc < 0 || override.blazeRc >= rcFiles.size()) {
         eventHandler.handle(
             Event.warn("inconsistency in generated command line args. Ignoring bogus argument\n"));
         continue;
       }
       String rcFile = rcFiles.get(override.blazeRc);
-
       String command = override.command;
       int index = command.indexOf(':');
       if (index > 0) {
@@ -435,19 +504,31 @@ public class BlazeOptionHandler {
         continue;
       }
 
+      // We've moved on to another rc file "chunk," store the accumulated args from the last one.
       if (!rcFile.equals(lastRcFile)) {
         if (lastRcFile != null) {
-          result.add(Pair.of(lastRcFile, lastMap));
+          // Go through the various commands identified in this rc file (or chunk of file) and
+          // store them grouped first by command, then by rc chunk.
+          for (String commandKey : commandToArgMapForLastRc.keySet()) {
+            commandToRcArgs.put(
+                commandKey,
+                new RcChunkOfArgs(lastRcFile, commandToArgMapForLastRc.get(commandKey)));
+          }
         }
         lastRcFile = rcFile;
-        lastMap = ArrayListMultimap.create();
+        commandToArgMapForLastRc = ArrayListMultimap.create();
       }
-      lastMap.put(override.command, override.option);
+
+      commandToArgMapForLastRc.put(override.command, override.option);
     }
     if (lastRcFile != null) {
-      result.add(Pair.of(lastRcFile, lastMap));
+      // Once again, for this last rc file chunk, store them grouped by command.
+      for (String commandKey : commandToArgMapForLastRc.keySet()) {
+        commandToRcArgs.put(
+            commandKey, new RcChunkOfArgs(lastRcFile, commandToArgMapForLastRc.get(commandKey)));
+      }
     }
 
-    return result;
+    return commandToRcArgs;
   }
 }
