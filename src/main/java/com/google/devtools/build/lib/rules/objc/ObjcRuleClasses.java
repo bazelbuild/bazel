@@ -280,14 +280,12 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           /* <!-- #BLAZE_RULE($objc_sdk_frameworks_depender_rule).ATTRIBUTE(sdk_frameworks) -->
-          Names of SDK frameworks to link with.
-          For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
-          included and do not mean anything if you include them.
+          Names of SDK frameworks to link with (e.g. "AddressBook", "QuartzCore"). "UIKit" and
+          "Foundation" are always included when building for the iOS, tvOS and watchOS platforms.
+          For macOS, only "Foundation" is always included.
 
-          <p>When linking a library, only those frameworks named in that library's
-          sdk_frameworks attribute are linked in. When linking a binary, all
-          SDK frameworks named in that binary's transitive dependency graph are
-          used.
+          <p> When linking a top level binary (e.g. apple_binary), all SDK frameworks listed in that
+          binary's transitive dependency graph are linked.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("sdk_frameworks", STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_sdk_frameworks_depender_rule).ATTRIBUTE(weak_sdk_frameworks) -->
