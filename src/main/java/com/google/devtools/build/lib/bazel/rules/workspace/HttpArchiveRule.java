@@ -110,8 +110,8 @@ public class HttpArchiveRule implements RuleDefinition {
   repository should already contain a BUILD file. If it does not, use
   <a href="${link new_http_archive}">new_http_archive</a> instead.</p>
 
-<p>It supports Zip-formatted archives (with the .zip extension) and
-tarballs (.tar.gz and .tgz extensions).</p>
+<p>It supports Zip-formatted archives and tarballs. The full set of extensions supported is
+.zip, .jar, .war, .tar.gz, .tgz, .tar.xz, or .tar.bz2.</p>
 
 <h4 id="http_archive_examples">Examples</h4>
 
