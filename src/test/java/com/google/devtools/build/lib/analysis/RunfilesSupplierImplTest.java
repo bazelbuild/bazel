@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -53,18 +52,6 @@ public class RunfilesSupplierImplTest {
 
     RunfilesSupplierImpl underTest =
         new RunfilesSupplierImpl(PathFragment.create("notimportant"), mkRunfiles(artifacts));
-
-    assertThat(underTest.getArtifacts()).containsExactlyElementsIn(artifacts);
-  }
-
-  @Test
-  public void testGetArtifactsFilterMiddlemen() {
-    List<Artifact> artifacts = mkArtifacts(rootDir, "thing1", "thing2");
-    Artifact middleman = new Artifact(PathFragment.create("middleman"), middlemanRoot);
-    Runfiles runfiles = mkRunfiles(Iterables.concat(artifacts, ImmutableList.of(middleman)));
-
-    RunfilesSupplier underTest =
-        new RunfilesSupplierImpl(PathFragment.create("notimportant"), runfiles);
 
     assertThat(underTest.getArtifacts()).containsExactlyElementsIn(artifacts);
   }

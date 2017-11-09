@@ -85,7 +85,7 @@ public class RClassGeneratorActionBuilder {
         ruleContext
             .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
             .getRunfilesSupport()
-            .getRunfilesArtifactsWithoutMiddlemen());
+            .getRunfilesArtifacts());
 
     List<Artifact> outs = new ArrayList<>();
     if (primary.getRTxt() != null) {

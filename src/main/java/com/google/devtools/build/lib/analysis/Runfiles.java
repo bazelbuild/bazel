@@ -330,15 +330,6 @@ public final class Runfiles {
     return unconditionalArtifacts;
   }
 
-  /**
-   * Returns the artifacts that are unconditionally included in the runfiles (as opposed to
-   * pruning manifest candidates, which may or may not be included). Middleman artifacts are
-   * excluded.
-   */
-  public Iterable<Artifact> getUnconditionalArtifactsWithoutMiddlemen() {
-    return Iterables.filter(unconditionalArtifacts, Artifact.MIDDLEMAN_FILTER);
-  }
-
   public NestedSet<Artifact> getExtraMiddlemen() {
     return extraMiddlemen;
   }
@@ -359,14 +350,6 @@ public final class Runfiles {
       allArtifacts.addTransitive(manifest.getCandidateRunfiles());
     }
     return allArtifacts.build();
-  }
-
-  /**
-   * Returns the collection of runfiles as artifacts, including both unconditional artifacts
-   * and pruning manifest candidates. Middleman artifacts are excluded.
-   */
-  public Iterable<Artifact> getArtifactsWithoutMiddlemen() {
-    return Iterables.filter(getArtifacts(), Artifact.MIDDLEMAN_FILTER);
   }
 
   /** Returns the symlinks. */
@@ -456,7 +439,7 @@ public final class Runfiles {
     ConflictChecker checker = new ConflictChecker(conflictPolicy, eventHandler, location);
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
-    for (Artifact artifact : getUnconditionalArtifactsWithoutMiddlemen()) {
+    for (Artifact artifact : getUnconditionalArtifacts()) {
       checker.put(manifest, artifact.getRootRelativePath(), artifact);
     }
 
@@ -609,7 +592,7 @@ public final class Runfiles {
     // If multiple artifacts have the same root-relative path, the last one in the list will win.
     // That is because the runfiles tree cannot contain the same artifact for different
     // configurations, because it only uses root-relative paths.
-    for (Artifact artifact : Iterables.filter(unconditionalArtifacts, Artifact.MIDDLEMAN_FILTER)) {
+    for (Artifact artifact : unconditionalArtifacts) {
       result.put(artifact.getRootRelativePath(), artifact);
     }
     return result;
@@ -729,6 +712,8 @@ public final class Runfiles {
      * @param artifact Artifact to store in map. This may be null to indicate an empty file.
      */
     public void put(Map<PathFragment, Artifact> map, PathFragment path, Artifact artifact) {
+      Preconditions.checkArgument(
+          artifact == null || !artifact.isMiddlemanArtifact(), "%s", artifact);
       if (policy != ConflictPolicy.IGNORE && map.containsKey(path)) {
         // Previous and new entry might have value of null
         Artifact previous = map.get(path);

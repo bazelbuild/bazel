@@ -233,12 +233,12 @@ public final class RunfilesSupport {
   }
 
   /**
-   * Returns both runfiles artifacts and "conditional" artifacts that may be part of a
-   * Runfiles PruningManifest. This means the returned set may be an overapproximation of the
-   * actual set of runfiles (see {@link Runfiles.PruningManifest}).
+   * Returns both runfiles artifacts and "conditional" artifacts that may be part of a Runfiles
+   * PruningManifest. This means the returned set may be an overapproximation of the actual set of
+   * runfiles (see {@link Runfiles.PruningManifest}).
    */
-  public Iterable<Artifact> getRunfilesArtifactsWithoutMiddlemen() {
-    return runfiles.getArtifactsWithoutMiddlemen();
+  public Iterable<Artifact> getRunfilesArtifacts() {
+    return runfiles.getArtifacts();
   }
 
   /**
