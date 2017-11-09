@@ -87,7 +87,7 @@ filegroup(
 
 filegroup(
     name = "embedded_tools",
-    srcs = glob(["*.cc"]) + glob(["*.h"]) + [
+    srcs = [
         "BUILD",
         "//src/main/native/windows:embedded_tools",
     ],

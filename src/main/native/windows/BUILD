@@ -11,12 +11,15 @@ filegroup(
     visibility = ["//src/main/native:__pkg__"],
 )
 
-# TODO(xingao): verify that this filegroup contains exactly what it has to, with
-# regard to where it is used (//src/main/native:embedded_tools).
-# Context: https://github.com/bazelbuild/bazel/commit/33d05f6b551cf2fdb257cb536a5e864d095144a1
 filegroup(
     name = "embedded_tools",
-    srcs = [":srcs"],
+    srcs = [
+        "BUILD",
+        "file.cc",
+        "file.h",
+        "util.cc",
+        "util.h",
+    ],
     visibility = ["//src/main/native:__pkg__"],
 )
 
