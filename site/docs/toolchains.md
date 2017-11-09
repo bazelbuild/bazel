@@ -10,7 +10,7 @@ title: Toolchains
    - [Creating a toolchain rule](#creating-a-toolchain-rule)
    - [Creating a toolchain definition](#creating-a-toolchain-definition)
    - [Registering a toolchain](#registering-a-toolchain)
-- [Adding toolchain support to Skylark rules](#adding-toolchain-support-to-skylark-rules)
+- [Using a toolchain in a Skylark rule](#using-a-toolchain-in-a-skylark-rule)
 - [Debugging a toolchain](#debugging-a-toolchain)
 
 ## Overview
@@ -116,7 +116,7 @@ my_toolchain(name = 'darwin_toolchain_impl',
 )
 ```
 
-## Creating a toolchain definition
+### Creating a toolchain definition
 
 The toolchain definition is an instance of the `toolchain()` rule that specifies
 the toolchain type, execution and target constraints, and the label of the
@@ -138,7 +138,7 @@ toolchain(name = 'linux_toolchain',
 )
 ```
 
-## Registering a toolchain
+### Registering a toolchain
 
 Once the toolchain rule and definition exist, register the toolchain to make
 Bazel aware of it. You can register a toolchain either via the project's
@@ -153,7 +153,7 @@ register_toolchains(
 )
 ```
 
-## Adding toolchain support to Skylark rules
+## Using a toolchain in a Skylark rule
 
 To use a toolchain in a Skylark rule, add the toolchain type to the rule
 definition. For example:

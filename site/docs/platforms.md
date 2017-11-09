@@ -20,9 +20,9 @@ One major use for specifying a platform for a build is automatic
 
 Bazel recognizes the following types of platforms:
 
-* **Host** - platforms on which Bazel runs.
-* **Execution** - platforms on which build tools execute build actions.
-* **Target** - platforms for which Bazel builds the output.
+*  **Host** - platforms on which Bazel runs.
+*  **Execution** - platforms on which build tools execute build actions.
+*  **Target** - platforms for which Bazel builds the output.
 
 Bazel supports the following build scenarios regarding platforms:
 
@@ -46,14 +46,14 @@ version of a build tool, such as a linker or compiler.
 
 You define a platform in a `BUILD` file using the following Bazel rules:
 
-* [`constraint_setting`](be/platform.html#constraint_setting) - defines a
-  constraint.
+*  [`constraint_setting`](be/platform.html#constraint_setting) - defines a
+   constraint.
 
-* [`constraint_value`](be/platform.html#constraint_value) - defines an allowed
-  value for a constraint.
+*  [`constraint_value`](be/platform.html#constraint_value) - defines an allowed
+   value for a constraint.
 
-* [`platform`](be/platform.html#platform) - defines a platform by specifying
-  a set of constraints and their values.
+*  [`platform`](be/platform.html#platform) - defines a platform by specifying
+   a set of constraints and their values.
 
 The following example defines the `glibc_version` constraint and its two allowed
 values. It then defines a platform that uses the `glibc_version` constraint
@@ -94,54 +94,19 @@ them:
 ## Built-in constraints and platforms
 
 Bazel ships with constraint definitions for the most popular CPU architectures
-and operating systems:
+and operating systems.
 
-<table>
-  <thead>
-    <tr>
-      <th>constraint_setting</th>
-      <th>constraint_value</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>@bazel_tools//platforms:cpu</td>
-      <td>@bazel_tools//platforms:x86_32</td>
-    </tr>
-    <tr>
-      <td></td>
-      <td>@bazel_tools//platforms:x86_64</td>
-    </tr>
-    <tr>
-      <td></td>
-      <td>@bazel_tools//platforms:ppc</td>
-    </tr>
-    <tr>
-      <td></td>
-      <td>@bazel_tools//platforms:arm</td>
-    </tr>
-    <tr>
-      <td></td>
-    <td>@bazel_tools//platforms:s390x</td>
-    </tr>
-    <tr>
-      <td>@bazel_tools//platforms:os</td>
-      <td>@bazel_tools//platforms:osx</td>
-    </tr>
-    <tr>
-      <td></td>
-      <td>@bazel_tools//platforms:freebsd</td>
-    </tr>
-    <tr>
-     <td></td>
-     <td>@bazel_tools//platforms:linux</td>
-    </tr>
-    <tr>
-      <td></td>
-      <td>@bazel_tools//platforms:windows</td>
-    </tr>
-</tbody>
-</table>
+*  `@bazel_tools//platforms:cpu` defines the following CPU architectures:
+   *  `@bazel_tools//platforms:x86_32`
+   *  `@bazel_tools//platforms:x86_64`
+   *  `@bazel_tools//platforms:ppc`
+   *  `@bazel_tools//platforms:arm`
+   *  `@bazel_tools//platforms:s390x`
+*   `@bazel_tools//platforms:os` defines the following operating systems:
+   *  `@bazel_tools//platforms:osx`
+   *  `@bazel_tools//platforms:freebsd`
+   *  `@bazel_tools//platforms:linux`
+   *  `@bazel_tools//platforms:windows`
 
 Bazel also ships with the following platform definitions:
 
