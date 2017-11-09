@@ -22,6 +22,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
