@@ -563,4 +563,95 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
         "package/libavoidCcLib.a");
   }
+
+  @Test
+  public void testFeatureFlags_offByDefault() throws Exception {
+    scratchFeatureFlagTestLib();
+    scratch.file(
+        "test/BUILD",
+        "apple_static_library(",
+        "    name = 'static_lib',",
+        "    deps = ['//lib:objcLib'],",
+        "    platform_type = 'ios',",
+        ")");
+
+    CommandAction linkAction = linkLibAction("//test:static_lib");
+    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+
+    CommandAction flag1offCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1off.o"));
+    CommandAction flag2offCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2off.o"));
+
+    String compileArgs1 = Joiner.on(" ").join(flag1offCompileAction.getArguments());
+    String compileArgs2 = Joiner.on(" ").join(flag2offCompileAction.getArguments());
+    assertThat(compileArgs1).contains("FLAG_1_OFF");
+    assertThat(compileArgs1).contains("FLAG_2_OFF");
+    assertThat(compileArgs2).contains("FLAG_1_OFF");
+    assertThat(compileArgs2).contains("FLAG_2_OFF");
+  }
+
+  @Test
+  public void testFeatureFlags_oneFlagOn() throws Exception {
+    scratchFeatureFlagTestLib();
+    scratch.file(
+        "test/BUILD",
+        "apple_static_library(",
+        "    name = 'static_lib',",
+        "    deps = ['//lib:objcLib'],",
+        "    platform_type = 'ios',",
+        "    feature_flags = {",
+        "      '//lib:flag2': 'on',",
+        "    }",
+        ")");
+
+    CommandAction linkAction = linkLibAction("//test:static_lib");
+    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+
+    CommandAction flag1offCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1off.o"));
+    CommandAction flag2onCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2on.o"));
+
+    String compileArgs1 = Joiner.on(" ").join(flag1offCompileAction.getArguments());
+    String compileArgs2 = Joiner.on(" ").join(flag2onCompileAction.getArguments());
+    assertThat(compileArgs1).contains("FLAG_1_OFF");
+    assertThat(compileArgs1).contains("FLAG_2_ON");
+    assertThat(compileArgs2).contains("FLAG_1_OFF");
+    assertThat(compileArgs2).contains("FLAG_2_ON");
+  }
+
+  @Test
+  public void testFeatureFlags_allFlagsOn() throws Exception {
+    scratchFeatureFlagTestLib();
+    scratch.file(
+        "test/BUILD",
+        "apple_static_library(",
+        "    name = 'static_lib',",
+        "    deps = ['//lib:objcLib'],",
+        "    platform_type = 'ios',",
+        "    feature_flags = {",
+        "      '//lib:flag1': 'on',",
+        "      '//lib:flag2': 'on',",
+        "    }",
+        ")");
+
+    CommandAction linkAction = linkLibAction("//test:static_lib");
+    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+
+    CommandAction flag1onCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1on.o"));
+    CommandAction flag2onCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2on.o"));
+
+    String compileArgs1 = Joiner.on(" ").join(flag1onCompileAction.getArguments());
+    String compileArgs2 = Joiner.on(" ").join(flag2onCompileAction.getArguments());
+    assertThat(compileArgs1).contains("FLAG_1_ON");
+    assertThat(compileArgs1).contains("FLAG_2_ON");
+    assertThat(compileArgs2).contains("FLAG_1_ON");
+    assertThat(compileArgs2).contains("FLAG_2_ON");
+  }
 }

@@ -4846,4 +4846,44 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       throw new AssertionError("Lipo action does not contain an input binary from arch " + arch);
     }
   }
+
+  protected void scratchFeatureFlagTestLib() throws Exception {
+    scratch.file(
+        "lib/BUILD",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag1@on',",
+        "  flag_values = {':flag1': 'on'},",
+        ")",
+        "config_feature_flag(",
+        "  name = 'flag2',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag2@on',",
+        "  flag_values = {':flag2': 'on'},",
+        ")",
+        "objc_library(",
+        "  name = 'objcLib',",
+        "  srcs = select({",
+        "    ':flag1@on': ['flag1on.m'],",
+        "    '//conditions:default': ['flag1off.m'],",
+        "  }) + select({",
+        "    ':flag2@on': ['flag2on.m'],",
+        "    '//conditions:default': ['flag2off.m'],",
+        "  }),",
+        "  copts = select({",
+        "    ':flag1@on': ['-FLAG_1_ON'],",
+        "    '//conditions:default': ['-FLAG_1_OFF'],",
+        "  }) + select({",
+        "    ':flag2@on': ['-FLAG_2_ON'],",
+        "    '//conditions:default': ['-FLAG_2_OFF'],",
+        "  }),",
+        ")");
+  }
 }
