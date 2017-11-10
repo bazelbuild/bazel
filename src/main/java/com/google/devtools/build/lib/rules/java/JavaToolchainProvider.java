@@ -47,7 +47,7 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
       List<String> defaultJavacFlags,
       Artifact javac,
       NestedSet<Artifact> tools,
-      Artifact javaBuilder,
+      FilesToRunProvider javaBuilder,
       @Nullable Artifact headerCompiler,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
@@ -112,8 +112,8 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
   /** Returns the {@link Artifact}s of compilation tools. */
   public abstract NestedSet<Artifact> getTools();
 
-  /** Returns the {@link Artifact} of the JavaBuilder deploy jar */
-  public abstract Artifact getJavaBuilder();
+  /** Returns the {@link FilesToRunProvider} of JavaBuilder */
+  public abstract FilesToRunProvider getJavaBuilder();
 
   /** @return the {@link Artifact} of the Header Compiler deploy jar */
   @Nullable public abstract Artifact getHeaderCompiler();

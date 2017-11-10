@@ -34,13 +34,14 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -191,7 +192,8 @@ public final class JavaCompileAction extends SpawnAction {
       Map<String, String> executionInfo,
       StrictDepsMode strictJavaDeps,
       NestedSet<Artifact> compileTimeDependencyArtifacts,
-      CharSequence progressMessage) {
+      CharSequence progressMessage,
+      RunfilesSupplier runfiles) {
     super(
         owner,
         tools,
@@ -204,7 +206,7 @@ public final class JavaCompileAction extends SpawnAction {
         UTF8_ACTION_ENVIRONMENT,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        EmptyRunfilesSupplier.INSTANCE,
+        runfiles,
         "Javac",
         false /*executeUnconditionally*/,
         null /*extraActionInfoSupplier*/);
@@ -438,6 +440,11 @@ public final class JavaCompileAction extends SpawnAction {
       public Iterable<String> argv() {
         checkNotNull(javaBuilderJar);
 
+        if (!javaBuilderJar.getExtension().equals("jar")) {
+          // JavaBuilder is a non-deploy.jar executable.
+          return ImmutableList.of(javaBuilderJar.getExecPathString());
+        }
+
         CustomCommandLine.Builder builder =
             CustomCommandLine.builder().addPath(javaExecutable).addAll(javaBuilderJvmFlags);
         if (!instrumentationJars.isEmpty()) {
@@ -517,7 +524,7 @@ public final class JavaCompileAction extends SpawnAction {
     private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
     private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
     private ImmutableList<Artifact> extdirInputs = ImmutableList.of();
-    private Artifact javaBuilderJar;
+    private FilesToRunProvider javaBuilder;
     private Artifact langtoolsJar;
     private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private ImmutableList<Artifact> instrumentationJars = ImmutableList.of();
@@ -609,7 +616,7 @@ public final class JavaCompileAction extends SpawnAction {
       CustomMultiArgv spawnCommandLineBase =
           spawnCommandLineBase(
               javaExecutable,
-              javaBuilderJar,
+              javaBuilder.getExecutable(),
               instrumentationJars,
               javacJvmOpts,
               semantics.getJavaBuilderMainClass(),
@@ -626,7 +633,7 @@ public final class JavaCompileAction extends SpawnAction {
           NestedSetBuilder.<Artifact>stableOrder()
               .add(langtoolsJar)
               .addTransitive(toolsJars)
-              .add(javaBuilderJar)
+              .addTransitive(javaBuilder.getFilesToRun())
               .addAll(instrumentationJars)
               .build();
 
@@ -667,7 +674,8 @@ public final class JavaCompileAction extends SpawnAction {
           executionInfo,
           strictJavaDeps,
           compileTimeDependencyArtifacts,
-          getProgressMessage());
+          getProgressMessage(),
+          javaBuilder.getRunfilesSupplier());
     }
 
     private CustomCommandLine buildParamFileContents(Collection<String> javacOpts) {
@@ -985,8 +993,8 @@ public final class JavaCompileAction extends SpawnAction {
       return this;
     }
 
-    public Builder setJavaBuilderJar(Artifact javaBuilderJar) {
-      this.javaBuilderJar = javaBuilderJar;
+    public Builder setJavaBuilder(FilesToRunProvider javaBuilder) {
+      this.javaBuilder = javaBuilder;
       return this;
     }
 
