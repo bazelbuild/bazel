@@ -296,22 +296,6 @@ public class CppOptions extends FragmentOptions {
   public boolean forceIgnoreDashStatic;
 
   @Option(
-    name = "experimental_skip_static_outputs",
-    defaultValue = "false",
-    category = "semantics",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-    help =
-        "This flag is experimental and may go away at any time.  "
-            + "If true, linker output for mostly-static C++ executables is a tiny amount of "
-            + "dummy dependency information, and NOT a usable binary.  Kludge, but can reduce "
-            + "network and disk I/O load (and thus, continuous build cycle times) by a lot.  "
-            + "NOTE: use of this flag REQUIRES --distinct_host_configuration."
-  )
-  public boolean skipStaticOutputs;
-
-  @Option(
     name = "process_headers_in_dependencies",
     defaultValue = "false",
     category = "semantics",

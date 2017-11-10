@@ -1102,13 +1102,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns true if mostly-static C++ binaries should be skipped.
-   */
-  public boolean skipStaticOutputs() {
-    return cppOptions.skipStaticOutputs;
-  }
-
-  /**
    * Returns whether we are processing headers in dependencies of built C++ targets.
    */
   public boolean processHeadersInDependencies() {

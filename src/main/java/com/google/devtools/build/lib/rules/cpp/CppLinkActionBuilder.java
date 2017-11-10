@@ -118,11 +118,6 @@ public class CppLinkActionBuilder {
 
   /** A build variable for hard-coded linker flags currently only known by bazel. */
   public static final String LEGACY_LINK_FLAGS_VARIABLE = "legacy_link_flags";
-  /**
-   * A build variable that is set to indicate a mostly static linking for which the linked binary
-   * should be piped to /dev/null.
-   */
-  public static final String SKIP_MOSTLY_STATIC_VARIABLE = "skip_mostly_static";
 
   /** A build variable giving a path to which to write symbol counts. */
   public static final String SYMBOL_COUNTS_OUTPUT_VARIABLE = "symbol_counts_output";
@@ -1494,11 +1489,6 @@ public class CppLinkActionBuilder {
 
       if (paramFile != null) {
         buildVariables.addStringVariable(LINKER_PARAM_FILE_VARIABLE, paramFile.getExecPathString());
-      }
-
-      // mostly static
-      if (linkStaticness == LinkStaticness.MOSTLY_STATIC && cppConfiguration.skipStaticOutputs()) {
-        buildVariables.addStringVariable(SKIP_MOSTLY_STATIC_VARIABLE, "");
       }
 
       // output exec path
