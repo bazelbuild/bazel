@@ -17,7 +17,7 @@
 # discard_graph_edges_lib.sh: functions needed by discard_graph_edges_test.sh
 
 STARTUP_FLAGS="--batch"
-BUILD_FLAGS="--discard_analysis_cache"
+BUILD_FLAGS="--discard_analysis_cache --nokeep_incrementality_data"
 
 function extract_histogram_count() {
   local histofile="$1"
@@ -64,14 +64,23 @@ EOF
   local readonly histo_root="$("$product" info \
       "${PRODUCT_NAME:-$product}-genfiles" 2> /dev/null)/histodump/histo."
   "$product" clean >& "$TEST_log" || fail "Couldn't clean"
+  readonly local explicit_server_pid="$("$product" $STARTUP_FLAGS info \
+      server_pid)"
   "$product" $STARTUP_FLAGS build --show_timestamps $BUILD_FLAGS \
       $extra_build_arg //histodump:action3 >> "$TEST_log" 2>&1 &
   subshell_pid="$!"
   cat "$exec_fifo" > /dev/null
-  if [[ -z "$get_pid_expression" ]]; then
-    server_pid="$subshell_pid"
+  # We plan to remove batch mode from the relevant flags for discarding
+  # incrementality state. In the interim, tests that are not in batch mode
+  # explicitly pass --nobatch, so we can use it as a signal.
+  if [[ "$STARTUP_FLAGS" =~ "--nobatch" ]]; then
+    server_pid="$explicit_server_pid"
   else
-    server_pid="$($get_pid_expression)"
+    if [[ -z "$get_pid_expression" ]]; then
+      server_pid="$subshell_pid"
+    else
+      server_pid="$($get_pid_expression)"
+    fi
   fi
   echo "server_pid in main thread is ${server_pid}" # >> "$TEST_log"
   echo "$server_pid" > "$server_pid_file"
@@ -96,4 +105,3 @@ EOF
     genrule_action_count="$new_genrule_action_count"
   done
 }
-

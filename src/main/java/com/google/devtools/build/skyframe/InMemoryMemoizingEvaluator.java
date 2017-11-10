@@ -349,11 +349,15 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         if (entry.isDone()) {
           out.print(keyFormatter.apply(key));
           out.print("|");
-          try {
-            out.println(
-                Joiner.on('|').join(Iterables.transform(entry.getDirectDeps(), keyFormatter)));
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("InMemoryGraph doesn't throw: " + entry, e);
+          if (((InMemoryNodeEntry) entry).keepEdges() == NodeEntry.KeepEdgesPolicy.NONE) {
+            out.println(" (direct deps not stored)");
+          } else {
+            try {
+              out.println(
+                  Joiner.on('|').join(Iterables.transform(entry.getDirectDeps(), keyFormatter)));
+            } catch (InterruptedException e) {
+              throw new IllegalStateException("InMemoryGraph doesn't throw: " + entry, e);
+            }
           }
         }
       }

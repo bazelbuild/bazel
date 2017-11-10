@@ -21,7 +21,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
@@ -607,9 +606,10 @@ public final class CommandEnvironment {
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);
     // Let skyframe figure out if it needs to store graph edges for this build.
-    skyframeExecutor.decideKeepIncrementalStateAndResetEvaluatorIfNecessary(
+    skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        options.getOptions(BuildView.Options.class));
+        options,
+        reporter);
 
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, commonOptions, execStartTimeNanos);

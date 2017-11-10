@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
-import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;

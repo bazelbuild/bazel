@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;

@@ -366,6 +366,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:core-rules",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",

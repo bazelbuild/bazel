@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -182,8 +182,10 @@ public final class CleanCommand implements BlazeCommand {
     env.getReporter().handle(Event.info(null/*location*/, cleanBanner));
 
     try {
-      String symlinkPrefix = options.getOptions(BuildRequest.BuildRequestOptions.class)
-          .getSymlinkPrefix(env.getRuntime().getProductName());
+      String symlinkPrefix =
+          options
+              .getOptions(BuildRequestOptions.class)
+              .getSymlinkPrefix(env.getRuntime().getProductName());
       actuallyClean(env, env.getOutputBase(), expunge, expungeAsync, async, symlinkPrefix);
       return ExitCode.SUCCESS;
     } catch (IOException e) {

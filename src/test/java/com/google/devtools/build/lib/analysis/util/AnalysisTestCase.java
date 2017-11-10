@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;

@@ -436,6 +436,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
     ],
     deps = [
+        ":build-request-options",
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
@@ -961,6 +962,18 @@ java_library(
 )
 
 java_library(
+    name = "build-request-options",
+    srcs = ["buildtool/BuildRequestOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -971,8 +984,10 @@ java_library(
             "buildtool/*.java",
             "buildtool/buildevent/*.java",
         ],
+        exclude = ["buildtool/BuildRequestOptions.java"],
     ),
     deps = [
+        ":build-request-options",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",

@@ -27,13 +27,16 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.BuildView.Options;
+import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Package;
@@ -77,6 +80,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -107,13 +111,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     CLEAR_EDGES_AND_ACTIONS
   }
 
-  // Can only be set once over the lifetime of this object. If CLEAR_EDGES or
-  // CLEAR_EDGES_AND_ACTIONS, the graph will not store edges, saving memory but making incremental
-  // builds impossible. If CLEAR_EDGES_AND_ACTIONS, each action will be dereferenced once it is
-  // executed, saving memory.
+  /**
+   * If {@link IncrementalState#CLEAR_EDGES_AND_ACTIONS}, the graph will not store edges, saving
+   * memory but making subsequent builds not incremental. Also, each action will be dereferenced
+   * once it is executed, saving memory.
+   */
   private IncrementalState incrementalState = IncrementalState.NORMAL;
 
-  private RecordingDifferencer recordingDiffer;
+  private boolean evaluatorNeedsReset = false;
+
+  // This is intentionally not kept in sync with the evaluator: we may reset the evaluator without
+  // ever losing injected/invalidated data here. This is safe because the worst that will happen is
+  // that on the next build we try to inject/invalidate some nodes that aren't needed for the build.
+  private final RecordingDifferencer recordingDiffer = new SequencedRecordingDifferencer();
   private final DiffAwarenessManager diffAwarenessManager;
   private final Iterable<SkyValueDirtinessChecker> customDirtinessCheckers;
   private Set<String> previousClientEnvironment = null;
@@ -191,14 +201,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  protected void init() {
-    // Note that we need to set recordingDiffer first since SkyframeExecutor#init calls
-    // SkyframeExecutor#evaluatorDiffer.
-    recordingDiffer = new SequencedRecordingDifferencer();
-    super.init();
-  }
-
-  @Override
   public void resetEvaluator() {
     super.resetEvaluator();
     diffAwarenessManager.reset();
@@ -232,6 +234,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       TimestampGranularityMonitor tsgm,
       OptionsClassProvider options)
       throws InterruptedException, AbruptExitException {
+    if (evaluatorNeedsReset) {
+      // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
+      // or if the graph doesn't have edges, so that a fresh graph can be used.
+      resetEvaluator();
+      evaluatorNeedsReset = false;
+    }
     super.sync(eventHandler, packageCacheOptions, skylarkSemanticsOptions, outputBase,
         workingDirectory, defaultsPackageContents, commandId, clientEnv, tsgm, options);
     handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles, options);
@@ -490,24 +498,44 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void decideKeepIncrementalStateAndResetEvaluatorIfNecessary(
-      boolean batch, Options viewOptions) {
+  public void decideKeepIncrementalState(
+      boolean batch, OptionsProvider options, EventHandler eventHandler) {
     Preconditions.checkState(!active);
-    if (viewOptions == null) {
-      // Some blaze commands don't include the view options. Don't bother with them.
-      return;
+    BuildView.Options viewOptions = options.getOptions(BuildView.Options.class);
+    BuildRequestOptions requestOptions = options.getOptions(BuildRequestOptions.class);
+    boolean explicitlyRequestedNoIncrementalData =
+        requestOptions != null && !requestOptions.keepIncrementalityData;
+    boolean implicitlyRequestedNoIncrementalData =
+        batch && viewOptions != null && viewOptions.discardAnalysisCache;
+    boolean discardingEdges =
+        explicitlyRequestedNoIncrementalData || implicitlyRequestedNoIncrementalData;
+    if (explicitlyRequestedNoIncrementalData != implicitlyRequestedNoIncrementalData) {
+      if (requestOptions != null && !explicitlyRequestedNoIncrementalData) {
+        eventHandler.handle(
+            Event.warn(
+                "--batch and --discard_analysis_cache specified, but --nokeep_incrementality_data "
+                    + "not specified: incrementality data is implicitly discarded, but you may need"
+                    + " to specify --nokeep_incrementality_data in the future if you want to "
+                    + "maximize memory savings."));
+      }
+      if (!batch) {
+        eventHandler.handle(
+            Event.warn(
+                "--batch not specified with --nokeep_incrementality_data: the server will "
+                    + "remain running, but the next build will not be incremental on this one."));
+      }
     }
-    if (batch && viewOptions.discardAnalysisCache) {
-      Preconditions.checkState(
-          incrementalState == IncrementalState.NORMAL,
-          "May only be called once if successful: %s",
-          incrementalState);
-      incrementalState = IncrementalState.CLEAR_EDGES_AND_ACTIONS;
+    IncrementalState oldState = incrementalState;
+    incrementalState =
+        discardingEdges ? IncrementalState.CLEAR_EDGES_AND_ACTIONS : IncrementalState.NORMAL;
+    if (oldState != incrementalState) {
       logger.info("Set incremental state to " + incrementalState);
-      // Recreate MemoizingEvaluator so that graph is recreated with edge-clearing enabled.
-      resetEvaluator();
+      evaluatorNeedsReset = true;
+      removeActionsAfterEvaluation.set(
+          incrementalState == IncrementalState.CLEAR_EDGES_AND_ACTIONS);
+    } else if (incrementalState == IncrementalState.CLEAR_EDGES_AND_ACTIONS) {
+      evaluatorNeedsReset = true;
     }
-    removeActionsAfterEvaluation.set(incrementalState == IncrementalState.CLEAR_EDGES_AND_ACTIONS);
   }
 
   @Override

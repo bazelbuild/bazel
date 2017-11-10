@@ -83,7 +83,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -296,10 +296,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final BuildConfigurationCollection createConfigurations(String... args)
       throws Exception {
-    optionsParser = OptionsParser.newOptionsParser(Iterables.concat(Arrays.asList(
-          ExecutionOptions.class,
-          BuildRequest.BuildRequestOptions.class),
-          ruleClassProvider.getConfigurationOptions()));
+    optionsParser =
+        OptionsParser.newOptionsParser(
+            Iterables.concat(
+                Arrays.asList(ExecutionOptions.class, BuildRequestOptions.class),
+                ruleClassProvider.getConfigurationOptions()));
     List<String> allArgs = new ArrayList<>();
     // TODO(dmarting): Add --stamp option only to test that requires it.
     allArgs.add("--stamp");  // Stamp is now defaulted to false.

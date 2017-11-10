@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;

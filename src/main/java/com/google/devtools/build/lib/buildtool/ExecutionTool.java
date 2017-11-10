@@ -437,10 +437,9 @@ public class ExecutionTool {
       executor.executionPhaseStarting();
       skyframeExecutor.drainChangedFiles();
 
-      if (request.getViewOptions().discardAnalysisCache) {
-        // Free memory by removing cache entries that aren't going to be needed. Note that in
-        // skyframe full, this destroys the action graph as well, so we can only do it after the
-        // action graph is no longer needed.
+      if (request.getViewOptions().discardAnalysisCache
+          || !request.getBuildOptions().keepIncrementalityData) {
+        // Free memory by removing cache entries that aren't going to be needed.
         env.getSkyframeBuildView()
             .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
       }
@@ -685,7 +684,7 @@ public class ExecutionTool {
       ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
       ModifiedFileSet modifiedOutputFiles) {
-    BuildRequest.BuildRequestOptions options = request.getBuildOptions();
+    BuildRequestOptions options = request.getBuildOptions();
     boolean keepGoing = request.getViewOptions().keepGoing;
 
     Path actionOutputRoot = env.getActionConsoleOutputDirectory();
