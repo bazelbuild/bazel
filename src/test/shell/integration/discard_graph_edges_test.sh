@@ -78,6 +78,14 @@ function test_query() {
   expect_log "//testing:system_malloc"
 }
 
+function test_configured_query() {
+  bazel $STARTUP_FLAGS build $BUILD_FLAGS --nobuild \
+      --experimental_post_build_query='deps(//testing:mytest, 1)' \
+      //testing:mytest >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  [[ "$exit_code" == 2 ]] || fail "Expected exit code 2 but was $exit_code"
+}
+
 function test_top_level_aspect() {
   mkdir -p "foo" || fail "Couldn't make directory"
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
