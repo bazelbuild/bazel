@@ -292,6 +292,10 @@ public abstract class BlazeOptionHandler {
       for (String warning : optionsParser.getWarnings()) {
         eventHandler.handle(Event.warn(warning));
       }
+      CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
+      for (String warning : commonOptions.deprecationWarnings) {
+        eventHandler.handle(Event.warn(warning));
+      }
     } catch (OptionsParsingException e) {
       eventHandler.handle(Event.error(e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;

@@ -275,4 +275,19 @@ public class CommonCommandOptions extends OptionsBase {
             + "logged with the rest of the Bazel invocation."
   )
   public ToolCommandLineEvent toolCommandLine;
+
+  @Option(
+    name = "unconditional_warning",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+    allowMultiple = true,
+    help =
+        "A warning that will unconditionally get printed with build warnings and errors. This is "
+            + "useful to deprecate bazelrc files or --config definitions. If the intent is to "
+            + "effectively deprecate some flag or combination of flags, this is NOT sufficient. "
+            + "The flag or flags should use the deprecationWarning field in the option definition, "
+            + "or the bad combination should be checked for programmatically."
+  )
+  public List<String> deprecationWarnings;
 }

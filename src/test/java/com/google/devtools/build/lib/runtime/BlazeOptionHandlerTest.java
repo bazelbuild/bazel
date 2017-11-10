@@ -636,4 +636,52 @@ public class BlazeOptionHandlerTest {
         .containsExactly("rc", "othercommon", "config1", "other", "explicit")
         .inOrder();
   }
+
+  @Test
+  public void testWarningFlag() {
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--unconditional_warning",
+            "You are forcing this warning to print for no apparent reason"),
+        eventHandler);
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes()).isEmpty();
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn("You are forcing this warning to print for no apparent reason"));
+  }
+
+  @Test
+  public void testWarningFlag_byConfig_notTriggered() {
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--default_override=0:c0:conf=--unconditional_warning="
+                + "config \"conf\" is deprecated, please stop using!",
+            "--rc_source=/somewhere/.blazerc"),
+        eventHandler);
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes()).isEmpty();
+    assertThat(eventHandler.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void testWarningFlag_byConfig_triggered() {
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--config=conf",
+            "--default_override=0:c0:conf=--unconditional_warning="
+                + "config \"conf\" is deprecated, please stop using!",
+            "--rc_source=/somewhere/.blazerc"),
+        eventHandler);
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+                + "--unconditional_warning=config \"conf\" is deprecated, please stop using!");
+    assertThat(eventHandler.getEvents())
+        .containsExactly(Event.warn("config \"conf\" is deprecated, please stop using!"));
+  }
 }
