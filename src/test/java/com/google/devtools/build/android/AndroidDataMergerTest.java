@@ -22,8 +22,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Jimfs;
-import com.google.common.truth.FailureStrategy;
-import com.google.common.truth.SubjectFactory;
+import com.google.common.truth.Subject;
 import com.google.devtools.build.android.AndroidDataBuilder.ResourceType;
 import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidDataMerger.SourceChecker;
@@ -1300,15 +1299,8 @@ public class AndroidDataMergerTest {
     assertAbout(unwrittenMergedAndroidData).that(data).isEqualTo(expected);
   }
 
-  final SubjectFactory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>
-      unwrittenMergedAndroidData =
-          new SubjectFactory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>() {
-            @Override
-            public UnwrittenMergedAndroidDataSubject getSubject(
-                FailureStrategy fs, UnwrittenMergedAndroidData that) {
-              return new UnwrittenMergedAndroidDataSubject(fs, that);
-            }
-          };
+  final Subject.Factory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>
+      unwrittenMergedAndroidData = UnwrittenMergedAndroidDataSubject::new;
 
   private static final class TestLoggingHandler extends Handler {
     public final List<String> warnings = new ArrayList<String>();

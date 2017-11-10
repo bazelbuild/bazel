@@ -16,7 +16,7 @@ package com.google.devtools.build.android;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
-import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
 import java.io.IOException;
 import java.io.StringReader;
@@ -45,8 +45,8 @@ import org.xml.sax.SAXException;
 /** A testing utility that allows assertions against Paths. */
 public class PathsSubject extends Subject<PathsSubject, Path> {
 
-  PathsSubject(FailureStrategy failureStrategy, @Nullable Path subject) {
-    super(failureStrategy, subject);
+  PathsSubject(FailureMetadata failureMetadata, @Nullable Path subject) {
+    super(failureMetadata, subject);
   }
 
   void exists() {

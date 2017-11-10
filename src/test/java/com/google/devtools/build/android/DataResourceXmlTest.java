@@ -24,8 +24,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Jimfs;
-import com.google.common.truth.FailureStrategy;
-import com.google.common.truth.SubjectFactory;
+import com.google.common.truth.Subject;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue.ArrayType;
@@ -1359,13 +1358,7 @@ public class DataResourceXmlTest {
     return mergedDataWriter.resourceDirectory().resolve("values/values.xml");
   }
 
-  private static final SubjectFactory<PathsSubject, Path> resourcePaths =
-      new SubjectFactory<PathsSubject, Path>() {
-        @Override
-        public PathsSubject getSubject(FailureStrategy failureStrategy, Path path) {
-          return new PathsSubject(failureStrategy, path);
-        }
-      };
+  private static final Subject.Factory<PathsSubject, Path> resourcePaths = PathsSubject::new;
 
   private static class FakeConsumer
       implements ParsedAndroidData.KeyValueConsumer<DataKey, DataResource> {

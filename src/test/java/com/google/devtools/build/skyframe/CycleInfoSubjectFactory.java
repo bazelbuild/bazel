@@ -13,18 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.truth.FailureStrategy;
-import com.google.common.truth.SubjectFactory;
+import com.google.common.truth.FailureMetadata;
+import com.google.common.truth.Subject;
 import com.google.common.truth.Truth;
 
-/** {@link SubjectFactory} for {@link CycleInfo}, providing {@link CycleInfoSubject}. */
-public class CycleInfoSubjectFactory extends SubjectFactory<CycleInfoSubject, CycleInfo> {
+/** {@link Subject.Factory} for {@link CycleInfo}, providing {@link CycleInfoSubject}. */
+public class CycleInfoSubjectFactory implements Subject.Factory<CycleInfoSubject, CycleInfo> {
   public static CycleInfoSubject assertThat(CycleInfo cycleInfo) {
     return Truth.assertAbout(new CycleInfoSubjectFactory()).that(cycleInfo);
   }
 
   @Override
-  public CycleInfoSubject getSubject(FailureStrategy failureStrategy, CycleInfo cycleInfo) {
-    return new CycleInfoSubject(failureStrategy, cycleInfo);
+  public CycleInfoSubject createSubject(FailureMetadata failureMetadata, CycleInfo cycleInfo) {
+    return new CycleInfoSubject(failureMetadata, cycleInfo);
   }
 }

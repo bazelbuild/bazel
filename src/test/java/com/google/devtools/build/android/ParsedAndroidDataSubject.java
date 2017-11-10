@@ -16,7 +16,7 @@ package com.google.devtools.build.android;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
-import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +25,8 @@ import java.util.Map.Entry;
 /** Testing Subject for comparing ParsedAndroidData instances. */
 class ParsedAndroidDataSubject extends Subject<ParsedAndroidDataSubject, ParsedAndroidData> {
 
-  public ParsedAndroidDataSubject(FailureStrategy failureStrategy, ParsedAndroidData actual) {
-    super(failureStrategy, actual);
+  public ParsedAndroidDataSubject(FailureMetadata failureMetadata, ParsedAndroidData actual) {
+    super(failureMetadata, actual);
   }
 
   public void isEqualTo(ParsedAndroidData expectation) {

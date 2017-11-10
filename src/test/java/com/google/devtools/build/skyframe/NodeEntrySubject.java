@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.Iterables;
 import com.google.common.truth.ComparableSubject;
 import com.google.common.truth.DefaultSubject;
-import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
 import javax.annotation.Nullable;
@@ -28,8 +28,8 @@ import javax.annotation.Nullable;
  * functionality!
  */
 class NodeEntrySubject extends Subject<NodeEntrySubject, NodeEntry> {
-  NodeEntrySubject(FailureStrategy failureStrategy, NodeEntry nodeEntry) {
-    super(failureStrategy, nodeEntry);
+  NodeEntrySubject(FailureMetadata failureMetadata, NodeEntry nodeEntry) {
+    super(failureMetadata, nodeEntry);
   }
 
   DefaultSubject hasVersionThat() {

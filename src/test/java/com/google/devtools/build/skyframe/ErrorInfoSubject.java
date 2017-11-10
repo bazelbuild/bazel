@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
 import com.google.common.truth.ThrowableSubject;
@@ -24,8 +24,8 @@ import com.google.common.truth.Truth;
  * functionality!
  */
 public class ErrorInfoSubject extends Subject<ErrorInfoSubject, ErrorInfo> {
-  public ErrorInfoSubject(FailureStrategy failureStrategy, ErrorInfo errorInfo) {
-    super(failureStrategy, errorInfo);
+  public ErrorInfoSubject(FailureMetadata failureMetadata, ErrorInfo errorInfo) {
+    super(failureMetadata, errorInfo);
   }
 
   public ThrowableSubject hasExceptionThat() {
