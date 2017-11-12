@@ -36,8 +36,13 @@ if [ "${PLATFORM-}" != "darwin" ] && [ "${PLATFORM-}" != "linux" ]; then
 fi
 
 # Load the dependencies of //src:embedded_tools_srcs in the current workspace
-# using the output of genquery //src/test/shell/bazel:embedded_tools_deps.
-current_deps=${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/embedded_tools_deps
+# using the output of genquery //src/test/shell/bazel:embedded_tools_deps
+# and removing everything under @bazel_tools because the exact contents of the
+# latter depends on the bazel binary used to run the test.
+current_deps="${TEST_TMPDIR}/current_deps"
+grep -v "^@bazel_tools//" \
+  "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/embedded_tools_deps" \
+  >"${current_deps}"
 
 # Load the current allowed dependencies of //src:embedded_tools_srcs
 allowed_deps=${testdata_path}/embedded_tools_srcs_deps

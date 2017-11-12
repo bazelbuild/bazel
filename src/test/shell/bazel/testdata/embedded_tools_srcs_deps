@@ -3,20 +3,6 @@
 @com_google_protobuf//:protobuf
 @com_google_protobuf//:protobuf_lite
 @com_google_protobuf//:js_embed
-@bazel_tools//src/tools/launcher:launcher
-@bazel_tools//src/tools/launcher:python_launcher
-@bazel_tools//src/tools/launcher:java_launcher
-@bazel_tools//src/tools/launcher:bash_launcher
-@bazel_tools//src/tools/launcher:launcher_base
-@bazel_tools//src/tools/launcher/util:data_parser
-@bazel_tools//src/tools/launcher/util:util
-@bazel_tools//src/main/cpp/util:file
-@bazel_tools//src/main/native/windows:lib-file
-@bazel_tools//src/main/native/windows:lib-util
-@bazel_tools//src/main/cpp/util:strings
-@bazel_tools//src/main/cpp/util:errors
-@bazel_tools//src/main/cpp/util:port
-@bazel_tools//src/main/cpp/util:blaze_exit_code
 //third_party/ijar:zipper
 //third_party/ijar:ijar
 //third_party/ijar:zip
@@ -39,7 +25,6 @@
 //src/tools/launcher/util:data_parser
 //src/tools/launcher/util:util
 //src/main/native/windows:windows_jni.dll
-@bazel_tools//tools/cpp:malloc
 //src/main/cpp/util:util
 //src/main/cpp/util:numbers
 //src/main/cpp/util:md5
@@ -50,4 +35,3 @@
 //src/main/cpp/util:errors
 //src/main/cpp/util:port
 //src/main/cpp/util:blaze_exit_code
-@bazel_tools//tools/cpp:stl
