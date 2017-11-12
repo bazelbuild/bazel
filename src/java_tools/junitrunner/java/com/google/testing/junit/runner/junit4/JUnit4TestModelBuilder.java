@@ -50,8 +50,9 @@ class JUnit4TestModelBuilder implements Supplier<TestSuiteModel> {
   public TestSuiteModel get() {
     Description root = request.getRunner().getDescription();
     if (!root.isSuite()) {
-      throw new IllegalArgumentException("Top test must be a suite");
+      return builder.build(suiteName);
+    } else {
+      return builder.build(suiteName, root);
     }
-    return builder.build(suiteName, root);
   }
 }
