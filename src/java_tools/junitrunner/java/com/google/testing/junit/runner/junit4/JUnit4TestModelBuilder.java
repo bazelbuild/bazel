@@ -49,9 +49,12 @@ class JUnit4TestModelBuilder implements Supplier<TestSuiteModel> {
   @Override
   public TestSuiteModel get() {
     Description root = request.getRunner().getDescription();
+    // A test class annotated with @Ignore effectively has no test methods,
+    // which is what isSuite() tests for.
     if (!root.isSuite()) {
-      throw new IllegalArgumentException("Top test must be a suite");
+      return builder.build(suiteName);
+    } else {
+      return builder.build(suiteName, root);
     }
-    return builder.build(suiteName, root);
   }
 }
