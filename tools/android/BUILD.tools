@@ -50,6 +50,11 @@ alias(
     actual = "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
 )
 
+alias(
+    name = "zip_filter",
+    actual = "//src/tools/android/java/com/google/devtools/build/android:ZipFilterAction",
+)
+
 # Bazel puts this on the bootclasspath of android_* targets to support Java 8
 # if requested.
 filegroup(

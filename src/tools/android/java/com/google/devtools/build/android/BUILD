@@ -40,6 +40,10 @@ java_binary(
 
 java_binary(
     name = "ZipFilterAction",
+    # Memory consumption of SingleJar is about 250 bytes per entry in the output file. Unfortunately,
+    # the JVM tends to kill the process with an OOM long before we're at the limit. In the most
+    # recent example, 400 MB of memory was enough for about 500,000 entries.
+    jvm_flags = ["-Xmx1600m"],
     main_class = "com.google.devtools.build.android.ZipFilterAction",
     visibility = ["//visibility:private"],
     runtime_deps = [":android_builder_lib"],
