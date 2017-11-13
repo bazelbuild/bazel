@@ -1284,13 +1284,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the architecture component of the GNU System Name
-   */
-  public String getGnuSystemArch() {
-    return cppToolchainInfo.getGnuSystemArch();
-  }
-
-  /**
    * Returns whether the configuration's purpose is only to collect LIPO-related data.
    */
   public boolean isLipoContextCollector() {

@@ -654,6 +654,11 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return toolchainInfo.getTargetGnuSystemName();
   }
 
+  /** Returns the architecture component of the GNU System Name */
+  public String getGnuSystemArch() {
+    return toolchainInfo.getGnuSystemArch();
+  }
+
   // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
   // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.
