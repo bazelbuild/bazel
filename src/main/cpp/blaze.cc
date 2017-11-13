@@ -1284,12 +1284,6 @@ static void PrepareEnvironmentForJvm() {
     blaze::UnsetEnv("_JAVA_OPTIONS");
   }
 
-  if (!blaze::GetEnv("TEST_TMPDIR").empty()) {
-    fprintf(stderr,
-            "INFO: $TEST_TMPDIR defined: output root default is '%s'.\n",
-            globals->options->output_root.c_str());
-  }
-
   // TODO(bazel-team):  We've also seen a failure during loading (creating
   // threads?) when ulimit -Hs 8192.  Characterize that and check for it here.
 

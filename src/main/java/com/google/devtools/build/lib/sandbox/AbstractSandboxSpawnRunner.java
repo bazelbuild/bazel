@@ -165,21 +165,22 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           .build();
     }
 
-    long wallTime = System.currentTimeMillis() - startTime;
+    Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
     boolean wasTimeout = wasTimeout(timeout, wallTime);
     Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
-    int exitCode = status == Status.TIMEOUT
-        ? POSIX_TIMEOUT_EXIT_CODE
-        : result.getTerminationStatus().getRawExitCode();
+    int exitCode =
+        status == Status.TIMEOUT
+            ? POSIX_TIMEOUT_EXIT_CODE
+            : result.getTerminationStatus().getRawExitCode();
     return new SpawnResult.Builder()
         .setStatus(status)
         .setExitCode(exitCode)
-        .setWallTimeMillis(wallTime)
+        .setWallTime(wallTime)
         .build();
   }
 
-  private boolean wasTimeout(Duration timeout, long wallTimeMillis) {
-    return !timeout.isZero() && wallTimeMillis > timeout.toMillis();
+  private boolean wasTimeout(Duration timeout, Duration wallTime) {
+    return !timeout.isZero() && wallTime.compareTo(timeout) > 0;
   }
 
   /**

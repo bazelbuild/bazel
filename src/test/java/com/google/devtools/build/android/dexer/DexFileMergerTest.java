@@ -19,11 +19,13 @@ import static org.junit.Assert.fail;
 
 import com.android.dex.ClassDef;
 import com.android.dex.Dex;
+import com.android.dex.DexException;
 import com.android.dx.command.dexer.DxContext;
 import com.android.dx.dex.code.PositionList;
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
@@ -50,11 +52,12 @@ public class DexFileMergerTest {
 
   private static final Path WORKING_DIR = Paths.get(System.getProperty("user.dir"));
   private static final Path INPUT_JAR = WORKING_DIR.resolve(System.getProperty("testinputjar"));
+  private static final Path INPUT_JAR2 = WORKING_DIR.resolve(System.getProperty("testinputjar2"));
   private static final Path MAIN_DEX_LIST_FILE =
       WORKING_DIR.resolve(System.getProperty("testmaindexlist"));
   static final String DEX_PREFIX = "classes";
 
-  /** Exercises DexFileMerger in monodex mode. */
+  /** Exercises DexFileMerger to write a single .dex file. */
   @Test
   public void testMergeDexArchive_singleOutputDex() throws Exception {
     Path dexArchive = buildDexArchive();
@@ -62,6 +65,43 @@ public class DexFileMergerTest {
 
     int expectedClassCount = matchingFileCount(dexArchive, ".*\\.class.dex$");
     assertSingleDexOutput(expectedClassCount, outputArchive, "classes.dex");
+  }
+
+  @Test
+  public void testMergeDexArchive_duplicateInputFails() throws Exception {
+    Path dexArchive = buildDexArchive();
+    try {
+      runDexFileMerger(
+          256 * 256,
+          /*forceJumbo=*/ false,
+          "duplicate.dex.zip",
+          MultidexStrategy.MINIMAL,
+          /*mainDexList=*/ null,
+          /*minimalMainDex=*/ false,
+          DEX_PREFIX,
+          dexArchive,
+          dexArchive);  // input Jar twice to induce failure
+      fail("DexException expected");
+    } catch (DexException expected) {}
+  }
+
+  /** Similar to {@link #testMergeDexArchive_singleOutputDex} but uses --multidex=given_shard. */
+  @Test
+  public void testMergeDexArchive_givenShard() throws Exception {
+    Path dexArchive = buildDexArchive(INPUT_JAR, "3.classes.jar");
+    Path outputArchive =
+        runDexFileMerger(
+            256 * 256,
+            /*forceJumbo=*/ false,
+            "given_shard.dex.zip",
+            MultidexStrategy.GIVEN_SHARD,
+            /*mainDexList=*/ null,
+            /*minimalMainDex=*/ false,
+            DEX_PREFIX,
+            dexArchive);
+
+    int expectedClassCount = matchingFileCount(dexArchive, ".*\\.class.dex$");
+    assertSingleDexOutput(expectedClassCount, outputArchive, "classes3.dex");
   }
 
   /**
@@ -72,17 +112,39 @@ public class DexFileMergerTest {
     Path dexArchive = buildDexArchive();
     Path outputArchive =
         runDexFileMerger(
-            dexArchive,
             256 * 256,
             /*forceJumbo=*/ false,
-            "from_dex_archive.dex.zip",
+            "prefix.dex.zip",
             MultidexStrategy.MINIMAL,
             /*mainDexList=*/ null,
             /*minimalMainDex=*/ false,
-            "noname");
+            "noname",
+            dexArchive);
 
     int expectedClassCount = matchingFileCount(dexArchive, ".*\\.class.dex$");
     assertSingleDexOutput(expectedClassCount, outputArchive, "noname.dex");
+  }
+
+  /** Exercises DexFileMerger with two input archives. */
+  @Test
+  public void testMergeDexArchive_multipleInputs() throws Exception {
+    Path dexArchive = buildDexArchive();
+    Path dexArchive2 = buildDexArchive(INPUT_JAR2, "libtestdata.jar.dex.zip");
+    Path outputArchive =
+        runDexFileMerger(
+            256 * 256,
+            /*forceJumbo=*/ false,
+            "multiple_inputs.dex.zip",
+            MultidexStrategy.MINIMAL,
+            /*mainDexList=*/ null,
+            /*minimalMainDex=*/ false,
+            DEX_PREFIX,
+            dexArchive,
+            dexArchive2);
+
+    int expectedClassCount = matchingFileCount(dexArchive, ".*\\.class.dex$");
+    expectedClassCount += matchingFileCount(dexArchive2, ".*\\.class.dex$");
+    assertSingleDexOutput(expectedClassCount, outputArchive, "classes.dex");
   }
 
   /**
@@ -102,14 +164,14 @@ public class DexFileMergerTest {
     Path dexArchive = buildDexArchive();
     Path outputArchive =
         runDexFileMerger(
-            dexArchive,
             200,
             /*forceJumbo=*/ false,
             "main_dex_list.dex.zip",
             MultidexStrategy.MINIMAL,
             MAIN_DEX_LIST_FILE,
             /*minimalMainDex=*/ false,
-            DEX_PREFIX);
+            DEX_PREFIX,
+            dexArchive);
 
     int expectedClassCount = matchingFileCount(dexArchive, ".*\\.class.dex$");
     assertMainDexOutput(expectedClassCount, outputArchive, false);
@@ -120,14 +182,14 @@ public class DexFileMergerTest {
     Path dexArchive = buildDexArchive();
     Path outputArchive =
         runDexFileMerger(
-            dexArchive,
             256 * 256,
             /*forceJumbo=*/ false,
             "minimal_main_dex.dex.zip",
             MultidexStrategy.MINIMAL,
             MAIN_DEX_LIST_FILE,
             /*minimalMainDex=*/ true,
-            DEX_PREFIX);
+            DEX_PREFIX,
+            dexArchive);
 
     int expectedClassCount = matchingFileCount(dexArchive, ".*\\.class.dex$");
     assertMainDexOutput(expectedClassCount, outputArchive, true);
@@ -138,14 +200,14 @@ public class DexFileMergerTest {
     Path dexArchive = buildDexArchive();
     try {
       runDexFileMerger(
-          dexArchive,
           200,
           /*forceJumbo=*/ false,
           "classes.dex.zip",
           MultidexStrategy.OFF,
           /*mainDexList=*/ null,
           /*minimalMainDex=*/ true,
-          DEX_PREFIX);
+          DEX_PREFIX,
+          dexArchive);
       fail("Expected DexFileMerger to fail");
     } catch (IllegalArgumentException e) {
       assertThat(e)
@@ -154,14 +216,14 @@ public class DexFileMergerTest {
     }
     try {
       runDexFileMerger(
-          dexArchive,
           200,
           /*forceJumbo=*/ false,
           "classes.dex.zip",
           MultidexStrategy.OFF,
           MAIN_DEX_LIST_FILE,
           /*minimalMainDex=*/ false,
-          DEX_PREFIX);
+          DEX_PREFIX,
+          dexArchive);
       fail("Expected DexFileMerger to fail");
     } catch (IllegalArgumentException e) {
       assertThat(e)
@@ -175,9 +237,9 @@ public class DexFileMergerTest {
     Path dexArchive = buildDexArchive();
     Path outputArchive;
     try {
-      outputArchive = runDexFileMerger(dexArchive, 256 * 256, /*forceJumbo=*/ true,
-          "from_dex_archive.dex.zip", MultidexStrategy.OFF, /*mainDexList=*/ null,
-          /*minimalMainDex=*/ false, DEX_PREFIX);
+      outputArchive = runDexFileMerger(256 * 256, /*forceJumbo=*/ true, "from_dex_archive.dex.zip",
+          MultidexStrategy.OFF, /*mainDexList=*/ null, /*minimalMainDex=*/ false, DEX_PREFIX,
+          dexArchive);
     } catch (IllegalStateException e) {
       assertThat(e).hasMessage("--forceJumbo flag not supported");
       System.err.println("Skipping this test due to missing --forceJumbo support in Android SDK.");
@@ -275,28 +337,28 @@ public class DexFileMergerTest {
   private Path runDexFileMerger(Path dexArchive, int maxNumberOfIdxPerDex, String outputBasename)
       throws IOException {
     return runDexFileMerger(
-        dexArchive,
         maxNumberOfIdxPerDex,
         /*forceJumbo=*/ false,
         outputBasename,
         MultidexStrategy.MINIMAL,
         /*mainDexList=*/ null,
         /*minimalMainDex=*/ false,
-        DEX_PREFIX);
+        DEX_PREFIX,
+        dexArchive);
   }
 
   private Path runDexFileMerger(
-      Path dexArchive,
       int maxNumberOfIdxPerDex,
       boolean forceJumbo,
       String outputBasename,
       MultidexStrategy multidexMode,
       @Nullable Path mainDexList,
       boolean minimalMainDex,
-      String dexPrefix)
+      String dexPrefix,
+      Path... dexArchives)
       throws IOException {
     DexFileMerger.Options options = new DexFileMerger.Options();
-    options.inputArchive = dexArchive;
+    options.inputArchives = ImmutableList.copyOf(dexArchives);
     options.outputArchive =
         FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), outputBasename);
     options.multidexMode = multidexMode;
@@ -311,11 +373,13 @@ public class DexFileMergerTest {
   }
 
   private Path buildDexArchive() throws Exception {
+    return buildDexArchive(INPUT_JAR, "libtests.dex.zip");
+  }
+
+  private Path buildDexArchive(Path inputJar, String outputZip) throws Exception {
     DexBuilder.Options options = new DexBuilder.Options();
-    // Use Jar file that has this test in it as the input Jar
-    options.inputJar = INPUT_JAR;
-    options.outputZip =
-        FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), "libtests.dex.zip");
+    options.inputJar = inputJar;
+    options.outputZip = FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), outputZip);
     options.maxThreads = 1;
     Dexing.DexingOptions dexingOptions = new Dexing.DexingOptions();
     dexingOptions.optimize = true;

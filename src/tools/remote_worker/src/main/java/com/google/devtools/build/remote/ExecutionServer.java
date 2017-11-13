@@ -238,8 +238,8 @@ final class ExecutionServer extends ExecutionImplBase {
             ? Durations.toMillis(action.getTimeout())
             : TimeUnit.MINUTES.toMillis(15);
     boolean wasTimeout =
-        (cmdResult != null && cmdResult.getTerminationStatus().timedout())
-        || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
+        (cmdResult != null && cmdResult.getTerminationStatus().timedOut())
+            || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
     final int exitCode;
     if (wasTimeout) {
       final String errMessage =

@@ -224,6 +224,9 @@ py_binary(
             "@openjdk_linux//file",
         ],
     }) if (suffix == "_with_jdk") else []),
+    visibility = [
+        "//src/test:__subpackages__",  # For integration tests
+    ],
 ) for suffix in [
     "",
     "_with_jdk",
@@ -421,7 +424,6 @@ filegroup(
         "//src/test/py/bazel:srcs",
         "//src/test/shell:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
-        "//src/tools/benchmark:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/runfiles:srcs",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:srcs",

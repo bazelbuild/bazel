@@ -95,8 +95,15 @@ StartupOptions::StartupOptions(const string &product_name,
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
+    max_idle_secs = 15;
+    fprintf(stderr,
+            "INFO: $TEST_TMPDIR defined: output root default is '%s' and "
+            "max_idle_secs default is '%d'.\n",
+            output_root.c_str(),
+            max_idle_secs);
   } else {
     output_root = workspace_layout->GetOutputRoot();
+    max_idle_secs = 3 * 3600;
   }
 
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
@@ -110,8 +117,6 @@ StartupOptions::StartupOptions(const string &product_name,
   const string product_name_lower = GetLowercaseProductName();
   output_user_root = blaze_util::JoinPath(
       output_root, "_" + product_name_lower + "_" + GetUserName());
-  // 3 hours (but only 15 seconds if used within a test)
-  max_idle_secs = testing ? 15 : (3 * 3600);
 
   // IMPORTANT: Before modifying the statements below please contact a Bazel
   // core team member that knows the internal procedure for adding/deprecating

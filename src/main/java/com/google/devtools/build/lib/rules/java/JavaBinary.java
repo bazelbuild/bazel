@@ -392,6 +392,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             runProguard || runfilesSupport == null ? null : runfilesSupport.getRunfilesMiddleman())
         .setCompression(runProguard ? UNCOMPRESSED : COMPRESSED)
         .setLauncher(launcher)
+        .setOneVersionEnforcementLevel(
+            javaConfig.oneVersionEnforcementLevel(),
+            JavaToolchainProvider.fromRuleContext(ruleContext).getOneVersionWhitelist())
         .build();
 
     Artifact unstrippedDeployJar =

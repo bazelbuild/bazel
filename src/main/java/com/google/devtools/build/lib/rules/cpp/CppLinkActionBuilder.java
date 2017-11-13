@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,7 +50,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -118,11 +118,6 @@ public class CppLinkActionBuilder {
 
   /** A build variable for hard-coded linker flags currently only known by bazel. */
   public static final String LEGACY_LINK_FLAGS_VARIABLE = "legacy_link_flags";
-  /**
-   * A build variable that is set to indicate a mostly static linking for which the linked binary
-   * should be piped to /dev/null.
-   */
-  public static final String SKIP_MOSTLY_STATIC_VARIABLE = "skip_mostly_static";
 
   /** A build variable giving a path to which to write symbol counts. */
   public static final String SYMBOL_COUNTS_OUTPUT_VARIABLE = "symbol_counts_output";
@@ -525,7 +520,9 @@ public class CppLinkActionBuilder {
   }
 
   private Iterable<LtoBackendArtifacts> createLtoArtifacts(
-      PathFragment ltoOutputRootPrefix, NestedSet<LibraryToLink> uniqueLibraries) {
+      PathFragment ltoOutputRootPrefix,
+      NestedSet<LibraryToLink> uniqueLibraries,
+      ImmutableSet<String> features) {
     Set<Artifact> compiled = new LinkedHashSet<>();
     for (LibraryToLink lib : uniqueLibraries) {
       compiled.addAll(lib.getLtoBitcodeFiles().keySet());
@@ -550,11 +547,25 @@ public class CppLinkActionBuilder {
       }
     }
 
+    List<String> argv = new ArrayList<>();
+    argv.addAll(toolchain.getLinkOptions());
+    argv.addAll(cppConfiguration.getCompilerOptions(features));
     ImmutableList.Builder<LtoBackendArtifacts> ltoOutputs = ImmutableList.builder();
     for (Artifact a : allBitcode.values()) {
       LtoBackendArtifacts ltoArtifacts =
           new LtoBackendArtifacts(
-              ltoOutputRootPrefix, a, allBitcode, ruleContext, configuration, linkArtifactFactory);
+              ltoOutputRootPrefix,
+              a,
+              allBitcode,
+              ruleContext,
+              configuration,
+              linkArtifactFactory,
+              featureConfiguration,
+              toolchain,
+              fdoSupport,
+              usePicForLtoBackendActions,
+              cppConfiguration.useFission(),
+              argv);
       ltoOutputs.add(ltoArtifacts);
     }
     return ltoOutputs.build();
@@ -672,7 +683,7 @@ public class CppLinkActionBuilder {
       // Use the originalUniqueLibraries which contains the full bitcode files
       // needed by the LTO backends (as opposed to the minimized bitcode files
       // that can be used by the LTO indexing step).
-      allLtoArtifacts = createLtoArtifacts(ltoOutputRootPrefix, originalUniqueLibraries);
+      allLtoArtifacts = createLtoArtifacts(ltoOutputRootPrefix, originalUniqueLibraries, features);
     }
 
     @Nullable Artifact thinltoParamFile = null;
@@ -864,23 +875,6 @@ public class CppLinkActionBuilder {
         renamedNonLibraryInputs.add(renamed == null ? a : renamed);
       }
       expandedNonLibraryInputs = renamedNonLibraryInputs;
-    } else if (isLtoIndexing && allLtoArtifacts != null) {
-      for (LtoBackendArtifacts a : allLtoArtifacts) {
-        List<String> argv = new ArrayList<>();
-        argv.addAll(toolchain.getLinkOptions());
-        argv.addAll(cppConfiguration.getCompilerOptions(features));
-        a.setCommandLine(argv);
-
-        a.scheduleLtoBackendAction(
-            ruleContext,
-            featureConfiguration,
-            toolchain,
-            fdoSupport,
-            usePicForLtoBackendActions,
-            cppConfiguration.useFission(),
-            configuration,
-            linkArtifactFactory);
-      }
     }
 
     // getPrimaryInput returns the first element, and that is a public interface - therefore the
@@ -930,7 +924,6 @@ public class CppLinkActionBuilder {
         interfaceOutputLibrary,
         fake,
         isLtoIndexing,
-        allLtoArtifacts,
         linkCommandLine,
         configuration.getVariableShellEnvironment(),
         configuration.getLocalShellEnvironment(),
@@ -1025,6 +1018,11 @@ public class CppLinkActionBuilder {
   public CppLinkActionBuilder setCrosstoolInputs(NestedSet<Artifact> inputs) {
     this.crosstoolInputs = inputs;
     return this;
+  }
+
+  /** Returns the set of LTO artifacts created during build() */
+  public Iterable<LtoBackendArtifacts> getAllLtoBackendArtifacts() {
+    return allLtoArtifacts;
   }
 
   /**
@@ -1491,11 +1489,6 @@ public class CppLinkActionBuilder {
 
       if (paramFile != null) {
         buildVariables.addStringVariable(LINKER_PARAM_FILE_VARIABLE, paramFile.getExecPathString());
-      }
-
-      // mostly static
-      if (linkStaticness == LinkStaticness.MOSTLY_STATIC && cppConfiguration.skipStaticOutputs()) {
-        buildVariables.addStringVariable(SKIP_MOSTLY_STATIC_VARIABLE, "");
       }
 
       // output exec path

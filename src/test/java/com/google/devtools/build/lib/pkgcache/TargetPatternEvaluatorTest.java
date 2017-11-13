@@ -807,15 +807,24 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Test
   public void testTestSuiteExclusion() throws Exception {
-    // This step doesn't do test_suite expansion of the individual target patterns. Doing so
-    // would cause an exclusion of the targets in a package to exclude all tests referred to in test
-    // suites in that package.
+    // Test suites are expanded differently depending on if FILTER_TESTS is used. Those semantics
+    // are used for determining what tests are run (and for determining what targets are built
+    // only if --build_only_tests is set). Test suites are expanded for each target pattern
+    // in sequence, not the whole set of target patterns after all the inclusions and exclusions
+    // are processed. Test suites are expanded for inclusion test targets in all cases, but for
+    // exclusion test targets only for determining what tests should be run.
     scratch.file(
-        "parent/excluded/BUILD",
-        "test_suite(name = 'test_suite', tests = ['//parent/other:specific_test'])");
-    scratch.file("parent/other/BUILD", "cc_test(name = 'specific_test')");
-    assertThat(parseList("parent/...", "-parent/excluded/...")).containsExactlyElementsIn(
-        labels("//parent/other:specific_test"));
+        "parent/test_suite/BUILD",
+        "test_suite(name = 'test_suite', tests = ['//parent/test:specific_test'])");
+    scratch.file("parent/test/BUILD", "cc_test(name = 'specific_test')");
+    assertThat(parseList("parent/...", "-parent/test_suite/..."))
+        .containsExactlyElementsIn(labels("//parent/test:specific_test"));
+    assertThat(parseList(FILTER_TESTS, "parent/...", "-parent/test_suite/...")).isEmpty();
+    assertThat(parseList("parent/test_suite:test_suite", "-parent/test:specific_test"))
+        .containsExactlyElementsIn(labels("//parent/test_suite:test_suite"));
+    assertThat(
+            parseList(FILTER_TESTS, "parent/test_suite:test_suite", "-parent/test:specific_test"))
+        .isEmpty();
   }
 
   /** Regression test for bug: "blaze test "no targets found" warning now fatal" */

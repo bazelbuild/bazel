@@ -6,17 +6,43 @@ filegroup(
     visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
-# Virtual file system; do not use externally!
+PATH_FRAGMENT_SOURCES = [
+    "Canonicalizer.java",
+    "PathFragment.java",
+    "PathFragmentSerializationProxy.java",
+    "UnixPathFragment.java",
+    "WindowsPathFragment.java",
+]
+
 java_library(
-    name = "vfs",
-    srcs = glob([
-        "*.java",
-    ]),
-    visibility = ["//visibility:public"],
+    name = "pathfragment",
+    srcs = PATH_FRAGMENT_SOURCES,
     deps = [
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
+        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
+    ],
+)
+
+# Virtual file system; do not use externally!
+java_library(
+    name = "vfs",
+    srcs = glob(
+        [
+            "*.java",
+        ],
+        exclude = PATH_FRAGMENT_SOURCES,
+    ),
+    visibility = ["//visibility:public"],
+    exports = [
+        ":pathfragment",
+    ],
+    deps = [
+        ":pathfragment",
+        "//src/main/java/com/google/devtools/build/lib:base-util",
+        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",

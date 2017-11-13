@@ -70,7 +70,7 @@ sh_test(
 genrule(
   name = "fails_to_build",
   outs = ["fails_to_build.txt"],
-  cmd = "false",
+  cmd = "echo This build will fail && false",
   executable = 1,
 )
 sh_test(
@@ -587,6 +587,7 @@ function test_root_cause_early() {
   # precisely on report on a completed target; moreover, the action has
   # to be reported first.
   expect_log_once '^action'
+  expect_log 'type: "Genrule"'
   expect_log_once '^completed'
   expect_not_log 'success: true'
   local naction=`grep -n '^action' $TEST_log | cut -f 1 -d :`
@@ -699,6 +700,7 @@ function test_test_fails_to_build() {
   expect_log 'last_message: true'
   expect_log 'BUILD_FAILURE'
   expect_log 'last_message: true'
+  expect_log 'command_line:.*This build will fail'
   expect_log_once '^build_tool_logs'
 }
 

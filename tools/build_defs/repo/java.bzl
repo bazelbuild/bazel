@@ -46,7 +46,6 @@ The recommended best practices for downloading Maven jars are as follows:
 4. Make the second URL the original repo1.maven.org URL
 5. Make the third URL the maven.ibiblio.org mirror, if it isn't 404
 6. Always specify the sha256 checksum
-7. Prefer http over https unless curl -I says the http URL redirects to https
 
 Bazel has one of the most sophisticated systems for downloading files of any
 build system. Following these best practices will ensure that your codebase

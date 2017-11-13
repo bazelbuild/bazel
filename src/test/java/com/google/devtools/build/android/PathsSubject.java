@@ -16,7 +16,7 @@ package com.google.devtools.build.android;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
-import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
 import java.io.IOException;
 import java.io.StringReader;
@@ -26,6 +26,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -42,8 +45,8 @@ import org.xml.sax.SAXException;
 /** A testing utility that allows assertions against Paths. */
 public class PathsSubject extends Subject<PathsSubject, Path> {
 
-  PathsSubject(FailureStrategy failureStrategy, @Nullable Path subject) {
-    super(failureStrategy, subject);
+  PathsSubject(FailureMetadata failureMetadata, @Nullable Path subject) {
+    super(failureMetadata, subject);
   }
 
   void exists() {
@@ -53,6 +56,33 @@ public class PathsSubject extends Subject<PathsSubject, Path> {
     if (!Files.exists(getSubject())) {
       fail("exists.");
     }
+  }
+
+  void containsAllArchivedFilesIn(String... paths) throws IOException {
+    if (actual() == null) {
+      fail("should not be null.");
+    }
+    exists();
+
+    assertThat(
+            new ZipFile(actual().toFile())
+                .stream()
+                .map(ZipEntry::getName)
+                .collect(Collectors.toSet()))
+        .containsAllIn(Arrays.asList(paths));
+  }
+
+  void containsNoArchivedFilesIn(String... paths) throws IOException {
+    if (actual() == null) {
+      fail("should not be null.");
+    }
+    exists();
+    assertThat(
+            new ZipFile(actual().toFile())
+                .stream()
+                .map(ZipEntry::getName)
+                .collect(Collectors.toSet()))
+        .containsNoneIn(Arrays.asList(paths));
   }
 
   void xmlContentsIsEqualTo(String... contents) {

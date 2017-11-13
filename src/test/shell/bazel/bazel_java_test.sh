@@ -1439,5 +1439,50 @@ EOF
   expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
 }
 
+function test_wrapper_resolves_runfiles_to_subsuming_tree() {
+    setup_clean_workspace
+    mkdir -p java/com/google/runfiles/
+    cat <<'EOF' > java/com/google/runfiles/EchoRunfiles.java
+package com.google.runfiles;
+
+public class EchoRunfiles {
+   public static void main(String[] argv) {
+       System.out.println(System.getenv("JAVA_RUNFILES"));
+   }
+}
+EOF
+    cat <<'EOF' > java/com/google/runfiles/BUILD
+java_binary(
+    name = 'EchoRunfiles',
+    srcs = ['EchoRunfiles.java'],
+    visibility = ['//visibility:public'],
+)
+EOF
+    cat <<'EOF' > check_runfiles.sh
+#!/bin/sh -eu
+unset JAVA_RUNFILES # Force the wrapper script to recompute it.
+subrunfiles=`$TEST_SRCDIR/__main__/java/com/google/runfiles/EchoRunfiles`
+if [ $subrunfiles != $TEST_SRCDIR ]; then
+  echo $subrunfiles
+  echo "DOES NOT MATCH"
+  echo $TEST_SRCDIR
+  exit 1
+fi
+EOF
+    chmod u+x check_runfiles.sh
+    cat <<'EOF' > BUILD
+sh_test(
+    name = 'check_runfiles',
+    srcs = ['check_runfiles.sh'],
+    data = ['//java/com/google/runfiles:EchoRunfiles'],
+)
+EOF
+
+    # Create a runfiles tree for EchoRunfiles.
+    bazel build //java/com/google/runfiles:EchoRunfiles
+    # We're testing a formerly non-hermetic interaction, so disable the sandbox.
+    bazel test --spawn_strategy=standalone --test_output=errors :check_runfiles
+}
+
 run_suite "Java integration tests"
 

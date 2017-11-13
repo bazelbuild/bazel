@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Type;
 import javax.annotation.Nullable;
@@ -58,6 +59,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     Object value = attributes.getAttributeValue(index);
     if (value instanceof Attribute.ComputedDefault) {
       value = ((Attribute.ComputedDefault) value).getDefault(this);
+    } else if (value instanceof Attribute.LateBoundDefault) {
+      value = ((Attribute.LateBoundDefault) value).getDefault();
     }
     try {
       return type.cast(value);
@@ -82,6 +85,25 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     Object value = attributes.getAttributeValue(index);
     if (value instanceof Attribute.ComputedDefault) {
       return (Attribute.ComputedDefault) value;
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the given attribute if it's a {@link Attribute.LateBoundDefault}, null otherwise.
+   *
+   * @throws IllegalArgumentException if the given attribute doesn't exist with the specified
+   *         type. This happens whether or not it's a late bound default.
+   */
+  @Nullable
+  @SuppressWarnings("unchecked")
+  public <T> Attribute.LateBoundDefault<?, T> getLateBoundDefault(
+      String attributeName, Type<T> type) {
+    int index = getIndexWithTypeCheck(attributeName, type);
+    Object value = attributes.getAttributeValue(index);
+    if (value instanceof Attribute.LateBoundDefault) {
+      return (Attribute.LateBoundDefault<?, T>) value;
     } else {
       return null;
     }
@@ -255,5 +277,10 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   @Override
   public <T> boolean has(String attrName, Type<T> type) {
     return getAttributeType(attrName) == type;
+  }
+
+  @Override
+  public Location getAttributeLocation(String attrName) {
+    return attributes.getAttributeLocation(attrName);
   }
 }

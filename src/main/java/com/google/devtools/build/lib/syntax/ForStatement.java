@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.util.List;
 

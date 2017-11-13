@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,7 +50,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -488,7 +488,7 @@ public abstract class DependencyResolver {
       LateBoundDefault<FragmentT, ValueT> lateBoundDefault,
       Rule rule,
       AttributeMap attributeMap,
-      BuildConfiguration config) {
+      BuildConfiguration config) throws EvalException {
     Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
     // TODO(b/65746853): remove this when nothing uses it anymore
     if (BuildConfiguration.class.equals(fragmentClass)) {

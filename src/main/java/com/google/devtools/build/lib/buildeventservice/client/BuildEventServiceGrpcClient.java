@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.util.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.base.Function;

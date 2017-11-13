@@ -285,36 +285,10 @@ toolchain {
   feature {
     name: "output_execpath_flags"
     flag_set {
+      action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-o"
-        flag: "%{output_execpath}"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "output_execpath_flags_executable"
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "-o"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "/dev/null"
-        flag: "-MMD"
-        flag: "-MF"
-      }
-      expand_if_all_available: "skip_mostly_static"
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
@@ -1567,7 +1541,7 @@ toolchain {
     implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
-    implies: "output_execpath_flags_executable"
+    implies: "output_execpath_flags"
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
@@ -1941,36 +1915,10 @@ toolchain {
   feature {
     name: "output_execpath_flags"
     flag_set {
+      action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-o"
-        flag: "%{output_execpath}"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "output_execpath_flags_executable"
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "-o"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "/dev/null"
-        flag: "-MMD"
-        flag: "-MF"
-      }
-      expand_if_all_available: "skip_mostly_static"
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
@@ -3230,7 +3178,7 @@ toolchain {
     implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
-    implies: "output_execpath_flags_executable"
+    implies: "output_execpath_flags"
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
@@ -3604,36 +3552,10 @@ toolchain {
   feature {
     name: "output_execpath_flags"
     flag_set {
+      action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-o"
-        flag: "%{output_execpath}"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "output_execpath_flags_executable"
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "-o"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "/dev/null"
-        flag: "-MMD"
-        flag: "-MF"
-      }
-      expand_if_all_available: "skip_mostly_static"
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
@@ -4895,7 +4817,7 @@ toolchain {
     implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
-    implies: "output_execpath_flags_executable"
+    implies: "output_execpath_flags"
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
@@ -5270,36 +5192,10 @@ toolchain {
   feature {
     name: "output_execpath_flags"
     flag_set {
+      action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-o"
-        flag: "%{output_execpath}"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "output_execpath_flags_executable"
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "-o"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "/dev/null"
-        flag: "-MMD"
-        flag: "-MF"
-      }
-      expand_if_all_available: "skip_mostly_static"
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
@@ -6587,7 +6483,7 @@ toolchain {
     implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
-    implies: "output_execpath_flags_executable"
+    implies: "output_execpath_flags"
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
@@ -6963,36 +6859,10 @@ toolchain {
   feature {
     name: "output_execpath_flags"
     flag_set {
+      action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-o"
-        flag: "%{output_execpath}"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "output_execpath_flags_executable"
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "-o"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "/dev/null"
-        flag: "-MMD"
-        flag: "-MF"
-      }
-      expand_if_all_available: "skip_mostly_static"
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
@@ -8252,7 +8122,7 @@ toolchain {
     implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
-    implies: "output_execpath_flags_executable"
+    implies: "output_execpath_flags"
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
@@ -8626,36 +8496,10 @@ toolchain {
   feature {
     name: "output_execpath_flags"
     flag_set {
+      action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-o"
-        flag: "%{output_execpath}"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "output_execpath_flags_executable"
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "-o"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "/dev/null"
-        flag: "-MMD"
-        flag: "-MF"
-      }
-      expand_if_all_available: "skip_mostly_static"
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
@@ -9903,7 +9747,7 @@ toolchain {
     implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
-    implies: "output_execpath_flags_executable"
+    implies: "output_execpath_flags"
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
@@ -10277,36 +10121,10 @@ toolchain {
   feature {
     name: "output_execpath_flags"
     flag_set {
+      action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-o"
-        flag: "%{output_execpath}"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "output_execpath_flags_executable"
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "-o"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "/dev/null"
-        flag: "-MMD"
-        flag: "-MF"
-      }
-      expand_if_all_available: "skip_mostly_static"
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
@@ -11556,7 +11374,7 @@ toolchain {
     implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
-    implies: "output_execpath_flags_executable"
+    implies: "output_execpath_flags"
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
@@ -11931,36 +11749,10 @@ toolchain {
   feature {
     name: "output_execpath_flags"
     flag_set {
+      action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-o"
-        flag: "%{output_execpath}"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "output_execpath_flags_executable"
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "-o"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "/dev/null"
-        flag: "-MMD"
-        flag: "-MF"
-      }
-      expand_if_all_available: "skip_mostly_static"
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
@@ -13236,7 +13028,7 @@ toolchain {
     implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
-    implies: "output_execpath_flags_executable"
+    implies: "output_execpath_flags"
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
@@ -13612,36 +13404,10 @@ toolchain {
   feature {
     name: "output_execpath_flags"
     flag_set {
+      action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-o"
-        flag: "%{output_execpath}"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "output_execpath_flags_executable"
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "-o"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "/dev/null"
-        flag: "-MMD"
-        flag: "-MF"
-      }
-      expand_if_all_available: "skip_mostly_static"
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
@@ -14889,7 +14655,7 @@ toolchain {
     implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
-    implies: "output_execpath_flags_executable"
+    implies: "output_execpath_flags"
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
@@ -15266,36 +15032,10 @@ toolchain {
   feature {
     name: "output_execpath_flags"
     flag_set {
+      action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "-o"
-        flag: "%{output_execpath}"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "output_execpath_flags_executable"
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "-o"
-      }
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
-        flag: "/dev/null"
-        flag: "-MMD"
-        flag: "-MF"
-      }
-      expand_if_all_available: "skip_mostly_static"
-      expand_if_all_available: "output_execpath"
-    }
-    flag_set {
-      action: "c++-link-executable"
-      flag_group {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
@@ -16543,7 +16283,7 @@ toolchain {
     implies: "contains_objc_source"
     implies: "symbol_counts"
     implies: "linkstamps"
-    implies: "output_execpath_flags_executable"
+    implies: "output_execpath_flags"
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"

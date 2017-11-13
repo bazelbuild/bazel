@@ -119,6 +119,15 @@ public class TopLevelConstraintSemantics {
       }
       EnvironmentCollection expectedEnvironments = builder.build();
 
+      // If this target doesn't participate in constraints, ignore it.
+      if (!topLevelTarget
+          .getTarget()
+          .getAssociatedRule()
+          .getRuleClassObject()
+          .supportsConstraintChecking()) {
+        continue;
+      }
+
       // Now check the target against those environments.
       TransitiveInfoCollection asProvider;
       if (topLevelTarget instanceof OutputFileConfiguredTarget) {

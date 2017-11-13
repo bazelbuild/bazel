@@ -19,7 +19,7 @@ package com.google.devtools.build.lib.skylarkinterface;
  *
  * <p>This is used for extending the Skylark interpreter with domain-specific values.
  */
-public interface SkylarkValue {
+public interface SkylarkValue extends SkylarkPrintable {
 
   /**
    * Returns if the value is immutable and thus suitable for being used as a dictionary key.
@@ -29,25 +29,5 @@ public interface SkylarkValue {
    */
   default boolean isImmutable() {
       return false;
-  }
-
-  /**
-   * Print an official representation of object x.
-   *
-   * <p>For regular data structures, the value should be parsable back into an equal data structure.
-   *
-   * @param printer a printer to be used for formatting nested values.
-   */
-  void repr(SkylarkPrinter printer);
-
-  /**
-   * Print an informal, human-readable representation of the value.
-   *
-   * <p>By default dispatches to the {@code repr} method.
-   *
-   * @param printer a printer to be used for formatting nested values.
-   */
-  default void str(SkylarkPrinter printer) {
-    repr(printer);
   }
 }

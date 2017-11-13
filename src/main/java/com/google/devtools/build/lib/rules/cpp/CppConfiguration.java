@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -552,13 +552,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppToolchainInfo.getCrosstoolTopPathFragment();
   }
 
-  /**
-   * Returns the system name which is required by the toolchain to run.
-   */
-  public String getHostSystemName() {
-    return cppToolchainInfo.getHostSystemName();
-  }
-
   @Override
   public String toString() {
     return cppToolchainInfo.toString();
@@ -936,33 +929,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns test-only link options such that certain test-specific features can be configured
-   * separately (e.g. lazy binding).
-   */
-  public ImmutableList<String> getTestOnlyLinkOptions() {
-    return cppToolchainInfo.getTestOnlyLinkOptions();
-  }
-
-
-  /**
-   * Returns the list of options to be used with 'objcopy' when converting
-   * binary files to object files, or {@code null} if this operation is not
-   * supported.
-   */
-  public ImmutableList<String> getObjCopyOptionsForEmbedding() {
-    return cppToolchainInfo.getObjCopyOptionsForEmbedding();
-  }
-
-  /**
-   * Returns the list of options to be used with 'ld' when converting
-   * binary files to object files, or {@code null} if this operation is not
-   * supported.
-   */
-  public ImmutableList<String> getLdOptionsForEmbedding() {
-    return cppToolchainInfo.getLdOptionsForEmbedding();
-  }
-
-  /**
    * Returns a map of additional make variables for use by {@link
    * BuildConfiguration}. These are to used to allow some build rules to
    * avoid the limits on stack frame sizes and variable-length arrays.
@@ -1133,13 +1099,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public Label customMalloc() {
     return cppOptions.customMalloc;
-  }
-
-  /**
-   * Returns true if mostly-static C++ binaries should be skipped.
-   */
-  public boolean skipStaticOutputs() {
-    return cppOptions.skipStaticOutputs;
   }
 
   /**
@@ -1597,10 +1556,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           "The built-in sysroot '" + defaultSysroot + "' is not normalized.");
     }
     return defaultSysroot;
-  }
-
-  public PathFragment getDefaultSysroot() {
-    return cppToolchainInfo.getDefaultSysroot();
   }
 
   @Override

@@ -230,7 +230,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
               pathConverter,
               commandLineReporter,
               besOptions.projectId,
-              besOptions.besKeywords);
+              keywords(besOptions));
       logger.fine("BuildEventServiceTransport was created successfully");
       return besTransport;
     }
@@ -249,4 +249,12 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       AuthAndTLSOptions authAndTLSOptions) throws IOException;
 
   protected abstract Set<String> whitelistedCommands();
+
+  protected Set<String> keywords(T besOptions) {
+    return besOptions
+        .besKeywords
+        .stream()
+        .map(keyword -> "user_keyword=" + keyword)
+        .collect(ImmutableSet.toImmutableSet());
+  }
 }

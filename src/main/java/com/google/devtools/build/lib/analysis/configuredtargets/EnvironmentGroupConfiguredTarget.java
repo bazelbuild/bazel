@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Dummy ConfiguredTarget for environment groups. Contains no functionality, since

@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.shell;
 
+import java.time.Duration;
+import java.util.Optional;
+
 /**
  * Represents the termination status of a command.  {@link Process#waitFor} is
  * not very precisely specified, so this class encapsulates the interpretation
@@ -29,7 +32,10 @@ package com.google.devtools.build.lib.shell;
 public final class TerminationStatus {
 
   private final int waitResult;
-  private final boolean timedout;
+  private final boolean timedOut;
+  private final Optional<Duration> wallExecutionTime;
+  private final Optional<Duration> userExecutionTime;
+  private final Optional<Duration> systemExecutionTime;
 
   /**
    * Values taken from the glibc strsignal(3) function.
@@ -79,10 +85,34 @@ public final class TerminationStatus {
    * Construct a TerminationStatus instance from a Process waitFor code.
    *
    * @param waitResult the value returned by {@link java.lang.Process#waitFor}.
+   * @param timedOut whether the execution timed out
    */
-  public TerminationStatus(int waitResult, boolean timedout) {
+  public TerminationStatus(int waitResult, boolean timedOut) {
+    this(waitResult, timedOut, Optional.empty(), Optional.empty(), Optional.empty());
+  }
+
+  /**
+   * Construct a TerminationStatus instance from a Process waitFor code.
+   *
+   * <p>TerminationStatus objects are considered equal if they have the same waitResult.
+   *
+   * @param waitResult the value returned by {@link java.lang.Process#waitFor}.
+   * @param timedOut whether the execution timed out
+   * @param wallExecutionTime the wall execution time of the command, if available
+   * @param userExecutionTime the user execution time of the command, if available
+   * @param systemExecutionTime the system execution time of the command, if available
+   */
+  public TerminationStatus(
+      int waitResult,
+      boolean timedOut,
+      Optional<Duration> wallExecutionTime,
+      Optional<Duration> userExecutionTime,
+      Optional<Duration> systemExecutionTime) {
     this.waitResult = waitResult;
-    this.timedout = timedout;
+    this.timedOut = timedOut;
+    this.wallExecutionTime = wallExecutionTime;
+    this.userExecutionTime = userExecutionTime;
+    this.systemExecutionTime = systemExecutionTime;
   }
 
   /**
@@ -110,14 +140,12 @@ public final class TerminationStatus {
    * Returns true iff the process exited normally.
    */
   public boolean exited() {
-    return !timedout && (waitResult < SIGNAL_1 || waitResult > SIGNAL_63);
+    return !timedOut && (waitResult < SIGNAL_1 || waitResult > SIGNAL_63);
   }
 
-  /**
-   * Returns true if the process timed out.
-   */
-  public boolean timedout() {
-    return timedout;
+  /** Returns true if the process timed out. */
+  public boolean timedOut() {
+    return timedOut;
   }
 
   /**
@@ -135,10 +163,40 @@ public final class TerminationStatus {
    * if exited() returns true.
    */
   public int getTerminatingSignal() {
-    if (exited() || timedout) {
+    if (exited() || timedOut) {
       throw new IllegalStateException("getTerminatingSignal() not defined");
     }
     return waitResult - SIGNAL_1 + 1;
+  }
+
+  /**
+   * Returns the wall execution time.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  public Optional<Duration> getWallExecutionTime() {
+    return wallExecutionTime;
+  }
+
+  /**
+   * Returns the user execution time.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  public Optional<Duration> getUserExecutionTime() {
+    return userExecutionTime;
+  }
+
+  /**
+   * Returns the system execution time.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  public Optional<Duration> getSystemExecutionTime() {
+    return systemExecutionTime;
   }
 
   /**
@@ -146,16 +204,16 @@ public final class TerminationStatus {
    * e.g. "Exit 1" or "Hangup".
    */
   public String toShortString() {
-    return exited() ? "Exit " + getExitCode()
-      : timedout ? "Timeout"
-      : getSignalString(getTerminatingSignal());
+    return exited()
+        ? "Exit " + getExitCode()
+        : (timedOut ? "Timeout" : getSignalString(getTerminatingSignal()));
   }
 
   @Override
   public String toString() {
     if (exited()) {
       return "Process exited with status " + getExitCode();
-    } else if (timedout) {
+    } else if (timedOut) {
       return "Timed out";
     } else {
       return "Process terminated by signal " + getTerminatingSignal();
@@ -169,7 +227,86 @@ public final class TerminationStatus {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof TerminationStatus &&
-      ((TerminationStatus) other).waitResult == this.waitResult;
+    return other instanceof TerminationStatus
+        && ((TerminationStatus) other).waitResult == this.waitResult;
+  }
+
+  /** Returns a new {@link TerminationStatus.Builder}. */
+  public static Builder builder() {
+    return new TerminationStatus.Builder();
+  }
+
+  /** Builder for {@link TerminationStatus} objects. */
+  public static class Builder {
+    // We use nullness here instead of Optional to avoid confusion between fields that may not
+    // yet have been set from fields that can legitimately hold an Optional value in the built
+    // object.
+
+    private Integer waitResponse = null;
+    private Boolean timedOut = null;
+
+    private Optional<Duration> wallExecutionTime = Optional.empty();
+    private Optional<Duration> userExecutionTime = Optional.empty();
+    private Optional<Duration> systemExecutionTime = Optional.empty();
+
+    /** Sets the value returned by {@link java.lang.Process#waitFor}. */
+    public Builder setWaitResponse(int waitResponse) {
+      this.waitResponse = waitResponse;
+      return this;
+    }
+
+    /** Sets whether the action timed out or not. */
+    public Builder setTimedOut(boolean timedOut) {
+      this.timedOut = timedOut;
+      return this;
+    }
+
+    /** Sets the wall execution time. */
+    public Builder setWallExecutionTime(Duration wallExecutionTime) {
+      this.wallExecutionTime = Optional.of(wallExecutionTime);
+      return this;
+    }
+
+    /** Sets the user execution time. */
+    public Builder setUserExecutionTime(Duration userExecutionTime) {
+      this.userExecutionTime = Optional.of(userExecutionTime);
+      return this;
+    }
+
+    /** Sets the system execution time. */
+    public Builder setSystemExecutionTime(Duration systemExecutionTime) {
+      this.systemExecutionTime = Optional.of(systemExecutionTime);
+      return this;
+    }
+
+    /** Sets or clears the wall execution time. */
+    public Builder setWallExecutionTime(Optional<Duration> wallExecutionTime) {
+      this.wallExecutionTime = wallExecutionTime;
+      return this;
+    }
+
+    /** Sets or clears the user execution time. */
+    public Builder setUserExecutionTime(Optional<Duration> userExecutionTime) {
+      this.userExecutionTime = userExecutionTime;
+      return this;
+    }
+
+    /** Sets or clears the system execution time. */
+    public Builder setSystemExecutionTime(Optional<Duration> systemExecutionTime) {
+      this.systemExecutionTime = systemExecutionTime;
+      return this;
+    }
+
+    /** Builds a {@link TerminationStatus} object. */
+    public TerminationStatus build() {
+      if (waitResponse == null) {
+        throw new IllegalStateException("waitResponse never set");
+      }
+      if (timedOut == null) {
+        throw new IllegalStateException("timedOut never set");
+      }
+      return new TerminationStatus(
+          waitResponse, timedOut, wallExecutionTime, userExecutionTime, systemExecutionTime);
+    }
   }
 }

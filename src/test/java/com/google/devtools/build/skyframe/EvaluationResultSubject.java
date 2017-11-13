@@ -18,7 +18,7 @@ import static com.google.devtools.build.skyframe.ErrorInfoSubjectFactory.assertT
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.DefaultSubject;
-import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
 
@@ -28,8 +28,8 @@ import com.google.common.truth.Subject;
  */
 public class EvaluationResultSubject extends Subject<EvaluationResultSubject, EvaluationResult<?>> {
   public EvaluationResultSubject(
-      FailureStrategy failureStrategy, EvaluationResult<?> evaluationResult) {
-    super(failureStrategy, evaluationResult);
+      FailureMetadata failureMetadata, EvaluationResult<?> evaluationResult) {
+    super(failureMetadata, evaluationResult);
   }
 
   public void hasError() {

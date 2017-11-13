@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,7 +60,6 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         // TODO(b/35097211): Remove this once the new testing rules are released.
         .addRuleDefinition(new AndroidDeviceScriptFixtureRule())
         .addRuleDefinition(new AndroidHostServiceFixtureRule())
-        .addRuleDefinition(new AndroidInstrumentationRule())
         .addRuleDefinition(new AndroidInstrumentationTestRule())
         .build();
   }

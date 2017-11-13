@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -349,7 +349,7 @@ public final class LinkCommandLine extends CommandLine {
 
     // Extra test-specific link options.
     if (useTestOnlyFlags) {
-      toolchainFlags.addAll(cppConfiguration.getTestOnlyLinkOptions());
+      toolchainFlags.addAll(ccProvider.getTestOnlyLinkOptions());
     }
 
     toolchainFlags.addAll(ccProvider.getLinkOptions());

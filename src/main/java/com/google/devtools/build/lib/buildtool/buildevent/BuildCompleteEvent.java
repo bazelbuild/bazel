@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.buildtool.buildevent;
 
-import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;

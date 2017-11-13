@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -25,7 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -352,16 +353,12 @@ public final class ResourceDependencies {
     this.transitiveRTxt = transitiveRTxt;
   }
 
-  /**
-   * Returns a copy of this instance with filtered resources. The original object is unchanged, and
-   * may be returned if no filtering should be done.
-   */
-  public ResourceDependencies filter(
-      RuleErrorConsumer ruleErrorConsumer, ResourceFilterFactory filter) {
-    NestedSet<Artifact> filteredResources =
-        filter.filterDependencies(ruleErrorConsumer, transitiveResources);
+  /** Returns a copy of this instance with filtered resources. The original object is unchanged. */
+  public ResourceDependencies filter(ResourceFilter resourceFilter) {
+    Optional<NestedSet<Artifact>> filteredResources =
+        resourceFilter.maybeFilterDependencies(transitiveResources);
 
-    if (filteredResources == transitiveResources) {
+    if (!filteredResources.isPresent()) {
       // No filtering was done.
       return this;
     }
@@ -369,11 +366,22 @@ public final class ResourceDependencies {
     // Note that this doesn't filter any of the dependent artifacts. This
     // means that if any resource changes, the corresponding actions will get
     // re-executed
+    return withResources(
+        resourceFilter.filterDependencyContainers(transitiveResourceContainers),
+        resourceFilter.filterDependencyContainers(directResourceContainers),
+        filteredResources.get());
+  }
+
+  @VisibleForTesting
+  ResourceDependencies withResources(
+      NestedSet<ResourceContainer> directResourceContainers,
+      NestedSet<ResourceContainer> transitiveResourceContainers,
+      NestedSet<Artifact> transitiveResources) {
     return new ResourceDependencies(
         neverlink,
-        filter.filterDependencyContainers(ruleErrorConsumer, transitiveResourceContainers),
-        filter.filterDependencyContainers(ruleErrorConsumer, directResourceContainers),
-        filteredResources,
+        transitiveResourceContainers,
+        directResourceContainers,
+        transitiveResources,
         transitiveAssets,
         transitiveManifests,
         transitiveAapt2RTxt,

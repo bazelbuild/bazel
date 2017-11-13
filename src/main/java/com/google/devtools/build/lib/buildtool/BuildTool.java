@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
-import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -72,7 +72,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -124,19 +123,20 @@ public final class BuildTool {
    *
    * <p>The caller is responsible for setting up and syncing the package cache.
    *
-   * <p>During this function's execution, the actualTargets and successfulTargets
-   * fields of the request object are set.
+   * <p>During this function's execution, the actualTargets and successfulTargets fields of the
+   * request object are set.
    *
    * @param request the build request that this build tool is servicing, which specifies various
-   *        options; during this method's execution, the actualTargets and successfulTargets fields
-   *        of the request object are populated
+   *     options; during this method's execution, the actualTargets and successfulTargets fields of
+   *     the request object are populated
    * @param result the build result that is the mutable result of this build
    * @param validator target validator
    */
   public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, TestExecException {
+          InvalidConfigurationException, TestExecException,
+          ConfiguredTargetQueryCommandLineException {
     validateOptions(request);
     BuildOptions buildOptions = runtime.createBuildOptions(request);
     // Sync the package manager before sending the BuildStartingEvent in runLoadingPhase()
@@ -237,6 +237,10 @@ public final class BuildTool {
         // graph beforehand if this option is specified, or add another option to wipe if desired
         // (SkyframeExecutor#handleConfiguredTargetChange should be sufficient).
         if (request.getBuildOptions().queryExpression != null) {
+          if (!env.getSkyframeExecutor().hasIncrementalState()) {
+            throw new ConfiguredTargetQueryCommandLineException(
+                "Configured query is not allowed if incrementality state is not being kept");
+          }
           try {
             doConfiguredTargetQuery(request, configurations, loadingResult);
           } catch (QueryException | IOException e) {
@@ -372,6 +376,9 @@ public final class BuildTool {
       }
     } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
       exitCode = ExitCode.PARSING_FAILURE;
+      reportExceptionError(e);
+    } catch (ConfiguredTargetQueryCommandLineException e) {
+      exitCode = ExitCode.COMMAND_LINE_ERROR;
       reportExceptionError(e);
     } catch (TestExecException e) {
       // ExitCode.SUCCESS means that build was successful. Real return code of program
@@ -683,5 +690,11 @@ public final class BuildTool {
 
   private Reporter getReporter() {
     return env.getReporter();
+  }
+
+  private static class ConfiguredTargetQueryCommandLineException extends Exception {
+    ConfiguredTargetQueryCommandLineException(String message) {
+      super(message);
+    }
   }
 }

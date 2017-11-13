@@ -29,8 +29,8 @@
 
 package com.google.devtools.build.lib.collect.compacthashset;
 
+import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;

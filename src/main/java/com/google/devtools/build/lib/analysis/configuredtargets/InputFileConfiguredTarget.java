@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * A ConfiguredTarget for an InputFile.

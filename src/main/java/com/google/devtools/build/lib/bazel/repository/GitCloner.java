@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.UrlEscapers;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -61,6 +61,8 @@ public class GitCloner {
 
   private static final Pattern GITHUB_URL = Pattern.compile(
       "(?:git@|https?://)github\\.com[:/](\\w+)/(\\w+)\\.git");
+
+  private static final Pattern GITHUB_VERSION_FORMAT = Pattern.compile("v(\\d+\\.)*\\d+");
 
   private GitCloner() {
     // Only static methods in this class
@@ -291,18 +293,23 @@ public class GitCloner {
     String repositoryName = matcher.group(2);
     String downloadUrl =
         "https://github.com/"
-            + UrlEscapers.urlPathSegmentEscaper().escape(
-                user + "/" + repositoryName + "/archive/" + descriptor.ref + ".tar.gz");
+            + UrlEscapers.urlFragmentEscaper()
+                .escape(user + "/" + repositoryName + "/archive/" + descriptor.ref + ".tar.gz");
     try {
       FileSystemUtils.createDirectoryAndParents(descriptor.directory);
       Path tgz = downloader.download(ImmutableList.of(new URL(downloadUrl)), uncheckedSha256,
           Optional.of("tar.gz"), descriptor.directory, eventHandler, clientEnvironment);
-      DecompressorValue.decompress(DecompressorDescriptor.builder()
-          .setArchivePath(tgz)
-          // GitHub puts the contents under a directory called <repo>-<commit>.
-          .setPrefix(repositoryName + "-" + descriptor.ref)
-          .setRepositoryPath(descriptor.directory)
-          .build());
+      String githubRef = descriptor.ref;
+      if (githubRef.startsWith("v") && GITHUB_VERSION_FORMAT.matcher(githubRef).matches()) {
+        githubRef = githubRef.substring(1);
+      }
+      DecompressorValue.decompress(
+          DecompressorDescriptor.builder()
+              .setArchivePath(tgz)
+              // GitHub puts the contents under a directory called <repo>-<commit>.
+              .setPrefix(repositoryName + "-" + githubRef)
+              .setRepositoryPath(descriptor.directory)
+              .build());
     } catch (InterruptedException | IOException e) {
       try {
         FileSystemUtils.deleteTree(descriptor.directory);

@@ -13,18 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.truth.FailureStrategy;
-import com.google.common.truth.SubjectFactory;
+import com.google.common.truth.FailureMetadata;
+import com.google.common.truth.Subject;
 import com.google.common.truth.Truth;
 
-/** {@link SubjectFactory} for {@link NodeEntry} objects, providing {@link NodeEntrySubject}s. */
-public class NodeEntrySubjectFactory extends SubjectFactory<NodeEntrySubject, NodeEntry> {
+/** {@link Subject.Factory} for {@link NodeEntry} objects, providing {@link NodeEntrySubject}s. */
+public class NodeEntrySubjectFactory implements Subject.Factory<NodeEntrySubject, NodeEntry> {
   public static NodeEntrySubject assertThatNodeEntry(NodeEntry nodeEntry) {
     return Truth.assertAbout(new NodeEntrySubjectFactory()).that(nodeEntry);
   }
 
   @Override
-  public NodeEntrySubject getSubject(FailureStrategy failureStrategy, NodeEntry nodeEntry) {
-    return new NodeEntrySubject(failureStrategy, nodeEntry);
+  public NodeEntrySubject createSubject(FailureMetadata failureMetadata, NodeEntry nodeEntry) {
+    return new NodeEntrySubject(failureMetadata, nodeEntry);
   }
 }

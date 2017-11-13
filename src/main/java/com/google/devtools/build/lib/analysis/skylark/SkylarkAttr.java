@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,13 +50,13 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -196,6 +197,8 @@ public final class SkylarkAttr implements SkylarkValue {
         builder.value(
             new SkylarkComputedDefaultTemplate(
                 type, callback.getParameterNames(), callback, ast.getLocation()));
+      } else if (defaultValue instanceof SkylarkLateBoundDefault) {
+        builder.value((SkylarkLateBoundDefault) defaultValue);
       } else {
         builder.defaultValue(defaultValue, env.getGlobals().getTransitiveLabel(), DEFAULT_ARG);
       }
@@ -519,6 +522,49 @@ public final class SkylarkAttr implements SkylarkValue {
       };
 
   @SkylarkSignature(
+    name = "configuration_field",
+    returnType = SkylarkLateBoundDefault.class,
+    // TODO(cparsons): Provide a link to documentation for available SkylarkConfigurationFields.
+    doc = "References a late-bound default value for an attribute of type "
+      + "<a href=\"attr.html#label\">label</a>. A value is 'late-bound' if it requires "
+      + "the configuration to be built before determining the value. Any attribute using this "
+      + "as a value must <a href=\"../rules.html#private-attributes\">be private</a>.",
+    parameters = {
+        @Param(
+            name = "fragment",
+            type = String.class,
+            doc = "The name of a configuration fragment which contains the late-bound value."
+        ),
+        @Param(
+            name = "name",
+            type = String.class,
+            doc = "The name of the value to obtain from the configuration fragment."),
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction configurationField =
+      new BuiltinFunction("configuration_field") {
+        public SkylarkLateBoundDefault<?> invoke(
+            String fragment, String name, Location loc, Environment env)
+            throws EvalException {
+          Class<?> fragmentClass = SkylarkUtils.getFragmentMap(env).get(fragment);
+
+          if (fragmentClass == null) {
+            throw new EvalException(
+                loc,
+                String.format("invalid configuration fragment name '%s'", fragment));
+          }
+          try {
+            return SkylarkLateBoundDefault.forConfigurationField(
+                fragmentClass, name, SkylarkUtils.getToolsRepository(env));
+          } catch (SkylarkLateBoundDefault.InvalidConfigurationFieldException exception) {
+            throw new EvalException(loc, exception);
+          }
+        }
+      };
+
+  @SkylarkSignature(
     name = "string",
     doc = "Creates an attribute of type <a href=\"string.html\">string</a>.",
     objectType = SkylarkAttr.class,
@@ -598,6 +644,7 @@ public final class SkylarkAttr implements SkylarkValue {
         allowedTypes = {
           @ParamType(type = Label.class),
           @ParamType(type = String.class),
+          @ParamType(type = SkylarkLateBoundDefault.class)
         },
         callbackEnabled = true,
         noneable = true,

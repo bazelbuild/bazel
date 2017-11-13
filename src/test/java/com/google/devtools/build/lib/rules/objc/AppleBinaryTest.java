@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -795,7 +794,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testLinksImplicitFrameworksWithCrosstoolIos() throws Exception {
     useConfiguration(
-        ObjcCrosstoolMode.ALL,
         "--ios_multi_cpus=x86_64",
         "--ios_sdk_version=10.0",
         "--ios_minimum_os=8.0");
@@ -811,7 +809,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testLinksImplicitFrameworksWithCrosstoolWatchos() throws Exception {
     useConfiguration(
-        ObjcCrosstoolMode.ALL,
         "--watchos_cpus=i386",
         "--watchos_sdk_version=3.0",
         "--watchos_minimum_os=2.0");
@@ -827,7 +824,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testLinksImplicitFrameworksWithCrosstoolTvos() throws Exception {
     useConfiguration(
-        ObjcCrosstoolMode.ALL,
         "--tvos_cpus=x86_64",
         "--tvos_sdk_version=10.1",
         "--tvos_minimum_os=10.0");
@@ -843,7 +839,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testLinksImplicitFrameworksWithCrosstoolMacos() throws Exception {
     useConfiguration(
-        ObjcCrosstoolMode.ALL,
         "--macos_cpus=x86_64",
         "--macos_sdk_version=10.11",
         "--macos_minimum_os=10.11");
@@ -861,7 +856,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testLinkCocoaFeatureWithCrosstoolMacos() throws Exception {
     useConfiguration(
-        ObjcCrosstoolMode.ALL,
         "--macos_cpus=x86_64",
         "--macos_sdk_version=10.11",
         "--macos_minimum_os=10.11");
@@ -1500,5 +1494,96 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testDrops32BitArchitecture() throws Exception {
     verifyDrops32BitArchitecture(RULE_TYPE);
+  }
+
+  @Test
+  public void testFeatureFlags_offByDefault() throws Exception {
+    scratchFeatureFlagTestLib();
+    scratch.file(
+        "test/BUILD",
+        "apple_binary(",
+        "    name = 'bin',",
+        "    deps = ['//lib:objcLib'],",
+        "    platform_type = 'ios',",
+        ")");
+
+    CommandAction linkAction = linkAction("//test:bin");
+    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+
+    CommandAction flag1offCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1off.o"));
+    CommandAction flag2offCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2off.o"));
+
+    String compileArgs1 = Joiner.on(" ").join(flag1offCompileAction.getArguments());
+    String compileArgs2 = Joiner.on(" ").join(flag2offCompileAction.getArguments());
+    assertThat(compileArgs1).contains("FLAG_1_OFF");
+    assertThat(compileArgs1).contains("FLAG_2_OFF");
+    assertThat(compileArgs2).contains("FLAG_1_OFF");
+    assertThat(compileArgs2).contains("FLAG_2_OFF");
+  }
+
+  @Test
+  public void testFeatureFlags_oneFlagOn() throws Exception {
+    scratchFeatureFlagTestLib();
+    scratch.file(
+        "test/BUILD",
+        "apple_binary(",
+        "    name = 'bin',",
+        "    deps = ['//lib:objcLib'],",
+        "    platform_type = 'ios',",
+        "    feature_flags = {",
+        "      '//lib:flag2': 'on',",
+        "    }",
+        ")");
+
+    CommandAction linkAction = linkAction("//test:bin");
+    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+
+    CommandAction flag1offCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1off.o"));
+    CommandAction flag2onCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2on.o"));
+
+    String compileArgs1 = Joiner.on(" ").join(flag1offCompileAction.getArguments());
+    String compileArgs2 = Joiner.on(" ").join(flag2onCompileAction.getArguments());
+    assertThat(compileArgs1).contains("FLAG_1_OFF");
+    assertThat(compileArgs1).contains("FLAG_2_ON");
+    assertThat(compileArgs2).contains("FLAG_1_OFF");
+    assertThat(compileArgs2).contains("FLAG_2_ON");
+  }
+
+  @Test
+  public void testFeatureFlags_allFlagsOn() throws Exception {
+    scratchFeatureFlagTestLib();
+    scratch.file(
+        "test/BUILD",
+        "apple_binary(",
+        "    name = 'bin',",
+        "    deps = ['//lib:objcLib'],",
+        "    platform_type = 'ios',",
+        "    feature_flags = {",
+        "      '//lib:flag1': 'on',",
+        "      '//lib:flag2': 'on',",
+        "    }",
+        ")");
+
+    CommandAction linkAction = linkAction("//test:bin");
+    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+
+    CommandAction flag1onCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1on.o"));
+    CommandAction flag2onCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2on.o"));
+
+    String compileArgs1 = Joiner.on(" ").join(flag1onCompileAction.getArguments());
+    String compileArgs2 = Joiner.on(" ").join(flag2onCompileAction.getArguments());
+    assertThat(compileArgs1).contains("FLAG_1_ON");
+    assertThat(compileArgs1).contains("FLAG_2_ON");
+    assertThat(compileArgs2).contains("FLAG_1_ON");
+    assertThat(compileArgs2).contains("FLAG_2_ON");
   }
 }

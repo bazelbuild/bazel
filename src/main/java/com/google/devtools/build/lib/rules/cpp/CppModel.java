@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -1165,13 +1165,14 @@ public final class CppModel {
         coptsFilter,
         features);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
-    CppCompileActionTemplate actionTemplate = new CppCompileActionTemplate(
-        sourceArtifact,
-        outputFiles,
-        builder,
-        cppConfiguration,
-        outputCategories,
-        ruleContext.getActionOwner());
+    CppCompileActionTemplate actionTemplate =
+        new CppCompileActionTemplate(
+            sourceArtifact,
+            outputFiles,
+            builder,
+            ccToolchain,
+            outputCategories,
+            ruleContext.getActionOwner());
     env.registerAction(actionTemplate);
 
     return outputFiles;

@@ -145,3 +145,9 @@ http_archive(
     strip_prefix = "re2-2017-08-01",
     sha256 = "938723dc197125392698c5fcf41acb74877866ff140b81fd50b7314bf26f1636",
 )
+
+# For src/test/shell/bazel:bazel_sandboxing_test
+http_file(
+  name = 'mount_path_toolchain',
+  url = 'https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz',
+)

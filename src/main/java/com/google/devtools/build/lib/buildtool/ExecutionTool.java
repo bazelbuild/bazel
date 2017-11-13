@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
@@ -91,7 +92,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -437,10 +437,9 @@ public class ExecutionTool {
       executor.executionPhaseStarting();
       skyframeExecutor.drainChangedFiles();
 
-      if (request.getViewOptions().discardAnalysisCache) {
-        // Free memory by removing cache entries that aren't going to be needed. Note that in
-        // skyframe full, this destroys the action graph as well, so we can only do it after the
-        // action graph is no longer needed.
+      if (request.getViewOptions().discardAnalysisCache
+          || !request.getBuildOptions().keepIncrementalityData) {
+        // Free memory by removing cache entries that aren't going to be needed.
         env.getSkyframeBuildView()
             .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
       }
@@ -685,7 +684,7 @@ public class ExecutionTool {
       ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
       ModifiedFileSet modifiedOutputFiles) {
-    BuildRequest.BuildRequestOptions options = request.getBuildOptions();
+    BuildRequestOptions options = request.getBuildOptions();
     boolean keepGoing = request.getViewOptions().keepGoing;
 
     Path actionOutputRoot = env.getActionConsoleOutputDirectory();

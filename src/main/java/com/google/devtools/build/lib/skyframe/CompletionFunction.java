@@ -267,7 +267,9 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
         }
       } catch (ActionExecutionException e) {
         rootCausesBuilder.addTransitive(e.getRootCauses());
-        if (firstActionExecutionException == null) {
+        // Prefer a catastrophic exception as the one we propagate.
+        if (firstActionExecutionException == null
+            || !firstActionExecutionException.isCatastrophe() && e.isCatastrophe()) {
           firstActionExecutionException = e;
         }
       }

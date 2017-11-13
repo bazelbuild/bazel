@@ -117,9 +117,8 @@ public final class CppLinkAction extends AbstractAction
   private final boolean isLtoIndexing;
 
   private final PathFragment ldExecutable;
+  private final String hostSystemName;
 
-  // This is set for both LTO indexing and LTO linking.
-  @Nullable private final Iterable<LtoBackendArtifacts> allLtoBackendArtifacts;
   private final Iterable<Artifact> mandatoryInputs;
 
   // Linking uses a lot of memory; estimate 1 MB per input file, min 1.5 Gib.
@@ -157,7 +156,6 @@ public final class CppLinkAction extends AbstractAction
       LibraryToLink interfaceOutputLibrary,
       boolean fake,
       boolean isLtoIndexing,
-      Iterable<LtoBackendArtifacts> allLtoBackendArtifacts,
       LinkCommandLine linkCommandLine,
       ImmutableSet<String> clientEnvironmentVariables,
       ImmutableMap<String, String> actionEnv,
@@ -177,13 +175,13 @@ public final class CppLinkAction extends AbstractAction
     this.interfaceOutputLibrary = interfaceOutputLibrary;
     this.fake = fake;
     this.isLtoIndexing = isLtoIndexing;
-    this.allLtoBackendArtifacts = allLtoBackendArtifacts;
     this.linkCommandLine = linkCommandLine;
     this.clientEnvironmentVariables = clientEnvironmentVariables;
     this.actionEnv = actionEnv;
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
     this.ldExecutable = toolchain.getToolPathFragment(Tool.LD);
+    this.hostSystemName = toolchain.getHostSystemName();
   }
 
   private CppConfiguration getCppConfiguration() {
@@ -196,7 +194,7 @@ public final class CppLinkAction extends AbstractAction
   }
 
   public String getHostSystemName() {
-    return getCppConfiguration().getHostSystemName();
+    return hostSystemName;
   }
 
   @Override
@@ -295,10 +293,6 @@ public final class CppLinkAction extends AbstractAction
    */
   public ImmutableMap<Artifact, Artifact> getLinkstamps() {
     return linkCommandLine.getLinkstamps();
-  }
-
-  Iterable<LtoBackendArtifacts> getAllLtoBackendArtifacts() {
-    return allLtoBackendArtifacts;
   }
 
   @Override

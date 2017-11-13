@@ -456,9 +456,13 @@ Subtractive patterns:
   build the former bazel has to build the latter too. As usual, the '--' is
   required to prevent '-f' from being interpreted as an option.
 
-  Note that test suite expansion is performed only after the full list of target patterns is
-  evaluated. That means if an exclusion matches a test_suite target, only the test_suite itself
-  is excluded, not all of the individual test targets.
+  When running the test command, test suite expansion is applied to each target
+  pattern in sequence as the set of targets is evaluated. This means that
+  individual tests from a test suite can be excluded by a later target pattern.
+  It also means that an exclusion target pattern which matches a test suite will
+  exclude all tests which that test suite references. (Targets that would be
+  matched by the list of target patterns without any test suite expansion are
+  also built unless --build_tests_only is set.)
 </pre>
 <p>
   Whereas <a href="build-ref.html#labels">labels</a> are used
@@ -1566,20 +1570,6 @@ The default is <code>armeabi-v7a</code>.
     <a href='#flag--android_crosstool_top'><code class='flag'>--android_crosstool_top</code></a>
     or <a href='#flag--crosstool_top'><code class='flag'>--crosstool_top</code></a> flags.
   </p>
-</p>
-
-<h4 id='flag--experimental_skip_static_outputs'><code class='flag'>--experimental_skip_static_outputs</code></h4>
-<p>
-  The <code class='flag'>--experimental_skip_static_outputs</code> option causes all
-  statically-linked C++ binaries to <b>not</b> be output in any meaningful
-  way.
-
-</p>
-<p>
-  If you set this flag, you must also
-  set <a href="#flag--distinct_host_configuration"><code class='flag'>--distinct_host_configuration</code></a>.
-  It is also inherently incompatible with running tests &mdash; don't use it for
-  that.  This option is experimental and may go away at any time.
 </p>
 
 <h4 id='flag--per_file_copt'><code class='flag'>--per_file_copt

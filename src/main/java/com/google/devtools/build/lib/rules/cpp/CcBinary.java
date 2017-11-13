@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,7 +56,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -332,7 +332,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // Store immutable context for use in other *_binary rules that are implemented by
     // linking the interpreter (Java, Python, etc.) together with native deps.
     CppLinkAction.Context linkContext = new CppLinkAction.Context(linkActionBuilder);
-    Iterable<LtoBackendArtifacts> ltoBackendArtifacts = ImmutableList.of();
     boolean usePic = CppHelper.usePic(ruleContext, !isLinkShared(ruleContext));
 
     if (linkActionBuilder.hasLtoBitcodeInputs()
@@ -341,8 +340,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       linkActionBuilder.setUsePicForLtoBackendActions(usePic);
       CppLinkAction indexAction = linkActionBuilder.build();
       ruleContext.registerAction(indexAction);
-
-      ltoBackendArtifacts = indexAction.getAllLtoBackendArtifacts();
 
       linkActionBuilder.setLtoIndexing(false);
     }
@@ -356,6 +353,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     CppLinkAction linkAction = linkActionBuilder.build();
+    Iterable<LtoBackendArtifacts> ltoBackendArtifacts =
+        linkActionBuilder.getAllLtoBackendArtifacts();
     ruleContext.registerAction(linkAction);
     LibraryToLink outputLibrary = linkAction.getOutputLibrary();
     Iterable<Artifact> fakeLinkerInputs =

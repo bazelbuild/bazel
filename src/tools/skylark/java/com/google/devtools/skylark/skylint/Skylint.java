@@ -24,26 +24,24 @@ import java.util.List;
 /** The main class for the skylint binary. */
 public class Skylint {
   public static void main(String[] args) {
+    Linter linter = new Linter();
     List<Path> paths = new ArrayList<>();
-    List<String> disabledChecks = new ArrayList<>();
     for (String arg : args) {
-      if (arg.startsWith("--disable=")) {
-        String[] checks = arg.substring("--disable=".length()).split(",");
-        for (String check : checks) {
-          if (check.isEmpty()) {
-            continue;
-          }
-          disabledChecks.add(check);
+      if (arg.equals("--single-file")) {
+        linter.setSingleFileMode();
+      } else if (arg.startsWith("--disable-categories=")) {
+        for (String categoryName : parseArgumentList(arg, "--disable-categories=")) {
+          linter.disableCategory(categoryName);
+        }
+      } else if (arg.startsWith("--disable-checks=")) {
+        for (String checkName : parseArgumentList(arg, "--disable-checks=")) {
+          linter.disableCheck(checkName);
         }
       } else {
         paths.add(Paths.get(arg));
       }
     }
     boolean issuesFound = false;
-    Linter linter = new Linter();
-    for (String checkerName : disabledChecks) {
-      linter.disable(checkerName);
-    }
     for (Path path : paths) {
       List<Issue> issues;
       try {
@@ -66,5 +64,22 @@ public class Skylint {
       }
     }
     System.exit(issuesFound ? 1 : 0);
+  }
+
+  /** Removes the prefix from the argument and returns the list of comma-separated items. */
+  private static List<String> parseArgumentList(String arg, String prefix) {
+    if (!arg.startsWith(prefix)) {
+      throw new IllegalArgumentException("Argument doesn't start with prefix " + prefix);
+    }
+    List<String> list = new ArrayList<>();
+    String[] items = arg.substring(prefix.length()).split(",");
+    for (String item : items) {
+      item = item.trim();
+      if (item.isEmpty()) {
+        continue;
+      }
+      list.add(item);
+    }
+    return list;
   }
 }

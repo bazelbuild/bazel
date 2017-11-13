@@ -83,7 +83,6 @@ java_library(
     }),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -100,19 +99,8 @@ java_library(
         "util/VarInt.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
-    ],
-)
-
-# Varargs-avoiding overloads of Preconditions functions.
-java_library(
-    name = "preconditions",
-    srcs = ["util/Preconditions.java"],
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -139,7 +127,6 @@ java_library(
     name = "classpath-util",
     srcs = ["util/Classpath.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//third_party:guava",
     ],
 )
@@ -174,7 +161,6 @@ java_library(
             "util/ExitCode.java",
             "util/JavaClock.java",
             "util/OS.java",
-            "util/Preconditions.java",
             "util/ProcessUtils.java",
             "util/SingleLineFormatter.java",
             "util/StringCanonicalizer.java",
@@ -186,7 +172,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect",
     ],
@@ -194,7 +179,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
@@ -224,7 +208,6 @@ java_library(
     srcs = glob(["events/*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:io",
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
@@ -273,7 +256,6 @@ java_library(
         "skylarkinterface/*.java",
     ]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//third_party:jsr305",
     ],
 )
@@ -291,7 +273,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-util",
@@ -371,7 +353,6 @@ java_library(
         "rules/java/JavaToolchainDataParser.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/protobuf:build_java_proto",
@@ -455,6 +436,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
     ],
     deps = [
+        ":build-request-options",
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
@@ -755,7 +737,6 @@ java_library(
         "rules/java/JavaToolchainRule.java",
         "rules/java/JavaToolchainSkylarkApiProvider.java",
         "rules/java/JvmConfigurationLoader.java",
-        "rules/java/OneVersionCheckActionBuilder.java",
         "rules/java/ProguardHelper.java",
         "rules/java/ProguardLibrary.java",
         "rules/java/ProguardLibraryRule.java",
@@ -853,6 +834,7 @@ java_library(
         "rules/java/Jvm.java",
         "rules/java/MessageBundleProvider.java",
         "rules/java/NativeLibraryNestedSetBuilder.java",
+        "rules/java/OneVersionCheckActionBuilder.java",
         "rules/java/ProtoJavaApiInfoAspectProvider.java",
         "rules/java/ProtoJavaApiInfoProvider.java",
         "rules/java/ResourceJarActionBuilder.java",
@@ -980,6 +962,18 @@ java_library(
 )
 
 java_library(
+    name = "build-request-options",
+    srcs = ["buildtool/BuildRequestOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -990,8 +984,10 @@ java_library(
             "buildtool/*.java",
             "buildtool/buildevent/*.java",
         ],
+        exclude = ["buildtool/BuildRequestOptions.java"],
     ),
     deps = [
+        ":build-request-options",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",

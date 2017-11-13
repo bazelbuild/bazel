@@ -78,6 +78,14 @@ function test_query() {
   expect_log "//testing:system_malloc"
 }
 
+function test_configured_query() {
+  bazel $STARTUP_FLAGS build $BUILD_FLAGS --nobuild \
+      --experimental_post_build_query='deps(//testing:mytest, 1)' \
+      //testing:mytest >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  [[ "$exit_code" == 2 ]] || fail "Expected exit code 2 but was $exit_code"
+}
+
 function test_top_level_aspect() {
   mkdir -p "foo" || fail "Couldn't make directory"
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
@@ -171,15 +179,24 @@ EOF
   histo_file="$(bazel info "${PRODUCT_NAME}-genfiles" \
       2> /dev/null)/histodump/histo.txt"
   bazel clean >& "$TEST_log" || fail "Couldn't clean"
+  readonly local explicit_server_pid="$(bazel $STARTUP_FLAGS info server_pid)"
   bazel $STARTUP_FLAGS build --show_timestamps $build_args \
       //histodump:histodump >> "$TEST_log" 2>&1 &
-  server_pid=$!
+  readonly local subshell_pid=$!
+  # We plan to remove batch mode from the relevant flags for discarding
+  # incrementality state. In the interim, tests that are not in batch mode
+  # explicitly pass --nobatch, so we can use it as a signal.
+  if [[ "$STARTUP_FLAGS" =~ "--nobatch" ]]; then
+    server_pid="$explicit_server_pid"
+  else
+    server_pid="$subshell_pid"
+  fi
   echo "server_pid in main thread is ${server_pid}" >> "$TEST_log"
   echo "$server_pid" > "$server_pid_fifo"
   echo "Finished writing pid to fifo at " >> "$TEST_log"
   date >> "$TEST_log"
   # Wait for previous command to finish.
-  wait "$server_pid" || fail "Bazel command failed"
+  wait "$subshell_pid" || fail "Bazel command failed"
   cat "$histo_file" >> "$TEST_log"
   echo "$histo_file"
 }
@@ -317,13 +334,107 @@ EOF
 # The following tests are not expected to exercise codepath -- make sure nothing bad happens.
 
 function test_no_batch() {
-  bazel $STARTUP_FLAGS --nobatch test $BUILD_FLAGS //testing:mytest >& $TEST_log \
-    || fail "Expected success"
+  bazel $STARTUP_FLAGS --nobatch test $BUILD_FLAGS --keep_incrementality_data \
+      //testing:mytest >& "$TEST_log" || fail "Expected success"
 }
 
 function test_no_discard_analysis_cache() {
-  bazel $STARTUP_FLAGS test $BUILD_FLAGS --nodiscard_analysis_cache //testing:mytest >& $TEST_log \
-    || fail "Expected success"
+  bazel $STARTUP_FLAGS test $BUILD_FLAGS --nodiscard_analysis_cache \
+      --keep_incrementality_data //testing:mytest >& "$TEST_log" \
+      || fail "Expected success"
+}
+
+function test_packages_cleared_nobatch() {
+  readonly local old_startup_flags="$STARTUP_FLAGS"
+  STARTUP_FLAGS="--nobatch"
+  readonly local old_build_flags="$BUILD_FLAGS"
+  BUILD_FLAGS="--nokeep_incrementality_data --discard_analysis_cache"
+  test_packages_cleared
+  STARTUP_FLAGS="$old_startup_flags"
+  BUILD_FLAGS="$old_build_flags"
+}
+
+function test_packages_cleared_implicit_noincrementality_data() {
+  readonly local old_build_flags="$BUILD_FLAGS"
+  BUILD_FLAGS="$BUILD_FLAGS --keep_incrementality_data"
+  test_packages_cleared
+  BUILD_FLAGS="$old_build_flags"
+}
+
+function test_actions_deleted_after_execution_nobatch_keep_analysis () {
+  readonly local old_startup_flags="$STARTUP_FLAGS"
+  STARTUP_FLAGS="--nobatch"
+  readonly local old_build_flags="$BUILD_FLAGS"
+  BUILD_FLAGS="--nokeep_incrementality_data"
+  test_actions_deleted_after_execution
+  STARTUP_FLAGS="$old_startup_flags"
+  BUILD_FLAGS="$old_build_flags"
+}
+
+function test_dump_after_discard_incrementality_data() {
+  bazel build --nokeep_incrementality_data //testing:mytest >& "$TEST_log" \
+       || fail "Expected success"
+  bazel dump --skyframe=detailed >& "$TEST_log" || fail "Expected success"
+  expect_log "//testing:mytest"
+}
+
+function test_query_after_discard_incrementality_data() {
+  bazel build --nobuild --nokeep_incrementality_data //testing:mytest \
+       >& "$TEST_log" || fail "Expected success"
+  bazel query --noexperimental_ui --output=label_kind //testing:mytest \
+       >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: testing"
+  expect_log "cc_test rule //testing:mytest"
+}
+
+function test_shutdown_after_discard_incrementality_data() {
+  readonly local server_pid="$(bazel info server_pid 2> /dev/null)"
+  [[ -z "$server_pid" ]] && fail "Couldn't get server pid"
+  bazel build --nobuild --nokeep_incrementality_data //testing:mytest \
+       >& "$TEST_log" || fail "Expected success"
+  bazel shutdown || fail "Expected success"
+  readonly local new_server_pid="$(bazel info server_pid 2> /dev/null)"
+  [[ "$server_pid" != "$new_server_pid" ]] \
+      || fail "pids $server_pid and $new_server_pid equal"
+}
+
+function test_clean_after_discard_incrementality_data() {
+  bazel build --nobuild --nokeep_incrementality_data //testing:mytest \
+       >& "$TEST_log" || fail "Expected success"
+  bazel clean >& "$TEST_log" || fail "Expected success"
+}
+
+function test_switch_back_and_forth() {
+  readonly local server_pid="$(bazel info \
+      --nokeep_incrementality_data server_pid 2> /dev/null)"
+  [[ -z "$server_pid" ]] && fail "Couldn't get server pid"
+  bazel test --noexperimental_ui --nokeep_incrementality_data \
+      //testing:mytest >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: testing"
+  bazel test --noexperimental_ui --nokeep_incrementality_data \
+      //testing:mytest >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: testing"
+  bazel test --noexperimental_ui //testing:mytest >& "$TEST_log" \
+      || fail "Expected success"
+  expect_log "Loading package: testing"
+  bazel test --noexperimental_ui //testing:mytest >& "$TEST_log" \
+      || fail "Expected success"
+  expect_not_log "Loading package: testing"
+  bazel test --noexperimental_ui --nokeep_incrementality_data \
+      //testing:mytest >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: testing"
+  readonly local new_server_pid="$(bazel info server_pid 2> /dev/null)"
+  [[ "$server_pid" == "$new_server_pid" ]] \
+      || fail "pids $server_pid and $new_server_pid not equal"
+}
+
+function test_warns_on_unexpected_combos() {
+  bazel --batch build --nobuild --discard_analysis_cache >& "$TEST_log" \
+      || fail "Expected success"
+  expect_log "--batch and --discard_analysis_cache specified, but --nokeep_incrementality_data not specified"
+  bazel build --nobuild --discard_analysis_cache --nokeep_incrementality_data \
+      >& "$TEST_log" || fail "Expected success"
+  expect_log "--batch not specified with --nokeep_incrementality_data"
 }
 
 run_suite "test for --discard_graph_edges"

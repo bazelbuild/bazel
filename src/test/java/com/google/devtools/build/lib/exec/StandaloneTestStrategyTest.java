@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
@@ -119,7 +120,10 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getEventBus()).thenReturn(eventBus);
 
     SpawnResult expectedSpawnResult =
-        new SpawnResult.Builder().setStatus(Status.SUCCESS).setWallTimeMillis(10).build();
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setWallTime(Duration.ofMillis(10))
+            .build();
     when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableSet.of(expectedSpawnResult));
 
     when(actionExecutionContext.getSpawnActionContext(any())).thenReturn(spawnActionContext);

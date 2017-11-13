@@ -17,7 +17,9 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.shell.TerminationStatus;
+import java.time.Duration;
 import java.util.Locale;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -151,7 +153,29 @@ public interface SpawnResult {
    */
   @Nullable String getExecutorHostName();
 
-  long getWallTimeMillis();
+  /**
+   * Returns the wall time taken by the {@link Spawn}'s execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  Optional<Duration> getWallTime();
+
+  /**
+   * Returns the user time taken by the {@link Spawn}'s execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  Optional<Duration> getUserTime();
+
+  /**
+   * Returns the system time taken by the {@link Spawn}'s execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  Optional<Duration> getSystemTime();
 
   /** Whether the spawn result was a cache hit. */
   boolean isCacheHit();
@@ -167,14 +191,18 @@ public interface SpawnResult {
     private final int exitCode;
     private final Status status;
     private final String executorHostName;
-    private final long wallTimeMillis;
+    private final Optional<Duration> wallTime;
+    private final Optional<Duration> userTime;
+    private final Optional<Duration> systemTime;
     private final boolean cacheHit;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
       this.status = Preconditions.checkNotNull(builder.status);
       this.executorHostName = builder.executorHostName;
-      this.wallTimeMillis = builder.wallTimeMillis;
+      this.wallTime = builder.wallTime;
+      this.userTime = builder.userTime;
+      this.systemTime = builder.systemTime;
       this.cacheHit = builder.cacheHit;
     }
 
@@ -204,8 +232,18 @@ public interface SpawnResult {
     }
 
     @Override
-    public long getWallTimeMillis() {
-      return wallTimeMillis;
+    public Optional<Duration> getWallTime() {
+      return wallTime;
+    }
+
+    @Override
+    public Optional<Duration> getUserTime() {
+      return userTime;
+    }
+
+    @Override
+    public Optional<Duration> getSystemTime() {
+      return systemTime;
     }
 
     @Override
@@ -227,10 +265,12 @@ public interface SpawnResult {
         explanation += ". Note: Remote connection/protocol failed with: " + errorDetail;
       }
       if (status() == Status.TIMEOUT) {
+        Preconditions.checkState(
+            getWallTime().isPresent(), "SpawnAction timed out but wall time wasn't set");
         explanation +=
             String.format(
                 " (failed due to timeout after %.2f seconds.)",
-                getWallTimeMillis() / 1000.0f);
+                getWallTime().get().toMillis() / 1000.0);
       } else if (status() == Status.OUT_OF_MEMORY) {
         explanation += " (Remote action was terminated due to Out of Memory.)";
       }
@@ -249,7 +289,9 @@ public interface SpawnResult {
     private int exitCode;
     private Status status;
     private String executorHostName;
-    private long wallTimeMillis;
+    private Optional<Duration> wallTime = Optional.empty();
+    private Optional<Duration> userTime = Optional.empty();
+    private Optional<Duration> systemTime = Optional.empty();
     private boolean cacheHit;
 
     public SpawnResult build() {
@@ -271,8 +313,18 @@ public interface SpawnResult {
       return this;
     }
 
-    public Builder setWallTimeMillis(long wallTimeMillis) {
-      this.wallTimeMillis = wallTimeMillis;
+    public Builder setWallTime(Duration wallTime) {
+      this.wallTime = Optional.of(wallTime);
+      return this;
+    }
+
+    public Builder setUserTime(Duration userTime) {
+      this.userTime = Optional.of(userTime);
+      return this;
+    }
+
+    public Builder setSystemTime(Duration systemTime) {
+      this.systemTime = Optional.of(systemTime);
       return this;
     }
 

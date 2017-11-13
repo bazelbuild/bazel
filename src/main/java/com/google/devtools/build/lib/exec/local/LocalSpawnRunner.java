@@ -19,6 +19,7 @@ import static java.util.logging.Level.SEVERE;
 import static java.util.logging.Level.WARNING;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -317,10 +317,10 @@ public final class LocalSpawnRunner implements SpawnRunner {
               .build();
         }
         setState(State.SUCCESS);
-        long wallTimeMillis = System.currentTimeMillis() - startTime;
+        Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
         boolean wasTimeout =
-            result.getTerminationStatus().timedout()
-                || (useProcessWrapper && wasTimeout(policy.getTimeout(), wallTimeMillis));
+            result.getTerminationStatus().timedOut()
+                || (useProcessWrapper && wasTimeout(policy.getTimeout(), wallTime));
         Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
         int exitCode =
             status == Status.TIMEOUT
@@ -330,13 +330,13 @@ public final class LocalSpawnRunner implements SpawnRunner {
             .setStatus(status)
             .setExitCode(exitCode)
             .setExecutorHostname(hostName)
-            .setWallTimeMillis(wallTimeMillis)
+            .setWallTime(wallTime)
             .build();
       } finally {
         // Delete the temp directory tree, so the next action that this thread executes will get a
         // fresh, empty temp directory.
         // File deletion tends to be slow on Windows, so deleting this tree may take several
-        // seconds. Delete it after having measured the wallTimeMillis.
+        // seconds. Delete it after having measured the wallTime.
         try {
           FileSystemUtils.deleteTree(tmpDir);
         } catch (IOException ignored) {
@@ -356,8 +356,8 @@ public final class LocalSpawnRunner implements SpawnRunner {
       return path == null ? "/dev/null" : path.getPathString();
     }
 
-    private boolean wasTimeout(Duration timeout, long wallTimeMillis) {
-      return !timeout.isZero() && wallTimeMillis > timeout.toMillis();
+    private boolean wasTimeout(Duration timeout, Duration wallTime) {
+      return !timeout.isZero() && wallTime.compareTo(timeout) > 0;
     }
   }
 

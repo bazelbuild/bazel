@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
@@ -109,7 +110,8 @@ public class PackageFactoryApparatus {
    * Parses the {@code buildFile} into a {@link BuildFileAST}.
    */
   public BuildFileAST ast(Path buildFile) throws IOException {
-    ParserInputSource inputSource = ParserInputSource.create(buildFile);
+    byte[] bytes = FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
+    ParserInputSource inputSource = ParserInputSource.create(bytes, buildFile.asFragment());
     return BuildFileAST.parseBuildFile(inputSource, eventHandler);
   }
 

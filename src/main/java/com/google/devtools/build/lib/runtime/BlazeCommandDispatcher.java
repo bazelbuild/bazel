@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.cache.CacheBuilder;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OpaqueOptionsData;
@@ -260,12 +260,11 @@ public class BlazeCommandDispatcher {
 
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     BlazeOptionHandler optionHandler =
-        new BlazeOptionHandler(
+        BlazeOptionHandler.getHandler(
             runtime,
             workspace,
             command,
             commandAnnotation,
-            commandName,
             // Provide the options parser so that we can cache OptionsData here.
             createOptionsParser(command),
             invocationPolicy);
@@ -588,8 +587,7 @@ public class BlazeCommandDispatcher {
    * classes.
    *
    * <p>An overriding method should first call this method and can then override default values
-   * directly or by calling {@link BlazeOptionHandler#parseOptionsForCommand} for command-specific
-   * options.
+   * directly or by calling {@link BlazeOptionHandler#parseOptions} for command-specific options.
    */
   private OptionsParser createOptionsParser(BlazeCommand command)
       throws OptionsParser.ConstructionException {

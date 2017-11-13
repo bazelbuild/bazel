@@ -22,8 +22,6 @@ java_library(
             exclude = [
                 "NoAndroidSdkStubTest.java",
                 "AllTests.java",
-                # TODO(kmb,ajmichael): need 2nd Java 7 Jar for this test
-                "DexFileSplitterTest.java",
             ],
         ),
         "//conditions:default": ["NoAndroidSdkStubTest.java"],
@@ -42,16 +40,23 @@ java_library(
     }),
 )
 
+java_library(
+    name = "testdata",
+    srcs = glob(["testdata/**/*.java"]),
+)
+
 java_test(
     name = "AllTests",
     size = "small",
     data = [
         "test_main_dex_list.txt",
+        ":testdata",
         ":tests",
     ],
     jvm_flags = [
         "-Dtestmaindexlist=$(location :test_main_dex_list.txt)",
         "-Dtestinputjar=$(location :tests)",
+        "-Dtestinputjar2=$(location :testdata)",
     ],
     runtime_deps = [
         ":tests",

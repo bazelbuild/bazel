@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Parser.ParseResult;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
@@ -278,24 +277,14 @@ public class BuildFileAST extends ASTNode {
         .validateBuildFile(eventHandler);
   }
 
-  /**
-   * Parse the specified Skylark file, returning its AST. All errors during scanning or parsing will
-   * be reported to the reporter.
-   *
-   * @throws IOException if the file cannot not be read.
-   */
-  public static BuildFileAST parseSkylarkFile(Path file, EventHandler eventHandler)
+  public static BuildFileAST parseSkylarkFile(
+      byte[] bytes, byte[] digest, PathFragment path, EventHandler eventHandler)
       throws IOException {
-    return parseSkylarkFile(file, file.getFileSize(), eventHandler);
-  }
-
-  public static BuildFileAST parseSkylarkFile(Path file, long fileSize, EventHandler eventHandler)
-      throws IOException {
-    ParserInputSource input = ParserInputSource.create(file, fileSize);
+    ParserInputSource input = ParserInputSource.create(bytes, path);
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
         ImmutableList.of(), result,
-        HashCode.fromBytes(file.getDigest()).toString(), eventHandler);
+        HashCode.fromBytes(digest).toString(), eventHandler);
   }
 
   public static BuildFileAST parseSkylarkFile(ParserInputSource input, EventHandler eventHandler) {

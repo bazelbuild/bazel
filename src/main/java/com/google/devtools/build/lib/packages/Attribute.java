@@ -18,6 +18,7 @@ import static com.google.common.collect.Sets.newEnumSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Verify;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -680,7 +680,6 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> value(LateBoundDefault<?, ? extends TYPE> defaultValue) {
       Preconditions.checkState(!valueSet, "the default value is already set");
-      Preconditions.checkState(name.isEmpty() || isLateBound(name));
       value = defaultValue;
       valueSource = AttributeValueSource.LATE_BOUND;
       valueSet = true;
@@ -1082,6 +1081,9 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Attribute build(String name) {
       Preconditions.checkState(!name.isEmpty(), "name has not been set");
+      if (valueSource == AttributeValueSource.LATE_BOUND) {
+        Preconditions.checkState(isLateBound(name));
+      }
       // TODO(bazel-team): Set the default to be no file type, then remove this check, and also
       // remove all allowedFileTypes() calls without parameters.
 
@@ -1549,6 +1551,25 @@ public final class Attribute implements Comparable<Attribute> {
     }
   }
 
+  private static final class SimpleLateBoundDefault<FragmentT, ValueT>
+      extends LateBoundDefault<FragmentT, ValueT> {
+
+    private final Resolver<FragmentT, ValueT> resolver;
+
+    private SimpleLateBoundDefault(boolean useHostConfiguration,
+        Class<FragmentT> fragmentClass,
+        ValueT defaultValue, Resolver<FragmentT, ValueT> resolver) {
+      super(useHostConfiguration, fragmentClass, defaultValue);
+
+      this.resolver = resolver;
+    }
+
+    @Override
+    public ValueT resolve(Rule rule, AttributeMap attributes, FragmentT input) {
+      return resolver.resolve(rule, attributes, input);
+    }
+  }
+
   // TODO(b/65746853): Remove documentation about accepting BuildConfiguration when uses are cleaned
   // up.
   /**
@@ -1564,7 +1585,7 @@ public final class Attribute implements Comparable<Attribute> {
    * @param <ValueT> The type of value returned by this class.
    */
   @Immutable
-  public static final class LateBoundDefault<FragmentT, ValueT> {
+  public abstract static class LateBoundDefault<FragmentT, ValueT> {
     /**
      * Functional interface for computing the value of a late-bound attribute.
      *
@@ -1578,7 +1599,6 @@ public final class Attribute implements Comparable<Attribute> {
     private final boolean useHostConfiguration;
     private final ValueT defaultValue;
     private final Class<FragmentT> fragmentClass;
-    private final Resolver<FragmentT, ValueT> resolver;
 
     /**
      * Creates a new LateBoundDefault which uses the rule, its configured attributes, and a fragment
@@ -1618,7 +1638,7 @@ public final class Attribute implements Comparable<Attribute> {
           !fragmentClass.equals(Void.class),
           "Use fromRuleAndAttributesOnly to specify a LateBoundDefault which does not use "
               + "configuration.");
-      return new LateBoundDefault<>(false, fragmentClass, defaultValue, resolver);
+      return new SimpleLateBoundDefault<>(false, fragmentClass, defaultValue, resolver);
     }
 
     /**
@@ -1648,7 +1668,7 @@ public final class Attribute implements Comparable<Attribute> {
           !fragmentClass.equals(Void.class),
           "Use fromRuleAndAttributesOnly to specify a LateBoundDefault which does not use "
               + "configuration.");
-      return new LateBoundDefault<>(true, fragmentClass, defaultValue, resolver);
+      return new SimpleLateBoundDefault<>(true, fragmentClass, defaultValue, resolver);
     }
 
     /**
@@ -1666,7 +1686,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public static <ValueT> LateBoundDefault<Void, ValueT> fromRuleAndAttributesOnly(
         ValueT defaultValue, Resolver<Void, ValueT> resolver) {
-      return new LateBoundDefault<>(false, Void.class, defaultValue, resolver);
+      return new SimpleLateBoundDefault<>(false, Void.class, defaultValue, resolver);
     }
 
     /**
@@ -1679,7 +1699,7 @@ public final class Attribute implements Comparable<Attribute> {
       if (defaultValue == null) {
         return alwaysNull();
       }
-      return new LateBoundDefault<>(
+      return new SimpleLateBoundDefault<>(
           false, Void.class, defaultValue, (rule, attributes, unused) -> defaultValue);
     }
 
@@ -1695,24 +1715,22 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     private static final LateBoundDefault<Void, Void> ALWAYS_NULL =
-        new LateBoundDefault<>(false, Void.class, null, (rule, attributes, unused) -> null);
+        new SimpleLateBoundDefault<>(false, Void.class, null, (rule, attributes, unused) -> null);
 
-    private LateBoundDefault(
+    protected LateBoundDefault(
         boolean useHostConfiguration,
         Class<FragmentT> fragmentClass,
-        ValueT defaultValue,
-        Resolver<FragmentT, ValueT> resolver) {
+        ValueT defaultValue) {
       this.useHostConfiguration = useHostConfiguration;
       this.defaultValue = defaultValue;
       this.fragmentClass = fragmentClass;
-      this.resolver = resolver;
     }
 
     /**
      * Whether to look up the label in the host configuration. This is only here for host
      * compilation tools - we usually need to look up labels in the target configuration.
      */
-    public boolean useHostConfiguration() {
+    public final boolean useHostConfiguration() {
       return useHostConfiguration;
     }
 
@@ -1726,12 +1744,12 @@ public final class Attribute implements Comparable<Attribute> {
      * <p>It may also be BuildConfiguration to receive the entire configuration. This is deprecated,
      * and only necessary when the default is computed from methods of BuildConfiguration itself.
      */
-    public Class<FragmentT> getFragmentClass() {
+    public final Class<FragmentT> getFragmentClass() {
       return fragmentClass;
     }
 
     /** The default value for the attribute that is set during the loading phase. */
-    public ValueT getDefault() {
+    public final ValueT getDefault() {
       return defaultValue;
     }
 
@@ -1744,9 +1762,7 @@ public final class Attribute implements Comparable<Attribute> {
      * @param attributes interface for retrieving the values of the rule's other attributes
      * @param input the configuration fragment to evaluate with
      */
-    public ValueT resolve(Rule rule, AttributeMap attributes, FragmentT input) {
-      return resolver.resolve(rule, attributes, input);
-    }
+    public abstract ValueT resolve(Rule rule, AttributeMap attributes, FragmentT input);
   }
 
   private final String name;

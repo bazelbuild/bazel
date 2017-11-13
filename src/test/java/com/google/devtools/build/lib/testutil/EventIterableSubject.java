@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.testutil;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
-import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.events.Event;
@@ -27,8 +27,8 @@ import javax.annotation.Nullable;
  * String} objects as opposed to the harder-to-assert-on {@link Event} objects.
  */
 class EventIterableSubject extends Subject<EventIterableSubject, Iterable<Event>> {
-  EventIterableSubject(FailureStrategy failureStrategy, @Nullable Iterable<Event> actual) {
-    super(failureStrategy, actual);
+  EventIterableSubject(FailureMetadata failureMetadata, @Nullable Iterable<Event> actual) {
+    super(failureMetadata, actual);
   }
 
   IterableSubject hasEventsThat() {

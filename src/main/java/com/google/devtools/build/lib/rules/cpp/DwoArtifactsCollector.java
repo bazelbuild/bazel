@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -20,7 +21,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Provides generic functionality for collecting the .dwo artifacts produced by any target
@@ -61,7 +61,7 @@ public class DwoArtifactsCollector {
     picDwoBuilder.addAll(compilationOutputs.getPicDwoFiles());
 
     // If we are generating .dwo, add any generated for LtoBackendArtifacts.
-    if (generateDwo) {
+    if (generateDwo && ltoBackendArtifacts != null) {
       for (LtoBackendArtifacts ltoBackendArtifact : ltoBackendArtifacts) {
         Artifact objectFile = ltoBackendArtifact.getObjectFile();
         if (ltoBackendArtifactsUsePic) {

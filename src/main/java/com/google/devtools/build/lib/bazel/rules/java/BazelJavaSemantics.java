@@ -18,6 +18,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -62,7 +64,6 @@ import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -684,9 +685,23 @@ public class BazelJavaSemantics implements JavaSemantics {
       NestedSet<Artifact> classpath,
       boolean includeBuildData,
       Compression compression,
-      Artifact launcher) {
-    return DeployArchiveBuilder.defaultSingleJarCommandLine(output, mainClass, manifestLines,
-        buildInfoFiles, resources, classpath, includeBuildData, compression, launcher).build();
+      Artifact launcher,
+      boolean usingNativeSinglejar,
+      // Explicitly ignoring params since Bazel doesn't yet support one version
+      OneVersionEnforcementLevel oneVersionEnforcementLevel,
+      Artifact oneVersionWhitelistArtifact) {
+    return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
+            output,
+            mainClass,
+            manifestLines,
+            buildInfoFiles,
+            resources,
+            classpath,
+            includeBuildData,
+            compression,
+            launcher,
+            usingNativeSinglejar)
+        .build();
   }
 
   @Override

@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.TreeMap;
 
 /**
@@ -105,7 +106,10 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProtoProvider.class);
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    for (BuildConfiguration childConfig : childConfigurationsAndToolchains.keySet()) {
+    for (Entry<BuildConfiguration, CcToolchainProvider> childConfigAndToolchain :
+        childConfigurationsAndToolchains.entrySet()) {
+      BuildConfiguration childConfig = childConfigAndToolchain.getKey();
+      CcToolchainProvider childToolchain = childConfigAndToolchain.getValue();
       Iterable<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childConfig);
       ProtobufSupport protoSupport =
           new ProtobufSupport(
@@ -141,6 +145,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
           new CompilationSupport.Builder()
               .setRuleContext(ruleContext)
               .setConfig(childConfig)
+              .setToolchainProvider(childToolchain)
               .setOutputGroupCollector(outputGroupCollector)
               .build();
 

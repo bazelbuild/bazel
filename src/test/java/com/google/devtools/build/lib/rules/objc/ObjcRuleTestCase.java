@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static com.google.devtools.build.lib.rules.objc.LegacyCompilationSupport.AUTOMATIC_SDK_FRAMEWORKS;
+import static com.google.devtools.build.lib.rules.objc.CompilationSupport.AUTOMATIC_SDK_FRAMEWORKS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
@@ -89,10 +89,8 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos;
@@ -133,8 +131,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static final String MOCK_LIBTOOL_PATH = toolsRepoExecPath("tools/objc/libtool");
   protected static final String MOCK_XCRUNWRAPPER_PATH =
       toolsRepoExecPath("tools/objc/xcrunwrapper");
-  protected static final ImmutableList<String> FASTBUILD_COPTS =
-      ImmutableList.of("-O0", "-DDEBUG=1");
+  protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
 
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
       DottedVersion.fromString(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
@@ -344,35 +341,13 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return result.toString();
   }
 
-  /** Returns the treatment of the crosstool for this test case. */
-  protected ObjcCrosstoolMode getObjcCrosstoolMode() {
-    return ObjcCrosstoolMode.ALL;
-  }
-
   @Override
   protected void useConfiguration(String... args) throws Exception {
-    // By default, objc tests assume the case of --experimental_objc_crosstool=all.  The "Legacy"
-    // subclasses explicitly override to test --experimental_objc_crosstool=off.
-    useConfiguration(getObjcCrosstoolMode(), args);
-  }
-
-  protected void useConfiguration(ObjcCrosstoolMode objcCrosstoolMode, String... args)
-      throws Exception {
     ImmutableList.Builder<String> extraArgsBuilder = ImmutableList.builder();
     extraArgsBuilder.addAll(TestConstants.OSX_CROSSTOOL_FLAGS);
 
-    switch(objcCrosstoolMode) {
-      case ALL:
-        extraArgsBuilder.add("--experimental_objc_crosstool=all");
-        break;
-      case LIBRARY:
-        extraArgsBuilder.add("--experimental_objc_crosstool=library");
-        break;
-      case OFF:
-        extraArgsBuilder.add("--experimental_objc_crosstool=off");
-        break;
-    }
-
+    // TODO(b/68751876): Set --apple_crosstool_top and --crosstool_top using the
+    // AppleCrosstoolTransition
     extraArgsBuilder
         .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
@@ -1352,9 +1327,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertOnlyRequiredInputsArePresentForBundledCompilation(topTarget);
     assertCoptsAndDefinesNotPropagatedToProtos(topTarget);
     assertBundledGroupsGetCreatedAndLinked(topTarget);
-    if (getObjcCrosstoolMode() == ObjcCrosstoolMode.ALL) {
-      assertBundledCompilationUsesCrosstool(topTarget);
-    }
   }
 
   protected ImmutableList<Artifact> getAllObjectFilesLinkedInBin(Artifact bin) {
@@ -1535,22 +1507,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction binAction = (CommandAction) getGeneratingAction(bin);
     assertThat(binAction.getInputs())
         .containsAllOf(protosGroup0Lib, protosGroup1Lib, protosGroup2Lib, protosGroup3Lib);
-  }
-
-  private void assertBundledCompilationUsesCrosstool(ConfiguredTarget topTarget) {
-    Artifact protoObjectA =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataA.pbobjc.o", topTarget);
-    Artifact protoObjectB =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataB.pbobjc.o", topTarget);
-    Artifact protoObjectC =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataC.pbobjc.o", topTarget);
-    Artifact protoObjectD =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataD.pbobjc.o", topTarget);
-
-    assertThat(getGeneratingAction(protoObjectA)).isInstanceOf(CppCompileAction.class);
-    assertThat(getGeneratingAction(protoObjectB)).isInstanceOf(CppCompileAction.class);
-    assertThat(getGeneratingAction(protoObjectC)).isInstanceOf(CppCompileAction.class);
-    assertThat(getGeneratingAction(protoObjectD)).isInstanceOf(CppCompileAction.class);
   }
 
   protected void checkProtoBundlingDoesNotHappen(RuleType ruleType) throws Exception {
@@ -4540,7 +4496,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   public void checkLinkingRuleCanUseCrosstool(RuleType ruleType) throws Exception {
-    useConfiguration(ObjcCrosstoolMode.ALL);
     ruleType.scratchTarget(scratch, "srcs", "['a.m']");
     ConfiguredTarget target = getConfiguredTarget("//x:x");
 
@@ -4551,7 +4506,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   public void checkLinkingRuleCanUseCrosstool_singleArch(RuleType ruleType) throws Exception {
-    useConfiguration(ObjcCrosstoolMode.ALL);
     ruleType.scratchTarget(scratch);
 
     // If bin is indeed using the c++ backend, then its archive action should be a CppLinkAction.
@@ -4564,7 +4518,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   public void checkLinkingRuleCanUseCrosstool_multiArch(RuleType ruleType) throws Exception {
-    useConfiguration(ObjcCrosstoolMode.ALL, "--ios_multi_cpus=i386,x86_64");
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
     ruleType.scratchTarget(scratch);
 
     // If bin is indeed using the c++ backend, then its archive action should be a CppLinkAction.
@@ -4651,7 +4605,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   public void checkAvoidDepsObjectsWithCrosstool(RuleType ruleType) throws Exception {
-    useConfiguration(ObjcCrosstoolMode.ALL, "--ios_multi_cpus=i386,x86_64");
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
     assertAvoidDepsObjects(ruleType);
   }
 
@@ -4891,5 +4845,45 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     } else {
       throw new AssertionError("Lipo action does not contain an input binary from arch " + arch);
     }
+  }
+
+  protected void scratchFeatureFlagTestLib() throws Exception {
+    scratch.file(
+        "lib/BUILD",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag1@on',",
+        "  flag_values = {':flag1': 'on'},",
+        ")",
+        "config_feature_flag(",
+        "  name = 'flag2',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag2@on',",
+        "  flag_values = {':flag2': 'on'},",
+        ")",
+        "objc_library(",
+        "  name = 'objcLib',",
+        "  srcs = select({",
+        "    ':flag1@on': ['flag1on.m'],",
+        "    '//conditions:default': ['flag1off.m'],",
+        "  }) + select({",
+        "    ':flag2@on': ['flag2on.m'],",
+        "    '//conditions:default': ['flag2off.m'],",
+        "  }),",
+        "  copts = select({",
+        "    ':flag1@on': ['-FLAG_1_ON'],",
+        "    '//conditions:default': ['-FLAG_1_OFF'],",
+        "  }) + select({",
+        "    ':flag2@on': ['-FLAG_2_ON'],",
+        "    '//conditions:default': ['-FLAG_2_OFF'],",
+        "  }),",
+        ")");
   }
 }

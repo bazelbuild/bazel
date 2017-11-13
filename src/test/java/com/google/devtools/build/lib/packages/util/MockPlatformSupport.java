@@ -50,9 +50,7 @@ public class MockPlatformSupport {
         ")",
         "toolchain(",
         "   name = 'toolchain_cc-compiler-piii',",
-        "   toolchain_type = '"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/cpp:toolchain_category',",
+        "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
         "   toolchain = '" + crosstoolLabel.getRelative("cc-compiler-piii") + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");

@@ -13,24 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
-import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
-import com.google.common.truth.SubjectFactory;
+import com.google.common.truth.Subject;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.events.Event;
 
 /**
- * {@link SubjectFactory} for {@code Iterable<Event>} objects, providing {@link IterableSubject}s of
- * {@link String} objects for easy asserting.
+ * {@link Subject.Factory} for {@code Iterable<Event>} objects, providing {@link IterableSubject}s
+ * of {@link String} objects for easy asserting.
  */
 public class EventIterableSubjectFactory
-    extends SubjectFactory<EventIterableSubject, Iterable<Event>> {
+    implements Subject.Factory<EventIterableSubject, Iterable<Event>> {
   public static IterableSubject assertThatEvents(Iterable<Event> events) {
     return Truth.assertAbout(new EventIterableSubjectFactory()).that(events).hasEventsThat();
   }
 
   @Override
-  public EventIterableSubject getSubject(FailureStrategy fs, Iterable<Event> eventCollector) {
-    return new EventIterableSubject(fs, eventCollector);
+  public EventIterableSubject createSubject(
+      FailureMetadata failureMetadata, Iterable<Event> eventCollector) {
+    return new EventIterableSubject(failureMetadata, eventCollector);
   }
 }

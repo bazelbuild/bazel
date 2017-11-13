@@ -71,7 +71,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         new CompilationSupport.Builder()
             .setRuleContext(ruleContext)
             .setOutputGroupCollector(outputGroupCollector)
-            .setIsObjcLibrary()
             .build();
 
     compilationSupport

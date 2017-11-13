@@ -83,6 +83,7 @@ public class Aapt2ResourcePackagingAction {
       final Path tmp = scopedTmp.getPath();
       final Path mergedAssets = tmp.resolve("merged_assets");
       final Path mergedResources = tmp.resolve("merged_resources");
+      final Path filteredResources = tmp.resolve("filtered_resources");
 
       final Path densityManifest = tmp.resolve("manifest-filtered/AndroidManifest.xml");
 
@@ -92,28 +93,37 @@ public class Aapt2ResourcePackagingAction {
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
 
+      final List<String> densitiesToFilter =
+          options.prefilteredResources.isEmpty()
+              ? options.densities
+              : Collections.<String>emptyList();
+
+      final List<String> densitiesForManifest =
+          densitiesToFilter.isEmpty() ? options.densitiesForManifest : densitiesToFilter;
+
       profiler.recordEndOf("setup").startTask("merging");
 
       // Checks for merge conflicts.
       MergedAndroidData mergedAndroidData =
           AndroidResourceMerger.mergeData(
-              options.primaryData,
-              options.directData,
-              options.transitiveData,
-              mergedResources,
-              mergedAssets,
-              null /* cruncher. Aapt2 automatically chooses to crunch or not. */,
-              options.packageType,
-              options.symbolsOut,
-              options.prefilteredResources,
-              false /* throwOnResourceConflict */);
+                  options.primaryData,
+                  options.directData,
+                  options.transitiveData,
+                  mergedResources,
+                  mergedAssets,
+                  null /* cruncher. Aapt2 automatically chooses to crunch or not. */,
+                  options.packageType,
+                  options.symbolsOut,
+                  options.prefilteredResources,
+                  false /* throwOnResourceConflict */)
+              .filter(
+                  new DensitySpecificResourceFilter(
+                      densitiesToFilter, filteredResources, mergedResources),
+                  new DensitySpecificManifestProcessor(densitiesForManifest, densityManifest));
 
       profiler.recordEndOf("merging");
 
-      final List<String> densitiesToFilter =
-          options.prefilteredResources.isEmpty()
-              ? options.densities
-              : Collections.<String>emptyList();
+
       final ListeningExecutorService executorService = ExecutorServiceCloser.createDefaultService();
       try (final Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
         profiler.startTask("compile");
@@ -127,8 +137,8 @@ public class Aapt2ResourcePackagingAction {
         CompiledResources compiled =
             options
                 .primaryData
-                .processDataBindings(options.dataBindingInfoOut, options.packageForR,
-                    databindingResourcesRoot)
+                .processDataBindings(
+                    options.dataBindingInfoOut, options.packageForR, databindingResourcesRoot)
                 .compile(compiler, compiledResources)
                 .processManifest(
                     manifest ->
@@ -141,7 +151,7 @@ public class Aapt2ResourcePackagingAction {
                                 processedManifest))
                 .processManifest(
                     manifest ->
-                        new DensitySpecificManifestProcessor(options.densities, densityManifest)
+                        new DensitySpecificManifestProcessor(densitiesForManifest, densityManifest)
                             .process(manifest));
         profiler.recordEndOf("compile").startTask("link");
         // Write manifestOutput now before the dummy manifest is created.

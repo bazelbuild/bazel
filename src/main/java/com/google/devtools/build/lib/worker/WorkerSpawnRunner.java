@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -47,6 +47,7 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -153,7 +154,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     long startTime = System.currentTimeMillis();
     WorkResponse response = execInWorker(key, workRequest, policy);
-    long wallTimeMillis = System.currentTimeMillis() - startTime;
+    Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
 
     FileOutErr outErr = policy.getFileOutErr();
     response.getOutputBytes().writeTo(outErr.getErrorStream());
@@ -161,7 +162,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     return new SpawnResult.Builder()
         .setExitCode(response.getExitCode())
         .setStatus(SpawnResult.Status.SUCCESS)
-        .setWallTimeMillis(wallTimeMillis)
+        .setWallTime(wallTime)
         .build();
   }
 

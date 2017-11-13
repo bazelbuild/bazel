@@ -32,9 +32,14 @@ source "${CURRENT_DIR}/../../integration_test_setup.sh" \
 function create_android_binary() {
   mkdir -p java/bazel
   cat > java/bazel/BUILD <<EOF
+aar_import(
+    name = "aar",
+    aar = "sample.aar",
+)
 android_library(
     name = "lib",
     srcs = ["Lib.java"],
+    deps = [":aar"],
 )
 android_binary(
     name = "bin",
@@ -44,16 +49,18 @@ android_binary(
 )
 EOF
 
+  cp "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/android/sample.aar" \
+    java/bazel/sample.aar
   cat > java/bazel/AndroidManifest.xml <<EOF
   <manifest package="bazel.android" />
 EOF
 
   cat > java/bazel/Lib.java <<EOF
 package bazel;
-
+import com.sample.aar.Sample;
 public class Lib {
   public static String message() {
-    return "Hello Lib";
+  return "Hello Lib" + Sample.getZero();
   }
 }
 EOF

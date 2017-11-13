@@ -399,6 +399,9 @@ message NamedSetOfFiles {
 message ActionExecuted {
   bool success = 1;
 
+  // The mnemonic of the action that was executed
+  string type = 8;
+
   // The exit code of the action, if it is available.
   int32 exit_code = 2;
 
@@ -418,6 +421,9 @@ message ActionExecuted {
 
   // Primary output; only provided for successful actions.
   File primary_output = 6;
+
+  // The command-line of the action, if the action is a command.
+  repeated string command_line = 9;
 }
 
 // Collection of all output files belonging to that output group.

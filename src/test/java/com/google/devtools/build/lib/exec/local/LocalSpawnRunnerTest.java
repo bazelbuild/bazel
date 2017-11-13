@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.exec.local;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
@@ -380,7 +381,9 @@ public class LocalSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
     assertThat(result.exitCode()).isEqualTo(-1);
     assertThat(result.setupSuccess()).isFalse();
-    assertThat(result.getWallTimeMillis()).isEqualTo(0);
+    assertThat(result.getWallTime()).isEmpty();
+    assertThat(result.getUserTime()).isEmpty();
+    assertThat(result.getSystemTime()).isEmpty();
     assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     assertThat(FileSystemUtils.readContent(fs.getPath("/out/stderr"), StandardCharsets.UTF_8))
@@ -403,7 +406,9 @@ public class LocalSpawnRunnerTest {
     assertThat(reply.status()).isEqualTo(SpawnResult.Status.LOCAL_ACTION_NOT_ALLOWED);
     assertThat(reply.exitCode()).isEqualTo(-1);
     assertThat(reply.setupSuccess()).isFalse();
-    assertThat(reply.getWallTimeMillis()).isEqualTo(0);
+    assertThat(reply.getWallTime()).isEmpty();
+    assertThat(reply.getUserTime()).isEmpty();
+    assertThat(reply.getSystemTime()).isEmpty();
     assertThat(reply.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     // TODO(ulfjack): Maybe we should only lock after checking?

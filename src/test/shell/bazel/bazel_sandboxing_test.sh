@@ -544,8 +544,14 @@ EOF
   expect_log "Executing genrule //:test failed:"
 }
 
-# TODO(xingao) Disabled due to https://github.com/bazelbuild/bazel/issues/2760
-function DISABLED_test_sandbox_mount_customized_path () {
+function test_sandbox_mount_customized_path () {
+
+  if ! [ "${PLATFORM-}" = "linux" -a \
+    "$(cat /dev/null /etc/*release | grep 'DISTRIB_CODENAME=' | sed 's/^.*=//')" = "trusty" ]; then
+    echo "Skipping test: the toolchain used in this test is only supported on trusty."
+    return 0
+  fi
+
   # Create BUILD file
   cat > BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
@@ -579,11 +585,13 @@ EOF
   target_folder="${target_root}/x86_64-unknown-linux-gnu/sysroot/lib64"
   target="${target_folder}/ld-2.19.so"
 
-  # Download the toolchain package and unpack it.
-  wget -q https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz
+  # Unpack the toolchain.
   mkdir downloaded_toolchain
-  tar -xf mount_path_toolchain.tar.gz -C ./downloaded_toolchain
+  tar -xf ${TEST_SRCDIR}/mount_path_toolchain/file/mount_path_toolchain.tar.gz -C ./downloaded_toolchain
   chmod -R 0755 downloaded_toolchain
+
+  # Create an empty WORKSPACE file for the local repository.
+  touch downloaded_toolchain/WORKSPACE
 
   # Replace the target_root_placeholder with the actual target_root
   sed -i "s|target_root_placeholder|$target_root|g" downloaded_toolchain/CROSSTOOL

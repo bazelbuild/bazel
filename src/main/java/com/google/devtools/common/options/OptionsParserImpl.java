@@ -129,25 +129,23 @@ class OptionsParserImpl {
         .collect(toCollection(ArrayList::new));
   }
 
-  private Stream<ParsedOptionDescription> asStreamOfCanonicalParsedOptions() {
-    return optionValues
-        .keySet()
-        .stream()
-        .sorted()
-        .map(optionDefinition -> optionValues.get(optionDefinition).getCanonicalInstances())
-        .flatMap(Collection::stream);
-  }
-
   /** Implements {@link OptionsParser#canonicalize}. */
   List<String> asCanonicalizedList() {
-    return asStreamOfCanonicalParsedOptions()
+    return asCanonicalizedListOfParsedOptions()
+        .stream()
         .map(ParsedOptionDescription::getDeprecatedCanonicalForm)
         .collect(ImmutableList.toImmutableList());
   }
 
   /** Implements {@link OptionsParser#canonicalize}. */
   List<ParsedOptionDescription> asCanonicalizedListOfParsedOptions() {
-    return asStreamOfCanonicalParsedOptions().collect(ImmutableList.toImmutableList());
+    return optionValues
+        .keySet()
+        .stream()
+        .sorted()
+        .map(optionDefinition -> optionValues.get(optionDefinition).getCanonicalInstances())
+        .flatMap(Collection::stream)
+        .collect(ImmutableList.toImmutableList());
   }
 
   /** Implements {@link OptionsParser#asListOfOptionValues()}. */

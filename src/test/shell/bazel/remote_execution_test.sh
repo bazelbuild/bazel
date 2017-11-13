@@ -271,8 +271,10 @@ if __name__ == "__main__":
     f.write('''
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="test" tests="1" failures="0" errors="1">
-    <testcase name="first" status="run">That did not work!</testcase>
+  <testsuite name="test" tests="1" failures="1" errors="1">
+    <testcase name="first" status="run">
+      <failure>That did not work!</failure>
+    </testcase>
   </testsuite>
 </testsuites>
 ''')
@@ -308,8 +310,10 @@ if __name__ == "__main__":
     f.write('''
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="test" tests="1" failures="0" errors="1">
-    <testcase name="first" status="run">That did not work!</testcase>
+  <testsuite name="test" tests="1" failures="1" errors="1">
+    <testcase name="first" status="run">
+      <failure>That did not work!</failure>
+    </testcase>
   </testsuite>
 </testsuites>
 ''')

@@ -19,6 +19,8 @@ package com.google.devtools.build.android.dexer;
 public enum MultidexStrategy {
   /** Create exactly one .dex file.  The operation will fail if .dex limits are exceeded. */
   OFF,
+  /** Create exactly one &lt;prefixN&gt;.dex file with N taken from the (single) input archive. */
+  GIVEN_SHARD,
   /**
    * Assemble .dex files similar to {@link com.android.dx.command.dexer.Main dx}, with all but one
    * file as large as possible.
@@ -31,6 +33,14 @@ public enum MultidexStrategy {
   BEST_EFFORT;
 
   public boolean isMultidexAllowed() {
-    return this != OFF;
+    switch (this) {
+      case OFF:
+      case GIVEN_SHARD:
+        return false;
+      case MINIMAL:
+      case BEST_EFFORT:
+        return true;
+    }
+    throw new AssertionError("Unknown: " + this);
   }
 }
