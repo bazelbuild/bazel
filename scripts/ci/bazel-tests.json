@@ -31,8 +31,9 @@
         }
     }, {
         "configurations": [
-            {"node": "freebsd-11"},
-            {"node": "freebsd-12"}
+            {"node": "freebsd-11"} //,
+            // TODO(aehlig): Fix bazelbuild/continuous-integration#149 and reactivate.
+            // {"node": "freebsd-12"}
         ],
         "parameters": {
             // As configure step, we redo the USES=shebangfix of the devel/bazel
