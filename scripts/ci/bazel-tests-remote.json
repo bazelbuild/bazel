@@ -26,7 +26,7 @@
                 "--java_toolchain=@bazel_toolchains//configs/java/0.1.0/bazel_0.6.0:remote_toolchain"
             ],
             "tests": [
-                "//src/test/shell/integration/...",
+                "tests(//src/test/shell/integration/...) - //src/test/shell/integration:progress_reporting_test",
                 "//src/test/java/... - //src/test/java/com/google/devtools/build/android/..."
             ],
             "test_tag_filters": ["-slow"],
