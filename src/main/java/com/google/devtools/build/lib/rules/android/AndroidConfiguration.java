@@ -644,7 +644,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
         name = "experimental_android_allow_android_resources",
-        defaultValue = "true",
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "For use in testing before migrating away from android_resources. If false, will"
