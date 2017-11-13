@@ -36,11 +36,13 @@ function test_bootstrap()  {
     mkdir -p "${WRKDIR}" || fail "Could not create workdir"
     trap "rm -rf \"$WRKDIR\"" EXIT
     cd "${WRKDIR}" || fail "Could not change to work directory"
+    export SOURCE_DATE_EPOCH=1501234567
     unzip -q "${DISTFILE}"
     find . -type f -exec chmod u+w {} \;
     ./compile.sh || fail "Expected to be able to bootstrap bazel"
-    ./output/bazel version || fail "Generated bazel not working"
+    ./output/bazel version > "${TEST_log}" || fail "Generated bazel not working"
     ./output/bazel shutdown
+    expect_log "${SOURCE_DATE_EPOCH}"
     cd "${olddir}"
 }
 
