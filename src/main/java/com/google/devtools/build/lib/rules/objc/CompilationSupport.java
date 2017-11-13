@@ -389,7 +389,7 @@ public class CompilationSupport {
     boolean isHost = ruleContext.getConfiguration().isHostConfiguration();
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
-            .addAll(ccToolchain.getFeatures().getDefaultFeatures())
+            .addAll(ccToolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
             .addAll(ACTIVATED_ACTIONS)
             .addAll(
                 ruleContext
@@ -442,7 +442,7 @@ public class CompilationSupport {
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
     try {
-      return toolchain
+      return ccToolchain
           .getFeatures()
           .getFeatureConfiguration(
               FeatureSpecification.create(

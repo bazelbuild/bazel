@@ -269,7 +269,7 @@ message CToolchain {
   // Action config activation occurs by the same semantics as features: a
   // feature can 'require' or 'imply' an action config in the same way that it
   // would another feature.
-  // Next ID: 8
+  // Next ID: 9
   message ActionConfig {
     // The name other features will use to activate this action config.  Can
     // be the same as action_name.
@@ -278,6 +278,11 @@ message CToolchain {
     // The name of the blaze action that this config applies to, ex. 'c-compile'
     // or 'c-module-compile'.
     required string action_name = 2;
+
+    // If 'true', this feature is enabled unless a rule type explicitly marks it
+    // as unsupported.  Such action_configs cannot be turned off from within a
+    // BUILD file or the command line.
+    optional bool enabled = 8;
 
     // The tool applied to the action will be the first Tool with a feature
     // set that matches the feature configuration.  An error will be thrown

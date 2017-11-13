@@ -1835,8 +1835,8 @@ public class CcToolchainFeatures implements Serializable {
    */
   private final ImmutableMultimap<CrosstoolSelectable, CrosstoolSelectable> requiredBy;
 
-  private final ImmutableList<String> defaultFeatures;
- 
+  private final ImmutableList<String> defaultSelectables;
+
   /**
    * A cache of feature selection results, so we do not recalculate the feature selection for all
    * actions.
@@ -1862,23 +1862,26 @@ public class CcToolchainFeatures implements Serializable {
     // Also build a map from action -> action_config, for use in tool lookups
     ImmutableMap.Builder<String, ActionConfig> actionConfigsByActionName = ImmutableMap.builder();
 
-    ImmutableList.Builder<String> defaultFeaturesBuilder = ImmutableList.builder();
+    ImmutableList.Builder<String> defaultSelectablesBuilder = ImmutableList.builder();
     for (CToolchain.Feature toolchainFeature : toolchain.getFeatureList()) {
       Feature feature = new Feature(toolchainFeature);
       selectablesBuilder.add(feature);
       selectablesByName.put(feature.getName(), feature);
       if (toolchainFeature.getEnabled()) {
-        defaultFeaturesBuilder.add(feature.getName());
+        defaultSelectablesBuilder.add(feature.getName());
       }
     }
-    this.defaultFeatures = defaultFeaturesBuilder.build();
-    
+
     for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
       ActionConfig actionConfig = new ActionConfig(toolchainActionConfig);
       selectablesBuilder.add(actionConfig);
       selectablesByName.put(actionConfig.getName(), actionConfig);
       actionConfigsByActionName.put(actionConfig.getActionName(), actionConfig);
+      if (toolchainActionConfig.getEnabled()) {
+        defaultSelectablesBuilder.add(actionConfig.getName());
+      }
     }
+    this.defaultSelectables = defaultSelectablesBuilder.build();
        
     this.selectables = selectablesBuilder.build();
     this.selectablesByName = ImmutableMap.copyOf(selectablesByName);
@@ -2036,9 +2039,8 @@ public class CcToolchainFeatures implements Serializable {
     return new FeatureSelection(featureSpecification).run();
   }
 
-  /** Returns the list of features that specify themselves as enabled by default. */
-  public ImmutableList<String> getDefaultFeatures() {
-    return defaultFeatures;
+  public ImmutableList<String> getDefaultFeaturesAndActionConfigs() {
+    return defaultSelectables;
   }
 
   /**

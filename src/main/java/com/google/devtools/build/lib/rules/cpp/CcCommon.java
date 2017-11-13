@@ -610,7 +610,7 @@ public final class CcCommon {
             ImmutableSet.of(
                 toolchain.getCompilationMode().toString(), getHostOrNonHostFeature(ruleContext)),
             DEFAULT_FEATURES,
-            toolchain.getFeatures().getDefaultFeatures(),
+            toolchain.getFeatures().getDefaultFeaturesAndActionConfigs(),
             ruleContext.getFeatures())) {
       if (!unsupportedFeatures.contains(feature)) {
         requestedFeatures.add(feature);

@@ -1110,7 +1110,15 @@ public class CcToolchainFeaturesTest {
   public void testDefaultFeatures() throws Exception {
     CcToolchainFeatures features =
         buildFeatures("feature { name: 'a' }", "feature { name: 'b' enabled: true }");
-    assertThat(features.getDefaultFeatures()).containsExactly("b");
+    assertThat(features.getDefaultFeaturesAndActionConfigs()).containsExactly("b");
+  }
+
+  @Test
+  public void testDefaultActionConfigs() throws Exception {
+    CcToolchainFeatures features =
+        buildFeatures("action_config { config_name: 'a' action_name: 'a'}",
+            "action_config { config_name: 'b' action_name: 'b' enabled: true }");
+    assertThat(features.getDefaultFeaturesAndActionConfigs()).containsExactly("b");
   }
 
   @Test
