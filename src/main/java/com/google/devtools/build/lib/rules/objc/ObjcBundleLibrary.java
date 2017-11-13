@@ -60,7 +60,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     new BundleSupport(
             ruleContext,
             appleConfiguration,
-            appleConfiguration.getMultiArchPlatform(PlatformType.IOS),
+            appleConfiguration.getSingleArchPlatform(),
             bundling,
             new ExtraActoolArgs())
         .validateResources(common.getObjcProvider())
