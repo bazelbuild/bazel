@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,18 @@ package com.google.devtools.build.lib.rules;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.TreeMap;
 
@@ -65,14 +69,29 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
 
     // This cannot be an ImmutableMap.Builder because that asserts when a key is duplicated
     TreeMap<String, String> makeVariables = new TreeMap<>();
-    Class<? extends BuildConfiguration.Fragment> fragmentClass =
-        fragmentMap.get(ruleContext.getLabel());
-    if (fragmentClass != null) {
-      BuildConfiguration.Fragment fragment = ruleContext.getFragment(fragmentClass);
-      ImmutableMap.Builder<String, String> fragmentBuilder = ImmutableMap.builder();
-      fragment.addGlobalMakeVariables(fragmentBuilder);
-      makeVariables.putAll(fragmentBuilder.build());
+    ImmutableMap.Builder<String, String> fragmentBuilder = ImmutableMap.builder();
+
+    // If this toolchain type is enabled, we can derive make variables from it.  Otherwise, we
+    // derive make variables from the corresponding configuration fragment.
+    if (ruleContext.getConfiguration().getOptions().get(Options.class).makeVariableSource
+            == MakeVariableSource.TOOLCHAIN
+        && ruleContext
+            .getFragment(PlatformConfiguration.class)
+            .getEnabledToolchainTypes()
+            .contains(ruleContext.getLabel())) {
+      ResolvedToolchainProviders providers =
+          (ResolvedToolchainProviders)
+              ruleContext.getToolchainContext().getResolvedToolchainProviders();
+      providers.getForToolchainType(ruleContext.getLabel()).addGlobalMakeVariables(fragmentBuilder);
+    } else {
+      Class<? extends BuildConfiguration.Fragment> fragmentClass =
+          fragmentMap.get(ruleContext.getLabel());
+      if (fragmentClass != null) {
+        BuildConfiguration.Fragment fragment = ruleContext.getFragment(fragmentClass);
+        fragment.addGlobalMakeVariables(fragmentBuilder);
+      }
     }
+    makeVariables.putAll(fragmentBuilder.build());
 
     ImmutableMap<String, String> hardcodedVariables =
         hardcodedVariableMap.get(ruleContext.getLabel());

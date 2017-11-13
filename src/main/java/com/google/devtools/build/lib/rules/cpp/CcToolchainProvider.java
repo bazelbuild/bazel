@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -26,11 +29,13 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
@@ -43,6 +48,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
       new CcToolchainProvider(
           ImmutableMap.of(),
+          null,
           null,
           null,
           null,
@@ -76,6 +82,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   @Nullable private final CppConfiguration cppConfiguration;
   private final CToolchain toolchain;
   private final CppToolchainInfo toolchainInfo;
+  private final PathFragment crosstoolTopPathFragment;
   private final NestedSet<Artifact> crosstool;
   private final NestedSet<Artifact> crosstoolMiddleman;
   private final NestedSet<Artifact> compile;
@@ -108,6 +115,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
       @Nullable CppConfiguration cppConfiguration,
       CToolchain toolchain,
       CppToolchainInfo toolchainInfo,
+      PathFragment crosstoolTopPathFragment,
       NestedSet<Artifact> crosstool,
       NestedSet<Artifact> crosstoolMiddleman,
       NestedSet<Artifact> compile,
@@ -138,6 +146,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
     this.cppConfiguration = cppConfiguration;
     this.toolchain = toolchain;
     this.toolchainInfo = toolchainInfo;
+    this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
     this.compile = Preconditions.checkNotNull(compile);
@@ -164,6 +173,76 @@ public final class CcToolchainProvider extends ToolchainInfo {
     this.environment = environment;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
+  }
+
+  /** Returns c++ Make variables. */
+  public static Map<String, String> getCppBuildVariables(
+      Function<Tool, PathFragment> getToolPathFragment,
+      String targetLibc,
+      String compiler,
+      String targetCpu,
+      PathFragment crosstoolTopPathFragment,
+      String abiGlibcVersion,
+      String abi,
+      Map<String, String> additionalMakeVariables) {
+    ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
+
+    // hardcoded CC->gcc setting for unit tests
+    result.put("CC", getToolPathFragment.apply(Tool.GCC).getPathString());
+
+    // Make variables provided by crosstool/gcc compiler suite.
+    result.put("AR", getToolPathFragment.apply(Tool.AR).getPathString());
+    result.put("NM", getToolPathFragment.apply(Tool.NM).getPathString());
+    result.put("LD", getToolPathFragment.apply(Tool.LD).getPathString());
+    PathFragment objcopyTool = getToolPathFragment.apply(Tool.OBJCOPY);
+    if (objcopyTool != null) {
+      // objcopy is optional in Crosstool
+      result.put("OBJCOPY", objcopyTool.getPathString());
+    }
+    result.put("STRIP", getToolPathFragment.apply(Tool.STRIP).getPathString());
+
+    PathFragment gcovtool = getToolPathFragment.apply(Tool.GCOVTOOL);
+    if (gcovtool != null) {
+      // gcov-tool is optional in Crosstool
+      result.put("GCOVTOOL", gcovtool.getPathString());
+    }
+
+    if (targetLibc.startsWith("glibc-")) {
+      result.put("GLIBC_VERSION", targetLibc.substring("glibc-".length()));
+    } else {
+      result.put("GLIBC_VERSION", targetLibc);
+    }
+
+    result.put("C_COMPILER", compiler);
+    result.put("TARGET_CPU", targetCpu);
+
+    // Deprecated variables
+
+    // TODO(bazel-team): delete all of these.
+    result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
+
+    // TODO(kmensah): Remove when skylark dependencies can be updated to rely on
+    // CcToolchainProvider.
+    result.putAll(additionalMakeVariables);
+
+    result.put("ABI_GLIBC_VERSION", abiGlibcVersion);
+    result.put("ABI", abi);
+
+    return result.build();
+  }
+
+  @Override
+  public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
+    globalMakeEnvBuilder.putAll(
+        getCppBuildVariables(
+            this::getToolPathFragment,
+            getTargetLibc(),
+            getCompiler(),
+            getTargetCpu(),
+            crosstoolTopPathFragment,
+            getAbiGlibcVersion(),
+            getAbi(),
+            getAdditionalMakeVariables()));
   }
 
   @SkylarkCallable(
@@ -475,6 +554,36 @@ public final class CcToolchainProvider extends ToolchainInfo {
    */
   public Label getDynamicRuntimeLibsLabel() {
     return toolchainInfo.getDynamicRuntimeLibsLabel();
+  }
+
+  /** Returns the compiler version string (e.g. "gcc-4.1.1"). */
+  @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.")
+  public String getCompiler() {
+    return toolchainInfo.getCompiler();
+  }
+
+  /** Returns the libc version string (e.g. "glibc-2.2.2"). */
+  @SkylarkCallable(name = "libc", structField = true, doc = "libc version string.")
+  public String getTargetLibc() {
+    return toolchainInfo.getTargetLibc();
+  }
+
+  /** Returns the target architecture using blaze-specific constants (e.g. "piii"). */
+  @SkylarkCallable(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.")
+  public String getTargetCpu() {
+    return toolchainInfo.getTargetCpu();
+  }
+
+  /**
+   * Returns a map of additional make variables for use by {@link BuildConfiguration}. These are to
+   * used to allow some build rules to avoid the limits on stack frame sizes and variable-length
+   * arrays.
+   *
+   * <p>The returned map must contain an entry for {@code STACK_FRAME_UNLIMITED}, though the entry
+   * may be an empty string.
+   */
+  public ImmutableMap<String, String> getAdditionalMakeVariables() {
+    return toolchainInfo.getAdditionalMakeVariables();
   }
 
   @SkylarkCallable(

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -258,6 +259,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final CompilationMode compilationMode;
   private final boolean useLLVMCoverageMap;
 
+  private final boolean shouldProvideMakeVariables;
+
   /**
    *  If true, the ConfiguredTarget is only used to get the necessary cross-referenced
    *  CppCompilationContexts, but registering build actions is disabled.
@@ -283,6 +286,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.crosstoolTopPathFragment = crosstoolTop.getPackageIdentifier().getPathUnderExecRoot();
     this.cpuTransformer = params.cpuTransformer;
     this.cppToolchainInfo = new CppToolchainInfo(toolchain, crosstoolTopPathFragment, crosstoolTop);
+    this.shouldProvideMakeVariables =
+        params.commonOptions.makeVariableSource == MakeVariableSource.CONFIGURATION;
 
     // With LLVM, ThinLTO is automatically used in place of LIPO. ThinLTO works fine with dynamic
     // linking (and in fact creates a lot more work when dynamic linking is off).
@@ -1393,47 +1398,19 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       return;
     }
 
-    // hardcoded CC->gcc setting for unit tests
-    globalMakeEnvBuilder.put("CC", getToolPathFragment(Tool.GCC).getPathString());
-
-    // Make variables provided by crosstool/gcc compiler suite.
-    globalMakeEnvBuilder.put("AR", getToolPathFragment(Tool.AR).getPathString());
-    globalMakeEnvBuilder.put("NM", getToolPathFragment(Tool.NM).getPathString());
-    globalMakeEnvBuilder.put("LD", getToolPathFragment(Tool.LD).getPathString());
-    PathFragment objcopyTool = getToolPathFragment(Tool.OBJCOPY);
-    if (objcopyTool != null) {
-      // objcopy is optional in Crosstool
-      globalMakeEnvBuilder.put("OBJCOPY", objcopyTool.getPathString());
+    if (!shouldProvideMakeVariables) {
+      return;
     }
-    globalMakeEnvBuilder.put("STRIP", getToolPathFragment(Tool.STRIP).getPathString());
-
-    PathFragment gcovtool = getToolPathFragment(Tool.GCOVTOOL);
-    if (gcovtool != null) {
-      // gcov-tool is optional in Crosstool
-      globalMakeEnvBuilder.put("GCOVTOOL", gcovtool.getPathString());
-    }
-
-    if (getTargetLibc().startsWith("glibc-")) {
-      globalMakeEnvBuilder.put("GLIBC_VERSION",
-          getTargetLibc().substring("glibc-".length()));
-    } else {
-      globalMakeEnvBuilder.put("GLIBC_VERSION", getTargetLibc());
-    }
-
-    globalMakeEnvBuilder.put("C_COMPILER", getCompiler());
-    globalMakeEnvBuilder.put("TARGET_CPU", getTargetCpu());
-
-    // Deprecated variables
-
-    // TODO(bazel-team): delete all of these.
-    globalMakeEnvBuilder.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
-
-    // TODO(kmensah): Remove when skylark dependencies can be updated to rely on
-    // CcToolchainProvider.
-    globalMakeEnvBuilder.putAll(getAdditionalMakeVariables());
-
-    globalMakeEnvBuilder.put("ABI_GLIBC_VERSION", cppToolchainInfo.getAbiGlibcVersion());
-    globalMakeEnvBuilder.put("ABI", cppToolchainInfo.getAbi());
+    globalMakeEnvBuilder.putAll(
+        CcToolchainProvider.getCppBuildVariables(
+            this::getToolPathFragment,
+            getTargetLibc(),
+            getCompiler(),
+            getTargetCpu(),
+            crosstoolTopPathFragment,
+            cppToolchainInfo.getAbiGlibcVersion(),
+            cppToolchainInfo.getAbi(),
+            getAdditionalMakeVariables()));
   }
 
   @Override

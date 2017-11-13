@@ -109,9 +109,9 @@ public class BuildConfiguration implements BuildEvent {
   /**
    * An interface for language-specific configurations.
    *
-   * <p>All implementations must be immutable and communicate this as clearly as possible
-   * (e.g. declare {@link ImmutableList} signatures on their interfaces vs. {@link List}).
-   * This is because fragment instances may be shared across configurations.
+   * <p>All implementations must be immutable and communicate this as clearly as possible (e.g.
+   * declare {@link ImmutableList} signatures on their interfaces vs. {@link List}). This is because
+   * fragment instances may be shared across configurations.
    */
   public abstract static class Fragment {
     /**
@@ -953,9 +953,30 @@ public class BuildConfiguration implements BuildEvent {
     )
     public Label autoCpuEnvironmentGroup;
 
-    /**
-     * Values for --experimental_dynamic_configs.
-     */
+    /** The source of make variables for this configuration. */
+    public enum MakeVariableSource {
+      CONFIGURATION,
+      TOOLCHAIN
+    }
+
+    /** Converter for --make_variables_source. */
+    public static class MakeVariableSourceConverter extends EnumConverter<MakeVariableSource> {
+      public MakeVariableSourceConverter() {
+        super(MakeVariableSource.class, "Make variable source");
+      }
+    }
+
+    @Option(
+      name = "make_variables_source",
+      converter = MakeVariableSourceConverter.class,
+      defaultValue = "configuration",
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN}
+    )
+    public MakeVariableSource makeVariableSource;
+
+    /** Values for --experimental_dynamic_configs. */
     public enum ConfigsMode {
       /** Only include the configuration fragments each rule needs. */
       ON,

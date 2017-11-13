@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,5 +41,22 @@ public class ToolchainTypeTest extends BuildViewTestCase {
     ConfiguredTarget cc =
         getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type");
     assertThat(cc.get(TemplateVariableInfo.PROVIDER).getVariables()).doesNotContainKey("JAVABASE");
+  }
+
+  @Test
+  public void testMakeVariablesFromToolchain() throws Exception {
+    MockPlatformSupport.addMockPiiiPlatform(
+        mockToolsConfig, analysisMock.ccSupport().getMockCrosstoolLabel());
+    useConfiguration(
+        "--enabled_toolchain_types="
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/cpp:toolchain_type",
+        "--experimental_platforms=//mock_platform:mock-piii-platform",
+        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii",
+        "--make_variables_source=toolchain");
+    ConfiguredTarget cc =
+        getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type");
+    assertThat(cc.get(TemplateVariableInfo.PROVIDER).getVariables())
+        .containsEntry("TARGET_CPU", "piii");
   }
 }

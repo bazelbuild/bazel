@@ -414,6 +414,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             cppConfiguration,
             toolchain,
             toolchainInfo,
+            cppConfiguration.getCrosstoolTopPathFragment(),
             crosstool,
             fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
             compile,

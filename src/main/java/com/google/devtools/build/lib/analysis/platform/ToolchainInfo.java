@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -78,4 +79,7 @@ public class ToolchainInfo extends NativeInfo {
   public static ToolchainInfo create(Map<String, Object> toolchainData, Location loc) {
     return new ToolchainInfo(toolchainData, loc);
   }
+
+  /** Add make variables to be exported to dependers. */
+  public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {}
 }
