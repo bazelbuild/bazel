@@ -210,7 +210,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       f.addPath(rootSymlink.getValue().getPath());
     }
 
-    for (Artifact artifact : runfiles.getArtifacts()) {
+    for (Artifact artifact : runfiles.getArtifactsWithoutMiddlemen()) {
       f.addPath(artifact.getRootRelativePath());
       f.addPath(artifact.getPath());
     }

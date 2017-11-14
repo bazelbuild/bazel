@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -72,7 +73,7 @@ public class RunfilesSupplierImpl implements RunfilesSupplier {
 
   @Override
   public Iterable<Artifact> getArtifacts() {
-    return runfiles.getAllArtifacts();
+    return Iterables.filter(runfiles.getAllArtifacts(), Artifact.MIDDLEMAN_FILTER);
   }
 
   @Override

@@ -43,7 +43,7 @@ public class AndroidHostServiceFixture implements RuleConfiguredTargetFactory {
             .build();
     Runfiles runfiles =
         new Runfiles.Builder(ruleContext.getWorkspaceName())
-            .addTransitiveArtifacts(supportApks)
+            .addTransitiveArtifacts(filesToBuild)
             .merge(executable.getRunfilesSupport())
             .build();
     return ruleBuilder

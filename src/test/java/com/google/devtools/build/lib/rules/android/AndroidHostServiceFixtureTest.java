@@ -65,7 +65,7 @@ public class AndroidHostServiceFixtureTest extends AndroidBuildViewTestCase {
                 hostServiceFixture
                     .getProvider(RunfilesProvider.class)
                     .getDefaultRunfiles()
-                    .getArtifacts()))
+                    .getArtifactsWithoutMiddlemen()))
         .containsExactlyElementsIn(
             ActionsTestUtil.prettyArtifactNames(
                 getConfiguredTarget("//java/com/server")

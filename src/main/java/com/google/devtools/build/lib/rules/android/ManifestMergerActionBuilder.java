@@ -99,7 +99,7 @@ public class ManifestMergerActionBuilder {
         ruleContext
             .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
             .getRunfilesSupport()
-            .getRunfilesArtifacts());
+            .getRunfilesArtifactsWithoutMiddlemen());
 
     builder.addExecPath("--manifest", manifest);
     inputs.add(manifest);

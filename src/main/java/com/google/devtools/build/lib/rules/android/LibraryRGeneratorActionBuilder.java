@@ -63,7 +63,7 @@ public class LibraryRGeneratorActionBuilder {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
     FilesToRunProvider executable =
         ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST);
-    inputs.addAll(executable.getRunfilesSupport().getRunfilesArtifacts());
+    inputs.addAll(executable.getRunfilesSupport().getRunfilesArtifactsWithoutMiddlemen());
 
     builder.add("--tool").add("GENERATE_LIBRARY_R").add("--");
 
