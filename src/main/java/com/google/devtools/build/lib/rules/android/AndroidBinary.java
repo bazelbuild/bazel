@@ -515,11 +515,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       if (proguardOutput.getMapping() != null) {
         finalProguardMap =
             ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
-        Artifact finalRexPackageMap = getDxArtifact(ruleContext, "rex_output_package.map");
+        Artifact finalRexPackageMap =
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.REX_OUTPUT_PACKAGE_MAP);
         rexActionBuilder
             .addInput(proguardOutput.getMapping())
             .addOutput(finalProguardMap)
             .addOutput(finalRexPackageMap);
+        filesBuilder.add(finalRexPackageMap);
         commandLine
             .addExecPath("--proguard_input_map", proguardOutput.getMapping())
             .addExecPath("--proguard_output_map", finalProguardMap)

@@ -165,6 +165,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_files/deploy_info_incremental.deployinfo.pb");
   public static final SafeImplicitOutputsFunction DEPLOY_INFO_SPLIT =
       fromTemplates("%{name}_files/deploy_info_split.deployinfo.pb");
+  public static final SafeImplicitOutputsFunction REX_OUTPUT_PACKAGE_MAP =
+      fromTemplates("%{name}_rex/rex_output_package.map");
 
   // This needs to be in its own directory because ApkBuilder only has a function (-rf) for source
   // folders but not source files, and it's easiest to guarantee that nothing gets put beside this
