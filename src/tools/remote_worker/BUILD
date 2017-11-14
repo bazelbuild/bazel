@@ -10,7 +10,7 @@ java_binary(
         # Enables REST for Hazelcast server for testing.
         "-Dhazelcast.rest.enabled=true",
         # Set this to the same function that you run Bazel with.
-        "-Dbazel.DigestFunction=SHA1",
+        "-Dbazel.DigestFunction=SHA256",
     ],
     main_class = "com.google.devtools.build.remote.RemoteWorker",
     visibility = ["//visibility:public"],

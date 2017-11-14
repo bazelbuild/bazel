@@ -83,7 +83,7 @@ function tear_down() {
 }
 
 function test_genrule() {
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -92,7 +92,7 @@ function test_genrule() {
 }
 
 function test_genrule_can_write_to_path() {
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -103,7 +103,7 @@ function test_genrule_can_write_to_path() {
 }
 
 function test_genrule_cannot_write_to_other_path() {
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \

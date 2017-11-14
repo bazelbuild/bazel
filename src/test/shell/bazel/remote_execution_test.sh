@@ -83,7 +83,7 @@ EOF
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -106,7 +106,7 @@ EOF
 #include <iostream>
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -133,7 +133,7 @@ EOF
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 build \
       --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
@@ -155,7 +155,7 @@ EOF
 #include <iostream>
 int main() { std::cout << "Fail me!" << std::endl; return 1; }
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -187,7 +187,7 @@ EOF
   cp -f bazel-genfiles/a/large_blob.txt ${TEST_TMPDIR}/large_blob_expected.txt
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -215,7 +215,7 @@ EOF
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 build \
       --spawn_strategy=remote \
       --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
       //a:test >& $TEST_log \
@@ -245,7 +245,7 @@ import sys
 if __name__ == "__main__":
     sys.exit(0)
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -280,7 +280,7 @@ if __name__ == "__main__":
 ''')
     sys.exit(0)
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -319,7 +319,7 @@ if __name__ == "__main__":
 ''')
     sys.exit(1)
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -351,7 +351,7 @@ load("//a:rule.bzl", "empty")
 package(default_visibility = ["//visibility:public"])
 empty(name = 'test')
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA256 build \
       --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
