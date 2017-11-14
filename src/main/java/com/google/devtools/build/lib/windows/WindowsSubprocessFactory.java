@@ -33,9 +33,13 @@ import java.util.TreeMap;
 public class WindowsSubprocessFactory implements SubprocessFactory {
   public static final WindowsSubprocessFactory INSTANCE = new WindowsSubprocessFactory();
 
+  // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx
+  private static final int MAX_ARGUMENT_LENGTH = 32768;
+
   private WindowsSubprocessFactory() {
     // Singleton
   }
+
 
   @Override
   public Subprocess create(SubprocessBuilder builder) throws IOException {
@@ -45,6 +49,14 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     String argv0 = processArgv0(argv.get(0));
     String argvRest =
         argv.size() > 1 ? WindowsProcesses.quoteCommandLine(argv.subList(1, argv.size())) : "";
+
+    if (argvRest.length() + 2 > MAX_ARGUMENT_LENGTH) { // +2 for unicode null terminator
+      throw new IOException(
+        "Max argument length exceeded for Windows. " +
+        "If this is an action, try to rewrite it to use parameter files (via Args) instead."
+      );
+    }
+
     byte[] env = builder.getEnv() == null ? null : convertEnvToNative(builder.getEnv());
 
     String stdoutPath = getRedirectPath(builder.getStdout(), builder.getStdoutFile());
