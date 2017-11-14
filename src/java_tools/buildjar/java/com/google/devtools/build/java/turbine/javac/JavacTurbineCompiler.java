@@ -114,8 +114,14 @@ public class JavacTurbineCompiler {
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
+    private static Context getContext() {
+      Context context = new Context();
+      CacheFSInfo.preRegister(context);
+      return context;
+    }
+
     public ClassloaderMaskingFileManager() {
-      super(new Context(), false, UTF_8);
+      super(getContext(), false, UTF_8);
     }
 
     @Override
