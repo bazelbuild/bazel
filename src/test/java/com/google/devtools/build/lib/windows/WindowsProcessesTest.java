@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
@@ -61,6 +62,7 @@ public class WindowsProcessesTest {
       process = -1;
     }
   }
+
   private String mockArgs(String... args) {
     List<String> argv = new ArrayList<>();
 
@@ -79,6 +81,39 @@ public class WindowsProcessesTest {
 
   private void assertNoStreamError(long stream) throws Exception {
     assertThat(WindowsProcesses.streamGetLastError(stream)).isEmpty();
+  }
+
+  @Test
+  public void testDoesNotQuoteSimpleArg() throws Exception {
+    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", "a"))).isEqualTo("x a");
+  }
+
+  @Test
+  public void testQuotesEmptyArg() throws Exception {
+    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", ""))).isEqualTo("x \"\"");
+  }
+
+  @Test
+  public void testQuotesArgWithSpace() throws Exception {
+    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", "a b")))
+        .isEqualTo("x \"a b\"");
+  }
+
+  @Test
+  public void testDoesNotQuoteArgWithBackslash() throws Exception {
+    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", "a\\b")))
+        .isEqualTo("x a\\b");
+  }
+
+  @Test
+  public void testDoesNotQuoteArgWithSingleQuote() throws Exception {
+    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", "a'b"))).isEqualTo("x a'b");
+  }
+
+  @Test
+  public void testDoesNotQuoteArgWithDoubleQuote() throws Exception {
+    assertThat(WindowsProcesses.quoteCommandLine(ImmutableList.of("x", "a\"b")))
+        .isEqualTo("x a\\\"b");
   }
 
   @Test
