@@ -314,9 +314,17 @@ public class BazelCppRuleClasses {
                   .allowedRuleClasses(DEPS_ALLOWED_RULES)
                   .allowedFileTypes(CppFileTypes.LINKER_SCRIPT)
                   .skipAnalysisTimeFileTypeCheck())
-          .add(attr("reexport_deps", LABEL_LIST)
-              .allowedRuleClasses(DEPS_ALLOWED_RULES)
-              .allowedFileTypes())
+          /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(win_def_file) -->
+          The Windows DEF file to be passed to linker.
+          <p>This attribute should only be used when Windows is the target platform.
+          It can be used to <a href="https://msdn.microsoft.com/en-us/library/d91k01sh.aspx">
+          export symbols</a> during linking a shared library.</p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("win_def_file", LABEL).allowedFileTypes(CppFileTypes.WINDOWS_DEF_FILE))
+          .add(
+              attr("reexport_deps", LABEL_LIST)
+                  .allowedRuleClasses(DEPS_ALLOWED_RULES)
+                  .allowedFileTypes())
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(linkopts) -->
           Add these flags to the C++ linker command.
           Subject to <a href="make-variables.html">"Make" variable</a> substitution,

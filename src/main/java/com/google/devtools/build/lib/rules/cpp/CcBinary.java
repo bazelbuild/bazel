@@ -293,7 +293,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           CppLinkAction.symbolCountsFileName(binaryPath)));
     }
 
-    Artifact defFile = null;
+    Artifact generatedDefFile = null;
     Artifact interfaceLibrary = null;
     if (isLinkShared(ruleContext)) {
       linkActionBuilder.setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(binary));
@@ -308,15 +308,20 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             objectFiles.addAll(library.getObjectFiles());
           }
         }
-        defFile =
+        generatedDefFile =
             CppHelper.createDefFileActions(
                 ruleContext,
                 ccToolchain.getDefParserTool(),
                 objectFiles.build(),
                 binary.getFilename());
 
-        if (CppHelper.shouldUseDefFile(featureConfiguration)) {
-          linkActionBuilder.setDefFile(defFile);
+        if (CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
+          linkActionBuilder.setDefFile(generatedDefFile);
+        }
+
+        Artifact customDefFile = common.getWinDefFile();
+        if (customDefFile != null) {
+          linkActionBuilder.setDefFile(customDefFile);
         }
 
         // If we are using a toolchain supporting interface library and targeting Windows, we build
@@ -485,8 +490,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       ruleBuilder.addOutputGroup("pdb_file", pdbFile);
     }
 
-    if (defFile != null) {
-      ruleBuilder.addOutputGroup("def_file", defFile);
+    if (generatedDefFile != null) {
+      ruleBuilder.addOutputGroup("def_file", generatedDefFile);
     }
 
     if (interfaceLibrary != null) {

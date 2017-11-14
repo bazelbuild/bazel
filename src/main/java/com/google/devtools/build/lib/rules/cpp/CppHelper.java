@@ -802,11 +802,14 @@ public class CppHelper {
 
   /**
    * Returns true when {@link CppRuleClasses#WINDOWS_EXPORT_ALL_SYMBOLS} feature is enabled and
-   * {@link CppRuleClasses#NO_WINDOWS_EXPORT_ALL_SYMBOLS} feature is not enabled.
+   * {@link CppRuleClasses#NO_WINDOWS_EXPORT_ALL_SYMBOLS} feature is not enabled and no custom DEF
+   * file is specified in win_def_file attribute.
    */
-  public static boolean shouldUseDefFile(FeatureConfiguration featureConfiguration) {
+  public static boolean shouldUseGeneratedDefFile(
+      RuleContext ruleContext, FeatureConfiguration featureConfiguration) {
     return featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_EXPORT_ALL_SYMBOLS)
-        && !featureConfiguration.isEnabled(CppRuleClasses.NO_WINDOWS_EXPORT_ALL_SYMBOLS);
+        && !featureConfiguration.isEnabled(CppRuleClasses.NO_WINDOWS_EXPORT_ALL_SYMBOLS)
+        && ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET) == null;
   }
 
   /**

@@ -385,6 +385,7 @@ toolchain {
     implies: 'use_linker'
     implies: 'no_stripping'
     implies: 'has_configured_linker_path'
+    implies: 'def_file'
   }
 
   action_config {
@@ -994,7 +995,7 @@ toolchain {
   }
 
   feature {
-    name: 'windows_export_all_symbols'
+    name : 'def_file',
     flag_set {
       expand_if_all_available: 'def_file_path'
       action: 'c++-link-executable'
@@ -1007,6 +1008,10 @@ toolchain {
         flag: "/ignore:4070"
       }
     }
+  }
+
+  feature {
+    name: 'windows_export_all_symbols'
   }
 
   feature {

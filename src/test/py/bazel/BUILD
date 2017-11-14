@@ -84,18 +84,18 @@ py_test(
 )
 
 py_test(
-    name = "bazel_windows_dynamic_link_test",
+    name = "bazel_windows_cpp_test",
     size = "medium",
     srcs = select({
-        "//src:windows": ["bazel_windows_dynamic_link_test.py"],
-        "//src:windows_msvc": ["bazel_windows_dynamic_link_test.py"],
-        "//src:windows_msys": ["bazel_windows_dynamic_link_test.py"],
+        "//src:windows": ["bazel_windows_cpp_test.py"],
+        "//src:windows_msvc": ["bazel_windows_cpp_test.py"],
+        "//src:windows_msys": ["bazel_windows_cpp_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
     main = select({
-        "//src:windows": "bazel_windows_dynamic_link_test.py",
-        "//src:windows_msvc": "bazel_windows_dynamic_link_test.py",
-        "//src:windows_msys": "bazel_windows_dynamic_link_test.py",
+        "//src:windows": "bazel_windows_cpp_test.py",
+        "//src:windows_msvc": "bazel_windows_cpp_test.py",
+        "//src:windows_msys": "bazel_windows_cpp_test.py",
         "//conditions:default": "empty_test.py",
     }),
     deps = select({

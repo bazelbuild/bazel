@@ -540,6 +540,12 @@ public final class CcCommon {
         CppFileTypes.LINKER_SCRIPT);
   }
 
+  /** Returns the Windows DEF file specified in win_def_file attribute of the rule. */
+  @Nullable
+  Artifact getWinDefFile() {
+    return ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET);
+  }
+
   /**
    * Provides support for instrumentation.
    */
