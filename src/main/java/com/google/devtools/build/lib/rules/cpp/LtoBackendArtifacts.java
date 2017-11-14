@@ -61,6 +61,9 @@ public final class LtoBackendArtifacts {
   // The result of executing the above command line, an ELF object file.
   private final Artifact objectFile;
 
+  // The corresponding dwoFile if fission is used.
+  private Artifact dwoFile;
+
   LtoBackendArtifacts(
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
@@ -137,6 +140,10 @@ public final class LtoBackendArtifacts {
     return bitcodeFile;
   }
 
+  public Artifact getDwoFile() {
+    return dwoFile;
+  }
+
   public void addIndexingOutputs(ImmutableList.Builder<Artifact> builder) {
     builder.add(imports);
     builder.add(index);
@@ -204,7 +211,7 @@ public final class LtoBackendArtifacts {
     }
 
     if (generateDwo) {
-      Artifact dwoFile =
+      dwoFile =
           linkArtifactFactory.create(
               ruleContext,
               configuration,

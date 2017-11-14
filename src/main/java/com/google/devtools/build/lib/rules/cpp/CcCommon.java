@@ -190,7 +190,6 @@ public final class CcCommon {
     return compilationOutputs == null // Possible in LIPO collection mode (see initializationHook).
         ? DwoArtifactsCollector.emptyCollector()
         : DwoArtifactsCollector.transitiveCollector(
-            ruleContext,
             compilationOutputs,
             deps.build(),
             generateDwo,

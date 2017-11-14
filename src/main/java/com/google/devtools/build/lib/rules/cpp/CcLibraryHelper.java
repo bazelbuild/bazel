@@ -1027,7 +1027,6 @@ public final class CcLibraryHelper {
 
     DwoArtifactsCollector dwoArtifacts =
         DwoArtifactsCollector.transitiveCollector(
-            ruleContext,
             ccOutputs,
             deps, /*generateDwo=*/
             false, /*ltoBackendArtifactsUsePic=*/

@@ -631,7 +631,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       Iterable<LtoBackendArtifacts> ltoBackendArtifacts) {
     if (linkStaticness == LinkStaticness.DYNAMIC) {
       return DwoArtifactsCollector.directCollector(
-          context, compilationOutputs, generateDwo, ltoBackendArtifactsUsePic, ltoBackendArtifacts);
+          compilationOutputs, generateDwo, ltoBackendArtifactsUsePic, ltoBackendArtifacts);
     } else {
       return CcCommon.collectTransitiveDwoArtifacts(
           context, compilationOutputs, generateDwo, ltoBackendArtifactsUsePic, ltoBackendArtifacts);
