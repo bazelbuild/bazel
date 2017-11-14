@@ -318,6 +318,7 @@ def configure_windows_toolchain(repository_ctx):
   escaped_tmp_dir = escape_string(
       get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\"))
   msvc_cl_path = _find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
+  msvc_ml_path = _find_msvc_tool(repository_ctx, vc_path, "ml64.exe").replace("\\", "/")
   msvc_link_path = _find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
   msvc_lib_path = _find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
   escaped_cxx_include_directories = []
@@ -369,6 +370,7 @@ def configure_windows_toolchain(repository_ctx):
       "%{msvc_env_include}": escaped_include_paths,
       "%{msvc_env_lib}": escaped_lib_paths,
       "%{msvc_cl_path}": msvc_cl_path,
+      "%{msvc_ml_path}": msvc_ml_path,
       "%{msvc_link_path}": msvc_link_path,
       "%{msvc_lib_path}": msvc_lib_path,
       "%{compilation_mode_content}": compilation_mode_content,
