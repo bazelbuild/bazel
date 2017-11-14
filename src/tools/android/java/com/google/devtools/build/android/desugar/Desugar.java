@@ -408,8 +408,7 @@ class Desugar {
                     "com.google.devtools.build.android.desugar.dependencies.MetadataCollector")
                 .getConstructor(Boolean.TYPE)
                 .newInstance(options.tolerateMissingDependencies);
-      } catch (ReflectiveOperationException
-          | SecurityException e) {
+      } catch (ReflectiveOperationException | SecurityException e) {
         throw new IllegalStateException("Can't emit desugaring metadata as requested");
       }
     } else if (options.tolerateMissingDependencies) {
@@ -530,7 +529,8 @@ class Desugar {
                 interfaceLambdaMethods,
                 bridgeMethodReader,
                 lambdaClass.getValue(),
-                writer);
+                writer,
+                reader);
         reader.accept(visitor, 0);
         String filename =
             rewriter.unprefix(lambdaClass.getValue().desiredInternalName()) + ".class";
@@ -573,12 +573,19 @@ class Desugar {
       ImmutableSet<String> interfaceLambdaMethods,
       @Nullable ClassReaderFactory bridgeMethodReader,
       LambdaInfo lambdaClass,
-      UnprefixingClassWriter writer) {
+      UnprefixingClassWriter writer,
+      ClassReader input) {
     ClassVisitor visitor = checkNotNull(writer);
     if (!allowTryWithResources) {
+      CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
+      input.accept(closeResourceMethodScanner, ClassReader.SKIP_DEBUG);
       visitor =
           new TryWithResourcesRewriter(
-              visitor, loader, visitedExceptionTypes, numOfTryWithResourcesInvoked);
+              visitor,
+              loader,
+              visitedExceptionTypes,
+              numOfTryWithResourcesInvoked,
+              closeResourceMethodScanner.hasCloseResourceMethod());
     }
     if (!allowCallsToObjectsNonNull) {
       // Not sure whether there will be implicit null check emitted by javac, so we rerun
@@ -638,9 +645,15 @@ class Desugar {
       ClassReader input) {
     ClassVisitor visitor = checkNotNull(writer);
     if (!allowTryWithResources) {
+      CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
+      input.accept(closeResourceMethodScanner, ClassReader.SKIP_DEBUG);
       visitor =
           new TryWithResourcesRewriter(
-              visitor, loader, visitedExceptionTypes, numOfTryWithResourcesInvoked);
+              visitor,
+              loader,
+              visitedExceptionTypes,
+              numOfTryWithResourcesInvoked,
+              closeResourceMethodScanner.hasCloseResourceMethod());
     }
     if (!allowCallsToObjectsNonNull) {
       visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
