@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -78,18 +79,18 @@ public class BuildSummaryStatsModule extends BlazeModule {
   public void buildComplete(BuildCompleteEvent event) {
     try {
       // We might want to make this conditional on a flag; it can sometimes be a bit of a nuisance.
-      List<Pair<String, String>> statistics = new ArrayList<>();
+      List<Pair<String, ByteString>> statistics = new ArrayList<>();
       List<String> items = new ArrayList<>();
       items.add(String.format("Elapsed time: %.3fs", event.getResult().getElapsedSeconds()));
-      statistics.add(
-          Pair.of("elapsed time", String.format("%f", event.getResult().getElapsedSeconds())));
+      statistics.add(Pair.of("elapsed time", ByteString.copyFromUtf8(
+          String.format("%f", event.getResult().getElapsedSeconds()))));
 
       if (criticalPathComputer != null) {
         Profiler.instance().startTask(ProfilerTask.CRITICAL_PATH, "Critical path");
         AggregatedCriticalPath<SimpleCriticalPathComponent> criticalPath =
             criticalPathComputer.aggregate();
         items.add(criticalPath.toStringSummary());
-        statistics.add(Pair.of("critical path", criticalPath.toString()));
+        statistics.add(Pair.of("critical path", ByteString.copyFromUtf8(criticalPath.toString())));
         logger.info(criticalPath.toString());
         logger.info(
             "Slowest actions:\n  "

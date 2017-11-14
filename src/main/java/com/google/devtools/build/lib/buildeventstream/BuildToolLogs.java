@@ -17,16 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 
 /** Event reporting on statistics about the build. */
 public class BuildToolLogs implements BuildEventWithOrderConstraint {
-  private final Collection<Pair<String, String>> directValues;
+  private final Collection<Pair<String, ByteString>> directValues;
   private final Collection<Pair<String, Path>> logFiles;
 
   public BuildToolLogs(
-      Collection<Pair<String, String>> directValues, Collection<Pair<String, Path>> logFiles) {
+      Collection<Pair<String, ByteString>> directValues, Collection<Pair<String, Path>> logFiles) {
     this.directValues = directValues;
     this.logFiles = logFiles;
   }
@@ -45,11 +44,11 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     BuildEventStreamProtos.BuildToolLogs.Builder toolLogs =
         BuildEventStreamProtos.BuildToolLogs.newBuilder();
-    for (Pair<String, String> direct : directValues) {
+    for (Pair<String, ByteString> direct : directValues) {
       toolLogs.addLog(
           BuildEventStreamProtos.File.newBuilder()
               .setName(direct.getFirst())
-              .setContents(ByteString.copyFrom(direct.getSecond().getBytes(StandardCharsets.UTF_8)))
+              .setContents(direct.getSecond())
               .build());
     }
     for (Pair<String, Path> logFile : logFiles) {
