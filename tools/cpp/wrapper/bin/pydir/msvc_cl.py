@@ -95,30 +95,6 @@ class MsvcCompiler(msvc_tools.WindowsRunner):
     """
     parser = msvc_tools.ArgParser(self, argv, GCCPATTERNS)
 
-    # Select runtime option
-    # Find the last runtime option passed
-    rt = None
-    rt_idx = -1
-    for i, opt in enumerate(reversed(parser.options)):
-      if opt in ['/MT', '/MTd', '/MD', '/MDd']:
-        if opt[-1] == 'd':
-          parser.enforce_debug_rt = True
-        rt = opt[:3]
-        rt_idx = len(parser.options) - i - 1
-        break
-    rt = rt or '/MT'  # Default to static runtime
-    # Add debug if necessary
-    if parser.enforce_debug_rt:
-      rt += 'd'
-    # Include runtime option
-    if rt_idx >= 0:
-      parser.options[rt_idx] = rt
-    else:
-      if parser.is_cuda_compilation:
-        parser.options.append('--compiler-options="%s"' % rt)
-      else:
-        parser.options.append(rt)
-
     compiler = 'cl'
     if parser.is_cuda_compilation:
       compiler = 'nvcc'
