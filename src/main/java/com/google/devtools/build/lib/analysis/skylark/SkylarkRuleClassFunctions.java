@@ -645,15 +645,25 @@ public class SkylarkRuleClassFunctions {
         name = "required_aspect_providers",
         type = SkylarkList.class,
         defaultValue = "[]",
-        // todo(dslomov): Document once it works.
-        doc = "<not available>"
+        doc =
+            "Allow the aspect to inspect other aspects. If the aspect propagates along "
+                + "a dependency, and the underlying rule sends a different aspect along that "
+                + "dependency, and that aspect provides one of the providers listed here, this "
+                + "aspect will see the providers provided by that aspect. "
+                + "<p>The value should be either a list of providers, or a "
+                + "list of lists of providers. This aspect will 'see'  the underlying aspects that "
+                + "provide  ALL providers from at least ONE of these lists. A single list of "
+                + "providers will be automatically converted to a list containing one list of "
+                + "providers."
       ),
       @Param(
         name = "provides",
         type = SkylarkList.class,
         defaultValue = "[]",
-        // todo(dslomov): Document once it works.
-        doc = "<not available>"
+        doc =
+            "A list of providers this aspect is guaranteed to provide. "
+                + "It is an error if a provider is listed here and the aspect "
+                + "implementation function does not return it."
       ),
       @Param(
         name = "fragments",
