@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -82,6 +83,57 @@ public class CcToolchainTest extends BuildViewTestCase {
     useConfiguration();
 
     getConfiguredTarget("//a:a");
+  }
+
+  public void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
+      throws Exception {
+    try {
+      scratch.overwriteFile(
+          "a/BUILD",
+          "filegroup(",
+          "   name='empty')",
+          "cc_toolchain(",
+          "    name = 'b',",
+          "    cpu = 'k8',",
+          "    all_files = ':banana',",
+          "    compiler_files = ':empty',",
+          "    dwp_files = ':empty',",
+          "    linker_files = ':empty',",
+          "    strip_files = ':empty',",
+          "    objcopy_files = ':empty',",
+          "    dynamic_runtime_libs = [':empty'],",
+          "    static_runtime_libs = [':empty'])");
+
+      getAnalysisMock()
+          .ccSupport()
+          .setupCrosstool(
+              mockToolsConfig,
+              CrosstoolConfig.CToolchain.newBuilder()
+                  .addCxxBuiltinIncludeDirectory(entry)
+                  .buildPartial());
+
+      useConfiguration();
+
+      ConfiguredTarget target = getConfiguredTarget("//a:b");
+      CcToolchainProvider toolchainProvider =
+          (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+      // Must call this function to actually see if there's an error with the directories.
+      toolchainProvider.getBuiltInIncludeDirectories();
+
+      fail("C++ configuration creation succeeded unexpectedly");
+    } catch (AssertionError e) {
+      assertThat(e).hasMessageThat().containsMatch(messageRegex);
+    }
+  }
+
+  @Test
+  public void testInvalidIncludeDirectory() throws Exception {
+    assertInvalidIncludeDirectoryMessage("%package(//a", "has an unrecognized %prefix%");
+    assertInvalidIncludeDirectoryMessage("%package(//a@@a)%", "The package '//a@@a' is not valid");
+    assertInvalidIncludeDirectoryMessage(
+        "%package(//a)%foo", "The path in the package.*is not valid");
+    assertInvalidIncludeDirectoryMessage(
+        "%package(//a)%/../bar", "The include path.*is not normalized");
   }
 
   @Test
