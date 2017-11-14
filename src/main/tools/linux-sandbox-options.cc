@@ -65,6 +65,7 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "mounted readonly.\n"
           "    The -M option specifies which directory to mount, the -m option "
           "specifies where to\n"
+          "  -H  if set, make hostname in the sandbox equal to 'localhost'\n"
           "  -N  if set, a new network namespace will be created\n"
           "  -R  if set, make the uid/gid be root\n"
           "  -U  if set, make the uid/gid be nobody\n"
