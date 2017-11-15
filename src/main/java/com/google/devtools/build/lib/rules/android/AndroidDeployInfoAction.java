@@ -42,14 +42,12 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
   private static Iterable<Artifact> makeInputs(
       Artifact mergedManifest,
       Iterable<Artifact> additionalMergedManifests,
-      Iterable<Artifact> apksToDeploy,
-      Iterable<Artifact> dataDeps) {
+      Iterable<Artifact> apksToDeploy) {
 
     return ImmutableList.<Artifact>builder()
         .add(mergedManifest)
         .addAll(additionalMergedManifests)
         .addAll(apksToDeploy)
-        .addAll(dataDeps)
         .build();
   }
 
@@ -58,21 +56,18 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
   private final Artifact mergedManifest;
   private final ImmutableList<Artifact> additionalMergedManifests;
   private final ImmutableList<Artifact> apksToDeploy;
-  private final ImmutableList<Artifact> dataDeps;
 
   AndroidDeployInfoAction(
       ActionOwner owner,
       Artifact outputFile,
       Artifact mergedManifest,
       ImmutableList<Artifact> additionalMergedManifests,
-      ImmutableList<Artifact> apksToDeploy,
-      ImmutableList<Artifact> dataDeps) {
-    super(owner, makeInputs(mergedManifest, additionalMergedManifests, apksToDeploy, dataDeps),
+      ImmutableList<Artifact> apksToDeploy) {
+    super(owner, makeInputs(mergedManifest, additionalMergedManifests, apksToDeploy),
         outputFile, false);
     this.mergedManifest = mergedManifest;
     this.additionalMergedManifests = additionalMergedManifests;
     this.apksToDeploy = apksToDeploy;
-    this.dataDeps = dataDeps;
   }
 
   private ByteString getByteString() {
@@ -85,9 +80,6 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
     for (Artifact apk : apksToDeploy) {
       builder.addApksToDeploy(makeArtifactProto(apk));
     }
-    for (Artifact dataDep : dataDeps) {
-      builder.addDataToDeploy(makeArtifactProto(dataDep));
-    }
     return builder.build().toByteString();
   }
 
@@ -96,10 +88,9 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
       Artifact deployInfo,
       Artifact mergedManifest,
       ImmutableList<Artifact> additionalMergedManifests,
-      ImmutableList<Artifact> apksToDeploy,
-      ImmutableList<Artifact> dataDeps) {
+      ImmutableList<Artifact> apksToDeploy) {
     Action action = new AndroidDeployInfoAction(ruleContext.getActionOwner(),
-        deployInfo, mergedManifest, additionalMergedManifests, apksToDeploy, dataDeps);
+        deployInfo, mergedManifest, additionalMergedManifests, apksToDeploy);
     ruleContext.registerAction(action);
   }
 

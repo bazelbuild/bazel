@@ -2015,7 +2015,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "/AndroidManifest.xml");
     assertThat(deployInfo.getAdditionalMergedManifestsList()).isEmpty();
     assertThat(deployInfo.getApksToDeploy(0).getExecRootPath()).endsWith("/app.apk");
-    assertThat(deployInfo.getDataToDeployList()).isEmpty();
   }
 
   /**

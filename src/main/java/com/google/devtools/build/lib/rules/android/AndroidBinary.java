@@ -579,20 +579,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     filesBuilder.add(zipAlignedApk);
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
-    ImmutableList<Artifact> dataDeps = ImmutableList.of();
-    if (ruleContext.attributes().has("data", BuildType.LABEL_LIST)
-        && ruleContext.getAttributeMode("data") == Mode.DATA) {
-      dataDeps = ruleContext.getPrerequisiteArtifacts("data", Mode.DATA).list();
-    }
-
     Artifact deployInfo = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.DEPLOY_INFO);
     AndroidDeployInfoAction.createDeployInfoAction(
         ruleContext,
         deployInfo,
         resourceApk.getManifest(),
         additionalMergedManifests,
-        ImmutableList.<Artifact>builder().add(zipAlignedApk).addAll(apksUnderTest).build(),
-        dataDeps);
+        ImmutableList.<Artifact>builder().add(zipAlignedApk).addAll(apksUnderTest).build());
 
     Artifact debugKeystore = AndroidCommon.getApkDebugSigningKey(ruleContext);
     Artifact apkManifest =
@@ -669,7 +662,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           resourceExtractor,
           nativeLibsZips,
           signingKey,
-          dataDeps,
           additionalMergedManifests,
           applicationManifest);
     }

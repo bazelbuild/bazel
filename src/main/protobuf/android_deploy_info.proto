@@ -35,6 +35,6 @@ message AndroidDeployInfo {
   // mobile-install does its own deployment, so this list will be empty
   repeated Artifact apks_to_deploy = 3;
 
-  // Any data files to deploy
+  // Unused
   repeated Artifact data_to_deploy = 4;
 }

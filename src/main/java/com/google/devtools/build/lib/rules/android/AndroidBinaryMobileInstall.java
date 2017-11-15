@@ -135,7 +135,6 @@ public final class AndroidBinaryMobileInstall {
       FilesToRunProvider resourceExtractor,
       NestedSet<Artifact> nativeLibsZips,
       Artifact signingKey,
-      ImmutableList<Artifact> dataDeps,
       ImmutableList<Artifact> additionalMergedManifests,
       ApplicationManifest applicationManifest)
       throws InterruptedException, RuleErrorException {
@@ -309,8 +308,7 @@ public final class AndroidBinaryMobileInstall {
         incrementalDeployInfo,
         resourceApk.getManifest(),
         additionalMergedManifests,
-        ImmutableList.<Artifact>of(),
-        dataDeps);
+        ImmutableList.<Artifact>of());
 
     Artifact splitDeployInfo = ruleContext.getImplicitOutputArtifact(
         AndroidRuleClasses.DEPLOY_INFO_SPLIT);
@@ -319,8 +317,7 @@ public final class AndroidBinaryMobileInstall {
         splitDeployInfo,
         resourceApk.getManifest(),
         additionalMergedManifests,
-        ImmutableList.<Artifact>of(),
-        dataDeps);
+        ImmutableList.<Artifact>of());
 
     NestedSet<Artifact> fullInstallOutputGroup = NestedSetBuilder.<Artifact>stableOrder()
         .add(fullDeployMarker)
