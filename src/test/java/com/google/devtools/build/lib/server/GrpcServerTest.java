@@ -23,14 +23,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
-import com.google.devtools.build.lib.runtime.CommandExecutor;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.build.lib.server.CommandProtos.PingRequest;
-import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
-import com.google.devtools.build.lib.server.CommandServerGrpc.CommandServerBlockingStub;
 import com.google.devtools.build.lib.server.GrpcServerImpl.StreamType;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -45,12 +38,8 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.ServerCallStreamObserver;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -349,108 +338,5 @@ public class GrpcServerTest {
             .setCookie("cookie")
             .setStandardOutput(ByteString.copyFrom(chunk3.getBytes(StandardCharsets.ISO_8859_1)))
             .build());
-  }
-
-  private static class Server {
-    private final Path workspaceDirectory;
-    private final Path serverDirectory;
-    private final CommandExecutor commandExecutor;
-    private final GrpcServerImpl impl;
-    private final TestThread serverThread;
-    private final CommandServerBlockingStub clientStub;
-
-    private Server() throws Exception {
-      FileSystem fs = new InMemoryFileSystem(BlazeClock.instance());
-      workspaceDirectory = fs.getPath("/workspace");
-      workspaceDirectory.createDirectory();
-      serverDirectory = fs.getPath("/server");
-      serverDirectory.createDirectory();
-      Path pidfile = fs.getPath("/server/server.pid.txt");
-      FileSystemUtils.writeContentAsLatin1(pidfile, "1234");
-      commandExecutor = mock(CommandExecutor.class);
-      impl =
-          new GrpcServerImpl(
-              commandExecutor, BlazeClock.instance(), 0, workspaceDirectory, serverDirectory, 1000);
-      serverThread =
-          new TestThread() {
-            @Override
-            public void runTest() throws Exception {
-              impl.serve();
-            }
-          };
-
-      serverThread.start();
-      CommandServerBlockingStub stubCandidate = null;
-      boolean ok = false;
-
-      // Wait until the server starts up. Should be reasonably quick.
-      for (int i = 0; i < 20; i++) {
-        Thread.sleep(100);
-        PingRequest request = PingRequest.newBuilder().setCookie(impl.getRequestCookie()).build();
-        if (impl.getAddress() == null) {
-          continue;
-        }
-
-        if (stubCandidate == null) {
-          stubCandidate =
-              CommandServerGrpc.newBlockingStub(
-                  NettyChannelBuilder.forAddress(impl.getAddress()).usePlaintext(true).build());
-        }
-
-        try {
-          stubCandidate.ping(request);
-          ok = true;
-          break;
-        } catch (StatusRuntimeException e) {
-          continue;
-        }
-      }
-
-      if (!ok) {
-        throw new IllegalStateException("Server did not start up in time");
-      }
-
-      clientStub = stubCandidate;
-    }
-
-    private void finish() throws Exception {
-      impl.signalShutdown();
-      serverThread.joinAndAssertState(1000);
-    }
-  }
-
-  @Test
-  public void testRunCommand() throws Exception {
-    Server server = new Server();
-    when(server.commandExecutor.exec(
-            any(InvocationPolicy.class),
-            any(List.class),
-            any(OutErr.class),
-            any(LockingMode.class),
-            any(String.class),
-            any(Long.class),
-            any(Optional.class)))
-        .thenReturn(42);
-
-    RunRequest request =
-        RunRequest.newBuilder()
-            .setClientDescription("client")
-            .setCookie(server.impl.getRequestCookie())
-            .build();
-
-    Iterator<RunResponse> result = server.clientStub.run(request);
-    int exitCode = -1;
-    while (result.hasNext()) {
-      exitCode = result.next().getExitCode();
-    }
-    server.finish();
-    assertThat(exitCode).isEqualTo(42);
-  }
-
-  @Test
-  public void testIdleShutdownWhenWorkspaceDeleted() throws Exception {
-    Server server = new Server();
-    server.workspaceDirectory.delete();
-    server.serverThread.joinAndAssertState(10000); // We check the workspace dir every five seconds
   }
 }
