@@ -180,6 +180,7 @@ public class Aapt2ResourcePackagingAction {
                 .withAssets(assetDirs)
                 .buildVersion(aaptConfigOptions.buildToolsVersion)
                 .filterToDensity(densitiesToFilter)
+                .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
                 .link(compiled)
                 .copyPackageTo(options.packagePath)
                 .copyProguardTo(options.proguardOutput)
