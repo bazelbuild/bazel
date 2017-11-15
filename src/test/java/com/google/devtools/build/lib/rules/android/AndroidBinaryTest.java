@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -3218,8 +3219,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
   }
 
-  @Test
-  public void testAapt2WithAndroidSdk() throws Exception {
+  private void mockAndroidSdkWithAapt2() throws IOException {
     scratch.file(
         "sdk/BUILD",
         "android_sdk(",
@@ -3238,7 +3238,11 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign')");
+  }
 
+  @Test
+  public void testAapt2WithAndroidSdk() throws Exception {
+    mockAndroidSdkWithAapt2();
     scratch.file(
         "java/a/BUILD",
         "android_binary(",
@@ -3259,25 +3263,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testAapt2WithAndroidSdkAndDependencies() throws Exception {
-    scratch.file(
-        "sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'aapt',",
-        "    aapt2 = 'aapt2',",
-        "    adb = 'adb',",
-        "    aidl = 'aidl',",
-        "    android_jar = 'android.jar',",
-        "    annotations_jar = 'annotations_jar',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    framework_aidl = 'framework_aidl',",
-        "    main_dex_classes = 'main_dex_classes',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'proguard',",
-        "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign')");
-
+    mockAndroidSdkWithAapt2();
     scratch.file(
         "java/b/BUILD",
         "android_library(",
@@ -3323,25 +3309,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testAapt2ResourceShrinkingAction() throws Exception {
-    scratch.file(
-        "sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'aapt',",
-        "    aapt2 = 'aapt2',",
-        "    adb = 'adb',",
-        "    aidl = 'aidl',",
-        "    android_jar = 'android.jar',",
-        "    annotations_jar = 'annotations_jar',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    framework_aidl = 'framework_aidl',",
-        "    main_dex_classes = 'main_dex_classes',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'proguard',",
-        "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign')");
-
+    mockAndroidSdkWithAapt2();
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
@@ -3901,5 +3869,97 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         /*expectMapping=*/ false,
         /*passes=*/ null,
         getAndroidJarPath());
+  }
+
+  @Test
+  public void testSkipParsingActionFlagGetsPropagated() throws Exception {
+    mockAndroidSdkWithAapt2();
+    scratch.file(
+        "java/b/BUILD",
+        "android_library(",
+        "    name = 'b',",
+        "    srcs = ['B.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        ")");
+
+    scratch.file(
+        "java/a/BUILD",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [ '//java/b:b' ],",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        "    aapt_version = 'aapt2'",
+        ")");
+
+    useConfiguration("--android_sdk=//sdk:sdk", "--experimental_skip_parsing_action");
+    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
+    ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
+
+    List<String> resourceProcessingArgs =
+        getGeneratingSpawnActionArgs(getResourceContainer(a).getRTxt());
+
+    assertThat(resourceProcessingArgs).contains("AAPT2_PACKAGE");
+    String directData =
+        resourceProcessingArgs.get(
+            resourceProcessingArgs.indexOf("--directData") + 1);
+    assertThat(directData).contains("symbols.zip");
+    assertThat(directData).doesNotContain("merged.bin");
+    assertThat(resourceProcessingArgs).contains("--useCompiledResourcesForMerge");
+
+    List<String> resourceMergingArgs =
+        getGeneratingSpawnActionArgs(getResourceContainer(b).getJavaClassJar());
+
+    assertThat(resourceMergingArgs).contains("MERGE_COMPILED");
+  }
+
+  @Test
+  public void testAapt1BuildsWithAapt2Sdk() throws Exception {
+    mockAndroidSdkWithAapt2();
+    scratch.file(
+        "java/b/BUILD",
+        "android_library(",
+        "    name = 'b',",
+        "    srcs = ['B.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        ")");
+
+    scratch.file(
+        "java/a/BUILD",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [ '//java/b:b' ],",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        "    aapt_version = 'aapt'",
+        ")");
+
+    useConfiguration("--android_sdk=//sdk:sdk", "--experimental_skip_parsing_action");
+    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
+    ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
+
+    List<String> resourceProcessingArgs =
+        getGeneratingSpawnActionArgs(getResourceContainer(a).getRTxt());
+
+    assertThat(resourceProcessingArgs).contains("PACKAGE");
+    String directData =
+        resourceProcessingArgs.get(
+            resourceProcessingArgs.indexOf("--directData") + 1);
+    assertThat(directData).doesNotContain("symbols.zip");
+    assertThat(directData).contains("merged.bin");
+
+    List<String> compiledResourceMergingArgs =
+        getGeneratingSpawnActionArgs(getResourceContainer(b).getJavaClassJar());
+
+    assertThat(compiledResourceMergingArgs).contains("MERGE_COMPILED");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(b));
+    List<String> parsedResourceMergingArgs =
+        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "resource_files.zip"));
+    assertThat(parsedResourceMergingArgs).contains("MERGE");
   }
 }

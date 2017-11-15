@@ -240,7 +240,8 @@ public final class ApplicationManifest {
 
   public ApplicationManifest mergeWith(
       RuleContext ruleContext, ResourceDependencies resourceDeps, boolean legacy) {
-    Map<Artifact, Label> mergeeManifests = getMergeeManifests(resourceDeps.getResourceContainers());
+    Map<Artifact, Label> mergeeManifests =
+        getMergeeManifests(resourceDeps.getResourceContainers());
 
     if (legacy) {
       if (!mergeeManifests.isEmpty()) {
@@ -616,6 +617,12 @@ public final class ApplicationManifest {
             // have checked its dependencies.
             ruleContext);
 
+    AndroidConfiguration androidConfiguration = ruleContext.getConfiguration()
+        .getFragment(AndroidConfiguration.class);
+
+    boolean skipParsingAction =
+        targetAaptVersion == AndroidAaptVersion.AAPT2 && androidConfiguration.skipParsingAction();
+
     ResourceContainer processed =
         new AndroidResourcesProcessorBuilder(ruleContext)
             .setLibrary(false)
@@ -637,11 +644,8 @@ public final class ApplicationManifest {
             .setVersionName(manifestValues.get("versionName"))
             .setFeatureOf(featureOf)
             .setFeatureAfter(featureAfter)
-            .setThrowOnResourceConflict(
-                ruleContext
-                    .getConfiguration()
-                    .getFragment(AndroidConfiguration.class)
-                    .throwOnResourceConflict())
+            .setThrowOnResourceConflict(androidConfiguration.throwOnResourceConflict())
+            .setUseCompiledResourcesForMerge(skipParsingAction)
             .targetAaptVersion(targetAaptVersion)
             .setRTxtOut(resourceContainer.getRTxt())
             .setSymbols(resourceContainer.getSymbols())
@@ -721,6 +725,12 @@ public final class ApplicationManifest {
     Artifact rJavaClassJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
 
+    AndroidConfiguration androidConfiguration = ruleContext.getConfiguration()
+        .getFragment(AndroidConfiguration.class);
+
+    boolean skipParsingAction =
+        targetAaptVersion == AndroidAaptVersion.AAPT2 && androidConfiguration.skipParsingAction();
+
     if (resourceContainer.getSymbols() != null) {
       AndroidResourceParsingActionBuilder parsingBuilder =
           new AndroidResourceParsingActionBuilder(ruleContext)
@@ -747,16 +757,13 @@ public final class ApplicationManifest {
             .setJavaPackage(resourceContainer.getJavaPackage())
             .withPrimary(resourceContainer)
             .withDependencies(resourceDeps)
+            .setThrowOnResourceConflict(androidConfiguration.throwOnResourceConflict())
+            .setUseCompiledMerge(skipParsingAction)
             .setDataBindingInfoZip(dataBindingInfoZip)
             .setMergedResourcesOut(mergedResources)
             .setManifestOut(manifestOut)
             .setClassJarOut(rJavaClassJar)
             .setDataBindingInfoZip(dataBindingInfoZip)
-            .setThrowOnResourceConflict(
-                ruleContext
-                    .getConfiguration()
-                    .getFragment(AndroidConfiguration.class)
-                    .throwOnResourceConflict())
             .build(ruleContext);
 
     ResourceContainer processed =

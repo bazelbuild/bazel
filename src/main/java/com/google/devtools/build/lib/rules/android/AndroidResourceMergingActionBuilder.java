@@ -47,6 +47,14 @@ public class AndroidResourceMergingActionBuilder {
           .withSeparator(SeparatorType.SEMICOLON_AMPERSAND)
           .toArgConverter();
 
+  private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED =
+      ResourceContainerConverter.builder()
+          .includeResourceRoots()
+          .includeLabel()
+          .includeCompiledSymbols()
+          .withSeparator(SeparatorType.SEMICOLON_AMPERSAND)
+          .toArgConverter();
+
   private final RuleContext ruleContext;
   private final AndroidSdkProvider sdk;
 
@@ -63,6 +71,7 @@ public class AndroidResourceMergingActionBuilder {
   // Flags
   private String customJavaPackage;
   private boolean throwOnResourceConflict;
+  private boolean useCompiledMerge;
 
   /** @param ruleContext The RuleContext that was used to create the SpawnAction.Builder. */
   public AndroidResourceMergingActionBuilder(RuleContext ruleContext) {
@@ -120,51 +129,22 @@ public class AndroidResourceMergingActionBuilder {
     return this;
   }
 
-  public ResourceContainer build(ActionConstructionContext context) {
-    CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
+  public AndroidResourceMergingActionBuilder setUseCompiledMerge(
+      boolean useCompiledMerge) {
+    this.useCompiledMerge = useCompiledMerge;
+    return this;
+  }
 
-    // Set the busybox tool.
-    builder.add("--tool").add("MERGE").add("--");
-
+  private NestedSetBuilder<Artifact> createInputsForBuilder(CustomCommandLine.Builder builder) {
     // Use a FluentIterable to avoid flattening the NestedSets
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
 
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
-    Preconditions.checkNotNull(primary);
-    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.apply(primary));
-    inputs.addAll(primary.getArtifacts());
-    inputs.add(primary.getSymbols());
-
     Preconditions.checkNotNull(primary.getManifest());
     builder.addExecPath("--primaryManifest", primary.getManifest());
     inputs.add(primary.getManifest());
-
-    if (dependencies != null) {
-      ResourceContainerConverter.addToCommandLine(dependencies, builder, RESOURCE_CONTAINER_TO_ARG);
-      inputs.addTransitive(dependencies.getTransitiveResources());
-      inputs.addTransitive(dependencies.getTransitiveAssets());
-      inputs.addTransitive(dependencies.getTransitiveSymbolsBin());
-    }
-
-    List<Artifact> outs = new ArrayList<>();
-    if (classJarOut != null) {
-      builder.addExecPath("--classJarOutput", classJarOut);
-      outs.add(classJarOut);
-    }
-
-    if (mergedResourcesOut != null) {
-      builder.addExecPath("--resourcesOutput", mergedResourcesOut);
-      outs.add(mergedResourcesOut);
-    }
-
-    // For now, do manifest processing to remove placeholders that aren't handled by the legacy
-    // manifest merger. Remove this once enough users migrate over to the new manifest merger.
-    if (manifestOut != null) {
-      builder.addExecPath("--manifestOutput", manifestOut);
-      outs.add(manifestOut);
-    }
 
     if (!Strings.isNullOrEmpty(customJavaPackage)) {
       // Sets an alternative java package for the generated R.java
@@ -172,15 +152,68 @@ public class AndroidResourceMergingActionBuilder {
       builder.add("--packageForR", customJavaPackage);
     }
 
-    // TODO(corysmith): Move the data binding parsing out of the merging pass to enable faster
-    // aapt2 builds.
-    if (dataBindingInfoZip != null) {
-      builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
-      outs.add(dataBindingInfoZip);
-    }
-
     if (throwOnResourceConflict) {
       builder.add("--throwOnResourceConflict");
+    }
+
+    return inputs;
+  }
+
+  private void buildCompiledResourceMergingAction(
+      CustomCommandLine.Builder builder,
+      List<Artifact> outputs,
+      ActionConstructionContext context) {
+    NestedSetBuilder<Artifact> inputs = createInputsForBuilder(builder);
+
+    Preconditions.checkNotNull(primary);
+    builder.add("--primaryData",
+        RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED.apply(primary));
+    inputs.addAll(primary.getArtifacts());
+    inputs.add(primary.getCompiledSymbols());
+
+    if (dependencies != null) {
+      ResourceContainerConverter.addToCommandLine(dependencies, builder,
+          RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED);
+      inputs.addTransitive(dependencies.getTransitiveResources());
+      inputs.addTransitive(dependencies.getTransitiveAssets());
+      inputs.addTransitive(dependencies.getTransitiveCompiledSymbols());
+    }
+
+    SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
+    ParamFileInfo.Builder compiledParamFileInfo = ParamFileInfo.builder(ParameterFileType.UNQUOTED);
+    compiledParamFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
+    // Create the spawn action.
+    ruleContext.registerAction(
+        spawnActionBuilder
+            .useDefaultShellEnvironment()
+            .addTransitiveInputs(inputs.build())
+            .addOutputs(ImmutableList.copyOf(outputs))
+            .addCommandLine(builder.build(), compiledParamFileInfo.build())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage("Merging compiled Android resources for %s",
+                ruleContext.getLabel())
+            .setMnemonic("AndroidCompiledResourceMerger")
+            .build(context));
+  }
+
+
+  private void buildParsedResourceMergingAction(
+      CustomCommandLine.Builder builder,
+      List<Artifact> outputs,
+      ActionConstructionContext context) {
+    NestedSetBuilder<Artifact> inputs = createInputsForBuilder(builder);
+
+    Preconditions.checkNotNull(primary);
+    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.apply(primary));
+    inputs.addAll(primary.getArtifacts());
+    inputs.add(primary.getSymbols());
+
+    if (dependencies != null) {
+      ResourceContainerConverter.addToCommandLine(dependencies, builder, RESOURCE_CONTAINER_TO_ARG);
+      inputs.addTransitive(dependencies.getTransitiveResources());
+      inputs.addTransitive(dependencies.getTransitiveAssets());
+      inputs.addTransitive(dependencies.getTransitiveSymbolsBin());
     }
 
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
@@ -200,13 +233,63 @@ public class AndroidResourceMergingActionBuilder {
         spawnActionBuilder
             .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
-            .addOutputs(ImmutableList.copyOf(outs))
+            .addOutputs(ImmutableList.copyOf(outputs))
             .addCommandLine(builder.build(), paramFileInfo.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Merging Android resources for %s", ruleContext.getLabel())
             .setMnemonic("AndroidResourceMerger")
             .build(context));
+  }
+
+  public ResourceContainer build(ActionConstructionContext context) {
+    CustomCommandLine.Builder parsedMergeBuilder =
+        new CustomCommandLine.Builder().add("--tool").add("MERGE").add("--");
+    CustomCommandLine.Builder compiledMergeBuilder =
+        new CustomCommandLine.Builder().add("--tool").add("MERGE_COMPILED").add("--");
+    List<Artifact> parsedMergeOutputs = new ArrayList<>();
+    List<Artifact> compiledMergeOutputs = new ArrayList<>();
+
+    if (mergedResourcesOut != null) {
+      parsedMergeBuilder.addExecPath("--resourcesOutput", mergedResourcesOut);
+      parsedMergeOutputs.add(mergedResourcesOut);
+    }
+
+    // TODO(corysmith): Move the data binding parsing out of the merging pass to enable faster
+    // aapt2 builds.
+    if (dataBindingInfoZip != null) {
+      parsedMergeBuilder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
+      parsedMergeOutputs.add(dataBindingInfoZip);
+    }
+
+    CustomCommandLine.Builder jarAndManifestBuilder =
+        useCompiledMerge
+            ? compiledMergeBuilder
+            : parsedMergeBuilder;
+    List<Artifact> jarAndManifestOutputs =
+        useCompiledMerge
+            ? compiledMergeOutputs
+            : parsedMergeOutputs;
+
+    if (classJarOut != null) {
+      jarAndManifestBuilder.addExecPath("--classJarOutput", classJarOut);
+      jarAndManifestOutputs.add(classJarOut);
+    }
+
+    // For now, do manifest processing to remove placeholders that aren't handled by the legacy
+    // manifest merger. Remove this once enough users migrate over to the new manifest merger.
+    if (manifestOut != null) {
+      jarAndManifestBuilder.addExecPath("--manifestOutput", manifestOut);
+      jarAndManifestOutputs.add(manifestOut);
+    }
+
+    if (!compiledMergeOutputs.isEmpty()) {
+      buildCompiledResourceMergingAction(compiledMergeBuilder, compiledMergeOutputs, context);
+    }
+
+    if (!parsedMergeOutputs.isEmpty()) {
+      buildParsedResourceMergingAction(parsedMergeBuilder, parsedMergeOutputs, context);
+    }
 
     // Return the full set of processed transitive dependencies.
     ResourceContainer.Builder result = primary.toBuilder();

@@ -663,6 +663,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean allowResourcesAttr;
 
     @Option(
+        name = "experimental_skip_parsing_action",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Skips resource parsing action for library targets"
+            + " and uses the output of the compile action instead for resource merging."
+    )
+    public boolean skipParsingAction;
+
+    @Option(
         name = "experimental_android_inherit_resources_in_tests",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -755,6 +765,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean allowAndroidResources;
   private final boolean allowResourcesAttr;
   private final boolean inheritResourcesInTests;
+  private final boolean skipParsingAction;
 
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
@@ -793,6 +804,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.allowAndroidResources = options.allowAndroidResources;
     this.allowResourcesAttr = options.allowResourcesAttr;
     this.inheritResourcesInTests = options.inheritResourcesInTests;
+    this.skipParsingAction = options.skipParsingAction;
 
     if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
       // TODO(bazel-team): Still needed? See DexArchiveAspect
@@ -949,6 +961,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean inheritResourcesInTests() {
     return this.inheritResourcesInTests;
+  }
+
+  public boolean skipParsingAction() {
+    return this.skipParsingAction;
   }
 
   @Override
