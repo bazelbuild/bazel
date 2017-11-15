@@ -157,4 +157,14 @@ public class Aapt2ConfigOptions extends OptionsBase {
               + " the output package name following an underscore."
   )
   public List<String> splits;
+
+  @Option(
+      name = "useCompiledResourcesForMerge",
+      defaultValue = "false",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Use compiled resources for merging rather than parsed symbols binary."
+  )
+  public boolean useCompiledResourcesForMerge;
 }

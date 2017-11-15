@@ -16,6 +16,9 @@ package com.google.devtools.build.android.xml;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 
+import com.android.aapt.Resources.Attribute;
+import com.android.aapt.Resources.Attribute.Symbol;
+import com.android.aapt.Resources.Value;
 import com.android.resources.ResourceType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -39,6 +42,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -190,6 +194,66 @@ public class AttrXmlResourceValue implements XmlResourceValue {
           break;
         default:
           throw new InvalidProtocolBufferException("Unexpected format: " + entry.getKey());
+      }
+    }
+    return of(formats.build());
+  }
+
+  public static XmlResourceValue from(Value proto) throws InvalidProtocolBufferException {
+    Builder<String, ResourceXmlAttrValue> formats =
+        ImmutableMap.builder();
+
+    Attribute attribute = proto.getCompoundValue().getAttr();
+    int formatFlags = attribute.getFormatFlags();
+
+    if (formatFlags != 0xFFFF) {
+      //These flags are defined in AOSP in ResourceTypes.h:ResTable_map
+      if ((formatFlags & 1 << 0) != 0) {
+        formats.put("reference", ReferenceResourceXmlAttrValue.of());
+      }
+      if ((formatFlags & 1 << 1) != 0) {
+        formats.put("string", StringResourceXmlAttrValue.of());
+      }
+      if ((formatFlags & 1 << 2) != 0) {
+        formats.put("integer", IntegerResourceXmlAttrValue.of());
+      }
+      if ((formatFlags & 1 << 3) != 0) {
+        formats.put("boolean", BooleanResourceXmlAttrValue.of());
+      }
+      if ((formatFlags & 1 << 4) != 0) {
+        formats.put("color", ColorResourceXmlAttrValue.of());
+      }
+      if ((formatFlags & 1 << 5) != 0) {
+        formats.put("float", FloatResourceXmlAttrValue.of());
+      }
+      if ((formatFlags & 1 << 6) != 0) {
+        formats.put("dimension", DimensionResourceXmlAttrValue.of());
+      }
+      if ((formatFlags & 1 << 7) != 0) {
+        formats.put("fraction", FractionResourceXmlAttrValue.of());
+      }
+      if ((formatFlags & 1 << 16) != 0) {
+        Map<String, String> enums = new HashMap<>();
+
+        for (Symbol attrSymbol : attribute.getSymbolList()) {
+          String name = attrSymbol.getName().getName().replaceFirst("id/", "");
+          enums.put(name, Integer.toString(attrSymbol.getValue()));
+        }
+
+        formats.put("enum", EnumResourceXmlAttrValue.of(enums));
+      }
+      if ((formatFlags & 1 << 17) != 0) {
+        Map<String, String> flags = new HashMap<>();
+        for (Symbol attrSymbol : attribute.getSymbolList()) {
+          String name = attrSymbol.getName().getName().replaceFirst("id/", "");
+          flags.put(name, Integer.toString(attrSymbol.getValue()));
+        }
+
+        formats.put("flags", FlagResourceXmlAttrValue.of(flags));
+      }
+      if ((formatFlags & 0xFFFCFF00) != 0) {
+        throw new InvalidProtocolBufferException(
+            "Unexpected format flags: " + formatFlags);
       }
     }
     return of(formats.build());

@@ -119,7 +119,9 @@ class AndroidDataMerger {
   @VisibleForTesting
   static AndroidDataMerger createWithDefaultThreadPool(SourceChecker deDuplicator) {
     return new AndroidDataMerger(
-        deDuplicator, MoreExecutors.newDirectExecutorService(), AndroidDataDeserializer.create());
+        deDuplicator,
+        MoreExecutors.newDirectExecutorService(),
+        AndroidParsedDataDeserializer.create());
   }
 
   /** Creates a merger with a file contents hashing deduplicator. */

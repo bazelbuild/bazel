@@ -92,6 +92,12 @@ public class ResourceProcessorBusyBox {
         AndroidResourceMergingAction.main(args);
       }
     },
+    MERGE_COMPILED() {
+      @Override
+      void call(String[] args) throws Exception {
+        AndroidCompiledResourceMergingAction.main(args);
+      }
+    },
     GENERATE_AAR() {
       @Override
       void call(String[] args) throws Exception {
@@ -159,7 +165,7 @@ public class ResourceProcessorBusyBox {
           "The processing tool to execute. "
               + "Valid tools: PACKAGE, VALIDATE, GENERATE_BINARY_R, GENERATE_LIBRARY_R, PARSE, "
               + "MERGE, GENERATE_AAR, SHRINK, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
-              + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE, SHRINK_AAPT2."
+              + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE, SHRINK_AAPT2, MERGE_COMPILED."
     )
     public Tool tool;
   }

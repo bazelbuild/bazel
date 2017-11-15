@@ -136,7 +136,7 @@ public class GenerateRobolectricResourceSymbolsAction {
         final PlaceholderIdFieldInitializerBuilder robolectricIds =
             PlaceholderIdFieldInitializerBuilder.from(aaptConfigOptions.androidJar);
         ParsedAndroidData.loadedFrom(
-                options.data, executorService, AndroidDataDeserializer.create())
+                options.data, executorService, AndroidParsedDataDeserializer.create())
             .writeResourcesTo(
                 new AndroidResourceSymbolSink() {
 

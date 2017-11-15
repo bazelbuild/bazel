@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.android.aapt.Resources.Item;
+import com.android.aapt.Resources.StyledString;
+import com.android.aapt.Resources.StyledString.Span;
+import com.android.aapt.Resources.Value;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
@@ -54,6 +58,8 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   static final QName TAG_FRACTION = QName.valueOf("fraction");
   static final QName TAG_INTEGER = QName.valueOf("integer");
   static final QName TAG_ITEM = QName.valueOf("item");
+  static final QName TAG_LAYOUT = QName.valueOf("layout");
+  static final QName TAG_MIPMAP = QName.valueOf("mipmap");
   static final QName TAG_PUBLIC = QName.valueOf("public");
   static final QName TAG_STRING = QName.valueOf("string");
 
@@ -108,6 +114,20 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
         return true;
       }
     },
+    LAYOUT(TAG_LAYOUT) {
+      @Override
+      public boolean validate(String value) {
+        // TODO(corysmith): Validate the item type.
+        return true;
+      }
+    },
+    MIPMAP(TAG_MIPMAP) {
+      @Override
+      public boolean validate(String value) {
+        // TODO(corysmith): Validate the item type.
+        return true;
+      }
+    },
     PUBLIC(TAG_PUBLIC) {
       @Override
       public boolean validate(String value) {
@@ -121,7 +141,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
         return true;
       }
     };
-    private QName tagName;
+    private final QName tagName;
 
     Type(QName tagName) {
       this.tagName = tagName;
@@ -209,6 +229,45 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
         Type.valueOf(proto.getValueType()),
         ImmutableMap.copyOf(proto.getAttribute()),
         proto.hasValue() ? proto.getValue() : null);
+  }
+
+  public static XmlResourceValue from(Value proto, ResourceType resourceType) {
+    Item item = proto.getItem();
+    String stringValue = null;
+
+    if (item.hasStr()) {
+      stringValue = item.getStr().toString();
+    } else if (item.hasRef()) {
+      stringValue = "@" + item.getRef().getName();
+    } else if (item.hasStyledStr()) {
+      StyledString styledString = item.getStyledStr();
+      StringBuilder stringBuilder = new StringBuilder(styledString.getValue());
+
+      for (Span span : styledString.getSpanList()) {
+        stringBuilder.append(
+            String.format(";%s,%d,%d", span.getTag(), span.getFirstChar(), span.getLastChar()));
+      }
+      stringValue = stringBuilder.toString();
+    } else if ((resourceType == ResourceType.COLOR
+        || resourceType == ResourceType.DRAWABLE) && item.hasPrim()) {
+      stringValue =
+          String.format("#%1$8s", Integer.toHexString(item.getPrim().getData())).replace(' ', '0');
+    } else if (resourceType == ResourceType.INTEGER && item.hasPrim()){
+      stringValue = Integer.toString(item.getPrim().getData());
+    } else if (resourceType == ResourceType.BOOL && item.hasPrim()) {
+      stringValue = item.getPrim().getData() == 0 ? "false" : "true";
+    } else if (resourceType == ResourceType.FRACTION
+        || resourceType == ResourceType.DIMEN) {
+      stringValue = Integer.toString(item.getPrim().getData());
+    } else {
+      throw new IllegalArgumentException(
+          String.format("'%s' is not a valid resource type.", resourceType));
+    }
+
+    return of(
+        Type.valueOf(resourceType.toString().toUpperCase()),
+        ImmutableMap.of(),
+        stringValue);
   }
 
   @Override

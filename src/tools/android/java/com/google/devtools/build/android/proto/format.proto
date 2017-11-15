@@ -11,14 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.android;
 
-import java.nio.file.Path;
+syntax = "proto2";
 
-/** Represents a deserializer to deserialize {@link DataKey}
- * and {@link DataValue} from a path and feed to it consumers.
- */
-public interface AndroidDataDeserializer {
 
-  void read(Path inPath, KeyValueConsumers consumers);
+// option java_api_version = 2;
+option optimize_for = LITE_RUNTIME;
+
+package aapt.pb;
+option java_package = "com.google.devtools.build.android.proto";
+
+message ConfigDescription {
+  optional bytes data = 1;
+  optional string product = 2;
+}
+
+message StringPool {
+  optional bytes data = 1;
+}
+
+message CompiledFile {
+  message Symbol {
+    optional string resource_name = 1;
+    optional uint32 line_no = 2;
+  }
+
+  optional string resource_name = 1;
+  optional ConfigDescription config = 2;
+  optional string source_path = 3;
+  repeated Symbol exported_symbols = 4;
 }

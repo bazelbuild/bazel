@@ -122,7 +122,7 @@ public class LibraryRClassGeneratorAction {
       logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       final ParsedAndroidData data =
-          AndroidDataDeserializer.deserializeSymbolsToData(options.symbols);
+          AndroidParsedDataDeserializer.deserializeSymbolsToData(options.symbols);
       logger.fine(
           String.format("Deserialization finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

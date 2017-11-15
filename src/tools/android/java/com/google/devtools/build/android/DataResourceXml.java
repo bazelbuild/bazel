@@ -17,6 +17,7 @@ import static com.android.resources.ResourceType.DECLARE_STYLEABLE;
 import static com.android.resources.ResourceType.ID;
 import static com.android.resources.ResourceType.PUBLIC;
 
+import com.android.aapt.Resources.Value;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -44,6 +45,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLEventReader;
@@ -196,6 +199,62 @@ public class DataResourceXml implements DataResource {
         return StyleableXmlResourceValue.from(proto);
       case RESOURCES_ATTRIBUTE:
         return ResourcesAttribute.from(proto);
+      default:
+        throw new IllegalArgumentException();
+    }
+  }
+
+  public static DataResourceXml from(
+      Value protoValue,
+      DataSource source,
+      ResourceType resourceType,
+      Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames)
+      throws InvalidProtocolBufferException {
+    DataResourceXml dataResourceXml = createWithNamespaces(
+        source,
+        valueFromProto(protoValue, resourceType, fullyQualifiedNames),
+        Namespaces.empty());
+    return dataResourceXml;
+  }
+
+  private static XmlResourceValue valueFromProto(
+      Value proto,
+      ResourceType resourceType,
+      Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames)
+      throws InvalidProtocolBufferException {
+    switch (resourceType) {
+      case STYLE:
+        return StyleXmlResourceValue.from(proto);
+      case ARRAY:
+        return ArrayXmlResourceValue.from(proto);
+      case PLURALS:
+        return PluralXmlResourceValue.from(proto);
+      case ATTR:
+        return AttrXmlResourceValue.from(proto);
+      case PUBLIC:
+        throw new RuntimeException();
+      case STYLEABLE:
+        return StyleableXmlResourceValue.from(proto, fullyQualifiedNames);
+      case ID:
+        return IdXmlResourceValue.of();
+      case DIMEN:
+      case LAYOUT:
+      case STRING:
+      case BOOL:
+      case COLOR:
+      case FRACTION:
+      case INTEGER:
+      case DRAWABLE:
+      case ANIM:
+      case ANIMATOR:
+      case DECLARE_STYLEABLE:
+      case INTERPOLATOR:
+      case MENU:
+      case MIPMAP:
+      case RAW:
+      case TRANSITION:
+      case XML:
+        return SimpleXmlResourceValue.from(proto, resourceType);
       default:
         throw new IllegalArgumentException();
     }

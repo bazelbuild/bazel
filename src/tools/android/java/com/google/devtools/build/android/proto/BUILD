@@ -12,6 +12,27 @@ proto_library(
     srcs = ["serialize_format.proto"],
 )
 
+java_proto_library(
+    name = "format_java_pb",
+    deps = [":format_proto"],
+)
+
+proto_library(
+    name = "format_proto",
+    srcs = ["format.proto"],
+)
+
+java_proto_library(
+    name = "resources_java_proto",
+    strict_deps = 0,
+    deps = [":resources_proto"],
+)
+
+proto_library(
+    name = "resources_proto",
+    srcs = ["Resources.proto"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

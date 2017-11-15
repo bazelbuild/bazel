@@ -1071,7 +1071,7 @@ public class DataResourceXmlTest {
     serializer.queueForSerialization(dimenKey, dimenValue);
     serializer.flushTo(serialized);
 
-    AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+    AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     final Map<DataKey, DataResource> toOverwrite = new HashMap<>();
     final Map<DataKey, DataResource> toCombine = new HashMap<>();
     deserializer.read(
@@ -1132,7 +1132,7 @@ public class DataResourceXmlTest {
     serializer.queueForSerialization(themeKey, themeValue);
     serializer.flushTo(serialized);
 
-    AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+    AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     final Map<DataKey, DataResource> toOverwrite = new HashMap<>();
     final Map<DataKey, DataResource> toCombine = new HashMap<>();
     deserializer.read(
@@ -1258,7 +1258,7 @@ public class DataResourceXmlTest {
     serializer.queueForSerialization(key, value);
     serializer.flushTo(serialized);
 
-    AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+    AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     final Map<DataKey, DataResource> toOverwrite = new HashMap<>();
     final Map<DataKey, DataResource> toCombine = new HashMap<>();
     deserializer.read(
