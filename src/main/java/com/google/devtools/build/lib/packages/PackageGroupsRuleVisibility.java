@@ -26,8 +26,6 @@ import java.util.List;
  */
 @Immutable @ThreadSafe
 public class PackageGroupsRuleVisibility implements RuleVisibility {
-  public static final String PACKAGE_LABEL = "__pkg__";
-  public static final String SUBTREE_LABEL = "__subpackages__";
   private final List<Label> packageGroups;
   private final PackageGroupContents directPackages;
   private final List<Label> declaredLabels;
