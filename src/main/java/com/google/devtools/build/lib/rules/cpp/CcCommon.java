@@ -621,9 +621,19 @@ public final class CcCommon {
                 + packageFragment
                 + "'. This will be an error in the future");
       }
-      result.add(includesPath);
-      result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
-      result.add(ruleContext.getConfiguration().getBinFragment().getRelative(includesPath));
+      int packageFragmentSegmentCount = packageFragment.segmentCount();
+      if (includesPath.segmentCount() > packageFragmentSegmentCount
+          && includesPath.getSegment(packageFragmentSegmentCount).equals("%virtual_includes%")) {
+        result.add(ruleContext
+            .getBinOrGenfilesDirectory()
+            .getExecPath()
+            .getRelative(ruleContext.getUniqueDirectory("_virtual_includes"))
+            .getRelative(includesPath.subFragment(packageFragmentSegmentCount + 1, includesPath.segmentCount())));
+      } else {
+        result.add(includesPath);
+        result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
+        result.add(ruleContext.getConfiguration().getBinFragment().getRelative(includesPath));
+      }
     }
     return result;
   }
