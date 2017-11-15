@@ -44,7 +44,7 @@ Bazel offers the following advantages:
 
 Bazel supports the following:
 
-*  **Programming languages**: C++, Objective-C, Python, JavaScript, Go
+*  **Programming languages**: Java, C++, Objective-C, Python, JavaScript, Go
 
 *  **Operating systems**: Linux, macOS, Windows
 
