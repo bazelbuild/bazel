@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -36,12 +35,11 @@ import javax.annotation.Nullable;
  */
 class IdleServerTasks {
 
-  private long idleStart;
   private final Path workspaceDir;
   private final ScheduledThreadPoolExecutor executor;
   private static final Logger logger = Logger.getLogger(IdleServerTasks.class.getName());
 
-  private static final long FIVE_MIN_NANOS = 1000L * 1000 * 1000 * 60 * 5;
+  private static final long FIVE_MIN_MILLIS = 1000 * 60 * 5;
 
   /**
    * Must be called from the main thread.
@@ -58,7 +56,6 @@ class IdleServerTasks {
   public void idle() {
     Preconditions.checkState(!executor.isShutdown());
 
-    idleStart = BlazeClock.nanoTime();
     // Do a GC cycle while the server is idle.
     @SuppressWarnings("unused")
     Future<?> possiblyIgnoredError =
@@ -102,11 +99,11 @@ class IdleServerTasks {
   }
 
   /**
-   * Return true iff the server should continue processing requests. Called from the main thread, so
-   * it should return quickly.
+   * Return true iff the server should continue processing requests.
+   * Called from the main thread, so it should return quickly.
    */
-  public boolean continueProcessing() {
-    if (!memoryHeuristic()) {
+  public boolean continueProcessing(long idleMillis) {
+    if (!memoryHeuristic(idleMillis)) {
       return false;
     }
     if (workspaceDir == null) {
@@ -124,10 +121,8 @@ class IdleServerTasks {
     return stat != null && stat.isDirectory();
   }
 
-  private boolean memoryHeuristic() {
-    Preconditions.checkState(!executor.isShutdown());
-    long idleNanos = BlazeClock.nanoTime() - idleStart;
-    if (idleNanos < FIVE_MIN_NANOS) {
+  private boolean memoryHeuristic(long idleMillis) {
+    if (idleMillis < FIVE_MIN_MILLIS) {
       // Don't check memory health until after five minutes.
       return true;
     }
