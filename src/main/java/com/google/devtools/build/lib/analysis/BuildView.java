@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
@@ -1136,8 +1137,9 @@ public class BuildView {
             ruleClassProvider.getPrerequisiteValidator(),
             ((Rule) target.getTarget()).getRuleClassObject().getConfigurationFragmentPolicy())
         .setVisibility(
-            NestedSetBuilder.<PackageSpecification>create(
-                Order.STABLE_ORDER, PackageSpecification.everything()))
+            NestedSetBuilder.create(
+                Order.STABLE_ORDER,
+                PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything()))))
         .setPrerequisites(
             getPrerequisiteMapForTesting(eventHandler, target, configurations, toolchainContext))
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())

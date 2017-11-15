@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -54,7 +54,7 @@ public abstract class AbstractConfiguredTarget
   private final Target target;
   private final BuildConfiguration configuration;
 
-  private final NestedSet<PackageSpecification> visibility;
+  private final NestedSet<PackageGroupContents> visibility;
 
   // Cached on-demand default provider
   private final AtomicReference<DefaultInfo> defaultProvider = new AtomicReference<>();
@@ -77,7 +77,7 @@ public abstract class AbstractConfiguredTarget
   }
 
   @Override
-  public final NestedSet<PackageSpecification> getVisibility() {
+  public final NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
   }
 

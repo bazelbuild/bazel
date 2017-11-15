@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -46,16 +46,20 @@ public class TargetContext {
    * attribute in case of a rule). Rule attributes are handled by the {@link RuleContext} subclass.
    */
   private final List<ConfiguredTarget> directPrerequisites;
-  private final NestedSet<PackageSpecification> visibility;
+
+  private final NestedSet<PackageGroupContents> visibility;
 
   /**
    * The constructor is intentionally package private.
    *
    * <p>directPrerequisites is expected to be ordered.
    */
-  TargetContext(AnalysisEnvironment env, Target target, BuildConfiguration configuration,
+  TargetContext(
+      AnalysisEnvironment env,
+      Target target,
+      BuildConfiguration configuration,
       Iterable<ConfiguredTarget> directPrerequisites,
-      NestedSet<PackageSpecification> visibility) {
+      NestedSet<PackageGroupContents> visibility) {
     this.env = env;
     this.target = target;
     this.configuration = configuration;
@@ -85,7 +89,7 @@ public class TargetContext {
     return configuration;
   }
 
-  public NestedSet<PackageSpecification> getVisibility() {
+  public NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
   }
 

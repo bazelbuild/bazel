@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
@@ -146,8 +147,9 @@ public class PackageGroupTest {
   public void testEverythingSpecificationWorks() throws Exception {
     scratch.file("fruits/BUILD", "package_group(name = 'mango', packages = ['//...'])");
     PackageGroup packageGroup = getPackageGroup("fruits", "mango");
-    assertThat(packageGroup.getPackageSpecifications())
-        .containsExactly(PackageSpecification.everything());
+    assertThat(
+            packageGroup.getPackageSpecifications().containedPackages().collect(toImmutableList()))
+        .containsExactly(PackageSpecification.everything().toString());
   }
 
   private Package getPackage(String packageName) throws Exception {

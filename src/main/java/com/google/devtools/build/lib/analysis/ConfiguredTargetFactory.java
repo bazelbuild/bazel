@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -95,21 +96,23 @@ public final class ConfiguredTargetFactory {
    * Returns the visibility of the given target. Errors during package group resolution are reported
    * to the {@code AnalysisEnvironment}.
    */
-  private NestedSet<PackageSpecification> convertVisibility(
-      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap, EventHandler reporter,
-      Target target, BuildConfiguration packageGroupConfiguration) {
+  private NestedSet<PackageGroupContents> convertVisibility(
+      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      EventHandler reporter,
+      Target target,
+      BuildConfiguration packageGroupConfiguration) {
     RuleVisibility ruleVisibility = target.getVisibility();
     if (ruleVisibility instanceof ConstantRuleVisibility) {
       return ((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()
-          ? NestedSetBuilder.<PackageSpecification>create(
-              Order.STABLE_ORDER, PackageSpecification.everything())
-          : NestedSetBuilder.<PackageSpecification>emptySet(Order.STABLE_ORDER);
+          ? NestedSetBuilder.create(
+              Order.STABLE_ORDER,
+              PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())))
+          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
       PackageGroupsRuleVisibility packageGroupsVisibility =
           (PackageGroupsRuleVisibility) ruleVisibility;
 
-      NestedSetBuilder<PackageSpecification> packageSpecifications =
-          NestedSetBuilder.stableOrder();
+      NestedSetBuilder<PackageGroupContents> result = NestedSetBuilder.stableOrder();
       for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
         // PackageGroupsConfiguredTargets are always in the package-group configuration.
         ConfiguredTarget group =
@@ -127,15 +130,15 @@ public final class ConfiguredTargetFactory {
           provider = group.getProvider(PackageSpecificationProvider.class);
         }
         if (provider != null) {
-          packageSpecifications.addTransitive(provider.getPackageSpecifications());
+          result.addTransitive(provider.getPackageSpecifications());
         } else {
           reporter.handle(Event.error(target.getLocation(),
               String.format("Label '%s' does not refer to a package group", groupLabel)));
         }
       }
 
-      packageSpecifications.addAll(packageGroupsVisibility.getDirectPackages());
-      return packageSpecifications.build();
+      result.add(packageGroupsVisibility.getDirectPackages());
+      return result.build();
     } else {
       throw new IllegalStateException("unknown visibility");
     }
@@ -244,8 +247,8 @@ public final class ConfiguredTargetFactory {
     }
 
     // Visibility, like all package groups, doesn't have a configuration
-    NestedSet<PackageSpecification> visibility = convertVisibility(
-        prerequisiteMap, analysisEnvironment.getEventHandler(), target, null);
+    NestedSet<PackageGroupContents> visibility =
+        convertVisibility(prerequisiteMap, analysisEnvironment.getEventHandler(), target, null);
     TargetContext targetContext = new TargetContext(analysisEnvironment, target, config,
         prerequisiteMap.get(null), visibility);
     if (target instanceof OutputFile) {

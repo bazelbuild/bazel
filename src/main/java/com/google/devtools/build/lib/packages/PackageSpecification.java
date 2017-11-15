@@ -14,11 +14,14 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.stream.Stream;
 
 /**
  * Represents one of the following:
@@ -42,7 +45,7 @@ public abstract class PackageSpecification {
   private static final String ALL_BENEATH_SUFFIX = "/...";
 
   /** Returns {@code true} if the package spec includes the provided {@code packageName}. */
-  public abstract boolean containsPackage(PackageIdentifier packageName);
+  protected abstract boolean containsPackage(PackageIdentifier packageName);
 
   /**
    * Returns a {@link String} representation of the {@link PackageSpecification} of the same format
@@ -51,7 +54,7 @@ public abstract class PackageSpecification {
    * <p>The returned {@link String} is insensitive to the {@link RepositoryName} associated with the
    * {@link PackageSpecification}.
    */
-  public abstract String toStringWithoutRepository();
+  protected abstract String toStringWithoutRepository();
 
   /**
    * Parses the provided {@link String} into a {@link PackageSpecification}.
@@ -146,12 +149,12 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    public boolean containsPackage(PackageIdentifier packageName) {
+    protected boolean containsPackage(PackageIdentifier packageName) {
       return this.singlePackageName.equals(packageName);
     }
 
     @Override
-    public String toStringWithoutRepository() {
+    protected String toStringWithoutRepository() {
       return "//" + singlePackageName.getPackageFragment().getPathString();
     }
 
@@ -186,13 +189,13 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    public boolean containsPackage(PackageIdentifier packageName) {
+    protected boolean containsPackage(PackageIdentifier packageName) {
       return packageName.getRepository().equals(prefix.getRepository())
           && packageName.getPackageFragment().startsWith(prefix.getPackageFragment());
     }
 
     @Override
-    public String toStringWithoutRepository() {
+    protected String toStringWithoutRepository() {
       return "//" + prefix.getPackageFragment().getPathString() + ALL_BENEATH_SUFFIX;
     }
 
@@ -227,12 +230,12 @@ public abstract class PackageSpecification {
     private static final PackageSpecification EVERYTHING = new AllPackages();
 
     @Override
-    public boolean containsPackage(PackageIdentifier packageName) {
+    protected boolean containsPackage(PackageIdentifier packageName) {
       return true;
     }
 
     @Override
-    public String toStringWithoutRepository() {
+    protected String toStringWithoutRepository() {
       return "//...";
     }
 
@@ -256,6 +259,56 @@ public abstract class PackageSpecification {
   static class InvalidPackageSpecificationException extends Exception {
     private InvalidPackageSpecificationException(String message) {
       super(message);
+    }
+  }
+
+  /**
+   * A collection of {@link PackageSpecification}s from a {@code package_group}, which supports
+   * testing a given package for containment (see {@link #containedPackages()}}.
+   */
+  @Immutable
+  public static final class PackageGroupContents {
+
+    private final ImmutableList<PackageSpecification> packageSpecifications;
+
+    private PackageGroupContents(ImmutableList<PackageSpecification> packageSpecifications) {
+      this.packageSpecifications = packageSpecifications;
+    }
+
+    /**
+     * Creates a {@link PackageGroupContents} representing a collection of {@link
+     * PackageSpecification}s.
+     */
+    public static PackageGroupContents create(
+        ImmutableList<PackageSpecification> packageSpecifications) {
+      return new PackageGroupContents(packageSpecifications);
+    }
+
+    /**
+     * Returns {@code true} if the package specifications include the provided {@code packageName}.
+     * That is, at least one positive package specification matches.
+     */
+    public boolean containsPackage(PackageIdentifier packageIdentifier) {
+      return packageSpecifications.stream().anyMatch(p -> p.containsPackage(packageIdentifier));
+    }
+
+    /**
+     * Returns {@link String} representations of the component {@link PackageSpecification}s of the
+     * same format accepted by {@link #fromString}.
+     */
+    public Stream<String> containedPackages() {
+      return packageSpecifications.stream().map(PackageSpecification::toString);
+    }
+
+    /**
+     * Returns {@link String} representations of the component {@link PackageSpecification}s of the
+     * same format accepted by {@link #fromString}.
+     *
+     * <p>The returned {@link String}s are insensitive to the {@link RepositoryName} associated with
+     * the {@link PackageSpecification}.
+     */
+    public Stream<String> containedPackagesWithoutRepository() {
+      return packageSpecifications.stream().map(PackageSpecification::toStringWithoutRepository);
     }
   }
 }

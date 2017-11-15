@@ -16,21 +16,21 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 
 /**
  * Visibility provider implementation.
  */
 @Immutable
 public final class VisibilityProviderImpl implements VisibilityProvider {
-  private final NestedSet<PackageSpecification> visibility;
+  private final NestedSet<PackageGroupContents> visibility;
 
-  public VisibilityProviderImpl(NestedSet<PackageSpecification> visibility) {
+  public VisibilityProviderImpl(NestedSet<PackageGroupContents> visibility) {
     this.visibility = visibility;
   }
 
   @Override
-  public NestedSet<PackageSpecification> getVisibility() {
+  public NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
   }
 }

@@ -74,7 +74,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
@@ -1303,8 +1303,8 @@ public final class RuleContext extends TargetContext
    */
   public static boolean isVisible(Rule rule, TransitiveInfoCollection prerequisite) {
     // Check visibility attribute
-    for (PackageSpecification specification :
-      prerequisite.getProvider(VisibilityProvider.class).getVisibility()) {
+    for (PackageGroupContents specification :
+        prerequisite.getProvider(VisibilityProvider.class).getVisibility()) {
       if (specification.containsPackage(rule.getLabel().getPackageIdentifier())) {
         return true;
       }
@@ -1339,7 +1339,7 @@ public final class RuleContext extends TargetContext
     private final ErrorReporter reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap;
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
-    private NestedSet<PackageSpecification> visibility;
+    private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<AspectDescriptor> aspectDescriptors;
     private ToolchainContext toolchainContext;
@@ -1387,7 +1387,7 @@ public final class RuleContext extends TargetContext
       rule.getRuleClassObject().checkAttributesNonEmpty(rule, reporter, attributes);
     }
 
-    Builder setVisibility(NestedSet<PackageSpecification> visibility) {
+    Builder setVisibility(NestedSet<PackageGroupContents> visibility) {
       this.visibility = visibility;
       return this;
     }
