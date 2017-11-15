@@ -245,10 +245,15 @@ class ExperimentalStateTracker {
 
   void actionStatusMessage(ActionStatusMessage event) {
     String strategy = event.getStrategy();
+    String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
     if (strategy != null) {
-      String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
       synchronized (this) {
         actionStrategy.put(name, strategy);
+      }
+    } else {
+      String message = event.getMessage();
+      synchronized (this) {
+        actionStrategy.put(name, message);
       }
     }
   }
@@ -736,14 +741,14 @@ class ExperimentalStateTracker {
       terminalWriter.append(";");
     }
     if (runningActions.size() == 0) {
-      terminalWriter.normal().append(" no action running");
+      terminalWriter.normal().append(" no action");
       maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
     } else if (runningActions.size() == 1) {
       if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {
         // As we will break lines anyway, also show the number of running actions, to keep
         // things stay roughly in the same place (also compensating for the missing plural-s
         // in the word action).
-        terminalWriter.normal().append("  1 action running");
+        terminalWriter.normal().append("  1 action");
         maybeShowRecentTest(
             terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
         String statusMessage =
@@ -766,10 +771,10 @@ class ExperimentalStateTracker {
                 clock.nanoTime(),
                 targetWidth - terminalWriter.getPosition(),
                 null);
-        statusMessage += " ... (" + runningActions.size() + " actions running)";
+        statusMessage += " ... (" + runningActions.size() + " actions)";
         terminalWriter.normal().append(" " + statusMessage);
       } else {
-        String statusMessage = "" + runningActions.size() + " actions running";
+        String statusMessage = "" + runningActions.size() + " actions";
         terminalWriter.normal().append(" " + statusMessage);
         maybeShowRecentTest(
             terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
