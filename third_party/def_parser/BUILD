@@ -4,9 +4,6 @@ cc_library(
     name = "def_parser_lib",
     srcs = ["def_parser.cc"],
     hdrs = ["def_parser.h"],
-    deps = [
-        "//src/main/cpp/util:file",
-    ],
 )
 
 cc_binary(

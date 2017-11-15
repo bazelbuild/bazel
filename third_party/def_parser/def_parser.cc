@@ -61,12 +61,12 @@
 * Author:   Valery Fine 16/09/96  (E-mail: fine@vxcern.cern.ch)
 *----------------------------------------------------------------------
 */
-#include "src/main/cpp/util/file_platform.h"
 #include "third_party/def_parser/def_parser.h"
 
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <memory>    // unique_ptr
 #include <sstream>
 #include <windows.h>
 
@@ -77,6 +77,7 @@
 using std::string;
 using std::wstring;
 using std::stringstream;
+using std::unique_ptr;
 
 typedef struct cmANON_OBJECT_HEADER_BIGOBJ {
   /* same as ANON_OBJECT_HEADER_V2 */
@@ -303,6 +304,37 @@ void PrintLastError() {
   LocalFree(message_buffer);
 }
 
+wstring StringToWString(const string& s) {
+  SetLastError(ERROR_SUCCESS);
+  DWORD len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), -1, NULL, 0);
+  if (len == 0 && GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+    PrintLastError();
+    return L"";
+  }
+  unique_ptr<WCHAR[]> wstr(new WCHAR[len]);
+  MultiByteToWideChar(CP_ACP, 0, s.c_str(), -1, wstr.get(), len);
+  return wstring(wstr.get());
+}
+
+wstring AsAbsoluteWindowsPath(const string& path) {
+  wstring wpath = StringToWString(path);
+  // Get the buffer length we need for the full path.
+  SetLastError(ERROR_SUCCESS);
+  DWORD len = GetFullPathNameW(wpath.c_str(), 0, NULL, NULL);
+  if (len == 0 && GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+    PrintLastError();
+    return L"";
+  }
+  SetLastError(ERROR_SUCCESS);
+  unique_ptr<WCHAR[]> buffer(new WCHAR[len]);
+  GetFullPathNameW(wpath.c_str(), len, buffer.get(), NULL);
+  if (GetLastError() != ERROR_SUCCESS) {
+    PrintLastError();
+    return L"";
+  }
+  return wstring(L"\\\\?\\") + wstring(buffer.get());
+}
+
 bool DumpFile(const char* filename, std::set<string>& symbols,
               std::set<string>& dataSymbols) {
   HANDLE hFile;
@@ -310,8 +342,7 @@ bool DumpFile(const char* filename, std::set<string>& symbols,
   LPVOID lpFileBase;
   PIMAGE_DOS_HEADER dosHeader;
 
-  wstring filenameW;
-  blaze_util::AsAbsoluteWindowsPath(filename, &filenameW);
+  wstring filenameW = AsAbsoluteWindowsPath(filename);
   hFile = CreateFileW(filenameW.c_str(), GENERIC_READ,
                       FILE_SHARE_READ, NULL, OPEN_EXISTING,
                       FILE_ATTRIBUTE_NORMAL, 0);

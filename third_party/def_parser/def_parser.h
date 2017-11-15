@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <string>
 
+std::wstring AsAbsoluteWindowsPath(const std::string& path);
+
 class DefParser{
  public:
   DefParser() {}
