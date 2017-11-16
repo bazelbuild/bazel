@@ -249,8 +249,12 @@ filegroup(
 
 alias(
     name = "databinding_annotation_processor",
-    actual = "@android_databinding//:annotation_processor",
+    actual = "//external:databinding_annotation_processor",
 )
+
+# This is the default value of databinding_annotation_processor if the user does
+# not provide one.
+filegroup(name = "empty")
 
 alias(
     name = "jarjar_bin",

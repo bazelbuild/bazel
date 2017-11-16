@@ -517,21 +517,8 @@ public final class AndroidRuleClasses {
           // The javac annotation processor from Android's data binding library that turns
           // processed XML expressions into Java code.
           .add(attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, BuildType.LABEL)
-              // This has to be a computed default because the annotation processor is a
-              // java_plugin, which means it needs the Jvm configuration fragment. That conflicts
-              // with Android builds that use --experimental_disable_jvm.
-              // TODO(gregce): The Jvm dependency is only needed for the host configuration.
-              //   --experimental_disable_jvm is really intended for target configurations without
-              //   a JDK. So this case isn't conceptually a conflict. Clean this up so we can remove
-              //   this computed default.
-              .value(new Attribute.ComputedDefault("enable_data_binding") {
-                @Override
-                public Object getDefault(AttributeMap rule) {
-                  return rule.get("enable_data_binding", Type.BOOLEAN)
-                      ? env.getToolsLabel("//tools/android:databinding_annotation_processor")
-                      : null;
-                }
-              }))
+              .cfg(HOST)
+              .value(env.getToolsLabel("//tools/android:databinding_annotation_processor")))
 
           .build();
     }

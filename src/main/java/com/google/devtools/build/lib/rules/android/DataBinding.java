@@ -154,11 +154,12 @@ public final class DataBinding {
    */
   static void addAnnotationProcessor(
       RuleContext ruleContext, JavaTargetAttributes.Builder attributes) {
-    JavaPluginInfoProvider plugin = JavaInfo.getProvider(
-        JavaPluginInfoProvider.class,
-        ruleContext.getPrerequisite(
-            DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.TARGET)
-    );
+    JavaPluginInfoProvider plugin =
+        JavaInfo.getProvider(
+            JavaPluginInfoProvider.class,
+            ruleContext.getPrerequisite(
+                DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.HOST));
+
     for (String name : plugin.getProcessorClasses()) {
       // For header compilation (see JavaHeaderCompileAction):
       attributes.addApiGeneratingProcessorName(name);

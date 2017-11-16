@@ -3,6 +3,7 @@ bind(name = "android/dx_jar_import", actual = "@bazel_tools//tools/android:no_an
 bind(name = "android/crosstool", actual = "@bazel_tools//tools/cpp:toolchain")
 bind(name = "android_sdk_for_testing", actual = "//:dummy")
 bind(name = "android_ndk_for_testing", actual = "//:dummy")
+bind(name = "databinding_annotation_processor", actual = "@bazel_tools//tools/android:empty")
 
 # This value is overridden by android_sdk_repository function to allow targets
 # to select on whether or not android_sdk_repository has run.
