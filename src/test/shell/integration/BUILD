@@ -269,6 +269,13 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "outputs_test",
+    size = "medium",
+    srcs = ["outputs_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

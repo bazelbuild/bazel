@@ -17,8 +17,10 @@ import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import static java.util.Collections.singleton;
 import static java.util.stream.Collectors.toCollection;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -42,13 +44,19 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
- * A function interface allowing rules to specify their set of implicit outputs
- * in a more dynamic way than just simple template-substitution.  For example,
- * the set of implicit outputs may be a function of rule attributes.
+ * A function interface allowing rules to specify their set of implicit outputs in a more dynamic
+ * way than just simple template-substitution. For example, the set of implicit outputs may be a
+ * function of rule attributes.
+ *
+ * <p>In the case that attribute placeholders are configurable attributes, errors will be thrown as
+ * output templates are expanded before configurable attributes are resolved.
+ *
+ * <p>In the case that attribute placeholders are invalid, the template string will be left
+ * unexpanded.
  */
+// TODO(http://b/69387932): refactor this entire class and all callers.
 public abstract class ImplicitOutputsFunction {
 
   /**
@@ -136,12 +144,15 @@ public abstract class ImplicitOutputsFunction {
     }
 
     @Override
-    public ImmutableMap<String, String> calculateOutputs(AttributeMap map) throws EvalException {
+    public ImmutableMap<String, String> calculateOutputs(AttributeMap map)
+        throws EvalException, InterruptedException {
 
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       for (Map.Entry<String, String> entry : outputMap.entrySet()) {
         // Empty iff invalid placeholders present.
-        Iterable<String> substitutions = fromTemplates(entry.getValue()).getImplicitOutputs(map);
+        ImplicitOutputsFunction outputsFunction =
+            fromUnsafeTemplates(ImmutableList.of(entry.getValue()));
+        Iterable<String> substitutions = outputsFunction.getImplicitOutputs(map);
         if (Iterables.isEmpty(substitutions)) {
           throw new EvalException(
               null,
@@ -215,37 +226,31 @@ public abstract class ImplicitOutputsFunction {
   }
 
   /**
-   * The implicit output function that generates files based on a set of
-   * template substitutions using rule attribute values.
+   * The implicit output function that generates files based on a set of template substitutions
+   * using rule attribute values.
    *
-   * @param templates The templates used to construct the name of the implicit
-   *   output file target.  The substring "%{name}" will be replaced by the
-   *   actual name of the rule, the substring "%{srcs}" will be replaced by the
-   *   name of each source file without its extension.  If multiple %{}
-   *   substrings exist, the cross-product of them is generated.
+   * <p>This is not, actually, safe, and any use of configurable attributes will cause a hard
+   * failure.
+   *
+   * @param templates The templates used to construct the name of the implicit output file target.
+   *     The substring "%{foo}" will be replaced by the value of the attribute "foo". If multiple
+   *     %{} substrings exist, the cross-product of them is generated.
    */
   public static SafeImplicitOutputsFunction fromTemplates(final Iterable<String> templates) {
     return new SafeImplicitOutputsFunction() {
       // TODO(bazel-team): parse the templates already here
       @Override
       public Iterable<String> getImplicitOutputs(AttributeMap rule) {
-        Iterable<String> result = null;
+        ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
         for (String template : templates) {
           List<String> substitutions = substitutePlaceholderIntoTemplate(template, rule);
           if (substitutions.isEmpty()) {
             continue;
           }
-          if (result == null) {
-            result = substitutions;
-          } else {
-            result = Iterables.concat(result, substitutions);
-          }
+          result.addAll(substitutions);
         }
-        if (result == null) {
-          return ImmutableList.<String>of();
-        } else {
-          return Sets.newLinkedHashSet(result);
-        }
+
+        return result.build();
       }
 
       @Override
@@ -256,8 +261,45 @@ public abstract class ImplicitOutputsFunction {
   }
 
   /**
-   * A convenience wrapper for {@link #fromFunctions(Iterable)}.
+   * The implicit output function that generates files based on a set of template substitutions
+   * using rule attribute values.
+   *
+   * <p>This is not, actually, safe, and any use of configurable attributes will cause a hard
+   * failure.
+   *
+   * @param templates The templates used to construct the name of the implicit output file target.
+   *     The substring "%{foo}" will be replaced by the value of the attribute "foo". If multiple
+   *     %{} substrings exist, the cross-product of them is generated.
    */
+  // It would be nice to unify this with fromTemplates above, but that's not possible because
+  // substitutePlaceholderIntoUnsafeTemplate can throw an exception.
+  public static ImplicitOutputsFunction fromUnsafeTemplates(Iterable<String> templates) {
+    return new ImplicitOutputsFunction() {
+      // TODO(bazel-team): parse the templates already here
+      @Override
+      public Iterable<String> getImplicitOutputs(AttributeMap rule) throws EvalException {
+        ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
+        for (String template : templates) {
+          List<String> substitutions =
+              substitutePlaceholderIntoUnsafeTemplate(
+                  template, rule, DEFAULT_RULE_ATTRIBUTE_GETTER);
+          if (substitutions.isEmpty()) {
+            continue;
+          }
+          result.addAll(substitutions);
+        }
+
+        return result.build();
+      }
+
+      @Override
+      public String toString() {
+        return StringUtil.joinEnglishList(templates);
+      }
+    };
+  }
+
+  /** A convenience wrapper for {@link #fromFunctions(Iterable)}. */
   public static SafeImplicitOutputsFunction fromFunctions(
       SafeImplicitOutputsFunction... functions) {
     return fromFunctions(Arrays.asList(functions));
@@ -383,7 +425,49 @@ public abstract class ImplicitOutputsFunction {
    */
   public static ImmutableList<String> substitutePlaceholderIntoTemplate(String template,
       AttributeMap rule) {
-    return substitutePlaceholderIntoTemplate(template, rule, DEFAULT_RULE_ATTRIBUTE_GETTER, null);
+    return substitutePlaceholderIntoTemplate(template, rule, DEFAULT_RULE_ATTRIBUTE_GETTER);
+  }
+
+  @AutoValue
+  abstract static class ParsedTemplate {
+    abstract String template();
+
+    abstract String formatStr();
+
+    abstract List<String> attributeNames();
+
+    static ParsedTemplate parse(String rawTemplate) {
+      List<String> placeholders = Lists.<String>newArrayList();
+      String formatStr = createPlaceholderSubstitutionFormatString(rawTemplate, placeholders);
+      if (placeholders.isEmpty()) {
+        return new AutoValue_ImplicitOutputsFunction_ParsedTemplate(
+            rawTemplate, rawTemplate, ImmutableList.of());
+      }
+
+      return new AutoValue_ImplicitOutputsFunction_ParsedTemplate(
+          rawTemplate, formatStr, placeholders);
+    }
+
+    ImmutableList<String> substituteAttributes(
+        AttributeMap attributeMap, AttributeValueGetter attributeGetter) {
+      if (attributeNames().isEmpty()) {
+        return ImmutableList.of(template());
+      }
+
+      List<Set<String>> values = Lists.newArrayListWithCapacity(attributeNames().size());
+      for (String placeholder : attributeNames()) {
+        Set<String> attrValues = attributeGetter.get(attributeMap, placeholder);
+        if (attrValues.isEmpty()) {
+          return ImmutableList.<String>of();
+        }
+        values.add(attrValues);
+      }
+      ImmutableList.Builder<String> out = new ImmutableList.Builder<>();
+      for (List<String> combination : Sets.cartesianProduct(values)) {
+        out.add(String.format(formatStr(), combination.toArray()));
+      }
+      return out.build();
+    }
   }
 
   /**
@@ -392,34 +476,36 @@ public abstract class ImplicitOutputsFunction {
    * @param template the template string, may contain named placeholders for rule attributes, like
    *     <code>%{name}</code> or <code>%{deps}</code>
    * @param rule the rule whose attributes the placeholders correspond to
-   * @param placeholdersInTemplate if specified, will contain all placeholders found in the
-   *     template; may contain duplicates
-   * @return all possible combinations of the attributes referenced by the placeholders,
-   *     substituted into the template; empty if any of the placeholders expands to no values
+   * @param attributeGetter a helper for fetching attribute values
+   * @return all possible combinations of the attributes referenced by the placeholders, substituted
+   *     into the template; empty if any of the placeholders expands to no values
    */
-  public static ImmutableList<String> substitutePlaceholderIntoTemplate(String template,
-      AttributeMap rule, AttributeValueGetter attributeGetter,
-      @Nullable List<String> placeholdersInTemplate) {
-    List<String> placeholders = (placeholdersInTemplate == null)
-        ? Lists.<String>newArrayList()
-        : placeholdersInTemplate;
-    String formatStr = createPlaceholderSubstitutionFormatString(template, placeholders);
-    if (placeholders.isEmpty()) {
-      return ImmutableList.of(template);
+  public static ImmutableList<String> substitutePlaceholderIntoTemplate(
+      String template, AttributeMap rule, AttributeValueGetter attributeGetter) {
+    // Parse the template to get the attribute names and format string.
+    ParsedTemplate parsedTemplate = ParsedTemplate.parse(template);
+
+    // Return the substituted strings.
+    return parsedTemplate.substituteAttributes(rule, attributeGetter);
+  }
+
+  private static ImmutableList<String> substitutePlaceholderIntoUnsafeTemplate(
+      String unsafeTemplate, AttributeMap rule, AttributeValueGetter attributeGetter)
+      throws EvalException {
+    // Parse the template to get the attribute names and format string.
+    ParsedTemplate parsedTemplate = ParsedTemplate.parse(unsafeTemplate);
+
+    // Make sure all attributes are valid.
+    for (String placeholder : parsedTemplate.attributeNames()) {
+      if (rule.isConfigurable(placeholder)) {
+        throw new EvalException(
+            rule.getAttributeLocation(placeholder),
+            String.format(
+                "Attribute %s is configurable and cannot be used in outputs", placeholder));
+      }
     }
 
-    List<Set<String>> values = Lists.newArrayListWithCapacity(placeholders.size());
-    for (String placeholder : placeholders) {
-      Set<String> attrValues = attributeGetter.get(rule, placeholder);
-      if (attrValues.isEmpty()) {
-        return ImmutableList.<String>of();
-      }
-      values.add(attrValues);
-    }
-    ImmutableList.Builder<String> out = new ImmutableList.Builder<>();
-    for (List<String> combination : Sets.cartesianProduct(values)) {
-      out.add(String.format(formatStr, combination.toArray()));
-    }
-    return out.build();
+    // Return the substituted strings.
+    return parsedTemplate.substituteAttributes(rule, attributeGetter);
   }
 }

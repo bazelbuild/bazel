@@ -136,13 +136,17 @@ public final class ImplicitOutputsFunctionTest {
       String[] expectedSubstitutions,
       String[] expectedFoundPlaceholders)
       throws Exception {
-    List<String> foundAttributes = new ArrayList<>();
-    List<String> substitutions =
-        ImplicitOutputsFunction.substitutePlaceholderIntoTemplate(
-            template, null, attrValues, foundAttributes);
-    assertThat(foundAttributes)
+    // Directly call into ParsedTemplate in order to access the attribute names.
+    ImplicitOutputsFunction.ParsedTemplate parsedTemplate =
+        ImplicitOutputsFunction.ParsedTemplate.parse(template);
+
+    assertThat(parsedTemplate.attributeNames())
         .containsExactlyElementsIn(Arrays.asList(expectedFoundPlaceholders))
         .inOrder();
+
+    // Test the actual substitution code.
+    List<String> substitutions =
+        ImplicitOutputsFunction.substitutePlaceholderIntoTemplate(template, null, attrValues);
     assertThat(substitutions)
         .containsExactlyElementsIn(Arrays.asList(expectedSubstitutions));
   }
