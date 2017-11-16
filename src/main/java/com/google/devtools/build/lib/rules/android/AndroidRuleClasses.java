@@ -155,10 +155,6 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_files/split_deploy_marker");
   public static final SafeImplicitOutputsFunction MOBILE_INSTALL_ARGS =
       fromTemplates("%{name}_files/mobile_install_args");
-  public static final SafeImplicitOutputsFunction APK_MANIFEST =
-      fromTemplates("%{name}_files/apk_manifest");
-  public static final SafeImplicitOutputsFunction APK_MANIFEST_TEXT =
-      fromTemplates("%{name}_files/apk_manifest_text");
   public static final SafeImplicitOutputsFunction DEPLOY_INFO =
       fromTemplates("%{name}_files/deploy_info.deployinfo.pb");
   public static final SafeImplicitOutputsFunction DEPLOY_INFO_INCREMENTAL =

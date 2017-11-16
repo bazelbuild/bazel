@@ -915,7 +915,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:android_deploy_info_java_proto",
-        "//src/main/protobuf:apk_manifest_java_proto",
         "//third_party:android_common_25_0_0",
         "//third_party:auto_value",
         "//third_party:guava",

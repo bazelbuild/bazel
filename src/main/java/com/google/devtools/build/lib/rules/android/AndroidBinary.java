@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Function;
@@ -29,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -48,7 +45,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -219,7 +215,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // can go away: recompile from android_resources, and recompile from android_binary attributes.
     ApplicationManifest applicationManifest;
     ResourceApk resourceApk;
-    ResourceApk instantRunResourceApk;
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
       // Retrieve and compile the resources defined on the android_binary rule.
       LocalResourceContainer.validateRuleContext(ruleContext);
@@ -258,18 +253,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               featureAfterArtifact);
       ruleContext.assertNoErrors();
 
-      instantRunResourceApk =
-          applicationManifest
-              .addInstantRunStubApplication(ruleContext)
-              .packIncrementalBinaryWithDataAndResources(
-                  ruleContext,
-                  getDxArtifact(ruleContext, "android_instant_run.ap_"),
-                  resourceDeps,
-                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
-                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-                  ProguardHelper.getProguardConfigArtifact(ruleContext, "instant_run"));
-      ruleContext.assertNoErrors();
-
     } else {
 
       if (!ruleContext.attributes().get("crunch_png", Type.BOOLEAN)) {
@@ -303,16 +286,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext.assertNoErrors();
       }
 
-      instantRunResourceApk = applicationManifest
-          .addInstantRunStubApplication(ruleContext)
-          .packWithResources(
-              getDxArtifact(ruleContext, "android_instant_run.ap_"),
-              ruleContext,
-              resourceDeps,
-              false, /* createSource */
-              ProguardHelper.getProguardConfigArtifact(ruleContext, "instant_run"),
-              null /* mainDexProguardConfig */);
-      ruleContext.assertNoErrors();
     }
 
     boolean shrinkResources = shouldShrinkResources(ruleContext);
@@ -389,7 +362,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         applicationManifest,
         resourceApk,
         mobileInstallResourceApks,
-        instantRunResourceApk,
         shrinkResources,
         resourceClasses,
         ImmutableList.<Artifact>of(),
@@ -412,7 +384,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ApplicationManifest applicationManifest,
       ResourceApk resourceApk,
       @Nullable MobileInstallResourceApks mobileInstallResourceApks,
-      ResourceApk instantRunResourceApk,
       boolean shrinkResources,
       JavaTargetAttributes resourceClasses,
       ImmutableList<Artifact> apksUnderTest,
@@ -587,31 +558,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         additionalMergedManifests,
         ImmutableList.<Artifact>builder().add(zipAlignedApk).addAll(apksUnderTest).build());
 
-    Artifact debugKeystore = AndroidCommon.getApkDebugSigningKey(ruleContext);
-    Artifact apkManifest =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.APK_MANIFEST);
-    createApkManifestAction(
-        ruleContext,
-        apkManifest,
-        false, // text proto
-        androidCommon,
-        resourceClasses,
-        instantRunResourceApk,
-        nativeLibs,
-        debugKeystore);
-
-    Artifact apkManifestText =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.APK_MANIFEST_TEXT);
-    createApkManifestAction(
-        ruleContext,
-        apkManifestText,
-        true, // text proto
-        androidCommon,
-        resourceClasses,
-        instantRunResourceApk,
-        nativeLibs,
-        debugKeystore);
-
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext);
 
@@ -687,52 +633,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 unsignedApk,
                 androidCommon.getInstrumentedJar(),
                 applicationManifest.getManifest(),
-                debugKeystore))
+                AndroidCommon.getApkDebugSigningKey(ruleContext)))
         .addProvider(AndroidPreDexJarProvider.class, AndroidPreDexJarProvider.create(jarToDex))
         .addProvider(
             AndroidFeatureFlagSetProvider.class,
             AndroidFeatureFlagSetProvider.create(
                 AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext)))
-        .addOutputGroup("apk_manifest", apkManifest)
-        .addOutputGroup("apk_manifest_text", apkManifestText)
         .addOutputGroup("android_deploy_info", deployInfo);
-  }
-
-  private static void createApkManifestAction(
-      RuleContext ruleContext,
-      Artifact apkManifest,
-      boolean textProto,
-      final AndroidCommon androidCommon,
-      JavaTargetAttributes resourceClasses,
-      ResourceApk resourceApk,
-      NativeLibs nativeLibs,
-      Artifact debugKeystore) {
-    // TODO(bazel-team): Sufficient to use resourceClasses.getRuntimeClasspathForArchive?
-    // Deleting getArchiveInputs could simplify the implementation of DeployArchiveBuidler.build()
-    Iterable<Artifact> jars = IterablesChain.concat(
-        DeployArchiveBuilder.getArchiveInputs(resourceClasses), androidCommon.getRuntimeJars());
-
-    // The resources jars from android_library rules contain stub ids, so filter those out of the
-    // transitive jars.
-    Iterable<Artifact> filteredJars =
-        Streams.stream(jars)
-            .filter(not(in(getLibraryResourceJars(ruleContext).toSet())))
-            .collect(toImmutableList());
-
-    AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-
-    ApkManifestAction manifestAction =
-        new ApkManifestAction(
-            ruleContext.getActionOwner(),
-            apkManifest,
-            textProto,
-            sdk,
-            filteredJars,
-            resourceApk,
-            nativeLibs,
-            debugKeystore);
-
-    ruleContext.registerAction(manifestAction);
   }
 
   private static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {

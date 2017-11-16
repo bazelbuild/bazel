@@ -8,7 +8,6 @@ load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 FILES = [
     "action_cache",
     "android_deploy_info",
-    "apk_manifest",
     "bazel_flags",
     "build",
     "bundlemerge",
