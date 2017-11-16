@@ -114,18 +114,21 @@ final class RemoteSpawnCache implements SpawnCache {
         // We don't cache failed actions, so we know the outputs exist.
         // For now, download all outputs locally; in the future, we can reuse the digests to
         // just update the TreeNodeRepository and continue the build.
-        try {
-          remoteCache.download(result, execRoot, policy.getFileOutErr());
-          SpawnResult spawnResult =
-              new SpawnResult.Builder()
-                  .setStatus(Status.SUCCESS)
-                  .setExitCode(result.getExitCode())
-                  .build();
-          return SpawnCache.success(spawnResult);
-        } catch (CacheNotFoundException e) {
-          // There's a cache miss. Fall back to local execution.
-        }
+        remoteCache.download(result, execRoot, policy.getFileOutErr());
+        SpawnResult spawnResult =
+            new SpawnResult.Builder()
+                .setStatus(Status.SUCCESS)
+                .setExitCode(result.getExitCode())
+                .build();
+        return SpawnCache.success(spawnResult);
       }
+    } catch (CacheNotFoundException e) {
+      // There's a cache miss. Fall back to local execution.
+    } catch (IOException e) {
+      // There's an IO error. Fall back to local execution.
+      reportOnce(
+          Event.warn(
+              "Some artifacts failed be downloaded from the remote cache: " + e.getMessage()));
     } finally {
       withMetadata.detach(previous);
     }
@@ -157,7 +160,9 @@ final class RemoteSpawnCache implements SpawnCache {
             if (verboseFailures) {
               report(Event.debug("Upload to remote cache failed: " + e.getMessage()));
             } else {
-              reportOnce(Event.warn("Some artifacts failed be uploaded to the remote cache."));
+              reportOnce(
+                  Event.warn(
+                      "Some artifacts failed be uploaded to the remote cache: " + e.getMessage()));
             }
           } finally {
             withMetadata.detach(previous);

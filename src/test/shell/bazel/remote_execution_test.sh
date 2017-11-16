@@ -216,8 +216,42 @@ EOF
 
   bazel clean --expunge >& $TEST_log
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
-      --spawn_strategy=remote \
+      --experimental_remote_spawn_cache=true  \
       --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote REST cache service"
+  diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
+      || fail "Remote cache generated different result"
+  # Check that persistent connections are closed after the build. Is there a good cross-platform way
+  # to check this?
+  if [[ "$PLATFORM" = "linux" ]]; then
+    if netstat -tn | grep -qE ":${hazelcast_port}\\s+ESTABLISHED$"; then
+      fail "connections to to cache not closed"
+    fi
+  fi
+}
+
+function test_cc_binary_rest_cache_bad_server() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_binary(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello world!" << std::endl; return 0; }
+EOF
+  bazel build //a:test >& $TEST_log \
+    || fail "Failed to build //a:test without remote cache"
+  cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
+
+  bazel clean --expunge >& $TEST_log
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+      --experimental_remote_spawn_cache=true \
+      --remote_rest_cache=http://bad.hostname/bad/cache \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
