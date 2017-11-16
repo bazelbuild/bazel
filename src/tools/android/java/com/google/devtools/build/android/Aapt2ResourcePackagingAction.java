@@ -103,19 +103,26 @@ public class Aapt2ResourcePackagingAction {
 
       profiler.recordEndOf("setup").startTask("merging");
 
+      AndroidDataDeserializer dataDeserializer =
+          aaptConfigOptions.useCompiledResourcesForMerge
+              ? AndroidCompiledDataDeserializer.withFilteredResources(options.prefilteredResources)
+              : AndroidParsedDataDeserializer.withFilteredResources(options.prefilteredResources);
+
       // Checks for merge conflicts.
       MergedAndroidData mergedAndroidData =
           AndroidResourceMerger.mergeData(
-                  options.primaryData,
-                  options.directData,
-                  options.transitiveData,
-                  mergedResources,
-                  mergedAssets,
-                  null /* cruncher. Aapt2 automatically chooses to crunch or not. */,
-                  options.packageType,
-                  options.symbolsOut,
-                  options.prefilteredResources,
-                  false /* throwOnResourceConflict */)
+              ParsedAndroidData.from(options.primaryData),
+              options.primaryData.getManifest(),
+              options.directData,
+              options.transitiveData,
+              mergedResources,
+              mergedAssets,
+              null /* cruncher. Aapt2 automatically chooses to crunch or not. */,
+              options.packageType,
+              options.symbolsOut,
+              null /* rclassWriter */,
+              dataDeserializer,
+              options.throwOnResourceConflict)
               .filter(
                   new DensitySpecificResourceFilter(
                       densitiesToFilter, filteredResources, mergedResources),
