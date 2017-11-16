@@ -147,13 +147,16 @@ public class JarCreator extends JarHelper {
   }
 
   private byte[] manifestContent() throws IOException {
-    Manifest manifest;
     if (manifestFile != null) {
-      FileInputStream in = new FileInputStream(manifestFile);
-      manifest = new Manifest(in);
+      try (FileInputStream in = new FileInputStream(manifestFile)) {
+        return manifestContentImpl(new Manifest(in));
+      }
     } else {
-      manifest = new Manifest();
+      return manifestContentImpl(new Manifest());
     }
+  }
+
+  private byte[] manifestContentImpl(Manifest manifest) throws IOException {
     Attributes attributes = manifest.getMainAttributes();
     attributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
     Attributes.Name createdBy = new Attributes.Name("Created-By");
