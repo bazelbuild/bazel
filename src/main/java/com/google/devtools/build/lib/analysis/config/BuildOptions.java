@@ -61,9 +61,6 @@ public final class BuildOptions implements Cloneable, Serializable {
 
   /**
    * Creates a new BuildOptions instance for host.
-   *
-   * @param fallback if true, we have already tried the user specified hostCpu options
-   *                 and it didn't work, so now we try the default options instead.
    */
   public BuildOptions createHostOptions() {
     Builder builder = builder();
