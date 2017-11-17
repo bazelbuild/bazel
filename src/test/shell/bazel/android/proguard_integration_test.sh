@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2015 The Bazel Authors. All rights reserved.
+# Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,32 +33,56 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function test_sdk_library_deps() {
+function test_proguard() {
   create_new_workspace
   setup_android_sdk_support
-
-  mkdir -p java/a
-  cat > java/a/BUILD<<EOF
+  mkdir -p java/com/bin
+  cat > java/com/bin/BUILD <<EOF
+android_binary(
+  name = 'bin',
+  srcs = ['Bin.java', 'NotUsed.java'],
+  manifest = 'AndroidManifest.xml',
+  proguard_specs = ['proguard.config'],
+  deps = [':lib'],
+)
 android_library(
-    name = "a",
-    exports = ["@androidsdk//com.android.support:mediarouter-v7-24.0.0"],
+  name = 'lib',
+  srcs = ['Lib.java'],
 )
 EOF
-
-  bazel build --nobuild //java/a:a || fail "build failed"
+  cat > java/com/bin/AndroidManifest.xml <<EOF
+<manifest package='com.bin' />
+EOF
+  cat > java/com/bin/Bin.java <<EOF
+package com.bin;
+public class Bin {
+  public Lib getLib() {
+    return new Lib();
+  }
+}
+EOF
+  cat > java/com/bin/NotUsed.java <<EOF
+package com.bin;
+public class NotUsed {}
+EOF
+  cat > java/com/bin/Lib.java <<EOF
+package com.bin;
+public class Lib {}
+EOF
+  cat > java/com/bin/proguard.config <<EOF
+-keep public class com.bin.Bin {
+  public *;
+}
+EOF
+  assert_build //java/com/bin
+  output_classes=$(zipinfo -1 bazel-bin/java/com/bin/bin_proguard.jar)
+  assert_equals 3 $(wc -w <<< $output_classes)
+  assert_one_of $output_classes "META-INF/MANIFEST.MF"
+  assert_one_of $output_classes "com/bin/Bin.class"
+  # Not kept by proguard
+  assert_not_one_of $output_classes "com/bin/Unused.class"
+  # This is renamed by proguard to something else
+  assert_not_one_of $output_classes "com/bin/Lib.class"
 }
 
-function test_allow_custom_manifest_name() {
-  create_new_workspace
-  setup_android_sdk_support
-  create_android_binary
-  mv java/bazel/AndroidManifest.xml java/bazel/SomeOtherName.xml
-
-  # macOS requires an argument for the backup file extension.
-  sed -i'' -e 's/AndroidManifest/SomeOtherName/' java/bazel/BUILD
-
-  bazel build //java/bazel:bin || fail "Build failed" \
-    "Failed to build android_binary with custom Android manifest file name"
-}
-
-run_suite "Android integration tests"
+run_suite "Android integration tests for Proguard"

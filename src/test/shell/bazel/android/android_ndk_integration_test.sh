@@ -27,6 +27,12 @@
 
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "${CURRENT_DIR}/android_helper.sh" \
+  || { echo "android_helper.sh not found!" >&2; exit 1; }
+fail_if_no_android_sdk
+fail_if_no_android_ndk
+
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
@@ -297,19 +303,5 @@ EOF
   expect_log "Unable to read the Android NDK at $TEST_SRCDIR/some_dir, the path may be invalid." \
     " Is the path in android_ndk_repository() or \$ANDROID_NDK_HOME set correctly?"
 }
-
-# ndk r10 and earlier
-if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/RELEASE.TXT" ]]; then
-  # ndk r11 and later
-  if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/source.properties" ]]; then
-    echo "Not running Android NDK tests due to lack of an Android NDK."
-    exit 0
-  fi
-fi
-
-if [[ ! -d "${TEST_SRCDIR}/androidsdk" ]]; then
-  echo "Not running Android NDK tests due to lack of an Android SDK."
-  exit 0
-fi
 
 run_suite "Android NDK integration tests"

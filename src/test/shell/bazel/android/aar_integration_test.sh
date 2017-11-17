@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2015 The Bazel Authors. All rights reserved.
+# Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,32 +33,49 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function test_sdk_library_deps() {
+# Regression test for https://github.com/bazelbuild/bazel/issues/1928.
+function test_empty_tree_artifact_action_inputs_mount_empty_directories() {
   create_new_workspace
   setup_android_sdk_support
-
-  mkdir -p java/a
-  cat > java/a/BUILD<<EOF
-android_library(
-    name = "a",
-    exports = ["@androidsdk//com.android.support:mediarouter-v7-24.0.0"],
+  cat > AndroidManifest.xml <<EOF
+<manifest package="com.test"/>
+EOF
+  mkdir res
+  zip test.aar AndroidManifest.xml res/
+  cat > BUILD <<EOF
+aar_import(
+  name = "test",
+  aar = "test.aar",
 )
 EOF
-
-  bazel build --nobuild //java/a:a || fail "build failed"
+  # Building aar_import invokes the AndroidResourceProcessingAction with a
+  # TreeArtifact of the AAR resources as the input. Since there are no
+  # resources, the Bazel sandbox should create an empty directory. If the
+  # directory is not created, the action thinks that its inputs do not exist and
+  # crashes.
+  bazel build :test
 }
 
-function test_allow_custom_manifest_name() {
+function test_nonempty_aar_resources_tree_artifact() {
   create_new_workspace
   setup_android_sdk_support
-  create_android_binary
-  mv java/bazel/AndroidManifest.xml java/bazel/SomeOtherName.xml
-
-  # macOS requires an argument for the backup file extension.
-  sed -i'' -e 's/AndroidManifest/SomeOtherName/' java/bazel/BUILD
-
-  bazel build //java/bazel:bin || fail "Build failed" \
-    "Failed to build android_binary with custom Android manifest file name"
+  cat > AndroidManifest.xml <<EOF
+<manifest package="com.test"/>
+EOF
+  mkdir -p res/values
+  cat > res/values/values.xml <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+</resources>
+EOF
+  zip test.aar AndroidManifest.xml res/values/values.xml
+  cat > BUILD <<EOF
+aar_import(
+  name = "test",
+  aar = "test.aar",
+)
+EOF
+  bazel build :test
 }
 
-run_suite "Android integration tests"
+run_suite "aar_import integration tests"

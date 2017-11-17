@@ -15,6 +15,11 @@
 # limitations under the License.
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "${CURRENT_DIR}/android_helper.sh" \
+  || { echo "android_helper.sh not found!" >&2; exit 1; }
+fail_if_no_android_sdk
+
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
@@ -63,10 +68,5 @@ EOF
   bazel build -s --verbose_failures //java/com/example:bin \
     || fail "build failed"
 }
-
-if [[ ! -r "${TEST_SRCDIR}/androidsdk" ]]; then
-  echo "Not running Android tests due to lack of an Android SDK."
-  exit 0
-fi
 
 run_suite "Android IDL tests"
