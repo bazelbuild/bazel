@@ -36,8 +36,8 @@ public class PythonOptions extends FragmentOptions {
   @Option(
     name = "build_python_zip",
     defaultValue = "auto",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help = "Build python executable zip; on on Windows, off on other platforms"
   )
   public TriState buildPythonZip;
