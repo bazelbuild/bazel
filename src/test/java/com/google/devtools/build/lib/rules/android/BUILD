@@ -293,6 +293,22 @@ java_test(
     ],
 )
 
+java_library(
+    name = "AbstractAndroidLocalTestTest",
+    srcs = ["AbstractAndroidLocalTestTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/test/java/com/google/devtools/build/lib/actions:testutil",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
+        "//third_party:junit",
+        "//third_party:truth",
+    ],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [
