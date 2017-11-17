@@ -68,6 +68,49 @@ class BazelWindowsTest(test_base.TestBase):
                 execution_root,
                 'external/local_config_cc/wrapper/bin/pydir/msvc_tools.py')))
 
+  def testWindowsCompilesAssembly(self):
+    self.ScratchFile('WORKSPACE')
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '    name="x",',
+        '    srcs=['
+        '        "x.asm",',
+        '        "y.cc",',
+        '    ],',
+        ')',
+    ])
+    self.ScratchFile('x.asm', [
+        '.code',
+        'PUBLIC increment',
+        'increment PROC x:WORD',
+        '  xchg rcx,rax',
+        '  inc rax',
+        '  ret',
+        'increment EndP',
+        'END',
+    ])
+    self.ScratchFile('y.cc', [
+        '#include <stdio.h>',
+        'extern "C" int increment(int);',
+        'int main(int, char**) {'
+        '  int x = 5;',
+        '  x = increment(x);',
+        '  printf("%d\\n", x);',
+        '  return 0;',
+        '}',
+    ])
+
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '//:x',
+    ])
+
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'x.exe')))
+
 
 if __name__ == '__main__':
   unittest.main()

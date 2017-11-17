@@ -392,6 +392,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value):
       "%{msvc_env_include}": "",
       "%{msvc_env_lib}": "",
       "%{msvc_cl_path}": "",
+      "%{msvc_ml_path}": "",
       "%{msvc_link_path}": "",
       "%{msvc_lib_path}": "",
       "%{compilation_mode_content}": "",
