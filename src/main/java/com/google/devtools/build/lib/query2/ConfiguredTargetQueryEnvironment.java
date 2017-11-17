@@ -23,13 +23,16 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -48,6 +51,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
+import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
@@ -57,14 +61,18 @@ import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.EnumSet;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -132,15 +140,9 @@ public class ConfiguredTargetQueryEnvironment
       BuildConfiguration hostConfiguration,
       String parserPrefix,
       PathPackageLocator pkgPath,
-      Supplier<WalkableGraph> walkableGraphSupplier) {
-    super(
-        keepGoing,
-        true,
-        Rule.ALL_LABELS,
-        eventHandler,
-        // TODO(janakr): decide whether to support host and implicit dep filtering.
-        EnumSet.noneOf(Setting.class),
-        extraFunctions);
+      Supplier<WalkableGraph> walkableGraphSupplier,
+      Set<Setting> settings) {
+    super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
     this.defaultTargetConfiguration = defaultTargetConfiguration;
     this.hostConfiguration = hostConfiguration;
     this.parserPrefix = parserPrefix;
@@ -148,7 +150,7 @@ public class ConfiguredTargetQueryEnvironment
     this.walkableGraphSupplier = walkableGraphSupplier;
   }
 
-  private void beforeEvaluateQuery() throws InterruptedException {
+  private void beforeEvaluateQuery() throws InterruptedException, QueryException {
     graph = walkableGraphSupplier.get();
     GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider =
         new GraphBackedRecursivePackageProvider(graph, ALL_PATTERNS, pkgPath);
@@ -158,6 +160,20 @@ public class ConfiguredTargetQueryEnvironment
             eventHandler,
             FilteringPolicies.NO_FILTER,
             MultisetSemaphore.unbounded());
+    checkSettings(settings);
+  }
+
+  // Check to make sure the settings requested are currently supported by this class
+  private void checkSettings(Set<Setting> settings) throws QueryException {
+    if (settings.contains(Setting.NO_HOST_DEPS)) {
+      settings = Sets.difference(settings, ImmutableSet.of(Setting.NO_HOST_DEPS));
+    }
+    if (!settings.isEmpty()) {
+      throw new QueryException(
+          String.format(
+              "The following filter(s) are not currently supported by configured query: %s",
+              settings.toString()));
+    }
   }
 
   @Nullable
@@ -257,6 +273,45 @@ public class ConfiguredTargetQueryEnvironment
     return result;
   }
 
+  private Collection<ConfiguredTarget> filterFwdDeps(
+      ConfiguredTarget configTarget, Collection<ConfiguredTarget> rawFwdDeps)
+      throws InterruptedException {
+    if (!(configTarget instanceof RuleConfiguredTarget) || settings.isEmpty()) {
+      return rawFwdDeps;
+    }
+    return getAllowedDeps(configTarget.getConfiguration(), rawFwdDeps);
+  }
+
+  /**
+   * Note: We should check which settings to filter on here but not doing that since we currently
+   * only support one setting (NO_HOST_DEPS) and should've already thrown an error by now if it's
+   * any other filter.
+   *
+   * @param currentConfig: the config of the source target. It's possible to query on a target
+   *     that's configured in the host configuration. In those cases, if --nohost_deps is turned on,
+   *     we only allow reachable targets that are ALSO in the host config. This is somewhat
+   *     counterintuitive and subject to change in the future but seems like the best option right
+   *     now.
+   * @param rawDeps: the next level of deps to filter
+   */
+  private Collection<ConfiguredTarget> getAllowedDeps(
+      BuildConfiguration currentConfig, Collection<ConfiguredTarget> rawDeps) {
+    if (currentConfig != null && currentConfig.isHostConfiguration()) {
+      return rawDeps
+          .stream()
+          .filter(
+              dep -> dep.getConfiguration() != null && dep.getConfiguration().isHostConfiguration())
+          .collect(Collectors.toList());
+    } else {
+      return rawDeps
+          .stream()
+          .filter(
+              dep ->
+                  dep.getConfiguration() == null || !dep.getConfiguration().isHostConfiguration())
+          .collect(Collectors.toList());
+    }
+  }
+
   @Override
   public ThreadSafeMutableSet<ConfiguredTarget> getFwdDeps(Iterable<ConfiguredTarget> targets)
       throws InterruptedException {
@@ -276,7 +331,29 @@ public class ConfiguredTargetQueryEnvironment
     }
     ThreadSafeMutableSet<ConfiguredTarget> result = createThreadSafeMutableSet();
     for (Entry<SkyKey, Collection<ConfiguredTarget>> entry : directDeps.entrySet()) {
-      result.addAll(entry.getValue());
+      result.addAll(filterFwdDeps(targetsByKey.get(entry.getKey()), entry.getValue()));
+    }
+    return result;
+  }
+
+  private Collection<ConfiguredTarget> filterReverseDeps(
+      Map<SkyKey, Collection<ConfiguredTarget>> rawReverseDeps) {
+    Set<ConfiguredTarget> result = CompactHashSet.create();
+    for (Map.Entry<SkyKey, Collection<ConfiguredTarget>> targetAndRdeps :
+        rawReverseDeps.entrySet()) {
+      ImmutableSet.Builder<ConfiguredTarget> ruleDeps = ImmutableSet.builder();
+      for (ConfiguredTarget parent : targetAndRdeps.getValue()) {
+        if (parent instanceof RuleConfiguredTarget
+            && dependencyFilter != DependencyFilter.ALL_DEPS) {
+          ruleDeps.add(parent);
+        } else {
+          result.add(parent);
+        }
+      }
+      result.addAll(
+          getAllowedDeps(
+              ((ConfiguredTargetKey) targetAndRdeps.getKey().argument()).getConfiguration(),
+              ruleDeps.build()));
     }
     return result;
   }
@@ -298,11 +375,7 @@ public class ConfiguredTargetQueryEnvironment
               .collect(Collectors.toList());
       eventHandler.handle(Event.warn("Targets were missing from graph: " + missingTargets));
     }
-    ThreadSafeMutableSet<ConfiguredTarget> result = createThreadSafeMutableSet();
-    for (Entry<SkyKey, Collection<ConfiguredTarget>> entry : reverseDeps.entrySet()) {
-      result.addAll(entry.getValue());
-    }
-    return result;
+    return reverseDeps.isEmpty() ? Collections.emptyList() : filterReverseDeps(reverseDeps);
   }
 
   @Override
@@ -406,5 +479,17 @@ public class ConfiguredTargetQueryEnvironment
             "Recursive pattern '" + pattern + "' is not supported in configured target query");
       }
     }
+  }
+
+  public static QueryOptions parseOptions(String rawOptions) throws QueryException {
+    List<String> options = new ArrayList<>(Arrays.asList(rawOptions.split(" ")));
+    OptionsParser parser = OptionsParser.newOptionsParser(QueryOptions.class);
+    parser.setAllowResidue(false);
+    try {
+      parser.parse(options);
+    } catch (OptionsParsingException e) {
+      throw new QueryException(e.getMessage());
+    }
+    return parser.getOptions(QueryOptions.class);
   }
 }
