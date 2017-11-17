@@ -171,7 +171,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "target_cpu": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False)),
       "target_system_name": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False)),
       "cxx_flag": [
-          "-std=c++0x",
+          get_env_var(repository_ctx, "BAZEL_CXX_STD", "-std=c++0x", False),
       ] + _escaped_cplus_include_paths(repository_ctx),
       "linker_flag": [
           "-lstdc++",
