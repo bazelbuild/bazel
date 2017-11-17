@@ -5,21 +5,21 @@ title: Aspects
 
 # Aspects
 
-<!--  [TOC] -->
+<!-- [TOC] -->
 
 **Status: Experimental**. We may make breaking changes to the API, but we will
-  announce them.
+announce them.
 
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Some typical scenarios when aspects can be useful:
 
 *   IDEs that integrate Bazel can use aspects to collect information about the
-    project
+    project.
 *   Code generation tools can leverage aspects to execute on their inputs in
     "target-agnostic" manner. As an example, BUILD files can specify a hierarchy
     of [protobuf](https://developers.google.com/protocol-buffers/) library
     definitions, and language-specific rules can use aspects to attach
-    actions generating protobuf support code for a particular language
+    actions generating protobuf support code for a particular language.
 
 ## Aspect basics
 
@@ -42,7 +42,7 @@ java_library(name = 'T', deps = [':Q'], ...)
 java_library(name = 'X', deps = [':Y',':Z'], runtime_deps = [':T'], ...)
 ```
 
-This BUILD file defines a dependency graph shown in Fig 1.
+This BUILD file defines a dependency graph shown in the following figure:
 
 <img src="build-graph.png" alt="Build Graph" width="250px" />
 
@@ -75,126 +75,314 @@ example. An aspect implementation function is then invoked on all nodes in
 the shadow graph similar to how rule implementations are invoked on the nodes
 of the original graph.
 
-## Defining aspects
+## Simple example
 
-Aspect definitions are similar to rule definitions, and defined using
-the [`aspect`](lib/globals.html#aspect) function. Let's take a look at
-the example:
+This example demonstrates how to recursively print the source files for a
+rule and all of its dependencies that have a `deps` attribute. It shows
+an aspect implementation, an aspect definition, and how to invoke the aspect
+from the Bazel command line.
 
 ```python
-metal_proto_aspect = aspect(implementation = _metal_proto_aspect_impl,
-    attr_aspects = ["deps"],
+def _print_aspect_impl(target, ctx):
+    # Make sure the rule has a srcs attribute.
+    if hasattr(ctx.rule.attr, 'srcs'):
+        # Iterate through the files that make up the sources and
+        # print their paths.
+        for src in ctx.rule.attr.srcs:
+            for f in src.files:
+                print(f.path)
+    return []
+
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+)
+```
+
+Let's break the example up into its parts and examine each one individually.
+
+### Aspect definition
+
+```python
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+)
+```
+Aspect definitions are similar to rule definitions, and defined using
+the [`aspect`](lib/globals.html#aspect) function.
+
+Just like a rule, an aspect has an implementation function which in this case is
+``_print_aspect_impl``.
+
+``attr_aspects`` is a list of rule attributes along which the aspect propagates.
+In this case, the aspect will propagate along the ``deps`` attribute of the
+rules that it is applied to.
+
+Another common argument for `attr_aspects` is `['*']` which would propagate the
+aspect to all attributes of a rule.
+
+### Aspect implementation
+
+```python
+
+def _print_aspect_impl(target, ctx):
+    # Make sure the rule has a srcs attribute.
+    if hasattr(ctx.rule.attr, 'srcs'):
+        # Iterate through the files that make up the sources and
+        # print their paths.
+        for src in ctx.rule.attr.srcs:
+            for f in src.files:
+                print(f.path)
+    return []
+```
+
+Aspect implementation functions are similar to the rule implementation
+functions. They return [providers](rules.md#providers), can generate
+[actions](rules.md#actions), and take two arguments:
+
+*  `target`: the [target](lib/Target.html) the aspect is being applied to.
+*   `ctx`: [`ctx`](lib/ctx.html) object that can be used to access attributes
+    and generate outputs and actions.
+
+The implementation function can access the attributes of the target rule via
+[`ctx.rule.attr`](lib/ctx.html#rule). It can examine providers that are
+provided by the target to which it is applied (via the `target` argument).
+
+Aspects are required to return a list of providers. In this example, the aspect
+does not provide anything, so it returns an empty list.
+
+### Invoking the aspect using the command line
+
+The simplest way to apply an aspect is from the command line using the
+[`--aspects`](../command-line-reference.html#flag--aspects) argument. Assuming
+the rule above were defined in a file named `print.bzl` this:
+
+```bash
+bazel build //MyExample:example --aspects print.bzl%print_aspect
+```
+
+would apply the `print_aspect` to the target `example` and all of the
+target rules that are accessible recursively via the `deps` attribute.
+
+The `--aspects` flag takes one argument, which is a specification of the aspect
+in the format `<extension file label>%<aspect top-level name>`.
+
+## Advanced example
+
+The following example demonstrates using an aspect from a target rule
+that counts files in targets, potentially filtering them by extension.
+It shows how to use a provider to return values, how to use parameters to pass
+an argument into an aspect implementation, and how to invoke an aspect from a rule.
+
+FileCount.bzl file:
+```python
+FileCount = provider(
+    fields = {
+        'count' : 'number of files'
+    }
+)
+
+def _file_count_aspect_impl(target, ctx):
+    count = 0
+    # Make sure the rule has a srcs attribute.
+    if hasattr(ctx.rule.attr, 'srcs'):
+        # Iterate through the sources counting files
+        for src in ctx.rule.attr.srcs:
+            for f in src.files:
+                if ctx.attr.extension == '*' or ctx.attr.extension == f.extension:
+                    count = count + 1
+    # Get the counts from our dependencies.
+    for dep in ctx.rule.attr.deps:
+        count = count + dep[FileCount].count
+    return [FileCount(count = count)]
+
+file_count_aspect = aspect(implementation = _file_count_aspect_impl,
+    attr_aspects = ['deps'],
     attrs = {
-      "_protoc" : attr.label(
-          default=Label("//tools:metal_protoc"),
-          executable = True
-      )
+        'extension' : attr.string(values = ['*', 'h', 'cc']),
+    }
+)
+
+def _file_count_rule_impl(ctx):
+    for dep in ctx.attr.deps:
+        print(dep[FileCount].count)
+
+file_count_rule = rule(
+    implementation = _file_count_rule_impl,
+    attrs = {
+        'deps' : attr.label_list(aspects = [file_count_aspect]),
+        'extension' : attr.string(default = '*'),
+    },
+)
+```
+
+BUILD.bazel file:
+```python
+load('//file_count.bzl', 'file_count_rule')
+
+cc_library(
+    name = 'lib',
+    srcs = [
+        'lib.h',
+        'lib.cc',
+    ],
+)
+
+cc_binary(
+    name = 'app',
+    srcs = [
+        'app.h',
+        'app.cc',
+        'main.cc',
+    ],
+    deps = ['lib'],
+)
+
+file_count_rule(
+    name = 'file_count',
+    deps = ['app'],
+    extension = 'h',
+)
+```
+
+### Aspect definition
+
+```python
+file_count_aspect = aspect(implementation = _file_count_aspect_impl,
+    attr_aspects = ['deps'],
+    attrs = {
+        'extension' : attr.string(values = ['*', 'h', 'cc']),
     }
 )
 ```
 
-Just like a rule, an aspect has an implementation function. ``attr_aspects``
-specify the aspect's propagation set: a list of attributes of rules along which
-the aspect propagates.
+In this example, we are again propagating the aspect via the ``deps`` attribute.
 
-``attrs`` defines a set of attributes for aspects. Aspects are allowed
-to have private attributes of types ``label`` or ``label_list``. Private label
-attributes can be used to specify dependencies on tools or libraries that are
-needed for actions generated by aspects. Aspects may also have normal attributes
-of type ``string``, called parameters, so long as ``values`` is specified. Any
-string attributes must match string attributes on the Skylark rule requesting
-the aspect, and they inherit their value from the rule. Aspects with parameters
-cannot be requested on the bazel command-line.
+``attrs`` defines a set of attributes for an aspect. Public aspect attributes
+are of type ``string`` and are called parameters. Parameters must have a``values``
+attribute specified on them. In this case we have a parameter called ``extension``
+that is allowed to have '``*``', '``h``', or '``cc``' as a value.
 
-### Implementation functions
+Parameter values for the aspect are taken from the string attribute with the same
+name of the rule requesting the aspect (see the definition of ``file_count_rule``).
+Aspects with parameters cannot be used via the command line because there is no
+syntax to define the parameters.
 
-Aspect implementation functions are similiar to the rule implementation
-functions. They return [providers](rules.md#providers), can generate
-[actions](rules.md#actions) and take two arguments:
-
-*    `target`: the [target](lib/Target.html) the aspect is being applied to.
-*    `ctx`: [`ctx`](lib/ctx.html) object that can be used to access attributes and
-     generate outputs and actions.
-
-Example:
+Aspects are also allowed to have private attributes of types ``label`` or
+``label_list``. Private label attributes can be used to specify dependencies on
+tools or libraries that are needed for actions generated by aspects. There is not
+a private attribute defined in this example, but the following code snippet
+demonstrates how you could pass in a tool to a aspect:
 
 ```python
-MetalProtoInfo = provider()
-def _metal_proto_aspect_impl(target, ctx):
-    # For every `src` in proto_library, generate an output file
-    proto_sources = [f for src in ctx.rule.attr.srcs
-                       for f in src.files]
-    outputs = [ctx.actions.declare_file(f.short_path + ".metal")
-               for f in proto_sources]
-    ctx.actions.run(
-        executable = ctx.executable._protoc,
-        argument = ...
-        inputs = proto_sources
-        outputs = outputs)
-    transitive_outputs = depset(outputs)
-    for dep in ctx.rule.attr.deps:
-        transitive_outputs = transitive_outputs | dep[MetalProtoInfo].transitive_outputs
-    return [MetalProtoInfo(direct_outputs = outputs,
-                           transitive_outputs = transitive_outputs)]
+...
+    attrs = {
+        '_protoc' : attr.label(
+            default = Label('//tools:protoc'),
+            executable = True
+        )
+    }
+...
 ```
 
-The implementation function can access the attributes of the target rule via
-[`ctx.rule.attr`](lib/ctx.html#rule). It can examine providers that are
-provided  by the target to which it is applied (via the `target` argument).
+### Aspect implementation
+
+```python
+FileCount = provider(
+    fields = {
+        'count' : 'number of files'
+    }
+)
+
+def _file_count_aspect_impl(target, ctx):
+    count = 0
+    # Make sure the rule has a srcs attribute.
+    if hasattr(ctx.rule.attr, 'srcs'):
+        # Iterate through the sources counting files
+        for src in ctx.rule.attr.srcs:
+            for f in src.files:
+                if ctx.attr.extension == '*' or ctx.attr.extension == f.extension:
+                    count = count + 1
+    # Get the counts from our dependencies.
+    for dep in ctx.rule.attr.deps:
+        count = count + dep[FileCount].count
+    return [FileCount(count = count)]
+```
 
 Just like a rule implementation function, an aspect implementation function
 returns a struct of providers that are accessible to its dependencies.
 
-*   The set of providers for an aspect application A(X) is the union of providers
-    that come from the implementation of a rule for target X and from
-    the implementation of aspect A. It is an error if a target and an aspect that
-    is applied to it each provide a provider with the same name.
-*   For the aspect implementation, the values of attributes along which
-    the aspect is propagated (from the `attr_aspect` list) are replaced with
-    the results of an application of the aspect to them. For example, if target
-    X has Y and Z in its deps, `ctx.rule.attr.deps` for A(X) will be [A(Y), A(Z)].
-    In the `_metal_proto_aspect_impl` function above, ctx.rule.attr.deps will be
-    Target objects that are the results of applying the aspect to the 'deps'
-    of the original target to which the aspect has been applied.
-    That allows the aspect to examine `metal_proto` provider on them.
+In this example, the ``FileCount`` is defined as a provider that has one field
+``count``. It is best practice to explicitly define the fields of a provider
+using the ``fields`` attribute.
 
+The set of providers for an aspect application A(X) is the union of providers
+that come from the implementation of a rule for target X and from
+the implementation of aspect A. It is an error if a target and an aspect that
+is applied to it each provide a provider with the same name. The providers that
+a rule implementation propagates are created and frozen before aspects are
+applied and cannot be modified from an aspect.
 
-## Applying aspects
+The parameters and private attributes are passed in the attributes of the
+``ctx``. In this example, we reference the ``extension`` parameter to decide
+what files to count.
 
-Aspect propagation can be initiated either from a rule or from the command line.
+For returning providers, the values of attributes along which
+the aspect is propagated (from the `attr_aspect` list) are replaced with
+the results of an application of the aspect to them. For example, if target
+X has Y and Z in its deps, `ctx.rule.attr.deps` for A(X) will be [A(Y), A(Z)].
+In this example, ``ctx.rule.attr.deps`` are Target objects that are the
+results of applying the aspect to the 'deps' of the original target to which
+the aspect has been applied.
 
-### Applying aspects to rule attributes
+In the example, the aspect to accesses the ``FileCount`` provider from the
+target's dependencies to accumulate the total transitive number of files.
 
-Rules can specify that they want to apply aspects to their dependencies.
-The aspects to be applied to a particular attribute can be specified
-using the `aspects` parameter to `attr.label` or `attr.label_list` function:
+### Invoking the aspect from a rule
 
 ```python
-metal_proto_library = rule(implementation = _impl,
-   attrs = {
-     'proto_deps' : attr.label_list(aspects = [metal_proto_aspect]),
-   },
+def _file_count_rule_impl(ctx):
+    for dep in ctx.attr.deps:
+        print(dep[FileCount].count)
+
+file_count_rule = rule(
+    implementation = _file_count_rule_impl,
+    attrs = {
+        'deps' : attr.label_list(aspects = [file_count_aspect]),
+        'extension' : attr.string(default = '*'),
+    },
 )
 ```
 
-If a rule specifies an aspect on its attributes, the values of that attribute
-will be replaced by the result of aspect application to them (similar to
-what happens during aspect propagation). Thus implementation of
-`metal_proto_library` will have access to `metal_proto` providers
-on the target objects representing its `proto_deps` attribute values.
+The rule implementation demonstrates how to access the ``FileCount`` via
+the ``ctx.attr.deps``.
 
-### Applying aspects from command line.
+The rule definition demonstrates how to define a parameter (``extension``)
+and give it a default value (``*``). Note that having a default value that
+was not one of '``cc``', '``h``', or '``*``' would be an error due to the
+restrictions placed on the parameter in the aspect definition.
 
-Aspects can also be applied on the command line, using the
-[`--aspects`](../command-line-reference.html#flag--aspects) flag:
+### Invoking an aspect through a target rule
 
+```python
+load('//file_count.bzl', 'file_count_rule')
 
+cc_binary(
+    name = 'app',
+...
+)
+
+file_count_rule(
+    name = 'file_count',
+    deps = ['app'],
+    extension = 'h',
+)
 ```
-bazel build //java/com/company/example:main \
-      --aspects path/to/extension.bzl%metal_proto_aspect
-```
 
-`--aspects` flag takes one argument, which is a specification of the aspect in
-the format `<extension file label>%<aspect top-level name>`.
+This demonstrates how to pass the ``extension`` parameter into the aspect
+via the rule. Since the ``extension`` parameter has a default value in the
+rule implementation, ``extension`` would be considered an optional parameter.
 
-
+When the ``file_count`` target is built, our aspect will be evaluated for
+itself, and all of the targets accessible recursively via ``deps``.
