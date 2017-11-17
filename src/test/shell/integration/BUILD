@@ -276,6 +276,13 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "process_wrapper_test",
+    size = "medium",
+    srcs = ["process-wrapper_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

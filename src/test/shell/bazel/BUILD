@@ -361,13 +361,6 @@ sh_test(
 )
 
 sh_test(
-    name = "process_wrapper_test",
-    size = "medium",
-    srcs = ["process-wrapper_test.sh"],
-    data = [":test-deps"],
-)
-
-sh_test(
     name = "linux_sandbox_test",
     size = "large",
     srcs = ["linux-sandbox_test.sh"],
