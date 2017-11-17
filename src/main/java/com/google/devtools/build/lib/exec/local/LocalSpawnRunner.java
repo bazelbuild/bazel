@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -138,7 +139,8 @@ public final class LocalSpawnRunner implements SpawnRunner {
     // The next action that this thread executes can reuse the temp directory name. The only caveat
     // is, if {@link #start} fails to delete directory after the action is done, the next
     // action will see stale files in its temp directory.
-    String idStr = Long.toHexString(Thread.currentThread().getId());
+    String idStr = Long.toHexString(Thread.currentThread().getId()) + "_"
+              + Long.toHexString(ThreadLocalRandom.current().nextLong());
     Path result = execRoot.getRelative("tmp" + idStr);
     if (!result.exists() && !result.createDirectory()) {
       throw new IOException(String.format("Could not create temp directory '%s'", result));
