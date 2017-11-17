@@ -169,6 +169,7 @@ public interface ActionCache {
     public String toString() {
       StringBuilder builder = new StringBuilder();
       builder.append("      actionKey = ").append(actionKey).append("\n");
+      builder.append("      usedClientEnvKey = ").append(usedClientEnvDigest).append("\n");
       builder.append("      digestKey = ");
       if (md5Digest == null) {
         builder.append(DigestUtils.fromMetadata(mdMap)).append(" (from mdMap)\n");
