@@ -460,7 +460,7 @@ public class JavaCommon {
 
   private ImmutableList<String> computeJavacOpts(Iterable<String> extraJavacOpts) {
     return Streams.concat(
-            JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions().stream(),
+            JavaToolchainProvider.from(ruleContext).getJavacOptions().stream(),
             Streams.stream(extraJavacOpts),
             ruleContext.getExpander().withDataLocations().tokenized("javacopts").stream())
         .collect(toImmutableList());

@@ -404,7 +404,7 @@ public class DeployArchiveBuilder {
 
   /** Returns the SingleJar deploy jar Artifact. */
   private static Artifact getSingleJar(RuleContext ruleContext) {
-    Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
+    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     if (singleJar != null) {
       return singleJar;
     }

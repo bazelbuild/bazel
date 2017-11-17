@@ -339,7 +339,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               .withEnforcementLevel(oneVersionEnforcementLevel)
               .outputArtifact(
                   ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
-              .useToolchain(JavaToolchainProvider.fromRuleContext(ruleContext))
+              .useToolchain(JavaToolchainProvider.from(ruleContext))
               .checkJars(transitiveDependencies)
               .build(ruleContext);
     }
@@ -1501,14 +1501,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
   private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
-    Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
+    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     SpawnAction.Builder builder = new SpawnAction.Builder().useDefaultShellEnvironment();
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
           .setJarExecutable(
               JavaCommon.getHostJavaExecutable(ruleContext),
               singleJar,
-              JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
+              JavaToolchainProvider.from(ruleContext).getJvmOptions())
           .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext));
     } else {
       builder.setExecutable(singleJar);

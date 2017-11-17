@@ -313,7 +313,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
                 .withEnforcementLevel(javaConfig.oneVersionEnforcementLevel())
                 .outputArtifact(
                     ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
-                .useToolchain(JavaToolchainProvider.fromRuleContext(ruleContext))
+                .useToolchain(JavaToolchainProvider.from(ruleContext))
                 .checkJars(
                     NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath())
                         .add(classJar)
@@ -394,7 +394,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .setLauncher(launcher)
         .setOneVersionEnforcementLevel(
             javaConfig.oneVersionEnforcementLevel(),
-            JavaToolchainProvider.fromRuleContext(ruleContext).getOneVersionWhitelist())
+            JavaToolchainProvider.from(ruleContext).getOneVersionWhitelist())
         .build();
 
     Artifact unstrippedDeployJar =
@@ -468,7 +468,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   /** Add Java8 timezone resource jar to java binary, if specified in tool chain. */
   private void addTimezoneResourceForJavaBinaries(
       RuleContext ruleContext, JavaTargetAttributes.Builder attributesBuilder) {
-    JavaToolchainProvider toolchainProvider = JavaToolchainProvider.fromRuleContext(ruleContext);
+    JavaToolchainProvider toolchainProvider = JavaToolchainProvider.from(ruleContext);
     if (toolchainProvider.getTimezoneData() != null) {
       attributesBuilder.addResourceJars(
           NestedSetBuilder.create(Order.STABLE_ORDER, toolchainProvider.getTimezoneData()));

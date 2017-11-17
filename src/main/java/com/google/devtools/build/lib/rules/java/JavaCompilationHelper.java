@@ -719,7 +719,7 @@ public final class JavaCompilationHelper {
   private static ImmutableList<String> getDefaultJavacOptsFromRule(RuleContext ruleContext) {
     return ImmutableList.copyOf(
         Iterables.concat(
-            JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions(),
+            JavaToolchainProvider.from(ruleContext).getJavacOptions(),
             ruleContext.getExpander().withDataLocations().tokenized("javacopts")));
   }
 
@@ -735,8 +735,7 @@ public final class JavaCompilationHelper {
 
   public static JavaToolchainProvider getJavaToolchainProvider(
       RuleContext ruleContext, String implicitAttributesSuffix) {
-    return ruleContext.getPrerequisite(
-        ":java_toolchain" + implicitAttributesSuffix, Mode.TARGET, JavaToolchainProvider.class);
+    return JavaToolchainProvider.from(ruleContext, ":java_toolchain" + implicitAttributesSuffix);
   }
 
   public static JavaToolchainProvider getJavaToolchainProvider(RuleContext ruleContext) {

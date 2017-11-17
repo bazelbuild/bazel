@@ -30,7 +30,7 @@ public class ProtoJavacOpts {
    * <p>See java_toolchain.compatible_javacopts for the javacopts required for protos.
    */
   public static ImmutableList<String> constructJavacOpts(RuleContext ruleContext) {
-    JavaToolchainProvider toolchain = JavaToolchainProvider.fromRuleContext(ruleContext);
+    JavaToolchainProvider toolchain = JavaToolchainProvider.from(ruleContext);
     return ImmutableList.<String>builder()
         .addAll(toolchain.getJavacOptions())
         .addAll(toolchain.getCompatibleJavacOptions(JavaSemantics.PROTO_JAVACOPTS_KEY))
