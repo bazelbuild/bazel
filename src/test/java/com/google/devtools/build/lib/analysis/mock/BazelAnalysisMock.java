@@ -222,6 +222,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'resource_extractor', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexbuilder', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'dexsharder', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'busybox', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'rex_wrapper', srcs = ['empty.sh'])")
         .add("android_library(name = 'incremental_stub_application')")

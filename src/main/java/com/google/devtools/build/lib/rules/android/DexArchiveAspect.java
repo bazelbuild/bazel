@@ -111,6 +111,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       ImmutableList.<String>builder().addAll(TRANSITIVE_ATTRIBUTES_EXCEPT_FOR_PROTOS)
           // To get from proto_library through proto_lang_toolchain rule to proto runtime library.
           .add(JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR, "runtime").build();
+  private static final FlagMatcher DEXOPTS_SUPPORTED_IN_DEXBUILDER =
+      new FlagMatcher(
+          ImmutableList.of("--no-locals", "--no-optimize", "--no-warnings", "--positions"));
 
   private final String toolsRepository;
 
@@ -481,7 +484,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   static ImmutableSet<String> incrementalDexopts(RuleContext ruleContext,
       Iterable<String> tokenizedDexopts) {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      // TODO(bazel-team): Still needed? No longer done in AndroidCommon.createDexAction
+      // TODO(b/27382165): Still needed? No longer done in AndroidCommon.createDexAction
       tokenizedDexopts = Iterables.concat(tokenizedDexopts, ImmutableList.of("--no-locals"));
     }
     return normalizeDexopts(
@@ -501,6 +504,21 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         dexopts,
         new FlagMatcher(
             getAndroidConfig(ruleContext).getTargetDexoptsThatPreventIncrementalDexing()));
+  }
+
+  /**
+   * Derives options to use in DexBuilder actions from the given context and dx flags, where the
+   * latter typically come from a {@code dexopts} attribute on a top-level target.  This should be
+   * a superset of {@link #incrementalDexopts}.
+   */
+  static ImmutableSet<String> topLevelDexbuilderDexopts(
+      RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      // TODO(b/27382165): Still needed? No longer done in AndroidCommon.createDexAction
+      tokenizedDexopts = Iterables.concat(tokenizedDexopts, ImmutableList.of("--no-locals"));
+    }
+    // We don't need an ordered set but might as well.
+    return normalizeDexopts(Iterables.filter(tokenizedDexopts, DEXOPTS_SUPPORTED_IN_DEXBUILDER));
   }
 
   /**

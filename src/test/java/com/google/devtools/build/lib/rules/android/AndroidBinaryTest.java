@@ -191,7 +191,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Artifact jarShard = artifactByPath(
         ImmutableList.of(getCompressedUnsignedApk(getConfiguredTarget("//java/a:a"))),
-        ".apk", "classes.dex.zip", "shard1.dex.zip", "shard1.jar");
+        ".apk", "classes.dex.zip", "shard1.dex.zip", "shard1.jar.dex.zip");
     Iterable<Artifact> shardInputs = getGeneratingAction(jarShard).getInputs();
     assertThat(getFirstArtifactEndingWith(shardInputs, ".txt")).isNull();
   }
@@ -644,6 +644,150 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  proguard_specs = ['proguard.cfg'],",
         "  incremental_dexing = 1,",
         ")");
+  }
+
+  @Test
+  public void testIncrementalDexingAfterProguard_unsharded() throws Exception {
+    useConfiguration("--experimental_incremental_dexing_after_proguard=1");
+    // Use "legacy" multidex mode so we get a main dex list file and can test that it's passed to
+    // the splitter action (similar to _withDexShards below), unlike without the dex splitter where
+    // the main dex list goes to the merging action.
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "android_binary(",
+        "  name = 'top',",
+        "  srcs = ['foo.java', 'bar.srcjar'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  incremental_dexing = 1,",
+        "  multidex = 'legacy',",
+        "  dexopts = ['--minimal-main-dex', '--positions=none'],",
+        "  proguard_specs = ['b.pro'],",
+        ")");
+
+    ConfiguredTarget topTarget = getConfiguredTarget("//java/com/google/android:top");
+    assertNoEvents();
+
+    SpawnAction shardAction =
+        getGeneratingSpawnAction(getBinArtifact("_dx/top/classes.dex.zip", topTarget));
+    assertThat(shardAction.getArguments()).contains("--main-dex-list");
+    assertThat(shardAction.getArguments()).contains("--minimal-main-dex");
+    assertThat(ActionsTestUtil.baseArtifactNames(getNonToolInputs(shardAction)))
+        .containsExactly("classes.jar", "main_dex_list.txt");
+
+    // --positions dexopt is supported after Proguard, even though not normally otherwise
+    assertThat(
+            findParamsFileAction(
+                    getGeneratingSpawnAction(getBinArtifact("_dx/top/classes.jar", topTarget)))
+                .getContents())
+        .contains("--positions=none");
+  }
+
+  @Test
+  public void testIncrementalDexingAfterProguard_autoShardedMultidex() throws Exception {
+    useConfiguration("--experimental_incremental_dexing_after_proguard=3");
+    // Use "legacy" multidex mode so we get a main dex list file and can test that it's passed to
+    // the splitter action (similar to _withDexShards below), unlike without the dex splitter where
+    // the main dex list goes to the merging action.
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "android_binary(",
+        "  name = 'top',",
+        "  srcs = ['foo.java', 'bar.srcjar'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  incremental_dexing = 1,",
+        "  multidex = 'legacy',",
+        "  dexopts = ['--minimal-main-dex', '--positions=none'],",
+        "  proguard_specs = ['b.pro'],",
+        ")");
+
+    ConfiguredTarget topTarget = getConfiguredTarget("//java/com/google/android:top");
+    assertNoEvents();
+
+    SpawnAction splitAction =
+        getGeneratingSpawnAction(getBinArtifact("dexsplits/top", topTarget));
+    assertThat(splitAction.getArguments()).contains("--main-dex-list");
+    assertThat(splitAction.getArguments()).contains("--minimal-main-dex");
+    assertThat(ActionsTestUtil.baseArtifactNames(getNonToolInputs(splitAction)))
+        .containsExactly("shard1.jar.dex.zip", "shard2.jar.dex.zip", "shard3.jar.dex.zip",
+              "main_dex_list.txt");
+
+    SpawnAction shuffleAction =
+        getGeneratingSpawnAction(getBinArtifact("_dx/top/shard1.jar", topTarget));
+    assertThat(shuffleAction.getArguments()).doesNotContain("--main-dex-list");
+    assertThat(ActionsTestUtil.baseArtifactNames(getNonToolInputs(shuffleAction)))
+        .containsExactly("top_proguard.jar");
+
+    // --positions dexopt is supported after Proguard, even though not normally otherwise
+    assertThat(
+            findParamsFileAction(
+                    getGeneratingSpawnAction(
+                        getBinArtifact("_dx/top/shard3.jar.dex.zip", topTarget)))
+                .getContents())
+        .contains("--positions=none");
+  }
+
+  @Test
+  public void testIncrementalDexingAfterProguard_explicitDexShards() throws Exception {
+    useConfiguration("--experimental_incremental_dexing_after_proguard=2");
+    // Use "legacy" multidex mode so we get a main dex list file and can test that it's passed to
+    // the shardAction, not to the subsequent dexMerger action.  Without dex_shards, main dex list
+    // file goes to the dexMerger instead (see _multidex test).
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "android_binary(",
+        "  name = 'top',",
+        "  srcs = ['foo.java', 'bar.srcjar'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  dex_shards = 25,",
+        "  incremental_dexing = 1,",
+        "  multidex = 'legacy',",
+        "  proguard_specs = ['b.pro'],",
+        ")");
+
+    ConfiguredTarget topTarget = getConfiguredTarget("//java/com/google/android:top");
+    assertNoEvents();
+    SpawnAction shardAction =
+        getGeneratingSpawnAction(getBinArtifact("_dx/top/shard25.jar", topTarget));
+    assertThat(shardAction.getArguments()).contains("--main_dex_filter");
+    assertThat(ActionsTestUtil.baseArtifactNames(getNonToolInputs(shardAction)))
+        .containsExactly("top_proguard.jar", "main_dex_list.txt");
+    SpawnAction mergeAction =
+        getGeneratingSpawnAction(getBinArtifact("_dx/top/shard1.jar.dex.zip", topTarget));
+    assertThat(mergeAction.getArguments()).doesNotContain("--main-dex-list");
+    assertThat(ActionsTestUtil.baseArtifactNames(getNonToolInputs(mergeAction)))
+        .containsExactly("shard1.jar", "shard1.jar.dex.zip-2.params");
+  }
+
+  @Test
+  public void testIncrementalDexingAfterProguard_autoShardedMonodex()
+      throws Exception {
+    useConfiguration("--experimental_incremental_dexing_after_proguard=3");
+    // Use "legacy" multidex mode so we get a main dex list file and can test that it's passed to
+    // the splitter action (similar to _withDexShards below), unlike without the dex splitter where
+    // the main dex list goes to the merging action.
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "android_binary(",
+        "  name = 'top',",
+        "  srcs = ['foo.java', 'bar.srcjar'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  incremental_dexing = 1,",
+        "  multidex = 'off',",
+        "  proguard_specs = ['b.pro'],",
+        ")");
+
+    ConfiguredTarget topTarget = getConfiguredTarget("//java/com/google/android:top");
+    assertNoEvents();
+    SpawnAction mergeAction =
+        getGeneratingSpawnAction(getBinArtifact("_dx/top/classes.dex.zip", topTarget));
+    assertThat(mergeAction.getArguments()).doesNotContain("--main-dex-list");
+    assertThat(ActionsTestUtil.baseArtifactNames(getNonToolInputs(mergeAction)))
+        .containsExactly("shard1.jar.dex.zip", "shard2.jar.dex.zip", "shard3.jar.dex.zip");
+    SpawnAction shuffleAction =
+        getGeneratingSpawnAction(getBinArtifact("_dx/top/shard1.jar", topTarget));
+    assertThat(shuffleAction.getArguments()).doesNotContain("--main-dex-list");
+    assertThat(ActionsTestUtil.baseArtifactNames(getNonToolInputs(shuffleAction)))
+        .containsExactly("top_proguard.jar");
   }
 
   @Test

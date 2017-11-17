@@ -371,6 +371,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean incrementalDexing;
 
+    @Option(
+      name = "experimental_incremental_dexing_after_proguard",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help = "Whether to use incremental dexing tools when building proguarded Android binaries.  "
+          + "Values > 0 turn the feature on, values > 1 run that many dexbuilder shards."
+    )
+    public int incrementalDexingShardsAfterProguard;
+
     /** Whether to look for incrementally dex protos built with java_lite_proto_library. */
     // TODO(b/31711689): remove this flag from config files and here
     @Option(
@@ -433,7 +443,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
           "dx flags that that prevent incremental dexing for binary targets that list any of "
               + "the flags listed here in their 'dexopts' attribute, which are ignored with "
               + "incremental dexing (superseding --dexopts_supported_in_incremental_dexing).  "
-              + "Defaults to --no-locals for safety but can in general be used "
+              + "Defaults to --positions for safety but can in general be used "
               + "to make sure the listed dx flags are honored, with additional build latency.  "
               + "Please notify us if you find yourself needing this flag."
     )
@@ -693,6 +703,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.desugarJava8 = desugarJava8;
       host.checkDesugarDeps = checkDesugarDeps;
       host.incrementalDexing = incrementalDexing;
+      host.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
       host.incrementalDexingForLiteProtos = incrementalDexingForLiteProtos;
       host.incrementalDexingErrorOnMissedJars = incrementalDexingErrorOnMissedJars;
       host.assumeMinSdkVersion = assumeMinSdkVersion;
@@ -738,6 +749,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean incrementalNativeLibs;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
+  private final int incrementalDexingShardsAfterProguard;
   private final boolean incrementalDexingForLiteProtos;
   private final boolean incrementalDexingErrorOnMissedJars;
   private final boolean assumeMinSdkVersion;
@@ -774,6 +786,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
+    this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
     this.incrementalDexingForLiteProtos = options.incrementalDexingForLiteProtos;
     this.incrementalDexingErrorOnMissedJars = options.incrementalDexingErrorOnMissedJars;
     this.assumeMinSdkVersion = options.assumeMinSdkVersion;
@@ -811,6 +824,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       throw new InvalidConfigurationException("--dexopts_supported_in_incremental_dexing must "
           + "include '--no-locals' to enable coverage builds");
     }
+    if (incrementalDexingShardsAfterProguard < 0) {
+      throw new InvalidConfigurationException(
+          "--experimental_incremental_dexing_after_proguard must be a positive number");
+    }
   }
 
   public String getCpu() {
@@ -831,6 +848,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean useIncrementalDexing() {
     return incrementalDexing;
+  }
+
+  /** Returns whether to process proguarded Android binaries with incremental dexing tools. */
+  public int incrementalDexingShardsAfterProguard() {
+    return incrementalDexingShardsAfterProguard;
   }
 
   /**

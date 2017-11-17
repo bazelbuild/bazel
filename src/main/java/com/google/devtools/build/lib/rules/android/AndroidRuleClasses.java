@@ -694,6 +694,11 @@ public final class AndroidRuleClasses {
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dexbuilder")))
           .add(
+              attr("$dexsharder", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:dexsharder")))
+          .add(
               attr("$dexmerger", LABEL)
                   .cfg(HOST)
                   .exec()
