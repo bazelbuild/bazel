@@ -478,6 +478,22 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('/DEF:my_lib.def', ''.join(stderr))
 
+  def testCcImportRule(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_import(',
+        '  name = "a_import",',
+        '  static_library = "A.a",',
+        '  shared_library = "A.so",',
+        '  interface_library = "A.ifso",',
+        '  hdrs = ["a.h"],',
+        '  alwayslink = 1,',
+        ')',
+    ])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '//:a_import',
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
 
 if __name__ == '__main__':
   unittest.main()
