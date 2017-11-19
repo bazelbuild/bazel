@@ -601,18 +601,21 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
   private CToolchain getToolchainFromAttributes(
       RuleContext ruleContext, CppConfiguration cppConfiguration) throws RuleErrorException {
-    for (String requiredAttr : ImmutableList.of("cpu", "compiler", "libc")) {
-      if (ruleContext.attributes().get(requiredAttr, Type.STRING).isEmpty()) {
-        ruleContext.throwWithRuleError(
-            String.format(
-                "Using cc_toolchain target requires the attribute '%s' to be present.",
-                requiredAttr));
-      }
+    if (ruleContext.attributes().get("cpu", Type.STRING).isEmpty()) {
+      ruleContext.throwWithRuleError("Using cc_toolchain target requires the attribute 'cpu' "
+          + "to be present");
     }
+
 
     String cpu = ruleContext.attributes().get("cpu", Type.STRING);
     String compiler = ruleContext.attributes().get("compiler", Type.STRING);
+    if (compiler.isEmpty()) {
+      compiler = null;
+    }
     String libc = ruleContext.attributes().get("libc", Type.STRING);
+    if (libc.isEmpty()) {
+      libc = null;
+    }
     CrosstoolConfigurationIdentifier config =
         new CrosstoolConfigurationIdentifier(cpu, compiler, libc);
 
