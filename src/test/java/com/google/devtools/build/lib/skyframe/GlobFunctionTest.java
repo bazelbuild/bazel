@@ -26,13 +26,18 @@ import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -117,6 +122,7 @@ public abstract class GlobFunctionTest {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.set(
         differencer, PathFragment.EMPTY_FRAGMENT);
+    PrecomputedValue.SKYLARK_SEMANTICS.set(differencer, SkylarkSemantics.DEFAULT_SEMANTICS);
 
     createTestFiles();
   }
@@ -124,12 +130,13 @@ public abstract class GlobFunctionTest {
   private Map<SkyFunctionName, SkyFunction> createFunctionMap() {
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
+    BlazeDirectories directories =
+        new BlazeDirectories(new ServerDirectories(root, root), root, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         new ExternalFilesHelper(
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-            new BlazeDirectories(
-                new ServerDirectories(root, root), root, TestConstants.PRODUCT_NAME));
+            directories);
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(SkyFunctions.GLOB, new GlobFunction(alwaysUseDirListing()));
@@ -154,6 +161,22 @@ public abstract class GlobFunctionTest {
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper));
+
+    AnalysisMock analysisMock = AnalysisMock.get();
+    RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
+    skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
+    skyFunctions.put(
+        SkyFunctions.WORKSPACE_FILE,
+        new WorkspaceFileFunction(
+            ruleClassProvider,
+            analysisMock
+                .getPackageFactoryBuilderForTesting(directories)
+                .setEnvironmentExtensions(
+                    ImmutableList.<EnvironmentExtension>of(
+                        new PackageFactory.EmptyEnvironmentExtension()))
+                .build(ruleClassProvider, fs),
+            directories));
+    skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     return skyFunctions;
   }
@@ -304,6 +327,51 @@ public abstract class GlobFunctionTest {
   @Test
   public void testGlobDoesNotCrossPackageBoundaryUnderOtherPackagePath() throws Exception {
     FileSystemUtils.createDirectoryAndParents(writableRoot.getRelative("pkg/foo/bar"));
+    FileSystemUtils.createEmptyFile(writableRoot.getRelative("pkg/foo/bar/BUILD"));
+    // "foo/bar" should not be in the results because foo/bar is detected as a separate package,
+    // even though it is under a different package path.
+    assertGlobMatches("foo/**", /* => */ "foo/barnacle/wiz", "foo/barnacle", "foo");
+  }
+
+  @Test
+  public void testGlobDoesNotCrossRepositoryBoundary() throws Exception {
+    FileSystemUtils.appendIsoLatin1(
+        root.getRelative("WORKSPACE"), "local_repository(name='local', path='pkg/foo')");
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/WORKSPACE"));
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/BUILD"));
+    // "foo/bar" should not be in the results because foo is a separate repository.
+    assertGlobMatches("f*/*", /* => */ "food/barnacle", "fool/barnacle");
+  }
+
+  @Test
+  public void testGlobDirectoryMatchDoesNotCrossRepositoryBoundary() throws Exception {
+    FileSystemUtils.appendIsoLatin1(
+        root.getRelative("WORKSPACE"), "local_repository(name='local', path='pkg/foo/bar')");
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/WORKSPACE"));
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/BUILD"));
+    // "foo/bar" should not be in the results because foo/bar is a separate repository.
+    assertGlobMatches("foo/*", /* => */ "foo/barnacle");
+  }
+
+  @Test
+  public void testStarStarDoesNotCrossRepositoryBoundary() throws Exception {
+    FileSystemUtils.appendIsoLatin1(
+        root.getRelative("WORKSPACE"), "local_repository(name='local', path='pkg/foo/bar')");
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/WORKSPACE"));
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/BUILD"));
+    // "foo/bar" should not be in the results because foo/bar is a separate repository.
+    assertGlobMatches("foo/**", /* => */ "foo/barnacle/wiz", "foo/barnacle", "foo");
+  }
+
+  @Test
+  public void testGlobDoesNotCrossRepositoryBoundaryUnderOtherPackagePath() throws Exception {
+    FileSystemUtils.appendIsoLatin1(
+        root.getRelative("WORKSPACE"),
+        "local_repository(name='local', path='"
+            + writableRoot.getRelative("pkg/foo/bar").getPathString()
+            + "')");
+    FileSystemUtils.createDirectoryAndParents(writableRoot.getRelative("pkg/foo/bar"));
+    FileSystemUtils.createEmptyFile(writableRoot.getRelative("pkg/foo/bar/WORKSPACE"));
     FileSystemUtils.createEmptyFile(writableRoot.getRelative("pkg/foo/bar/BUILD"));
     // "foo/bar" should not be in the results because foo/bar is detected as a separate package,
     // even though it is under a different package path.
