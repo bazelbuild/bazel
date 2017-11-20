@@ -245,15 +245,25 @@ public final class CcLibraryHelper {
     }
 
     /**
-     * Adds the static, pic-static, and dynamic (both compile-time and execution-time) libraries to
-     * the given builder.
+     * Adds the static, pic-static libraries to the given builder.
+     * If addDynamicLibraries parameter is true, it also adds dynamic(both compile-time and
+     * execution-time) libraries.
      */
-    public void addLinkingOutputsTo(NestedSetBuilder<Artifact> filesBuilder) {
+    public void addLinkingOutputsTo(
+        NestedSetBuilder<Artifact> filesBuilder, boolean addDynamicLibraries) {
       filesBuilder
           .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getStaticLibraries()))
-          .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getPicStaticLibraries()))
-          .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibraries()))
-          .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getExecutionDynamicLibraries()));
+          .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getPicStaticLibraries()));
+      if (addDynamicLibraries) {
+        filesBuilder
+            .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibraries()))
+            .addAll(
+                LinkerInputs.toNonSolibArtifacts(linkingOutputs.getExecutionDynamicLibraries()));
+      }
+    }
+
+    public void addLinkingOutputsTo(NestedSetBuilder<Artifact> filesBuilder) {
+      addLinkingOutputsTo(filesBuilder, true);
     }
   }
 
