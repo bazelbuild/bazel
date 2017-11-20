@@ -251,7 +251,7 @@ EOF
     || fail "Failed to build //pkg:test"
   assert_contains "PATH=$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path" \
     bazel-genfiles/pkg/test.out
-  assert_contains "TMPDIR=.*execroot.*tmp[0-9a-fA-F]\+$" \
+  assert_contains "TMPDIR=.*execroot.*tmp[0-9a-fA-F]\+_[0-9a-fA-F]\+$" \
     bazel-genfiles/pkg/test.out
   assert_not_contains "TMPDIR=.*newfancytmpdir" \
     bazel-genfiles/pkg/test.out
