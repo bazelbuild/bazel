@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
@@ -68,6 +70,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
 
 /**
  * Unit tests for {@link LocalSpawnRunner}.
@@ -514,7 +517,19 @@ public class LocalSpawnRunnerTest {
         .rewriteLocalEnv(
             any(),
             eq(fs.getPath("/execroot")),
-            eq(fs.getPath("/execroot/tmp1")),
+            argThat(
+                new ArgumentMatcher<Path>() {
+                  @Override
+                  public boolean matches(Object arg) {
+                    if (!(arg instanceof Path)) {
+                      return false;
+                    }
+                    return ((Path) arg)
+                        .getPathString()
+                        .matches("^/execroot/tmp[0-9a-fA-F]+_[0-9a-fA-F]+$");
+                  }
+                }
+            ),
             eq("product-name"));
   }
 
