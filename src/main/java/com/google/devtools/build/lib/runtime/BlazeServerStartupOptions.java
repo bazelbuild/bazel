@@ -408,4 +408,17 @@ public class BlazeServerStartupOptions extends OptionsBase {
     help = "The amount of time the client waits for each attempt to connect to the server"
   )
   public int connectTimeoutSecs;
+
+  @Option(
+    name = "expand_configs_in_place",
+    defaultValue = "false",
+    category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION, OptionEffectTag.CHANGES_INPUTS},
+    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+    help =
+        "Changes the expansion of --config flags to be done in-place, as opposed to in a fixed "
+            + "point expansion between normal rc options and command-line specified options."
+  )
+  public boolean expandConfigsInPlace;
 }

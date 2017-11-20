@@ -433,6 +433,11 @@ static vector<string> GetArgumentArray() {
   } else {
     result.push_back("--nodeep_execroot");
   }
+  if (globals->options->expand_configs_in_place) {
+    result.push_back("--expand_configs_in_place");
+  } else {
+    result.push_back("--noexpand_configs_in_place");
+  }
   if (globals->options->oom_more_eagerly) {
     result.push_back("--experimental_oom_more_eagerly");
   }

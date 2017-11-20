@@ -549,7 +549,7 @@ public class OptionsParser implements OptionsProvider {
    *     or null if the value has not been set.
    * @throws IllegalArgumentException if there is no option by the given name.
    */
-  OptionValueDescription getOptionValueDescription(String name) {
+  public OptionValueDescription getOptionValueDescription(String name) {
     return impl.getOptionValueDescription(name);
   }
 
@@ -619,6 +619,19 @@ public class OptionsParser implements OptionsProvider {
     }
   }
 
+  public void parseOptionsFixedAtSpecificPriority(
+      OptionPriority priority, String source, List<String> args) throws OptionsParsingException {
+    Preconditions.checkNotNull(priority, "Priority not specified for arglist " + args);
+    Preconditions.checkArgument(
+        priority.getPriorityCategory() != OptionPriority.PriorityCategory.DEFAULT,
+        "Priority cannot be default, which was specified for arglist " + args);
+    residue.addAll(impl.parseOptionsFixedAtSpecificPriority(priority, o -> source, args));
+    if (!allowResidue && !residue.isEmpty()) {
+      String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
+      throw new OptionsParsingException(errorMsg);
+    }
+  }
+
   /**
    * @param origin the origin of this option instance, it includes the priority of the value. If
    *     other values have already been or will be parsed at a higher priority, they might override
@@ -652,9 +665,7 @@ public class OptionsParser implements OptionsProvider {
     return ImmutableList.copyOf(residue);
   }
 
-  /**
-   * Returns a list of warnings about problems encountered by previous parse calls.
-   */
+  /** Returns a list of warnings about problems encountered by previous parse calls. */
   public List<String> getWarnings() {
     return impl.getWarnings();
   }
@@ -792,8 +803,7 @@ public class OptionsParser implements OptionsProvider {
    * Option} annotation.
    */
   private static void validateFieldsSets(
-      Class<? extends OptionsBase> optionsClass,
-      LinkedHashSet<Field> fieldsFromMap) {
+      Class<? extends OptionsBase> optionsClass, LinkedHashSet<Field> fieldsFromMap) {
     ImmutableList<OptionDefinition> optionDefsFromClasses =
         OptionsData.getAllOptionDefinitionsForClass(optionsClass);
     Set<Field> fieldsFromClass =

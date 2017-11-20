@@ -81,7 +81,7 @@ public abstract class OptionValueDescription {
    * and is null.
    */
   @Nullable
-  abstract List<ParsedOptionDescription> getCanonicalInstances();
+  public abstract List<ParsedOptionDescription> getCanonicalInstances();
 
   /**
    * For the given option, returns the correct type of OptionValueDescription, to which unparsed
@@ -137,7 +137,7 @@ public abstract class OptionValueDescription {
     }
 
     @Override
-    ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
+    public ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
       return null;
     }
   }
@@ -247,7 +247,7 @@ public abstract class OptionValueDescription {
     }
 
     @Override
-    ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
+    public ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
       // If the current option is an implicit requirement, we don't need to list this value since
       // the parent implies it. In this case, it is sufficient to not list this value at all.
       if (effectiveOptionInstance.getImplicitDependent() == null) {
@@ -315,7 +315,7 @@ public abstract class OptionValueDescription {
     }
 
     @Override
-    ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
+    public ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
       return parsedOptions
           .asMap()
           .entrySet()
@@ -375,7 +375,7 @@ public abstract class OptionValueDescription {
     }
 
     @Override
-    ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
+    public ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
       // The options this expands to are incorporated in their own right - this option does
       // not have a canonical form.
       return ImmutableList.of();
@@ -464,7 +464,7 @@ public abstract class OptionValueDescription {
     }
 
     @Override
-    ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
+    public ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
       // No wrapper options get listed in the canonical form - the options they are wrapping will
       // be in the right place.
       return ImmutableList.of();

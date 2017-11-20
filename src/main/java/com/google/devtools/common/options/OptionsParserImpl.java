@@ -284,6 +284,15 @@ class OptionsParserImpl {
     }
   }
 
+  /** Parses the args at the fixed priority. */
+  List<String> parseOptionsFixedAtSpecificPriority(
+      OptionPriority priority, Function<OptionDefinition, String> sourceFunction, List<String> args)
+      throws OptionsParsingException {
+    ResidueAndPriority residueAndPriority =
+        parse(OptionPriority.getLockedPriority(priority), sourceFunction, null, null, args);
+    return residueAndPriority.residue;
+  }
+
   /**
    * Parses the args, and returns what it doesn't parse. May be called multiple times, and may be
    * called recursively. Calls may contain intersecting sets of options; in that case, the arg seen

@@ -268,6 +268,8 @@ class StartupOptions {
   // Value of the java.util.logging.FileHandler.formatter Java property.
   std::string java_logging_formatter;
 
+  bool expand_configs_in_place;
+
   // The startup options as received from the user and rc files, tagged with
   // their origin. This is populated by ProcessArgs.
   std::vector<RcStartupFlag> original_startup_options_;
