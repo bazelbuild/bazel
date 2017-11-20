@@ -621,18 +621,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean exportsManifestDefault;
 
-
-    @Option(
-      name = "experimental_android_generate_robolectric_r_class",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If passed, R classes will be generated for Robolectric tests. Otherwise, only inherited"
-              + " R classes will be used."
-    )
-    public boolean generateRobolectricRClass;
-
     @Option(
         name = "experimental_android_throw_on_resource_conflict",
         defaultValue = "false",
@@ -641,16 +629,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
     )
     public boolean throwOnResourceConflict;
-
-    @Option(
-        name = "experimental_use_manifest_from_resource_apk",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Android library rule will use the AppManifest from the resource APK"
-            + " in the AAR file."
-    )
-    public boolean useManifestFromResourceApk;
 
     @Option(
         name = "experimental_android_allow_android_resources",
@@ -770,10 +748,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean includeLibraryResourceJars;
   private final boolean exportsManifestDefault;
   private final AndroidAaptVersion androidAaptVersion;
-  private final boolean generateRobolectricRClass;
   private final boolean throwOnResourceConflict;
   private final boolean useParallelDex2Oat;
-  private final boolean useManifestFromResourceApk;
   private final boolean allowAndroidResources;
   private final boolean allowResourcesAttr;
   private final boolean inheritResourcesInTests;
@@ -810,10 +786,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.includeLibraryResourceJars = options.includeLibraryResourceJars;
     this.exportsManifestDefault = options.exportsManifestDefault;
     this.androidAaptVersion = options.androidAaptVersion;
-    this.generateRobolectricRClass = options.generateRobolectricRClass;
     this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
-    this.useManifestFromResourceApk = options.useManifestFromResourceApk;
     this.allowAndroidResources = options.allowAndroidResources;
     this.allowResourcesAttr = options.allowResourcesAttr;
     this.inheritResourcesInTests = options.inheritResourcesInTests;
@@ -961,16 +935,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return exportsManifestDefault;
   }
 
-  public boolean generateRobolectricRClass() {
-    return generateRobolectricRClass;
-  }
-
   boolean throwOnResourceConflict() {
     return throwOnResourceConflict;
-  }
-
-  boolean useManifestFromResourceApk() {
-    return useManifestFromResourceApk;
   }
 
   public boolean allowAndroidResources() {

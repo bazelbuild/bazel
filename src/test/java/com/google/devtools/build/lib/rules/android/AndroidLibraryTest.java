@@ -1551,7 +1551,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "  manifest = 'a/AndroidManifest.xml',",
         "  resource_files = [ 'res/values/a.xml' ]",
         ")");
-    useConfiguration("--experimental_use_manifest_from_resource_apk");
 
     ConfiguredTarget target = getConfiguredTarget("//java/a:a");
 

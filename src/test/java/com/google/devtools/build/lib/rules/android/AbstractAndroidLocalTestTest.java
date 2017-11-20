@@ -62,9 +62,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
 
   @Test
   public void testOneVersionEnforcement() throws Exception {
-    useConfiguration(
-        "--experimental_one_version_enforcement=error",
-        "--experimental_android_generate_robolectric_r_class");
+    useConfiguration("--experimental_one_version_enforcement=error");
     writeFile("java/test/resource/BUILD",
         "android_local_test(name = 'dummyTest',",
         "                         srcs = ['test.java'],",
