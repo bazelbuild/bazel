@@ -457,6 +457,24 @@ public abstract class BlazeOptionHandler {
             String.format("expanded from --%s", configValueToExpand),
             expansion);
       }
+
+      // At this point, we've expanded everything, identify duplicates, if any, to warn about
+      // re-application.
+      List<String> configs = optionsParser.getOptions(CommonCommandOptions.class).configs;
+      Set<String> configSet = new HashSet<>();
+      LinkedHashSet<String> duplicateConfigs = new LinkedHashSet<>();
+      for (String configValue : configs) {
+        if (!configSet.add(configValue)) {
+          duplicateConfigs.add(configValue);
+        }
+      }
+      if (!duplicateConfigs.isEmpty()) {
+        eventHandler.handle(Event.warn(
+            String.format(
+                "The following configs were expanded more than once: %s. For repeatable flags, "
+                    + "repeats are counted twice and may lead to unexpected behavior.",
+                duplicateConfigs)));
+      }
     }
 
     private List<String> getExpansion(

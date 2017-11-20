@@ -1061,7 +1061,6 @@ public class BlazeOptionHandlerTest {
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
         eventHandler);
-    assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
   }
 
@@ -1069,6 +1068,7 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_repeatSubConfig_fixedPoint() {
     makeFixedPointExpandingConfigOptionHandler();
     parseConfigDoubleRecursionCommandLine();
+    assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
             "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
@@ -1090,6 +1090,11 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_repeatSubConfig_inPlace() {
     makeInPlaceExpandingConfigOptionHandler();
     parseConfigDoubleRecursionCommandLine();
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [bar]. For repeatable flags, "
+                    + "repeats are counted twice and may lead to unexpected behavior."));
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
             "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
@@ -1105,6 +1110,73 @@ public class BlazeOptionHandlerTest {
     // Bar is repeated, since it was included twice.
     assertThat(options.testMultipleString)
         .containsExactly("foo", "bar", "bar", "rc", "explicit")
+        .inOrder();
+  }
+
+  private void parseRepeatConfigs() {
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--default_override=0:c0:foo=--test_multiple_string=foo",
+            "--default_override=0:c0:foo=--config=bar",
+            "--default_override=0:c0:bar=--test_multiple_string=bar",
+            "--default_override=0:c0:baz=--test_multiple_string=baz",
+            "--rc_source=/somewhere/.blazerc",
+            "--config=foo",
+            "--config=baz",
+            "--config=foo",
+            "--config=bar"),
+        eventHandler);
+    assertThat(parser.getResidue()).isEmpty();
+  }
+
+  @Test
+  public void testParseOptions_repeatConfig_fixedPoint() {
+    makeFixedPointExpandingConfigOptionHandler();
+    parseRepeatConfigs();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Found applicable config definition c0:foo in file /somewhere/.blazerc: "
+                + "--test_multiple_string=foo --config=bar",
+            "Found applicable config definition c0:baz in file /somewhere/.blazerc: "
+                + "--test_multiple_string=baz",
+            "Found applicable config definition c0:bar in file /somewhere/.blazerc: "
+                + "--test_multiple_string=bar");
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    // Foo and bar are not repeated, despite repeat mentions.
+    assertThat(options.testMultipleString).containsExactly("foo", "baz", "bar").inOrder();
+  }
+
+  @Test
+  public void testParseOptions_repeatConfig_inPlace() {
+    makeInPlaceExpandingConfigOptionHandler();
+    parseRepeatConfigs();
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [foo, bar]. For repeatable "
+                    + "flags, repeats are counted twice and may lead to unexpected behavior."));
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Found applicable config definition c0:foo in file /somewhere/.blazerc: "
+                + "--test_multiple_string=foo --config=bar",
+            "Found applicable config definition c0:bar in file /somewhere/.blazerc: "
+                + "--test_multiple_string=bar",
+            "Found applicable config definition c0:baz in file /somewhere/.blazerc: "
+                + "--test_multiple_string=baz",
+            "Found applicable config definition c0:foo in file /somewhere/.blazerc: "
+                + "--test_multiple_string=foo --config=bar",
+            "Found applicable config definition c0:bar in file /somewhere/.blazerc: "
+                + "--test_multiple_string=bar",
+            "Found applicable config definition c0:bar in file /somewhere/.blazerc: "
+                + "--test_multiple_string=bar");
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    // Bar is repeated, since it was included twice.
+    assertThat(options.testMultipleString)
+        .containsExactly("foo", "bar", "baz", "foo", "bar", "bar")
         .inOrder();
   }
 
@@ -1214,7 +1286,6 @@ public class BlazeOptionHandlerTest {
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
         eventHandler);
-    assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
   }
 
@@ -1222,6 +1293,7 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_recursiveConfigWasAlreadyPresent_fixedPoint() {
     makeFixedPointExpandingConfigOptionHandler();
     recursivelyIncludedRepeatConfigCommandLine();
+    assertThat(eventHandler.getEvents()).isEmpty();
 
     // The 2nd config, --config=other, is expanded at the same time as --config=conf, since they are
     // both initially present. The "common" definition is therefore first. other is not reexpanded
@@ -1247,6 +1319,11 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_recursiveConfigWasAlreadyPresent_inPlace() {
     makeInPlaceExpandingConfigOptionHandler();
     recursivelyIncludedRepeatConfigCommandLine();
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "The following configs were expanded more than once: [other]. For repeatable "
+                    + "flags, repeats are counted twice and may lead to unexpected behavior."));
 
     // The 2nd config, --config=other, is expanded twice at the same time as --config=conf,
     // both initially present. The "common" definition is therefore first. other is expanded twice.
@@ -1416,7 +1493,11 @@ public class BlazeOptionHandlerTest {
             Event.warn(
                 "There is a recursive chain of configs 10 configs long: [gamma, delta, epsilon, "
                     + "zeta, eta, theta, iota, kappa, lambda, mu]. This seems excessive, "
-                    + "and might be hiding errors."));
+                    + "and might be hiding errors."),
+            Event.warn(
+                "The following configs were expanded more than once: [gamma, delta, epsilon, zeta, "
+                    + "eta, theta, iota, kappa, lambda, mu]. For repeatable flags, repeats are "
+                    + "counted twice and may lead to unexpected behavior."));
   }
 
   private void testWarningFlag() {
