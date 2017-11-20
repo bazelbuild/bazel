@@ -824,6 +824,7 @@ java_library(
         "rules/java/JavaNeverlinkInfoProvider.java",
         "rules/java/JavaOptions.java",
         "rules/java/JavaPluginInfoProvider.java",
+        "rules/java/JavaRuleClasses.java",
         "rules/java/JavaRuleOutputJarsProvider.java",
         "rules/java/JavaRunfilesProvider.java",
         "rules/java/JavaRuntimeInfo.java",

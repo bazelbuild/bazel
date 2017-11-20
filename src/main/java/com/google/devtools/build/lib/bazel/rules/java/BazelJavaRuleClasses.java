@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -46,6 +45,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -92,33 +92,6 @@ public class BazelJavaRuleClasses {
    */
   public static final ImmutableList<ImmutableList<SkylarkProviderIdentifier>>
       MANDATORY_JAVA_PROVIDER_ONLY = ImmutableList.of(CONTAINS_JAVA_PROVIDER);
-
-
-  /**
-   * Common attributes for rules that depend on ijar.
-   */
-  public static final class IjarBaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr(":java_toolchain", LABEL)
-                  .useOutputLicenses()
-                  .mandatoryProviders(ToolchainInfo.PROVIDER.id())
-                  .value(JavaSemantics.JAVA_TOOLCHAIN))
-          .setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE)
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$ijar_base_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
 
   /**
    * Common attributes for Java rules.

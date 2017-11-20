@@ -119,6 +119,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeAlias;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeSuiteRule;
@@ -420,7 +421,7 @@ public class BazelRuleClassProvider {
           builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());
 
           builder.addRuleDefinition(new BazelJavaRuleClasses.BaseJavaBinaryRule());
-          builder.addRuleDefinition(new BazelJavaRuleClasses.IjarBaseRule());
+          builder.addRuleDefinition(new IjarBaseRule());
           builder.addRuleDefinition(new BazelJavaRuleClasses.JavaBaseRule());
           builder.addRuleDefinition(new ProguardLibraryRule());
           builder.addRuleDefinition(new JavaImportBaseRule());
