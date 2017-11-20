@@ -114,8 +114,7 @@ public class BazelLibrary {
         defaultValue = "None"
       )
     },
-    useLocation = true,
-    useEnvironment = true
+    useLocation = true
   )
   private static final BuiltinFunction depset =
       new BuiltinFunction("depset") {
@@ -124,13 +123,11 @@ public class BazelLibrary {
             String orderString,
             Object direct,
             Object transitive,
-            Location loc,
-            Environment env)
+            Location loc)
             throws EvalException {
           Order order;
           try {
-            order = Order.parse(
-                orderString, env.getSemantics().incompatibleDisallowSetConstructor());
+            order = Order.parse(orderString);
           } catch (IllegalArgumentException ex) {
             throw new EvalException(loc, ex);
           }
@@ -180,7 +177,6 @@ public class BazelLibrary {
   @SkylarkSignature(
     name = "set",
     returnType = SkylarkNestedSet.class,
-    documentationReturnType = SkylarkNestedSet.LegacySet.class,
     doc =
         "A temporary alias for <a href=\"#depset\">depset</a>. "
             + "Deprecated in favor of <code>depset</code>.",
@@ -198,28 +194,13 @@ public class BazelLibrary {
         doc = "Same as for <a href=\"#depset\">depset</a>."
       )
     },
-    useLocation = true,
-    useEnvironment = true
+    useLocation = true
   )
   private static final BuiltinFunction set =
       new BuiltinFunction("set") {
-        public SkylarkNestedSet invoke(Object items, String order, Location loc, Environment env)
+        public SkylarkNestedSet invoke(Object items, String order, Location loc)
             throws EvalException {
-          if (env.getSemantics().incompatibleDisallowSetConstructor()) {
-            throw new EvalException(
-                loc,
-                "The `set` constructor for depsets is deprecated and will be removed. Please use "
-                    + "the `depset` constructor instead. You can temporarily enable the "
-                    + "deprecated `set` constructor by passing the flag "
-                    + "--incompatible_disallow_set_constructor=false");
-          }
-          try {
-            return new SkylarkNestedSet(
-                Order.parse(order, /*forbidDeprecatedOrderNames=*/false),
-                items, loc);
-          } catch (IllegalArgumentException ex) {
-            throw new EvalException(loc, ex);
-          }
+          throw new EvalException(loc, "The function 'set' has been removed in favor of 'depset'.");
         }
       };
 

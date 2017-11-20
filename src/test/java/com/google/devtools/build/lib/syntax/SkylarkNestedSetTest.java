@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -37,22 +36,18 @@ import org.junit.runners.JUnit4;
 public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
-  public void testLegacyConstructor() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_set_constructor=false");
-    eval("s = set([1, 2, 3], order='postorder')");
+  public void testLegacyConstructorNotCalled() throws Exception {
+    env = newEnvironmentWithSkylarkOptions();
+    eval("s = set([1, 2]) if False else depset([3, 4])");
     SkylarkNestedSet s = get("s");
-    assertThat(s.getOrder().getSkylarkName()).isEqualTo("postorder");
-    assertThat(s.getSet(Object.class)).containsExactly(1, 2, 3);
+    assertThat(s.getSet(Object.class)).containsExactly(3, 4);
   }
 
   @Test
-  public void testLegacyConstructorDeprecation() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_set_constructor=true");
-    EvalException e = expectThrows(
-        EvalException.class,
-        () -> eval("s = set([1, 2, 3], order='postorder')")
-    );
-    assertThat(e).hasMessageThat().contains("The `set` constructor for depsets is deprecated");
+  public void testLegacyConstructorCalled() throws Exception {
+    new BothModesTest()
+        .testIfErrorContains("The function 'set' has been removed in favor of 'depset'",
+            "s = set([1, 2])");
   }
 
   @Test
@@ -147,21 +142,6 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   public void testOrderItems() throws Exception {
     eval("s = depset(items = ['a', 'b'], order='postorder')");
     assertThat(get("s").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
-  }
-
-  @Test
-  public void testDeprecatedOrder() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_set_constructor=false");
-    eval("s = depset(['a', 'b'], order='compile')");
-    assertThat(get("s").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
-
-    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_set_constructor=true");
-    Exception e = expectThrows(
-        Exception.class,
-        () -> eval("s = depset(['a', 'b'], order='compile')")
-    );
-    assertThat(e).hasMessageThat().contains(
-          "Order name 'compile' is deprecated, use 'postorder' instead");
   }
 
   @Test
