@@ -39,24 +39,24 @@ Every rule repository should have a certain layout so that users can quickly
 understand new rules.
 
 For example, suppose we are writing new Skylark rules for the (make-believe)
-chaiscript language. We would have the following structure:
+mockascript language. We would have the following structure:
 
 ```
 .travis.yml
 README.md
 WORKSPACE
-chaiscript/
+mockascript/
   BUILD
-  chaiscript.bzl
+  mockascript.bzl
 tests/
   BUILD
   some_test.sh
   another_test.py
 examples/
   BUILD
-  bin.chai
-  lib.chai
-  test.chai
+  bin.mocs
+  lib.mocs
+  test.mocs
 ```
 
 ### README.md
