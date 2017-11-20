@@ -1272,6 +1272,153 @@ public class BlazeOptionHandlerTest {
         .inOrder();
   }
 
+  private static final ImmutableList<String> GREEK_ALPHABET_CHAIN =
+      ImmutableList.of(
+          "--default_override=0:c0:alpha=--test_multiple_string=alpha",
+          "--default_override=0:c0:alpha=--config=beta",
+          "--default_override=0:c0:beta=--test_multiple_string=beta",
+          "--default_override=0:c0:beta=--config=gamma",
+          "--default_override=0:c0:gamma=--test_multiple_string=gamma",
+          "--default_override=0:c0:gamma=--config=delta",
+          "--default_override=0:c0:delta=--test_multiple_string=delta",
+          "--default_override=0:c0:delta=--config=epsilon",
+          "--default_override=0:c0:epsilon=--test_multiple_string=epsilon",
+          "--default_override=0:c0:epsilon=--config=zeta",
+          "--default_override=0:c0:zeta=--test_multiple_string=zeta",
+          "--default_override=0:c0:zeta=--config=eta",
+          "--default_override=0:c0:eta=--test_multiple_string=eta",
+          "--default_override=0:c0:eta=--config=theta",
+          "--default_override=0:c0:theta=--test_multiple_string=theta",
+          "--default_override=0:c0:theta=--config=iota",
+          "--default_override=0:c0:iota=--test_multiple_string=iota",
+          "--default_override=0:c0:iota=--config=kappa",
+          "--default_override=0:c0:kappa=--test_multiple_string=kappa",
+          "--default_override=0:c0:kappa=--config=lambda",
+          "--default_override=0:c0:lambda=--test_multiple_string=lambda",
+          "--default_override=0:c0:lambda=--config=mu",
+          "--default_override=0:c0:mu=--test_multiple_string=mu");
+
+  private void testParseOptions_longChainOfConfigs_12long() {
+    ImmutableList<String> args =
+        ImmutableList.<String>builder()
+            .add("c0")
+            .addAll(GREEK_ALPHABET_CHAIN)
+            .add("--rc_source=/somewhere/.blazerc")
+            .add("--config=alpha")
+            .build();
+
+    optionHandler.parseOptions(args, eventHandler);
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Found applicable config definition c0:alpha in file /somewhere/.blazerc: "
+                + "--test_multiple_string=alpha --config=beta",
+            "Found applicable config definition c0:beta in file /somewhere/.blazerc: "
+                + "--test_multiple_string=beta --config=gamma",
+            "Found applicable config definition c0:gamma in file /somewhere/.blazerc: "
+                + "--test_multiple_string=gamma --config=delta",
+            "Found applicable config definition c0:delta in file /somewhere/.blazerc: "
+                + "--test_multiple_string=delta --config=epsilon",
+            "Found applicable config definition c0:epsilon in file /somewhere/.blazerc: "
+                + "--test_multiple_string=epsilon --config=zeta",
+            "Found applicable config definition c0:zeta in file /somewhere/.blazerc: "
+                + "--test_multiple_string=zeta --config=eta",
+            "Found applicable config definition c0:eta in file /somewhere/.blazerc: "
+                + "--test_multiple_string=eta --config=theta",
+            "Found applicable config definition c0:theta in file /somewhere/.blazerc: "
+                + "--test_multiple_string=theta --config=iota",
+            "Found applicable config definition c0:iota in file /somewhere/.blazerc: "
+                + "--test_multiple_string=iota --config=kappa",
+            "Found applicable config definition c0:kappa in file /somewhere/.blazerc: "
+                + "--test_multiple_string=kappa --config=lambda",
+            "Found applicable config definition c0:lambda in file /somewhere/.blazerc: "
+                + "--test_multiple_string=lambda --config=mu",
+            "Found applicable config definition c0:mu in file /somewhere/.blazerc: "
+                + "--test_multiple_string=mu");
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.testMultipleString)
+        .containsExactly(
+            "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa",
+            "lambda", "mu")
+        .inOrder();
+  }
+
+  @Test
+  public void testParseOptions_longChain_FixedPoint() {
+    makeFixedPointExpandingConfigOptionHandler();
+    testParseOptions_longChainOfConfigs_12long();
+    assertThat(eventHandler.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void testParseOptions_longChain_inPlace() {
+    makeInPlaceExpandingConfigOptionHandler();
+    testParseOptions_longChainOfConfigs_12long();
+    // Expect only one warning, we don't want multiple warnings for the same chain.
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "There is a recursive chain of configs 12 configs long: [alpha, beta, gamma, "
+                    + "delta, epsilon, zeta, eta, theta, iota, kappa, lambda, mu]. This seems "
+                    + "excessive, and might be hiding errors."));
+  }
+
+  private void testParseOptions_twoLongChains() {
+    ImmutableList<String> args =
+        ImmutableList.<String>builder()
+            .add("c0")
+            .addAll(GREEK_ALPHABET_CHAIN)
+            .add("--rc_source=/somewhere/.blazerc")
+            .add("--config=alpha")
+            .add("--config=gamma")
+            .build();
+
+    optionHandler.parseOptions(args, eventHandler);
+    assertThat(parser.getResidue()).isEmpty();
+  }
+
+  @Test
+  public void testParseOptions_2LongChains_FixedPoint() {
+    makeFixedPointExpandingConfigOptionHandler();
+    testParseOptions_twoLongChains();
+    // In fixed point, the repetition --config=gamma does not led to a new expansion, but it does
+    // mean that gamma gets expanded in the first round, so the ordering is weird.
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.testMultipleString)
+        .containsExactly(
+            "alpha", "gamma", "beta", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa",
+            "lambda", "mu")
+        .inOrder();
+    assertThat(eventHandler.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void testParseOptions_2LongChains_inPlace() {
+    makeInPlaceExpandingConfigOptionHandler();
+    testParseOptions_twoLongChains();
+    // Expect the second --config=gamma to have started a second chain, and get warnings about both.
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.testMultipleString)
+        .containsExactly(
+            "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa",
+            "lambda", "mu", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa",
+            "lambda", "mu")
+        .inOrder();
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "There is a recursive chain of configs 12 configs long: [alpha, beta, gamma, "
+                    + "delta, epsilon, zeta, eta, theta, iota, kappa, lambda, mu]. This seems "
+                    + "excessive, and might be hiding errors."),
+            Event.warn(
+                "There is a recursive chain of configs 10 configs long: [gamma, delta, epsilon, "
+                    + "zeta, eta, theta, iota, kappa, lambda, mu]. This seems excessive, "
+                    + "and might be hiding errors."));
+  }
+
   private void testWarningFlag() {
     optionHandler.parseOptions(
         ImmutableList.of(

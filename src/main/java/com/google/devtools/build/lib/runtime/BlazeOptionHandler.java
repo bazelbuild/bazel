@@ -466,7 +466,24 @@ public abstract class BlazeOptionHandler {
         throws OptionsParsingException {
       LinkedHashSet<String> configAncestorSet = new LinkedHashSet<>();
       configAncestorSet.add(configToExpand);
-      return getExpansion(eventHandler, commandToRcArgs, configAncestorSet, configToExpand);
+      List<String> longestChain = new ArrayList<>();
+      List<String> finalExpansion =
+          getExpansion(
+              eventHandler, commandToRcArgs, configAncestorSet, configToExpand, longestChain);
+
+      // In order to prevent warning about a long chain of 13 configs at the 10, 11, 12, and 13
+      // point, we identify the longest chain for this 'high-level' --config found and only warn
+      // about it once. This may mean we missed a fork where each branch was independently long
+      // enough to warn, but the single warning should convey the message reasonably.
+      if (longestChain.size() >= 10) {
+        eventHandler.handle(
+            Event.warn(
+                String.format(
+                    "There is a recursive chain of configs %s configs long: %s. This seems "
+                        + "excessive, and might be hiding errors.",
+                    longestChain.size(), longestChain)));
+      }
+      return finalExpansion;
     }
 
     /**
@@ -477,12 +494,14 @@ public abstract class BlazeOptionHandler {
      *     when we find another 'foo' to expand. However, {@code build:foo --config=bar}, {@code
      *     build:foo --config=bar} is not a cycle just because bar is expanded twice, and the 1st
      *     bar should not be in the parents list of the second bar.
+     * @param longestChain will be populated with the longest inheritance chain of configs.
      */
     private List<String> getExpansion(
         EventHandler eventHandler,
         ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
         LinkedHashSet<String> configAncestorSet,
-        String configToExpand)
+        String configToExpand,
+        List<String> longestChain)
         throws OptionsParsingException {
       List<String> expansion = new ArrayList<>();
       boolean foundDefinition = false;
@@ -518,9 +537,18 @@ public abstract class BlazeOptionHandler {
                             + "see inheritance chain %s",
                         newConfigValue, extendedConfigAncestorSet));
               }
+              if (extendedConfigAncestorSet.size() > longestChain.size()) {
+                longestChain.clear();
+                longestChain.addAll(extendedConfigAncestorSet);
+              }
+
               expansion.addAll(
                   getExpansion(
-                      eventHandler, commandToRcArgs, extendedConfigAncestorSet, newConfigValue));
+                      eventHandler,
+                      commandToRcArgs,
+                      extendedConfigAncestorSet,
+                      newConfigValue,
+                      longestChain));
             }
           }
         }
