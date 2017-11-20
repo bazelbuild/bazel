@@ -1,5 +1,7 @@
 package(default_visibility = ["//src/tools/launcher:__subpackages__"])
 
+load("//src/tools/launcher:win_rules.bzl", "cc_library", "cc_binary", "cc_test")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

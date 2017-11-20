@@ -1,3 +1,5 @@
+load(":win_rules.bzl", "cc_binary", "cc_library")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + ["//src/tools/launcher/util:srcs"],
