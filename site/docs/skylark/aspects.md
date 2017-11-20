@@ -176,6 +176,7 @@ It shows how to use a provider to return values, how to use parameters to pass
 an argument into an aspect implementation, and how to invoke an aspect from a rule.
 
 FileCount.bzl file:
+
 ```python
 FileCount = provider(
     fields = {
@@ -218,6 +219,7 @@ file_count_rule = rule(
 ```
 
 BUILD.bazel file:
+
 ```python
 load('//file_count.bzl', 'file_count_rule')
 
