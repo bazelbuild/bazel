@@ -411,7 +411,7 @@ sh_binary(
 
 `merge.sh`:
 
-```shell
+```bash
 #!/bin/sh
 
 out=$1
