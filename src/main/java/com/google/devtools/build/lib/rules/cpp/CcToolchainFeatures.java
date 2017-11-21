@@ -479,12 +479,19 @@ public class CcToolchainFeatures implements Serializable {
   }
 
   private static boolean isWithFeaturesSatisfied(
-      Set<CToolchain.FeatureSet> withFeatureSets, Set<String> enabledFeatureNames) {
+      Collection<CToolchain.WithFeatureSet> withFeatureSets, Set<String> enabledFeatureNames) {
     if (withFeatureSets.isEmpty()) {
       return true;
     }
-    for (CToolchain.FeatureSet featureSet : withFeatureSets) {
-      if (enabledFeatureNames.containsAll(featureSet.getFeatureList())) {
+    for (CToolchain.WithFeatureSet featureSet : withFeatureSets) {
+      boolean negativeMatch =
+          featureSet
+              .getNotFeatureList()
+              .stream()
+              .anyMatch(notFeature -> enabledFeatureNames.contains(notFeature));
+      boolean positiveMatch = enabledFeatureNames.containsAll(featureSet.getFeatureList());
+
+      if (!negativeMatch && positiveMatch) {
         return true;
       }
     }
@@ -498,7 +505,7 @@ public class CcToolchainFeatures implements Serializable {
   private static class FlagSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableSet<String> expandIfAllAvailable;
-    private final ImmutableSet<CToolchain.FeatureSet> withFeatureSets;
+    private final ImmutableSet<CToolchain.WithFeatureSet> withFeatureSets;
     private final ImmutableList<FlagGroup> flagGroups;
     
     private FlagSet(CToolchain.FlagSet flagSet) throws InvalidConfigurationException {
@@ -550,7 +557,8 @@ public class CcToolchainFeatures implements Serializable {
   private static class EnvSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableList<EnvEntry> envEntries;
-    
+    private final ImmutableSet<CToolchain.WithFeatureSet> withFeatureSets;
+
     private EnvSet(CToolchain.EnvSet envSet) throws InvalidConfigurationException {
       this.actions = ImmutableSet.copyOf(envSet.getActionList());
       ImmutableList.Builder<EnvEntry> builder = ImmutableList.builder();
@@ -558,15 +566,22 @@ public class CcToolchainFeatures implements Serializable {
         builder.add(new EnvEntry(envEntry));
       }
       this.envEntries = builder.build();
+      this.withFeatureSets = ImmutableSet.copyOf(envSet.getWithFeatureList());
     }
 
     /**
      * Adds the environment key/value pairs that apply to the given {@code action} to
      * {@code envBuilder}.
      */
-    private void expandEnvironment(String action, Variables variables,
+    private void expandEnvironment(
+        String action,
+        Variables variables,
+        Set<String> enabledFeatureNames,
         ImmutableMap.Builder<String, String> envBuilder) {
       if (!actions.contains(action)) {
+        return;
+      }
+      if (!isWithFeaturesSatisfied(withFeatureSets, enabledFeatureNames)) {
         return;
       }
       for (EnvEntry envEntry : envEntries) {
@@ -618,13 +633,14 @@ public class CcToolchainFeatures implements Serializable {
       return name;
     }
 
-    /**
-     * Adds environment variables for the given action to the provided builder.
-     */
+    /** Adds environment variables for the given action to the provided builder. */
     private void expandEnvironment(
-        String action, Variables variables, ImmutableMap.Builder<String, String> envBuilder) {
+        String action,
+        Variables variables,
+        Set<String> enabledFeatureNames,
+        ImmutableMap.Builder<String, String> envBuilder) {
       for (EnvSet envSet : envSets) {
-        envSet.expandEnvironment(action, variables, envBuilder);
+        envSet.expandEnvironment(action, variables, enabledFeatureNames, envBuilder);
       }
     }
 
@@ -747,8 +763,7 @@ public class CcToolchainFeatures implements Serializable {
           Iterables.tryFind(
               tools,
               input -> {
-                Collection<String> featureNamesForTool = input.getWithFeature().getFeatureList();
-                return enabledFeatureNames.containsAll(featureNamesForTool);
+                return isWithFeaturesSatisfied(input.getWithFeatureList(), enabledFeatureNames);
               });
       if (tool.isPresent()) {
         return new Tool(tool.get());
@@ -1756,7 +1771,7 @@ public class CcToolchainFeatures implements Serializable {
     ImmutableMap<String, String> getEnvironmentVariables(String action, Variables variables) {
       ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
       for (Feature feature : enabledFeatures) {
-        feature.expandEnvironment(action, variables, envBuilder);
+        feature.expandEnvironment(action, variables, enabledFeatureNames, envBuilder);
       }
       return envBuilder.build();
     }
