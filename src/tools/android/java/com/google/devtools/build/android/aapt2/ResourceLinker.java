@@ -63,6 +63,7 @@ public class ResourceLinker {
   private Path baseApk;
   private List<CompiledResources> include = ImmutableList.of();
   private List<Path> assetDirs = ImmutableList.of();
+  private boolean conditionalKeepRules = false;
 
   private ResourceLinker(Path aapt2, Path workingDirectory) {
     this.aapt2 = aapt2;
@@ -98,6 +99,11 @@ public class ResourceLinker {
 
   public ResourceLinker buildVersion(Revision buildToolsVersion) {
     this.buildToolsVersion = buildToolsVersion;
+    return this;
+  }
+
+  public ResourceLinker conditionalKeepRules(boolean conditionalKeepRules) {
+    this.conditionalKeepRules = conditionalKeepRules;
     return this;
   }
 
@@ -243,6 +249,8 @@ public class ResourceLinker {
               .add("--java", javaSourceDirectory)
               .add("--proguard", proguardConfig)
               .add("--proguard-main-dex", mainDexProguard)
+              .when(conditionalKeepRules)
+              .thenAdd("--proguard-conditional-keep-rules")
               .add("-o", outPath)
               .execute(String.format("Linking %s", compiled.getManifest())));
       profiler.recordEndOf("fulllink");

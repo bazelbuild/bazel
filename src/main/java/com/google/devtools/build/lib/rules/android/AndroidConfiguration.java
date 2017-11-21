@@ -524,6 +524,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean useAndroidResourceShrinking;
 
     @Option(
+      name = "experimental_android_resource_cycle_shrinking",
+      defaultValue = "false",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Enables more shrinking of code and resources by instructing AAPT2 "
+              + "to emit conditional Proguard keep rules."
+    )
+    public boolean useAndroidResourceCycleShrinking;
+
+    @Option(
       name = "android_manifest_merger",
       defaultValue = "android",
       category = "semantics",
@@ -727,6 +739,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useRexToCompressDexFiles;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
+  private final boolean useAndroidResourceCycleShrinking;
   private final AndroidManifestMerger manifestMerger;
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
@@ -763,6 +776,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking
         || options.useExperimentalAndroidResourceShrinking;
+    this.useAndroidResourceCycleShrinking = options.useAndroidResourceCycleShrinking;
     this.manifestMerger = options.manifestMerger;
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
@@ -882,6 +896,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean useAndroidResourceShrinking() {
     return useAndroidResourceShrinking;
+  }
+
+  public boolean useAndroidResourceCycleShrinking() {
+    return useAndroidResourceCycleShrinking;
   }
 
   public AndroidAaptVersion getAndroidAaptVersion() {

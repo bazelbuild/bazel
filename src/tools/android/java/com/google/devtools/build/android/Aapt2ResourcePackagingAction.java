@@ -29,6 +29,7 @@ import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import com.google.devtools.common.options.TriState;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.FileSystems;
@@ -186,6 +187,7 @@ public class Aapt2ResourcePackagingAction {
                 .include(compiledResourceDeps)
                 .withAssets(assetDirs)
                 .buildVersion(aaptConfigOptions.buildToolsVersion)
+                .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
                 .filterToDensity(densitiesToFilter)
                 .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
                 .link(compiled)

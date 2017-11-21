@@ -77,6 +77,7 @@ public class AndroidResourcesProcessorBuilder {
   private ResourceDependencies dependencies;
   private Artifact proguardOut;
   private Artifact mainDexProguardOut;
+  private boolean conditionalKeepRules;
   private Artifact rTxtOut;
   private Artifact sourceJarOut;
   private boolean debug = false;
@@ -162,6 +163,11 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setProguardOut(Artifact proguardCfg) {
     this.proguardOut = proguardCfg;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder conditionalKeepRules(boolean conditionalKeepRules) {
+    this.conditionalKeepRules = conditionalKeepRules;
     return this;
   }
 
@@ -299,6 +305,10 @@ public class AndroidResourcesProcessorBuilder {
 
     if (useCompiledResourcesForMerge) {
       builder.add("--useCompiledResourcesForMerge");
+    }
+
+    if (conditionalKeepRules) {
+      builder.add("--conditionalKeepRules");
     }
 
     configureCommonFlags(outs, inputs, builder);

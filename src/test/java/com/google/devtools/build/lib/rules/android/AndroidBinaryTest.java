@@ -885,6 +885,44 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEqualTo(flagValue("--rOutput", processingArgs));
     assertThat(flagValue("--primaryManifest", shrinkingArgs))
         .isEqualTo(flagValue("--manifestOutput", processingArgs));
+
+    List<String> packageArgs =
+        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));
+
+    assertThat(flagValue("--tool", packageArgs)).isEqualTo("PACKAGE");
+    assertThat(packageArgs).doesNotContain("--conditionalKeepRules");
+  }
+
+  @Test
+  public void testResourceCycleShrinking() throws Exception {
+    useConfiguration("--experimental_android_resource_cycle_shrinking=true");
+    checkError(
+        "java/a",
+        "a",
+        "resource cycle shrinking can only be enabled for builds with aapt2",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        "    shrink_resources = 1,",
+        ")");
+  }
+
+  @Test
+  public void testResourceCycleShrinkingWithoutResourceShinking() throws Exception {
+    useConfiguration("--experimental_android_resource_cycle_shrinking=true");
+    checkError(
+        "java/a",
+        "a",
+        "resource cycle shrinking can only be enabled when resource shrinking is enabled",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        "    shrink_resources = 0,",
+        ")");
   }
 
   @Test
@@ -3459,6 +3497,58 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEqualTo(flagValue("--rOutput", processingArgs));
     assertThat(flagValue("--primaryManifest", shrinkingArgs))
         .isEqualTo(flagValue("--manifestOutput", processingArgs));
+
+    List<String> packageArgs =
+        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));
+
+    assertThat(flagValue("--tool", packageArgs)).isEqualTo("AAPT2_PACKAGE");
+    assertThat(packageArgs).doesNotContain("--conditionalKeepRules");
+  }
+
+  @Test
+  public void testAapt2ResourceCycleShrinking() throws Exception {
+    mockAndroidSdkWithAapt2();
+    useConfiguration(
+        "--android_sdk=//sdk:sdk", "--experimental_android_resource_cycle_shrinking=true");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               inline_constants = 0,",
+        "               aapt_version='aapt2',",
+        "               resource_files = ['res/values/strings.xml'],",
+        "               shrink_resources = 1,",
+        "               proguard_specs = ['proguard-spec.pro'],)");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    List<String> packageArgs =
+        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));
+
+    assertThat(flagValue("--tool", packageArgs)).isEqualTo("AAPT2_PACKAGE");
+    assertThat(packageArgs).contains("--conditionalKeepRules");
+  }
+
+  @Test
+  public void testAapt2ResourceCycleShinkingWithoutResourceShrinking() throws Exception {
+    mockAndroidSdkWithAapt2();
+    useConfiguration(
+        "--android_sdk=//sdk:sdk", "--experimental_android_resource_cycle_shrinking=true");
+    checkError(
+        "java/a",
+        "a",
+        "resource cycle shrinking can only be enabled when resource shrinking is enabled",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        "    shrink_resources = 0,",
+        "    aapt_version = 'aapt2'",
+        ")");
   }
 
   @Test

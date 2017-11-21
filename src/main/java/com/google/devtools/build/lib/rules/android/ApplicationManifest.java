@@ -585,6 +585,7 @@ public final class ApplicationManifest {
       boolean crunchPng,
       Artifact proguardCfg,
       @Nullable Artifact mainDexProguardCfg,
+      boolean conditionalKeepRules,
       Artifact manifestOut,
       Artifact mergedResources,
       @Nullable Artifact dataBindingInfoZip,
@@ -623,6 +624,11 @@ public final class ApplicationManifest {
     boolean skipParsingAction =
         targetAaptVersion == AndroidAaptVersion.AAPT2 && androidConfiguration.skipParsingAction();
 
+    if (conditionalKeepRules && targetAaptVersion != AndroidAaptVersion.AAPT2) {
+      throw ruleContext.throwWithRuleError(
+          "resource cycle shrinking can only be enabled for builds with aapt2");
+    }
+
     ResourceContainer processed =
         new AndroidResourcesProcessorBuilder(ruleContext)
             .setLibrary(false)
@@ -638,6 +644,7 @@ public final class ApplicationManifest {
             .withDependencies(resourceDeps)
             .setProguardOut(proguardCfg)
             .setMainDexProguardOut(mainDexProguardCfg)
+            .conditionalKeepRules(conditionalKeepRules)
             .setDataBindingInfoZip(dataBindingInfoZip)
             .setApplicationId(manifestValues.get("applicationId"))
             .setVersionCode(manifestValues.get("versionCode"))

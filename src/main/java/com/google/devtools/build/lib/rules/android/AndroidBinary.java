@@ -217,6 +217,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             configurationMap,
             cppSemantics);
 
+    boolean shrinkResources = shouldShrinkResources(ruleContext);
+
     // TODO(bazel-team): Resolve all the different cases of resource handling so this conditional
     // can go away: recompile from android_resources, and recompile from android_binary attributes.
     ApplicationManifest applicationManifest;
@@ -250,6 +252,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
               createMainDexProguardSpec(ruleContext),
+              shouldShrinkResourceCycles(ruleContext, shrinkResources),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
               DataBinding.isEnabled(ruleContext)
@@ -293,8 +296,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       }
 
     }
-
-    boolean shrinkResources = shouldShrinkResources(ruleContext);
 
     // Remove the library resource JARs from the binary's runtime classpath.
     // Resource classes from android_library dependencies are replaced by the binary's resource
@@ -783,6 +784,18 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     return (state == TriState.YES);
+  }
+
+  /** Returns {@code true} if resource shrinking should be performed. */
+  private static boolean shouldShrinkResourceCycles(
+      RuleContext ruleContext, boolean shrinkResources) throws RuleErrorException {
+    boolean global =
+        ruleContext.getFragment(AndroidConfiguration.class).useAndroidResourceCycleShrinking();
+    if (global && !shrinkResources) {
+      throw ruleContext.throwWithRuleError(
+          "resource cycle shrinking can only be enabled when resource shrinking is enabled");
+    }
+    return global;
   }
 
   private static ResourceApk shrinkResources(
