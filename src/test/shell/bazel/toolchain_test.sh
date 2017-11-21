@@ -625,7 +625,7 @@ EOF
 }
 
 
-function test_toolchain_error_invalid_target() {
+function test_platforms_options_error_invalid_target() {
   write_test_toolchain
   write_test_rule
   write_register_toolchain
@@ -639,7 +639,7 @@ use_toolchain(
     message = 'this is the rule')
 EOF
 
-  # Write and invalid rule to be the platform.
+  # Write an invalid rule to be the platform.
   mkdir -p platform
   cat >> platform/BUILD <<EOF
   filegroup(name = 'not_a_platform')
