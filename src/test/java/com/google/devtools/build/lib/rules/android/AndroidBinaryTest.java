@@ -1911,9 +1911,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               srcs =['bin.java'],",
         "               )");
 
-    // TODO(b/37087277): Remove this once this behavior is the default
-    useConfiguration("--noexperimental_android_include_library_resource_jars");
-
     Action deployJarAction =
         getGeneratingAction(
             getFileConfiguredTarget("//java/r/android:bin_deploy.jar").getArtifact());
@@ -1927,46 +1924,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "bin_resources.jar_desugared.jar");
     assertThat(inputs)
         .containsNoneOf("lib_resources.jar_desugared.jar", "sublib_resources.jar_desugared.jar");
-  }
-
-  @Test
-  public void testInheritedRInRuntimeJarsWhenSpecified() throws Exception {
-    String dir = "java/r/android/";
-    scratch.file(
-        dir + "BUILD",
-        "android_library(name = 'sublib',",
-        "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = glob(['res3/**']),",
-        "                srcs =['sublib.java'],",
-        "                )",
-        "android_library(name = 'lib',",
-        "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = glob(['res2/**']),",
-        "                deps = [':sublib'],",
-        "                srcs =['lib.java'],",
-        "                )",
-        "android_binary(name = 'bin',",
-        "               manifest = 'AndroidManifest.xml',",
-        "               resource_files = glob(['res/**']),",
-        "               deps = [':lib'],",
-        "               srcs =['bin.java'],",
-        "               )");
-
-    useConfiguration("--experimental_android_include_library_resource_jars");
-
-    Action deployJarAction =
-        getGeneratingAction(
-            getFileConfiguredTarget("//java/r/android:bin_deploy.jar").getArtifact());
-    List<String> inputs = ActionsTestUtil.baseArtifactNames(deployJarAction.getInputs());
-
-    assertThat(inputs)
-        .containsAllOf(
-            "libsublib.jar_desugared.jar",
-            "liblib.jar_desugared.jar",
-            "libbin.jar_desugared.jar",
-            "bin_resources.jar_desugared.jar",
-            "lib_resources.jar_desugared.jar",
-            "sublib_resources.jar_desugared.jar");
   }
 
   @Test

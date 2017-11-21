@@ -185,8 +185,6 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
     final String libraryOne = "dummyLibraryOne";
     final String libraryTwo = "dummyLibraryTwo";
 
-    useConfiguration("--noexperimental_android_include_library_resource_jars");
-
     checkForCorrectLibraries(
         "no-runtime", Arrays.asList(libraryOne), Collections.<String>emptyList());
     checkForCorrectLibraries(

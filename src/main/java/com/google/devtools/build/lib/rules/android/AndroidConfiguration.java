@@ -600,19 +600,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean compressJavaResources;
 
     @Option(
-      name = "experimental_android_include_library_resource_jars",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specifies whether resource JAR files for android_library targets should be included"
-              + " as runtime dependencies. Defaults to the old behavior, including them. These JARs"
-              + " are not nessecary for normal use as all required resources are included in the"
-              + " top-level android_binary resource JAR."
-    )
-    public boolean includeLibraryResourceJars;
-
-    @Option(
       name = "experimental_android_library_exports_manifest_default",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -662,7 +649,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
         name = "experimental_android_inherit_resources_in_tests",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "If true, local_resource_files indicates that resource files should be inherited"
@@ -745,7 +732,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useSingleJarApkBuilder;
   private final ResourceFilterFactory resourceFilterFactory;
   private final boolean compressJavaResources;
-  private final boolean includeLibraryResourceJars;
   private final boolean exportsManifestDefault;
   private final AndroidAaptVersion androidAaptVersion;
   private final boolean throwOnResourceConflict;
@@ -783,7 +769,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.resourceFilterFactory = options.resourceFilterFactory;
     this.compressJavaResources = options.compressJavaResources;
-    this.includeLibraryResourceJars = options.includeLibraryResourceJars;
     this.exportsManifestDefault = options.exportsManifestDefault;
     this.androidAaptVersion = options.androidAaptVersion;
     this.throwOnResourceConflict = options.throwOnResourceConflict;
@@ -925,10 +910,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   boolean compressJavaResources() {
     return compressJavaResources;
-  }
-
-  public boolean includeLibraryResourceJars() {
-    return includeLibraryResourceJars;
   }
 
   boolean getExportsManifestDefault() {

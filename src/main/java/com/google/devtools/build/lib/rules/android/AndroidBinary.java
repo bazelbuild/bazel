@@ -296,15 +296,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     boolean shrinkResources = shouldShrinkResources(ruleContext);
 
-    NestedSet<Artifact> excludedRuntimeArtifacts = null;
-    if (!androidConfig.includeLibraryResourceJars()) {
-      // Remove the library resource JARs from the binary's runtime classpath.
-      // Resource classes from android_library dependencies are replaced by the binary's resource
-      // class. We remove them only at the top level so that resources included by a library that is
-      // a dependency of a java_library are still included, since these resources are propagated via
-      // android-specific providers and won't show up when we collect the library resource JARs.
-      excludedRuntimeArtifacts = getLibraryResourceJars(ruleContext);
-    }
+    // Remove the library resource JARs from the binary's runtime classpath.
+    // Resource classes from android_library dependencies are replaced by the binary's resource
+    // class. We remove them only at the top level so that resources included by a library that is
+    // a dependency of a java_library are still included, since these resources are propagated via
+    // android-specific providers and won't show up when we collect the library resource JARs.
+    // TODO(b/69552500): Instead, handle this properly so R JARs aren't put on the classpath for
+    // both binaries and libraries.
+    NestedSet<Artifact> excludedRuntimeArtifacts = getLibraryResourceJars(ruleContext);
 
     JavaTargetAttributes resourceClasses = androidCommon.init(
         javaSemantics,
