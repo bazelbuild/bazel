@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -47,9 +46,6 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class PathPackageLocator implements Serializable {
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
-
-  public static final ImmutableSet<String> DEFAULT_TOP_LEVEL_EXCLUDES =
-      ImmutableSet.of("experimental");
 
   private final ImmutableList<Path> pathEntries;
   // Transient because this is an injected value in Skyframe, and as such, its serialized

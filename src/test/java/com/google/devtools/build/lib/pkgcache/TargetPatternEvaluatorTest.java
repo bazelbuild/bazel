@@ -443,39 +443,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     runFindAllTargets("...:*");
   }
 
-  @Test
-  public void testFindAllRulesRecursivelyWithExperimental() throws Exception {
-    scratch.file("experimental/BUILD",
-        "cc_library(name = 'experimental', srcs = [ 'experimental.cc' ])");
-    assertThat(parseList("//..."))
-        .containsExactlyElementsIn(ImmutableSet.builder()
-            .addAll(rulesBeneathFoo)
-            .addAll(rulesBeneathOtherrules)
-            .addAll(rulesInTopLevelPackage)
-            .build());
-    assertNoEvents();
-  }
-
-  @Test
-  public void testFindAllRulesRecursivelyExperimental() throws Exception {
-    scratch.file("experimental/BUILD",
-        "cc_library(name = 'experimental', srcs = [ 'experimental.cc' ])");
-    assertThat(parseList("//experimental/..."))
-        .containsExactlyElementsIn(labels("//experimental:experimental"));
-    assertNoEvents();
-  }
-
-  @Test
-  public void testDefaultPackage() throws Exception {
-    scratch.file("experimental/BUILD",
-                "cc_library(name = 'experimental', srcs = [ 'experimental.cc' ])");
-    assertThat(parseIndividualTarget("//experimental").toString())
-        .isEqualTo("//experimental:experimental");
-    assertThat(parseIndividualTarget("experimental").toString())
-        .isEqualTo("//experimental:experimental");
-    assertNoEvents();
-  }
-
   /**
    * Test that the relative path label parsing behaves as stated in the target-syntax documentation.
    */
