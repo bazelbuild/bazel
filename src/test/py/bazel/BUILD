@@ -85,7 +85,7 @@ py_test(
 
 py_test(
     name = "bazel_windows_cpp_test",
-    size = "medium",
+    size = "large",
     srcs = select({
         "//src:windows": ["bazel_windows_cpp_test.py"],
         "//src:windows_msvc": ["bazel_windows_cpp_test.py"],
