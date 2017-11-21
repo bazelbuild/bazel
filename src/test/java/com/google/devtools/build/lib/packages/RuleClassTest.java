@@ -890,6 +890,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .build(),
         supportsConstraintChecking,
         /*requiredToolchains=*/ ImmutableSet.<Label>of(),
+        /*supportsPlatforms=*/ true,
         attributes);
   }
 

@@ -228,9 +228,6 @@ public final class ConfiguredTargetFactory {
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException {
     if (target instanceof Rule) {
-      Preconditions.checkArgument(
-          toolchainContext != null,
-          "ToolchainContext should never be null when creating a ConfiguredTarget for a Rule");
       try {
         CurrentRuleTracker.beginConfiguredTarget(((Rule) target).getRuleClassObject());
         return createRule(
@@ -302,11 +299,13 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration hostConfiguration,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ToolchainContext toolchainContext)
+      @Nullable ToolchainContext toolchainContext)
       throws InterruptedException {
 
     // Load the requested toolchains into the ToolchainContext.
-    toolchainContext.resolveToolchains(prerequisiteMap);
+    if (toolchainContext != null) {
+      toolchainContext.resolveToolchains(prerequisiteMap);
+    }
 
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
@@ -409,13 +408,15 @@ public final class ConfiguredTargetFactory {
       Aspect aspect,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ToolchainContext toolchainContext,
+      @Nullable ToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration)
       throws InterruptedException {
 
     // Load the requested toolchains into the ToolchainContext.
-    toolchainContext.resolveToolchains(prerequisiteMap);
+    if (toolchainContext != null) {
+      toolchainContext.resolveToolchains(prerequisiteMap);
+    }
 
     RuleContext.Builder builder = new RuleContext.Builder(
         env,

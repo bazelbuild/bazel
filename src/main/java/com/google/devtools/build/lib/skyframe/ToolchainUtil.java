@@ -114,6 +114,9 @@ public class ToolchainUtil {
       throws InterruptedException, ToolchainContextException {
     PlatformConfiguration platformConfiguration =
         configuration.getFragment(PlatformConfiguration.class);
+    if (platformConfiguration == null) {
+      return null;
+    }
     Label executionPlatformLabel = platformConfiguration.getExecutionPlatform();
     Label targetPlatformLabel = platformConfiguration.getTargetPlatforms().get(0);
 
