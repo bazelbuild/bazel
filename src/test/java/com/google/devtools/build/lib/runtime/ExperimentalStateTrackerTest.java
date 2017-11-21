@@ -557,6 +557,113 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testStatusShown() throws Exception {
+    // Verify that for non-executing actions, at least the first 3 characters of the
+    // status are shown.
+    // Also verify that the number of running actions is reported correctly, if there is
+    // more than one active action and not all are running.
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(120000);
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    Action actionFoo = mockAction("Building foo", "foo/foo");
+    ActionOwner ownerFoo = Mockito.mock(ActionOwner.class);
+    when(actionFoo.getOwner()).thenReturn(ownerFoo);
+    Action actionBar = mockAction("Building bar", "bar/bar");
+    ActionOwner ownerBar = Mockito.mock(ActionOwner.class);
+    when(actionBar.getOwner()).thenReturn(ownerBar);
+    LoggingTerminalWriter terminalWriter;
+    String output;
+
+    // Action foo being analyzed.
+    stateTracker.actionStarted(new ActionStartedEvent(actionFoo, 123456700));
+    stateTracker.actionStatusMessage(ActionStatusMessage.analysisStrategy(actionFoo));
+
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+    assertWithMessage("Action foo being analyzed should be visible in output:\n" + output)
+        .that(output.contains("ana") || output.contains("Ana"))
+        .isTrue();
+
+    // Then action bar gets scheduled.
+    stateTracker.actionStarted(new ActionStartedEvent(actionBar, 123456701));
+    stateTracker.actionStatusMessage(ActionStatusMessage.schedulingStrategy(actionBar));
+
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+    assertWithMessage("Action bar being scheduled should be visible in output:\n" + output)
+        .that(output.contains("sch") || output.contains("Sch"))
+        .isTrue();
+    assertWithMessage("Action foo being analyzed should still be visible in output:\n" + output)
+        .that(output.contains("ana") || output.contains("Ana"))
+        .isTrue();
+    assertWithMessage("Indication at no actions are running is missing in output:\n" + output)
+        .that(output.contains("0 running"))
+        .isTrue();
+    assertWithMessage("Total number of actions expected  in output:\n" + output)
+        .that(output.contains("2 actions"))
+        .isTrue();
+
+    // Then foo starts.
+    stateTracker.actionStatusMessage(ActionStatusMessage.runningStrategy(actionFoo, "xyz-sandbox"));
+    stateTracker.writeProgressBar(terminalWriter);
+
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+    assertWithMessage("Action foo's xyz-sandbox strategy should be shown in output:\n" + output)
+        .that(output.contains("xyz-sandbox"))
+        .isTrue();
+    assertWithMessage("Action foo should no longer be analyzed in output:\n" + output)
+        .that(output.contains("ana") || output.contains("Ana"))
+        .isFalse();
+    assertWithMessage("Action bar being scheduled should still be visible in output:\n" + output)
+        .that(output.contains("sch") || output.contains("Sch"))
+        .isTrue();
+    assertWithMessage("Indication at one action is running is missing in output:\n" + output)
+        .that(output.contains("1 running"))
+        .isTrue();
+    assertWithMessage("Total number of actions expected  in output:\n" + output)
+        .that(output.contains("2 actions"))
+        .isTrue();
+  }
+
+  @Test
+  public void testExecutingActionsFirst() throws Exception {
+    // Verify that executing actions, even if started late, are visible.
+    ManualClock clock = new ManualClock();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    clock.advanceMillis(120000);
+
+    for (int i = 0; i < 30; i++) {
+      Action action = mockAction("Takes long to schedule number " + i, "long/startup" + i);
+      ActionOwner owner = Mockito.mock(ActionOwner.class);
+      when(action.getOwner()).thenReturn(owner);
+      stateTracker.actionStarted(new ActionStartedEvent(action, 123456789 + i));
+      stateTracker.actionStatusMessage(ActionStatusMessage.schedulingStrategy(action));
+    }
+
+    for (int i = 0; i < 3; i++) {
+      Action action = mockAction("quickstart" + i, "pkg/quickstart" + i);
+      ActionOwner owner = Mockito.mock(ActionOwner.class);
+      when(action.getOwner()).thenReturn(owner);
+      stateTracker.actionStarted(new ActionStartedEvent(action, 123457000 + i));
+      stateTracker.actionStatusMessage(ActionStatusMessage.runningStrategy(action, "xyz-sandbox"));
+
+      LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+      stateTracker.writeProgressBar(terminalWriter);
+      String output = terminalWriter.getTranscript();
+      assertWithMessage("Action quickstart" + i + " should be visible in output:\n" + output)
+          .that(output.contains("quickstart" + i))
+          .isTrue();
+      assertWithMessage("Number of running actions should be indicated in output:\n" + output)
+          .that(output.contains("" + (i + 1) + " running"))
+          .isTrue();
+    }
+  }
+
+  @Test
   public void testAggregation() throws Exception {
     // Assert that actions for the same test are aggregated so that an action afterwards
     // is still shown.
