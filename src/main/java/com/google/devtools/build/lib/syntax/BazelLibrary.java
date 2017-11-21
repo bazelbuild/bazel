@@ -175,36 +175,6 @@ public class BazelLibrary {
   }
 
   @SkylarkSignature(
-    name = "set",
-    returnType = SkylarkNestedSet.class,
-    doc =
-        "A temporary alias for <a href=\"#depset\">depset</a>. "
-            + "Deprecated in favor of <code>depset</code>.",
-    parameters = {
-      @Param(
-        name = "items",
-        type = Object.class,
-        defaultValue = "[]",
-        doc = "Same as for <a href=\"#depset\">depset</a>."
-      ),
-      @Param(
-        name = "order",
-        type = String.class,
-        defaultValue = "\"default\"",
-        doc = "Same as for <a href=\"#depset\">depset</a>."
-      )
-    },
-    useLocation = true
-  )
-  private static final BuiltinFunction set =
-      new BuiltinFunction("set") {
-        public SkylarkNestedSet invoke(Object items, String order, Location loc)
-            throws EvalException {
-          throw new EvalException(loc, "The function 'set' has been removed in favor of 'depset'.");
-        }
-      };
-
-  @SkylarkSignature(
     name = "union",
     objectType = SkylarkNestedSet.class,
     returnType = SkylarkNestedSet.class,
@@ -285,7 +255,7 @@ public class BazelLibrary {
       };
 
   private static Environment.Frame createGlobals() {
-    List<BaseFunction> bazelGlobalFunctions = ImmutableList.of(select, depset, set, type);
+    List<BaseFunction> bazelGlobalFunctions = ImmutableList.of(select, depset, type);
 
     try (Mutability mutability = Mutability.create("BUILD")) {
       Environment env = Environment.builder(mutability)

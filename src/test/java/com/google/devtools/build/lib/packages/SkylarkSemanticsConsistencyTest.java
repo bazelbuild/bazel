@@ -113,13 +113,13 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_keyword_only_args=" + rand.nextBoolean(),
         "--incompatible_disallow_toplevel_if_statement=" + rand.nextBoolean(),
+        "--incompatible_disallow_uncalled_set_constructor=" + rand.nextBoolean(),
         "--incompatible_list_plus_equals_inplace=" + rand.nextBoolean(),
         "--incompatible_load_argument_is_label=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
         "--incompatible_string_is_not_iterable=" + rand.nextBoolean(),
         "--internal_do_not_export_builtins=" + rand.nextBoolean(),
-        "--internal_skylark_flag_test_canary=" + rand.nextBoolean()
-    );
+        "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
   }
 
   /**
@@ -137,6 +137,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowKeywordOnlyArgs(rand.nextBoolean())
         .incompatibleDisallowToplevelIfStatement(rand.nextBoolean())
+        .incompatibleDisallowUncalledSetConstructor(rand.nextBoolean())
         .incompatibleListPlusEqualsInplace(rand.nextBoolean())
         .incompatibleLoadArgumentIsLabel(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())
