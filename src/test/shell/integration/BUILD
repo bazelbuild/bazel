@@ -16,7 +16,7 @@ filegroup(
 
 sh_test(
     name = "progress_reporting_test",
-    size = "medium",
+    size = "large",
     srcs = ["progress_reporting_test.sh"],
     data = [":test-deps"],
     shard_count = 8,
