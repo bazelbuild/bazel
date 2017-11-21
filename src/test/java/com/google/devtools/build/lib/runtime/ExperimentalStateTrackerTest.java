@@ -630,6 +630,98 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testTimerReset() throws Exception {
+    // Verify that a change in an action state (e.g., from scheduling to executing) resets
+    // the time associated with that action.
+
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(2));
+    LoggingTerminalWriter terminalWriter;
+    String output;
+
+    Action actionFoo = mockAction("Building foo", "foo/foo");
+    ActionOwner ownerFoo = Mockito.mock(ActionOwner.class);
+    when(actionFoo.getOwner()).thenReturn(ownerFoo);
+    Action actionBar = mockAction("Building bar", "bar/bar");
+    ActionOwner ownerBar = Mockito.mock(ActionOwner.class);
+    when(actionBar.getOwner()).thenReturn(ownerBar);
+
+    stateTracker.actionStarted(new ActionStartedEvent(actionFoo, clock.nanoTime()));
+    stateTracker.actionStatusMessage(ActionStatusMessage.runningStrategy(actionFoo, "foo-sandbox"));
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(7));
+    stateTracker.actionStarted(new ActionStartedEvent(actionBar, clock.nanoTime()));
+    stateTracker.actionStatusMessage(ActionStatusMessage.schedulingStrategy(actionBar));
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(21));
+
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+    assertWithMessage("Runtime of first action should be visible in output: " + output)
+        .that(output.contains("28s"))
+        .isTrue();
+    assertWithMessage("Scheduling time of second action should be visible in output: " + output)
+        .that(output.contains("21s"))
+        .isTrue();
+
+    stateTracker.actionStatusMessage(ActionStatusMessage.runningStrategy(actionBar, "bar-sandbox"));
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+    assertWithMessage("Runtime of first action should still be visible in output: " + output)
+        .that(output.contains("28s"))
+        .isTrue();
+    assertWithMessage("Time of second action should no longer be visible in output: " + output)
+        .that(output.contains("21s"))
+        .isFalse();
+
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(30));
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+    assertWithMessage("New runtime of first action should be visible in output: " + output)
+        .that(output.contains("58s"))
+        .isTrue();
+    assertWithMessage("Runtime of second action should be visible in output: " + output)
+        .that(output.contains("30s"))
+        .isTrue();
+  }
+
+  @Test
+  public void testEarlyStatusHandledGracefully() throws Exception {
+    // On the event bus, events sometimes are sent out of order; verify that we handle an
+    // early message that an action is running gracefully.
+    ManualClock clock = new ManualClock();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    Action actionFoo = mockAction("Building foo", "foo/foo");
+    ActionOwner ownerFoo = Mockito.mock(ActionOwner.class);
+    when(actionFoo.getOwner()).thenReturn(ownerFoo);
+    LoggingTerminalWriter terminalWriter;
+    String output;
+
+    // Early status announcement
+    stateTracker.actionStatusMessage(ActionStatusMessage.runningStrategy(actionFoo, "foo-sandbox"));
+
+    // Here we don't expect any particular output, just some description; in particular, we do
+    // not expect the state tracker to hit an internal error.
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+    assertWithMessage("Expected at least some status bar").that(output.length() != 0).isTrue();
+
+    // Action actually started
+    stateTracker.actionStarted(new ActionStartedEvent(actionFoo, clock.nanoTime()));
+
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+    assertWithMessage("Even a strategy announced early should be shown in output:\n" + output)
+        .that(output.contains("foo-sandbox"))
+        .isTrue();
+  }
+
+  @Test
   public void testExecutingActionsFirst() throws Exception {
     // Verify that executing actions, even if started late, are visible.
     ManualClock clock = new ManualClock();
