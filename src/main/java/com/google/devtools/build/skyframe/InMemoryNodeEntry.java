@@ -351,7 +351,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     reverseDepsDataToConsolidate.add(KeyToConsolidate.create(reverseDep, op, getOpToStoreBare()));
   }
 
-  private OpToStoreBare getOpToStoreBare() {
+  protected OpToStoreBare getOpToStoreBare() {
     return isDirty() ? OpToStoreBare.CHECK : OpToStoreBare.ADD;
   }
 

@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
  * entry during this evaluation (and will thus need to be signaled when this entry finishes
  * evaluating).
  */
-abstract class KeyToConsolidate {
+public abstract class KeyToConsolidate {
   enum Op {
     /**
      * Assert that the reverse dep is already present in the set of reverse deps. If the entry is
@@ -58,7 +58,8 @@ abstract class KeyToConsolidate {
     REMOVE_OLD
   }
 
-  enum OpToStoreBare {
+  /** The operation {@link ReverseDepsUtility} should store bare in pending reverse dep ops. */
+  public enum OpToStoreBare {
     ADD(Op.ADD),
     CHECK(Op.CHECK);
 
