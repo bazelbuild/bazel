@@ -195,43 +195,6 @@ java_toolchain(
     target_version = "8",
 )
 
-java_toolchain(
-    name = "remote_toolchain",
-    bootclasspath = [":bootclasspath"],
-    compatible_javacopts = {
-        # Restrict protos to Java 7 so that they are compatible with Android.
-        "proto": [
-            "-source",
-            "7",
-            "-target",
-            "7",
-            "-XDallowBetterNullChecks=false",
-        ],
-    },
-    encoding = "UTF-8",
-    extclasspath = [":extclasspath"],
-    forcibly_disable_header_compilation = 0,
-    genclass = ["@bazel_tools//tools/jdk:genclass"],
-    header_compiler = ["@bazel_tools//tools/jdk:turbine"],
-    ijar = ["@bazel_tools//third_party/ijar:ijar"],
-    javabuilder = ["@bazel_tools//tools/jdk:javabuilder"],
-    javac = ["//third_party/java/jdk/langtools:javac_jar"],
-    javac_supports_workers = 1,
-    jvm_opts = [
-        "-XX:+TieredCompilation",
-        "-XX:TieredStopAtLevel=1",
-        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
-    ],
-    misc = [
-        "-XDskipDuplicateBridges=true",
-        "-g",
-        "-parameters",
-    ],
-    singlejar = ["@bazel_tools//src/tools/singlejar:singlejar"],
-    source_version = "8",
-    target_version = "8",
-)
-
 filegroup(
     name = "srcs",
     srcs = [

@@ -208,14 +208,12 @@ function test_build_hello_world() {
   bazel build //java/main:main &> $TEST_log || fail "build failed"
 }
 
-# This test builds a simple java deploy jar using a java_toolchain which
-# compiles singlejar and ijar from source.
-function test_build_hello_world_with_customized_java_toolchain() {
+# This test builds a simple java deploy jar using remote singlejar and ijar
+# targets which compile them from source.
+function test_build_hello_world_with_remote_embedded_tool_targets() {
   write_hello_library_files
 
-  bazel build //java/main:main_deploy.jar \
-    --host_java_toolchain=@bazel_tools//tools/jdk:remote_toolchain \
-    --java_toolchain=@bazel_tools//tools/jdk:remote_toolchain \
+  bazel build //java/main:main_deploy.jar --define EXECUTOR=remote \
     &> $TEST_log || fail "build failed"
 }
 
