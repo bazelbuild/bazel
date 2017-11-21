@@ -78,6 +78,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     private final String username;
     private final String hostname;
     private final com.google.devtools.build.lib.shell.Command getWorkspaceStatusCommand;
+    private final Map<String, String> clientEnv;
 
     private BazelWorkspaceStatusAction(
         WorkspaceStatusAction.Options options,
@@ -95,6 +96,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       this.volatileStatus = volatileStatus;
       this.username = USER_NAME.value();
       this.hostname = hostname;
+      this.clientEnv = clientEnv;
       this.getWorkspaceStatusCommand =
           options.workspaceStatusCommand.equals(PathFragment.EMPTY_FRAGMENT)
               ? null
@@ -198,19 +200,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         stableMap.put(BuildInfo.BUILD_EMBED_LABEL, options.embedLabel);
         stableMap.put(BuildInfo.BUILD_HOST, hostname);
         stableMap.put(BuildInfo.BUILD_USER, username);
-        // TODO(#2240): We currently take the timestamp from an option. This is very
-        // explicit and in line with the way the embedded label is passed to bazel.
-        // While this approach solves the problem of properly packaging bazel, there is the
-        // expectation that the value be taken from the SOURCE_DATE_EPOCH environment variable.
-        // However, currently there is no clear understanding on which environment to be taken;
-        // it could be the client environment or the action environment which is controlled
-        // by the --action_env options. (We almost certainly do not want the server environment.)
-        // So, to avoid surprises, we take an explicit option till a satisfying design is found;
-        // the latter should be designed and implemented eventually.
-        if (options.embedTimestampEpoch >= 0) {
-          stableMap.put(BuildInfo.SOURCE_DATE_EPOCH, Long.toString(options.embedTimestampEpoch));
-        }
-        volatileMap.put(BuildInfo.BUILD_TIMESTAMP, Long.toString(System.currentTimeMillis()));
+        volatileMap.put(BuildInfo.BUILD_TIMESTAMP, Long.toString(getCurrentTimeMillis()));
 
         Map<String, String> overallMap = new TreeMap<>();
         overallMap.putAll(volatileMap);
@@ -234,6 +224,24 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
             true);
       }
       return ActionResult.EMPTY;
+    }
+
+    /**
+     * This method returns the current time for stamping, using SOURCE_DATE_EPOCH
+     * (https://reproducible-builds.org/specs/source-date-epoch/) if provided.
+     */
+    private long getCurrentTimeMillis() {
+      if (clientEnv.containsKey("SOURCE_DATE_EPOCH")) {
+        String value = clientEnv.get("SOURCE_DATE_EPOCH").trim();
+        if (!value.isEmpty()) {
+          try {
+            return Long.parseLong(value) * 1000;
+          } catch (NumberFormatException ex) {
+            // Fall-back to use the current time if SOURCE_DATE_EPOCH is not a long.
+          }
+        }
+      }
+      return System.currentTimeMillis();
     }
 
     @Override
@@ -334,11 +342,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           BuildInfo.BUILD_EMBED_LABEL, Key.of(KeyType.STRING, options.embedLabel, "redacted"));
       builder.put(BuildInfo.BUILD_HOST, Key.of(KeyType.STRING, "hostname", "redacted"));
       builder.put(BuildInfo.BUILD_USER, Key.of(KeyType.STRING, "username", "redacted"));
-      if (options.embedTimestampEpoch >= 0) {
-        builder.put(
-            BuildInfo.SOURCE_DATE_EPOCH,
-            Key.of(KeyType.STRING, Long.toString(options.embedTimestampEpoch), "0"));
-      }
       return builder.build();
     }
 
@@ -391,4 +394,5 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     builder.addActionContext(new BazelWorkspaceStatusActionContext(options));
   }
+
 }

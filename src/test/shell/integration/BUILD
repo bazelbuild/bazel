@@ -204,6 +204,13 @@ sh_library(
 )
 
 sh_test(
+    name = "stamping_test",
+    size = "medium",
+    srcs = ["stamping_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "discard_graph_edges_test",
     size = "medium",
     srcs = ["discard_graph_edges_test.sh"],
