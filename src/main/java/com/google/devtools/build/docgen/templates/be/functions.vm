@@ -236,6 +236,16 @@ the <a href="common-definitions.html#common.visibility">visibility</a> attribute
         <code>//foo/...</code> specifies every package under
         <code>//foo</code>, including <code>//foo</code> itself.</p>
 
+        <p>Package specifications can be prefixed with <code>-</code> to
+        indicate negation: the specification <code>-//foo/bar/...</code>
+        excludes all packages under <code>//foo/bar</code> that would
+        otherwise have been matched by the package patterns in the
+        current <code>package_group</code>. When used together with
+        <code>includes</code>, the set of packages for each package group
+        is computed and then the results are unioned: negative patterns
+        in one package group do not affect the result of included package
+        groups.
+
         <p>If this attribute is missing, the package group itself will contain
         no packages (but it can still include other package groups).</p>
       </td>

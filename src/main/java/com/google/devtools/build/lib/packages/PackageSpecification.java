@@ -43,6 +43,7 @@ public abstract class PackageSpecification {
   private static final String PACKAGE_LABEL = "__pkg__";
   private static final String SUBTREE_LABEL = "__subpackages__";
   private static final String ALL_BENEATH_SUFFIX = "/...";
+  private static final String NEGATIVE_PREFIX = "-";
 
   /** Returns {@code true} if the package spec includes the provided {@code packageName}. */
   protected abstract boolean containsPackage(PackageIdentifier packageName);
@@ -55,6 +56,11 @@ public abstract class PackageSpecification {
    * {@link PackageSpecification}.
    */
   protected abstract String toStringWithoutRepository();
+
+  /** Returns {@code true} if the package specification represents a negated match. */
+  protected boolean negative() {
+    return false;
+  }
 
   /**
    * Parses the provided {@link String} into a {@link PackageSpecification}.
@@ -79,6 +85,18 @@ public abstract class PackageSpecification {
    * <p>Throws {@link InvalidPackageSpecificationException} if the {@link String} cannot be parsed.
    */
   public static PackageSpecification fromString(RepositoryName repositoryName, String spec)
+      throws InvalidPackageSpecificationException {
+    String result = spec;
+    boolean negative = false;
+    if (result.startsWith(NEGATIVE_PREFIX)) {
+      negative = true;
+      result = result.substring(NEGATIVE_PREFIX.length());
+    }
+    PackageSpecification packageSpecification = fromStringPositive(repositoryName, result);
+    return negative ? new NegativePackageSpecification(packageSpecification) : packageSpecification;
+  }
+
+  private static PackageSpecification fromStringPositive(RepositoryName repositoryName, String spec)
       throws InvalidPackageSpecificationException {
     String result = spec;
     boolean allBeneath = false;
@@ -225,6 +243,50 @@ public abstract class PackageSpecification {
     }
   }
 
+  /** A package specification for a negative match, e.g. {@code -//pkg/sub/...}. */
+  private static class NegativePackageSpecification extends PackageSpecification {
+
+    private final PackageSpecification delegate;
+
+    private NegativePackageSpecification(PackageSpecification delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    protected boolean negative() {
+      return true;
+    }
+
+    @Override
+    protected boolean containsPackage(PackageIdentifier packageName) {
+      return delegate.containsPackage(packageName);
+    }
+
+    @Override
+    protected String toStringWithoutRepository() {
+      return "-" + delegate.toStringWithoutRepository();
+    }
+
+    @Override
+    public int hashCode() {
+      return delegate.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      return obj instanceof NegativePackageSpecification
+          && delegate.equals(((NegativePackageSpecification) obj).delegate);
+    }
+
+    @Override
+    public String toString() {
+      return "-" + delegate;
+    }
+  }
+
   private static class AllPackages extends PackageSpecification {
 
     private static final PackageSpecification EVERYTHING = new AllPackages();
@@ -286,10 +348,21 @@ public abstract class PackageSpecification {
 
     /**
      * Returns {@code true} if the package specifications include the provided {@code packageName}.
-     * That is, at least one positive package specification matches.
+     * That is, at least one positive package specification matches, and no negative package
+     * specifications match.
      */
     public boolean containsPackage(PackageIdentifier packageIdentifier) {
-      return packageSpecifications.stream().anyMatch(p -> p.containsPackage(packageIdentifier));
+      boolean match = false;
+      for (PackageSpecification p : packageSpecifications) {
+        if (p.containsPackage(packageIdentifier)) {
+          if (p.negative()) {
+            return false;
+          } else {
+            match = true;
+          }
+        }
+      }
+      return match;
     }
 
     /**
