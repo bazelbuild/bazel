@@ -31,7 +31,7 @@ DEBIAN_FIELDS = [
     ('Version', True, False),
     ('Section', False, False, 'contrib/devel'),
     ('Priority', False, False, 'optional'),
-    ('Architecture', True, False, 'all'),
+    ('Architecture', False, False, 'all'),
     ('Depends', False, True, []),
     ('Recommends', False, True, []),
     ('Suggests', False, True, []),
