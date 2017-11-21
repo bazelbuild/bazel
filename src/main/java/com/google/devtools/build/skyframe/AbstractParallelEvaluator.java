@@ -564,8 +564,9 @@ public abstract class AbstractParallelEvaluator {
   }
 
   void propagateInterruption(SchedulerException e) throws InterruptedException {
+    boolean mustThrowInterrupt = Thread.interrupted();
     Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
-    if (Thread.interrupted()) {
+    if (mustThrowInterrupt) {
       // As per the contract of AbstractQueueVisitor#work, if an unchecked exception is thrown and
       // the build is interrupted, the thrown exception is what will be rethrown. Since the user
       // presumably wanted to interrupt the build, we ignore the thrown SchedulerException (which

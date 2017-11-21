@@ -241,6 +241,19 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void interruptBitCleared() throws Exception {
+    SkyKey interruptKey = GraphTester.skyKey("interrupt");
+    tester.getOrCreate(interruptKey).setBuilder(INTERRUPT_BUILDER);
+    try {
+      tester.eval(/*keepGoing=*/ true, interruptKey);
+      fail("Expected interrupt");
+    } catch (InterruptedException e) {
+      // Expected.
+    }
+    assertThat(Thread.interrupted()).isFalse();
+  }
+
+  @Test
   public void crashAfterInterruptCrashes() throws Exception {
     SkyKey failKey = GraphTester.skyKey("fail");
     SkyKey badInterruptkey = GraphTester.skyKey("bad-interrupt");
@@ -1736,7 +1749,6 @@ public class MemoizingEvaluatorTest {
 
   @Test
   public void continueWithErrorDepTurnedGood() throws Exception {
-    initializeTester();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
     tester.set("after", new StringValue("after"));
@@ -2664,7 +2676,6 @@ public class MemoizingEvaluatorTest {
 
   @Test
   public void changePruning() throws Exception {
-    initializeTester();
     SkyKey leaf = GraphTester.toSkyKey("leaf");
     SkyKey mid = GraphTester.toSkyKey("mid");
     SkyKey top = GraphTester.toSkyKey("top");
@@ -2722,7 +2733,6 @@ public class MemoizingEvaluatorTest {
 
   @Test
   public void changePruningAfterParentPrunes() throws Exception {
-    initializeTester();
     final SkyKey leaf = GraphTester.toSkyKey("leaf");
     SkyKey top = GraphTester.toSkyKey("top");
     tester.set(leaf, new StringValue("leafy"));
