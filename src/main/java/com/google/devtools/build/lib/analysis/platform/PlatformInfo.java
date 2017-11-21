@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -98,12 +97,12 @@ public class PlatformInfo extends NativeInfo {
 
   private final Label label;
   private final ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints;
-  private final ImmutableMap<String, String> remoteExecutionProperties;
+  private final String remoteExecutionProperties;
 
   private PlatformInfo(
       Label label,
       ImmutableList<ConstraintValueInfo> constraints,
-      ImmutableMap<String, String> remoteExecutionProperties,
+      String remoteExecutionProperties,
       Location location) {
     super(
         SKYLARK_CONSTRUCTOR,
@@ -157,7 +156,7 @@ public class PlatformInfo extends NativeInfo {
     doc = "Properties that are available for the use of remote execution.",
     structField = true
   )
-  public ImmutableMap<String, String> remoteExecutionProperties() {
+  public String remoteExecutionProperties() {
     return remoteExecutionProperties;
   }
 
@@ -170,7 +169,7 @@ public class PlatformInfo extends NativeInfo {
   public static class Builder {
     private Label label;
     private final List<ConstraintValueInfo> constraints = new ArrayList<>();
-    private final Map<String, String> remoteExecutionProperties = new HashMap<>();
+    private String remoteExecutionProperties;
     private Location location = Location.BUILTIN;
 
     /**
@@ -210,29 +209,13 @@ public class PlatformInfo extends NativeInfo {
     }
 
     /**
-     * Adds the given key/value pair to the data being sent to a potential remote executor. If the
-     * key already exists in the map, the previous value will be overwritten.
-     *
-     * @param key the key to be used
-     * @param value the value to be used
-     * @return the {@link Builder} instance for method chaining
-     */
-    public Builder addRemoteExecutionProperty(String key, String value) {
-      this.remoteExecutionProperties.put(key, value);
-      return this;
-    }
-
-    /**
-     * Adds the given properties to the data being sent to a potential remote executor. If any key
-     * already exists in the map, the previous value will be overwritten.
+     * Sets the data being sent to a potential remote executor.
      *
      * @param properties the properties to be added
      * @return the {@link Builder} instance for method chaining
      */
-    public Builder addRemoteExecutionProperties(Map<String, String> properties) {
-      for (Map.Entry<String, String> entry : properties.entrySet()) {
-        this.addRemoteExecutionProperty(entry.getKey(), entry.getValue());
-      }
+    public Builder setRemoteExecutionProperties(String properties) {
+      this.remoteExecutionProperties = properties;
       return this;
     }
 
@@ -255,8 +238,7 @@ public class PlatformInfo extends NativeInfo {
      */
     public PlatformInfo build() throws DuplicateConstraintException {
       ImmutableList<ConstraintValueInfo> validatedConstraints = validateConstraints(constraints);
-      return new PlatformInfo(
-          label, validatedConstraints, ImmutableMap.copyOf(remoteExecutionProperties), location);
+      return new PlatformInfo(label, validatedConstraints, remoteExecutionProperties, location);
     }
 
     public static ImmutableList<ConstraintValueInfo> validateConstraints(

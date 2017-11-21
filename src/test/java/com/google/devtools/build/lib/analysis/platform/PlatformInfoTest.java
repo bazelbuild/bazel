@@ -100,7 +100,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setLabel(makeLabel("//platform/plat1"))
                 .addConstraint(value1)
                 .addConstraint(value2)
-                .addRemoteExecutionProperty("key", "val") // execution properties are ignored.
+                .setRemoteExecutionProperties("key=val") // execution properties are ignored.
                 .build())
         .addEqualityGroup(
             // Different label.
@@ -161,7 +161,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
     ConstraintValueInfo constraintValue =
         ConstraintValueInfo.create(constraintSetting, makeLabel("//constraint:foo"));
     assertThat(provider.constraints()).containsExactly(constraintValue);
-    assertThat(provider.remoteExecutionProperties()).isEmpty();
+    assertThat(provider.remoteExecutionProperties()).isNull();
   }
 
   @Test

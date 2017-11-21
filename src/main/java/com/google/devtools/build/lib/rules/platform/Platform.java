@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
-import java.util.Map;
 
 /** Defines a platform for execution contexts. */
 public class Platform implements RuleConfiguredTargetFactory {
@@ -54,9 +53,9 @@ public class Platform implements RuleConfiguredTargetFactory {
               ruleContext.getPrerequisites(PlatformRule.CONSTRAINT_VALUES_ATTR, Mode.DONT_CHECK)));
     }
 
-    Map<String, String> remoteExecutionProperties =
-        ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING_DICT);
-    platformBuilder.addRemoteExecutionProperties(remoteExecutionProperties);
+    String remoteExecutionProperties =
+        ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING);
+    platformBuilder.setRemoteExecutionProperties(remoteExecutionProperties);
 
     PlatformInfo platformInfo;
     try {
