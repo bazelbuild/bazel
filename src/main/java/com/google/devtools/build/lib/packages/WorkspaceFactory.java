@@ -335,7 +335,7 @@ public class WorkspaceFactory {
                   // This effectively adds a "local_repository(name = "<ws>", path = ".")"
                   // definition to the WORKSPACE file.
                   WorkspaceFactoryHelper.createAndAddRepositoryRule(
-                      builder, localRepositoryRuleClass, bindRuleClass, kwargs, ast);
+                      builder, localRepositoryRuleClass, bindRuleClass, kwargs, ast, allowOverride);
                 } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
                   throw new EvalException(ast.getLocation(), e.getMessage());
                 }
@@ -451,21 +451,11 @@ public class WorkspaceFactory {
           throws EvalException, InterruptedException {
         try {
           Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
-          if (!allowOverride
-              && kwargs.containsKey("name")
-              && builder.targets.containsKey(kwargs.get("name"))) {
-            throw new EvalException(
-                ast.getLocation(),
-                "Cannot redefine repository after any load statement in the WORKSPACE file"
-                    + " (for repository '"
-                    + kwargs.get("name")
-                    + "')");
-          }
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =
               WorkspaceFactoryHelper.createAndAddRepositoryRule(
-                  builder, ruleClass, bindRuleClass, kwargs, ast);
+                  builder, ruleClass, bindRuleClass, kwargs, ast, allowOverride);
           if (!isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
                 ast.getLocation(), rule + "'s name field must be a legal workspace name");
@@ -515,6 +505,7 @@ public class WorkspaceFactory {
       workspaceEnv.setupDynamic(
           PackageFactory.PKG_CONTEXT,
           new PackageFactory.PackageContext(builder, null, localReporter, AttributeContainer::new));
+      workspaceEnv.setupDynamic("$allow_override", allowOverride);
     } catch (EvalException e) {
       throw new AssertionError(e);
     }

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import java.util.Map;
 
@@ -34,10 +35,20 @@ public class WorkspaceFactoryHelper {
       RuleClass ruleClass,
       RuleClass bindRuleClass,
       Map<String, Object> kwargs,
-      FuncallExpression ast)
+      FuncallExpression ast,
+      boolean allowOverride)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, LabelSyntaxException,
-          InterruptedException {
-
+          InterruptedException, EvalException {
+    if (!allowOverride
+        && kwargs.containsKey("name")
+        && pkg.targets.containsKey(kwargs.get("name"))) {
+      throw new EvalException(
+          ast.getLocation(),
+          "Cannot redefine repository after any load statement in the WORKSPACE file"
+              + " (for repository '"
+              + kwargs.get("name")
+              + "')");
+    }
     StoredEventHandler eventHandler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
     Rule rule =

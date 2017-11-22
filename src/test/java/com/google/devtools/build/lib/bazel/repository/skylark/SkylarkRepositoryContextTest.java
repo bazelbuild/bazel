@@ -86,7 +86,7 @@ public class SkylarkRepositoryContextTest {
     ast.setLocation(Location.BUILTIN);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            packageBuilder, buildRuleClass(attributes), null, kwargs, ast);
+            packageBuilder, buildRuleClass(attributes), null, kwargs, ast, false);
     HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
     context =
         new SkylarkRepositoryContext(
