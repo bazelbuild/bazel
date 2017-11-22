@@ -31,6 +31,22 @@ def unescape_string(arg):
   return str(arg).replace("%%", "%")
 
 
+def compiler_flags(repository_ctx, default):
+  """Use ${BAZEL_CXX_FLAGS} for the list of compiler flags."""
+  cxx_flags = repository_ctx.os.environ.get("BAZEL_CXX_FLAGS", default = default)
+  if type(cxx_flags) == type([]):
+    fail("BAZEL_CXX_FLAGS needs to have a value of type list")
+  return cxx_flags
+
+
+def linker_flags(repository_ctx, default):
+  """Use ${BAZEL_LINK_FLAGS} for the list of linker flags."""
+  link_flags = repository_ctx.os.environ.get("BAZEL_LINK_FLAGS", default = default)
+  if type(link_flags) == type([]):
+    fail("BAZEL_LINK_FLAGS needs to have a value of type list")
+  return link_flags
+
+
 def auto_configure_fail(msg):
   """Output failure message when auto configuration fails."""
   red = "\033[0;31m"

@@ -17,8 +17,10 @@
 
 load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
+    "compiler_flags",
     "escape_string",
     "get_env_var",
+    "linker_flags",
     "which",
     "tpl",
 )
@@ -84,21 +86,6 @@ def _escaped_cplus_include_paths(repository_ctx):
   else:
     return []
 
-def _linker_flags(repository_ctx):
-  """Use ${LINK_FLAGS} to compute the list of flags for linkflag."""
-  if "LINK_FLAGS" not in repository_ctx.os.environ:
-    return [
-      "-lstdc++",
-      "-lm",  # Some systems expect -lm in addition to -lstdc++
-    ]
-
-  result = []
-  # FIXME: For paths : is already narrow but for flags it is 
-  # probably too narrow. Needs to replaced by way of properly
-  # splitting including escaping.
-  for p in repository_ctx.os.environ["LINK_FLAGS"].split(":"):
-    result += str(repository_ctx.path(p))
-  return result
 
 _INC_DIR_MARKER_BEGIN = "#include <...>"
 
@@ -185,10 +172,14 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "target_libc": "macosx" if darwin else escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False)),
       "target_cpu": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False)),
       "target_system_name": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False)),
-      "cxx_flag": [
+      "cxx_flag": _escaped_cplus_include_paths(repository_ctx)
+        + compiler_flags(repository_ctx, default = [
           "-std=c++0x",
-      ] + _escaped_cplus_include_paths(repository_ctx),
-      "linker_flag": _linker_flags(repository_ctx)
+          ]),
+      "linker_flag": linker_flags(repository_ctx, default = [
+          "-lstdc++",
+          "-lm",  # Some systems expect -lm in addition to -lstdc++
+        ])
           # Anticipated future default.
         + (
           ["-fuse-ld=gold"] if supports_gold_linker else []
