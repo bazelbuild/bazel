@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -1467,7 +1469,10 @@ public final class CppModel {
       }
 
       // If user specifies a custom DEF file, then we use this one instead of the generated one.
-      Artifact customDefFile = ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET);
+      Artifact customDefFile = null;
+      if (ruleContext.isAttrDefined("win_def_file", LABEL)) {
+        customDefFile = ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET);
+      }
       if (customDefFile != null) {
         dynamicLinkActionBuilder.setDefFile(customDefFile);
       }
