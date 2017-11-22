@@ -149,14 +149,4 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
     throw new InvalidConfigurationException(
         "No JVM target found under " + javaRuntimeSuite + " that would work for " + cpu);
   }
-
-  private static Jvm createFromAbsoluteJavabase(String javaHome, boolean enableMakeVariables)
-      throws InvalidConfigurationException {
-    PathFragment javaHomePathFrag = PathFragment.create(javaHome);
-    if (!javaHomePathFrag.isAbsolute()) {
-      throw new InvalidConfigurationException(
-          "Illegal javabase value '" + javaHome + "', javabase must be an absolute path or label");
-    }
-    return new Jvm(javaHomePathFrag, null, enableMakeVariables);
-  }
 }
