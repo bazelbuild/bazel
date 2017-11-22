@@ -23,6 +23,14 @@ def escape_string(arg):
     return None
 
 
+def unescape_string(arg):
+  """Unescape two percent signs (%%) in the string."""
+  if arg == None:
+    return None
+
+  return str(arg).replace("%%", "%")
+
+
 def auto_configure_fail(msg):
   """Output failure message when auto configuration fails."""
   red = "\033[0;31m"
