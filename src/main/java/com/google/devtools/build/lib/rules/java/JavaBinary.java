@@ -133,8 +133,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     CppConfiguration cppConfiguration = ruleContext.getConfiguration().getFragment(
         CppConfiguration.class);
-    boolean stripAsDefault = cppConfiguration.useFission()
-        && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
+    // TODO(b/64384912): Remove in favor of CcToolchainProvider
+    boolean stripAsDefault =
+        cppConfiguration.useFission()
+            && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
     Artifact launcher = semantics.getLauncher(ruleContext, common, deployArchiveBuilder,
         runfilesBuilder, jvmFlags, attributesBuilder, stripAsDefault);
 

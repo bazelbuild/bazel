@@ -299,9 +299,12 @@ public class CcCommonTest extends BuildViewTestCase {
     for (String cpu : new String[] {"k8", "piii"}) {
       useConfiguration("--cpu=" + cpu, "--save_temps");
       ConfiguredTarget foo = getConfiguredTarget("//foo:foo");
+      CcToolchainProvider toolchain =
+          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(foo));
       List<String> temps =
           ActionsTestUtil.baseArtifactNames(getOutputGroup(foo, OutputGroupProvider.TEMP_FILES));
-      if (getTargetConfiguration().getFragment(CppConfiguration.class).usePicForBinaries()) {
+      if (CppHelper.usePicForBinaries(
+          getTargetConfiguration().getFragment(CppConfiguration.class), toolchain)) {
         assertThat(temps).named(cpu).containsExactly("foo.pic.ii", "foo.pic.s");
       } else {
         assertThat(temps).named(cpu).containsExactly("foo.ii", "foo.s");
@@ -316,9 +319,12 @@ public class CcCommonTest extends BuildViewTestCase {
       useConfiguration("--cpu=" + cpu, "--save_temps");
       // Now try with a .c source file.
       ConfiguredTarget csrc = getConfiguredTarget("//csrc:csrc");
+      CcToolchainProvider toolchain =
+          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(csrc));
       List<String> temps =
           ActionsTestUtil.baseArtifactNames(getOutputGroup(csrc, OutputGroupProvider.TEMP_FILES));
-      if (getTargetConfiguration().getFragment(CppConfiguration.class).usePicForBinaries()) {
+      if (CppHelper.usePicForBinaries(
+          getTargetConfiguration().getFragment(CppConfiguration.class), toolchain)) {
         assertThat(temps).named(cpu).containsExactly("foo.pic.i", "foo.pic.s");
       } else {
         assertThat(temps).named(cpu).containsExactly("foo.i", "foo.s");

@@ -254,7 +254,7 @@ public abstract class NativeDepsHelper {
     if (!builder.getLtoBitcodeFiles().isEmpty()
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       builder.setLtoIndexing(true);
-      builder.setUsePicForLtoBackendActions(CppHelper.usePic(ruleContext, false));
+      builder.setUsePicForLtoBackendActions(CppHelper.usePic(ruleContext, toolchain, false));
       CppLinkAction indexAction = builder.build();
       ruleContext.registerAction(indexAction);
       builder.setLtoIndexing(false);

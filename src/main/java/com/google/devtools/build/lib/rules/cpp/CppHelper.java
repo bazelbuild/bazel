@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -557,22 +558,42 @@ public class CppHelper {
   // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in
   // CcCommonConfiguredTarget.noCoptsMatches().
   /**
-   * Determines if we should apply -fPIC for this rule's C++ compilations. This determination
-   * is generally made by the global C++ configuration settings "needsPic" and
-   * and "usePicForBinaries". However, an individual rule may override these settings by applying
-   * -fPIC" to its "nocopts" attribute. This allows incompatible rules to "opt out" of global PIC
-   * settings (see bug: "Provide a way to turn off -fPIC for targets that can't be built that way").
+   * Determines if we should apply -fPIC for this rule's C++ compilations. This determination is
+   * generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
+   * However, an individual rule may override these settings by applying -fPIC" to its "nocopts"
+   * attribute. This allows incompatible rules to "opt out" of global PIC settings (see bug:
+   * "Provide a way to turn off -fPIC for targets that can't be built that way").
    *
    * @param ruleContext the context of the rule to check
    * @param forBinary true if compiling for a binary, false if for a shared library
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
-  public static boolean usePic(RuleContext ruleContext, boolean forBinary) {
+  public static boolean usePic(
+      RuleContext ruleContext, CcToolchainProvider toolchain, boolean forBinary) {
     if (CcCommon.noCoptsMatches("-fPIC", ruleContext)) {
       return false;
     }
     CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
-    return forBinary ? config.usePicObjectsForBinaries() : config.needsPic();
+    return forBinary ? usePicObjectsForBinaries(config, toolchain) : needsPic(config, toolchain);
+  }
+
+  /** Returns whether binaries must be compiled with position independent code. */
+  public static boolean usePicForBinaries(CppConfiguration config, CcToolchainProvider toolchain) {
+    return toolchain.toolchainNeedsPic() && config.getCompilationMode() != CompilationMode.OPT;
+  }
+
+  /** Returns true iff we should use ".pic.o" files when linking executables. */
+  public static boolean usePicObjectsForBinaries(
+      CppConfiguration config, CcToolchainProvider toolchain) {
+    return config.forcePic() || usePicForBinaries(config, toolchain);
+  }
+
+  /**
+   * Returns true if shared libraries must be compiled with position independent code for the build
+   * implied by the given config and toolchain.
+   */
+  public static boolean needsPic(CppConfiguration config, CcToolchainProvider toolchain) {
+    return config.forcePic() || toolchain.toolchainNeedsPic();
   }
 
   /**
@@ -884,5 +905,40 @@ public class CppHelper {
             .setMnemonic("DefParser")
             .build(ruleContext));
     return defFile;
+  }
+
+  /**
+   * Returns true if the build implied by the given config and toolchain uses --start-lib/--end-lib
+   * ld options.
+   */
+  public static boolean useStartEndLib(CppConfiguration config, CcToolchainProvider toolchain) {
+    return config.startEndLibIsRequested() && toolchain.supportsStartEndLib();
+  }
+
+  /**
+   * Returns the type of archives being used by the build implied by the given config and toolchain.
+   */
+  public static Link.ArchiveType getArchiveType(
+      CppConfiguration config, CcToolchainProvider toolchain) {
+    return useStartEndLib(config, toolchain)
+        ? Link.ArchiveType.START_END_LIB
+        : Link.ArchiveType.REGULAR;
+  }
+
+  /**
+   * Returns true if interface shared objects should be used in the build implied by the given
+   * config and toolchain.
+   */
+  public static boolean useInterfaceSharedObjects(
+      CppConfiguration config, CcToolchainProvider toolchain) {
+    return toolchain.supportsInterfaceSharedObjects() && config.getUseInterfaceSharedObjects();
+  }
+
+  /**
+   * Returns true if Fission is specified and supported by the CROSSTOOL for the build implied by
+   * the given configuration and toolchain.
+   */
+  public static boolean useFission(CppConfiguration config, CcToolchainProvider toolchain) {
+    return config.fissionIsActiveForCurrentCompilationMode() && toolchain.supportsFission();
   }
 }

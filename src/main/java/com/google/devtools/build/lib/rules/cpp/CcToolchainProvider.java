@@ -445,6 +445,20 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return toolchainInfo.supportsEmbeddedRuntimes();
   }
 
+  /** Returns whether the toolchain supports the --start-lib/--end-lib options. */
+  public boolean supportsStartEndLib() {
+    return toolchainInfo.supportsStartEndLib();
+  }
+
+  /**
+   * Returns whether this toolchain supports interface shared objects.
+   *
+   * <p>Should be true if this toolchain generates ELF objects.
+   */
+  public boolean supportsInterfaceSharedObjects() {
+    return toolchainInfo.supportsInterfaceSharedObjects();
+  }
+
   @Nullable
   public CppConfiguration getCppConfiguration() {
     return cppConfiguration;
@@ -584,6 +598,14 @@ public final class CcToolchainProvider extends ToolchainInfo {
    */
   public ImmutableMap<String, String> getAdditionalMakeVariables() {
     return toolchainInfo.getAdditionalMakeVariables();
+  }
+
+  /**
+   * Returns whether the toolchain supports "Fission" C++ builds, i.e. builds where compilation
+   * partitions object code and debug symbols into separate output files.
+   */
+  public boolean supportsFission() {
+    return toolchainInfo.supportsFission();
   }
 
   @SkylarkCallable(

@@ -188,7 +188,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       dynamicLibraries.add(
         CppHelper.getLinuxLinkedArtifact(
           ruleContext, ruleContext.getConfiguration(), LinkTargetType.DYNAMIC_LIBRARY));
-      if (ccToolchain.getCppConfiguration().useInterfaceSharedObjects()) {
+      if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)) {
         dynamicLibraries.add(
           CppHelper.getLinuxLinkedArtifact(
             ruleContext, ruleContext.getConfiguration(), LinkTargetType.INTERFACE_DYNAMIC_LIBRARY));
@@ -206,7 +206,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       dynamicLibraries.add(
         CppHelper.getLinuxLinkedArtifact(
           ruleContext, ruleContext.getConfiguration(), LinkTargetType.DYNAMIC_LIBRARY));
-      if (ccToolchain.getCppConfiguration().useInterfaceSharedObjects()) {
+      if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)) {
         dynamicLibraries.add(
           CppHelper.getLinuxLinkedArtifact(
             ruleContext, ruleContext.getConfiguration(), LinkTargetType.INTERFACE_DYNAMIC_LIBRARY));
@@ -305,7 +305,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             CppRunfilesProvider.class, new CppRunfilesProvider(staticRunfiles, sharedRunfiles))
         .addOutputGroup(
             OutputGroupProvider.HIDDEN_TOP_LEVEL,
-            collectHiddenTopLevelArtifacts(ruleContext, info.getCcCompilationOutputs()))
+            collectHiddenTopLevelArtifacts(
+                ruleContext, ccToolchain, info.getCcCompilationOutputs()))
         .addOutputGroup(
             CcLibraryHelper.HIDDEN_HEADER_TOKENS,
             CcLibraryHelper.collectHeaderTokens(ruleContext, info.getCcCompilationOutputs()));
@@ -313,13 +314,14 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
   private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(
       RuleContext ruleContext,
+      CcToolchainProvider toolchain,
       CcCompilationOutputs ccCompilationOutputs) {
     // Ensure that we build all the dependencies, otherwise users may get confused.
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean isLipoCollector = cppConfiguration.isLipoContextCollector();
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = CppHelper.usePic(ruleContext, false);
+    boolean usePic = CppHelper.usePic(ruleContext, toolchain, false);
     artifactsToForceBuilder.addTransitive(
         ccCompilationOutputs.getFilesToCompile(
             isLipoCollector, processHeadersInDependencies, usePic));

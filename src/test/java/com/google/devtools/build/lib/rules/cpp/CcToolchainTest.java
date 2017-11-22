@@ -59,6 +59,260 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testInterfaceSharedObjects() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "filegroup(",
+        "    name = 'banana',",
+        "    srcs = ['banana1', 'banana2'])",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':banana',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'])");
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder()
+                .setSupportsInterfaceSharedObjects(false)
+                .buildPartial());
+    useConfiguration();
+
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useInterfaceSharedObjects(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+
+    useConfiguration("--interface_shared_objects");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useInterfaceSharedObjects(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder()
+                .setSupportsInterfaceSharedObjects(true)
+                .buildPartial());
+    useConfiguration();
+
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useInterfaceSharedObjects(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isTrue();
+
+    useConfiguration("--nointerface_shared_objects");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useInterfaceSharedObjects(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+  }
+
+  @Test
+  public void testFission() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "filegroup(",
+        "    name = 'banana',",
+        "    srcs = ['banana1', 'banana2'])",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':banana',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'])");
+
+    // Default configuration: disabled.
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder().setSupportsFission(true).buildPartial());
+    useConfiguration();
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+
+    // Mode-specific settings.
+    useConfiguration("-c", "dbg", "--fission=dbg");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isTrue();
+
+    useConfiguration("-c", "dbg", "--fission=opt");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+
+    useConfiguration("-c", "dbg", "--fission=opt,dbg");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isTrue();
+
+    useConfiguration("-c", "fastbuild", "--fission=opt,dbg");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+
+    useConfiguration("-c", "fastbuild", "--fission=opt,dbg");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+
+    // Universally enabled
+    useConfiguration("-c", "dbg", "--fission=yes");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isTrue();
+
+    useConfiguration("-c", "opt", "--fission=yes");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isTrue();
+
+    useConfiguration("-c", "fastbuild", "--fission=yes");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isTrue();
+
+    // Universally disabled
+    useConfiguration("-c", "dbg", "--fission=no");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+
+    useConfiguration("-c", "opt", "--fission=no");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+
+    useConfiguration("-c", "fastbuild", "--fission=no");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.useFission(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+  }
+
+  @Test
+  public void testPic() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "filegroup(",
+        "    name = 'banana',",
+        "    srcs = ['banana1', 'banana2'])",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':banana',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'])");
+
+    useConfiguration("--cpu=piii");
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.usePicForBinaries(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+
+    useConfiguration("--cpu=piii", "-c", "opt");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.usePicForBinaries(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+
+    useConfiguration("--cpu=k8");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.usePicForBinaries(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isTrue();
+
+    useConfiguration("--cpu=k8", "-c", "opt");
+    target = getConfiguredTarget("//a:b");
+    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(
+            CppHelper.usePicForBinaries(
+                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+        .isFalse();
+  }
+
+  @Test
   public void testBadDynamicRuntimeLib() throws Exception {
     scratch.file("a/BUILD",
         "filegroup(name='dynamic', srcs=['not-an-so', 'so.so'])",

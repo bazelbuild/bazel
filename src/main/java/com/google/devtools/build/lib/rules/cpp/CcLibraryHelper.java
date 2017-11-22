@@ -1066,7 +1066,7 @@ public final class CcLibraryHelper {
     if (emitCompileProviders) {
       boolean isLipoCollector = cppConfiguration.isLipoContextCollector();
       boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-      boolean usePic = CppHelper.usePic(ruleContext, false);
+      boolean usePic = CppHelper.usePic(ruleContext, ccToolchain, false);
       outputGroups.put(
           OutputGroupProvider.FILES_TO_COMPILE,
           ccOutputs.getFilesToCompile(isLipoCollector, processHeadersInDependencies, usePic));
@@ -1148,7 +1148,7 @@ public final class CcLibraryHelper {
               Link.LinkTargetType.DYNAMIC_LIBRARY,
               linkedArtifactNameSuffix));
 
-      if (ccToolchain.getCppConfiguration().useInterfaceSharedObjects()
+      if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)
           && emitInterfaceSharedObjects) {
         dynamicLibrary.add(
             CppHelper.getLinuxLinkedArtifact(

@@ -564,7 +564,7 @@ public class CppLinkActionBuilder {
               toolchain,
               fdoSupport,
               usePicForLtoBackendActions,
-              cppConfiguration.useFission(),
+              CppHelper.useFission(cppConfiguration, toolchain),
               argv);
       ltoOutputs.add(ltoArtifacts);
     }
@@ -651,7 +651,9 @@ public class CppLinkActionBuilder {
             .add(
                 ImmutableIterable.from(
                     Link.mergeInputsCmdLine(
-                        uniqueLibraries, needWholeArchive, cppConfiguration.archiveType())))
+                        uniqueLibraries,
+                        needWholeArchive,
+                        CppHelper.getArchiveType(cppConfiguration, toolchain))))
             .build();
 
     // ruleContext can only be null during testing. This is kind of ugly.
@@ -849,7 +851,9 @@ public class CppLinkActionBuilder {
     Iterable<Artifact> expandedInputs =
         LinkerInputs.toLibraryArtifacts(
             Link.mergeInputsDependencies(
-                uniqueLibraries, needWholeArchive, cppConfiguration.archiveType()));
+                uniqueLibraries,
+                needWholeArchive,
+                CppHelper.getArchiveType(cppConfiguration, toolchain)));
     Iterable<Artifact> expandedNonLibraryInputs = LinkerInputs.toLibraryArtifacts(objectFileInputs);
 
     if (!isLtoIndexing && allLtoArtifacts != null) {
@@ -934,7 +938,7 @@ public class CppLinkActionBuilder {
 
   private boolean shouldUseLinkDynamicLibraryTool() {
     return linkType.equals(LinkTargetType.DYNAMIC_LIBRARY)
-        && cppConfiguration.supportsInterfaceSharedObjects()
+        && toolchain.supportsInterfaceSharedObjects()
         && !featureConfiguration.hasConfiguredLinkerPathInActionConfig();
   }
 
@@ -1460,7 +1464,8 @@ public class CppLinkActionBuilder {
         buildVariables.addStringVariable(STRIP_DEBUG_SYMBOLS_VARIABLE, "");
       }
 
-      if (getLinkType().staticness().equals(Staticness.DYNAMIC) && cppConfiguration.useFission()) {
+      if (getLinkType().staticness().equals(Staticness.DYNAMIC)
+          && CppHelper.useFission(cppConfiguration, toolchain)) {
         buildVariables.addStringVariable(IS_USING_FISSION_VARIABLE, "");
       }
 
@@ -1687,7 +1692,7 @@ public class CppLinkActionBuilder {
       // As a bonus, we can rephrase --nostart_end_lib as --features=-start_end_lib and get rid
       // of a command line option.
 
-      Preconditions.checkState(cppConfiguration.useStartEndLib());
+      Preconditions.checkState(CppHelper.useStartEndLib(cppConfiguration, toolchain));
       Map<Artifact, Artifact> ltoMap = new HashMap<>();
       for (LtoBackendArtifacts l : allLtoArtifacts) {
         ltoMap.put(l.getBitcodeFile(), l.getObjectFile());
@@ -1776,7 +1781,8 @@ public class CppLinkActionBuilder {
         PathFragment solibDir,
         String rpathRoot) {
       Preconditions.checkState(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY);
-      Preconditions.checkState(!Link.useStartEndLib(input, cppConfiguration.archiveType()));
+      Preconditions.checkState(
+          !Link.useStartEndLib(input, CppHelper.getArchiveType(cppConfiguration, toolchain)));
 
       Artifact inputArtifact = input.getArtifact();
       PathFragment libDir = inputArtifact.getExecPath().getParentDirectory();
@@ -1841,7 +1847,7 @@ public class CppLinkActionBuilder {
       Preconditions.checkState(ltoMap == null || thinltoParamFile != null);
 
       // start-lib/end-lib library: adds its input object files.
-      if (Link.useStartEndLib(input, cppConfiguration.archiveType())) {
+      if (Link.useStartEndLib(input, CppHelper.getArchiveType(cppConfiguration, toolchain))) {
         Iterable<Artifact> archiveMembers = input.getObjectFiles();
         if (!Iterables.isEmpty(archiveMembers)) {
           ImmutableList.Builder<String> nonLtoArchiveMembersBuilder = ImmutableList.builder();
