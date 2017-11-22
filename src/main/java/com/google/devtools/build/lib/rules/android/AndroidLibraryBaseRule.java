@@ -47,7 +47,8 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     return builder
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(srcs) -->
-         The list of source files that are processed to create the target.
+         The list of <code>.java</code> or <code>.srcjar</code> files that
+         are processed to create the target.
         <p><code>srcs</code> files of type <code>.java</code> are compiled.
         <em>For readability's sake</em>, it is not good to put the name of a
         generated <code>.java</code> source file into the <code>srcs</code>.
