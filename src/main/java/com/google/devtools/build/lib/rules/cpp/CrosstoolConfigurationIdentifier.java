@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -39,7 +40,7 @@ public final class CrosstoolConfigurationIdentifier implements CrosstoolConfigur
 
   /** Creates a new {@link CrosstoolConfigurationIdentifier} with the given parameters. */
   CrosstoolConfigurationIdentifier(String cpu, String compiler, String libc) {
-    this.cpu = cpu;
+    this.cpu = Preconditions.checkNotNull(cpu);
     this.compiler = compiler;
     this.libc = libc;
   }
