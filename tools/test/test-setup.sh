@@ -217,11 +217,10 @@ for signal in $signals; do
 done
 start=$(date +%s)
 
-set -o pipefail
 if [ -z "$COVERAGE_DIR" ]; then
-  "${TEST_PATH}" "$@" 2>&1 | tee "${XML_OUTPUT_FILE}.log" || exitCode=$?
+  "${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
 else
-  "$1" "$TEST_PATH" "${@:3}" 2>&1 | tee "${XML_OUTPUT_FILE}.log" || exitCode=$?
+  "$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
 fi
 
 for signal in $signals; do
