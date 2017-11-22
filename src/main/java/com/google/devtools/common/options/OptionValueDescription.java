@@ -276,8 +276,10 @@ public abstract class OptionValueDescription {
     public String getSourceString() {
       return parsedOptions
           .asMap()
-          .values()
+          .entrySet()
           .stream()
+          .sorted(Comparator.comparing(Entry::getKey))
+          .map(Entry::getValue)
           .flatMap(Collection::stream)
           .map(ParsedOptionDescription::getSource)
           .distinct()
@@ -323,6 +325,8 @@ public abstract class OptionValueDescription {
           .sorted(Comparator.comparing(Entry::getKey))
           .map(Entry::getValue)
           .flatMap(Collection::stream)
+          // Only provide the options that aren't implied elsewhere.
+          .filter(optionDesc -> optionDesc.getImplicitDependent() == null)
           .collect(ImmutableList.toImmutableList());
     }
   }

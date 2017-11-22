@@ -40,9 +40,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests {@link OptionsParser}.
- */
+/** Tests {@link OptionsParser}. */
 @RunWith(JUnit4.class)
 public class OptionsParserTest {
 
@@ -1038,6 +1036,94 @@ public class OptionsParserTest {
     // implicit requirement.
     assertThat(second.getCanonicalInstances()).isNotNull();
     assertThat(second.getCanonicalInstances()).hasSize(0);
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  /**
+   * Options for testing the behavior of canonicalization when an option implicitly requires a
+   * repeatable option.
+   */
+  public static class ImplicitDependencyOnAllowMultipleOptions extends OptionsBase {
+    @Option(
+      name = "first",
+      implicitRequirements = "--second=requiredByFirst",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false"
+    )
+    public boolean first;
+
+    @Option(
+      name = "second",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null",
+      allowMultiple = true
+    )
+    public List<String> second;
+
+    @Option(
+      name = "third",
+      implicitRequirements = "--second=requiredByThird",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null"
+    )
+    public String third;
+  }
+
+  @Test
+  public void testCanonicalizeExcludesImplicitDependencyOnRepeatableOption()
+      throws OptionsParsingException {
+    OptionsParser parser =
+        OptionsParser.newOptionsParser(ImplicitDependencyOnAllowMultipleOptions.class);
+    parser.parse(
+        OptionPriority.PriorityCategory.COMMAND_LINE,
+        null,
+        Arrays.asList("--first", "--second=explicitValue"));
+    OptionValueDescription first = parser.getOptionValueDescription("first");
+    assertThat(first).isNotNull();
+    assertThat(first.getCanonicalInstances()).hasSize(1);
+
+    OptionValueDescription second = parser.getOptionValueDescription("second");
+    assertThat(second).isNotNull();
+    assertThat(second.getSourceString()).matches("implicit requirement of option '--first', null");
+    // Implicit requirements don't get listed as canonical. Check that this excludes the implicit
+    // value, but still tracks the explicit one.
+    assertThat(second.getCanonicalInstances()).isNotNull();
+    assertThat(second.getCanonicalInstances()).hasSize(1);
+    assertThat(parser.canonicalize()).containsExactly("--first=1", "--second=explicitValue");
+
+    ImplicitDependencyOnAllowMultipleOptions options =
+        parser.getOptions(ImplicitDependencyOnAllowMultipleOptions.class);
+    assertThat(options.first).isTrue();
+    assertThat(options.second).containsExactly("explicitValue", "requiredByFirst");
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testCanonicalizeExcludesImplicitDependencyForOtherwiseUnmentionedRepeatableOption()
+      throws OptionsParsingException {
+    OptionsParser parser =
+        OptionsParser.newOptionsParser(ImplicitDependencyOnAllowMultipleOptions.class);
+    parser.parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, Arrays.asList("--first"));
+    OptionValueDescription first = parser.getOptionValueDescription("first");
+    assertThat(first).isNotNull();
+    assertThat(first.getCanonicalInstances()).hasSize(1);
+
+    OptionValueDescription second = parser.getOptionValueDescription("second");
+    assertThat(second).isNotNull();
+    assertThat(second.getSourceString()).matches("implicit requirement of option '--first'");
+    // Implicit requirements don't get listed as canonical. Check that this excludes the implicit
+    // value, leaving behind no mention of second.
+    assertThat(second.getCanonicalInstances()).isNotNull();
+    assertThat(second.getCanonicalInstances()).isEmpty();
+    assertThat(parser.canonicalize()).containsExactly("--first=1");
+
+    ImplicitDependencyOnAllowMultipleOptions options =
+        parser.getOptions(ImplicitDependencyOnAllowMultipleOptions.class);
+    assertThat(options.first).isTrue();
+    assertThat(options.second).containsExactly("requiredByFirst");
     assertThat(parser.getWarnings()).isEmpty();
   }
 
