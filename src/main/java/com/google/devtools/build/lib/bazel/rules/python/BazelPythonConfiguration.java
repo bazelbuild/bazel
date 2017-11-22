@@ -138,7 +138,9 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
           = new BazelPythonConfiguration(buildOptions.get(Options.class));
 
       String pythonPath = pythonConfiguration.getPythonPath();
-      if (!pythonPath.equals("python") && !PathFragment.create(pythonPath).isAbsolute()) {
+      if (!pythonPath.equals("python")
+          && !pythonPath.equals("python3")
+          && !PathFragment.create(pythonPath).isAbsolute()) {
         throw new InvalidConfigurationException(
             "python_path must be an absolute path when it is set.");
       }
