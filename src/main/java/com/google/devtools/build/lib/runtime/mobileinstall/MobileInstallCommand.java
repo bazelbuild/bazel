@@ -231,7 +231,7 @@ public class MobileInstallCommand implements BlazeCommand {
         targetToRun.getConfiguration().getBinFragment().getPathString()
             + "/"
             + targetToRun.getLabel().toPathFragment().getPathString()
-            + "_launcher");
+            + "_mi/launcher.sh");
     cmdLine.addAll(runTargetArgs);
 
     // Make mobile-install v2 understand relevant v1 flags for ASwB compatibility.
