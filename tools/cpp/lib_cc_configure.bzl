@@ -23,6 +23,119 @@ def escape_string(arg):
     return None
 
 
+def unescape_string(arg):
+  """Unescape two percent signs (%%) in the string."""
+  if arg == None:
+    return None
+
+  return str(arg).replace("%%", "%")
+
+
+def _count_direct_escaped(value, begin, end):
+  i = end - 1
+  for i in range(i, 0, -1):
+    if value[i] == "%":
+      break
+
+  return end - 1 - i
+
+
+def _even_direct_escaped(value, begin, end):
+  return _count_direct_escaped(value, begin, end) % 2 == 0
+
+
+def char_escaped(value, begin, i):
+  return not _even_direct_escaped(value, begin, i)
+
+
+
+
+def get_escaping_error(arg, additionals=None):
+  """If string escaping is not consistent, return error. None otherwise."""
+  if len(arg) == 0:
+    return None
+
+  if not additionals:
+    additionals = []
+
+  if "%" in additionals:
+    fail("Percentage escaping already escapes itself.", "additionals")
+
+  in_escaping = False
+
+  for c in arg:
+    matched = False
+    for additional in additionals:
+      if c == additional:
+        if not in_escaping:
+          return "Unescaped {} in {}".format(additional, arg)
+        matched = True
+        break
+    if not matched:
+      if c == "%":
+        if not in_escaping:
+          in_escaping = True
+          continue
+      elif in_escaping:
+        return "Escaping of {}, which is not contained in {}".format(c, additionals)
+
+    if in_escaping:
+      in_escaping = False
+
+  if in_escaping:
+    return "Unfinished escaping in {}".format(arg)
+
+  return None
+
+
+def _enumerate_string(arg):
+  result = []
+  i = 0
+  for c in arg:
+    result.append((i, c))
+    i = i + 1
+  return result
+
+
+def split_escaped_by_sep(arg, sep):
+  """Split arg by separator. Assumes arg is %-escaped.
+As such, split only happens if found sep is not escaped.
+"""
+  if sep == "%":
+    fail("% not supported as separator")
+
+  result = []
+  begin = 0
+  end = len(arg)
+
+  for i, c in _enumerate_string(arg):
+    if c != sep:
+      # Nothing to do
+      continue
+
+    # May be separation
+    if char_escaped(arg, begin, i):
+      # No separation
+      continue
+
+    # Is separation
+    part = arg[begin:i]
+    error = get_escaping_error(part, additionals = [sep])
+    if error:
+      fail(error)
+    result.append(unescape_string(part))
+    begin = i + 1
+
+  if (end - begin) > 0:
+    # There is something left
+    part = arg[begin:end]
+    error = get_escaping_error(part, additionals = [sep])
+    if error:
+      fail(error)
+    result.append(unescape_string(part))
+  return result
+
+
 def auto_configure_fail(msg):
   """Output failure message when auto configuration fails."""
   red = "\033[0;31m"
