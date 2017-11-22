@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Helper class responsible for the symlink tree creation.
@@ -109,9 +108,9 @@ public final class SymlinkTreeHelper {
    * @param action action instance that requested symlink tree creation
    * @param actionExecutionContext Services that are in the scope of the action.
    * @param enableRunfiles
-   * @return a set of SpawnResults created during symlink creation, if any
+   * @return a list of SpawnResults created during symlink creation, if any
    */
-  public Set<SpawnResult> createSymlinks(
+  public List<SpawnResult> createSymlinks(
       AbstractAction action,
       ActionExecutionContext actionExecutionContext,
       BinTools binTools,
@@ -135,7 +134,7 @@ public final class SymlinkTreeHelper {
       } catch (IOException e) {
         throw new UserExecException(e.getMessage(), e);
       }
-      return ImmutableSet.of();
+      return ImmutableList.of();
     }
   }
 

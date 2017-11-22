@@ -56,7 +56,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** A strategy for executing a {@link TestRunnerAction}. */
@@ -148,7 +147,7 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   @Override
-  public abstract Set<SpawnResult> exec(
+  public abstract List<SpawnResult> exec(
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 

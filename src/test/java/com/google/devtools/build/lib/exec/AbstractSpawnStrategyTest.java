@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.Collection;
-import java.util.Set;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -72,8 +72,8 @@ public class AbstractSpawnStrategyTest {
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
         .thenReturn(spawnResult);
 
-    Set<SpawnResult> spawnResults = new TestedSpawnStrategy(spawnRunner)
-        .exec(SIMPLE_SPAWN, actionExecutionContext);
+    List<SpawnResult> spawnResults =
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
 
@@ -90,7 +90,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(result);
 
     try {
-      // Ignoring the Set<SpawnResult> return value.
+      // Ignoring the List<SpawnResult> return value.
       new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
       fail("Expected SpawnExecException");
     } catch (SpawnExecException e) {
@@ -109,8 +109,8 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
     when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
 
-    Set<SpawnResult> spawnResults = new TestedSpawnStrategy(spawnRunner)
-        .exec(SIMPLE_SPAWN, actionExecutionContext);
+    List<SpawnResult> spawnResults =
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
     assertThat(spawnResults).containsExactly(spawnResult);
     verify(spawnRunner, never()).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
   }
@@ -130,8 +130,8 @@ public class AbstractSpawnStrategyTest {
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
         .thenReturn(spawnResult);
 
-    Set<SpawnResult> spawnResults = new TestedSpawnStrategy(spawnRunner)
-        .exec(SIMPLE_SPAWN, actionExecutionContext);
+    List<SpawnResult> spawnResults =
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
 
@@ -155,7 +155,7 @@ public class AbstractSpawnStrategyTest {
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class))).thenReturn(result);
 
     try {
-      // Ignoring the Set<SpawnResult> return value.
+      // Ignoring the List<SpawnResult> return value.
       new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
       fail("Expected SpawnExecException");
     } catch (SpawnExecException e) {

@@ -213,7 +213,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
         builder.setTestCase(details);
       }
 
-      return StandaloneTestResult.create(ImmutableSet.of(), builder.build());
+      return StandaloneTestResult.create(ImmutableList.of(), builder.build());
     } catch (IOException | InterruptedException e) {
       if (worker != null) {
         workerPool.invalidateObject(key, worker);

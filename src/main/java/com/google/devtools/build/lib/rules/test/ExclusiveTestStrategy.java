@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.IOException;
-import java.util.Set;
+import java.util.List;
 
 /**
  * Test strategy wrapper called 'exclusive'. It should delegate to a test strategy for local
@@ -41,7 +41,7 @@ public class ExclusiveTestStrategy implements TestActionContext {
   }
 
   @Override
-  public Set<SpawnResult> exec(
+  public List<SpawnResult> exec(
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     return parent.exec(action, actionExecutionContext);

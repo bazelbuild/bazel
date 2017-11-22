@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Set;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -43,7 +43,7 @@ public final class FileWriteStrategy implements FileWriteActionContext {
   }
 
   @Override
-  public Set<SpawnResult> exec(
+  public List<SpawnResult> exec(
       AbstractFileWriteAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
@@ -64,6 +64,6 @@ public final class FileWriteStrategy implements FileWriteActionContext {
             + "' due to I/O error: " + e.getMessage(), e);
       }
     }
-    return ImmutableSet.of();
+    return ImmutableList.of();
   }
 }

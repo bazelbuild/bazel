@@ -1167,7 +1167,7 @@ public class CppCompileAction extends AbstractAction
       actionExecutionContext.getFileOutErr().setErrorFilter(showIncludesFilterForStderr);
     }
 
-    Set<SpawnResult> spawnResults;
+    List<SpawnResult> spawnResults;
     try {
       CppCompileActionResult cppCompileActionResult =
           actionExecutionContext

@@ -60,7 +60,7 @@ import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Set;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -171,7 +171,7 @@ public class StandaloneSpawnStrategyTest {
     assertThat(err()).isEmpty();
   }
 
-  private Set<SpawnResult> run(Spawn spawn) throws Exception {
+  private List<SpawnResult> run(Spawn spawn) throws Exception {
     return executor.getSpawnActionContext(spawn.getMnemonic()).exec(spawn, createContext());
   }
 

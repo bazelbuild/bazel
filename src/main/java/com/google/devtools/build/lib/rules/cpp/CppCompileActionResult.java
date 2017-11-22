@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import java.util.Set;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** Contains information about the result of a CppCompileAction's execution. */
@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 public abstract class CppCompileActionResult {
 
   /** Returns the SpawnResults created by the action, if any. */
-  public abstract Set<SpawnResult> spawnResults();
+  public abstract List<SpawnResult> spawnResults();
 
   /**
    * Gets the optional CppCompileActionContext.Reply for the action.
@@ -46,10 +46,10 @@ public abstract class CppCompileActionResult {
   public abstract static class Builder {
 
     /** Returns the SpawnResults for the action, if any. */
-    abstract Set<SpawnResult> spawnResults();
+    abstract List<SpawnResult> spawnResults();
 
     /** Sets the SpawnResults for the action. */
-    public abstract Builder setSpawnResults(Set<SpawnResult> spawnResults);
+    public abstract Builder setSpawnResults(List<SpawnResult> spawnResults);
 
     /** Sets the CppCompileActionContext.Reply for the action. */
     public abstract Builder setContextReply(CppCompileActionContext.Reply reply);
@@ -59,10 +59,10 @@ public abstract class CppCompileActionResult {
     /**
      * Returns an immutable CppCompileActionResult object.
      *
-     * <p>The set of SpawnResults is also made immutable here.
+     * <p>The list of SpawnResults is also made immutable here.
      */
     public CppCompileActionResult build() {
-      return this.setSpawnResults(ImmutableSet.copyOf(spawnResults())).realBuild();
+      return this.setSpawnResults(ImmutableList.copyOf(spawnResults())).realBuild();
     }
   }
 }

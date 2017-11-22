@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 
 /** Holds the result(s) of an action's execution. */
@@ -26,10 +26,10 @@ import java.util.function.Function;
 public abstract class ActionResult {
 
   /** An empty ActionResult used by Actions that don't have any metadata to return. */
-  public static final ActionResult EMPTY = ActionResult.create(ImmutableSet.of());
+  public static final ActionResult EMPTY = ActionResult.create(ImmutableList.of());
 
   /** Returns the SpawnResults for the action. */
-  public abstract Set<SpawnResult> spawnResults();
+  public abstract List<SpawnResult> spawnResults();
 
   /** Returns a builder that can be used to construct a {@link ActionResult} object. */
   public static Builder builder() {
@@ -92,8 +92,8 @@ public abstract class ActionResult {
     return getCumulativeTime(spawnResult -> spawnResult.getSystemTime());
   }
 
-  /** Creates an ActionResult given a set of SpawnResults. */
-  public static ActionResult create(Set<SpawnResult> spawnResults) {
+  /** Creates an ActionResult given a list of SpawnResults. */
+  public static ActionResult create(List<SpawnResult> spawnResults) {
     if (spawnResults == null) {
       return EMPTY;
     } else {
@@ -106,7 +106,7 @@ public abstract class ActionResult {
   public abstract static class Builder {
 
     /** Sets the SpawnResults for the action. */
-    public abstract Builder setSpawnResults(Set<SpawnResult> spawnResults);
+    public abstract Builder setSpawnResults(List<SpawnResult> spawnResults);
 
     /** Builds and returns an ActionResult object. */
     public abstract ActionResult build();

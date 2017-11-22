@@ -45,7 +45,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * An action that populates a TreeArtifact with the contents of an archive file.
@@ -191,7 +190,7 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
     }
 
     // Execute the spawn.
-    Set<SpawnResult> spawnResults;
+    List<SpawnResult> spawnResults;
     try {
       spawnResults = getContext(actionExecutionContext).exec(spawn, actionExecutionContext);
     } catch (ExecException e) {

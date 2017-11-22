@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -44,7 +44,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -61,13 +60,13 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
   }
 
   @Override
-  public Set<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+  public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     return exec(spawn, actionExecutionContext, null);
   }
 
   @Override
-  public Set<SpawnResult> exec(
+  public List<SpawnResult> exec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
@@ -116,7 +115,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
               cwd);
       throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/false);
     }
-    return ImmutableSet.of(spawnResult);
+    return ImmutableList.of(spawnResult);
   }
 
   private List<Path> listExistingOutputFiles(Spawn spawn, Path execRoot) {
