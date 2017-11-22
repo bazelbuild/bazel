@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -32,7 +31,6 @@ import com.google.devtools.build.lib.rules.android.ResourceFilterFactory.AddDyna
 import com.google.devtools.build.lib.rules.android.ResourceFilterFactory.FilterBehavior;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,7 +43,7 @@ import org.junit.runners.JUnit4;
 public class ResourceFilterFactoryTest extends ResourceTestBase {
 
   private NestedSet<ResourceContainer> getResourceContainers(ImmutableList<Artifact>... resources)
-      throws LabelSyntaxException {
+      throws Exception {
     NestedSetBuilder<ResourceContainer> builder = NestedSetBuilder.naiveLinkOrder();
     for (ImmutableList<Artifact> resourceList : resources) {
       builder.add(getResourceContainer(resourceList));
@@ -54,7 +52,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
   }
 
   private ResourceContainer getResourceContainer(ImmutableList<Artifact> resources)
-      throws LabelSyntaxException {
+      throws Exception {
     // Get dummy objects for irrelevant values required by the builder.
     Artifact manifest = getResource("manifest");
 
@@ -67,6 +65,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
 
     return ResourceContainer.builder()
         .setResources(resources)
+        .setResourcesRoots(
+            LocalResourceContainer.getResourceRoots(errorConsumer, resources, "resource_files"))
         .setLabel(label)
         .setManifestExported(false)
         .setManifest(manifest)
@@ -417,31 +417,38 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
 
   @Test
   public void testFilterLocalAndTransitive() throws Exception {
-    Artifact localResourceToKeep = getResource("drawable-en-hdpi/foo.png");
-    Artifact localResourceToDiscard = getResource("drawable-en-ldpi/foo.png");
+    Artifact localResourceToKeep = getResource("drawable-en-hdpi/local.png");
+    Artifact localResourceToDiscard = getResource("drawable-en-ldpi/local.png");
 
     // These resources go in different ResourceContainers to ensure we are filter across all
     // resources.
-    Artifact transitiveResourceToKeep = getResource("transitive/drawable-en-hdpi/foo.png");
-    Artifact transitiveResourceToDiscard = getResource("transitive/drawable-en-ldpi/foo.png");
+    Artifact directResourceToKeep = getResource("direct/drawable-en-hdpi/direct.png");
+    Artifact directResourceToDiscard = getResource("direct/drawable-en-ldpi/direct.png");
+    Artifact transitiveResourceToKeep = getResource("transitive/drawable-en-hdpi/transitive.png");
+    Artifact transitiveResourceToDiscard =
+        getResource("transitive/drawable-en-ldpi/transitive.png");
 
     LocalResourceContainer localResources =
         LocalResourceContainer.forResources(
             errorConsumer, ImmutableList.of(localResourceToKeep, localResourceToDiscard));
 
-    NestedSet<ResourceContainer> containers =
-        getResourceContainers(
-            ImmutableList.of(transitiveResourceToDiscard),
-            ImmutableList.of(transitiveResourceToKeep));
-
     ResourceDependencies resourceDependencies =
         ResourceDependencies.empty()
             .withResources(
-                containers,
-                containers,
+                getResourceContainers(
+                    ImmutableList.of(transitiveResourceToDiscard),
+                    ImmutableList.of(transitiveResourceToKeep)),
+                getResourceContainers(
+                    ImmutableList.of(directResourceToDiscard),
+                    ImmutableList.of(directResourceToKeep)),
                 new NestedSetBuilder<Artifact>(Order.NAIVE_LINK_ORDER)
-                    .add(transitiveResourceToDiscard)
-                    .add(transitiveResourceToKeep)
+                    .add(directResourceToDiscard)
+                    .add(directResourceToKeep)
+                    .addTransitive(
+                        NestedSetBuilder.create(
+                            Order.NAIVE_LINK_ORDER,
+                            transitiveResourceToDiscard,
+                            transitiveResourceToKeep))
                     .build());
 
     ResourceFilterFactory resourceFilterFactory =
@@ -455,35 +462,51 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
 
     ResourceDependencies filteredResourceDeps = resourceDependencies.filter(filter);
 
+    // TODO: Remove - assert was same order before
+    assertThat(resourceDependencies.getTransitiveResources())
+        .containsAllOf(directResourceToKeep, transitiveResourceToKeep)
+        .inOrder();
+
     assertThat(filteredResourceDeps.getTransitiveResources())
+        .containsExactly(directResourceToKeep, transitiveResourceToKeep)
+        .inOrder();
+
+    List<ResourceContainer> directContainers =
+        filteredResourceDeps.getDirectResourceContainers().toList();
+    assertThat(directContainers).hasSize(2);
+
+    ResourceContainer directToDiscard = directContainers.get(0);
+    assertThat(directToDiscard.getResources()).isEmpty();
+    assertThat(directToDiscard.getResourcesRoots()).isEmpty();
+
+    ResourceContainer directToKeep = directContainers.get(1);
+    assertThat(directToKeep.getResources()).containsExactly(directResourceToKeep);
+    assertThat(directToKeep.getResourcesRoots())
+        .containsExactly(
+            directResourceToKeep.getExecPath().getParentDirectory().getParentDirectory());
+
+    List<ResourceContainer> transitiveContainers =
+        filteredResourceDeps.getTransitiveResourceContainers().toList();
+    assertThat(transitiveContainers).hasSize(2);
+
+    ResourceContainer transitiveToDiscard = transitiveContainers.get(0);
+    assertThat(transitiveToDiscard.getResources()).isEmpty();
+    assertThat(transitiveToDiscard.getResourcesRoots()).isEmpty();
+
+    ResourceContainer transitiveToKeep = transitiveContainers.get(1);
+    assertThat(transitiveToKeep.getResources())
         .containsExactly(transitiveResourceToKeep);
+    assertThat(transitiveToKeep.getResourcesRoots())
+        .containsExactly(
+            transitiveResourceToKeep
+                .getExecPath()
+                .getParentDirectory()
+                .getParentDirectory());
 
-    for (NestedSet<ResourceContainer> returnedContainers :
-        ImmutableList.of(
-            filteredResourceDeps.getTransitiveResourceContainers(),
-            filteredResourceDeps.getDirectResourceContainers())) {
-
-      assertThat(returnedContainers).hasSize(2);
-
-      Iterator<ResourceContainer> transitiveContainers = returnedContainers.iterator();
-
-      // The first transitive resource container was the one with the resource to discard
-      assertThat(transitiveContainers.hasNext()).isTrue();
-      assertThat(transitiveContainers.next().getResources()).isEmpty();
-
-      // The second transitive resource container was the one with the resource to keep
-      assertThat(transitiveContainers.hasNext()).isTrue();
-      assertThat(transitiveContainers.next().getResources())
-          .containsExactly(transitiveResourceToKeep);
-
-      // No resource containers were added.
-      assertThat(transitiveContainers.hasNext()).isFalse();
-
-      // We tell the resource processing actions to ignore references to filtered resources from
-      // dependencies.
-      assertThat(resourceFilterFactory.getResourcesToIgnoreInExecution())
-          .containsExactly("drawable-en-ldpi/foo.png");
-    }
+    // We tell the resource processing actions to ignore references to filtered resources from
+    // dependencies.
+    assertThat(resourceFilterFactory.getResourcesToIgnoreInExecution())
+        .containsExactly("drawable-en-ldpi/direct.png", "drawable-en-ldpi/transitive.png");
   }
 
   @Test
