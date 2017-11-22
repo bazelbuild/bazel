@@ -626,9 +626,10 @@ public class FdoSupport {
   private Iterable<Artifact> getAuxiliaryInputs(
       RuleContext ruleContext, PathFragment sourceName, PathFragment sourceExecPath, boolean usePic,
       FdoSupportProvider fdoSupportProvider) {
-    CppConfiguration cppConfig = ruleContext.getFragment(CppConfiguration.class);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     LipoContextProvider lipoContextProvider =
-        cppConfig.isLLVMCompiler() ? null : CppHelper.getLipoContextProvider(ruleContext);
+        toolchain.isLLVMCompiler() ? null : CppHelper.getLipoContextProvider(ruleContext);
 
     // If --fdo_optimize was not specified, we don't have any additional inputs.
     if (fdoProfile == null) {

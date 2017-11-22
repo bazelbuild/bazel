@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -265,6 +266,28 @@ public class CppHelper {
     }
     linkopts.add(labelName);
     return false;
+  }
+
+  /**
+   * Returns the dynamic linking mode (full, off, or default) implied by the given configuration and
+   * toolchain.
+   */
+  public static DynamicMode getDynamicMode(CppConfiguration config, CcToolchainProvider toolchain) {
+    // With LLVM, ThinLTO is automatically used in place of LIPO. ThinLTO works fine with dynamic
+    // linking (and in fact creates a lot more work when dynamic linking is off).
+    if (config.getLipoMode() == LipoMode.BINARY && !toolchain.isLLVMCompiler()) {
+      // TODO(bazel-team): implement dynamic linking with LIPO
+      return DynamicMode.OFF;
+    } else {
+      return config.getDynamicModeFlag();
+    }
+  }
+
+  /** Returns true if LIPO optimization should be applied for this configuration and toolchain. */
+  public static boolean isLipoOptimization(CppConfiguration config, CcToolchainProvider toolchain) {
+    // The LIPO optimization bits are set in the LIPO context collector configuration, too.
+    // If compiler is LLVM, then LIPO gets auto-converted to ThinLTO.
+    return config.lipoOptimizationIsActivated() && !toolchain.isLLVMCompiler();
   }
 
   /**

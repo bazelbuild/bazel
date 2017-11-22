@@ -93,7 +93,7 @@ public class CppCompileActionBuilder {
     this(
         ruleContext.getActionOwner(),
         ruleContext.getConfiguration(),
-        getLipoScannableMap(ruleContext),
+        getLipoScannableMap(ruleContext, ccToolchain),
         ccToolchain);
   }
 
@@ -105,7 +105,7 @@ public class CppCompileActionBuilder {
     this(
         ruleContext.getActionOwner(),
         configuration,
-        getLipoScannableMap(ruleContext),
+        getLipoScannableMap(ruleContext, ccToolchain),
         ccToolchain);
   }
 
@@ -128,8 +128,8 @@ public class CppCompileActionBuilder {
   }
 
   private static ImmutableMap<Artifact, IncludeScannable> getLipoScannableMap(
-      RuleContext ruleContext) {
-    if (!ruleContext.getFragment(CppConfiguration.class).isLipoOptimization()
+      RuleContext ruleContext, CcToolchainProvider toolchain) {
+    if (!CppHelper.isLipoOptimization(ruleContext.getFragment(CppConfiguration.class), toolchain)
         // Rules that do not contain sources that are compiled into object files, but may
         // contain headers, will still create CppCompileActions without providing a
         // lipo_context_collector.

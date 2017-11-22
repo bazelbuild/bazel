@@ -60,6 +60,7 @@ public class CppRuleClasses {
       LateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
+          // TODO(b/69548520): Remove call to isLipoOptimization
           (rule, attributes, cppConfig) ->
               cppConfig.isLipoOptimization() ? cppConfig.getLipoContextLabel() : null);
 

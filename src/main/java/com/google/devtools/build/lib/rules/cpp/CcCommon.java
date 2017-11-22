@@ -130,8 +130,9 @@ public final class CcCommon {
     Iterable<String> ourLinkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
     List<String> result;
     if (ourLinkopts != null) {
-      boolean allowDashStatic = !cppConfiguration.forceIgnoreDashStatic()
-          && (cppConfiguration.getDynamicMode() != DynamicMode.FULLY);
+      boolean allowDashStatic =
+          !cppConfiguration.forceIgnoreDashStatic()
+              && (CppHelper.getDynamicMode(cppConfiguration, ccToolchain) != DynamicMode.FULLY);
       if (!allowDashStatic) {
         ourLinkopts = Iterables.filter(ourLinkopts, (v) -> !"-static".equals(v));
       }

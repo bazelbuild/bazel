@@ -186,7 +186,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
     
     List<String> linkopts = common.getLinkopts();
-    LinkStaticness linkStaticness = getLinkStaticness(ruleContext, linkopts, cppConfiguration);
+    LinkStaticness linkStaticness =
+        getLinkStaticness(ruleContext, linkopts, cppConfiguration, ccToolchain);
 
     // We currently only want link the dynamic library generated for test code separately.
     boolean linkCompileOutputSeparately =
@@ -600,13 +601,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     return linkopts.contains("-static") || cppConfiguration.hasStaticLinkOption();
   }
 
-  private static final LinkStaticness getLinkStaticness(RuleContext context,
-      List<String> linkopts, CppConfiguration cppConfiguration) {
-    if (cppConfiguration.getDynamicMode() == DynamicMode.FULLY) {
+  private static final LinkStaticness getLinkStaticness(
+      RuleContext context,
+      List<String> linkopts,
+      CppConfiguration cppConfiguration,
+      CcToolchainProvider toolchain) {
+    if (CppHelper.getDynamicMode(cppConfiguration, toolchain) == DynamicMode.FULLY) {
       return LinkStaticness.DYNAMIC;
     } else if (dashStaticInLinkopts(linkopts, cppConfiguration)) {
       return LinkStaticness.FULLY_STATIC;
-    } else if (cppConfiguration.getDynamicMode() == DynamicMode.OFF
+    } else if (CppHelper.getDynamicMode(cppConfiguration, toolchain) == DynamicMode.OFF
         || context.attributes().get("linkstatic", Type.BOOLEAN)) {
       return LinkStaticness.MOSTLY_STATIC;
     } else {

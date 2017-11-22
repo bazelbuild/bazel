@@ -342,7 +342,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             cppConfiguration.getLipoMode(),
             fdoZip,
             cppConfiguration.getFdoInstrument(),
-            cppConfiguration.isLLVMOptimizedFdo());
+            cppConfiguration.isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler()));
 
     SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     FdoSupportValue fdoSupport;
@@ -486,7 +486,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     // This tries to convert LLVM profiles to the indexed format if necessary.
     Artifact profileArtifact = null;
-    if (cppConfiguration.isLLVMOptimizedFdo()) {
+    if (cppConfiguration.isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler())) {
       profileArtifact =
           convertLLVMRawProfileToIndexed(fdoZip, toolchainInfo, cppConfiguration, ruleContext);
       if (ruleContext.hasErrors()) {
