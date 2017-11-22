@@ -19,9 +19,25 @@ load("@bazel_tools//tools/cpp:osx_cc_configure.bzl", "configure_osx_toolchain")
 load("@bazel_tools//tools/cpp:unix_cc_configure.bzl", "configure_unix_toolchain")
 load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 
+
+def _split(arg):
+  return arg.split(";")
+
+
+def _split_and_set(repository_ctx, variable):
+  repository_ctx.os.environ[variable] = _split(repository_ctx.os.environ[variable])
+
+
 def _impl(repository_ctx):
   repository_ctx.symlink(
       Label("@bazel_tools//tools/cpp:dummy_toolchain.bzl"), "dummy_toolchain.bzl")
+
+  # Strong type certain environments
+  if "BAZEL_CXX_FLAGS" in repository_ctx.os.environ:
+    _split_and_set(repository_ctx, "BAZEL_CXX_FLAGS")
+  if "BAZEL_LINK_FLAGS" in repository_ctx.os.environ:
+    _split_and_set(repository_ctx, "BAZEL_LINK_FLAGS")
+
   cpu_value = get_cpu_value(repository_ctx)
   if cpu_value == "freebsd":
     # This is defaulting to the static crosstool, we should eventually
@@ -43,8 +59,10 @@ cc_autoconf = repository_rule(
     environ = [
         "ABI_LIBC_VERSION",
         "ABI_VERSION",
+        "BAZEL_CXX_FLAGS",
         "BAZEL_COMPILER",
         "BAZEL_HOST_SYSTEM",
+        "BAZEL_LINK_FLAGS",
         "BAZEL_PYTHON",
         "BAZEL_SH",
         "BAZEL_TARGET_CPU",
