@@ -55,15 +55,36 @@ public class ToolchainUtil {
       Environment env,
       String targetDescription,
       Set<Label> requiredToolchains,
-      BuildConfiguration configuration)
+      @Nullable BuildConfiguration configuration)
       throws ToolchainContextException, InterruptedException {
+
+    // In some cases this is called with a missing configuration, so we skip toolchain context.
+    if (configuration == null) {
+      return null;
+    }
+
+    // TODO(katre): Load several possible execution platforms, and select one based on available
+    // toolchains.
+
+    // Load the execution and target platforms for the current configuration.
+    PlatformDescriptors platforms = loadPlatformDescriptors(env, configuration);
+    if (platforms == null) {
+      return null;
+    }
+
     ImmutableBiMap<Label, Label> resolvedLabels =
-        resolveToolchainLabels(env, requiredToolchains, configuration);
+        resolveToolchainLabels(env, requiredToolchains, configuration, platforms);
     if (resolvedLabels == null) {
       return null;
     }
+
     ToolchainContext toolchainContext =
-        ToolchainContext.create(targetDescription, requiredToolchains, resolvedLabels);
+        ToolchainContext.create(
+            targetDescription,
+            platforms.execPlatform(),
+            platforms.targetPlatform(),
+            requiredToolchains,
+            resolvedLabels);
     return toolchainContext;
   }
 
@@ -152,18 +173,15 @@ public class ToolchainUtil {
 
   @Nullable
   private static ImmutableBiMap<Label, Label> resolveToolchainLabels(
-      Environment env, Set<Label> requiredToolchains, BuildConfiguration configuration)
+      Environment env,
+      Set<Label> requiredToolchains,
+      BuildConfiguration configuration,
+      PlatformDescriptors platforms)
       throws InterruptedException, ToolchainContextException {
 
     // If there are no required toolchains, bail out early.
     if (requiredToolchains.isEmpty()) {
       return ImmutableBiMap.of();
-    }
-
-    // Load the execution and target platforms for the current configuration.
-    PlatformDescriptors platforms = loadPlatformDescriptors(env, configuration);
-    if (platforms == null) {
-      return null;
     }
 
     // Find the toolchains for the required toolchain types.
