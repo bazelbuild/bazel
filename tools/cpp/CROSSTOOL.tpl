@@ -928,6 +928,7 @@ toolchain {
       flag_group {
         flag: "/Od"
         flag: "/Z7"
+        flag: "/DDEBUG"
       }
     }
     flag_set {
@@ -949,6 +950,7 @@ toolchain {
       flag_group {
         flag: "/Od"
         flag: "/Z7"
+        flag: "/DDEBUG"
       }
     }
     flag_set {
