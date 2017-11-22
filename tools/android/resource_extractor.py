@@ -95,7 +95,7 @@ def ExtractResources(input_jar, output_zip):
 
 def main(argv):
   if len(argv) != 3:
-    print USAGE
+    print(USAGE)
     sys.exit(1)
   with zipfile.ZipFile(argv[1], 'r') as input_jar:
     with zipfile.ZipFile(argv[2], 'w') as output_zip:

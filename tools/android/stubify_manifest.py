@@ -164,5 +164,5 @@ if __name__ == "__main__":
   try:
     main()
   except BadManifestException as e:
-    print e
+    print(e)
     sys.exit(1)

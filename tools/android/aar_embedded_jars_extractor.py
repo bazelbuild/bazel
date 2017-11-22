@@ -62,7 +62,7 @@ def _Main(input_aar,
   if not output_dir_orig:
     output_dir_orig = output_dir
   with zipfile.ZipFile(input_aar, "r") as aar:
-    with open(output_singlejar_param_file, "wb") as singlejar_param_file:
+    with open(output_singlejar_param_file, "w") as singlejar_param_file:
       ExtractEmbeddedJars(aar, singlejar_param_file, output_dir,
                           output_dir_orig)
 
