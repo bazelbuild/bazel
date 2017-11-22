@@ -969,6 +969,7 @@ toolchain {
       action: 'c++-compile'
       flag_group {
         flag: "/O2"
+        flag: "/DNDEBUG"
       }
     }
   }
