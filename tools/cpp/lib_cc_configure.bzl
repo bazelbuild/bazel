@@ -31,6 +31,22 @@ def unescape_string(arg):
   return str(arg).replace("%%", "%")
 
 
+def _count_direct_escaped(value, begin, end):
+  i = end - 1
+  while i >= begin and value[i] == "%":
+    i = i - 1
+
+  return end - 1 - i
+
+
+def _even_direct_escaped(value, begin, end):
+  return _count_direct_escaped(value, begin, end) % 2 == 0
+
+
+def char_escaped(value, begin, i):
+  return not _even_direct_escaped(value, begin, i)
+
+
 def compiler_flags(repository_ctx, default):
   """Use ${BAZEL_CXX_FLAGS} for the list of compiler flags."""
   cxx_flags = repository_ctx.os.environ.get("BAZEL_CXX_FLAGS", default = default)
