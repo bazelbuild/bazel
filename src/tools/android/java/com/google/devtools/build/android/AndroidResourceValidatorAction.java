@@ -35,7 +35,9 @@ import java.io.OutputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -50,6 +52,15 @@ public class AndroidResourceValidatorAction {
 
   private static final Logger logger =
       Logger.getLogger(AndroidResourceValidatorAction.class.getName());
+
+  {
+    Logger l = logger;
+    while (l != null) {
+      l.setLevel(Level.FINEST);
+      Arrays.stream(l.getHandlers()).forEach(h -> h.setLevel(Level.FINEST));
+      l = l.getParent();
+    }
+  }
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
@@ -109,13 +120,13 @@ public class AndroidResourceValidatorAction {
     public Path rOutput;
 
     @Option(
-        name = "packagePath",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to the write the archive."
+      name = "packagePath",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the write the archive."
     )
     // TODO(b/30307842): Remove this once it is no longer needed for resources migration.
     public Path packagePath;
@@ -136,6 +147,7 @@ public class AndroidResourceValidatorAction {
 
     Preconditions.checkNotNull(options.rOutput);
     Preconditions.checkNotNull(options.srcJarOutput);
+
     try (ScopedTemporaryDirectory scopedTmp =
         new ScopedTemporaryDirectory("resource_validator_tmp")) {
       Path tmp = scopedTmp.getPath();
@@ -146,7 +158,7 @@ public class AndroidResourceValidatorAction {
       Path dummyManifest = tmp.resolve("manifest-aapt-dummy/AndroidManifest.xml");
 
       unpackZip(options.mergedResources, expandedOut);
-      logger.fine(String.format("unpacked zip at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      logger.info(String.format("unpacked zip at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       // We need to make the manifest aapt safe (w.r.t., placeholders). For now, just stub it out.
       AndroidResourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
@@ -170,7 +182,7 @@ public class AndroidResourceValidatorAction {
           null, /* proguardOut */
           null, /* mainDexProguardOut */
           null /* publicResourcesOut */);
-      logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      logger.info(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       AndroidResourceOutputs.copyRToOutput(
           generatedSources, options.rOutput, VariantType.LIBRARY == packageType);

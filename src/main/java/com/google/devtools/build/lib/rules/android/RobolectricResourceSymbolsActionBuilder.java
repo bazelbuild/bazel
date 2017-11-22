@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
+import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg;
 import com.google.devtools.build.lib.util.OS;
 
 /**
@@ -44,9 +46,19 @@ public class RobolectricResourceSymbolsActionBuilder {
           .withSeparator(SeparatorType.COLON_COMMA)
           .toArgConverter();
 
+  private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_AAPT2_ARG =
+      ResourceContainerConverter.builder()
+          .includeResourceRoots()
+          .includeManifest()
+          .includeAapt2RTxt()
+          .includeSymbolsBin()
+          .withSeparator(SeparatorType.COLON_COMMA)
+          .toArgConverter();
+
   private Artifact classJarOut;
   private final ResourceDependencies dependencies;
   private AndroidSdkProvider sdk;
+  private AndroidAaptVersion androidAaptVersion;
 
   private RobolectricResourceSymbolsActionBuilder(ResourceDependencies dependencies) {
     this.dependencies = dependencies;
@@ -66,6 +78,12 @@ public class RobolectricResourceSymbolsActionBuilder {
     return this;
   }
 
+  public RobolectricResourceSymbolsActionBuilder targetAaptVersion(
+      AndroidAaptVersion androidAaptVersion) {
+    this.androidAaptVersion = androidAaptVersion;
+    return this;
+  }
+
   public NestedSet<Artifact> buildAsClassPathEntry(RuleContext ruleContext) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
     // Set the busybox tool.
@@ -76,19 +94,27 @@ public class RobolectricResourceSymbolsActionBuilder {
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
+    ToArg resourceContainerToArg;
+
+    if (androidAaptVersion == AndroidAaptVersion.AAPT2) {
+      inputs.addTransitive(dependencies.getTransitiveAapt2RTxt());
+      resourceContainerToArg = RESOURCE_CONTAINER_TO_AAPT2_ARG;
+    } else {
+      inputs.addTransitive(dependencies.getTransitiveRTxt());
+      resourceContainerToArg = RESOURCE_CONTAINER_TO_ARG;
+    }
     if (!Iterables.isEmpty(dependencies.getResourceContainers())) {
       builder.addAll(
           "--data",
-          VectorArg.join(RESOURCE_CONTAINER_TO_ARG.listSeparator())
+          VectorArg.join(resourceContainerToArg.listSeparator())
               .each(dependencies.getResourceContainers())
-              .mapped(RESOURCE_CONTAINER_TO_ARG));
+              .mapped(resourceContainerToArg));
     }
 
     inputs
         .addTransitive(dependencies.getTransitiveResources())
         .addTransitive(dependencies.getTransitiveAssets())
         .addTransitive(dependencies.getTransitiveManifests())
-        .addTransitive(dependencies.getTransitiveRTxt())
         .addTransitive(dependencies.getTransitiveSymbolsBin());
 
     builder.addExecPath("--classJarOutput", classJarOut);

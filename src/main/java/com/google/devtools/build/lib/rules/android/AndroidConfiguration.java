@@ -59,7 +59,8 @@ import javax.annotation.Nullable;
 public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   /**
-   * Converter for {@link com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher}
+   * Converter for {@link
+   * com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher}
    */
   public static final class ConfigurationDistinguisherConverter
       extends EnumConverter<ConfigurationDistinguisher> {
@@ -68,18 +69,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
-  /**
-   * Converter for {@link ApkSigningMethod}.
-   */
+  /** Converter for {@link ApkSigningMethod}. */
   public static final class ApkSigningMethodConverter extends EnumConverter<ApkSigningMethod> {
     public ApkSigningMethodConverter() {
       super(ApkSigningMethod.class, "apk signing method");
     }
   }
 
-  /**
-   * Converter for {@link AndroidManifestMerger}
-   */
+  /** Converter for {@link AndroidManifestMerger} */
   public static final class AndroidManifestMergerConverter
       extends EnumConverter<AndroidManifestMerger> {
     public AndroidManifestMergerConverter() {
@@ -101,9 +98,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    * influences the output directory name: if it didn't, an Android and a non-Android configuration
    * would conflict if they had the same toolchain identifier.
    *
-   * <p>Note that this is not just a theoretical concern: even if {@code --crosstool_top} and
-   * {@code --android_crosstool_top} point to different labels, they may end up being redirected to
-   * the same thing, and this is exactly what happens on OSX X.
+   * <p>Note that this is not just a theoretical concern: even if {@code --crosstool_top} and {@code
+   * --android_crosstool_top} point to different labels, they may end up being redirected to the
+   * same thing, and this is exactly what happens on OSX X.
    */
   public enum ConfigurationDistinguisher {
     MAIN(null),
@@ -120,9 +117,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    * Which APK signing method to use with the debug key for rules that build APKs.
    *
    * <ul>
-   * <li>V1 uses the apksigner attribute from the android_sdk and signs the APK as a JAR.
-   * <li>V2 uses the apksigner attribute from the android_sdk and signs the APK according to the APK
-   * Signing Schema V2 that is only supported on Android N and later.
+   *   <li>V1 uses the apksigner attribute from the android_sdk and signs the APK as a JAR.
+   *   <li>V2 uses the apksigner attribute from the android_sdk and signs the APK according to the
+   *       APK Signing Schema V2 that is only supported on Android N and later.
    * </ul>
    */
   public enum ApkSigningMethod {
@@ -155,8 +152,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     ANDROID;
 
     public static List<String> getAttributeValues() {
-      return ImmutableList.of(LEGACY.name().toLowerCase(), ANDROID.name().toLowerCase(),
-          getRuleAttributeDefault());
+      return ImmutableList.of(
+          LEGACY.name().toLowerCase(), ANDROID.name().toLowerCase(), getRuleAttributeDefault());
     }
 
     public static String getRuleAttributeDefault() {
@@ -376,8 +373,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help = "Whether to use incremental dexing tools when building proguarded Android binaries.  "
-          + "Values > 0 turn the feature on, values > 1 run that many dexbuilder shards."
+      help =
+          "Whether to use incremental dexing tools when building proguarded Android binaries.  "
+              + "Values > 0 turn the feature on, values > 1 run that many dexbuilder shards."
     )
     public int incrementalDexingShardsAfterProguard;
 
@@ -621,41 +619,64 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean exportsManifestDefault;
 
     @Option(
-        name = "experimental_android_throw_on_resource_conflict",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
+      name = "experimental_android_aapt2_robolectric",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If true, robolectric resources will be packaged using aapt2 if available."
+    )
+    public boolean useAapt2ForRobolectric;
+
+    @Option(
+      name = "experimental_android_throw_on_resource_conflict",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
     )
     public boolean throwOnResourceConflict;
 
     @Option(
-        name = "experimental_android_allow_android_resources",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "For use in testing before migrating away from android_resources. If false, will"
-            + " fail when non-whitelisted android_resources rules are encountered."
+      name = "experimental_use_manifest_from_resource_apk",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Android library rule will use the AppManifest from the resource APK"
+              + " in the AAR file."
+    )
+    public boolean useManifestFromResourceApk;
+
+    @Option(
+      name = "experimental_android_allow_android_resources",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "For use in testing before migrating away from android_resources. If false, will"
+              + " fail when non-whitelisted android_resources rules are encountered."
     )
     public boolean allowAndroidResources;
 
     @Option(
-        name = "experimental_android_allow_resources_attr",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "For use in testing before migrating away from android_resources. If false, will"
-            + " fail when non-whitelisted instances of the 'resources' attribute are encountered."
+      name = "experimental_android_allow_resources_attr",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "For use in testing before migrating away from android_resources. If false, will"
+              + " fail when non-whitelisted instances of the 'resources' attribute are encountered."
     )
     public boolean allowResourcesAttr;
 
     @Option(
-        name = "experimental_skip_parsing_action",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Skips resource parsing action for library targets"
-            + " and uses the output of the compile action instead for resource merging."
+      name = "experimental_skip_parsing_action",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Skips resource parsing action for library targets"
+              + " and uses the output of the compile action instead for resource merging."
     )
     public boolean skipParsingAction;
 
@@ -711,9 +732,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
-  /**
-   * Configuration loader for the Android fragment.
-   */
+  /** Configuration loader for the Android fragment. */
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
     public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
@@ -758,6 +777,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
   private final AndroidAaptVersion androidAaptVersion;
+  private final boolean useAapt2ForRobolectric;
   private final boolean throwOnResourceConflict;
   private final boolean useParallelDex2Oat;
   private final boolean allowAndroidResources;
@@ -765,7 +785,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean inheritResourcesInTests;
   private final boolean skipParsingAction;
   private final boolean fixedResourceNeverlinking;
-
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -786,8 +805,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.desugarJava8 = options.desugarJava8;
     this.checkDesugarDeps = options.checkDesugarDeps;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
-    this.useAndroidResourceShrinking = options.useAndroidResourceShrinking
-        || options.useExperimentalAndroidResourceShrinking;
+    this.useAndroidResourceShrinking =
+        options.useAndroidResourceShrinking || options.useExperimentalAndroidResourceShrinking;
     this.useAndroidResourceCycleShrinking = options.useAndroidResourceCycleShrinking;
     this.manifestMerger = options.manifestMerger;
     this.apkSigningMethod = options.apkSigningMethod;
@@ -797,6 +816,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
     this.androidAaptVersion = options.androidAaptVersion;
+    this.useAapt2ForRobolectric = options.useAapt2ForRobolectric;
     this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
     this.allowAndroidResources = options.allowAndroidResources;
@@ -807,8 +827,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
       // TODO(bazel-team): Still needed? See DexArchiveAspect
-      throw new InvalidConfigurationException("--dexopts_supported_in_incremental_dexing must "
-          + "include '--no-locals' to enable coverage builds");
+      throw new InvalidConfigurationException(
+          "--dexopts_supported_in_incremental_dexing must "
+              + "include '--no-locals' to enable coverage builds");
     }
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -829,9 +850,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return incrementalNativeLibs;
   }
 
-  /**
-   * Returns whether to use incremental dexing.
-   */
+  /** Returns whether to use incremental dexing. */
   public boolean useIncrementalDexing() {
     return incrementalDexing;
   }
@@ -841,46 +860,40 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return incrementalDexingShardsAfterProguard;
   }
 
-  /**
-   * Returns whether to look for Jars produced by {@code JavaLiteProtoAspect}.
-   */
+  /** Returns whether to look for Jars produced by {@code JavaLiteProtoAspect}. */
   public boolean incrementalDexingForLiteProtos() {
     return incrementalDexingForLiteProtos;
   }
 
   /**
-   * Returns whether to report an error when Jars that weren't converted to dex archives are part
-   * of an android binary.
+   * Returns whether to report an error when Jars that weren't converted to dex archives are part of
+   * an android binary.
    */
   public boolean incrementalDexingErrorOnMissedJars() {
     return incrementalDexingErrorOnMissedJars;
   }
 
   /**
-   * Returns true if an -assumevalues should be generated for Proguard based on the minSdkVersion
-   * of the merged AndroidManifest.
+   * Returns true if an -assumevalues should be generated for Proguard based on the minSdkVersion of
+   * the merged AndroidManifest.
    */
   public boolean assumeMinSdkVersion() {
     return assumeMinSdkVersion;
   }
 
-  /**
-   * dx flags supported in incremental dexing actions.
-   */
+  /** dx flags supported in incremental dexing actions. */
   public ImmutableList<String> getDexoptsSupportedInIncrementalDexing() {
     return dexoptsSupportedInIncrementalDexing;
   }
 
-  /**
-   * dx flags supported in dexmerger actions.
-   */
+  /** dx flags supported in dexmerger actions. */
   public ImmutableList<String> getDexoptsSupportedInDexMerger() {
     return dexoptsSupportedInDexMerger;
   }
 
   /**
-   * Incremental dexing must not be used for binaries that list any of these flags in their
-   * {@code dexopts} attribute.
+   * Incremental dexing must not be used for binaries that list any of these flags in their {@code
+   * dexopts} attribute.
    */
   public ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing() {
     return targetDexoptsThatPreventIncrementalDexing;
@@ -945,6 +958,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   boolean getExportsManifestDefault() {
     return exportsManifestDefault;
+  }
+
+  public boolean useAapt2ForRobolectric() {
+    return useAapt2ForRobolectric;
   }
 
   boolean throwOnResourceConflict() {
