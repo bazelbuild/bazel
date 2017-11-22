@@ -60,6 +60,13 @@ public final class CcImportRule implements RuleDefinition {
                 .orderIndependent()
                 .direct_compile_time_input()
                 .allowedFileTypes(CppFileTypes.CPP_HEADER))
+        /*<!-- #BLAZE_RULE(cc_import).ATTRIBUTE(system_provide) -->
+        If true, it indicates the shared library required at runtime is provided by the system. In
+        this case, <code>interface_library</code> should be specified and
+        <code>shared_library</code> should be empty.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(
+            attr("system_provided", BOOLEAN))
         /*<!-- #BLAZE_RULE(cc_import).ATTRIBUTE(alwayslink) -->
         If 1, any binary that depends (directly or indirectly) on this C++
         precompiled library will link in all the object files archived in the static library,
@@ -69,8 +76,7 @@ public final class CcImportRule implements RuleDefinition {
         provided by some service.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
-            attr("alwayslink", BOOLEAN)
-                .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
+            attr("alwayslink", BOOLEAN))
         .add(attr("data", LABEL_LIST).cfg(DATA)
             .allowedFileTypes(FileTypeSet.ANY_FILE)
             .dontCheckConstraints())
