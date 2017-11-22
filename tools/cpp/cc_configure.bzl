@@ -59,8 +59,8 @@ cc_autoconf = repository_rule(
     environ = [
         "ABI_LIBC_VERSION",
         "ABI_VERSION",
-        "BAZEL_CXX_FLAGS",
         "BAZEL_COMPILER",
+        "BAZEL_CXX_FLAGS",
         "BAZEL_HOST_SYSTEM",
         "BAZEL_LINK_FLAGS",
         "BAZEL_PYTHON",
