@@ -1477,9 +1477,6 @@ public class CppLinkActionBuilder {
         buildVariables.addStringVariable(IS_NOT_CC_TEST_LINK_ACTION_VARIABLE, "");
       }
 
-      // TODO(b/37271982): Remove after blaze with ar action_config release
-      buildVariables.addStringVariable(USES_ACTION_CONFIG_FOR_AR_VARIABLE, "");
-
       if (linkArgCollector.getRuntimeLibrarySearchDirectories() != null) {
         buildVariables.addStringSequenceVariable(
             RUNTIME_LIBRARY_SEARCH_DIRECTORIES_VARIABLE,
