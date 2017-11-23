@@ -343,7 +343,7 @@ try()
   ( $* ) >> configure.log 2>&1
   ret=$?
   if test $ret -ne 0; then
-    echo "(exit code "$ret")" >> configure.log
+    echo "(exit code $ret)" >> configure.log
   fi
   return $ret
 }
