@@ -71,13 +71,15 @@ BUILD files. You would add the following to `my_project/WORKSPACE`:
 
 ```python
 local_repository(
-    name = "coworkers-project",
+    name = "coworkers_project",
     path = "/path/to/coworkers-project",
 )
 ```
 
 If your coworker has a target `//foo:bar`, your project can refer to it as
-`@coworkers-project//foo:bar`.
+`@coworkers_project//foo:bar`. External project names must be
+[valid workspace names](be/functions.html#workspace), so `_` (valid) is used to
+replace `-` (invalid) in the name `coworkers_project`.
 
 <a name="non-bazel-projects"></a>
 ### Depending on non-Bazel projects
@@ -95,7 +97,7 @@ it generates. To do so, add the following to `my_project/WORKSPACE`:
 
 ```python
 new_local_repository(
-    name = "coworkers-project",
+    name = "coworkers_project",
     path = "/path/to/coworkers-project",
     build_file = "coworker.BUILD",
 )
@@ -112,7 +114,7 @@ java_library(
 )
 ```
 
-You can then depend on `@coworkers-project//:some-lib` from your project's BUILD
+You can then depend on `@coworkers_project//:some-lib` from your project's BUILD
 files.
 
 <a name="external-packages"></a>
