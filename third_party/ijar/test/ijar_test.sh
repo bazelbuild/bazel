@@ -235,7 +235,7 @@ function test_ijar_output() {
 
 
   # Check that compile-time constants in A are still annotated as such in ijar:
-  $JAVAP -classpath $TEST_TMPDIR/classes -c B | grep -sq ldc2_w.*123 ||
+  $JAVAP -classpath $TEST_TMPDIR/classes -c B | grep -sq 'ldc2_w.*123' ||
     fail "ConstantValue not propagated to class B!"
 
 
