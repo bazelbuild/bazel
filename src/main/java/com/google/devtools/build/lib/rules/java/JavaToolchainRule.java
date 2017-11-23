@@ -57,7 +57,7 @@ public final class JavaToolchainRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("target_version", STRING).mandatory()) // javac -target flag value.
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(bootclasspath) -->
-        The Java target exdir entries. Corresponds to javac's -bootclasspath flag.
+        The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("bootclasspath", LABEL_LIST)
@@ -65,7 +65,7 @@ public final class JavaToolchainRule implements RuleDefinition {
                 .cfg(HOST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(extclasspath) -->
-        The Java target exdir entries. Corresponds to javac's -extdir flag.
+        The Java target extdir entries. Corresponds to javac's -extdir flag.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("extclasspath", LABEL_LIST)
