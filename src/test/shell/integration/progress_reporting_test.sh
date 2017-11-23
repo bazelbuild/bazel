@@ -54,7 +54,7 @@ function wait_for_command() {
   kill -9 "$pid"
   # A fail() here would not end the script if we are in a subshell, so the
   # caller must check the return value.
-  echo "Command $@ did not die within $wait_time seconds"
+  echo "Command $* did not die within $wait_time seconds"
   return 1
 }
 

@@ -33,7 +33,7 @@ function is_darwin() {
 function _log_base() {
   prefix=$1
   shift
-  echo >&2 "${prefix}[$(basename "$0") $(date "+%H:%M:%S.%N (%z)")] $@"
+  echo >&2 "${prefix}[$(basename "$0") $(date "+%H:%M:%S.%N (%z)")] $*"
 }
 
 function log_info() {

@@ -23,7 +23,7 @@ DLL="$1"
 shift 1
 
 function fail() {
-  echo >&2 "ERROR: $@"
+  echo >&2 "ERROR: $*"
   exit 1
 }
 
