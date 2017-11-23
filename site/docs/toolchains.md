@@ -81,7 +81,7 @@ def _my_toolchain_impl(ctx):
   toolchain = platform.ToolchainInfo(
     compiler = ctx.attr.compiler,
     system_lib = ctx.attr.system_lib,
-    arch_flag = ctx.attr.arch_flag,
+    arch_flags = ctx.attr.arch_flags,
   )
   return [toolchain]
 
@@ -172,7 +172,7 @@ can then access the toolchain as follows:
 ```python
 def _my_library_impl(ctx):
   toolchain = ctx.toolchains['//path/to:my_toolchain_type']
-  command = '%s -l %s %s' % (toolchain.compiler, toolchain.system_lib, toolchain.arch_flag)
+  command = '%s -l %s %s' % (toolchain.compiler, toolchain.system_lib, toolchain.arch_flags)
   ...
 ```
 
