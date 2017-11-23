@@ -317,7 +317,7 @@ function test_deterministic_nostamp_build() {
   # https://github.com/bazelbuild/bazel/issues/3156
   local -r first_run="$(md5_file $(find "${PRODUCT_NAME}-out/" -type f '!' \
       -name build-changelist.txt -a '!' -name volatile-status.txt \
-      -a '!' -name stderr-* -a '!' -name *.a \
+      -a '!' -name 'stderr-*' -a '!' -name '*.a' \
       -a '!' -name __xcodelocatorcache -a '!' -name __xcruncache \
       | sort -u))"
 
@@ -328,7 +328,7 @@ function test_deterministic_nostamp_build() {
       || fail "Build failed"
   local -r second_run="$(md5_file $(find "${PRODUCT_NAME}-out/" -type f '!' \
       -name build-changelist.txt -a '!' -name volatile-status.txt \
-      -a '!' -name stderr-* -a '!' -name *.a \
+      -a '!' -name 'stderr-*' -a '!' -name '*.a' \
       -a '!' -name __xcodelocatorcache -a '!' -name __xcruncache \
       | sort -u))"
 
