@@ -41,7 +41,7 @@ EOF
 
 build_tree() {
   bazel build //site:jekyll-tree.tar
-  rm -rf $WORKING_DIR/*
+  rm -rf ${WORKING_DIR:-sentinel}/*
   tar -xf "$(bazel info bazel-genfiles)/site/jekyll-tree.tar" -C $WORKING_DIR
 }
 
