@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -24,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Null-object like {@link CppSemantics} implementation. Only to be used in tests that don't depend
@@ -38,18 +35,8 @@ public final class MockCppSemantics implements CppSemantics {
   private MockCppSemantics() {}
 
   @Override
-  public PathFragment getEffectiveSourcePath(Artifact source) {
-    PathFragment sourceRelativeName = source.getRootRelativePath();
-    return sourceRelativeName;
-  }
-
-  @Override
   public void finalizeCompileActionBuilder(
-      RuleContext ruleContext,
-      CppCompileActionBuilder actionBuilder,
-      FeatureSpecification featureSpecification,
-      Predicate<String> coptsFilter,
-      ImmutableSet<String> features) {}
+      RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {}
 
   @Override
   public void setupCompilationContext(RuleContext ruleContext, Builder contextBuilder) {}

@@ -14,24 +14,15 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Pluggable C++ compilation semantics.
  */
 public interface CppSemantics {
-  /**
-   * Returns the "effective source path" of a source file.
-   *
-   * <p>It is used, among other things, for computing the output path.
-   */
-  PathFragment getEffectiveSourcePath(Artifact source);
 
   /**
    * Called before a C++ compile action is built.
@@ -39,12 +30,7 @@ public interface CppSemantics {
    * <p>Gives the semantics implementation the opportunity to change compile actions at the last
    * minute.
    */
-  void finalizeCompileActionBuilder(
-      RuleContext ruleContext,
-      CppCompileActionBuilder actionBuilder,
-      FeatureSpecification featureSpecification,
-      Predicate<String> coptsFilter,
-      ImmutableSet<String> features);
+  void finalizeCompileActionBuilder(RuleContext ruleContext, CppCompileActionBuilder actionBuilder);
 
   /**
    * Called before {@link CppCompilationContext}s are finalized.

@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAM
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -32,7 +31,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.FeatureSpecification;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -90,17 +88,8 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
-  public PathFragment getEffectiveSourcePath(Artifact source) {
-    return source.getRootRelativePath();
-  }
-
-  @Override
   public void finalizeCompileActionBuilder(
-      RuleContext ruleContext,
-      CppCompileActionBuilder actionBuilder,
-      FeatureSpecification featureSpecification,
-      Predicate<String> coptsFilter,
-      ImmutableSet<String> features) {
+      RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {
     actionBuilder
         .setCppConfiguration(ruleContext.getFragment(CppConfiguration.class))
         .setActionContext(CppCompileActionContext.class)
@@ -108,7 +97,6 @@ public class ObjcCppSemantics implements CppSemantics {
         // including header files, as opposed to just the "compile" filegroup.
         .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getCrosstool())
         .setShouldScanIncludes(false)
-        .setCoptsFilter(coptsFilter)
         .addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
         .addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
 

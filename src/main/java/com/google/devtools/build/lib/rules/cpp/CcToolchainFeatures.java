@@ -1667,7 +1667,6 @@ public class CcToolchainFeatures implements Serializable {
    */
   @Immutable
   public static class FeatureConfiguration {
-    private final FeatureSpecification featureSpecification;
     private final ImmutableSet<String> enabledFeatureNames;
     private final Iterable<Feature> enabledFeatures;
     private final ImmutableSet<String> enabledActionConfigActionNames;
@@ -1694,7 +1693,6 @@ public class CcToolchainFeatures implements Serializable {
         Iterable<Feature> enabledFeatures,
         Iterable<ActionConfig> enabledActionConfigs,
         ImmutableMap<String, ActionConfig> actionConfigByActionName) {
-      this.featureSpecification = featureSpecification;
       this.enabledFeatures = enabledFeatures;
       
       this.actionConfigByActionName = actionConfigByActionName;
@@ -1786,10 +1784,6 @@ public class CcToolchainFeatures implements Serializable {
           actionName);
       ActionConfig actionConfig = actionConfigByActionName.get(actionName);
       return actionConfig.getTool(enabledFeatureNames);
-    }
-
-    public FeatureSpecification getFeatureSpecification() {
-      return featureSpecification;
     }
   }
 

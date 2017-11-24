@@ -424,8 +424,7 @@ public final class CppModel {
    */
   public Artifact getHeaderModule(Artifact moduleMapArtifact) {
     PathFragment objectDir = CppHelper.getObjDirectory(ruleContext.getLabel());
-    PathFragment outputName = objectDir.getRelative(
-        semantics.getEffectiveSourcePath(moduleMapArtifact));
+    PathFragment outputName = objectDir.getRelative(moduleMapArtifact.getRootRelativePath());
     return ruleContext.getRelatedArtifact(outputName, ".pcm");
   }
 
@@ -434,8 +433,7 @@ public final class CppModel {
    */
   public Artifact getPicHeaderModule(Artifact moduleMapArtifact) {
     PathFragment objectDir = CppHelper.getObjDirectory(ruleContext.getLabel());
-    PathFragment outputName = objectDir.getRelative(
-        semantics.getEffectiveSourcePath(moduleMapArtifact));
+    PathFragment outputName = objectDir.getRelative(moduleMapArtifact.getRootRelativePath());
     return ruleContext.getRelatedArtifact(outputName, ".pic.pcm");
   }
 
@@ -711,8 +709,8 @@ public final class CppModel {
     for (CppSource source : sourceFiles) {
       Artifact sourceArtifact = source.getSource();
       Label sourceLabel = source.getLabel();
-      String outputName = FileSystemUtils.removeExtension(
-          semantics.getEffectiveSourcePath(sourceArtifact)).getPathString();
+      String outputName =
+          FileSystemUtils.removeExtension(sourceArtifact.getRootRelativePath()).getPathString();
       CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
 
       builder.setSemantics(semantics);
@@ -805,12 +803,7 @@ public final class CppModel {
         /* ltoIndexingFile= */ null,
         builder.getContext().getCppModuleMap(),
         /* sourceSpecificBuildVariables= */ ImmutableMap.of());
-    semantics.finalizeCompileActionBuilder(
-        ruleContext,
-        builder,
-        featureConfiguration.getFeatureSpecification(),
-        coptsFilter,
-        features);
+    semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleContext);
     env.registerAction(compileAction);
     Artifact tokenFile = compileAction.getOutputFile();
@@ -825,7 +818,7 @@ public final class CppModel {
       // If we find one, support needs to be added here.
       return;
     }
-    String outputName = semantics.getEffectiveSourcePath(module).getPathString();
+    String outputName = module.getRootRelativePath().getPathString();
 
     // TODO(djasper): Make this less hacky after refactoring how the PIC/noPIC actions are created.
     boolean pic = module.getFilename().contains(".pic.");
@@ -835,7 +828,7 @@ public final class CppModel {
     builder.setPicMode(pic);
     builder.setOutputs(
         ruleContext, ArtifactCategory.OBJECT_FILE, outputName, isGenerateDotdFile(module));
-    PathFragment ccRelativeName = semantics.getEffectiveSourcePath(module);
+    PathFragment ccRelativeName = module.getRootRelativePath();
 
     String gcnoFileName =
         CppHelper.getArtifactNameForCategory(
@@ -869,12 +862,7 @@ public final class CppModel {
     builder.setGcnoFile(gcnoFile);
     builder.setDwoFile(dwoFile);
 
-    semantics.finalizeCompileActionBuilder(
-        ruleContext,
-        builder,
-        featureConfiguration.getFeatureSpecification(),
-        coptsFilter,
-        features);
+    semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleContext);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     env.registerAction(compileAction);
@@ -899,8 +887,7 @@ public final class CppModel {
     // - it creates a header module (.pcm file).
     return createSourceAction(
         Label.parseAbsoluteUnchecked(cppModuleMap.getName()),
-        FileSystemUtils.removeExtension(semantics.getEffectiveSourcePath(moduleMapArtifact))
-            .getPathString(),
+        FileSystemUtils.removeExtension(moduleMapArtifact.getRootRelativePath()).getPathString(),
         result,
         env,
         moduleMapArtifact,
@@ -940,12 +927,7 @@ public final class CppModel {
         /* ltoIndexingFile= */ null,
         builder.getContext().getCppModuleMap(),
         /* sourceSpecificBuildVariables= */ ImmutableMap.of());
-    semantics.finalizeCompileActionBuilder(
-        ruleContext,
-        builder,
-        featureConfiguration.getFeatureSpecification(),
-        coptsFilter,
-        features);
+    semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleContext);
     env.registerAction(compileAction);
     Artifact tokenFile = compileAction.getOutputFile();
@@ -968,7 +950,7 @@ public final class CppModel {
       Map<String, String> sourceSpecificBuildVariables)
       throws RuleErrorException {
     ImmutableList.Builder<Artifact> directOutputs = new ImmutableList.Builder<>();
-    PathFragment ccRelativeName = semantics.getEffectiveSourcePath(sourceArtifact);
+    PathFragment ccRelativeName = sourceArtifact.getRootRelativePath();
     if (CppHelper.isLipoOptimization(cppConfiguration, ccToolchain)) {
       // TODO(bazel-team): we shouldn't be needing this, merging context with the binary
       // is a superset of necessary information.
@@ -1043,12 +1025,7 @@ public final class CppModel {
         picBuilder.setDwoFile(dwoFile);
         picBuilder.setLtoIndexingFile(ltoIndexingFile);
 
-        semantics.finalizeCompileActionBuilder(
-            ruleContext,
-            picBuilder,
-            featureConfiguration.getFeatureSpecification(),
-            coptsFilter,
-            features);
+        semantics.finalizeCompileActionBuilder(ruleContext, picBuilder);
         CppCompileAction picAction = picBuilder.buildOrThrowRuleError(ruleContext);
         env.registerAction(picAction);
         directOutputs.add(picAction.getOutputFile());
@@ -1116,12 +1093,7 @@ public final class CppModel {
         builder.setDwoFile(noPicDwoFile);
         builder.setLtoIndexingFile(ltoIndexingFile);
 
-        semantics.finalizeCompileActionBuilder(
-            ruleContext,
-            builder,
-            featureConfiguration.getFeatureSpecification(),
-            coptsFilter,
-            features);
+        semantics.finalizeCompileActionBuilder(ruleContext, builder);
         CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleContext);
         env.registerAction(compileAction);
         Artifact objectFile = compileAction.getOutputFile();
@@ -1162,12 +1134,7 @@ public final class CppModel {
         /* ltoIndexingFile= */ null,
         builder.getContext().getCppModuleMap(),
         source.getBuildVariables());
-    semantics.finalizeCompileActionBuilder(
-        ruleContext,
-        builder,
-        featureConfiguration.getFeatureSpecification(),
-        coptsFilter,
-        features);
+    semantics.finalizeCompileActionBuilder(ruleContext, builder);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
     CppCompileActionTemplate actionTemplate =
         new CppCompileActionTemplate(
@@ -1225,12 +1192,7 @@ public final class CppModel {
         /* ltoIndexingFile= */ null,
         builder.getContext().getCppModuleMap(),
         /* sourceSpecificBuildVariables= */ ImmutableMap.of());
-    semantics.finalizeCompileActionBuilder(
-        ruleContext,
-        builder,
-        featureConfiguration.getFeatureSpecification(),
-        coptsFilter,
-        features);
+    semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction action = builder.buildOrThrowRuleError(ruleContext);
     env.registerAction(action);
     if (addObject) {
@@ -1557,6 +1519,7 @@ public final class CppModel {
     builder.setSourceFile(source);
     builder.setContext(context);
     builder.addEnvironment(ccToolchain.getEnvironment());
+    builder.setCoptsFilter(coptsFilter);
     return builder;
   }
 
@@ -1615,12 +1578,7 @@ public final class CppModel {
         /* ltoIndexingFile= */ null,
         builder.getContext().getCppModuleMap(),
         /* sourceSpecificBuildVariables= */ ImmutableMap.of());
-    semantics.finalizeCompileActionBuilder(
-        ruleContext,
-        dBuilder,
-        featureConfiguration.getFeatureSpecification(),
-        coptsFilter,
-        features);
+    semantics.finalizeCompileActionBuilder(ruleContext, dBuilder);
     CppCompileAction dAction = dBuilder.buildOrThrowRuleError(ruleContext);
     ruleContext.registerAction(dAction);
 
@@ -1638,12 +1596,7 @@ public final class CppModel {
         /* ltoIndexingFile= */ null,
         builder.getContext().getCppModuleMap(),
         /* sourceSpecificBuildVariables= */ ImmutableMap.of());
-    semantics.finalizeCompileActionBuilder(
-        ruleContext,
-        sdBuilder,
-        featureConfiguration.getFeatureSpecification(),
-        coptsFilter,
-        features);
+    semantics.finalizeCompileActionBuilder(ruleContext, sdBuilder);
     CppCompileAction sdAction = sdBuilder.buildOrThrowRuleError(ruleContext);
     ruleContext.registerAction(sdAction);
 
