@@ -61,6 +61,8 @@ public class CacheFileDigestsModule extends BlazeModule {
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     super.executorInit(env, request, builder);
 
+    DigestUtils.init();
+
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     if (lastKnownCacheSize == null
         || options.cacheSizeForComputedFileDigests != lastKnownCacheSize) {

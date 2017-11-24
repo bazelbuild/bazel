@@ -174,6 +174,12 @@ public class DigestUtils {
     return mtimeBeforeFirstDigest.getOrDefault(resolvedPath, -1L);
   }
 
+  public static void init() {
+    // It's important to clear the cache of timestamps when a new build is started, so that we
+    // don't keep stale timestamps from previous builds.
+    mtimeBeforeFirstDigest.clear();
+  }
+
   /**
    * Obtain file's MD5 metadata using synchronized method, ensuring that system
    * is not overloaded in case when multiple threads are requesting MD5
@@ -190,8 +196,6 @@ public class DigestUtils {
   }
 
   private static byte[] getDigestInternal(Path path) throws IOException {
-    cacheMtimeBeforeFirstDigest(path);
-
     long startTime = BlazeClock.nanoTime();
     byte[] digest = path.getDigest();
 
