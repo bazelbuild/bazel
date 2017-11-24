@@ -137,6 +137,20 @@ public abstract class JavaHelper {
     return rootRelativePath.relativeTo(prefix);
   }
 
+  /** Returns the configured target found under the {@code :host_jdk} attribute of a given rule. */
+  public static TransitiveInfoCollection getHostJavabaseTarget(RuleContext ruleContext) {
+    return getHostJavabaseTarget(ruleContext, "");
+  }
+
+  /**
+   * Returns the configured target found under the {@code :host_jdk + implicitAttributesSuffix}
+   * attribute of a given rule.
+   * */
+  public static TransitiveInfoCollection getHostJavabaseTarget(
+      RuleContext ruleContext, String implicitAttributesSuffix) {
+    return ruleContext.getPrerequisite(":host_jdk" + implicitAttributesSuffix, Mode.HOST);
+  }
+
   /** Returns the artifacts required to invoke {@code javahome} relative binary in the action. */
   public static NestedSet<Artifact> getHostJavabaseInputs(RuleContext ruleContext) {
     return getHostJavabaseInputs(ruleContext, "");

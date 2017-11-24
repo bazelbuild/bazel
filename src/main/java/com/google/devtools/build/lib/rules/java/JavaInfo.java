@@ -22,6 +22,9 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -31,7 +34,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -119,7 +121,7 @@ public final class JavaInfo extends NativeInfo {
    */
   public static <C extends TransitiveInfoProvider> List<C> fetchProvidersFromList(
       Iterable<JavaInfo> javaProviders, Class<C> providersClass) {
-    List<C> fetchedProviders = new LinkedList<>();
+    List<C> fetchedProviders = new ArrayList<>();
     for (JavaInfo javaInfo : javaProviders) {
       C provider = javaInfo.getProvider(providersClass);
       if (provider != null) {
@@ -269,6 +271,20 @@ public final class JavaInfo extends NativeInfo {
   public SkylarkList<Artifact> getSourceJars() {
     return SkylarkList.createImmutable(
         providers.getProvider(JavaSourceJarsProvider.class).getSourceJars());
+  }
+
+  @SkylarkCallable(
+      name = "transitive_source_jars",
+      doc =  "Returns the Jars containing Java source files for the target and all of its "
+          + "transitive dependencies.",
+      structField = true
+  )
+  public NestedSet<Artifact> getTransitiveSourceJars() {
+    JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class);
+    if (sourceJarsProvider == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    return sourceJarsProvider.getTransitiveSourceJars();
   }
 
   @SkylarkCallable(

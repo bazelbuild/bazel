@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import javax.annotation.Nullable;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Helper class to create singlejar actions - singlejar can merge multiple zip files without
@@ -45,19 +45,22 @@ public final class SingleJarActionBuilder {
       "--warn_duplicate_resources");
 
   /** Constructs the base spawn for a singlejar action. */
-  private static SpawnAction.Builder singleJarActionBuilder(RuleContext ruleContext) {
-    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+  private static SpawnAction.Builder singleJarActionBuilder(
+      JavaToolchainProvider provider,
+      NestedSet<Artifact> hostJavabaseInputs,
+      PathFragment hostJavaExecutable) {
+    Artifact singleJar = provider.getSingleJar();;
     SpawnAction.Builder builder = new SpawnAction.Builder();
     // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
     // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
     // the native singlejar is used on windows) remove support for the Java implementation
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
-          .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
+          .addTransitiveInputs(hostJavabaseInputs)
           .setJarExecutable(
-              JavaCommon.getHostJavaExecutable(ruleContext),
+              hostJavaExecutable,
               singleJar,
-              JavaToolchainProvider.from(ruleContext).getJvmOptions())
+              provider.getJvmOptions())
           .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
     } else {
       builder.setExecutable(singleJar);
@@ -68,26 +71,50 @@ public final class SingleJarActionBuilder {
   /**
    * Creates an Action that packages files into a Jar file.
    *
-   * @param semantics the current Java semantics, which must be non-{@code null} if {@code
-   *     resources} is non-empty
-   * @param resources the resources to put into the Jar
+   * @param resources the resources to put into the Jar.
    * @param resourceJars the resource jars to merge into the jar
    * @param outputJar the Jar to create
    */
   public static void createSourceJarAction(
       RuleContext ruleContext,
-      @Nullable JavaSemantics semantics,
+      JavaSemantics semantics,
       ImmutableCollection<Artifact> resources,
       NestedSet<Artifact> resourceJars,
       Artifact outputJar) {
+    createSourceJarAction(
+        ruleContext, semantics, resources, resourceJars, outputJar,
+        JavaToolchainProvider.from(ruleContext),
+        JavaHelper.getHostJavabaseInputs(ruleContext),
+        JavaCommon.getHostJavaExecutable(ruleContext));
+  }
+
+  /**
+   * Creates an Action that packages files into a Jar file.
+   *
+   * @param resources the resources to put into the Jar.
+   * @param resourceJars the resource jars to merge into the jar
+   * @param outputJar the Jar to create
+   * @param toolchainProvider is used to retrieve jvm options
+   * @param hostJavabaseInputs Artifacts required to invoke java executable in the created action
+   * @param hostJavaExecutable the jar executable of the created action
+   */
+  public static void createSourceJarAction(
+      RuleContext ruleContext,
+      JavaSemantics semantics,
+      ImmutableCollection<Artifact> resources,
+      NestedSet<Artifact> resourceJars,
+      Artifact outputJar,
+      JavaToolchainProvider toolchainProvider,
+      NestedSet<Artifact> hostJavabaseInputs,
+      PathFragment hostJavaExecutable) {
     requireNonNull(ruleContext);
     requireNonNull(resourceJars);
     requireNonNull(outputJar);
     if (!resources.isEmpty()) {
       requireNonNull(semantics);
     }
-    SpawnAction.Builder builder =
-        singleJarActionBuilder(ruleContext)
+    SpawnAction.Builder builder = singleJarActionBuilder(
+        toolchainProvider, hostJavabaseInputs, hostJavaExecutable)
             .addOutput(outputJar)
             .addInputs(resources)
             .addTransitiveInputs(resourceJars)
@@ -111,15 +138,18 @@ public final class SingleJarActionBuilder {
     requireNonNull(jars);
     requireNonNull(output);
     SpawnAction.Builder builder =
-        singleJarActionBuilder(ruleContext)
-            .addOutput(output)
-            .addInputs(jars)
-            .addCommandLine(
-                sourceJarCommandLine(
-                    output, /* semantics= */ null, /* resources= */ ImmutableList.of(), jars),
-                ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
-            .setProgressMessage("Building singlejar jar %s", output.prettyPrint())
-            .setMnemonic("JavaSingleJar");
+        singleJarActionBuilder(
+            JavaToolchainProvider.from(ruleContext),
+            JavaHelper.getHostJavabaseInputs(ruleContext),
+            JavaCommon.getHostJavaExecutable(ruleContext))
+        .addOutput(output)
+        .addInputs(jars)
+        .addCommandLine(
+            sourceJarCommandLine(
+                output, /* semantics= */ null, /* resources= */ ImmutableList.of(), jars),
+            ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
+        .setProgressMessage("Building singlejar jar %s", output.prettyPrint())
+        .setMnemonic("JavaSingleJar");
     ruleContext.registerAction(builder.build(ruleContext));
   }
 
@@ -146,3 +176,4 @@ public final class SingleJarActionBuilder {
         semantics.getDefaultJavaResourcePath(resource.getRootRelativePath()));
   }
 }
+
