@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -345,7 +344,7 @@ public class DeployArchiveBuilder {
     // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
     // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
     // the native singlejar is used on windows) remove support for the Java implementation
-    Artifact singlejar = getSingleJar(ruleContext);
+    Artifact singlejar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     boolean usingNativeSinglejar = !singlejar.getFilename().endsWith(".jar");
 
     CommandLine commandLine =
@@ -400,14 +399,5 @@ public class DeployArchiveBuilder {
               .setMnemonic("JavaDeployJar")
               .build(ruleContext));
     }
-  }
-
-  /** Returns the SingleJar deploy jar Artifact. */
-  private static Artifact getSingleJar(RuleContext ruleContext) {
-    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-    if (singleJar != null) {
-      return singleJar;
-    }
-    return ruleContext.getPrerequisiteArtifact("$singlejar", Mode.HOST);
   }
 }

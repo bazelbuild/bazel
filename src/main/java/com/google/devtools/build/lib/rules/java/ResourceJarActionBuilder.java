@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -88,9 +87,6 @@ public class ResourceJarActionBuilder {
     checkNotNull(javaToolchain, "javaToolchain must not be null");
 
     Artifact singleJar = javaToolchain.getSingleJar();
-    if (singleJar == null) {
-      singleJar = ruleContext.getPrerequisiteArtifact("$singlejar", Mode.HOST);
-    }
     SpawnAction.Builder builder = new SpawnAction.Builder();
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
