@@ -525,6 +525,7 @@ sh_test(
     srcs = ["java_launcher_test.sh"],
     args = ["$(JAVABASE)"],
     data = [":test-deps"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 genquery(

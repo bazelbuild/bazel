@@ -452,6 +452,9 @@ genrule(
     ],
     outs = ["derived_java_srcs.zip"],
     cmd = "$(location :combine_derived_java_srcs.sh) $(JAVABASE) $@ $(SRCS)",
+    # This should be current_host_java_runtime, but the last Bazel release
+    # (0.7.0) doesn't support it
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
 )

@@ -71,6 +71,7 @@ sh_test(
     ],
     shard_count = 5,
     tags = ["jdk8"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
