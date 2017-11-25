@@ -53,6 +53,7 @@ public class ControlFlowCheckerTest {
                 .toString())
         .contains(
             "1:1-5:12: some but not all execution paths of 'some_function' return a value."
+                + " If it is intentional, make it explicit using 'return None'."
                 + " If you know these cannot happen,"
                 + " add the statement `fail('unreachable')` to them."
                 + " For more details, have a look at the documentation. [missing-return-value]");
@@ -71,6 +72,7 @@ public class ControlFlowCheckerTest {
     Truth.assertThat(messages)
         .contains(
             "1:1-5:10: some but not all execution paths of 'some_function' return a value."
+                + " If it is intentional, make it explicit using 'return None'."
                 + " If you know these cannot happen,"
                 + " add the statement `fail('unreachable')` to them."
                 + " For more details, have a look at the documentation. [missing-return-value]");
@@ -94,6 +96,7 @@ public class ControlFlowCheckerTest {
                 .toString())
         .contains(
             "1:1-7:16: some but not all execution paths of 'f' return a value."
+                + " If it is intentional, make it explicit using 'return None'."
                 + " If you know these cannot happen,"
                 + " add the statement `fail('unreachable')` to them."
                 + " For more details, have a look at the documentation. [missing-return-value]");
@@ -114,6 +117,7 @@ public class ControlFlowCheckerTest {
                 .toString())
         .contains(
             "1:1-8:12: some but not all execution paths of 'f' return a value."
+                + " If it is intentional, make it explicit using 'return None'."
                 + " If you know these cannot happen,"
                 + " add the statement `fail('unreachable')` to them."
                 + " For more details, have a look at the documentation. [missing-return-value]");
