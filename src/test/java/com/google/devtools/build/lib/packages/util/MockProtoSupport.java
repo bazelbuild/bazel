@@ -168,6 +168,11 @@ public final class MockProtoSupport {
         "package(default_visibility=['//visibility:public'])",
         "go_library(name = 'context',",
         "           srcs = [ 'context.go' ])");
+    config.create("third_party/py/six/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "licenses(['notice'])",
+        "py_library(name = 'six',",
+        "           srcs = [ '__init__.py' ])");
   }
 
   /**
