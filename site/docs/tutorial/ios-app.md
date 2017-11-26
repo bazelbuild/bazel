@@ -204,7 +204,7 @@ ios_application(
         "iphone",
         "ipad",
     ],
-    minimum_os_version = "9.0"
+    minimum_os_version = "9.0",
     infoplists = [":UrlGet/UrlGet-Info.plist"],
     visibility = ["//visibility:public"],
     deps = [":UrlGetClasses"],
