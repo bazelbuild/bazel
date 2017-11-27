@@ -53,7 +53,7 @@ Defining a toolchain requires the following:
 *  **Toolchain rule** - a rule invoked in a custom build or test rule that
    specifies the build tool configuration options particular to the toolchain
    and supported [platforms](platforms.html) (for example, [`go_toolchain`](https://github.com/bazelbuild/rules_go/blob/master/go/private/go_toolchain.bzl)).
-   This rule must return a [`ToolchainInfo` provider](skylark/lib/ToolchainInfo.html).
+   This rule must return a [`ToolchainInfo` provider](skylark/lib/platform_common.html#ToolchainInfo).
    The toolchain rule is lazily instantiated by Bazel on an as-needed basis.
    Because of this, a toolchain rule's dependencies can be as complex as needed,
    including reliance on remote repositories, without affecting builds that do
@@ -78,7 +78,7 @@ that determines the CPU architecture for which Bazel builds the output.
 
 ```python
 def _my_toolchain_impl(ctx):
-  toolchain = platform.ToolchainInfo(
+  toolchain = platform_common.ToolchainInfo(
     compiler = ctx.attr.compiler,
     system_lib = ctx.attr.system_lib,
     arch_flag = ctx.attr.arch_flag,
