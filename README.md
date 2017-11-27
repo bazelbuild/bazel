@@ -29,7 +29,7 @@ Build and test software of any size, quickly and reliably.
 
     - [Build C++](https://docs.bazel.build/tutorial/cpp.html)
     - [Build Java](https://docs.bazel.build/tutorial/java.html)
-    - [Android and iOS](https://docs.bazel.build/tutorial/app.html)
+    - [Android](https://docs.bazel.build/tutorial/android-app.html) and [iOS](https://docs.bazel.build/tutorial/ios-app.html)
 
 ## Documentation
 
