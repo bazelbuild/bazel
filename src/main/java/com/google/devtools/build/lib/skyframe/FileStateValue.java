@@ -43,9 +43,10 @@ import javax.annotation.Nullable;
  *        file digest). See {@link RegularFileStateValue}.
  * <ul>
  *
- * <p>This class is an implementation detail of {@link FileValue} and should not be used outside of
- * {@link FileFunction}. Instead, {@link FileValue} should be used by consumers that care about
- * files.
+ * <p>This class is an implementation detail of {@link FileValue} and should not be used by
+ * {@link com.google.devtools.build.skyframe.SkyFunction}s other than {@link FileFunction}. Instead,
+ * {@link FileValue} should be used by {@link com.google.devtools.build.skyframe.SkyFunction}
+ * consumers that care about files.
  *
  * <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
  */

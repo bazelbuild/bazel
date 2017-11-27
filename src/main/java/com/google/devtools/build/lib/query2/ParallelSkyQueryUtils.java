@@ -87,7 +87,7 @@ class ParallelSkyQueryUtils {
     Uniquifier<SkyKey> keyUniquifier = env.createSkyKeyUniquifier();
     RBuildFilesVisitor visitor =
         new RBuildFilesVisitor(env, keyUniquifier, callback);
-    visitor.visitAndWaitForCompletion(env.getSkyKeysForFileFragments(fileIdentifiers));
+    visitor.visitAndWaitForCompletion(env.getFileStateKeysForFileFragments(fileIdentifiers));
   }
 
   /** A helper class that computes 'rbuildfiles(<blah>)' via BFS. */

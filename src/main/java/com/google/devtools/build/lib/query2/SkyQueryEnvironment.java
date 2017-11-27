@@ -88,7 +88,7 @@ import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
-import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.skyframe.FileStateValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -965,10 +965,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   /**
    * Returns package lookup keys for looking up the package root for which there may be a relevant
-   * (from the perspective of {@link #getRBuildFiles}) {@link FileValue} node in the graph for
+   * (from the perspective of {@link #getRBuildFiles}) {@link FileStateValue} node in the graph for
    * {@code originalFileFragment}, which is assumed to be a file path.
    *
-   * <p>This is a helper function for {@link #getSkyKeysForFileFragments}.
+   * <p>This is a helper function for {@link #getFileStateKeysForFileFragments}.
    */
   private static Iterable<SkyKey> getPkgLookupKeysForFile(PathFragment originalFileFragment,
       PathFragment currentPathFragment) {
@@ -989,18 +989,18 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   /**
-   * Returns FileValue keys for which there may be relevant (from the perspective of {@link
-   * #getRBuildFiles}) FileValues in the graph corresponding to the given {@code pathFragments},
-   * which are assumed to be file paths.
+   * Returns FileStateValue keys for which there may be relevant (from the perspective of {@link
+   * #getRBuildFiles}) FileStateValues in the graph corresponding to the given
+   * {@code pathFragments}, which are assumed to be file paths.
    *
    * <p>To do this, we emulate the {@link ContainingPackageLookupFunction} logic: for each given
    * file path, we look for the nearest ancestor directory (starting with its parent directory), if
    * any, that has a package. The {@link PackageLookupValue} for this package tells us the package
-   * root that we should use for the {@link RootedPath} for the {@link FileValue} key.
+   * root that we should use for the {@link RootedPath} for the {@link FileStateValue} key.
    *
    * <p>Note that there may not be nodes in the graph corresponding to the returned SkyKeys.
    */
-  Collection<SkyKey> getSkyKeysForFileFragments(Iterable<PathFragment> pathFragments)
+  Collection<SkyKey> getFileStateKeysForFileFragments(Iterable<PathFragment> pathFragments)
       throws InterruptedException {
     Set<SkyKey> result = new HashSet<>();
     Multimap<PathFragment, PathFragment> currentToOriginal = ArrayListMultimap.create();
@@ -1028,8 +1028,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
               packageLookupKeysToOriginal.get(packageLookupKey);
           Preconditions.checkState(!originalFiles.isEmpty(), entry);
           for (PathFragment fileName : originalFiles) {
-            result.add(
-                FileValue.key(RootedPath.toRootedPath(packageLookupValue.getRoot(), fileName)));
+            result.add(FileStateValue.key(
+                RootedPath.toRootedPath(packageLookupValue.getRoot(), fileName)));
           }
           for (PathFragment current : packageLookupKeysToCurrent.get(packageLookupKey)) {
             currentToOriginal.removeAll(current);
@@ -1096,7 +1096,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   QueryTaskFuture<Void> getRBuildFiles(
       Collection<PathFragment> fileIdentifiers, Callback<Target> callback) {
     try {
-      Collection<SkyKey> files = getSkyKeysForFileFragments(fileIdentifiers);
+      Collection<SkyKey> files = getFileStateKeysForFileFragments(fileIdentifiers);
       Uniquifier<SkyKey> keyUniquifier =
           new UniquifierImpl<>(SkyKeyKeyExtractor.INSTANCE, /*concurrencyLevel=*/ 1);
       Collection<SkyKey> current = keyUniquifier.unique(graph.getSuccessfulValues(files).keySet());
