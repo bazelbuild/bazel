@@ -79,15 +79,15 @@ public abstract class NativeProvider<VALUE extends Info> extends Provider {
     protected Info createInstanceFromSkylark(Object[] args, Location loc) {
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];
-      return new SkylarkInfo(this, kwargs, loc);
+      return SkylarkInfo.fromMap(this, kwargs, loc);
     }
 
     public Info create(Map<String, Object> values, String message) {
-      return new SkylarkInfo(this, values, message);
+      return new SkylarkInfo.MapBackedSkylarkInfo(this, values, message);
     }
 
     public Info create(Location loc) {
-      return new SkylarkInfo(this, ImmutableMap.of(), loc);
+      return SkylarkInfo.fromMap(this, ImmutableMap.of(), loc);
     }
   }
 

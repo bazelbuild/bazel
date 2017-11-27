@@ -1265,6 +1265,39 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void declaredProvidersWithFieldsConcatSuccess() throws Exception {
+    evalAndExport(
+        "data = provider(fields=['f1', 'f2'])",
+        "d1 = data(f1 = 4)",
+        "d2 = data(f2 = 5)",
+        "d3 = d1 + d2",
+        "f1 = d3.f1",
+        "f2 = d3.f2");
+    assertThat(lookup("f1")).isEqualTo(4);
+    assertThat(lookup("f2")).isEqualTo(5);
+  }
+
+  @Test
+  public void declaredProvidersWithFieldsConcatError() throws Exception {
+    evalAndExport("data1 = provider(fields=['f1', 'f2'])", "data2 = provider(fields=['f3'])");
+    checkEvalError(
+        "Cannot concat data1 with data2",
+        "d1 = data1(f1=1, f2=2)",
+        "d2 = data2(f3=3)",
+        "d = d1 + d2");
+  }
+
+  @Test
+  public void declaredProvidersWithOverlappingFieldsConcatError() throws Exception {
+    evalAndExport("data = provider(fields=['f1', 'f2'])");
+    checkEvalError(
+        "Cannot concat structs with common field(s): f1",
+        "d1 = data(f1 = 4)",
+        "d2 = data(f1 = 5)",
+        "d1 + d2");
+  }
+
+  @Test
   public void structsAsDeclaredProvidersTest() throws Exception {
     evalAndExport(
         "data = struct(x = 1)"

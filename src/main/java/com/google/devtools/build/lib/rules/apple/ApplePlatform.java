@@ -234,7 +234,7 @@ public enum ApplePlatform implements SkylarkValue {
     for (ApplePlatform type : values()) {
       fields.put(type.skylarkKey, type);
     }
-    return new SkylarkInfo(constructor, fields, Location.BUILTIN);
+    return SkylarkInfo.fromMap(constructor, fields, Location.BUILTIN);
   }
 
   @Override
@@ -308,7 +308,7 @@ public enum ApplePlatform implements SkylarkValue {
       for (PlatformType type : values()) {
         fields.put(type.skylarkKey, type);
       }
-      return new SkylarkInfo(constructor, fields, Location.BUILTIN);
+      return SkylarkInfo.fromMap(constructor, fields, Location.BUILTIN);
     }
 
     @Override
