@@ -35,9 +35,7 @@ import java.io.OutputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -52,15 +50,6 @@ public class AndroidResourceValidatorAction {
 
   private static final Logger logger =
       Logger.getLogger(AndroidResourceValidatorAction.class.getName());
-
-  {
-    Logger l = logger;
-    while (l != null) {
-      l.setLevel(Level.FINEST);
-      Arrays.stream(l.getHandlers()).forEach(h -> h.setLevel(Level.FINEST));
-      l = l.getParent();
-    }
-  }
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
@@ -158,7 +147,7 @@ public class AndroidResourceValidatorAction {
       Path dummyManifest = tmp.resolve("manifest-aapt-dummy/AndroidManifest.xml");
 
       unpackZip(options.mergedResources, expandedOut);
-      logger.info(String.format("unpacked zip at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      logger.fine(String.format("unpacked zip at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       // We need to make the manifest aapt safe (w.r.t., placeholders). For now, just stub it out.
       AndroidResourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
@@ -182,7 +171,7 @@ public class AndroidResourceValidatorAction {
           null, /* proguardOut */
           null, /* mainDexProguardOut */
           null /* publicResourcesOut */);
-      logger.info(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       AndroidResourceOutputs.copyRToOutput(
           generatedSources, options.rOutput, VariantType.LIBRARY == packageType);
