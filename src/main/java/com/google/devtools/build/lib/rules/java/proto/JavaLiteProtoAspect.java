@@ -264,13 +264,13 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
         }
       }
 
-      JavaCompilationArtifacts artifacts = helper.build(
-          javaSemantics,
-          JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
-          JavaHelper.getHostJavabaseTarget(ruleContext),
-          JavaCompilationHelper.getInstrumentationJars(ruleContext),
-          JavaRuleOutputJarsProvider.builder(),
-          /*outputSourceJar=*/ null);
+      JavaCompilationArtifacts artifacts =
+          helper.build(
+              javaSemantics,
+              JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+              JavaHelper.getHostJavabaseInputs(ruleContext),
+              JavaCompilationHelper.getInstrumentationJars(ruleContext),
+              JavaRuleOutputJarsProvider.builder());
       return helper.buildCompilationArgsProvider(artifacts, true /* isReportedAsStrict */);
     }
 

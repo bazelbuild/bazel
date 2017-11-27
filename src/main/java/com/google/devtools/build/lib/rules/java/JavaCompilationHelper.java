@@ -582,28 +582,7 @@ public final class JavaCompilationHelper {
    * @param outputJar the Artifact to create with the Action
    * @param gensrcJar the generated sources jar Artifact that should be included with the
    *        sources in the output Artifact.  May be null.
-   * @param javaToolchainProvider is used by SingleJarActionBuilder to retrieve jvm options
-   * @param hostJavabaseInputs Artifacts required to invoke java executable in the SingleJar action
-   * @param hostJavaExecutable the jar executable of the SingleJar action
    */
-  public void createSourceJarAction(
-      Artifact outputJar,
-      @Nullable Artifact gensrcJar,
-      JavaToolchainProvider javaToolchainProvider,
-      NestedSet<Artifact> hostJavabaseInputs,
-      PathFragment hostJavaExecutable) {
-    JavaTargetAttributes attributes = getAttributes();
-    NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
-    resourceJars.addAll(attributes.getSourceJars());
-    if (gensrcJar != null) {
-      resourceJars.add(gensrcJar);
-    }
-    SingleJarActionBuilder.createSourceJarAction(
-        ruleContext, semantics, attributes.getSourceFiles(),
-        resourceJars.build(), outputJar, javaToolchainProvider,
-        hostJavabaseInputs, hostJavaExecutable);
-  }
-
   public void createSourceJarAction(Artifact outputJar, @Nullable Artifact gensrcJar) {
     JavaTargetAttributes attributes = getAttributes();
     NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();

@@ -473,24 +473,6 @@ public class JavaCommon {
         : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
   }
 
-  /**
-   * Returns the host java executable.
-   *
-   * <p>The method looks for the executable in the following
-   * locations (in the specified order) and returns it immediately after it's found:
-   * <ol>
-   * <li> The JavaRuntimeInfo in the given hostJavabase target
-   * <li> The JVM fragment of the host configuration, retrieved from the given rule context
-   * </ol>
-   */
-  public static PathFragment getHostJavaExecutable(
-      RuleContext ruleContext, TransitiveInfoCollection hostJavabase) {
-    JavaRuntimeInfo javaRuntime = hostJavabase.get(JavaRuntimeInfo.PROVIDER);
-    return javaRuntime != null
-        ? javaRuntime.javaBinaryExecPath()
-        : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
-  }
-
   public static PathFragment getJavaExecutable(RuleContext ruleContext) {
     JavaRuntimeInfo javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
     return javaRuntime != null

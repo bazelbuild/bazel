@@ -22,9 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -34,7 +32,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.Outpu
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
  * A class to create Java compile actions in a way that is consistent with java_library. Rules that
@@ -159,24 +156,15 @@ public final class JavaLibraryHelper {
   }
 
   /**
-   * Creates the compile actions (including the ones for ijar and source jar). Also fills in the
-   * {@link JavaRuleOutputJarsProvider.Builder} with the corresponding compilation outputs.
-   *
-   * @param semantics implementation specific java rules semantics
-   * @param javaToolchainProvider used for retrieving misc java tools
-   * @param hostJavabase the target of the host javabase used to retrieve the java executable and
-   *        its necessary inputs
-   * @param jacocoInstrumental jacoco jars needed when running coverage
-   * @param outputJarsBuilder populated with the outputs of the created actions
-   * @param outputSourceJar if not-null, the output of an source jar action that will be created
+   * Creates the compile actions. Also fills in the {@link JavaRuleOutputJarsProvider.Builder} with
+   * the corresponding compilation outputs.
    */
   public JavaCompilationArtifacts build(
       JavaSemantics semantics,
       JavaToolchainProvider javaToolchainProvider,
-      TransitiveInfoCollection hostJavabase,
+      NestedSet<Artifact> hostJavabase,
       Iterable<Artifact> jacocoInstrumental,
-      JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
-      @Nullable Artifact outputSourceJar) {
+      JavaRuleOutputJarsProvider.Builder outputJarsBuilder) {
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
     attributes.addSourceJars(sourceJars);
@@ -197,12 +185,11 @@ public final class JavaLibraryHelper {
           attributes, deps);
     }
 
-    NestedSet<Artifact> hostJavabaseArtifacts = getMiddleManFor(hostJavabase);
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     JavaCompilationHelper helper =
         new JavaCompilationHelper(ruleContext, semantics, javacOpts, attributes,
             javaToolchainProvider,
-            hostJavabaseArtifacts,
+            hostJavabase,
             jacocoInstrumental);
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
     helper.createCompileAction(
@@ -211,33 +198,15 @@ public final class JavaLibraryHelper {
         null /* gensrcOutputJar */,
         outputDepsProto,
         null /* outputMetadata */);
-
     Artifact iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
 
     artifactsBuilder.addRuntimeJar(output);
 
-    if (outputSourceJar != null) {
-      helper.createSourceJarAction(outputSourceJar, null,
-          javaToolchainProvider, hostJavabaseArtifacts,
-          JavaCommon.getHostJavaExecutable(ruleContext, hostJavabase));
-      ImmutableList<Artifact> outputSourceJars = ImmutableList.of(outputSourceJar);
-      outputJarsBuilder
-          .addOutputJar(new OutputJar(output, iJar, outputSourceJars))
-          .setJdeps(outputDepsProto);
-    }
+    outputJarsBuilder
+        .addOutputJar(new OutputJar(output, iJar, sourceJars))
+        .setJdeps(outputDepsProto);
 
     return artifactsBuilder.build();
-  }
-
-  private static NestedSet<Artifact> getMiddleManFor(TransitiveInfoCollection prereq) {
-    if (prereq == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    MiddlemanProvider provider = prereq.getProvider(MiddlemanProvider.class);
-    if (provider == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    return provider.getMiddlemanArtifact();
   }
 
   /**

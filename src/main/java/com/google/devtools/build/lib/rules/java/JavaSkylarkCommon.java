@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -402,11 +403,7 @@ public class JavaSkylarkCommon {
       ConfiguredTarget javaToolchain,
       ConfiguredTarget hostJavabase,
       SkylarkList<Artifact> sourcepathEntries,
-      SkylarkList<Artifact> resources) throws EvalException, InterruptedException {
-    if (sourceJars.isEmpty() && sourceFiles.isEmpty() && exports.isEmpty()) {
-      throw new EvalException(
-          null, "source_jars, sources and exports cannot be simultaneous empty");
-    }
+      SkylarkList<Artifact> resources) throws EvalException {
 
     JavaLibraryHelper helper =
         new JavaLibraryHelper(skylarkRuleContext.getRuleContext())
@@ -424,27 +421,25 @@ public class JavaSkylarkCommon {
     helper.addAllDeps(depsCompilationArgsProviders);
     helper.addAllExports(exportsCompilationArgsProviders);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode.toUpperCase()));
+    MiddlemanProvider hostJavabaseProvider = hostJavabase.getProvider(MiddlemanProvider.class);
 
     helper.addAllPlugins(
         JavaInfo.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class));
     helper.addAllPlugins(JavaInfo.fetchProvidersFromList(deps, JavaPluginInfoProvider.class));
 
+    NestedSet<Artifact> hostJavabaseArtifacts =
+        hostJavabaseProvider == null
+            ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+            : hostJavabaseProvider.getMiddlemanArtifact();
+    JavaToolchainProvider javaToolchainProvider = getJavaToolchainProvider(javaToolchain);
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
-
-    boolean generateMergedSourceJar = (sourceJars.size() > 1 || !sourceFiles.isEmpty())
-        || (sourceJars.isEmpty() && sourceFiles.isEmpty() && !exports.isEmpty());
-    Artifact outputSourceJar =
-        generateMergedSourceJar ? getSourceJar(skylarkRuleContext) : sourceJars.get(0);
-
     JavaCompilationArtifacts artifacts =
         helper.build(
             javaSemantics,
-            getJavaToolchainProvider(javaToolchain),
-            hostJavabase,
+            javaToolchainProvider,
+            hostJavabaseArtifacts,
             SkylarkList.createImmutable(ImmutableList.of()),
-            outputJarsBuilder,
-            generateMergedSourceJar ? outputSourceJar : null);
-
+            outputJarsBuilder);
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true);
     Runfiles runfiles =
@@ -461,28 +456,13 @@ public class JavaSkylarkCommon {
               JavaPluginInfoProvider.class, exports)
         ));
 
-    ImmutableList<Artifact> outputSourceJars = ImmutableList.of(outputSourceJar);
-
-    NestedSetBuilder<Artifact> transitiveSourceJars =
-        NestedSetBuilder.<Artifact>stableOrder().addAll(outputSourceJars);
-    for (JavaSourceJarsProvider sourceJarsProvider :
-        JavaInfo.getProvidersFromListOfJavaProviders(JavaSourceJarsProvider.class, deps)) {
-      transitiveSourceJars.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
-    }
-
     return JavaInfo.Builder.create()
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
-        .addProvider(JavaSourceJarsProvider.class,
-            createJavaSourceJarsProvider(outputSourceJars, transitiveSourceJars.build()))
+        .addProvider(JavaSourceJarsProvider.class, createJavaSourceJarsProvider(sourceJars))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
         .addProvider(JavaPluginInfoProvider.class, transitivePluginsProvider)
         .build();
-  }
-
-  private static Artifact getSourceJar(SkylarkRuleContext skylarkRuleContext) throws EvalException {
-    return skylarkRuleContext.getRuleContext()
-        .getBinArtifact("lib" + skylarkRuleContext.getLabel().getName() + "-src.jar");
   }
 
   private static Artifact buildIjar(
@@ -507,13 +487,13 @@ public class JavaSkylarkCommon {
     return interfaceJar;
   }
   /**
-   * Creates a {@link JavaSourceJarsProvider} from the given lists of source jars.
+   * Creates a {@link JavaSourceJarsProvider} from the given list of source jars.
    */
-  private static JavaSourceJarsProvider createJavaSourceJarsProvider(
-      List<Artifact> sourceJars, NestedSet<Artifact> transitiveSourceJars) {
+  private static JavaSourceJarsProvider createJavaSourceJarsProvider(List<Artifact> sourceJars) {
     NestedSet<Artifact> javaSourceJars =
         NestedSetBuilder.<Artifact>stableOrder().addAll(sourceJars).build();
-    return JavaSourceJarsProvider.create(transitiveSourceJars, javaSourceJars);
+    return JavaSourceJarsProvider.create(
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), javaSourceJars);
   }
 
   @SkylarkCallable(
