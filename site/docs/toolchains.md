@@ -86,18 +86,19 @@ def _my_toolchain_impl(ctx):
   return [toolchain]
 
 my_toolchain = rule(
-    _my_toolchain_impl,
-    attrs = {
-        'compiler': attr.string(),
-        'system_lib': attr.string(),
-        'arch_flags': attr.string_list(),
-    })
+  _my_toolchain_impl,
+  attrs = {
+    'compiler': attr.string(),
+    'system_lib': attr.string(),
+    'arch_flags': attr.string_list(),
+  })
 ```
 
 An example invocation of the rule looks as follows:
 
 ```python
-my_toolchain(name = 'linux_toolchain_impl',
+my_toolchain(
+  name = 'linux_toolchain_impl',
   compiler = '@remote_linux_repo//compiler:compiler_binary',
   system_lib = '@remote_linux_repo//library:system_library',
   arch_flags = [
@@ -106,7 +107,8 @@ my_toolchain(name = 'linux_toolchain_impl',
   ]
 )
 
-my_toolchain(name = 'darwin_toolchain_impl',
+my_toolchain(
+  name = 'darwin_toolchain_impl',
   compiler = '@remote_darwin_repo//compiler:compiler_binary',
   system_lib = '@remote_darwin_repo//library:system_library',
   arch_flags = [
@@ -126,15 +128,16 @@ lazy loading of toolchains.
 Below is an example toolchain definition:
 
 ```python
-toolchain(name = 'linux_toolchain',
-    toolchain_type = '//path/to:my_toolchain_type',
-    exec_compatible_with = [
-        '@bazel_tools//platforms:linux',
-        '@bazel_tools//platforms:x86_64'],
-    target_compatible_with = [
-        '@bazel_tools//platforms:linux',
-        '@bazel_tools//platforms:x86_64'],
-    toolchain = ':linux_toolchain_impl',
+toolchain(
+  name = 'linux_toolchain',
+  toolchain_type = '//path/to:my_toolchain_type',
+  exec_compatible_with = [
+    '@bazel_tools//platforms:linux',
+    '@bazel_tools//platforms:x86_64'],
+  target_compatible_with = [
+    '@bazel_tools//platforms:linux',
+    '@bazel_tools//platforms:x86_64'],
+  toolchain = ':linux_toolchain_impl',
 )
 ```
 
@@ -160,9 +163,9 @@ definition. For example:
 
 ```python
 my_library = rule(
-    ...
-    toolchains = ['//path/to:my_toolchain_type']
-    ...)
+  ...
+  toolchains = ['//path/to:my_toolchain_type']
+  ...)
 ```
 
 When using the `ctx.toolchains` rule, Bazel checks the execution and target
