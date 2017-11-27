@@ -637,17 +637,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean throwOnResourceConflict;
 
     @Option(
-      name = "experimental_use_manifest_from_resource_apk",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Android library rule will use the AppManifest from the resource APK"
-              + " in the AAR file."
-    )
-    public boolean useManifestFromResourceApk;
-
-    @Option(
       name = "experimental_android_allow_android_resources",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
