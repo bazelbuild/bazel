@@ -128,7 +128,7 @@ public class ObjectCodecTester<T> {
     }
 
     /** Add subjects to be tested for serialization/deserialization. */
-    Builder<T> addSubjects(ImmutableList<T> subjects) {
+    public Builder<T> addSubjects(ImmutableList<T> subjects) {
       subjectsBuilder.addAll(subjects);
       return this;
     }
