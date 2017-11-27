@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Extensions - Language definition
+---
+
 # Skylark: Language definition
 
 Skylark is a dialect of Python intended for use as a configuration
@@ -19,7 +24,7 @@ The name "Skylark" is a code name of the Bazel project.
 We plan to rename the language before the end of 2017 to reflect its
 applicability to projects unrelated to Bazel.
 
-[TOC]
+<!-- [TOC] -->
 
 ## Overview
 
