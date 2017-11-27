@@ -77,6 +77,7 @@ sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
+    shard_count = 6,
 )
 
 sh_test(
