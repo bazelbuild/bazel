@@ -57,7 +57,7 @@ To build or test a project with Bazel, you typically do the following:
 
 1.  **Set up Bazel.** Download and [install Bazel](https://docs.bazel.build/versions/master/install.html).
 
-2.  **Set up a project [workspace](https://docs.bazel.build/versions/master/tutorial/workspace.html)**,
+2.  **Set up a project [workspace](https://docs.bazel.build/versions/master/build-ref.html#workspaces)**,
     which is a directory where Bazel looks for build inputs and `BUILD` files,
     and where it stores build outputs.
 
