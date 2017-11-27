@@ -256,7 +256,7 @@ public class IjarTests {
     final Map<String, String> innerClasses = new HashMap<>();
     new ClassReader(bytes)
         .accept(
-            new ClassVisitor(Opcodes.ASM5) {
+            new ClassVisitor(Opcodes.ASM6) {
               @Override
               public void visitInnerClass(
                   String name, String outerName, String innerName, int access) {
