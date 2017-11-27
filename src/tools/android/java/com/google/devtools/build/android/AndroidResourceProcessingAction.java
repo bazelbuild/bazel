@@ -25,7 +25,6 @@ import com.android.io.StreamException;
 import com.android.utils.StdLogger;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
@@ -447,7 +446,6 @@ public class AndroidResourceProcessingAction {
 
       if (hasConflictWithPackageUnderTest(
           options.packageUnderTest,
-          options.primaryData.resourceDirs,
           processedData.getManifest(),
           timer)) {
         logger.log(
@@ -532,7 +530,6 @@ public class AndroidResourceProcessingAction {
    * <code>instrumentation</code> tags in this APK's manifest.
    *
    * @param packageUnderTest the package of the code under test, or null if no code is under test
-   * @param resourceDirs the resource directories for this APK
    * @param processedManifest the processed manifest for this APK
    *
    * @return true if there is a conflict, false otherwise
@@ -540,11 +537,10 @@ public class AndroidResourceProcessingAction {
   @VisibleForTesting
   static boolean hasConflictWithPackageUnderTest(
       @Nullable String packageUnderTest,
-      ImmutableList<Path> resourceDirs,
       Path processedManifest,
       Stopwatch timer)
       throws SAXException, StreamException, ParserConfigurationException, IOException {
-    if (packageUnderTest == null || resourceDirs.isEmpty()) {
+    if (packageUnderTest == null) {
       return false;
     }
 
