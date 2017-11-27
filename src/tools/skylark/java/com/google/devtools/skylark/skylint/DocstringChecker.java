@@ -36,7 +36,8 @@ import java.util.List;
 
 /** Checks the existence of docstrings. */
 public class DocstringChecker extends SyntaxTreeVisitor {
-  private static final String MISSING_DOCSTRING_CATEGORY = "missing-docstring";
+  private static final String MISSING_MODULE_DOCSTRING_CATEGORY = "missing-module-docstring";
+  private static final String MISSING_FUNCTION_DOCSTRING_CATEGORY = "missing-function-docstring";
   private static final String INCONSISTENT_DOCSTRING_CATEGORY = "inconsistent-docstring";
   private static final String BAD_DOCSTRING_FORMAT_CATEGORY = "bad-docstring-format";
   /** If a function is at least this many statements long, a docstring is required. */
@@ -60,7 +61,8 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       // This location is invalid if the file is empty but this edge case is not worth the trouble.
       Location end = new Location(2, 1);
       LocationRange range = new LocationRange(start, end);
-      issues.add(new Issue(MISSING_DOCSTRING_CATEGORY, "file has no module docstring", range));
+      issues.add(
+          new Issue(MISSING_MODULE_DOCSTRING_CATEGORY, "file has no module docstring", range));
     } else {
       List<DocstringParseError> errors = new ArrayList<>();
       DocstringUtils.parseDocstring(moduleDocstring, errors);
@@ -98,7 +100,7 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       String name = node.getIdentifier().getName();
       issues.add(
           new Issue(
-              MISSING_DOCSTRING_CATEGORY,
+              MISSING_FUNCTION_DOCSTRING_CATEGORY,
               "function '"
                   + name
                   + "' has no docstring"

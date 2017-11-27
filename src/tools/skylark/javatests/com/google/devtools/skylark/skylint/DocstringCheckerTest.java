@@ -49,13 +49,13 @@ public class DocstringCheckerTest {
                 "  print(5)")
             .toString();
     Truth.assertThat(errorMessage)
-        .contains("1:1-2:1: file has no module docstring [missing-docstring]");
+        .contains("1:1-2:1: file has no module docstring [missing-module-docstring]");
     Truth.assertThat(errorMessage)
         .contains(
             "2:1-4:2: function 'function' has no docstring"
                 + " (if this function is intended to be private,"
                 + " the name should start with an underscore: '_function')"
-                + " [missing-docstring]");
+                + " [missing-function-docstring]");
   }
 
   @Test

@@ -60,7 +60,8 @@ class SkylintTest(unittest.TestCase):
 
   def testDisablingCategory(self):
     output = subprocess.check_output([
-        testenv.SKYLINT_BINARY_PATH, "--disable-categories=missing-docstring",
+        testenv.SKYLINT_BINARY_PATH,
+        "--disable-categories=missing-module-docstring",
         os.path.join(testenv.SKYLINT_TESTDATA_PATH, "bad.bzl.test")
     ])
     self.assertEqual(output, "")
