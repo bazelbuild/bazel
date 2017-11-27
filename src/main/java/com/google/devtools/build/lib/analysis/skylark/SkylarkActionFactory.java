@@ -861,7 +861,7 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "args.add(foo_deps)\n"
             + "args.add(\"--bar\")\n"
             + "args.add(bar_deps, join_with=\",\")\n"
-            + "ctx.run(\n"
+            + "ctx.actions.run(\n"
             + "  arguments = [args],\n"
             + "  ...\n"
             + ")\n"
