@@ -17,31 +17,90 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.devtools.common.options.Options;
 import java.io.IOException;
+import java.util.UUID;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link PrepareDepsOfPatternsFunction}. */
 @RunWith(JUnit4.class)
-public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTestCase {
+public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTestCase {
+  private SkyframeExecutor skyframeExecutor;
+  private static final String ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING =
+      "config/blacklist.txt";
 
   private static SkyKey getKeyForLabel(Label label) {
     // Note that these tests used to look for TargetMarker SkyKeys before TargetMarker was
     // inlined in TransitiveTraversalFunction. Because TargetMarker is now inlined, it doesn't
     // appear in the graph. Instead, these tests now look for TransitiveTraversal keys.
     return TransitiveTraversalValue.key(label);
+  }
+
+  @Before
+  public void setUp() throws Exception {
+    BlazeDirectories directories =
+        new BlazeDirectories(
+            new ServerDirectories(getScratch().dir("/install"), getScratch().dir("/output")),
+            rootDirectory,
+            AnalysisMock.get().getProductName());
+    skyframeExecutor =
+        SequencedSkyframeExecutor.create(
+            AnalysisMock.get()
+                .getPackageFactoryBuilderForTesting(directories)
+                .build(AnalysisMock.get().createRuleClassProvider(), fileSystem),
+            fileSystem,
+            directories,
+            /*workspaceStatusActionFactory=*/ null,
+            AnalysisMock.get().createRuleClassProvider().getBuildInfoFactories(),
+            ImmutableList.of(),
+            Predicates.alwaysFalse(),
+            AnalysisMock.get().getSkyFunctions(directories),
+            ImmutableList.of(),
+            BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
+            PathFragment.create(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING),
+            BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+            BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
+    skyframeExecutor.preparePackageLoading(
+        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+        Options.getDefaults(PackageCacheOptions.class),
+        Options.getDefaults(SkylarkSemanticsOptions.class),
+        AnalysisMock.get().getDefaultsPackageContent(),
+        UUID.randomUUID(),
+        ImmutableMap.<String, String>of(),
+        ImmutableMap.<String, String>of(),
+        new TimestampGranularityMonitor(null));
+    skyframeExecutor.injectExtraPrecomputedValues(ImmutableList.of(PrecomputedValue.injected(
+        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
+        ImmutableMap.<RepositoryName, PathFragment>of())));
+    scratch.file(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING);
   }
 
   @Test
@@ -89,9 +148,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
     ImmutableList<String> patternSequence = ImmutableList.of("//foo/...");
 
     // and a blacklist for the malformed package,
-    getSkyframeExecutor().setBlacklistedPackagePrefixesFile(
-        PathFragment.create("config/blacklist.txt"));
-    scratch.file("config/blacklist.txt", "foo/foo");
+    scratch.overwriteFile(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "foo/foo");
 
     assertSkipsFoo(patternSequence);
   }
@@ -140,12 +197,12 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
 
     // When PrepareDepsOfPatternsFunction completes evaluation,
     EvaluationResult<SkyValue> evaluationResult =
-        getSkyframeExecutor()
+        skyframeExecutor
             .getDriverForTesting()
             .evaluate(
                 singletonTargetPattern,
                 keepGoing,
-                LOADING_PHASE_THREADS,
+                /*numThreads=*/ 100,
                 new Reporter(new EventBus(), eventCollector));
     // The evaluation has no errors if success was expected.
     assertThat(evaluationResult.hasError()).isNotEqualTo(successExpected);

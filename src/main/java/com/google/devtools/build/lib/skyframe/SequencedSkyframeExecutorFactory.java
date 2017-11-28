@@ -51,7 +51,8 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         allowedMissingInputs,
         extraSkyFunctions,
         customDirtinessCheckers,
-        PathFragment.EMPTY_FRAGMENT,
+        BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
+        BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
         BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
         BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);

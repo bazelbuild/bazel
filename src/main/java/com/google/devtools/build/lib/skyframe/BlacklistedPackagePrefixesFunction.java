@@ -32,50 +32,63 @@ import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /**
- * A function that retrieves a set of blacklisted package pattern prefixes from the file given by
- * PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.
+ * A function that returns the union of a set of hardcoded blacklisted package prefixes and the
+ * contents of a hardcoded filepath whose contents is a blacklisted package prefix on each line.
  */
 public class BlacklistedPackagePrefixesFunction implements SkyFunction {
+  private ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes;
+  private PathFragment additionalBlacklistedPackagePrefixesFile;
+
+  public BlacklistedPackagePrefixesFunction(
+      ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes,
+      PathFragment additionalBlacklistedPackagePrefixesFile) {
+    this.hardcodedBlacklistedPackagePrefixes = hardcodedBlacklistedPackagePrefixes;
+    this.additionalBlacklistedPackagePrefixesFile = additionalBlacklistedPackagePrefixesFile;
+  }
+
   @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws SkyFunctionException, InterruptedException {
-    PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
-    PathFragment patternsFile = PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.get(env);
-    if (env.valuesMissing()) {
-      return null;
-    }
+    ImmutableSet.Builder<PathFragment> blacklistedPackagePrefixesBuilder = ImmutableSet.builder();
 
-    if (patternsFile.equals(PathFragment.EMPTY_FRAGMENT)) {
-      return new BlacklistedPackagePrefixesValue(ImmutableSet.<PathFragment>of());
-    }
+    blacklistedPackagePrefixesBuilder.addAll(hardcodedBlacklistedPackagePrefixes);
 
-    for (Path packagePathEntry : pkgLocator.getPathEntries()) {
-      RootedPath rootedPatternFile = RootedPath.toRootedPath(packagePathEntry, patternsFile);
-      FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
-      if (patternFileValue == null) {
+    if (!additionalBlacklistedPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
+      PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
+      if (env.valuesMissing()) {
         return null;
       }
-      if (patternFileValue.isFile()) {
-        try {
-          try (InputStreamReader reader =
-              new InputStreamReader(rootedPatternFile.asPath().getInputStream(),
-                  StandardCharsets.UTF_8)) {
-            return new BlacklistedPackagePrefixesValue(
-                CharStreams.readLines(reader, new PathFragmentLineProcessor()));
+
+      for (Path packagePathEntry : pkgLocator.getPathEntries()) {
+        RootedPath rootedPatternFile =
+            RootedPath.toRootedPath(packagePathEntry, additionalBlacklistedPackagePrefixesFile);
+        FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
+        if (patternFileValue == null) {
+          return null;
+        }
+        if (patternFileValue.isFile()) {
+          try {
+            try (InputStreamReader reader =
+                new InputStreamReader(rootedPatternFile.asPath().getInputStream(),
+                    StandardCharsets.UTF_8)) {
+              blacklistedPackagePrefixesBuilder.addAll(
+                  CharStreams.readLines(reader, new PathFragmentLineProcessor()));
+              break;
+            }
+          } catch (IOException e) {
+            String errorMessage = e.getMessage() != null
+                ? "error '" + e.getMessage() + "'" : "an error";
+            throw new BlacklistedPatternsFunctionException(
+                new InconsistentFilesystemException(
+                    rootedPatternFile.asPath() + " is not readable because: " +  errorMessage
+                        + ". Was it modified mid-build?"));
           }
-        } catch (IOException e) {
-          String errorMessage = e.getMessage() != null
-              ? "error '" + e.getMessage() + "'" : "an error";
-          throw new BlacklistedPatternsFunctionException(
-              new InconsistentFilesystemException(
-                  rootedPatternFile.asPath() + " is not readable because: " +  errorMessage
-                      + ". Was it modified mid-build?"));
         }
       }
     }
 
-    return new BlacklistedPackagePrefixesValue(ImmutableSet.<PathFragment>of());
+    return new BlacklistedPackagePrefixesValue(blacklistedPackagePrefixesBuilder.build());
   }
 
   private static final class PathFragmentLineProcessor
