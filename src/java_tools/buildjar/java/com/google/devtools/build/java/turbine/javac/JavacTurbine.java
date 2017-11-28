@@ -331,7 +331,7 @@ public class JavacTurbine implements AutoCloseable {
    */
   static class PrivateMemberPruner extends ClassVisitor {
     public PrivateMemberPruner(ClassVisitor cv) {
-      super(Opcodes.ASM5, cv);
+      super(Opcodes.ASM6, cv);
     }
 
     @Override
