@@ -29,9 +29,10 @@ import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
 import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -70,32 +71,32 @@ public final class DependencyModule {
   }
 
   private final StrictJavaDeps strictJavaDeps;
-  private final Map<String, JarOwner> directJarsToTargets;
-  private final Map<String, JarOwner> indirectJarsToTargets;
+  private final Map<Path, JarOwner> directJarsToTargets;
+  private final Map<Path, JarOwner> indirectJarsToTargets;
   private final boolean strictClasspathMode;
-  private final Set<String> depsArtifacts;
+  private final Set<Path> depsArtifacts;
   private final String ruleKind;
   private final String targetLabel;
-  private final String outputDepsProtoFile;
-  private final Set<String> usedClasspath;
-  private final Map<String, Deps.Dependency> explicitDependenciesMap;
-  private final Map<String, Deps.Dependency> implicitDependenciesMap;
-  private final ImmutableSet<String> platformJars;
-  Set<String> requiredClasspath;
+  private final Path outputDepsProtoFile;
+  private final Set<Path> usedClasspath;
+  private final Map<Path, Deps.Dependency> explicitDependenciesMap;
+  private final Map<Path, Deps.Dependency> implicitDependenciesMap;
+  private final ImmutableSet<Path> platformJars;
+  Set<Path> requiredClasspath;
   private final FixMessage fixMessage;
   private final Set<String> exemptGenerators;
   private final Set<PackageSymbol> packages;
 
   DependencyModule(
       StrictJavaDeps strictJavaDeps,
-      Map<String, JarOwner> directJarsToTargets,
-      Map<String, JarOwner> indirectJarsToTargets,
+      Map<Path, JarOwner> directJarsToTargets,
+      Map<Path, JarOwner> indirectJarsToTargets,
       boolean strictClasspathMode,
-      Set<String> depsArtifacts,
-      ImmutableSet<String> platformJars,
+      Set<Path> depsArtifacts,
+      ImmutableSet<Path> platformJars,
       String ruleKind,
       String targetLabel,
-      String outputDepsProtoFile,
+      Path outputDepsProtoFile,
       FixMessage fixMessage,
       Set<String> exemptGenerators) {
     this.strictJavaDeps = strictJavaDeps;
@@ -126,14 +127,14 @@ public final class DependencyModule {
    * <p>We collect precise dependency information to allow Blaze to analyze both strict and unused
    * dependencies, as well as packages contained by the output jar.
    */
-  public void emitDependencyInformation(ImmutableList<String> classpath, boolean successful)
+  public void emitDependencyInformation(ImmutableList<Path> classpath, boolean successful)
       throws IOException {
     if (outputDepsProtoFile == null) {
       return;
     }
 
     try (BufferedOutputStream out =
-        new BufferedOutputStream(new FileOutputStream(outputDepsProtoFile))) {
+        new BufferedOutputStream(Files.newOutputStream(outputDepsProtoFile))) {
       buildDependenciesProto(classpath, successful).writeTo(out);
     } catch (IOException ex) {
       throw new IOException("Cannot write dependencies to " + outputDepsProtoFile, ex);
@@ -141,7 +142,7 @@ public final class DependencyModule {
   }
 
   @VisibleForTesting
-  Deps.Dependencies buildDependenciesProto(ImmutableList<String> classpath, boolean successful) {
+  Deps.Dependencies buildDependenciesProto(ImmutableList<Path> classpath, boolean successful) {
     Deps.Dependencies.Builder deps = Deps.Dependencies.newBuilder();
     if (targetLabel != null) {
       deps.setRuleLabel(targetLabel);
@@ -160,7 +161,7 @@ public final class DependencyModule {
             .toSortedList(Ordering.natural()));
 
     // Filter using the original classpath, to preserve ordering.
-    for (String entry : classpath) {
+    for (Path entry : classpath) {
       if (explicitDependenciesMap.containsKey(entry)) {
         deps.addDependency(explicitDependenciesMap.get(entry));
       } else if (implicitDependenciesMap.containsKey(entry)) {
@@ -179,7 +180,7 @@ public final class DependencyModule {
    * Returns the mapping for jars of direct dependencies. The keys are full paths (as seen on the
    * classpath), and the values are build target names.
    */
-  public Map<String, JarOwner> getDirectMapping() {
+  public Map<Path, JarOwner> getDirectMapping() {
     return directJarsToTargets;
   }
 
@@ -187,7 +188,7 @@ public final class DependencyModule {
    * Returns the mapping for jars of indirect dependencies. The keys are full paths (as seen on the
    * classpath), and the values are build target names.
    */
-  public Map<String, JarOwner> getIndirectMapping() {
+  public Map<Path, JarOwner> getIndirectMapping() {
     return indirectJarsToTargets;
   }
 
@@ -197,17 +198,17 @@ public final class DependencyModule {
   }
 
   /** Returns the map collecting precise explicit dependency information. */
-  public Map<String, Deps.Dependency> getExplicitDependenciesMap() {
+  public Map<Path, Deps.Dependency> getExplicitDependenciesMap() {
     return explicitDependenciesMap;
   }
 
   /** Returns the map collecting precise implicit dependency information. */
-  public Map<String, Deps.Dependency> getImplicitDependenciesMap() {
+  public Map<Path, Deps.Dependency> getImplicitDependenciesMap() {
     return implicitDependenciesMap;
   }
 
   /** Returns the jars in the platform classpath. */
-  public ImmutableSet<String> getPlatformJars() {
+  public ImmutableSet<Path> getPlatformJars() {
     return platformJars;
   }
 
@@ -227,12 +228,12 @@ public final class DependencyModule {
   }
 
   /** Returns the file name collecting dependency information. */
-  public String getOutputDepsProtoFile() {
+  public Path getOutputDepsProtoFile() {
     return outputDepsProtoFile;
   }
 
   @VisibleForTesting
-  Set<String> getUsedClasspath() {
+  Set<Path> getUsedClasspath() {
     return usedClasspath;
   }
 
@@ -255,7 +256,7 @@ public final class DependencyModule {
    * Computes a reduced compile-time classpath from the union of direct dependencies and their
    * dependencies, as listed in the associated .deps artifacts.
    */
-  public ImmutableList<String> computeStrictClasspath(ImmutableList<String> originalClasspath)
+  public ImmutableList<Path> computeStrictClasspath(ImmutableList<Path> originalClasspath)
       throws IOException {
     if (!strictClasspathMode) {
       return originalClasspath;
@@ -264,7 +265,7 @@ public final class DependencyModule {
     // Classpath = direct deps + runtime direct deps + their .deps
     requiredClasspath = new HashSet<>(directJarsToTargets.keySet());
 
-    for (String depsArtifact : depsArtifacts) {
+    for (Path depsArtifact : depsArtifacts) {
       collectDependenciesFromArtifact(depsArtifact);
     }
 
@@ -276,14 +277,13 @@ public final class DependencyModule {
   }
 
   @VisibleForTesting
-  // TODO(cushon): use Paths instead of strings, or inject a FileSystem
-  void setStrictClasspath(Set<String> strictClasspath) {
+  void setStrictClasspath(Set<Path> strictClasspath) {
     this.requiredClasspath = strictClasspath;
   }
 
   /** Updates {@link #requiredClasspath} to include dependencies from the given output artifact. */
-  private void collectDependenciesFromArtifact(String path) throws IOException {
-    try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(path))) {
+  private void collectDependenciesFromArtifact(Path path) throws IOException {
+    try (BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(path))) {
       Deps.Dependencies deps = Deps.Dependencies.parseFrom(bis);
       // Sanity check to make sure we have a valid proto.
       if (!deps.hasRuleLabel()) {
@@ -293,7 +293,7 @@ public final class DependencyModule {
         if (dep.getKind() == Kind.EXPLICIT
             || dep.getKind() == Kind.IMPLICIT
             || dep.getKind() == Kind.INCOMPLETE) {
-          requiredClasspath.add(dep.getPath());
+          requiredClasspath.add(Paths.get(dep.getPath()));
         }
       }
     } catch (IOException e) {
@@ -313,13 +313,13 @@ public final class DependencyModule {
   public static class Builder {
 
     private StrictJavaDeps strictJavaDeps = StrictJavaDeps.OFF;
-    private final Map<String, JarOwner> directJarsToTargets = new HashMap<>();
-    private final Map<String, JarOwner> indirectJarsToTargets = new HashMap<>();
-    private final Set<String> depsArtifacts = new HashSet<>();
-    private ImmutableSet<String> platformJars = ImmutableSet.of();
+    private final Map<Path, JarOwner> directJarsToTargets = new HashMap<>();
+    private final Map<Path, JarOwner> indirectJarsToTargets = new HashMap<>();
+    private final Set<Path> depsArtifacts = new HashSet<>();
+    private ImmutableSet<Path> platformJars = ImmutableSet.of();
     private String ruleKind;
     private String targetLabel;
-    private String outputDepsProtoFile;
+    private Path outputDepsProtoFile;
     private boolean strictClasspathMode = false;
     private FixMessage fixMessage = new DefaultFixMessage();
     private final Set<String> exemptGenerators = new HashSet<>();
@@ -405,7 +405,7 @@ public final class DependencyModule {
      *     build targets providing the jar.
      * @return this Builder instance
      */
-    public Builder addDirectMappings(Map<String, JarOwner> directMappings) {
+    public Builder addDirectMappings(Map<Path, JarOwner> directMappings) {
       directJarsToTargets.putAll(directMappings);
       return this;
     }
@@ -417,7 +417,7 @@ public final class DependencyModule {
      * @param target full name of build target providing the jar.
      * @return this Builder instance
      */
-    public Builder addIndirectMapping(String jar, JarOwner target) {
+    public Builder addIndirectMapping(Path jar, JarOwner target) {
       indirectJarsToTargets.put(jar, target);
       return this;
     }
@@ -429,7 +429,7 @@ public final class DependencyModule {
      *     of build targets providing the jar.
      * @return this Builder instance
      */
-    public Builder addIndirectMappings(Map<String, JarOwner> indirectMappings) {
+    public Builder addIndirectMappings(Map<Path, JarOwner> indirectMappings) {
       indirectJarsToTargets.putAll(indirectMappings);
       return this;
     }
@@ -441,7 +441,7 @@ public final class DependencyModule {
      * @param outputDepsProtoFile output file name for dependency information
      * @return this Builder instance
      */
-    public Builder setOutputDepsProtoFile(String outputDepsProtoFile) {
+    public Builder setOutputDepsProtoFile(Path outputDepsProtoFile) {
       this.outputDepsProtoFile = outputDepsProtoFile;
       return this;
     }
@@ -452,13 +452,13 @@ public final class DependencyModule {
      * @param depsArtifacts dependency artifacts
      * @return this Builder instance
      */
-    public Builder addDepsArtifacts(Collection<String> depsArtifacts) {
+    public Builder addDepsArtifacts(Collection<Path> depsArtifacts) {
       this.depsArtifacts.addAll(depsArtifacts);
       return this;
     }
 
     /** Sets the platform classpath entries. */
-    public Builder setPlatformJars(ImmutableSet<String> platformJars) {
+    public Builder setPlatformJars(ImmutableSet<Path> platformJars) {
       this.platformJars = platformJars;
       return this;
     }

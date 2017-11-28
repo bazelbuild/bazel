@@ -158,7 +158,7 @@ public final class OptionsParser {
         case "--classpath":
           collectClassPathArguments(classPath, argQueue);
           break;
-          // TODO(#970): Consider wether we want to use --sourcepath for resolving of #970.
+          // TODO(#970): Consider whether we want to use --sourcepath for resolving of #970.
         case "--sourcepath":
           collectClassPathArguments(sourcePath, argQueue);
           break;

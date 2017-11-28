@@ -44,8 +44,8 @@ public class JarHelper {
   // see http://www.info-zip.org/FAQ.html#limits
   public static final long MINIMUM_TIMESTAMP_INCREMENT = 2000L;
 
-  // The name of the Jar file we want to create
-  protected final String jarFile;
+  // The path to the Jar we want to create
+  protected final Path jarPath;
 
   // The properties to describe how to create the Jar
   protected boolean normalize;
@@ -55,8 +55,8 @@ public class JarHelper {
   // The state needed to create the Jar
   protected final Set<String> names = new HashSet<>();
 
-  public JarHelper(String filename) {
-    jarFile = filename;
+  public JarHelper(Path path) {
+    jarPath = path;
   }
 
   /**

@@ -86,7 +86,7 @@ public final class JacocoInstrumentationProcessor {
     jar.setNormalize(true);
     jar.setCompression(build.compressJar());
     Instrumenter instr = new Instrumenter(new OfflineInstrumentationAccessGenerator());
-    instrumentRecursively(instr, Paths.get(build.getClassDir()));
+    instrumentRecursively(instr, build.getClassDir());
     jar.addDirectory(metadataDir);
     if (isNewCoverageImplementation) {
       jar.addEntry(coverageInformation, coverageInformation);
