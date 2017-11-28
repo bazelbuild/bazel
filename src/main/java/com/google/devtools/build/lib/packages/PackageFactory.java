@@ -396,7 +396,7 @@ public final class PackageFactory {
    * <p>Only intended to be called by BlazeRuntime or {@link FactoryForTesting#create}.
    *
    * <p>Do not call this constructor directly in tests; please use
-   * TestConstants#PACKAGE_FACTORY_FACTORY_FOR_TESTING instead.
+   * TestConstants#PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING instead.
    */
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
@@ -1568,7 +1568,6 @@ public final class PackageFactory {
     return NativeProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
 
-  /** @param fakeEnv specify if we declare no-op functions, or real functions. */
   private void buildPkgEnv(
       Environment pkgEnv,
       PackageContext context,
