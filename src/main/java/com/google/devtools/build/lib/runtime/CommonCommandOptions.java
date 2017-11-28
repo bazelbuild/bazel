@@ -149,18 +149,6 @@ public class CommonCommandOptions extends OptionsBase {
   )
   public PathFragment memoryProfilePath;
 
-  @Deprecated
-  @Option(
-    name = "gc_watchdog",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    deprecationWarning = "Ignoring: this option is no longer supported",
-    help = "Deprecated."
-  )
-  public boolean gcWatchdog;
-
   @Option(
     name = "experimental_oom_more_eagerly_threshold",
     defaultValue = "100",
