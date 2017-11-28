@@ -47,8 +47,8 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
       name = "adb",
       category = "mobile-install",
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "adb binary to use for the 'mobile-install' command. If unspecified, the one in "
               + "the Android SDK specified by the --android_sdk command line option (or the "
@@ -61,8 +61,8 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
       category = "mobile-install",
       allowMultiple = true,
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help = "Extra arguments to pass to adb. Usually used to designate a device to install to."
     )
     public List<String> adbArgs;
@@ -71,8 +71,8 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
       name = "adb_jobs",
       category = "mobile-install",
       defaultValue = "2",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help = "The number of instances of adb to use in parallel to update files on the device"
     )
     public int adbJobs;
@@ -81,8 +81,8 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
       name = "incremental_install_verbosity",
       category = "mobile-install",
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "The verbosity for incremental install. Set to 1 for debug logging."
     )
     public String incrementalInstallVerbosity;
@@ -92,8 +92,8 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
       category = "mobile-install",
       converter = StartTypeConverter.class,
       defaultValue = "NO",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.EXECUTION},
       help =
           "How the app should be started after installing it. Set to WARM to preserve "
               + "and restore application state on incremental installs."
@@ -104,8 +104,8 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
       name = "start_app",
       category = "mobile-install",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.EXECUTION},
       help = "Whether to start the app after installing it.",
       expansion = {"--start=COLD"}
     )
@@ -115,8 +115,8 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
       name = "debug_app",
       category = "mobile-install",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.EXECUTION},
       help = "Whether to wait for the debugger before starting the app.",
       expansion = {"--start=DEBUG"}
     )
@@ -124,7 +124,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   }
 
   public WriteAdbArgsAction(ActionOwner owner, Artifact outputFile) {
-    super(owner, ImmutableList.<Artifact>of(), outputFile, false);
+    super(owner, ImmutableList.of(), outputFile, false);
   }
 
   @Override

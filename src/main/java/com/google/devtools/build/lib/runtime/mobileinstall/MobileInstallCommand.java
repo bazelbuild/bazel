@@ -42,6 +42,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -75,7 +76,7 @@ public class MobileInstallCommand implements BlazeCommand {
     private final String mode;
     private final String aspectName;
 
-    private Mode(String mode, String aspectName) {
+    Mode(String mode, String aspectName) {
       this.mode = mode;
       this.aspectName = aspectName;
     }
@@ -107,8 +108,8 @@ public class MobileInstallCommand implements BlazeCommand {
       name = "split_apks",
       defaultValue = "false",
       category = "mobile-install",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Whether to use split apks to install and update the "
               + "application on the device. Works only with devices with "
@@ -120,8 +121,9 @@ public class MobileInstallCommand implements BlazeCommand {
       name = "incremental",
       category = "mobile-install",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       help =
           "Whether to do an incremental install. If true, try to avoid unnecessary additional "
               + "work by reading the state of the device the code is to be installed on and using "
@@ -135,8 +137,9 @@ public class MobileInstallCommand implements BlazeCommand {
       category = "mobile-install",
       defaultValue = "classic",
       converter = ModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Select how to run mobile-install. \"classic\" runs the current version of "
               + "mobile-install. \"skylark\" uses the new skylark version, which has support for "
@@ -151,7 +154,7 @@ public class MobileInstallCommand implements BlazeCommand {
       category = "mobile-install",
       defaultValue = "@android_test_support//tools/android/mobile_install:mobile-install.bzl",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
       help = "The aspect to use for mobile-install."
     )
     public String mobileInstallAspect;
