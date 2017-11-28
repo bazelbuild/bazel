@@ -61,7 +61,7 @@ To build or test a project with Bazel, you typically do the following:
     which is a directory where Bazel looks for build inputs and `BUILD` files,
     and where it stores build outputs.
 
-3.  **Write a `BUILD` file**, which which tells Bazel what to build and how to
+3.  **Write a `BUILD` file**, which tells Bazel what to build and how to
     build it.
 
     You write your `BUILD` file by declaring build targets using an abstract
