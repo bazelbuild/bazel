@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcCommon.FRAMEWORK_CONT
 import static com.google.devtools.build.lib.rules.objc.ObjcCommon.NOT_IN_CONTAINER_ERROR_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 
 import com.google.common.collect.ImmutableList;
@@ -52,7 +51,7 @@ public class ObjcFrameworkTest extends ObjcRuleTestCase {
   public void testProvidesFilesAndDirs_static() throws Exception {
     addBinWithTransitiveDepOnFrameworkImport();
     ObjcProvider provider = providerForTarget("//fx:fx");
-    assertThat(provider.get(STATIC_FRAMEWORK_DIR))
+    assertThat(provider.getStaticFrameworkDirs())
         .containsExactly(
             PathFragment.create("fx/fx1.framework"),
             PathFragment.create("fx/fx2.framework"));
@@ -94,7 +93,7 @@ public class ObjcFrameworkTest extends ObjcRuleTestCase {
             getSourceArtifact("fx/fx1.framework/b"),
             getSourceArtifact("fx/fx2.framework/c"),
             getSourceArtifact("fx/fx2.framework/d"));
-    assertThat(provider.get(ObjcProvider.STATIC_FRAMEWORK_DIR)).isEmpty();
+    assertThat(provider.getStaticFrameworkDirs()).isEmpty();
     assertThat(provider.get(ObjcProvider.STATIC_FRAMEWORK_FILE)).isEmpty();
   }
 

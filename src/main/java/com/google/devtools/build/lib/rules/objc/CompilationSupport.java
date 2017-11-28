@@ -30,7 +30,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINK_INPUTS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
@@ -575,7 +574,7 @@ public class CompilationSupport {
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
         // include "foo" as a search path.
         .addAll(PathFragment.safePathStrings(
-            uniqueParentDirectories(provider.get(STATIC_FRAMEWORK_DIR))))
+            uniqueParentDirectories(provider.getStaticFrameworkDirs())))
         .addAll(PathFragment.safePathStrings(
             uniqueParentDirectories(provider.get(DYNAMIC_FRAMEWORK_DIR))))
         .addAll(
@@ -1369,7 +1368,7 @@ public class CompilationSupport {
     Set<String> names = new LinkedHashSet<>();
     Iterables.addAll(names, SdkFramework.names(provider.get(SDK_FRAMEWORK)));
     for (PathFragment frameworkDir :
-        Iterables.concat(provider.get(STATIC_FRAMEWORK_DIR), provider.get(DYNAMIC_FRAMEWORK_DIR))) {
+        Iterables.concat(provider.getStaticFrameworkDirs(), provider.get(DYNAMIC_FRAMEWORK_DIR))) {
       String segment = frameworkDir.getBaseName();
       Preconditions.checkState(
           segment.endsWith(FRAMEWORK_SUFFIX),

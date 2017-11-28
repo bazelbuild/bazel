@@ -679,40 +679,6 @@ public final class ReleaseBundlingSupport {
   }
 
   /**
-   * Creates the {@link XcTestAppProvider} that can be used if this application is used as an
-   * {@code xctest_app}.
-   */
-  XcTestAppProvider xcTestAppProvider() {
-    // We want access to #import-able things from our test rig's dependency graph, but we don't
-    // want to link anything since that stuff is shared automatically by way of the
-    // -bundle_loader linker flag.
-    // TODO(bazel-team): Handle the FRAMEWORK_DIR key properly. We probably want to add it to
-    // framework search paths, but not actually link it with the -framework flag.
-    ObjcProvider partialObjcProvider =
-        new ObjcProvider.Builder()
-            .addTransitiveAndPropagate(ObjcProvider.HEADER, objcProvider)
-            .addTransitiveAndPropagate(ObjcProvider.INCLUDE, objcProvider)
-            .addTransitiveAndPropagate(ObjcProvider.DEFINE, objcProvider)
-            .addTransitiveAndPropagate(ObjcProvider.SDK_DYLIB, objcProvider)
-            .addTransitiveAndPropagate(ObjcProvider.SDK_FRAMEWORK, objcProvider)
-            .addTransitiveAndPropagate(ObjcProvider.SOURCE, objcProvider)
-            .addTransitiveAndPropagate(ObjcProvider.WEAK_SDK_FRAMEWORK, objcProvider)
-            .addTransitiveAndPropagate(ObjcProvider.STATIC_FRAMEWORK_FILE, objcProvider)
-            .addTransitiveAndPropagate(ObjcProvider.DYNAMIC_FRAMEWORK_FILE, objcProvider)
-            .addTransitiveAndPropagate(
-                ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY,
-                objcProvider.get(ObjcProvider.STATIC_FRAMEWORK_DIR))
-            .addTransitiveAndPropagate(
-                ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY,
-                objcProvider.get(ObjcProvider.DYNAMIC_FRAMEWORK_DIR))
-            .build();
-    return new XcTestAppProvider(
-        intermediateArtifacts.combinedArchitectureBinary(),
-        releaseBundling.getIpaArtifact(),
-        partialObjcProvider);
-  }
-
-  /**
    * Registers an action to generate a runner script based on a template.
    */
   ReleaseBundlingSupport registerGenerateRunnerScriptAction(Artifact runnerScript,

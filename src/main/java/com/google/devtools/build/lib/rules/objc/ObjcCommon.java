@@ -41,7 +41,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
@@ -414,9 +413,6 @@ public final class ObjcCommon {
               .addAll(SDK_DYLIB, extraSdkDylibs)
               .addAll(STATIC_FRAMEWORK_FILE, staticFrameworkImports)
               .addAll(DYNAMIC_FRAMEWORK_FILE, dynamicFrameworkImports)
-              .addAll(
-                  STATIC_FRAMEWORK_DIR,
-                  uniqueContainers(staticFrameworkImports, FRAMEWORK_CONTAINER_TYPE))
               .addAll(
                   DYNAMIC_FRAMEWORK_DIR,
                   uniqueContainers(dynamicFrameworkImports, FRAMEWORK_CONTAINER_TYPE))

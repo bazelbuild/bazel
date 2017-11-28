@@ -67,9 +67,6 @@ public final class XcTestAppProvider extends NativeInfo {
    * {@code xctest_app}. This is <strong>not</strong> a typical {@link ObjcProvider} - it has
    * certain linker-releated keys omitted, such as {@link ObjcProvider#LIBRARY}, since XcTests have
    * access to symbols in their test rig without linking them into the main test binary.
-   *
-   * <p>The current list of whitelisted values can be found in {@link
-   * ReleaseBundlingSupport#xcTestAppProvider}.
    */
   public ObjcProvider getObjcProvider() {
     return objcProvider;
