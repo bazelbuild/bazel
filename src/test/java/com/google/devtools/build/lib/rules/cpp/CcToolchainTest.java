@@ -446,6 +446,44 @@ public class CcToolchainTest extends BuildViewTestCase {
     }
   }
 
+  // Regression test for bug 2088255:
+  // "StringIndexOutOfBoundsException in BuildConfiguration.<init>()"
+  @Test
+  public void testShortLibcVersion() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "filegroup(",
+        "    name = 'banana',",
+        "    srcs = ['banana1', 'banana2'])",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':banana',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'])");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder().setTargetLibc("2.3.6").buildPartial());
+
+    useConfiguration();
+
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+
+    assertThat(toolchainProvider.getTargetLibc()).isEqualTo("2.3.6");
+  }
+
   public void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
       throws Exception {
     try {

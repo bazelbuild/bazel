@@ -468,29 +468,47 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   /**
    * Returns the compiler version string (e.g. "gcc-4.1.1").
+   *
+   * <p>Deprecated: Use {@link CcToolchainProvider#getCompiler()}
    */
+  // TODO(b/68038647): Remove once make variables are no longer derived from CppConfiguration.
   @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.")
+  @Deprecated
   public String getCompiler() {
     return cppToolchainInfo.getCompiler();
   }
 
   /**
    * Returns the libc version string (e.g. "glibc-2.2.2").
+   *
+   * <p>Deprecated: Use {@link CcToolchainProvider#getTargetLibc()}
    */
+  // TODO(b/68038647): Remove once make variables are no longer derived from CppConfiguration.
   @SkylarkCallable(name = "libc", structField = true, doc = "libc version string.")
+  @Deprecated
   public String getTargetLibc() {
     return cppToolchainInfo.getTargetLibc();
   }
 
   /**
    * Returns the target architecture using blaze-specific constants (e.g. "piii").
+   *
+   * <p>Deprecated: Use {@link CcToolchainProvider#getTargetCpu()}
    */
+  // TODO(b/68038647): Remove once skylark callers are migrated.
   @SkylarkCallable(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.")
+  @Deprecated
   public String getTargetCpu() {
     return cppToolchainInfo.getTargetCpu();
   }
 
-  /** Unused, for compatibility with things internal to Google. */
+  /**
+   * Unused, for compatibility with things internal to Google.
+   *
+   * <p>Deprecated: Use platforms.
+   */
+  // TODO(b/64384912): Remove once c++ platforms are in use.
+  @Deprecated
   public String getTargetOS() {
     return cppToolchainInfo.getTargetOS();
   }
@@ -1278,7 +1296,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             this::getToolPathFragment,
             getTargetLibc(),
             getCompiler(),
-            getTargetCpu(),
+            desiredCpu,
             crosstoolTopPathFragment,
             cppToolchainInfo.getAbiGlibcVersion(),
             cppToolchainInfo.getAbi(),

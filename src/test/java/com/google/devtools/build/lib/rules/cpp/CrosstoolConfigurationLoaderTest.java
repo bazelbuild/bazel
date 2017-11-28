@@ -182,9 +182,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchain.getToolchainIdentifier()).isEqualTo("toolchain-identifier");
 
     assertThat(ccProvider.getHostSystemName()).isEqualTo("host-system-name");
-    assertThat(toolchain.getCompiler()).isEqualTo("compiler");
-    assertThat(toolchain.getTargetLibc()).isEqualTo("target-libc");
-    assertThat(toolchain.getTargetCpu()).isEqualTo("piii");
+    assertThat(ccProvider.getCompiler()).isEqualTo("compiler");
+    assertThat(ccProvider.getTargetLibc()).isEqualTo("target-libc");
+    assertThat(ccProvider.getTargetCpu()).isEqualTo("piii");
     assertThat(ccProvider.getTargetGnuSystemName()).isEqualTo("target-system-name");
 
     assertThat(toolchain.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("/path-to-ar"));
@@ -496,9 +496,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchainA.getToolchainIdentifier()).isEqualTo("toolchain-identifier-A");
     assertThat(ccProviderA.getHostSystemName()).isEqualTo("host-system-name-A");
     assertThat(ccProviderA.getTargetGnuSystemName()).isEqualTo("target-system-name-A");
-    assertThat(toolchainA.getTargetCpu()).isEqualTo("piii");
-    assertThat(toolchainA.getTargetLibc()).isEqualTo("target-libc-A");
-    assertThat(toolchainA.getCompiler()).isEqualTo("compiler-A");
+    assertThat(ccProviderA.getTargetCpu()).isEqualTo("piii");
+    assertThat(ccProviderA.getTargetLibc()).isEqualTo("target-libc-A");
+    assertThat(ccProviderA.getCompiler()).isEqualTo("compiler-A");
     assertThat(ccProviderA.getAbi()).isEqualTo("abi-version-A");
     assertThat(ccProviderA.getAbiGlibcVersion()).isEqualTo("abi-libc-version-A");
     assertThat(toolchainA.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("path/to/ar-A"));
@@ -628,9 +628,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchainC.getToolchainIdentifier()).isEqualTo("toolchain-identifier-C");
     assertThat(ccProviderC.getHostSystemName()).isEqualTo("host-system-name-C");
     assertThat(ccProviderC.getTargetGnuSystemName()).isEqualTo("target-system-name-C");
-    assertThat(toolchainC.getTargetCpu()).isEqualTo("piii");
-    assertThat(toolchainC.getTargetLibc()).isEqualTo("target-libc-C");
-    assertThat(toolchainC.getCompiler()).isEqualTo("compiler-C");
+    assertThat(ccProviderC.getTargetCpu()).isEqualTo("piii");
+    assertThat(ccProviderC.getTargetLibc()).isEqualTo("target-libc-C");
+    assertThat(ccProviderC.getCompiler()).isEqualTo("compiler-C");
     assertThat(ccProviderC.getAbi()).isEqualTo("abi-version-C");
     assertThat(ccProviderC.getAbiGlibcVersion()).isEqualTo("abi-libc-version-C");
     // Don't bother with testing the list of tools again.

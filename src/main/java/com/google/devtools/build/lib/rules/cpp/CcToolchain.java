@@ -183,7 +183,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   private Artifact convertLLVMRawProfileToIndexed(
       Path fdoProfile,
       CppToolchainInfo toolchainInfo,
-      CppConfiguration cppConfiguration,
       RuleContext ruleContext)
       throws InterruptedException {
 
@@ -216,7 +215,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
       // TODO(zhayu): find a way to avoid hard-coding cpu architecture here (b/65582760)
       String rawProfileFileName = "fdocontrolz_profile.profraw";
-      String cpu = cppConfiguration.getTargetCpu();
+      String cpu = toolchainInfo.getTargetCpu();
       if (!"k8".equals(cpu)) {
         rawProfileFileName = "fdocontrolz_profile-" + cpu + ".profraw";
       }
@@ -488,7 +487,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     Artifact profileArtifact = null;
     if (cppConfiguration.isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler())) {
       profileArtifact =
-          convertLLVMRawProfileToIndexed(fdoZip, toolchainInfo, cppConfiguration, ruleContext);
+          convertLLVMRawProfileToIndexed(fdoZip, toolchainInfo, ruleContext);
       if (ruleContext.hasErrors()) {
         return null;
       }

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -120,11 +119,10 @@ public class AppleCcToolchain extends CcToolchain {
 
   private ImmutableMap<String, String> getEnvironmentBuildVariables(RuleContext ruleContext) {
     Map<String, String> builder = new LinkedHashMap<>();
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     XcodeConfigProvider xcodeConfig = XcodeConfigProvider.fromRuleContext(ruleContext);
     builder.putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfig.getXcodeVersion()));
-    if (ApplePlatform.isApplePlatform(cppConfiguration.getTargetCpu())) {
-      ApplePlatform platform = ApplePlatform.forTargetCpu(cppConfiguration.getTargetCpu());
+    if (ApplePlatform.isApplePlatform(ruleContext.getConfiguration().getCpu())) {
+      ApplePlatform platform = ApplePlatform.forTargetCpu(ruleContext.getConfiguration().getCpu());
       builder.putAll(AppleConfiguration.appleTargetPlatformEnv(
           platform, xcodeConfig.getSdkVersionForPlatform(platform)));
     }

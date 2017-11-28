@@ -21,10 +21,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.FlagList;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -52,6 +54,7 @@ import java.util.Set;
  * <p>This wrapper class is used to re-plumb information so that it's eventually accessed through
  * {@link CcToolchainProvider} instead of {@link CppConfiguration}.
  */
+@Immutable
 public final class CppToolchainInfo {
 
   private final PathFragment crosstoolTopPathFragment;
@@ -442,7 +445,11 @@ public final class CppToolchainInfo {
     return targetLibc;
   }
 
-  /** Returns the target architecture using blaze-specific constants (e.g. "piii"). */
+  /**
+   * Returns the target architecture using blaze-specific constants (e.g. "piii").
+   *
+   * <p>Equivalent to {@link BuildConfiguration#getCpu()}
+   */
   public String getTargetCpu() {
     return targetCpu;
   }
