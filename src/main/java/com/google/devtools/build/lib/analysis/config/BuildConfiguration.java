@@ -758,18 +758,9 @@ public class BuildConfiguration implements BuildEvent {
       defaultValue = "true",
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      deprecationWarning = "Setting this to false is unsupported and will go away soon as it leads "
-          + "to incorrect results. Please contact kush@ with your use case if you need "
-          + "to continue setting this flag to false. If you're setting this to true then stop "
-          + "setting this flag to stop this warning.",
-      effectTags = { OptionEffectTag.AFFECTS_OUTPUTS },
-      help =
-          "If false, fileset targets will, whenever possible, create "
-              + "symlinks to directories instead of creating one symlink for each "
-              + "file inside the directory. Disabling this will significantly "
-              + "speed up fileset builds, but targets that depend on filesets will "
-              + "not be rebuilt if files are added, removed or modified in a "
-              + "subdirectory which has not been traversed."
+      deprecationWarning = "This flag is a no-op and fileset dependencies are always checked "
+        + "to ensure correctness of builds.",
+      effectTags = { OptionEffectTag.AFFECTS_OUTPUTS }
     )
     public boolean checkFilesetDependenciesRecursively;
 
@@ -1867,10 +1858,6 @@ public class BuildConfiguration implements BuildEvent {
    */
   public boolean legacyExternalRunfiles() {
     return options.legacyExternalRunfiles;
-  }
-
-  public boolean getCheckFilesetDependenciesRecursively() {
-    return options.checkFilesetDependenciesRecursively;
   }
 
   public boolean getSkyframeNativeFileset() {
