@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -48,7 +50,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
       new CcToolchainProvider(
           ImmutableMap.of(),
-          null,
           null,
           null,
           null,
@@ -80,7 +81,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
           null);
 
   @Nullable private final CppConfiguration cppConfiguration;
-  private final CToolchain toolchain;
   private final CppToolchainInfo toolchainInfo;
   private final PathFragment crosstoolTopPathFragment;
   private final NestedSet<Artifact> crosstool;
@@ -113,7 +113,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
   public CcToolchainProvider(
       ImmutableMap<String, Object> skylarkToolchain,
       @Nullable CppConfiguration cppConfiguration,
-      CToolchain toolchain,
       CppToolchainInfo toolchainInfo,
       PathFragment crosstoolTopPathFragment,
       NestedSet<Artifact> crosstool,
@@ -144,7 +143,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
       @Nullable PathFragment sysroot) {
     super(skylarkToolchain, Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
-    this.toolchain = toolchain;
     this.toolchainInfo = toolchainInfo;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.crosstool = Preconditions.checkNotNull(crosstool);
@@ -255,8 +253,9 @@ public final class CcToolchainProvider extends ToolchainInfo {
   }
 
   /** Returns the {@link CToolchain} for this toolchain. */
+  @VisibleForTesting
   public CToolchain getToolchain() {
-    return toolchain;
+    return toolchainInfo.getToolchain();
   }
 
   /**
@@ -664,6 +663,62 @@ public final class CcToolchainProvider extends ToolchainInfo {
    */
   public ImmutableList<String> getLdOptionsForEmbedding() {
     return toolchainInfo.getLdOptionsForEmbedding();
+  }
+
+  /**
+   * Returns link options for the specified flag list, combined with universal options for all
+   * shared libraries (regardless of link staticness).
+   */
+  ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags, Iterable<String> features) {
+    return toolchainInfo.getSharedLibraryLinkOptions(flags, features);
+  }
+
+  /** Returns linker flags for fully statically linked outputs. */
+  FlagList getFullyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
+    return new FlagList(
+        configureLinkerOptions(
+            compilationMode, lipoMode, LinkingMode.FULLY_STATIC, toolchainInfo.getLdExecutable()),
+        FlagList.convertOptionalOptions(toolchainInfo.getOptionalLinkerFlags()),
+        ImmutableList.<String>of());
+  }
+
+  /** Returns linker flags for mostly static linked outputs. */
+  FlagList getMostlyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
+    return new FlagList(
+        configureLinkerOptions(
+            compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC, toolchainInfo.getLdExecutable()),
+        FlagList.convertOptionalOptions(toolchainInfo.getOptionalLinkerFlags()),
+        ImmutableList.<String>of());
+  }
+
+  /** Returns linker flags for mostly static shared linked outputs. */
+  FlagList getMostlyStaticSharedLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
+    return new FlagList(
+        configureLinkerOptions(
+            compilationMode,
+            lipoMode,
+            LinkingMode.MOSTLY_STATIC_LIBRARIES,
+            toolchainInfo.getLdExecutable()),
+        FlagList.convertOptionalOptions(toolchainInfo.getOptionalLinkerFlags()),
+        ImmutableList.<String>of());
+  }
+
+  /** Returns linker flags for artifacts that are not fully or mostly statically linked. */
+  FlagList getDynamicLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
+    return new FlagList(
+        configureLinkerOptions(
+            compilationMode, lipoMode, LinkingMode.DYNAMIC, toolchainInfo.getLdExecutable()),
+        FlagList.convertOptionalOptions(toolchainInfo.getOptionalLinkerFlags()),
+        ImmutableList.<String>of());
+  }
+
+  ImmutableList<String> configureLinkerOptions(
+      CompilationMode compilationMode,
+      LipoMode lipoMode,
+      LinkingMode linkingMode,
+      PathFragment ldExecutable) {
+    return toolchainInfo.configureLinkerOptions(
+        compilationMode, lipoMode, linkingMode, ldExecutable);
   }
 
   /** Returns the GNU System Name */

@@ -227,6 +227,84 @@ public class CppHelper {
   }
 
   /**
+   * Returns the immutable list of linker options for fully statically linked outputs. Does not
+   * include command-line options passed via --linkopt or --linkopts.
+   *
+   * @param config the CppConfiguration for this build
+   * @param toolchain the c++ toolchain
+   * @param features default settings affecting this link
+   * @param sharedLib true if the output is a shared lib, false if it's an executable
+   */
+  public static ImmutableList<String> getFullyStaticLinkOptions(
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      Iterable<String> features,
+      Boolean sharedLib) {
+    if (sharedLib) {
+      return toolchain.getSharedLibraryLinkOptions(
+          toolchain.getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode()),
+          features);
+    } else {
+      return toolchain
+          .getFullyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .evaluate(features);
+    }
+  }
+
+  /**
+   * Returns the immutable list of linker options for mostly statically linked outputs. Does not
+   * include command-line options passed via --linkopt or --linkopts.
+   *
+   * @param config the CppConfiguration for this build
+   * @param toolchain the c++ toolchain
+   * @param features default settings affecting this link
+   * @param sharedLib true if the output is a shared lib, false if it's an executable
+   */
+  public static ImmutableList<String> getMostlyStaticLinkOptions(
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      Iterable<String> features,
+      Boolean sharedLib) {
+    if (sharedLib) {
+      return toolchain.getSharedLibraryLinkOptions(
+          toolchain.supportsEmbeddedRuntimes()
+              ? toolchain.getMostlyStaticSharedLinkFlags(
+                  config.getCompilationMode(), config.getLipoMode())
+              : toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()),
+          features);
+    } else {
+      return toolchain
+          .getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .evaluate(features);
+    }
+  }
+
+  /**
+   * Returns the immutable list of linker options for artifacts that are not fully or mostly
+   * statically linked. Does not include command-line options passed via --linkopt or --linkopts.
+   *
+   * @param config the CppConfiguration for this build
+   * @param toolchain the c++ toolchain
+   * @param features default settings affecting this link
+   * @param sharedLib true if the output is a shared lib, false if it's an executable
+   */
+  public static ImmutableList<String> getDynamicLinkOptions(
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      Iterable<String> features,
+      Boolean sharedLib) {
+    if (sharedLib) {
+      return toolchain.getSharedLibraryLinkOptions(
+          toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()),
+          features);
+    } else {
+      return toolchain
+          .getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .evaluate(features);
+    }
+  }
+
+  /**
    * Determines if a linkopt can be a label. Linkopts come in 2 varieties:
    * literals -- flags like -Xl and makefile vars like $(LD) -- and labels,
    * which we should expand into filenames.

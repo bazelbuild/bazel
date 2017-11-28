@@ -497,7 +497,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         new CcToolchainProvider(
             getToolchainForSkylark(toolchainInfo),
             cppConfiguration,
-            toolchain,
             toolchainInfo,
             cppConfiguration.getCrosstoolTopPathFragment(),
             crosstool,

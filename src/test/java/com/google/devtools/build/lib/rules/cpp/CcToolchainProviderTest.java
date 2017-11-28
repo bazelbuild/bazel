@@ -40,7 +40,6 @@ public class CcToolchainProviderTest {
             null,
             null,
             null,
-            null,
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
@@ -71,7 +70,6 @@ public class CcToolchainProviderTest {
     CcToolchainProvider b =
         new CcToolchainProvider(
             ImmutableMap.of(),
-            null,
             null,
             null,
             null,

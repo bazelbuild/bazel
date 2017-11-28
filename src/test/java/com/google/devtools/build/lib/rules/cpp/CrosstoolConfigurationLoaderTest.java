@@ -215,16 +215,16 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .inOrder();
 
     assertThat(ccProvider.getLinkOptions()).isEmpty();
-    assertThat(toolchain.getFullyStaticLinkOptions(NO_FEATURES, false))
+    assertThat(CppHelper.getFullyStaticLinkOptions(toolchain, ccProvider, NO_FEATURES, false))
         .containsExactly("linker", "linker-fastbuild", "fully static")
         .inOrder();
-    assertThat(toolchain.getDynamicLinkOptions(NO_FEATURES, false))
+    assertThat(CppHelper.getDynamicLinkOptions(toolchain, ccProvider, NO_FEATURES, false))
         .containsExactly("linker", "linker-fastbuild", "dynamic")
         .inOrder();
-    assertThat(toolchain.getFullyStaticLinkOptions(NO_FEATURES, true))
+    assertThat(CppHelper.getFullyStaticLinkOptions(toolchain, ccProvider, NO_FEATURES, true))
         .containsExactly("linker", "linker-fastbuild", "mostly static", "solinker")
         .inOrder();
-    assertThat(toolchain.getDynamicLinkOptions(NO_FEATURES, true))
+    assertThat(CppHelper.getDynamicLinkOptions(toolchain, ccProvider, NO_FEATURES, true))
         .containsExactly("linker", "linker-fastbuild", "dynamic", "solinker")
         .inOrder();
 
@@ -263,6 +263,14 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "default_toolchain {\n"
                 + "  cpu: \"k8\"\n"
                 + "  toolchain_identifier: \"toolchain-identifier-B\"\n"
+                + "}\n"
+                + "default_toolchain {\n"
+                + "  cpu: \"darwin\"\n"
+                + "  toolchain_identifier: \"toolchain-identifier-A\"\n"
+                + "}\n"
+                + "default_toolchain {\n"
+                + "  cpu: \"x64_windows\"\n"
+                + "  toolchain_identifier: \"toolchain-identifier-A\"\n"
                 + "}\n"
                 + "toolchain {\n"
                 + "  toolchain_identifier: \"toolchain-identifier-A\"\n"
@@ -529,7 +537,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderA.getUnfilteredCompilerOptions(NO_FEATURES))
         .containsExactly("unfiltered-flag-A-1", "unfiltered-flag-A-2")
         .inOrder();
-    assertThat(toolchainA.getDynamicLinkOptions(NO_FEATURES, true))
+    assertThat(CppHelper.getDynamicLinkOptions(toolchainA, ccProviderA, NO_FEATURES, true))
         .containsExactly(
             "linker-flag-A-1",
             "linker-flag-A-2",
@@ -542,7 +550,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     // Only test a couple of compilation/lipo/linking mode combinations
     // (but test each mode at least once.)
     assertThat(
-            toolchainA.configureLinkerOptions(
+            ccProviderA.configureLinkerOptions(
                 CompilationMode.FASTBUILD,
                 LipoMode.OFF,
                 LinkingMode.FULLY_STATIC,
@@ -556,7 +564,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "fully-static-flag-A-2")
         .inOrder();
     assertThat(
-            toolchainA.configureLinkerOptions(
+            ccProviderA.configureLinkerOptions(
                 CompilationMode.DBG,
                 LipoMode.OFF,
                 LinkingMode.DYNAMIC,
@@ -565,7 +573,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "linker-flag-A-1", "linker-flag-A-2", "linker-dbg-flag-A-1", "linker-dbg-flag-A-2")
         .inOrder();
     assertThat(
-            toolchainA.configureLinkerOptions(
+            ccProviderA.configureLinkerOptions(
                 CompilationMode.OPT,
                 LipoMode.OFF,
                 LinkingMode.FULLY_STATIC,
@@ -575,7 +583,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .inOrder();
 
     assertThat(
-            toolchainA.configureLinkerOptions(
+            ccProviderA.configureLinkerOptions(
                 CompilationMode.OPT,
                 LipoMode.BINARY,
                 LinkingMode.FULLY_STATIC,
@@ -610,7 +618,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     // toolchain B bled through into toolchain A, the reverse also didn't occur. And
     // we test more of it with the "C" toolchain below.
     checkToolchainB(loader, LipoMode.OFF, "--cpu=k8", "--lipo=off");
-    checkToolchainB(loader, LipoMode.BINARY, "--cpu=k8", "--lipo=binary");
+    checkToolchainB(loader, LipoMode.BINARY, "--cpu=k8", "--lipo=binary", "--compilation_mode=opt");
 
     // Make sure nothing bled through to the nearly-empty "C" toolchain. This is also testing for
     // all the defaults.
@@ -645,23 +653,24 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchainC.getCOptions()).isEmpty();
     assertThat(toolchainC.getCxxOptions(NO_FEATURES)).isEmpty();
     assertThat(ccProviderC.getUnfilteredCompilerOptions(NO_FEATURES)).isEmpty();
-    assertThat(toolchainC.getDynamicLinkOptions(NO_FEATURES, true)).isEmpty();
+    assertThat(CppHelper.getDynamicLinkOptions(toolchainC, ccProviderC, NO_FEATURES, true))
+        .isEmpty();
     assertThat(
-            toolchainC.configureLinkerOptions(
+            ccProviderC.configureLinkerOptions(
                 CompilationMode.FASTBUILD,
                 LipoMode.OFF,
                 LinkingMode.FULLY_STATIC,
                 PathFragment.create("hello-world/ld")))
         .isEmpty();
     assertThat(
-            toolchainC.configureLinkerOptions(
+            ccProviderC.configureLinkerOptions(
                 CompilationMode.DBG,
                 LipoMode.OFF,
                 LinkingMode.DYNAMIC,
                 PathFragment.create("hello-world/ld")))
         .isEmpty();
     assertThat(
-            toolchainC.configureLinkerOptions(
+            ccProviderC.configureLinkerOptions(
                 CompilationMode.OPT,
                 LipoMode.OFF,
                 LinkingMode.FULLY_STATIC,
@@ -691,9 +700,10 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
       throws Exception {
     String lipoSuffix = lipoMode.toString().toLowerCase();
     CppConfiguration toolchainB = create(loader, args);
+    CcToolchainProvider ccProviderB = getCcToolchainProvider(toolchainB);
     assertThat(toolchainB.getToolchainIdentifier()).isEqualTo("toolchain-identifier-B");
     assertThat(
-            toolchainB.configureLinkerOptions(
+            ccProviderB.configureLinkerOptions(
                 CompilationMode.DBG,
                 lipoMode,
                 LinkingMode.DYNAMIC,
@@ -706,11 +716,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "linker-lipo_" + lipoSuffix)
         .inOrder();
     assertThat(toolchainB.getCompilerOptions(ImmutableList.of("crosstool_fig")))
-        .containsExactly(
+        .containsAllOf(
             "compiler-flag-B-1",
             "compiler-flag-B-2",
-            "fastbuild-flag-B-1",
-            "fastbuild-flag-B-2",
             "lipo_" + lipoSuffix,
             "-Wfig")
         .inOrder();

@@ -340,11 +340,16 @@ public final class LinkCommandLine extends CommandLine {
     toolchainFlags.addAll(linkopts);
     // Extra toolchain link options based on the output's link staticness.
     if (fullyStatic) {
-      toolchainFlags.addAll(cppConfiguration.getFullyStaticLinkOptions(features, sharedLinkopts));
+      toolchainFlags.addAll(
+          CppHelper.getFullyStaticLinkOptions(
+              cppConfiguration, ccProvider, features, sharedLinkopts));
     } else if (mostlyStatic) {
-      toolchainFlags.addAll(cppConfiguration.getMostlyStaticLinkOptions(features, sharedLinkopts));
+      toolchainFlags.addAll(
+          CppHelper.getMostlyStaticLinkOptions(
+              cppConfiguration, ccProvider, features, sharedLinkopts));
     } else {
-      toolchainFlags.addAll(cppConfiguration.getDynamicLinkOptions(features, sharedLinkopts));
+      toolchainFlags.addAll(
+          CppHelper.getDynamicLinkOptions(cppConfiguration, ccProvider, features, sharedLinkopts));
     }
 
     // Extra test-specific link options.
