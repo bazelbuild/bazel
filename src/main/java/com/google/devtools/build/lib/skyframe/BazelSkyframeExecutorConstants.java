@@ -14,22 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Hardcoded constants describing bazel-on-skyframe behavior. */
 public class BazelSkyframeExecutorConstants {
   private BazelSkyframeExecutorConstants() {
   }
-
-  public static final ImmutableSet<PathFragment> HARDCODED_BLACKLISTED_PACKAGE_PREFIXES =
-      ImmutableSet.of();
-
-  public static final PathFragment ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE =
-      PathFragment.EMPTY_FRAGMENT;
 
   public static final CrossRepositoryLabelViolationStrategy
       CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY = CrossRepositoryLabelViolationStrategy.ERROR;

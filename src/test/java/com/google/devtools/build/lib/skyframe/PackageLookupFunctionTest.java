@@ -79,8 +79,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
-  private static final String ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING =
-      "config/blacklisted.txt";
 
   protected abstract CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy();
 
@@ -119,9 +117,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper));
     skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        new BlacklistedPackagePrefixesFunction(
-            /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
-            PathFragment.create(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING)));
+        new BlacklistedPackagePrefixesFunction());
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
@@ -153,6 +149,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
+    PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.set(
+        differencer, PathFragment.EMPTY_FRAGMENT);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.SKYLARK_SEMANTICS.set(differencer, SkylarkSemantics.DEFAULT_SEMANTICS);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
@@ -207,12 +205,14 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     assertThat(packageLookupValue.getErrorMsg()).isNotNull();
   }
 
+
   @Test
   public void testBlacklistedPackage() throws Exception {
     scratch.file("blacklisted/subdir/BUILD");
     scratch.file("blacklisted/BUILD");
-    Path blacklist = scratch.overwriteFile(
-        ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "blacklisted");
+    PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.set(differencer,
+        PathFragment.create("config/blacklisted.txt"));
+    Path blacklist = scratch.file("config/blacklisted.txt", "blacklisted");
 
     ImmutableSet<String> pkgs = ImmutableSet.of("blacklisted/subdir", "blacklisted");
     for (String pkg : pkgs) {
@@ -222,8 +222,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       assertThat(packageLookupValue.getErrorMsg()).isNotNull();
     }
 
-    scratch.overwriteFile(
-        ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "not_blacklisted");
+    scratch.overwriteFile("config/blacklisted.txt", "not_blacklisted");
     RootedPath rootedBlacklist = RootedPath.toRootedPath(
         blacklist.getParentDirectory().getParentDirectory(),
         PathFragment.create("config/blacklisted.txt"));

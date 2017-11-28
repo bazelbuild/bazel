@@ -139,8 +139,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Predicate<PathFragment> allowedMissingInputs,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes,
-      PathFragment additionalBlacklistedPackagePrefixesFile,
+      PathFragment blacklistedPackagePrefixesFile,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
@@ -154,8 +153,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         allowedMissingInputs,
         extraSkyFunctions,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-        hardcodedBlacklistedPackagePrefixes,
-        additionalBlacklistedPackagePrefixesFile,
+        blacklistedPackagePrefixesFile,
         crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile);
@@ -173,8 +171,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Predicate<PathFragment> allowedMissingInputs,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes,
-      PathFragment additionalBlacklistedPackagePrefixesFile,
+      PathFragment blacklistedPackagePrefixesFile,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
@@ -190,8 +187,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             allowedMissingInputs,
             extraSkyFunctions,
             customDirtinessCheckers,
-            hardcodedBlacklistedPackagePrefixes,
-            additionalBlacklistedPackagePrefixesFile,
+            blacklistedPackagePrefixesFile,
             crossRepositoryLabelViolationStrategy,
             buildFilesByPriority,
             actionOnIOExceptionReadingBuildFile);
