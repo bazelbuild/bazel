@@ -35,19 +35,19 @@ if ($fixPackage -eq $true) {
   }
   $tvPackageFixVersion = "$($prefix)$((get-date).tostring("yyyyMMdd_hhmmss"))"
 }
-rm -force -ErrorAction SilentlyContinue "./*.nupkg"
-rm -force -ErrorAction SilentlyContinue "./bazel.nuspec"
-rm -force -ErrorAction SilentlyContinue "./tools/LICENSE*"
-rm -force -ErrorAction SilentlyContinue "./tools/*.orig"
-rm -force -ErrorAction SilentlyContinue "./tools/params.*"
+remove-item -force -ErrorAction SilentlyContinue "./*.nupkg"
+remove-item -force -ErrorAction SilentlyContinue "./bazel.nuspec"
+remove-item -force -ErrorAction SilentlyContinue "./tools/LICENSE*"
+remove-item -force -ErrorAction SilentlyContinue "./tools/*.orig"
+remove-item -force -ErrorAction SilentlyContinue "./tools/params.*"
 if ($checksum -eq "") {
-  rm -force -ErrorAction SilentlyContinue ./*.zip
+  remove-item -force -ErrorAction SilentlyContinue ./*.zip
 }
 
 if (($mode -eq "release") -or ($mode -eq "rc")) {
   Invoke-WebRequest "$($tvUri).sha256" -UseBasicParsing -passthru -outfile sha256.txt
   $tvChecksum = (gc sha256.txt).split(' ')[0]
-  rm sha256.txt
+  remove-item sha256.txt
 } elseif ($mode -eq "local") {
   Add-Type -A System.IO.Compression.FileSystem
   $outputDir = "$pwd/../../../output"
