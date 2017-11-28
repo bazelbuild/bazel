@@ -318,10 +318,9 @@ public class SkylarkRuleImplementationFunctions {
             throws EvalException {
           ctx.checkMutable("expand_location");
           try {
-            return new LocationExpander(
+            return LocationExpander.withExecPaths(
                     ctx.getRuleContext(),
-                    makeLabelMap(targets.getContents(TransitiveInfoCollection.class, "targets")),
-                    LocationExpander.Options.EXEC_PATHS)
+                    makeLabelMap(targets.getContents(TransitiveInfoCollection.class, "targets")))
                 .expand(input);
           } catch (IllegalStateException ise) {
             throw new EvalException(loc, ise);

@@ -17,12 +17,10 @@ package com.google.devtools.build.lib.analysis;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -104,43 +102,64 @@ public final class LocationExpander {
    *
    * @param ruleContext BUILD rule
    * @param labelMap A mapping of labels to build artifacts.
-   * @param options options
+   * @param execPaths If true, this expander will expand $(location)/$(locations) using
+   *     Artifact.getExecPath(); otherwise with Artifact.getRootRelativePath().
+   * @param allowData If true, this expander will expand locations from the `data` attribute;
+   *     otherwise it will not.
    */
   private LocationExpander(
       RuleContext ruleContext,
       @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
-      ImmutableSet<Options> options) {
+      boolean execPaths,
+      boolean allowData) {
     this(
         ruleContext,
         ruleContext.getLabel(),
         // Use a memoizing supplier to avoid eagerly building the location map.
         Suppliers.memoize(
-            () -> LocationExpander.buildLocationMap(
-                ruleContext, labelMap, options.contains(Options.ALLOW_DATA))),
-        options.contains(Options.EXEC_PATHS));
+            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
+        execPaths);
   }
 
   /**
-   * Creates location expander helper bound to specific target and with default location map.
+   * Creates an expander that expands $(location)/$(locations) using Artifact.getRootRelativePath().
+   *
+   * <p>The expander expands $(rootpath)/$(rootpaths) using Artifact.getRootRelativePath(), and
+   * $(execpath)/$(execpaths) using Artifact.getExecPath().
    *
    * @param ruleContext BUILD rule
    * @param labelMap A mapping of labels to build artifacts.
-   * @param options the list of options, see {@link Options}
    */
-  public LocationExpander(
-      RuleContext ruleContext, ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
-      Options... options) {
-    this(ruleContext, Preconditions.checkNotNull(labelMap), ImmutableSet.copyOf(options));
+  public static LocationExpander withRunfilesPaths(RuleContext ruleContext) {
+    return new LocationExpander(ruleContext, null, false, false);
   }
 
   /**
-   * Creates location expander helper bound to specific target.
+   * Creates an expander that expands $(location)/$(locations) using Artifact.getExecPath().
    *
-   * @param ruleContext the BUILD rule's context
-   * @param options the list of options, see {@link Options}.
+   * <p>The expander expands $(rootpath)/$(rootpaths) using Artifact.getRootRelativePath(), and
+   * $(execpath)/$(execpaths) using Artifact.getExecPath().
+   *
+   * @param ruleContext BUILD rule
+   * @param labelMap A mapping of labels to build artifacts.
    */
-  public LocationExpander(RuleContext ruleContext, Options... options) {
-    this(ruleContext, null, ImmutableSet.copyOf(options));
+  public static LocationExpander withExecPaths(
+      RuleContext ruleContext, ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap) {
+    return new LocationExpander(ruleContext, labelMap, true, false);
+  }
+
+  /**
+   * Creates an expander that expands $(location)/$(locations) using Artifact.getExecPath().
+   *
+   * <p>The expander expands $(rootpath)/$(rootpaths) using Artifact.getRootRelativePath(), and
+   * $(execpath)/$(execpaths) using Artifact.getExecPath().
+   *
+   * @param ruleContext BUILD rule
+   * @param labelMap A mapping of labels to build artifacts.
+   */
+  public static LocationExpander withExecPathsAndData(
+      RuleContext ruleContext, ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap) {
+    return new LocationExpander(ruleContext, labelMap, true, true);
   }
 
   public String expand(String input) {
