@@ -9,11 +9,11 @@ Build and test software of any size, quickly and reliably.
   With advanced local and distributed caching, optimized dependency analysis and
   parallel execution, you get fast and incremental builds.
 
-* **One tool, multiple languages**: Build and test Java, C++, Android, iOS, Go
+* **One tool, multiple languages**: Build and test Java, C++, Android, iOS, Go,
   and a wide variety of other language platforms. Bazel runs on Windows, macOS,
   and Linux.
 
-* **Scalable**: Bazel helps you scale your organization, codebase and Continuous
+* **Scalable**: Bazel helps you scale your organization, codebase, and Continuous
   Integration system.
   It handles codebases of any size, in multiple repositories or a huge monorepo.
 
