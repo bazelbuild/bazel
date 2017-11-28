@@ -31,19 +31,6 @@ import javax.annotation.Nullable;
  * Expansion of strings and string lists by replacing make variables and $(location) functions.
  */
 public final class Expander {
-  /** Indicates whether a string list attribute should be tokenized. */
-  private enum Tokenize {
-    YES,
-    NO
-  }
-
-  /** List of options to tweak the LocationExpander. */
-  public static enum Options {
-    /** output the execPath instead of the relative path */
-    EXEC_PATHS,
-    /** Allow to take label from the data attribute */
-    ALLOW_DATA,
-  }
 
   private final RuleContext ruleContext;
   private final TemplateContext templateContext;
@@ -54,38 +41,38 @@ public final class Expander {
   }
 
   /**
-   * Returns a new instance that also expands locations using the default configuration of
-   * {@link LocationTemplateContext}.
+   * Returns a new instance that also expands locations using the default configuration of {@link
+   * LocationTemplateContext}.
    */
-  public Expander withLocations(Options... options) {
+  private Expander withLocations(boolean execPaths, boolean allowData) {
     TemplateContext newTemplateContext =
-        new LocationTemplateContext(templateContext, ruleContext, options);
+        new LocationTemplateContext(templateContext, ruleContext, null, execPaths, allowData);
     return new Expander(ruleContext, newTemplateContext);
   }
 
   /**
-   * Returns a new instance that also expands locations, passing {@link Options#ALLOW_DATA} to the
-   * underlying {@link LocationTemplateContext}.
+   * Returns a new instance that also expands locations, passing {@code allowData} to the underlying
+   * {@link LocationTemplateContext}.
    */
   public Expander withDataLocations() {
-    return withLocations(Options.ALLOW_DATA);
+    return withLocations(false, true);
   }
 
   /**
-   * Returns a new instance that also expands locations, passing {@link Options#ALLOW_DATA} and
-   * {@link Options#EXEC_PATHS} to the underlying {@link LocationTemplateContext}.
+   * Returns a new instance that also expands locations, passing {@code allowData} and {@code
+   * execPaths} to the underlying {@link LocationTemplateContext}.
    */
   public Expander withDataExecLocations() {
-    return withLocations(Options.ALLOW_DATA, Options.EXEC_PATHS);
+    return withLocations(true, true);
   }
 
   /**
    * Returns a new instance that also expands locations, passing the given location map, as well as
-   * {@link Options#EXEC_PATHS} to the underlying {@link LocationTemplateContext}.
+   * {@code execPaths} to the underlying {@link LocationTemplateContext}.
    */
   public Expander withExecLocations(ImmutableMap<Label, ImmutableCollection<Artifact>> locations) {
     TemplateContext newTemplateContext =
-        new LocationTemplateContext(templateContext, ruleContext, locations, Options.EXEC_PATHS);
+        new LocationTemplateContext(templateContext, ruleContext, locations, true, false);
     return new Expander(ruleContext, newTemplateContext);
   }
 
@@ -97,19 +84,14 @@ public final class Expander {
       List<String> result,
       String attributeName,
       String value) {
-    expandValue(result, attributeName, value, Tokenize.YES);
+    expandValue(result, attributeName, value, /* shouldTokenize */ true);
   }
 
-  /**
-   * Expands make variables and $(location) tags in value, and optionally tokenizes the result.
-   */
+  /** Expands make variables and $(location) tags in value, and optionally tokenizes the result. */
   private void expandValue(
-      List<String> tokens,
-      String attributeName,
-      String value,
-      Tokenize tokenize) {
+      List<String> tokens, String attributeName, String value, boolean shouldTokenize) {
     value = expand(attributeName, value);
-    if (tokenize == Tokenize.YES) {
+    if (shouldTokenize) {
       try {
         ShellUtils.tokenize(tokens, value);
       } catch (ShellUtils.TokenizationException e) {
@@ -160,10 +142,10 @@ public final class Expander {
    * attribute name is only used for error reporting.
    */
   private ImmutableList<String> expandAndTokenizeList(
-      String attrName, List<String> values, Tokenize tokenize) {
+      String attrName, List<String> values, boolean shouldTokenize) {
     List<String> variables = new ArrayList<>();
     for (String variable : values) {
-      expandValue(variables, attrName, variable, tokenize);
+      expandValue(variables, attrName, variable, shouldTokenize);
     }
     return ImmutableList.copyOf(variables);
   }
@@ -181,7 +163,7 @@ public final class Expander {
    * Expands all the strings in the given list. The attribute name is only used for error reporting.
    */
   public ImmutableList<String> list(String attrName, List<String> values) {
-    return expandAndTokenizeList(attrName, values, Tokenize.NO);
+    return expandAndTokenizeList(attrName, values, /* shouldTokenize */ false);
   }
 
   /**
@@ -197,7 +179,7 @@ public final class Expander {
    * name is only used for error reporting.
    */
   public ImmutableList<String> tokenized(String attrName, List<String> values) {
-    return expandAndTokenizeList(attrName, values, Tokenize.YES);
+    return expandAndTokenizeList(attrName, values, /* shouldTokenize */ true);
   }
 
   /**

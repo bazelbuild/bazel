@@ -18,9 +18,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.Expander.Options;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -59,32 +57,19 @@ final class LocationTemplateContext implements TemplateContext {
     this.functions = LocationExpander.allLocationFunctions(root, locationMap, execPaths);
   }
 
-  private LocationTemplateContext(
+  public LocationTemplateContext(
       TemplateContext delegate,
       RuleContext ruleContext,
       @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
-      ImmutableSet<Options> options) {
+      boolean execPaths,
+      boolean allowData) {
     this(
         delegate,
         ruleContext.getLabel(),
         // Use a memoizing supplier to avoid eagerly building the location map.
         Suppliers.memoize(
-            () -> LocationExpander.buildLocationMap(
-                ruleContext, labelMap, options.contains(Options.ALLOW_DATA))),
-        options.contains(Options.EXEC_PATHS));
-  }
-
-  public LocationTemplateContext(
-      TemplateContext delegate,
-      RuleContext ruleContext,
-      @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
-      Options... options) {
-    this(delegate, ruleContext, labelMap, ImmutableSet.copyOf(options));
-  }
-
-  public LocationTemplateContext(
-      TemplateContext delegate, RuleContext ruleContext, Options... options) {
-    this(delegate, ruleContext, null, ImmutableSet.copyOf(options));
+            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
+        execPaths);
   }
 
   @Override
