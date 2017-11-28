@@ -60,16 +60,6 @@ import javax.annotation.Nullable;
  */
 public final class LocationExpander {
 
-  /**
-   * List of options to tweak the LocationExpander.
-   */
-  public static enum Options {
-    /** output the execPath instead of the relative path */
-    EXEC_PATHS,
-    /** Allow to take label from the data attribute */
-    ALLOW_DATA,
-  }
-
   private static final boolean EXACTLY_ONE = false;
   private static final boolean ALLOW_MULTIPLE = true;
 

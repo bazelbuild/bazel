@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LocationExpander.Options;
+import com.google.devtools.build.lib.analysis.Expander.Options;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -78,12 +78,12 @@ final class LocationTemplateContext implements TemplateContext {
       TemplateContext delegate,
       RuleContext ruleContext,
       @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
-      LocationExpander.Options... options) {
+      Options... options) {
     this(delegate, ruleContext, labelMap, ImmutableSet.copyOf(options));
   }
 
   public LocationTemplateContext(
-      TemplateContext delegate, RuleContext ruleContext, LocationExpander.Options... options) {
+      TemplateContext delegate, RuleContext ruleContext, Options... options) {
     this(delegate, ruleContext, null, ImmutableSet.copyOf(options));
   }
 

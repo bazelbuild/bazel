@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LocationExpander.Options;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
@@ -36,6 +35,14 @@ public final class Expander {
   private enum Tokenize {
     YES,
     NO
+  }
+
+  /** List of options to tweak the LocationExpander. */
+  public static enum Options {
+    /** output the execPath instead of the relative path */
+    EXEC_PATHS,
+    /** Allow to take label from the data attribute */
+    ALLOW_DATA,
   }
 
   private final RuleContext ruleContext;
