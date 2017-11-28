@@ -85,7 +85,8 @@ public class AbstractSpawnStrategyTest {
   public void testNonZeroExit() throws Exception {
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
     when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
-    SpawnResult result = new SpawnResult.Builder().setStatus(Status.SUCCESS).setExitCode(1).build();
+    SpawnResult result =
+        new SpawnResult.Builder().setStatus(Status.NON_ZERO_EXIT).setExitCode(1).build();
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
         .thenReturn(result);
 
@@ -151,7 +152,8 @@ public class AbstractSpawnStrategyTest {
 
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
     when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
-    SpawnResult result = new SpawnResult.Builder().setStatus(Status.SUCCESS).setExitCode(1).build();
+    SpawnResult result =
+        new SpawnResult.Builder().setStatus(Status.NON_ZERO_EXIT).setExitCode(1).build();
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class))).thenReturn(result);
 
     try {

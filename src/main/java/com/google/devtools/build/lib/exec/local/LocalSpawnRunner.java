@@ -239,7 +239,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
             ("Action type " + actionType + " is not allowed to run locally due to regex filter: "
                 + localExecutionOptions.allowedLocalAction + "\n").getBytes(UTF_8));
         return new SpawnResult.Builder()
-            .setStatus(Status.LOCAL_ACTION_NOT_ALLOWED)
+            .setStatus(Status.EXECUTION_DENIED)
             .setExitCode(LOCAL_EXEC_ERROR)
             .setExecutorHostname(hostName)
             .build();
@@ -322,11 +322,14 @@ public final class LocalSpawnRunner implements SpawnRunner {
         boolean wasTimeout =
             result.getTerminationStatus().timedOut()
                 || (useProcessWrapper && wasTimeout(policy.getTimeout(), wallTime));
-        Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
         int exitCode =
-            status == Status.TIMEOUT
+            wasTimeout
                 ? POSIX_TIMEOUT_EXIT_CODE
                 : result.getTerminationStatus().getRawExitCode();
+        Status status =
+            wasTimeout
+                ? Status.TIMEOUT
+                : (exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT);
         return new SpawnResult.Builder()
             .setStatus(status)
             .setExitCode(exitCode)

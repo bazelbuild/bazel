@@ -494,7 +494,7 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
-    assertThat(res.status()).isEqualTo(Status.SUCCESS);
+    assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
     assertThat(res.exitCode()).isEqualTo(31);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
@@ -598,7 +598,7 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
 
     SpawnResult res = runner.exec(spawn, policy);
-    assertThat(res.status()).isEqualTo(Status.SUCCESS);  // Even though the command failed.
+    assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
     assertThat(res.exitCode()).isEqualTo(33);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));

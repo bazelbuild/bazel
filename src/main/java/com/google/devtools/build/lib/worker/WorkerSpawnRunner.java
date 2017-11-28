@@ -159,9 +159,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
     FileOutErr outErr = policy.getFileOutErr();
     response.getOutputBytes().writeTo(outErr.getErrorStream());
 
+    int exitCode = response.getExitCode();
     return new SpawnResult.Builder()
-        .setExitCode(response.getExitCode())
-        .setStatus(SpawnResult.Status.SUCCESS)
+        .setExitCode(exitCode)
+        .setStatus(exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
         .setWallTime(wallTime)
         .build();
   }

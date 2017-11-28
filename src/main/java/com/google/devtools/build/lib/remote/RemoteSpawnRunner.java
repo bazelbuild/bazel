@@ -65,6 +65,8 @@ import javax.annotation.Nullable;
 /** A client for the remote execution service. */
 @ThreadSafe
 class RemoteSpawnRunner implements SpawnRunner {
+  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
+
   private final Path execRoot;
   private final RemoteOptions options;
   // TODO(olaola): This will be set on a per-action basis instead.
@@ -197,9 +199,10 @@ class RemoteSpawnRunner implements SpawnRunner {
   private SpawnResult downloadRemoteResults(ActionResult result, FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
     remoteCache.download(result, execRoot, outErr);
+    int exitCode = result.getExitCode();
     return new SpawnResult.Builder()
-        .setStatus(Status.SUCCESS)  // Even if the action failed with non-zero exit code.
-        .setExitCode(result.getExitCode())
+        .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
+        .setExitCode(exitCode)
         .build();
   }
 
@@ -219,19 +222,22 @@ class RemoteSpawnRunner implements SpawnRunner {
 
   private SpawnResult handleError(IOException cause, FileOutErr outErr) throws IOException,
       ExecException {
-    final Status status;
     if (cause instanceof TimeoutException) {
-      status = Status.TIMEOUT;
       // TODO(buchgr): provide stdout/stderr from the action that timed out.
       // Remove the unsuported message once remote execution tests no longer check for it.
       try (OutputStream out = outErr.getOutputStream()) {
         String msg = "Log output for timeouts is not yet supported in remote execution.\n";
         out.write(msg.getBytes(StandardCharsets.UTF_8));
       }
-      return new SpawnResult.Builder().setStatus(status).build();
-    } else if (cause instanceof RetryException
+      return new SpawnResult.Builder()
+          .setStatus(Status.TIMEOUT)
+          .setExitCode(POSIX_TIMEOUT_EXIT_CODE)
+          .build();
+    }
+    final Status status;
+    if (cause instanceof RetryException
         && ((RetryException) cause).causedByStatusCode(Code.UNAVAILABLE)) {
-      status = Status.CONNECTION_FAILED;
+      status = Status.EXECUTION_FAILED_CATASTROPHICALLY;
     } else if (cause instanceof CacheNotFoundException) {
       status = Status.REMOTE_CACHE_FAILED;
     } else {
@@ -240,8 +246,8 @@ class RemoteSpawnRunner implements SpawnRunner {
     throw new SpawnExecException(
         Throwables.getStackTraceAsString(cause),
         new SpawnResult.Builder()
-            .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())
             .setStatus(status)
+            .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())
             .build(),
         /* forciblyRunRemotely= */ false,
         /* catastrophe= */ true);

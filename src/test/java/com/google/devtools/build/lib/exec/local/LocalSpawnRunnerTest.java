@@ -343,7 +343,7 @@ public class LocalSpawnRunnerTest {
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any(SubprocessBuilder.class));
-    assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.NON_ZERO_EXIT);
     assertThat(result.exitCode()).isEqualTo(3);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
@@ -406,7 +406,7 @@ public class LocalSpawnRunnerTest {
     outErr = new FileOutErr();
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     SpawnResult reply = runner.exec(SIMPLE_SPAWN, policy);
-    assertThat(reply.status()).isEqualTo(SpawnResult.Status.LOCAL_ACTION_NOT_ALLOWED);
+    assertThat(reply.status()).isEqualTo(SpawnResult.Status.EXECUTION_DENIED);
     assertThat(reply.exitCode()).isEqualTo(-1);
     assertThat(reply.setupSuccess()).isFalse();
     assertThat(reply.getWallTime()).isEmpty();
