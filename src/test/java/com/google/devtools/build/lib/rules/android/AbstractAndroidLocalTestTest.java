@@ -94,12 +94,13 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
             "java/test/resource/dummyTest_resources.jar",
             "third_party/java/junit/junit.jar",
             "third_party/java/android/android_sdk_linux/platforms/stable/android_blaze.jar",
-            "third_party/java/robolectric/robolectric.jar",
-            "java/com/google/thirdparty/robolectric/robolectric.jar",
+            "third_party/java/robolectric/third_party_java_robolectric_deploy.jar",
+            "java/com/google/thirdparty/robolectric/"
+                + "java_com_google_thirdparty_robolectric_deploy.jar",
             "java/test/resource/libdummyLibraryOne.jar",
             "java/test/resource/libdummyLibraryTwo.jar",
             "java/test/resource/libdummyLibraryThree.jar",
-            "java/com/google/testing/junit/runner/librunner.jar")
+            "java/com/google/testing/junit/runner/Runner_deploy.jar")
         .inOrder();
   }
 
@@ -107,7 +108,12 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
   public void testCollectCodeCoverageWorks() throws Exception {
     writeFile("java/test/BUILD",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = [ 'test.java'])");
+        "        srcs = [ 'test.java'],",
+        "        deps = [ '//java/foo:lib' ])");
+
+    writeFile("java/foo/BUILD",
+        "java_library(name = 'lib',",
+        "srcs = ['foo.java'])");
 
     useConfiguration("--collect_code_coverage");
     checkMainClass(getConfiguredTarget("//java/test:dummyTest"),
