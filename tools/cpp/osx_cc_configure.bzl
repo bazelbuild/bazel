@@ -25,8 +25,8 @@ load(
     "@bazel_tools//tools/cpp:unix_cc_configure.bzl",
     "get_escaped_cxx_inc_directories",
     "tpl",
+    "get_cc",
     "get_env",
-    "find_cc",
     "configure_unix_toolchain"
 )
 
@@ -57,7 +57,7 @@ def configure_osx_toolchain(repository_ctx):
       repository_ctx,
       Label("@bazel_tools//tools/osx:xcode_locator.m"))
   if xcode_toolchains:
-    cc = find_cc(repository_ctx)
+    cc = get_cc(repository_ctx)
     tpl(repository_ctx, "osx_cc_wrapper.sh", {
         "%{cc}": escape_string(str(cc)),
         "%{env}": escape_string(get_env(repository_ctx))
