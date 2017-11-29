@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.FileArtifactValue.create;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -65,17 +64,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
-  private PathFragment allowedMissingInput = null;
-
   @Before
   public final void setUp() throws Exception  {
     delegateActionExecutionFunction = new SimpleActionExecutionFunction();
-    allowedMissingInputsPredicate = new Predicate<PathFragment>() {
-      @Override
-      public boolean apply(PathFragment input) {
-        return input.equals(allowedMissingInput);
-      }
-    };
   }
 
   private void assertFileArtifactValueMatches(boolean expectDigest) throws Throwable {
@@ -101,25 +92,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   public void testMissingNonMandatoryArtifact() throws Throwable {
     Artifact input = createSourceArtifact("input1");
     assertThat(evaluateArtifactValue(input, /*mandatory=*/ false)).isNotNull();
-  }
-
-  @Test
-  public void testMissingMandatoryAllowedMissingArtifact() throws Throwable {
-    Artifact input = createSourceArtifact("allowedMissing");
-    allowedMissingInput = input.getRootRelativePath();
-    assertThat(evaluateArtifactValue(input, /*mandatory=*/ true))
-        .isEqualTo(FileArtifactValue.MISSING_FILE_MARKER);
-  }
-
-  @Test
-  public void testUnreadableMandatoryAllowedMissingArtifact() throws Throwable {
-    Artifact input = createSourceArtifact("allowedMissing");
-    file(input.getPath(), "allowedMissing");
-    input.getPath().chmod(0);
-
-    allowedMissingInput = input.getRootRelativePath();
-    assertThat(evaluateArtifactValue(input, /*mandatory=*/ true))
-        .isEqualTo(FileArtifactValue.MISSING_FILE_MARKER);
   }
 
   @Test

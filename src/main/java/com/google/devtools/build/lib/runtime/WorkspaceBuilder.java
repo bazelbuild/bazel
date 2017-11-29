@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.SubscriberExceptionHandler;
@@ -31,7 +29,6 @@ import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.Map;
@@ -48,7 +45,6 @@ public final class WorkspaceBuilder {
   private WorkspaceStatusAction.Factory workspaceStatusActionFactory;
   private final ImmutableList.Builder<DiffAwareness.Factory> diffAwarenessFactories =
       ImmutableList.builder();
-  private Predicate<PathFragment> allowedMissingInputs;
   // We use an immutable map builder for the nice side effect that it throws if a duplicate key
   // is inserted.
   private final ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions =
@@ -71,9 +67,6 @@ public final class WorkspaceBuilder {
     if (skyframeExecutorFactory == null) {
       skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
     }
-    if (allowedMissingInputs == null) {
-      allowedMissingInputs = Predicates.alwaysFalse();
-    }
 
     SkyframeExecutor skyframeExecutor =
         skyframeExecutorFactory.create(
@@ -83,7 +76,6 @@ public final class WorkspaceBuilder {
             workspaceStatusActionFactory,
             ruleClassProvider.getBuildInfoFactories(),
             diffAwarenessFactories.build(),
-            allowedMissingInputs,
             skyFunctions.build(),
             customDirtinessCheckers.build());
     return new BlazeWorkspace(
@@ -137,18 +129,6 @@ public final class WorkspaceBuilder {
    */
   public WorkspaceBuilder addDiffAwarenessFactory(DiffAwareness.Factory factory) {
     this.diffAwarenessFactories.add(Preconditions.checkNotNull(factory));
-    return this;
-  }
-
-  /**
-   * Action inputs are allowed to be missing for all inputs where this predicate returns true. Only
-   * one predicate may be set per workspace.
-   */
-  public WorkspaceBuilder setAllowedMissingInputs(Predicate<PathFragment> allowedMissingInputs) {
-    Preconditions.checkArgument(this.allowedMissingInputs == null,
-        "At most one module may set allowed missing inputs. But found two: %s and %s",
-        this.allowedMissingInputs, allowedMissingInputs);
-    this.allowedMissingInputs = Preconditions.checkNotNull(allowedMissingInputs);
     return this;
   }
 

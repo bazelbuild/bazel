@@ -18,7 +18,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
@@ -478,7 +477,6 @@ public class IncrementalLoadingTest {
               null, /* workspaceStatusActionFactory */
               loadingMock.createRuleClassProvider().getBuildInfoFactories(),
               ImmutableList.of(new ManualDiffAwarenessFactory()),
-              Predicates.<PathFragment>alwaysFalse(),
               ImmutableMap.<SkyFunctionName, SkyFunction>of(),
               ImmutableList.<SkyValueDirtinessChecker>of(),
               PathFragment.EMPTY_FRAGMENT,

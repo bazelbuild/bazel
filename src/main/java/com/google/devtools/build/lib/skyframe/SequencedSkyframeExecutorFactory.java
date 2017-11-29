@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -38,7 +37,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
-      Predicate<PathFragment> allowedMissingInputs,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
     return SequencedSkyframeExecutor.create(
@@ -48,7 +46,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         workspaceStatusActionFactory,
         buildInfoFactories,
         diffAwarenessFactories,
-        allowedMissingInputs,
         extraSkyFunctions,
         customDirtinessCheckers,
         PathFragment.EMPTY_FRAGMENT,

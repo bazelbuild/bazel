@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -51,12 +50,6 @@ import javax.annotation.Nullable;
 
 /** A builder of values for {@link ArtifactSkyKey} keys. */
 class ArtifactFunction implements SkyFunction {
-
-  private final Predicate<PathFragment> allowedMissingInputs;
-
-  ArtifactFunction(Predicate<PathFragment> allowedMissingInputs) {
-    this.allowedMissingInputs = allowedMissingInputs;
-  }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -234,7 +227,7 @@ class ArtifactFunction implements SkyFunction {
       return null;
     }
     if (!fileValue.exists()) {
-      if (!mandatory || isAllowedMissingInput(fileSkyKey)) {
+      if (!mandatory) {
         return FileArtifactValue.MISSING_FILE_MARKER;
       } else {
         throw makeMissingInputFileException(artifact, mandatory, null, env.getListener());
@@ -243,15 +236,8 @@ class ArtifactFunction implements SkyFunction {
     try {
       return FileArtifactValue.create(artifact, fileValue);
     } catch (IOException e) {
-      if (isAllowedMissingInput(fileSkyKey)) {
-        return FileArtifactValue.MISSING_FILE_MARKER;
-      }
       throw makeMissingInputFileException(artifact, mandatory, e, env.getListener());
     }
-  }
-
-  private boolean isAllowedMissingInput(SkyKey fileSkyKey) {
-    return allowedMissingInputs.apply(((RootedPath) fileSkyKey.argument()).getRelativePath());
   }
 
   private static MissingInputFileException makeMissingInputFileException(
