@@ -195,7 +195,6 @@ public class BazelRuleClassProvider {
         @Override
         public void init(Builder builder) {
           builder.addRuleDefinition(new BazelToolchainTypeRule());
-          builder.addRuleDefinition(new CcToolchainTypeRule());
           builder.addRuleDefinition(new GenRuleBaseRule());
           builder.addRuleDefinition(new BazelGenRuleRule());
         }
@@ -376,6 +375,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new CcToolchainAlias.CcToolchainAliasRule());
           builder.addRuleDefinition(new CcIncLibraryRule());
           builder.addRuleDefinition(new CcImportRule());
+          builder.addRuleDefinition(new CcToolchainTypeRule());
           builder.addRuleDefinition(new BazelCppRuleClasses.CcLinkingRule());
           builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());
           builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());

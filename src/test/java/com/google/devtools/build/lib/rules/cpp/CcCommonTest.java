@@ -25,22 +25,17 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
-import com.google.devtools.build.lib.bazel.rules.BazelToolchainType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.util.FileType;
@@ -958,31 +953,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * A {@code toolchain_type} rule for testing that only supports C++.
-   */
-  public static class OnlyCppToolchainTypeRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          // This means that *every* toolchain_type rule depends on every configuration fragment
-          // that contributes Make variables, regardless of which one it is.
-          .requiresConfigurationFragments(CppConfiguration.class)
-          .removeAttribute("licenses")
-          .removeAttribute("distribs")
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return Metadata.builder()
-          .name("cc_toolchain_type")
-          .factoryClass(BazelToolchainType.class)
-          .ancestors(BaseRuleClasses.BaseRule.class)
-          .build();
-    }
-  }
-
-  /**
    * Tests for the case where there are only C++ rules defined.
    */
   @RunWith(JUnit4.class)
@@ -1002,7 +972,6 @@ public class CcCommonTest extends BuildViewTestCase {
           BazelRuleClassProvider.PLATFORM_RULES.init(builder);
           BazelRuleClassProvider.GENERIC_RULES.init(builder);
           BazelRuleClassProvider.CPP_RULES.init(builder);
-          builder.addRuleDefinition(new OnlyCppToolchainTypeRule());
           return builder.build();
         }
 
