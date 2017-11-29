@@ -16,7 +16,19 @@
 
 # Script for building bazel from scratch without bazel
 
-PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto)
+PROTO_FILES=$(ls \
+  src/main/protobuf/*.proto \
+  src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto \
+  third_party/pprof/*.proto \
+  third_party/googleapis/google/devtools/remoteexecution/v1test/*.proto \
+  third_party/googleapis/google/devtools/build/v1/*.proto \
+  third_party/googleapis/google/api/*.proto \
+  third_party/googleapis/google/api/experimental/*.proto \
+  third_party/googleapis/google/rpc/*.proto \
+  third_party/googleapis/google/longrunning/*.proto \
+  third_party/googleapis/google/bytestream/*.proto \
+  third_party/googleapis/google/watcher/v1/*.proto \
+)
 LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac-9-dev-r3297-4.jar | grep -Fv /javac-9-dev-4023-3.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve third_party/grpc/grpc.*jar | tr "\n" " ")
 GRPC_JAVA_VERSION=1.7.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e .*${GRPC_JAVA_VERSION}.*jar | tr "\n" " ")
@@ -193,6 +205,7 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
                 -I. \
                 -Isrc/main/protobuf/ \
                 -Isrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/ \
+                -Ithird_party/googleapis \
                 --java_out=${OUTPUT_DIR}/src \
                 --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
                 --grpc_out=${OUTPUT_DIR}/src "$f"
