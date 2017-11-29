@@ -299,7 +299,6 @@ cc_binary(
     name = "spend_cpu_time",
     testonly = 1,
     srcs = ["spend_cpu_time.cc"],
-    malloc = "//base:system_malloc",
 )
 
 ########################################################################
