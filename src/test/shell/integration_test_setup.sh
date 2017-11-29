@@ -22,7 +22,7 @@ function print_message_and_exit() {
 CURRENT_SCRIPT=${BASH_SOURCE[0]}
 # Go to the directory where the script is running
 cd "$(dirname ${CURRENT_SCRIPT})" \
-  || print_message_and_exit "Unable to access "$(dirname ${CURRENT_SCRIPT})""
+  || print_message_and_exit "Unable to access $(dirname ${CURRENT_SCRIPT})"
 
 DIR=$(pwd)
 # Load the unit test framework
