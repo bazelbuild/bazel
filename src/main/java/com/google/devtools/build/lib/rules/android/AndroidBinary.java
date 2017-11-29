@@ -1060,47 +1060,65 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact classesDex)
       throws InterruptedException, RuleErrorException {
     ImmutableList<Artifact> dexArchives;
-    if (proguardedJar != null
-        && AndroidCommon.getAndroidConfig(ruleContext).incrementalDexingShardsAfterProguard() > 1) {
+    if (proguardedJar == null
+        && (multidex || inclusionFilterJar == null)
+        && AndroidCommon.getAndroidConfig(ruleContext).incrementalDexingUseDexSharder()) {
       dexArchives =
-          makeShardArtifacts(
+          toDexedClasspath(
               ruleContext,
-              AndroidCommon.getAndroidConfig(ruleContext).incrementalDexingShardsAfterProguard(),
-              ".jar.dex.zip");
+              collectRuntimeJars(common, attributes),
+              collectDexArchives(
+                  ruleContext, common, dexopts, androidSemantics, derivedJarFunction));
     } else {
-      // TODO(b/36527448): Always use sharder, skipping shuffleJar when not using proguard
-      dexArchives = ImmutableList.of(AndroidBinary.getDxArtifact(ruleContext, "classes.jar"));
-    }
+      if (proguardedJar != null
+          && AndroidCommon.getAndroidConfig(ruleContext).incrementalDexingShardsAfterProguard()
+              > 1) {
+        // TODO(b/69816569): Also use this logic if #shards > #Jars on runtime classpath
+        dexArchives =
+            makeShardArtifacts(
+                ruleContext,
+                AndroidCommon.getAndroidConfig(ruleContext).incrementalDexingShardsAfterProguard(),
+                ".jar.dex.zip");
+      } else {
+        dexArchives = ImmutableList.of(AndroidBinary.getDxArtifact(ruleContext, "classes.jar"));
+      }
 
-    if (proguardedJar != null && dexArchives.size() == 1) {
-      // No need to shuffle, just run proguarded Jar through dexbuilder
-      DexArchiveAspect.createDexArchiveAction(
-          ruleContext,
-          proguardedJar,
-          DexArchiveAspect.topLevelDexbuilderDexopts(ruleContext, dexopts),
-          dexArchives.get(0));
-    } else {
-      createShuffleJarActions(
-          ruleContext,
-          /*makeDexArchives=*/ true,
-          proguardedJar,
-          dexArchives,
-          common,
-          inclusionFilterJar,
-          dexopts,
-          androidSemantics,
-          attributes,
-          derivedJarFunction,
-          (Artifact) null);
+      if (proguardedJar != null && dexArchives.size() == 1) {
+        // No need to shuffle, just run proguarded Jar through dexbuilder
+        DexArchiveAspect.createDexArchiveAction(
+            ruleContext,
+            proguardedJar,
+            DexArchiveAspect.topLevelDexbuilderDexopts(ruleContext, dexopts),
+            dexArchives.get(0));
+      } else {
+        createShuffleJarActions(
+            ruleContext,
+            /*makeDexArchives=*/ true,
+            proguardedJar,
+            dexArchives,
+            common,
+            inclusionFilterJar,
+            dexopts,
+            androidSemantics,
+            attributes,
+            derivedJarFunction,
+            (Artifact) null);
+        inclusionFilterJar = null;
+      }
     }
 
     if (dexArchives.size() == 1 || !multidex) {
+      checkState(inclusionFilterJar == null);
       createDexMergerAction(
           ruleContext, multidex ? "minimal" : "off", dexArchives, classesDex, mainDexList, dexopts);
     } else {
       Artifact shardsToMerge =
-          createSharderAction(ruleContext, dexArchives, mainDexList,
-              dexopts.contains(DX_MINIMAL_MAIN_DEX_OPTION));
+          createSharderAction(
+              ruleContext,
+              dexArchives,
+              mainDexList,
+              dexopts.contains(DX_MINIMAL_MAIN_DEX_OPTION),
+              inclusionFilterJar);
       Artifact multidexShards =
           createTemplatedMergerActions(ruleContext, shardsToMerge, dexopts);
       // TODO(b/69431301): avoid this action and give the files to apk build action directly
@@ -1184,7 +1202,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       ImmutableList<Artifact> dexArchives,
       @Nullable Artifact mainDexList,
-      boolean minimalMainDex) {
+      boolean minimalMainDex,
+      @Nullable Artifact inclusionFilterJar) {
     Artifact outputTree =
         ruleContext.getTreeArtifact(
             ruleContext.getUniqueDirectory("dexsplits"), ruleContext.getBinOrGenfilesDirectory());
@@ -1210,6 +1229,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
     if (minimalMainDex) {
       shardCommandLine.add(DX_MINIMAL_MAIN_DEX_OPTION);
+    }
+    if (inclusionFilterJar != null) {
+      shardCommandLine.addExecPath("--inclusion_filter_jar", inclusionFilterJar);
+      shardAction.addInput(inclusionFilterJar);
     }
     ruleContext.registerAction(
         shardAction.addCommandLine(shardCommandLine.build()).build(ruleContext));
@@ -1450,11 +1473,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       shardCommandLine.addExecPath("--input_jar", proguardedJar);
       shardAction.addInput(proguardedJar);
     } else {
-      ImmutableList<Artifact> classpath =
-          ImmutableList.<Artifact>builder()
-              .addAll(common.getRuntimeJars())
-              .addAll(attributes.getRuntimeClassPathForArchive())
-              .build();
+      ImmutableList<Artifact> classpath = collectRuntimeJars(common, attributes);
       // Check whether we can use dex archives.  Besides the --incremental_dexing flag, also
       // make sure the "dexopts" attribute on this target doesn't mention any problematic flags.
       if (makeDexArchives) {
@@ -1463,25 +1482,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         // step below will have to deal with those in addition to merging .dex files together.
         Map<Artifact, Artifact> dexArchives =
             collectDexArchives(ruleContext, common, dexopts, semantics, derivedJarFunction);
-        ImmutableList.Builder<Artifact> dexedClasspath = ImmutableList.builder();
-        boolean reportMissing =
-            AndroidCommon.getAndroidConfig(ruleContext).incrementalDexingErrorOnMissedJars();
-        for (Artifact jar : classpath) {
-          Artifact dexArchive = dexArchives.get(jar);
-          if (reportMissing && dexArchive == null) {
-            // Users can create this situation by directly depending on a .jar artifact (checked in
-            // or coming from a genrule or similar, b/11285003).  This will also catch new  implicit
-            // dependencies that incremental dexing would need to be extended to (b/34949364).
-            // Typically the fix for the latter involves propagating DexArchiveAspect along the
-            // attribute defining the new implicit dependency.
-            ruleContext.throwWithAttributeError("deps", "Dependencies on .jar artifacts are not "
-                + "allowed in Android binaries, please use a java_import to depend on "
-                + jar.prettyPrint() + ". If this is an implicit dependency then the rule that "
-                + "introduces it will need to be fixed to account for it correctly.");
-          }
-          dexedClasspath.add(dexArchive != null ? dexArchive : jar);
-        }
-        classpath = dexedClasspath.build();
+        classpath = toDexedClasspath(ruleContext, classpath, dexArchives);
         shardCommandLine.add("--split_dexed_classes");
       } else {
         classpath = classpath.stream().map(derivedJarFunction).collect(toImmutableList());
@@ -1509,6 +1510,40 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       }
     }
     return javaResourceJar;
+  }
+
+  private static ImmutableList<Artifact> collectRuntimeJars(
+      AndroidCommon common, JavaTargetAttributes attributes) {
+    return ImmutableList.<Artifact>builder()
+        .addAll(common.getRuntimeJars())
+        .addAll(attributes.getRuntimeClassPathForArchive())
+        .build();
+  }
+
+  private static ImmutableList<Artifact> toDexedClasspath(
+      RuleContext ruleContext,
+      ImmutableList<Artifact> classpath,
+      Map<Artifact, Artifact> dexArchives)
+      throws RuleErrorException {
+    ImmutableList.Builder<Artifact> dexedClasspath = ImmutableList.builder();
+    boolean reportMissing =
+        AndroidCommon.getAndroidConfig(ruleContext).incrementalDexingErrorOnMissedJars();
+    for (Artifact jar : classpath) {
+      Artifact dexArchive = dexArchives.get(jar);
+      if (reportMissing && dexArchive == null) {
+        // Users can create this situation by directly depending on a .jar artifact (checked in
+        // or coming from a genrule or similar, b/11285003).  This will also catch new  implicit
+        // dependencies that incremental dexing would need to be extended to (b/34949364).
+        // Typically the fix for the latter involves propagating DexArchiveAspect along the
+        // attribute defining the new implicit dependency.
+        ruleContext.throwWithAttributeError("deps", "Dependencies on .jar artifacts are not "
+            + "allowed in Android binaries, please use a java_import to depend on "
+            + jar.prettyPrint() + ". If this is an implicit dependency then the rule that "
+            + "introduces it will need to be fixed to account for it correctly.");
+      }
+      dexedClasspath.add(dexArchive != null ? dexArchive : jar);
+    }
+    return dexedClasspath.build();
   }
 
   // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.

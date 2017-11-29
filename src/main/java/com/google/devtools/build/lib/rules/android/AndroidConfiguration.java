@@ -458,6 +458,17 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean incrementalDexingErrorOnMissedJars;
 
+    /** Whether to use a separate tool to shard classes before merging them into final dex files. */
+    @Option(
+      name = "experimental_use_dex_splitter_for_incremental_dexing",
+      defaultValue = "false",
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "Do not use."
+    )
+    public boolean incrementalDexingUseDexSharder;
+
     // TODO(b/31711689): Remove this flag when this optimization is proven to work globally.
     @Option(
       name = "experimental_android_assume_minsdkversion",
@@ -825,6 +836,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
       host.incrementalDexingForLiteProtos = incrementalDexingForLiteProtos;
       host.incrementalDexingErrorOnMissedJars = incrementalDexingErrorOnMissedJars;
+      host.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
       host.assumeMinSdkVersion = assumeMinSdkVersion;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
@@ -869,6 +881,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final int incrementalDexingShardsAfterProguard;
   private final boolean incrementalDexingForLiteProtos;
   private final boolean incrementalDexingErrorOnMissedJars;
+  private final boolean incrementalDexingUseDexSharder;
   private final boolean assumeMinSdkVersion;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
@@ -905,6 +918,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
     this.incrementalDexingForLiteProtos = options.incrementalDexingForLiteProtos;
     this.incrementalDexingErrorOnMissedJars = options.incrementalDexingErrorOnMissedJars;
+    this.incrementalDexingUseDexSharder = options.incrementalDexingUseDexSharder;
     this.assumeMinSdkVersion = options.assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
@@ -981,6 +995,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean incrementalDexingErrorOnMissedJars() {
     return incrementalDexingErrorOnMissedJars;
+  }
+
+  /** Whether to use a separate tool to shard classes before merging them into final dex files. */
+  public boolean incrementalDexingUseDexSharder() {
+    return incrementalDexingUseDexSharder;
   }
 
   /**
