@@ -79,7 +79,7 @@ public final class RestBlobStore implements SimpleBlobStore {
   @Override
   public boolean containsKey(String key) throws IOException {
     HttpClient client = clientFactory.build();
-    HttpHead head = new HttpHead(baseUrl + "/" + key);
+    HttpHead head = new HttpHead(baseUrl + "/" + CAS_PREFIX + "/" + key);
     return client.execute(
         head,
         response -> {
