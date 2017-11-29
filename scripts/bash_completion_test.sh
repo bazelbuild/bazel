@@ -68,7 +68,7 @@ expand() {
         #
         # Alias expansion still inserts an extra space after 'blaze',
         # though, hence the following sed.  Not sure why.
-        for i in ${COMMAND_ALIASES[@]}; do
+        for i in "${COMMAND_ALIASES[@]}"; do
           echo "alias $i=\"echo $i'\""
         done
         echo -en "$input'"
@@ -82,7 +82,7 @@ expand() {
 # e.g. assert_expansion 'foo' 'foo_expand' 'flag1=bar;flag2=baz'
 assert_expansion() {
     local prefix=$1 expected=$2 flags=${3:-}
-    for i in ${COMMAND_ALIASES[@]}; do
+    for i in "${COMMAND_ALIASES[@]}"; do
       local nprefix="$i $prefix"
       local nexpected="$i $expected"
       assert_equals "$nexpected" "$(expand "$nprefix\t" "$flags" "/dev/null")"
@@ -100,7 +100,7 @@ assert_expansion() {
 assert_expansion_error_not_contains() {
   local prefix=$1 not_expected=$2 flags=${3:-}
   local temp_file="$(mktemp "${TEST_TMPDIR}/tmp.stderr.XXXXXX")"
-  for i in ${COMMAND_ALIASES[@]}; do
+  for i in "${COMMAND_ALIASES[@]}"; do
     local nprefix="$i "
     expand "$nprefix\t" "$flags" "$temp_file" > /dev/null
     assert_not_contains "$not_expected" "$temp_file"

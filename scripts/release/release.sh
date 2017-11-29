@@ -122,11 +122,11 @@ function create_release_commit() {
 function apply_cherry_picks() {
   echo "Applying cherry-picks"
   # Apply cherry-picks
-  for i in $@; do
+  for commit in "$@"; do
     local previous_head="$(git rev-parse HEAD)"
-    echo "  Cherry-picking $i"
-    git cherry-pick $i >/dev/null || {
-      echo "Failed to cherry-pick $i. please resolve the conflict and exit." >&2
+    echo "  Cherry-picking ${commit}"
+    git cherry-pick ${commit} >/dev/null || {
+      echo "Failed to cherry-pick ${commit}. please resolve the conflict and exit." >&2
       echo "  Use 'git cherry-pick --abort; exit' to abort the cherry-picks." >&2
       echo "  Use 'git cherry-pick --continue; exit' to resolve the conflict." >&2
       bash
@@ -137,7 +137,7 @@ function apply_cherry_picks() {
     }
     # Add the origin of the cherry-pick in case the patch-id diverge and we cannot
     # find the original commit.
-    git notes --ref=cherrypick add -f -m "$i"
+    git notes --ref=cherrypick add -f -m "${commit}"
   done
   return 0
 }
@@ -147,9 +147,9 @@ function find_last_release() {
   local branch="${1:-HEAD}"
   local baseline="${2:-$(get_release_baseline "${branch}")}"
   local changes="$(git log --pretty=format:%H "${baseline}~".."${branch}")"
-  for i in ${changes}; do
-    if git notes --ref=release show $i &>/dev/null; then
-      echo $i
+  for change in ${changes}; do
+    if git notes --ref=release show ${change} &>/dev/null; then
+      echo ${change}
       return 0
     fi
   done
