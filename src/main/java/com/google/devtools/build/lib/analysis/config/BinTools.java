@@ -33,15 +33,22 @@ import java.io.IOException;
  * using relative paths from the execution root.
  */
 public final class BinTools {
-  private final BlazeDirectories directories;
+  private final Path embeddedBinariesRoot;
   private final Path execrootParent;
   private final ImmutableList<String> embeddedTools;
 
   private Path binDir;  // the working bin directory under execRoot
 
   private BinTools(BlazeDirectories directories, ImmutableList<String> tools) {
-    this.directories = directories;
-    this.execrootParent = directories.getExecRoot().getParentDirectory();
+    this(
+        directories.getEmbeddedBinariesRoot(),
+        directories.getExecRoot().getParentDirectory(),
+        tools);
+  }
+
+  private BinTools(Path embeddedBinariesRoot, Path execrootParent, ImmutableList<String> tools) {
+    this.embeddedBinariesRoot = embeddedBinariesRoot;
+    this.execrootParent = execrootParent;
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     // Files under embedded_tools shouldn't be copied to under _bin dir
     // They won't be used during action execution time.
@@ -69,8 +76,8 @@ public final class BinTools {
    */
   @VisibleForTesting
   public static BinTools empty(BlazeDirectories directories) {
-    return new BinTools(directories, ImmutableList.<String>of()).setBinDir(
-        directories.getWorkspace().getBaseName());
+    return new BinTools(directories, ImmutableList.<String>of())
+        .setBinDir(directories.getWorkspace().getBaseName());
   }
 
   /**
@@ -80,8 +87,21 @@ public final class BinTools {
    */
   @VisibleForTesting
   public static BinTools forUnitTesting(BlazeDirectories directories, Iterable<String> tools) {
-    return new BinTools(directories, ImmutableList.copyOf(tools)).setBinDir(
-        directories.getWorkspace().getBaseName());
+    return new BinTools(directories, ImmutableList.copyOf(tools))
+        .setBinDir(directories.getWorkspace().getBaseName());
+  }
+
+  /**
+   * Creates an instance for testing without actually symlinking the tools.
+   *
+   * <p>Used for tests that need a set of embedded tools to be present, but not the actual files.
+   */
+  @VisibleForTesting
+  public static BinTools forUnitTesting(Path execroot, Iterable<String> tools) {
+    return new BinTools(
+        execroot.getRelative("/fake/embedded/tools"),
+        execroot.getParentDirectory(),
+        ImmutableList.copyOf(tools)).setBinDir(execroot.getBaseName());
   }
 
   /**
@@ -168,7 +188,7 @@ public final class BinTools {
 
   private void setupTool(String embeddedPath) throws ExecException {
     Preconditions.checkNotNull(binDir);
-    Path sourcePath = directories.getEmbeddedBinariesRoot().getRelative(embeddedPath);
+    Path sourcePath = embeddedBinariesRoot.getRelative(embeddedPath);
     Path linkPath = binDir.getRelative(PathFragment.create(embeddedPath).getBaseName());
     linkTool(sourcePath, linkPath);
   }

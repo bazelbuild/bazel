@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -197,7 +198,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 
-    boolean allowNetworkForThisSpawn = allowNetwork || SandboxHelpers.shouldAllowNetwork(spawn);
+    boolean allowNetworkForThisSpawn = allowNetwork || Spawns.requiresNetwork(spawn);
     SandboxedSpawn sandbox = new SymlinkedSandboxedSpawn(
         sandboxPath,
         sandboxExecRoot,

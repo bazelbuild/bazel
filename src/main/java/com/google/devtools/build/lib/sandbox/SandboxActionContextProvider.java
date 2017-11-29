@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
@@ -121,7 +122,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     @Override
     public SpawnResult exec(Spawn spawn, SpawnExecutionPolicy policy)
         throws InterruptedException, IOException, ExecException {
-      if (!spawn.isRemotable() || spawn.hasNoSandbox()) {
+      if (!Spawns.mayBeSandboxed(spawn)) {
         return fallbackSpawnRunner.exec(spawn, policy);
       } else {
         return sandboxSpawnRunner.exec(spawn, policy);

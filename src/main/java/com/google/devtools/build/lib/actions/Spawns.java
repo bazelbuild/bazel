@@ -32,6 +32,21 @@ public final class Spawns {
     return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_CACHE);
   }
 
+  public static boolean mayBeSandboxed(Spawn spawn) {
+    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LEGACY_NOSANDBOX)
+        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_SANDBOX)
+        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
+  }
+
+  public static boolean requiresNetwork(Spawn spawn) {
+    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.BLOCK_NETWORK);
+  }
+
+  public static boolean mayBeExecutedRemotely(Spawn spawn) {
+    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL)
+        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE);
+  }
+
   /**
    * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return -1.
    */

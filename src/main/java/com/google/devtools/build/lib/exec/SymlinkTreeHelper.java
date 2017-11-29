@@ -18,11 +18,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -37,18 +41,17 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Helper class responsible for the symlink tree creation.
- * Used to generate runfiles and fileset symlink farms.
+ * Helper class responsible for the symlink tree creation. Used to generate runfiles and fileset
+ * symlink farms.
  */
 public final class SymlinkTreeHelper {
   @VisibleForTesting
   public static final String BUILD_RUNFILES = "build-runfiles" + OsUtils.executableExtension();
 
   /**
-   * These actions run faster overall when serialized, because most of their
-   * cost is in the ext2 block allocator, and there's less seeking required if
-   * their directory creations get non-interleaved allocations. So we give them
-   * a huge resource cost.
+   * These actions run faster overall when serialized, because most of their cost is in the ext2
+   * block allocator, and there's less seeking required if their directory creations get
+   * non-interleaved allocations. So we give them a huge resource cost.
    */
   public static final ResourceSet RESOURCE_SET = ResourceSet.createWithRamCpuIo(1000, 0.5, 0.75);
 
@@ -57,16 +60,14 @@ public final class SymlinkTreeHelper {
   private final boolean filesetTree;
 
   /**
-   * Creates SymlinkTreeHelper instance. Can be used independently of
-   * SymlinkTreeAction.
+   * Creates SymlinkTreeHelper instance. Can be used independently of SymlinkTreeAction.
    *
    * @param inputManifest exec path to the input runfiles manifest
    * @param symlinkTreeRoot the root of the symlink tree to be created
    * @param filesetTree true if this is fileset symlink tree,
    *                    false if this is a runfiles symlink tree.
    */
-  public SymlinkTreeHelper(Path inputManifest, Path symlinkTreeRoot,
-      boolean filesetTree) {
+  public SymlinkTreeHelper(Path inputManifest, Path symlinkTreeRoot, boolean filesetTree) {
     this.inputManifest = inputManifest;
     this.symlinkTreeRoot = symlinkTreeRoot;
     this.filesetTree = filesetTree;
@@ -77,20 +78,19 @@ public final class SymlinkTreeHelper {
   }
 
   /**
-   * Creates a symlink tree using a CommandBuilder. This means that the symlink
-   * tree will always be present on the developer's workstation. Useful when
-   * running commands locally.
+   * Creates a symlink tree using a CommandBuilder. This means that the symlink tree will always be
+   * present on the developer's workstation. Useful when running commands locally.
    *
-   * Warning: this method REALLY executes the command on the box Blaze was
-   * run on, without any kind of synchronization, locking, or anything else.
+   * Warning: this method REALLY executes the command on the box Bazel is running on, without any
+   * kind of synchronization, locking, or anything else.
    *
    * @param config the configuration that is used for creating the symlink tree.
    * @throws CommandException
    */
-  public void createSymlinksUsingCommand(Path execRoot,
-      BuildConfiguration config, BinTools binTools) throws CommandException {
+  public void createSymlinksUsingCommand(
+      Path execRoot, BuildConfiguration config, BinTools binTools)
+          throws CommandException {
     List<String> argv = getSpawnArgumentList(execRoot, binTools);
-
     CommandBuilder builder = new CommandBuilder();
     builder.addArgs(argv);
     builder.setWorkingDir(execRoot);
@@ -101,30 +101,30 @@ public final class SymlinkTreeHelper {
    * Creates symlink tree using appropriate method. At this time tree always created using
    * build-runfiles helper application.
    *
-   * <p>Note: method may try to acquire resources - meaning that it would block for undetermined
-   * period of time. If it is interrupted during that wait, ExecException will be thrown but
-   * interrupted bit will be preserved.
-   *
-   * @param action action instance that requested symlink tree creation
+   * @param owner action instance that requested symlink tree creation
    * @param actionExecutionContext Services that are in the scope of the action.
    * @param enableRunfiles
    * @return a list of SpawnResults created during symlink creation, if any
    */
   public List<SpawnResult> createSymlinks(
-      AbstractAction action,
+      ActionExecutionMetadata owner,
       ActionExecutionContext actionExecutionContext,
       BinTools binTools,
       ImmutableMap<String, String> shellEnvironment,
+      Artifact inputManifestArtifact,
       boolean enableRunfiles)
-      throws ExecException, InterruptedException {
+          throws ExecException, InterruptedException {
+    Preconditions.checkState(inputManifestArtifact.getPath().equals(inputManifest));
     if (enableRunfiles) {
-      List<String> args =
-          getSpawnArgumentList(
-              actionExecutionContext.getExecRoot(), binTools);
       return actionExecutionContext
-          .getSpawnActionContext(action.getMnemonic())
+          .getSpawnActionContext(owner.getMnemonic())
           .exec(
-              new BaseSpawn.Local(args, shellEnvironment, action, RESOURCE_SET),
+              createSpawn(
+                  owner,
+                  actionExecutionContext.getExecRoot(),
+                  binTools,
+                  shellEnvironment,
+                  inputManifestArtifact),
               actionExecutionContext);
     } else {
       // Pretend we created the runfiles tree by copying the manifest
@@ -138,10 +138,30 @@ public final class SymlinkTreeHelper {
     }
   }
 
+  @VisibleForTesting
+  Spawn createSpawn(
+      ActionExecutionMetadata owner,
+      Path execRoot,
+      BinTools binTools,
+      ImmutableMap<String, String> environment,
+      ActionInput inputManifestArtifact) {
+    return new SimpleSpawn(
+        owner,
+        getSpawnArgumentList(execRoot, binTools),
+        environment,
+        ImmutableMap.of(
+            ExecutionRequirements.LOCAL, "",
+            ExecutionRequirements.NO_CACHE, "",
+            ExecutionRequirements.NO_SANDBOX, ""),
+        ImmutableList.of(inputManifestArtifact),
+        /*outputs=*/ ImmutableList.of(),
+        RESOURCE_SET);
+  }
+
   /**
    * Returns the complete argument list build-runfiles has to be called with.
    */
-  private List<String> getSpawnArgumentList(Path execRoot, BinTools binTools) {
+  private ImmutableList<String> getSpawnArgumentList(Path execRoot, BinTools binTools) {
     PathFragment path = binTools.getExecPath(BUILD_RUNFILES);
     Preconditions.checkNotNull(path, BUILD_RUNFILES + " not found in embedded tools");
 
@@ -156,6 +176,6 @@ public final class SymlinkTreeHelper {
     args.add(inputManifest.relativeTo(execRoot).getPathString());
     args.add(symlinkTreeRoot.relativeTo(execRoot).getPathString());
 
-    return args;
+    return ImmutableList.copyOf(args);
   }
 }

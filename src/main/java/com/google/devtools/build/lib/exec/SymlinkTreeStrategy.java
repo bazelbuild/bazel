@@ -55,18 +55,25 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         AutoProfiler.logged(
             "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {
       try {
-        SymlinkTreeHelper helper = new SymlinkTreeHelper(
-            action.getInputManifest().getPath(),
-            action.getOutputManifest().getPath().getParentDirectory(), action.isFilesetTree());
         if (outputService != null && outputService.canCreateSymlinkTree()) {
-          outputService.createSymlinkTree(action.getInputManifest().getPath(),
+          outputService.createSymlinkTree(
+              action.getInputManifest().getPath(),
               action.getOutputManifest().getPath(),
               action.isFilesetTree(),
               action.getOutputManifest().getExecPath().getParentDirectory());
           return ImmutableList.of();
         } else {
+          SymlinkTreeHelper helper = new SymlinkTreeHelper(
+              action.getInputManifest().getPath(),
+              action.getOutputManifest().getPath().getParentDirectory(),
+              action.isFilesetTree());
           return helper.createSymlinks(
-              action, actionExecutionContext, binTools, shellEnvironment, enableRunfiles);
+              action,
+              actionExecutionContext,
+              binTools,
+              shellEnvironment,
+              action.getInputManifest(),
+              enableRunfiles);
         }
       } catch (ExecException e) {
         throw e.toActionExecutionException(

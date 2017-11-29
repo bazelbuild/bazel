@@ -21,6 +21,20 @@
 </p>
 
 <ul>
+  <li><code>no-sandbox</code> keyword results in the action or test never being
+    <a href="../user-manual.html#sandboxing">sandboxed</a>; it can still be
+    cached or run remotely - use <code>no-cache</code> or <code>no-remote</code>
+    to prevent either or both of those.
+  </li>
+
+  <li><code>no-cache</code> keyword results in the action or test never being
+    cached.
+  </li>
+
+  <li><code>no-remote</code> keyword results in the action or test never being
+    executed remotely (but it may be cached remotely).
+  </li>
+
   <li><code>local</code> keyword results in the action or test never being
     run remotely or inside the
     <a href="../user-manual.html#sandboxing">sandbox</a>.
@@ -30,7 +44,8 @@
 
   <li><code>block-network</code> keyword blocks access to the external
     network from inside the sandbox. In this case, only communication
-    with localhost is allowed.
+    with localhost is allowed. This tag only has an effect if sandboxing is
+    enabled.
   </li>
 
   <li><code>requires-fakeroot</code> runs the test or action as uid and gid 0 (i.e., the root

@@ -203,16 +203,23 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns the execution info. These include execution requirement
-   * tags ('requires-*' as well as "local") as keys with empty values.
+   * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
+   * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
    */
   public static Map<String, String> getExecutionInfo(Rule rule) {
     // tags may contain duplicate values.
     Map<String, String> map = new HashMap<>();
     for (String tag :
         NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
+      // We don't want to pollute the execution info with random things, and we also need to reserve
+      // some internal tags that we don't allow to be set on targets. We also don't want to
+      // exhaustively enumerate all the legal values here. Right now, only a ~small set of tags is
+      // recognized by Bazel.
       if (tag.startsWith("block-")
           || tag.startsWith("requires-")
+          || tag.startsWith("no-")
+          || tag.startsWith("supports-")
+          || tag.startsWith("disable-")
           || tag.equals("local")
           || tag.startsWith("cpu:")) {
         map.put(tag, "");

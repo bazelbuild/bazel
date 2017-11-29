@@ -108,7 +108,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionPolicy policy)
       throws ExecException, InterruptedException, IOException {
-    if (!spawn.isRemotable() || remoteCache == null) {
+    if (!Spawns.mayBeExecutedRemotely(spawn) || remoteCache == null) {
       return fallbackRunner.exec(spawn, policy);
     }
 

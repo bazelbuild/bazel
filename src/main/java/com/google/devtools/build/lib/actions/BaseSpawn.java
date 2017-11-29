@@ -69,16 +69,6 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public boolean hasNoSandbox() {
-    return executionInfo.containsKey("nosandbox");
-  }
-
-  @Override
-  public boolean isRemotable() {
-    return !executionInfo.containsKey("local");
-  }
-
-  @Override
   public final ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
   }
@@ -156,31 +146,5 @@ public class BaseSpawn implements Spawn {
   @Override
   public String getMnemonic() {
     return action.getMnemonic();
-  }
-
-  /** A local spawn. */
-  public static class Local extends BaseSpawn {
-    public Local(
-        List<String> arguments, Map<String, String> environment, ActionExecutionMetadata action,
-        ResourceSet localResources) {
-      this(arguments, environment, ImmutableMap.<String, String>of(), action, localResources);
-    }
-
-    public Local(
-        List<String> arguments,
-        Map<String, String> environment,
-        Map<String, String> executionInfo,
-        ActionExecutionMetadata action,
-        ResourceSet localResources) {
-      super(arguments, environment, buildExecutionInfo(executionInfo), action, localResources);
-    }
-
-    private static ImmutableMap<String, String> buildExecutionInfo(
-        Map<String, String> additionalExecutionInfo) {
-      ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
-      executionInfo.putAll(additionalExecutionInfo);
-      executionInfo.put("local", "");
-      return executionInfo.build();
-    }
   }
 }

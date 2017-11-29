@@ -82,16 +82,6 @@ public final class SimpleSpawn implements Spawn {
   }
 
   @Override
-  public boolean hasNoSandbox() {
-    return executionInfo.containsKey("nosandbox");
-  }
-
-  @Override
-  public boolean isRemotable() {
-    return !executionInfo.containsKey("local");
-  }
-
-  @Override
   public final ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
   }

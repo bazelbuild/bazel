@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import org.junit.Before;
@@ -148,10 +147,13 @@ public class StandaloneSpawnStrategyTest {
   }
 
   private Spawn createSpawn(String... arguments) {
-    return new BaseSpawn.Local(
-        Arrays.asList(arguments),
-        ImmutableMap.<String, String>of(),
+    return new SimpleSpawn(
         new ActionsTestUtil.NullAction(),
+        ImmutableList.copyOf(arguments),
+        /*environment=*/ ImmutableMap.of(),
+        /*executionInfo=*/ ImmutableMap.of(),
+        /*inputs=*/ ImmutableList.of(),
+        /*outputs=*/ ImmutableList.of(),
         ResourceSet.ZERO);
   }
 
@@ -230,10 +232,13 @@ public class StandaloneSpawnStrategyTest {
       // down where that env var is coming from.
       return;
     }
-    Spawn spawn = new BaseSpawn.Local(
-        Arrays.asList("/usr/bin/env"),
-        ImmutableMap.of("foo", "bar", "baz", "boo"),
+    Spawn spawn = new SimpleSpawn(
         new ActionsTestUtil.NullAction(),
+        ImmutableList.of("/usr/bin/env"),
+        /*environment=*/ ImmutableMap.of("foo", "bar", "baz", "boo"),
+        /*executionInfo=*/ ImmutableMap.of(),
+        /*inputs=*/ ImmutableList.of(),
+        /*outputs=*/ ImmutableList.of(),
         ResourceSet.ZERO);
     run(spawn);
     assertThat(Sets.newHashSet(out().split("\n"))).isEqualTo(Sets.newHashSet("foo=bar", "baz=boo"));

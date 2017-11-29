@@ -25,17 +25,6 @@ import java.util.Collection;
  * of files it is expected to read and write.
  */
 public interface Spawn {
-
-  /**
-   * Returns true iff this command may be executed remotely.
-   */
-  boolean isRemotable();
-
-  /**
-   * Returns true iff this command should be executed without a sandbox.
-   */
-  boolean hasNoSandbox();
-
   /**
    * Out-of-band data for this spawn. This can be used to signal hints (hardware requirements,
    * local vs. remote) to the execution subsystem.

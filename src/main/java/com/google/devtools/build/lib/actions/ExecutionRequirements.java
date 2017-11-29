@@ -145,8 +145,40 @@ public class ExecutionRequirements {
       ImmutableMap.of(SUPPORTS_WORKERS, "1");
 
   /**
-   * Whether we should disable remote caching of an action. This can be set to force a rerun of an
-   * action even if there is a cache entry for it.
+   * Requires local execution without sandboxing for a spawn.
+   *
+   * <p>This tag is deprecated; use no-cache, no-remote, or no-sandbox instead.
+   */
+  public static final String LOCAL = "local";
+
+  /**
+   * Disables local and remote caching for a spawn, but note that the local action cache may still
+   * apply.
+   *
+   * <p>This tag can also be set on an action, in which case it completely disables all caching for
+   * that action, but note that action-generated spawns may still be cached, unless they also carry
+   * this tag.
    */
   public static final String NO_CACHE = "no-cache";
+
+  /** Disables local sandboxing of a spawn. */
+  public static final String LEGACY_NOSANDBOX = "nosandbox";
+
+  /** Disables local sandboxing of a spawn. */
+  public static final String NO_SANDBOX = "no-sandbox";
+
+  /** Disables remote execution of a spawn. */
+  public static final String NO_REMOTE = "no-remote";
+
+  /**
+   * Disables networking for a spawn if possible (only if sandboxing is enabled and if the sandbox
+   * supports it).
+   */
+  public static final String BLOCK_NETWORK = "block-network";
+
+  /**
+   * On linux, if sandboxing is enabled, ensures that a spawn is run with uid 0, i.e., root. Has no
+   * effect otherwise.
+   */
+  public static final String REQUIRES_FAKEROOT = "requires-fakeroot";
 }

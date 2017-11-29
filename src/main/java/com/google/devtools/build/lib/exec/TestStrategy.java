@@ -410,7 +410,12 @@ public abstract class TestStrategy implements TestActionContext {
 
     new SymlinkTreeHelper(execSettings.getInputManifest().getPath(), runfilesDir, false)
         .createSymlinks(
-            testAction, actionExecutionContext, binTools, shellEnvironment, enableRunfiles);
+            testAction,
+            actionExecutionContext,
+            binTools,
+            shellEnvironment,
+            execSettings.getInputManifest(),
+            enableRunfiles);
 
     actionExecutionContext.getEventHandler()
         .handle(Event.progress(testAction.getProgressMessage()));

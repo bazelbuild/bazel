@@ -19,8 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -134,8 +136,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             writableDirs,
             getTmpfsPaths(),
             getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
-            allowNetwork || SandboxHelpers.shouldAllowNetwork(spawn),
-            spawn.getExecutionInfo().containsKey("requires-fakeroot"));
+            allowNetwork || Spawns.requiresNetwork(spawn),
+            spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_FAKEROOT));
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 
