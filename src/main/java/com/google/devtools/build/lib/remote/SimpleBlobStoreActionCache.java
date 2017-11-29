@@ -197,7 +197,7 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
       if (file.isDirectory()) {
         // TODO(olaola): to implement this for a directory, will need to create or pass a
         // TreeNodeRepository to call uploadTree.
-        throw new UnsupportedOperationException("Storing a directory is not yet supported.");
+        throw new IOException("Storing a directory is not yet supported.");
       }
       // TODO(olaola): inline small file contents here.
       // First put the file content to cache.
