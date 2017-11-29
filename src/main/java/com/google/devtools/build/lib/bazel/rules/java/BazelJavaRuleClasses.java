@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.CONTAINS_JAVA_PROVIDER;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
@@ -73,14 +74,6 @@ public class BazelJavaRuleClasses {
       fromFunctions(
           JavaSemantics.JAVA_LIBRARY_CLASS_JAR,
           JavaSemantics.JAVA_LIBRARY_SOURCE_JAR);
-
-  /**
-   * Meant to be an element of {@code mandatoryProvidersLists} in order to accept rules providing
-   * a {@link JavaInfo} through an attribute. Other providers can be included in
-   * {@code mandatoryProvidersLists} as well.
-   */
-  public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_JAVA_PROVIDER =
-      ImmutableList.of(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()));
 
   public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_CC_LINK_PARAMS =
       ImmutableList.of(
