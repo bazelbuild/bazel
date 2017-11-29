@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.Jvm;
 
@@ -58,7 +59,9 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .add(attr(":proguard", LABEL).cfg(HOST).value(JavaSemantics.PROGUARD).exec())
         .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
-        .override(attr("use_testrunner", BOOLEAN).value(true))
+        .override(
+            attr("use_testrunner", BOOLEAN)
+                .value(JavaRuleClasses.createUseTestrunnerComputedDefault()))
         .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
         // Input files for test actions collecting code coverage
         .add(

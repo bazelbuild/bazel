@@ -97,6 +97,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       }
     }
 
+    validateTestMainClass(ruleContext);
+
     semantics.checkRule(ruleContext, common);
     semantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, common);
     String mainClass = semantics.getMainClass(ruleContext, common.getSrcsArtifacts());
@@ -452,6 +454,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .build();
+  }
+
+  private void validateTestMainClass(RuleContext ruleContext) {
+    boolean useTestrunner = ruleContext.attributes().get("use_testrunner", Type.BOOLEAN);
+    if (useTestrunner
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("main_class")) {
+      ruleContext.ruleError("cannot use use_testrunner with main_class specified.");
+    }
   }
 
   // Create the deploy jar and make it dependent on the runfiles middleman if an executable is

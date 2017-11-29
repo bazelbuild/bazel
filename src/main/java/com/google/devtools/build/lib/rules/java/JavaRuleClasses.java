@@ -21,15 +21,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 
-/**
- * Common rule class definitions for Java rules.
- */
-public class JavaRuleClasses {
+/** Common rule class definitions for Java rules. */
+public final class JavaRuleClasses {
+  private JavaRuleClasses() {}
+
   /**
    * Common attributes for rules that depend on ijar.
    */
@@ -53,6 +56,15 @@ public class JavaRuleClasses {
           .type(RuleClassType.ABSTRACT)
           .build();
     }
+  }
+
+  public static Attribute.ComputedDefault createUseTestrunnerComputedDefault() {
+    return new ComputedDefault() {
+      @Override
+      public Object getDefault(AttributeMap rule) {
+        return !rule.isAttributeValueExplicitlySpecified("main_class");
+      }
+    };
   }
 
   /**
