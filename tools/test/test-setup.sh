@@ -117,7 +117,7 @@ else
     if is_absolute "$1" ; then
       echo "$1"
     else
-      echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
+      echo $(grep "^$1 " "${RUNFILES_MANIFEST_FILE}" | sed 's/[^ ]* //')
     fi
   }
 fi
