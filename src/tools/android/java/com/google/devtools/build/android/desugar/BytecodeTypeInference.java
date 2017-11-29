@@ -53,7 +53,7 @@ public final class BytecodeTypeInference extends MethodVisitor {
       new HashMap<>();
 
   public BytecodeTypeInference(int access, String owner, String name, String methodDescriptor) {
-    super(Opcodes.ASM5);
+    super(Opcodes.ASM6);
     localVariableSlots = createInitialLocalVariableTypes(access, owner, name, methodDescriptor);
     previousFrame = FrameInfo.create(ImmutableList.copyOf(localVariableSlots), ImmutableList.of());
     this.methodSignature = owner + "." + name + methodDescriptor;
