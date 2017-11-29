@@ -55,7 +55,14 @@ void ClearSignalMask();
 void SetTimeout(double timeout_secs);
 
 // Wait for "pid" to exit and return its exit code.
-// "name" is used for the error message only.
 int WaitChild(pid_t pid);
+
+// Wait for "pid" to exit and return its exit code.
+// Resource usage is returned in "rusage" regardless of the exit status of the
+// child process.
+int WaitChildWithRusage(pid_t pid, struct rusage *rusage);
+
+// Write execution statistics to a file.
+void WriteStatsToFile(struct rusage *rusage, const std::string &stats_path);
 
 #endif  // PROCESS_TOOLS_H__

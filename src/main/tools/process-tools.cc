@@ -21,12 +21,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <memory>
+
+#include "src/main/protobuf/execution_statistics.pb.h"
 #include "src/main/tools/logging.h"
 
 int SwitchToEuid() {
@@ -178,8 +182,70 @@ int WaitChild(pid_t pid) {
   } while (err == -1 && errno == EINTR);
 
   if (err == -1) {
-    DIE("wait");
+    DIE("waitpid");
   }
 
   return status;
+}
+
+int WaitChildWithRusage(pid_t pid, struct rusage *rusage) {
+  int err, status;
+
+  do {
+    err = wait4(pid, &status, 0, rusage);
+  } while (err == -1 && errno == EINTR);
+
+  if (err == -1) {
+    DIE("wait4");
+  }
+
+  return status;
+}
+
+static std::unique_ptr<tools::protos::ExecutionStatistics>
+CreateExecutionStatisticsProto(struct rusage *rusage) {
+  std::unique_ptr<tools::protos::ExecutionStatistics> execution_statistics(
+      new tools::protos::ExecutionStatistics);
+
+  tools::protos::ResourceUsage *resource_usage =
+      execution_statistics->mutable_resource_usage();
+
+  resource_usage->set_utime_sec(rusage->ru_utime.tv_sec);
+  resource_usage->set_utime_usec(rusage->ru_utime.tv_usec);
+  resource_usage->set_stime_sec(rusage->ru_stime.tv_sec);
+  resource_usage->set_stime_usec(rusage->ru_stime.tv_usec);
+  resource_usage->set_maxrss(rusage->ru_maxrss);
+  resource_usage->set_ixrss(rusage->ru_ixrss);
+  resource_usage->set_idrss(rusage->ru_idrss);
+  resource_usage->set_isrss(rusage->ru_isrss);
+  resource_usage->set_minflt(rusage->ru_minflt);
+  resource_usage->set_majflt(rusage->ru_majflt);
+  resource_usage->set_nswap(rusage->ru_nswap);
+  resource_usage->set_inblock(rusage->ru_inblock);
+  resource_usage->set_oublock(rusage->ru_oublock);
+  resource_usage->set_msgsnd(rusage->ru_msgsnd);
+  resource_usage->set_msgrcv(rusage->ru_msgrcv);
+  resource_usage->set_nsignals(rusage->ru_nsignals);
+  resource_usage->set_nvcsw(rusage->ru_nvcsw);
+  resource_usage->set_nivcsw(rusage->ru_nivcsw);
+
+  return execution_statistics;
+}
+
+// Write execution statistics (e.g. resource usage) to a file.
+void WriteStatsToFile(struct rusage *rusage, const std::string &stats_path) {
+  const int flags = O_WRONLY | O_CREAT | O_TRUNC | O_APPEND;
+  int fd_out = open(stats_path.c_str(), flags, 0666);
+  if (fd_out < 0) {
+    DIE("open(%s)", stats_path.c_str());
+  }
+
+  std::unique_ptr<tools::protos::ExecutionStatistics> execution_statistics =
+      CreateExecutionStatisticsProto(rusage);
+
+  if (!execution_statistics->SerializeToFileDescriptor(fd_out)) {
+    DIE("could not write resource usage to file: %s", stats_path.c_str());
+  }
+
+  close(fd_out);
 }

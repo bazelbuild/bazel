@@ -288,8 +288,22 @@ sh_test(
     name = "process_wrapper_test",
     size = "medium",
     srcs = ["process-wrapper_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":spend_cpu_time",
+        ":test-deps",
+        "//src/main/protobuf:execution_statistics.proto",
+    ],
 )
+
+cc_binary(
+    name = "spend_cpu_time",
+    testonly = 1,
+    srcs = ["spend_cpu_time.cc"],
+    malloc = "//base:system_malloc",
+)
+
+########################################################################
+# Test suites.
 
 test_suite(
     name = "all_tests",

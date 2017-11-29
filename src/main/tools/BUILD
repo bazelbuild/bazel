@@ -10,7 +10,10 @@ cc_library(
     name = "process-tools",
     srcs = ["process-tools.cc"],
     hdrs = ["process-tools.h"],
-    deps = [":logging"],
+    deps = [
+        ":logging",
+        "//src/main/protobuf:execution_statistics_cc_proto",
+    ],
 )
 
 cc_binary(

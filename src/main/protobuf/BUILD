@@ -5,6 +5,13 @@ load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 load("//third_party/protobuf/3.4.0:protobuf.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 
+exports_files(
+    ["execution_statitics.proto"],
+    visibility = [
+        "//src/test/shell/integration:process_wrapper_test",
+    ],
+)
+
 FILES = [
     "action_cache",
     "android_deploy_info",
@@ -15,6 +22,7 @@ FILES = [
     "crosstool_config",
     "deps",
     "desugar_deps",
+    "execution_statistics",
     "extra_actions_base",
     "invocation_policy",
     "java_compilation",
@@ -112,6 +120,11 @@ java_library_srcs(
     name = "profile_java_proto_srcs",
     visibility = ["//visibility:private"],
     deps = ["//third_party/pprof:profile_java_proto"],
+)
+
+cc_proto_library(
+    name = "execution_statistics_cc_proto",
+    deps = [":execution_statistics_proto"],
 )
 
 filegroup(
