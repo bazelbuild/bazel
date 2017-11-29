@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.rules.config.ConfigSkylarkCommon;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcIncLibraryRule;
+import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAlias;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
@@ -363,6 +364,8 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(Builder builder) {
+          builder.addSkylarkAccessibleTopLevels("cc_common", CcModule.INSTANCE);
+
           builder.addConfig(
               CppOptions.class, new CppConfigurationLoader(Functions.<String>identity()));
 
