@@ -14,49 +14,39 @@
 
 package com.google.devtools.build.lib.analysis.whitelisting;
 
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 
 /** Definition of a test rule that uses whitelists. */
-public final class WhitelistDummyRule implements RuleDefinition, RuleConfiguredTargetFactory {
+public final class WhitelistDummyRule {
+  public static final MockRule DEFINITION =
+      () ->
+          MockRule.factory(RuleFactory.class)
+              .define(
+                  "rule_with_whitelist",
+                  (builder, env) ->
+                      builder.add(
+                          Whitelist.getAttributeFromWhitelistName("dummy")
+                              .value(env.getLabel("//whitelist:whitelist"))));
 
-  @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-    return builder
-        .add(
-            Whitelist.getAttributeFromWhitelistName("dummy")
-                .value(env.getLabel("//whitelist:whitelist")))
-        .build();
-  }
-
-  @Override
-  public Metadata getMetadata() {
-    return RuleDefinition.Metadata.builder()
-        .name("rule_with_whitelist")
-        .ancestors(BaseRuleClasses.RuleBase.class)
-        .factoryClass(WhitelistDummyRule.class)
-        .build();
-  }
-
-  @Override
-  public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
-    if (!Whitelist.isAvailable(ruleContext, "dummy")) {
-      ruleContext.ruleError("Dummy is not available.");
+  /** Has to be public to make factory initialization logic happy. **/
+  public static class RuleFactory implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException {
+      if (!Whitelist.isAvailable(ruleContext, "dummy")) {
+        ruleContext.ruleError("Dummy is not available.");
+      }
+      return new RuleConfiguredTargetBuilder(ruleContext)
+          .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+          .addProvider(RunfilesProvider.EMPTY)
+          .build();
     }
-    return new RuleConfiguredTargetBuilder(ruleContext)
-        .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
-        .addProvider(RunfilesProvider.EMPTY)
-        .build();
   }
 }
