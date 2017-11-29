@@ -64,6 +64,7 @@ public class GenClass {
     GenClassOptions options = GenClassOptionsParser.parse(Arrays.asList(args));
     Manifest manifest = readManifest(options.manifest());
     deleteTree(options.tempDir());
+    Files.createDirectories(options.tempDir());
     extractGeneratedClasses(options.classJar(), manifest, options.tempDir());
     writeOutputJar(options);
   }
