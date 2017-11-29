@@ -5,10 +5,10 @@ title: Depsets
 
 # Depsets
 
-Depsets are a specialized data structure for efficiently collecting data across
-a target’s transitive dependencies. Since this use case concerns the [analysis
-phase](concepts.md#evaluation-model), depsets are useful for authors of rules
-and aspects, but probably not macros.
+[Depsets](lib/depset.html) are a specialized data structure for efficiently
+collecting data across a target’s transitive dependencies. Since this use case
+concerns the [analysis phase](concepts.md#evaluation-model), depsets are useful
+for authors of rules and aspects, but probably not macros.
 
 The main feature of depsets is that they support a time- and space-efficient
 merge operation, whose cost is independent of the size of the existing contents.
@@ -22,16 +22,19 @@ Example uses of depsets include:
 *   for an interpreted language, storing the transitive source files that will
     be included in an executable's runfiles
 
+If you don't need the merge operation, consider using another type, such as
+[list](lib/list.html) or [dict](lib/dict.html).
+
 <!-- [TOC] -->
 
 ## Full example
 
 
 _This example is avalable at
-https://github.com/bazelbuild/examples/rules/depsets._
+[https://github.com/bazelbuild/examples/rules/depsets](https://github.com/bazelbuild/examples/rules/depsets).
 
 Suppose we have a hypothetical interpreted language Foo. In order to build each
-`foo_binary` we need to know all the \*.foo files that it directly or indirectly
+`foo_binary` we need to know all the `*.foo` files that it directly or indirectly
 depends on.
 
 ```python
@@ -83,7 +86,7 @@ if __name__ == "__main__":
     output.write(input.read())
 ```
 
-Here, the transitive sources of the binary `d` are all of the \*.foo files in
+Here, the transitive sources of the binary `d` are all of the `*.foo` files in
 the `srcs` fields of `a`, `b`, `c`, and `d`. In order for the `foo_binary`
 target to know about any file besides `d.foo`, the `foo_library` targets need to
 pass them along in a provider. Each library receives the providers from its own
@@ -148,7 +151,7 @@ foo_binary = rule(
 ```
 
 You can test this by copying these files into a fresh package, renaming the
-labels appropriately, creating the source \*.foo files with dummy content, and
+labels appropriately, creating the source `*.foo` files with dummy content, and
 building the `d` target.
 
 ## Description and operations
@@ -367,6 +370,5 @@ and/or upcoming changes.
     regarding how `+` treats direct elements vs children, and improves
     performance.
 
-*   The `|` operator is defined for depsets as a synonym for `+`. This will be
-    going away; use `+` instead.
-
+*   Both the `|` operator and the `.union()` methods are defined for depsets as
+    a synonym for `+`. They will be going away.
