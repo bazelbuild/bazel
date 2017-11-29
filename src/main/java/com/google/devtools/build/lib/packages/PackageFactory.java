@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttribut
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -48,11 +47,9 @@ import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.GlobList;
-import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -1684,10 +1681,6 @@ public final class PackageFactory {
         pkgBuilder.setContainsErrors();
       }
 
-      if (!validateAssignmentStatements(pkgEnv, buildFileAST, eventHandler)) {
-        pkgBuilder.setContainsErrors();
-      }
-
       if (buildFileAST.containsErrors()) {
         pkgBuilder.setContainsErrors();
       }
@@ -1704,36 +1697,6 @@ public final class PackageFactory {
     pkgBuilder.addPosts(eventHandler.getPosts());
     pkgBuilder.addEvents(eventHandler.getEvents());
     return pkgBuilder;
-  }
-
-  /** Visit all targets and expand the globs in parallel. */
-  /**
-   * Tests a build AST to ensure that it contains no assignment statements that redefine built-in
-   * build rules.
-   *
-   * @param pkgEnv a package environment initialized with all of the built-in build rules
-   * @param ast the build file AST to be tested
-   * @param eventHandler a eventHandler where any errors should be logged
-   * @return true if the build file contains no redefinitions of built-in functions
-   */
-  // TODO(bazel-team): Remove this check. It should be moved to LValue.assign
-  private static boolean validateAssignmentStatements(
-      Environment pkgEnv, BuildFileAST ast, ExtendedEventHandler eventHandler) {
-    for (Statement stmt : ast.getStatements()) {
-      if (stmt instanceof AssignmentStatement) {
-        Expression lvalue = ((AssignmentStatement) stmt).getLValue().getExpression();
-        if (!(lvalue instanceof Identifier)) {
-          continue;
-        }
-        String target = ((Identifier) lvalue).getName();
-        if (pkgEnv.hasVariable(target)) {
-          eventHandler.handle(Event.error(stmt.getLocation(), "Reassignment of builtin build "
-              + "function '" + target + "' not permitted"));
-          return false;
-        }
-      }
-    }
-    return true;
   }
 
   // Reports an error and returns false iff package identifier was illegal.

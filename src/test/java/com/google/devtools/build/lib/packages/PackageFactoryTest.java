@@ -1210,19 +1210,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         "package(default_restricted_to=['//foo', '//bar', '//foo'])");
   }
 
-  /**
-   * Test that build files that reassign builtins fail correctly.
-   */
-  @Test
-  public void testReassignPrimitive() throws Exception {
-    expectEvalError(
-        "Reassignment of builtin build function 'cc_binary' not permitted",
-        "cc_binary = (['hello.cc'])",
-        "cc_binary(name = 'hello',",
-        "          srcs=['hello.cc'],",
-        "          malloc = '//base:system_malloc')");
-  }
-
   @Override
   protected PackageFactoryApparatus createPackageFactoryApparatus() {
     return new PackageFactoryApparatus(events.reporter());
