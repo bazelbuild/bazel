@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.SpecialInputsHandler;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,7 +68,6 @@ public class CppCompileActionBuilder {
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
   private boolean usePic;
   private boolean allowUsingHeaderModules;
-  private SpecialInputsHandler specialInputsHandler = CppCompileAction.VOID_SPECIAL_INPUTS_HANDLER;
   private UUID actionClassId = GUID;
   private Class<? extends CppCompileActionContext> actionContext;
   private CppConfiguration cppConfiguration;
@@ -161,7 +159,6 @@ public class CppCompileActionBuilder {
     this.pluginOpts.addAll(other.pluginOpts);
     this.coptsFilter = other.coptsFilter;
     this.extraSystemIncludePrefixes = ImmutableList.copyOf(other.extraSystemIncludePrefixes);
-    this.specialInputsHandler = other.specialInputsHandler;
     this.actionClassId = other.actionClassId;
     this.actionContext = other.actionContext;
     this.cppConfiguration = other.cppConfiguration;
@@ -397,7 +394,6 @@ public class CppCompileActionBuilder {
               context,
               actionContext,
               coptsFilter,
-              specialInputsHandler,
               getLipoScannables(realMandatoryInputs),
               additionalIncludeFiles.build(),
               actionClassId,
@@ -509,12 +505,6 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder addExecutionInfo(Map<String, String> executionInfo) {
     this.executionInfo.putAll(executionInfo);
-    return this;
-  }
-
-  public CppCompileActionBuilder setSpecialInputsHandler(
-      SpecialInputsHandler specialInputsHandler) {
-    this.specialInputsHandler = specialInputsHandler;
     return this;
   }
 

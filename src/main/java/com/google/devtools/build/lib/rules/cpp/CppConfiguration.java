@@ -1277,10 +1277,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return getToolchainIdentifier();
   }
 
-  public boolean alwaysAttachExtraActions() {
-    return true;
-  }
-
   /**
    * Returns true if we should share identical native libraries between different targets.
    */

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.SpecialInputsHandler;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -49,7 +48,6 @@ public class HeaderDiscovery {
   private final Action action;
   private final Artifact sourceFile;
 
-  private final SpecialInputsHandler specialInputsHandler;
   private final boolean shouldValidateInclusions;
 
   private final Collection<Path> dependencies;
@@ -61,20 +59,17 @@ public class HeaderDiscovery {
    *
    * @param action the action instance requiring header discovery
    * @param sourceFile the source file for the compile
-   * @param specialInputsHandler the SpecialInputsHandler for the build
    * @param shouldValidateInclusions true if include validation should be performed
    */
   public HeaderDiscovery(
       Action action,
       Artifact sourceFile,
-      SpecialInputsHandler specialInputsHandler,
       boolean shouldValidateInclusions,
       Collection<Path> dependencies,
       List<Path> permittedSystemIncludePrefixes,
       Map<PathFragment, Artifact> allowedDerivedInputsMap) {
     this.action = Preconditions.checkNotNull(action);
     this.sourceFile = Preconditions.checkNotNull(sourceFile);
-    this.specialInputsHandler = specialInputsHandler;
     this.shouldValidateInclusions = shouldValidateInclusions;
     this.dependencies = dependencies;
     this.permittedSystemIncludePrefixes = permittedSystemIncludePrefixes;
@@ -135,11 +130,6 @@ public class HeaderDiscovery {
       }
       if (artifact != null) {
         inputs.add(artifact);
-        // In some cases, execution backends need extra files for each included file. Add them
-        // to the set of actual inputs.
-        if (specialInputsHandler != null) {
-          inputs.addAll(specialInputsHandler.getInputsForIncludedFile(artifact, artifactResolver));
-        }
       } else {
         // Abort if we see files that we can't resolve, likely caused by
         // undeclared includes or illegal include constructs.
@@ -156,7 +146,6 @@ public class HeaderDiscovery {
   public static class Builder {
     private Action action;
     private Artifact sourceFile;
-    private SpecialInputsHandler specialInputsHandler;
     private boolean shouldValidateInclusions = false;
 
     private Collection<Path> dependencies;
@@ -172,12 +161,6 @@ public class HeaderDiscovery {
     /** Sets the source file for which to discover inputs. */
     public Builder setSourceFile(Artifact sourceFile) {
       this.sourceFile = sourceFile;
-      return this;
-    }
-
-    /** Sets the SpecialInputsHandler for inputs to this build. */
-    public Builder setSpecialInputsHandler(SpecialInputsHandler specialInputsHandler) {
-      this.specialInputsHandler = specialInputsHandler;
       return this;
     }
 
@@ -210,7 +193,6 @@ public class HeaderDiscovery {
       return new HeaderDiscovery(
           action,
           sourceFile,
-          specialInputsHandler,
           shouldValidateInclusions,
           dependencies,
           permittedSystemIncludePrefixes,

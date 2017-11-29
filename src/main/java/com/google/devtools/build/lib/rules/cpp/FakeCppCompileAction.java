@@ -109,7 +109,6 @@ public class FakeCppCompileAction extends CppCompileAction {
         CppCompilationContext.disallowUndeclaredHeaders(context),
         actionContext,
         nocopts,
-        VOID_SPECIAL_INPUTS_HANDLER,
         lipoScannables,
         ImmutableList.<Artifact>of(),
         GUID,
@@ -155,7 +154,6 @@ public class FakeCppCompileAction extends CppCompileAction {
           new HeaderDiscovery.Builder()
               .setAction(this)
               .setSourceFile(getSourceFile())
-              .setSpecialInputsHandler(specialInputsHandler)
               .setDependencies(processDepset(execRoot, reply).getDependencies())
               .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
               .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());

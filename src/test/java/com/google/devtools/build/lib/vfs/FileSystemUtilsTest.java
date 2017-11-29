@@ -279,23 +279,6 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testReplaceSegments() {
-    assertPath(
-        "poo/bar/baz.cc",
-        FileSystemUtils.replaceSegments(PathFragment.create("foo/bar/baz.cc"), "foo", "poo", true));
-    assertPath(
-        "poo/poo/baz.cc",
-        FileSystemUtils.replaceSegments(PathFragment.create("foo/foo/baz.cc"), "foo", "poo", true));
-    assertPath(
-        "poo/foo/baz.cc",
-        FileSystemUtils.replaceSegments(
-            PathFragment.create("foo/foo/baz.cc"), "foo", "poo", false));
-    assertPath(
-        "foo/bar/baz.cc",
-        FileSystemUtils.replaceSegments(PathFragment.create("foo/bar/baz.cc"), "boo", "poo", true));
-  }
-
-  @Test
   public void testGetWorkingDirectory() {
     String userDir = System.getProperty("user.dir");
 

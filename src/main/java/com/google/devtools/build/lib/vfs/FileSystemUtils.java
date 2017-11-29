@@ -220,28 +220,6 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns a new {@code PathFragment} formed by replacing the first, or all if
-   * {@code replaceAll} is true, {@code oldSegment} of {@code path} with {@code
-   * newSegment}.
-   */
-  public static PathFragment replaceSegments(PathFragment path,
-      String oldSegment, String newSegment, boolean replaceAll) {
-    int count = path.segmentCount();
-    for (int i = 0; i < count; i++) {
-      if (path.getSegment(i).equals(oldSegment)) {
-        path = PathFragment.create(
-            path.subFragment(0, i),
-            PathFragment.create(newSegment),
-            path.subFragment(i+1, count));
-        if (!replaceAll) {
-          return path;
-        }
-      }
-    }
-    return path;
-  }
-
-  /**
    * Returns a new {@code PathFragment} formed by appending the given string to the last path
    * segment of {@code path} without removing the extension.  Returns null if {@code path}
    * has zero segments.

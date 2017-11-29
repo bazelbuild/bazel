@@ -481,11 +481,6 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public boolean extraActionCanAttach() {
-    return true;
-  }
-
-  @Override
   public ExtraActionInfo.Builder getExtraActionInfo() throws CommandLineExpansionException {
     ActionOwner owner = getOwner();
     ExtraActionInfo.Builder result =

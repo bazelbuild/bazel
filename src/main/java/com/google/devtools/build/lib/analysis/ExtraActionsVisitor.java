@@ -47,13 +47,11 @@ final class ExtraActionsVisitor extends ActionGraphVisitor {
   void maybeAddExtraAction(ActionAnalysisMetadata original) {
     if (original instanceof Action) {
       Action action = (Action) original;
-      if (action.extraActionCanAttach()) {
-        Collection<ExtraActionSpec> extraActions =
-            mnemonicToExtraActionMap.get(action.getMnemonic());
-        if (extraActions != null) {
-          for (ExtraActionSpec extraAction : extraActions) {
-            extraArtifacts.addAll(extraAction.addExtraAction(ruleContext, action));
-          }
+      Collection<ExtraActionSpec> extraActions =
+          mnemonicToExtraActionMap.get(action.getMnemonic());
+      if (extraActions != null) {
+        for (ExtraActionSpec extraAction : extraActions) {
+          extraArtifacts.addAll(extraAction.addExtraAction(ruleContext, action));
         }
       }
     }
