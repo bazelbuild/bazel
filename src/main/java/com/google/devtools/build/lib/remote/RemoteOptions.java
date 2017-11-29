@@ -33,7 +33,7 @@ public final class RemoteOptions extends OptionsBase {
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "A base URL for a RESTful cache server for storing build artifacts."
+        "A base URL for a RESTful cache server for storing build artifacts. "
             + "It has to support PUT, GET, and HEAD requests."
   )
   public String remoteRestCache;

@@ -56,8 +56,8 @@ public class BazelStrategyModule extends BlazeModule {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Specify how to execute genrules."
-              + "'standalone' means run all of them locally."
+          "Specify how to execute genrules. "
+              + "'standalone' means run all of them locally. "
               + "'sandboxed' means run them in namespaces based sandbox (available only on Linux)"
     )
     public String genruleStrategy;
