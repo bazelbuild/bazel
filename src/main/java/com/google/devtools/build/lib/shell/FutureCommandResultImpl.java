@@ -48,9 +48,11 @@ final class FutureCommandResultImpl implements FutureCommandResult {
       }
     } catch (IOException ioe) {
       CommandResult noOutputResult =
-        new CommandResult(CommandResult.EMPTY_OUTPUT,
-                          CommandResult.EMPTY_OUTPUT,
-                          status);
+          CommandResult.builder()
+              .setStdoutStream(CommandResult.EMPTY_OUTPUT)
+              .setStderrStream(CommandResult.EMPTY_OUTPUT)
+              .setTerminationStatus(status)
+              .build();
       if (status.success()) {
         // If command was otherwise successful, throw an exception about this
         throw new AbnormalTerminationException(command, noOutputResult, ioe);
@@ -67,15 +69,19 @@ final class FutureCommandResultImpl implements FutureCommandResult {
       process.close();
     }
 
-    CommandResult result = new CommandResult(
-        outErrConsumers.getAccumulatedOut(), outErrConsumers.getAccumulatedErr(), status);
-    result.logThis();
+    CommandResult commandResult =
+        CommandResult.builder()
+            .setStdoutStream(outErrConsumers.getAccumulatedOut())
+            .setStderrStream(outErrConsumers.getAccumulatedErr())
+            .setTerminationStatus(status)
+            .build();
+    commandResult.logThis();
     if (status.success()) {
-      return result;
+      return commandResult;
     } else if (status.exited()) {
-      throw new BadExitStatusException(command, result, status.toString());
+      throw new BadExitStatusException(command, commandResult, status.toString());
     } else {
-      throw new AbnormalTerminationException(command, result, status.toString());
+      throw new AbnormalTerminationException(command, commandResult, status.toString());
     }
   }
 

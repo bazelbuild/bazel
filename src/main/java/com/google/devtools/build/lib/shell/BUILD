@@ -14,6 +14,7 @@ java_library(
     name = "shell",
     srcs = glob(["*.java"]),
     deps = [
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -25,5 +26,8 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 bootstrap_java_library(
     name = "shell-skylark",
     srcs = glob(["*.java"]),
-    jars = ["//third_party:bootstrap_guava_and_error_prone-jars"],
+    jars = [
+        "//third_party:auto_value-jars",
+        "//third_party:bootstrap_guava_and_error_prone-jars",
+    ],
 )

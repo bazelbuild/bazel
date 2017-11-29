@@ -139,12 +139,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         sandbox.getSandboxExecRoot().getPathFile());
 
     long startTime = System.currentTimeMillis();
-    CommandResult result;
+    CommandResult commandResult;
     try {
       if (!tmpDir.exists() && !tmpDir.createDirectory()) {
         throw new IOException(String.format("Could not create temp directory '%s'", tmpDir));
       }
-      result = cmd.execute(outErr.getOutputStream(), outErr.getErrorStream());
+      commandResult = cmd.execute(outErr.getOutputStream(), outErr.getErrorStream());
       if (Thread.currentThread().isInterrupted()) {
         throw new InterruptedException();
       }
@@ -152,7 +152,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       if (Thread.currentThread().isInterrupted()) {
         throw new InterruptedException();
       }
-      result = e.getResult();
+      commandResult = e.getResult();
     } catch (CommandException e) {
       // At the time this comment was written, this must be a ExecFailedException encapsulating an
       // IOException from the underlying Subprocess.Factory.
@@ -165,12 +165,13 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           .build();
     }
 
+    // TODO(b/62588075): Calculate wall time inside commands instead?
     Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
     boolean wasTimeout = wasTimeout(timeout, wallTime);
     int exitCode =
         wasTimeout
             ? POSIX_TIMEOUT_EXIT_CODE
-            : result.getTerminationStatus().getRawExitCode();
+            : commandResult.getTerminationStatus().getRawExitCode();
     Status status =
         wasTimeout
             ? Status.TIMEOUT
@@ -179,6 +180,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         .setStatus(status)
         .setExitCode(exitCode)
         .setWallTime(wallTime)
+        .setUserTime(commandResult.getUserExecutionTime())
+        .setSystemTime(commandResult.getSystemExecutionTime())
         .build();
   }
 

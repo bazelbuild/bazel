@@ -291,9 +291,9 @@ public final class LocalSpawnRunner implements SpawnRunner {
         }
 
         long startTime = System.currentTimeMillis();
-        CommandResult result = null;
+        CommandResult commandResult = null;
         try {
-          result = cmd.execute(stdOut, stdErr);
+          commandResult = cmd.execute(stdOut, stdErr);
           if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
           }
@@ -301,7 +301,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
           if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
           }
-          result = e.getResult();
+          commandResult = e.getResult();
         } catch (CommandException e) {
           // At the time this comment was written, this must be a ExecFailedException encapsulating
           // an IOException from the underlying Subprocess.Factory.
@@ -318,14 +318,15 @@ public final class LocalSpawnRunner implements SpawnRunner {
               .build();
         }
         setState(State.SUCCESS);
+        // TODO(b/62588075): Calculate wall time inside commands instead?
         Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
         boolean wasTimeout =
-            result.getTerminationStatus().timedOut()
+            commandResult.getTerminationStatus().timedOut()
                 || (useProcessWrapper && wasTimeout(policy.getTimeout(), wallTime));
         int exitCode =
             wasTimeout
                 ? POSIX_TIMEOUT_EXIT_CODE
-                : result.getTerminationStatus().getRawExitCode();
+                : commandResult.getTerminationStatus().getRawExitCode();
         Status status =
             wasTimeout
                 ? Status.TIMEOUT
@@ -335,6 +336,8 @@ public final class LocalSpawnRunner implements SpawnRunner {
             .setExitCode(exitCode)
             .setExecutorHostname(hostName)
             .setWallTime(wallTime)
+            .setUserTime(commandResult.getUserExecutionTime())
+            .setSystemTime(commandResult.getSystemExecutionTime())
             .build();
       } finally {
         // Delete the temp directory tree, so the next action that this thread executes will get a

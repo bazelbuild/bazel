@@ -313,6 +313,21 @@ public interface SpawnResult {
       return this;
     }
 
+    public Builder setWallTime(Optional<Duration> wallTime) {
+      this.wallTime = wallTime;
+      return this;
+    }
+
+    public Builder setUserTime(Optional<Duration> userTime) {
+      this.userTime = userTime;
+      return this;
+    }
+
+    public Builder setSystemTime(Optional<Duration> systemTime) {
+      this.systemTime = systemTime;
+      return this;
+    }
+
     public Builder setCacheHit(boolean cacheHit) {
       this.cacheHit = cacheHit;
       return this;
