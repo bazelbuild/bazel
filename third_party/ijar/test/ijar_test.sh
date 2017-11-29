@@ -41,7 +41,7 @@ shift
 source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 
 function cleanup() {
-  rm -fr "$TEST_TMPDIR"/*
+  rm -fr "${TEST_TMPDIR:-sentinel}"/*
 }
 
 trap cleanup EXIT
@@ -235,7 +235,7 @@ function test_ijar_output() {
 
 
   # Check that compile-time constants in A are still annotated as such in ijar:
-  $JAVAP -classpath $TEST_TMPDIR/classes -c B | grep -sq ldc2_w.*123 ||
+  $JAVAP -classpath $TEST_TMPDIR/classes -c B | grep -sq 'ldc2_w.*123' ||
     fail "ConstantValue not propagated to class B!"
 
 
