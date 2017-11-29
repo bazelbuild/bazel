@@ -31,7 +31,7 @@ java_test(
 )
 
 filegroup(
-    name = "coverage_suppot",
+    name = "coverage_support",
     srcs = ["collect_coverage.sh"],
 )
 
