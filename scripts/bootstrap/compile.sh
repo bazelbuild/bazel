@@ -189,7 +189,9 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
 
         log "Compiling Java stubs for protocol buffers..."
         for f in $PROTO_FILES ; do
-            run "${PROTOC}" -Isrc/main/protobuf/ \
+            run "${PROTOC}" \
+                -I. \
+                -Isrc/main/protobuf/ \
                 -Isrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/ \
                 --java_out=${OUTPUT_DIR}/src \
                 --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
