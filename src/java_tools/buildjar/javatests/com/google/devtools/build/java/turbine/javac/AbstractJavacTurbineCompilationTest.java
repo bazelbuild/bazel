@@ -23,6 +23,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.java.turbine.javac.JavacTurbine.Result;
 import com.google.turbine.options.TurbineOptions;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -73,7 +74,7 @@ public abstract class AbstractJavacTurbineCompilationTest {
         .setOutput(output.toString())
         .setTempDir(tempdir.toString())
         .addBootClassPathEntries(
-            Splitter.on(':')
+            Splitter.on(File.pathSeparatorChar)
                 .splitToList(System.getProperty("sun.boot.class.path"))
                 .stream()
                 .map(e -> Paths.get(e).toAbsolutePath().toString())

@@ -39,6 +39,7 @@ import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.util.Context;
 import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -85,6 +86,10 @@ import org.objectweb.asm.util.TraceClassVisitor;
 /** Unit tests for {@link JavacTurbine}. */
 @RunWith(JUnit4.class)
 public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
+
+  private static final ImmutableList<String> HOST_CLASSPATH =
+      ImmutableList.copyOf(
+          Splitter.on(File.pathSeparatorChar).split(System.getProperty("java.class.path")));
 
   @Test
   public void hello() throws Exception {
@@ -217,10 +222,8 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
         "}");
 
     optionsBuilder.addProcessors(ImmutableList.of(MyProcessor.class.getName()));
-    optionsBuilder.addProcessorPathEntries(
-        ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
-    optionsBuilder.addClassPathEntries(
-        ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
+    optionsBuilder.addProcessorPathEntries(HOST_CLASSPATH);
+    optionsBuilder.addClassPathEntries(HOST_CLASSPATH);
 
     compile();
 
@@ -758,10 +761,8 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
         "}");
 
     optionsBuilder.addProcessors(ImmutableList.of(MyBadEncodingProcessor.class.getName()));
-    optionsBuilder.addProcessorPathEntries(
-        ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
-    optionsBuilder.addClassPathEntries(
-        ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
+    optionsBuilder.addProcessorPathEntries(HOST_CLASSPATH);
+    optionsBuilder.addClassPathEntries(HOST_CLASSPATH);
 
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
     try (StringWriter sw = new StringWriter();
@@ -935,8 +936,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
   public void processorReadsNonexistantFile() throws Exception {
     addSourceLines("Hello.java", "@Deprecated class Hello {}");
     optionsBuilder.addProcessors(ImmutableList.of(NoSuchFileProcessor.class.getName()));
-    optionsBuilder.addProcessorPathEntries(
-        ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
+    optionsBuilder.addProcessorPathEntries(HOST_CLASSPATH);
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
 
     StringWriter errOutput = new StringWriter();
@@ -1278,8 +1278,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
         "}");
 
     optionsBuilder.addProcessors(ImmutableList.of(SimpleProcessor.class.getName()));
-    optionsBuilder.addProcessorPathEntries(
-        ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
+    optionsBuilder.addProcessorPathEntries(HOST_CLASSPATH);
     optionsBuilder.addAllJavacOpts(Arrays.asList("-Xlint:deprecation"));
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
 
