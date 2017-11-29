@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -113,7 +112,11 @@ public class FileFunctionTest {
     this.fs = fs;
     pkgRoot = fs.getRootDirectory().getRelative("root");
     outputBase = fs.getRootDirectory().getRelative("output_base");
-    pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(pkgRoot));
+    pkgLocator =
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(pkgRoot),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     FileSystemUtils.createDirectoryAndParents(pkgRoot);
   }
 
@@ -151,7 +154,7 @@ public class FileFunctionTest {
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD)))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(
                     SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
@@ -159,8 +162,9 @@ public class FileFunctionTest {
                     SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
-                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder().build(
-                            TestRuleClassProvider.getRuleClassProvider(), fs),
+                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
+                            .builder()
+                            .build(TestRuleClassProvider.getRuleClassProvider(), fs),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
@@ -631,7 +635,11 @@ public class FileFunctionTest {
   @Test
   public void testSymlinkAcrossPackageRoots() throws Exception {
     Path otherPkgRoot = fs.getRootDirectory().getRelative("other_root");
-    pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(pkgRoot, otherPkgRoot));
+    pkgLocator =
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(pkgRoot, otherPkgRoot),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     symlink("a", "/other_root/b");
     assertValueChangesIfContentsOfFileChanges("/other_root/b", true, "a");
   }

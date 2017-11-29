@@ -79,7 +79,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     packageCacheOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
-            new PathPackageLocator(outputBase, ImmutableList.copyOf(roots)),
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.copyOf(roots),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageCacheOptions,
             Options.getDefaults(SkylarkSemanticsOptions.class),
             "",
@@ -309,7 +312,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     packageCacheOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
-            new PathPackageLocator(outputBase, ImmutableList.<Path>of(rootDirectory)),
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.<Path>of(rootDirectory),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageCacheOptions,
             Options.getDefaults(SkylarkSemanticsOptions.class),
             "",

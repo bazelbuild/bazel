@@ -46,6 +46,7 @@ import java.util.Set;
  * \\\\network\\paths and \\\\?\\unc\\paths are not supported.
  */
 @Immutable
+@javax.annotation.concurrent.Immutable
 @ThreadSafe
 public abstract class PathFragment
     implements Comparable<PathFragment>, Serializable, SkylarkPrintable {

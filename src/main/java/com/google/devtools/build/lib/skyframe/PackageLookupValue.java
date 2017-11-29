@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -35,55 +36,6 @@ import com.google.devtools.build.skyframe.SkyValue;
  * <p>Implementation detail: we use inheritance here to optimize for memory usage.
  */
 public abstract class PackageLookupValue implements SkyValue {
-
-  /**
-   * The file (BUILD, WORKSPACE, etc.) that defines this package, referred to as the "build file".
-   */
-  public enum BuildFileName {
-
-    WORKSPACE("WORKSPACE") {
-      @Override
-      public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return getFilenameFragment();
-      }
-    },
-    BUILD("BUILD") {
-      @Override
-      public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return packageIdentifier.getPackageFragment().getRelative(getFilenameFragment());
-      }
-    },
-    BUILD_DOT_BAZEL("BUILD.bazel") {
-      @Override
-      public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return packageIdentifier.getPackageFragment().getRelative(getFilenameFragment());
-      }
-    };
-
-    private static final BuildFileName[] VALUES = BuildFileName.values();
-
-    private final PathFragment filenameFragment;
-
-    private BuildFileName(String filename) {
-      this.filenameFragment = PathFragment.create(filename);
-    }
-
-    public PathFragment getFilenameFragment() {
-      return filenameFragment;
-    }
-
-    /**
-     * Returns a {@link PathFragment} to the build file that defines the package.
-     *
-     * @param packageIdentifier the identifier for this package, which the caller should already
-     *     know (since it was in the {@link SkyKey} used to get the {@link PackageLookupValue}.
-     */
-    public abstract PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier);
-
-    public static BuildFileName lookupByOrdinal(int ordinal) {
-      return VALUES[ordinal];
-    }
-  }
 
   public static final NoBuildFilePackageLookupValue NO_BUILD_FILE_VALUE =
       new NoBuildFilePackageLookupValue();

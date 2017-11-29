@@ -634,8 +634,14 @@ public class LoadingPhaseRunnerTest {
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
               BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
       TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
-      PathPackageLocator pkgLocator = PathPackageLocator.create(
-          null, options.packagePath, storedErrors, workspace, workspace);
+      PathPackageLocator pkgLocator =
+          PathPackageLocator.create(
+              null,
+              options.packagePath,
+              storedErrors,
+              workspace,
+              workspace,
+              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
       PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
       packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
       packageCacheOptions.showLoadingProgress = true;

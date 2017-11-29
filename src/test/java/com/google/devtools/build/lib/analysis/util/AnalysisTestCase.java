@@ -141,7 +141,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   @Before
   public final void createMocks() throws Exception {
     analysisMock = getAnalysisMock();
-    pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory));
+    pkgLocator =
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(rootDirectory),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     directories =
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase),
@@ -297,8 +301,14 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     viewOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
 
     PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
-    PathPackageLocator pathPackageLocator = PathPackageLocator.create(
-        outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
+    PathPackageLocator pathPackageLocator =
+        PathPackageLocator.create(
+            outputBase,
+            packageCacheOptions.packagePath,
+            reporter,
+            rootDirectory,
+            rootDirectory,
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
 

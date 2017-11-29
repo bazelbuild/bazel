@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingFunction;
@@ -57,7 +59,6 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptio
 import com.google.devtools.build.lib.skyframe.PackageFunction.CacheEntryWithGlobDeps;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -212,7 +213,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   protected AbstractPackageLoader(Builder builder) {
     Path workspaceDir = builder.workspaceDir;
     PathPackageLocator pkgLocator =
-        new PathPackageLocator(null, ImmutableList.of(workspaceDir));
+        new PathPackageLocator(
+            null,
+            ImmutableList.of(workspaceDir),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     this.ruleClassProvider = builder.ruleClassProvider;
     this.skylarkSemantics = builder.skylarkSemantics;
     this.reporter = builder.reporter;

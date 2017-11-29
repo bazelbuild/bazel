@@ -70,8 +70,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   @Before
   public void setUp() throws Exception  {
     artifactValueMap = new LinkedHashMap<>();
-    AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
-        rootDirectory.getFileSystem().getPath("/outputbase"), ImmutableList.of(rootDirectory)));
+    AtomicReference<PathPackageLocator> pkgLocator =
+        new AtomicReference<>(
+            new PathPackageLocator(
+                rootDirectory.getFileSystem().getPath("/outputbase"),
+                ImmutableList.of(rootDirectory),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(

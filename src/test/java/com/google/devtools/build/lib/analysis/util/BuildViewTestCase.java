@@ -250,7 +250,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(rootDirectory),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageCacheOptions,
         skylarkSemanticsOptions,
         "",
@@ -353,8 +356,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   private void setUpSkyframe() {
-    PathPackageLocator pkgLocator = PathPackageLocator.create(
-        outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
+    PathPackageLocator pkgLocator =
+        PathPackageLocator.create(
+            outputBase,
+            packageCacheOptions.packagePath,
+            reporter,
+            rootDirectory,
+            rootDirectory,
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
@@ -991,9 +1000,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /**
    * Gets a derived Artifact for testing in the {@link BuildConfiguration#getBinDirectory}. This
    * method should only be used for tests that do no analysis, and so there is no ConfiguredTarget
-   * to own this artifact. If the test runs the analysis phase, {@link
-   * #getBinArtifact(String, ArtifactOwner)} or its convenience methods should be
-   * used instead.
+   * to own this artifact. If the test runs the analysis phase, {@link #getBinArtifact(String,
+   * ConfiguredTarget)} or its convenience methods should be used instead.
    */
   protected Artifact getBinArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(PathFragment.create(rootRelativePath),
@@ -1071,7 +1079,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Gets a derived Artifact for testing in the {@link BuildConfiguration#getGenfilesDirectory}.
    * This method should only be used for tests that do no analysis, and so there is no
    * ConfiguredTarget to own this artifact. If the test runs the analysis phase, {@link
-   * #getGenfilesArtifact(String, ArtifactOwner)} or its convenience methods should be used instead.
+   * #getGenfilesArtifact(String, ConfiguredTarget)} or its convenience methods should be used
+   * instead.
    */
   protected Artifact getGenfilesArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(PathFragment.create(rootRelativePath),

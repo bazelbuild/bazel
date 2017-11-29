@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileOperationException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
@@ -86,8 +85,12 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   @Before
   public final void setUp() throws Exception  {
     AnalysisMock analysisMock = AnalysisMock.get();
-    pkgLocator = new AtomicReference<>(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
+    pkgLocator =
+        new AtomicReference<>(
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.of(rootDirectory),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     BlazeDirectories directories =
@@ -114,7 +117,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new PackageLookupFunction(
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
-            ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD)));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction());
     skyFunctions.put(SkyFunctions.PACKAGE,
@@ -695,8 +698,11 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     // to the definition of //a/b/ under pp1, not under pp2.
 
     // Set the package paths.
-    pkgLocator.set(new PathPackageLocator(outputBase,
-        ImmutableList.of(rootDirectory.getRelative("pp1"), rootDirectory.getRelative("pp2"))));
+    pkgLocator.set(
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(rootDirectory.getRelative("pp1"), rootDirectory.getRelative("pp2")),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
 
     Artifact aBuildArtifact = sourceArtifactUnderPackagePath("a/BUILD", "pp1");

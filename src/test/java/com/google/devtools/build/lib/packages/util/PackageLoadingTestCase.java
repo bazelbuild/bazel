@@ -138,7 +138,10 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = GLOBBING_THREADS;
     skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(rootDirectory),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageCacheOptions,
         Options.getDefaults(SkylarkSemanticsOptions.class),
         defaultsPackageContents,
@@ -149,8 +152,14 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   private void setUpSkyframe() {
-    PathPackageLocator pkgLocator = PathPackageLocator.create(
-        outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
+    PathPackageLocator pkgLocator =
+        PathPackageLocator.create(
+            outputBase,
+            packageCacheOptions.packagePath,
+            reporter,
+            rootDirectory,
+            rootDirectory,
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = GLOBBING_THREADS;
     skyframeExecutor.preparePackageLoading(

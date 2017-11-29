@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -45,28 +45,19 @@ import java.util.concurrent.atomic.AtomicReference;
  * filesystem) idempotent.
  */
 public class PathPackageLocator implements Serializable {
-  private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
-
   private final ImmutableList<Path> pathEntries;
   // Transient because this is an injected value in Skyframe, and as such, its serialized
   // representation is used as a key. We want a change to output base not to invalidate things.
   private final transient Path outputBase;
 
-  public static final PathPackageLocator EMPTY =
-      new PathPackageLocator(null, ImmutableList.<Path>of());
+  private final ImmutableList<BuildFileName> buildFilesByPriority;
 
   @VisibleForTesting
-  public PathPackageLocator(Path outputBase, List<Path> pathEntries) {
+  public PathPackageLocator(
+      Path outputBase, List<Path> pathEntries, List<BuildFileName> buildFilesByPriority) {
     this.outputBase = outputBase;
     this.pathEntries = ImmutableList.copyOf(pathEntries);
-  }
-
-  /**
-   * Constructs a PathPackageLocator based on the specified list of package root directories.
-   */
-  @VisibleForTesting
-  public PathPackageLocator(Path... pathEntries) {
-    this(null, Arrays.asList(pathEntries));
+    this.buildFilesByPriority = ImmutableList.copyOf(buildFilesByPriority);
   }
 
   /**
@@ -92,15 +83,27 @@ public class PathPackageLocator implements Serializable {
 
   /**
    * Like #getPackageBuildFile(), but returns null instead of throwing.
-   *  @param packageIdentifier the name of the package.
+   *
+   * @param packageIdentifier the name of the package.
    * @param cache a filesystem-level cache of stat() calls.
+   * @return the {@link Path} to the correct build file, or {@code null} if none was found
    */
-  public Path getPackageBuildFileNullable(PackageIdentifier packageIdentifier,
-      AtomicReference<? extends UnixGlob.FilesystemCalls> cache)  {
+  public Path getPackageBuildFileNullable(
+      PackageIdentifier packageIdentifier,
+      AtomicReference<? extends UnixGlob.FilesystemCalls> cache) {
     Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
     if (packageIdentifier.getRepository().isMain()) {
-      return getFilePath(
-          packageIdentifier.getPackageFragment().getRelative(BUILD_PATH_FRAGMENT), cache);
+      for (BuildFileName buildFileName : buildFilesByPriority) {
+        Path buildFilePath =
+            getFilePath(
+                packageIdentifier
+                    .getPackageFragment()
+                    .getRelative(buildFileName.getFilenameFragment()),
+                cache);
+        if (buildFilePath != null) {
+          return buildFilePath;
+        }
+      }
     } else {
       Verify.verify(outputBase != null, String.format(
           "External package '%s' needs to be loaded but this PathPackageLocator instance does not "
@@ -109,19 +112,23 @@ public class PathPackageLocator implements Serializable {
       // $OUTPUT_BASE/external, which is created by the appropriate RepositoryDirectoryValue. This
       // is true for the invocation in GlobCache, but not for the locator.getBuildFileForPackage()
       // invocation in Parser#include().
-      Path buildFile = outputBase.getRelative(
-          packageIdentifier.getSourceRoot()).getRelative(BUILD_PATH_FRAGMENT);
-      try {
-        FileStatus stat = cache.get().statIfFound(buildFile, Symlinks.FOLLOW);
-        if (stat != null && stat.isFile()) {
-          return buildFile;
-        } else {
+      for (BuildFileName buildFileName : buildFilesByPriority) {
+        Path buildFile =
+            outputBase
+                .getRelative(packageIdentifier.getSourceRoot())
+                .getRelative(buildFileName.getFilenameFragment());
+        try {
+          FileStatus stat = cache.get().statIfFound(buildFile, Symlinks.FOLLOW);
+          if (stat != null && stat.isFile()) {
+            return buildFile;
+          }
+        } catch (IOException e) {
           return null;
         }
-      } catch (IOException e) {
-        return null;
       }
     }
+
+    return null;
   }
 
 
@@ -138,28 +145,85 @@ public class PathPackageLocator implements Serializable {
   }
 
   /**
-   * A factory of PathPackageLocators from a list of path elements.  Elements
-   * may contain "%workspace%", indicating the workspace.
+   * A factory of PathPackageLocators from a list of path elements. Elements may contain
+   * "%workspace%", indicating the workspace.
+   *
+   * <p>If any of the paths given do not exist, an exception will be thrown.
    *
    * @param outputBase the output base. Can be null if remote repositories are not in use.
-   * @param pathElements Each element must be an absolute path, relative path,
-   *                     or some string "%workspace%" + relative, where relative is itself a
-   *                     relative path.  The special symbol "%workspace%" means to interpret
-   *                     the path relative to the nearest enclosing workspace.  Relative
-   *                     paths are interpreted relative to the client's working directory,
-   *                     which may be below the workspace.
+   * @param pathElements Each element must be an absolute path, relative path, or some string
+   *     "%workspace%" + relative, where relative is itself a relative path. The special symbol
+   *     "%workspace%" means to interpret the path relative to the nearest enclosing workspace.
+   *     Relative paths are interpreted relative to the client's working directory, which may be
+   *     below the workspace.
    * @param eventHandler The eventHandler.
    * @param workspace The nearest enclosing package root directory.
    * @param clientWorkingDirectory The client's working directory.
-   * @param checkExistence If true, verify that the element exists before adding it to the locator.
-   * @return a list of {@link Path}s.
+   * @param buildFilesByPriority The ordered collection of {@link BuildFileName}s to check in each
+   *     potential package directory.
+   * @return a {@link PathPackageLocator} that uses the {@code outputBase} and {@code pathElements}
+   *     provided.
    */
-  public static PathPackageLocator create(Path outputBase,
-                                          List<String> pathElements,
-                                          EventHandler eventHandler,
-                                          Path workspace,
-                                          Path clientWorkingDirectory,
-                                          boolean checkExistence) {
+  public static PathPackageLocator create(
+      Path outputBase,
+      List<String> pathElements,
+      EventHandler eventHandler,
+      Path workspace,
+      Path clientWorkingDirectory,
+      List<BuildFileName> buildFilesByPriority) {
+    return createInternal(
+        outputBase,
+        pathElements,
+        eventHandler,
+        workspace,
+        clientWorkingDirectory,
+        buildFilesByPriority,
+        true);
+  }
+
+  /**
+   * A factory of PathPackageLocators from a list of path elements. Elements may contain
+   * "%workspace%", indicating the workspace.
+   *
+   * @param outputBase the output base. Can be null if remote repositories are not in use.
+   * @param pathElements Each element must be an absolute path, relative path, or some string
+   *     "%workspace%" + relative, where relative is itself a relative path. The special symbol
+   *     "%workspace%" means to interpret the path relative to the nearest enclosing workspace.
+   *     Relative paths are interpreted relative to the client's working directory, which may be
+   *     below the workspace.
+   * @param eventHandler The eventHandler.
+   * @param workspace The nearest enclosing package root directory.
+   * @param clientWorkingDirectory The client's working directory.
+   * @param buildFilesByPriority The ordered collection of {@link BuildFileName}s to check in each
+   *     potential package directory.
+   * @return a {@link PathPackageLocator} that uses the {@code outputBase} and {@code pathElements}
+   *     provided.
+   */
+  public static PathPackageLocator createWithoutExistenceCheck(
+      Path outputBase,
+      List<String> pathElements,
+      EventHandler eventHandler,
+      Path workspace,
+      Path clientWorkingDirectory,
+      List<BuildFileName> buildFilesByPriority) {
+    return createInternal(
+        outputBase,
+        pathElements,
+        eventHandler,
+        workspace,
+        clientWorkingDirectory,
+        buildFilesByPriority,
+        false);
+  }
+
+  private static PathPackageLocator createInternal(
+      Path outputBase,
+      List<String> pathElements,
+      EventHandler eventHandler,
+      Path workspace,
+      Path clientWorkingDirectory,
+      List<BuildFileName> buildFilesByPriority,
+      boolean checkExistence) {
     List<Path> resolvedPaths = new ArrayList<>();
     final String workspaceWildcard = "%workspace%";
 
@@ -186,31 +250,8 @@ public class PathPackageLocator implements Serializable {
       }
     }
 
-    return new PathPackageLocator(outputBase, resolvedPaths);
+    return new PathPackageLocator(outputBase, resolvedPaths, buildFilesByPriority);
   }
-
-    /**
-     * A factory of PathPackageLocators from a list of path elements.  Elements
-     * may contain "%workspace%", indicating the workspace.
-     *
-     * @param outputBase the output base. Can be null if remote repositories are not in use.
-     * @param pathElements Each element must be an absolute path, relative path,
-     *                     or some string "%workspace%" + relative, where relative is itself a
-     *                     relative path.  The special symbol "%workspace%" means to interpret
-     *                     the path relative to the nearest enclosing workspace.  Relative
-     *                     paths are interpreted relative to the client's working directory,
-     *                     which may be below the workspace.
-     * @param eventHandler The eventHandler.
-     * @param workspace The nearest enclosing package root directory.
-     * @param clientWorkingDirectory The client's working directory.
-     * @return a list of {@link Path}s.
-     */
-    public static PathPackageLocator create(Path outputBase,
-            List<String> pathElements, EventHandler eventHandler, Path workspace,
-            Path clientWorkingDirectory) {
-        return create(outputBase, pathElements, eventHandler, workspace, clientWorkingDirectory,
-                /*checkExistence=*/true);
-    }
 
   /**
    * Returns the path to the WORKSPACE file for this build.

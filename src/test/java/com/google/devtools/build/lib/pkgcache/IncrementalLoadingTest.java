@@ -491,7 +491,10 @@ public class IncrementalLoadingTest {
       packageCacheOptions.showLoadingProgress = true;
       packageCacheOptions.globbingThreads = 7;
       skyframeExecutor.preparePackageLoading(
-          new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
+          new PathPackageLocator(
+              outputBase,
+              ImmutableList.of(workspace),
+              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageCacheOptions,
           Options.getDefaults(SkylarkSemanticsOptions.class),
           "",
@@ -579,7 +582,10 @@ public class IncrementalLoadingTest {
       packageCacheOptions.showLoadingProgress = true;
       packageCacheOptions.globbingThreads = 7;
       skyframeExecutor.preparePackageLoading(
-          new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
+          new PathPackageLocator(
+              outputBase,
+              ImmutableList.of(workspace),
+              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageCacheOptions,
           Options.getDefaults(SkylarkSemanticsOptions.class),
           "",

@@ -53,7 +53,10 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     packageCacheOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
-            new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory, alternativeRoot)),
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.of(rootDirectory, alternativeRoot),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageCacheOptions,
             Options.getDefaults(SkylarkSemanticsOptions.class),
             "",
