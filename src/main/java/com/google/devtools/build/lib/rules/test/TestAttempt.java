@@ -43,6 +43,7 @@ public class TestAttempt implements BuildEvent {
   private final List<String> testWarnings;
   private final long durationMillis;
   private final long startTimeMillis;
+  private final BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo;
 
   /**
    * Construct the event given the test action and attempt number.
@@ -54,6 +55,7 @@ public class TestAttempt implements BuildEvent {
   public TestAttempt(
       boolean cachedLocally,
       TestRunnerAction testAction,
+      BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo,
       Integer attempt,
       BlazeTestStatus status,
       long startTimeMillis,
@@ -62,6 +64,7 @@ public class TestAttempt implements BuildEvent {
       List<String> testWarnings,
       boolean lastAttempt) {
     this.testAction = testAction;
+    this.executionInfo = executionInfo;
     this.attempt = attempt;
     this.status = status;
     this.cachedLocally = cachedLocally;
@@ -73,6 +76,7 @@ public class TestAttempt implements BuildEvent {
   }
 
   public TestAttempt(
+      boolean cachedLocally,
       TestRunnerAction testAction,
       Integer attempt,
       BlazeTestStatus status,
@@ -81,8 +85,36 @@ public class TestAttempt implements BuildEvent {
       Collection<Pair<String, Path>> files,
       List<String> testWarnings,
       boolean lastAttempt) {
-    this(false, testAction, attempt, status, startTimeMillis, durationMillis, files, testWarnings,
-        lastAttempt);
+    this(cachedLocally, testAction,
+        BuildEventStreamProtos.TestResult.ExecutionInfo.getDefaultInstance(), attempt, status,
+        startTimeMillis, durationMillis, files, testWarnings, lastAttempt);
+  }
+
+  public TestAttempt(
+      TestRunnerAction testAction,
+      BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo,
+      Integer attempt,
+      BlazeTestStatus status,
+      long startTimeMillis,
+      long durationMillis,
+      Collection<Pair<String, Path>> files,
+      List<String> testWarnings,
+      boolean lastAttempt) {
+    this(false, testAction, executionInfo, attempt, status, startTimeMillis, durationMillis, files,
+        testWarnings, lastAttempt);
+  }
+
+  public TestAttempt(
+      TestRunnerAction testAction,
+      Integer attempt,
+      BlazeTestStatus status,
+      long startTimeMillis,
+      long durationMillis,
+      Collection<Pair<String, Path>> files,
+      List<String> testWarnings,
+      boolean lastAttempt) {
+    this(testAction,  BuildEventStreamProtos.TestResult.ExecutionInfo.getDefaultInstance(), attempt,
+        status, startTimeMillis, durationMillis, files, testWarnings, lastAttempt);
   }
 
   public static TestAttempt fromCachedTestResult(TestResult result) {
@@ -130,6 +162,7 @@ public class TestAttempt implements BuildEvent {
     BuildEventStreamProtos.TestResult.Builder builder =
         BuildEventStreamProtos.TestResult.newBuilder();
     builder.setStatus(BuildEventStreamerUtils.bepStatus(status));
+    builder.setExecutionInfo(executionInfo);
     builder.setCachedLocally(cachedLocally);
     builder.setTestAttemptStartMillisEpoch(startTimeMillis);
     builder.setTestAttemptDurationMillis(durationMillis);
