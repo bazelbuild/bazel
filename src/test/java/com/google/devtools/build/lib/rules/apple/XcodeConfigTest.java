@@ -286,7 +286,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "xcode_config(",
         "    name = 'foo',",
         "    require_defined_version = 1,",
-        "    versions = [':version512'],",
+        "    versions = [':version512', ':version84'],",
         "    default = ':version512',",
         ")",
         "",
@@ -294,11 +294,16 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "    name = 'version512',",
         "    version = '5.1.2',",
         "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
         ")");
     useConfiguration("--xcode_version=6");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
-    assertContainsEvent("6 matches no alias in the config");
+    assertContainsEvent("--xcode_version=6 specified, but '6' is not an available Xcode version. "
+        + "available versions: [5.1.2, 8.4]");
   }
 
   @Test

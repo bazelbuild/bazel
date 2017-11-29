@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -173,12 +176,21 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       if (explicitVersion != null) {
         return explicitVersion;
       } else {
-        throw new XcodeConfigException(
-            String.format("%s matches no alias in the config", versionOverrideFlag));
+        throw new XcodeConfigException(String.format(
+            "--xcode_version=%s specified, but '%s' is not an available Xcode version. "
+            + "available versions: [%s]",
+            versionOverrideFlag, versionOverrideFlag,
+            printableXcodeVersions(xcodeVersionRules)));
       }
     }
 
     return defaultVersion;
+  }
+
+  private static String printableXcodeVersions(Iterable<XcodeVersionRuleData> xcodeVersions) {
+    return Streams.stream(xcodeVersions)
+        .map(versionData -> versionData.getVersion().toString())
+        .collect(joining(", "));
   }
 
   /**
