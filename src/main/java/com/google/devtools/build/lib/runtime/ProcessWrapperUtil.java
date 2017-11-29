@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.sandbox;
+package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -23,25 +22,36 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * This runner runs process-wrapper inside a sandboxed execution root, which should work on most
- * platforms and gives at least some isolation between running actions.
+ * Utility functions for the process wrapper embedded tool, which should work on most platforms and
+ * gives at least some isolation between running actions.
  */
-final class ProcessWrapperRunner {
+public final class ProcessWrapperUtil {
   private static final String PROCESS_WRAPPER = "process-wrapper" + OsUtils.executableExtension();
 
-  static boolean isSupported(CommandEnvironment cmdEnv) {
+  /** Returns whether using the process wrapper is supported in the {@link CommandEnvironment}. */
+  public static boolean isSupported(CommandEnvironment cmdEnv) {
     // We can only use this runner, if the process-wrapper exists in the embedded tools.
     // This might not always be the case, e.g. while bootstrapping.
     return getProcessWrapper(cmdEnv) != null;
   }
 
-  /** Returns the PathFragment of the process wrapper binary, or null if it doesn't exist. */
-  static Path getProcessWrapper(CommandEnvironment cmdEnv) {
+  /** Returns the {@link Path} of the process wrapper binary, or null if it doesn't exist. */
+  public static Path getProcessWrapper(CommandEnvironment cmdEnv) {
     PathFragment execPath = cmdEnv.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER);
     return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
-  static List<String> getCommandLine(
+  /**
+   * Returns a command line to execute a specific command using the process wrapper with a timeout.
+   *
+   * @param processWrapper the path to the process wrapper
+   * @param spawnArguments the command to execute, and its arguments
+   * @param timeout the time limit to run command using the process wrapper
+   * @param timeoutGraceSeconds the delay (in seconds) to kill a command that exceeds its timeout
+   *
+   * @return the constructed command line to execute a command using the process wrapper
+   */
+  public static List<String> getCommandLine(
       Path processWrapper, List<String> spawnArguments, Duration timeout, int timeoutGraceSeconds) {
     List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
     commandLineArgs.add(processWrapper.getPathString());

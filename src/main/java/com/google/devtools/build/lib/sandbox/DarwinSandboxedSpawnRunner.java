@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
@@ -58,7 +59,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     if (OS.getCurrent() != OS.DARWIN) {
       return false;
     }
-    if (!ProcessWrapperRunner.isSupported(cmdEnv)) {
+    if (!ProcessWrapperUtil.isSupported(cmdEnv)) {
       return false;
     }
 
@@ -106,7 +107,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.productName = productName;
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
-    this.processWrapper = ProcessWrapperRunner.getProcessWrapper(cmdEnv);
+    this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.localEnvProvider = new XCodeLocalEnvProvider();
     this.timeoutGraceSeconds = timeoutGraceSeconds;
   }
@@ -222,7 +223,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     commandLineArgs.add("-f");
     commandLineArgs.add(sandboxConfigPath.getPathString());
     commandLineArgs.addAll(
-        ProcessWrapperRunner.getCommandLine(
+        ProcessWrapperUtil.getCommandLine(
             processWrapper, spawn.getArguments(), timeout, timeoutGraceSeconds));
     return commandLineArgs;
   }

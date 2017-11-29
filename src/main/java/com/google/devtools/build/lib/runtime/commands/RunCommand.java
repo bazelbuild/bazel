@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -57,7 +58,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
-import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -114,8 +114,6 @@ public class RunCommand implements BlazeCommand  {
       + "Do not use wildcards that match more than one target";
   @VisibleForTesting
   public static final String NO_TARGET_MESSAGE = "No targets found to run";
-
-  private static final String PROCESS_WRAPPER = "process-wrapper" + OsUtils.executableExtension();
 
   // Value of --run_under as of the most recent command invocation.
   private RunUnder currentRunUnder;
@@ -264,11 +262,9 @@ public class RunCommand implements BlazeCommand  {
     // on that platform. Also we skip it when writing the command-line to a file instead
     // of executing it directly.
     if (OS.getCurrent() != OS.WINDOWS && runOptions.scriptPath == null) {
-      PathFragment processWrapperPath =
-          env.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER);
-      Preconditions.checkNotNull(
-          processWrapperPath, PROCESS_WRAPPER + " not found in embedded tools");
-      cmdLine.add(env.getExecRoot().getRelative(processWrapperPath).getPathString());
+      Preconditions.checkState(ProcessWrapperUtil.isSupported(env),
+          "process-wraper not found in embedded tools");
+      cmdLine.add(ProcessWrapperUtil.getProcessWrapper(env).getPathString());
     }
     List<String> prettyCmdLine = new ArrayList<>();
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
