@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -63,7 +64,7 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
   }
 
   @Override
-  protected String computeKey() {
+  protected String computeKey(ActionKeyContext actionKeyContext) {
     return new Fingerprint().addUUID(uuid).addBytes(getInfo().toByteArray()).hexDigestAndReset();
   }
 
@@ -72,9 +73,9 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() {
+  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext) {
     try {
-      return super.getExtraActionInfo().setExtension(infoExtension, getInfo());
+      return super.getExtraActionInfo(actionKeyContext).setExtension(infoExtension, getInfo());
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("PsedoAction command line expansion cannot fail");
     }

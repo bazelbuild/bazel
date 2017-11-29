@@ -344,7 +344,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
             return builder.build();
           }
-        });
+        },
+        actionKeyContext);
   }
 
   private enum StaticKeyAttributes {
@@ -395,7 +396,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
             builder.setLibraryIdentifier("foo");
             return builder.build();
           }
-        });
+        },
+        actionKeyContext);
   }
 
   @Test

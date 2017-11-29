@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
@@ -151,4 +152,6 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * called after the ConfiguredTarget is created.
    */
   ImmutableSet<Artifact> getOrphanArtifacts();
+
+  ActionKeyContext getActionKeyContext();
 }

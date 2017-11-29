@@ -1099,10 +1099,15 @@ public class BuildView {
           InconsistentAspectOrderException, ToolchainContextException {
     BuildConfiguration targetConfig = target.getConfiguration();
     CachingAnalysisEnvironment env =
-        new CachingAnalysisEnvironment(getArtifactFactory(),
+        new CachingAnalysisEnvironment(
+            getArtifactFactory(),
+            skyframeExecutor.getActionKeyContext(),
             new ConfiguredTargetKey(target.getLabel(), targetConfig),
-            /*isSystemEnv=*/false, targetConfig.extendedSanityChecks(), eventHandler,
-            /*env=*/null, targetConfig.isActionsEnabled());
+            /*isSystemEnv=*/ false,
+            targetConfig.extendedSanityChecks(),
+            eventHandler,
+            /*env=*/ null,
+            targetConfig.isActionsEnabled());
     return getRuleContextForTesting(eventHandler, target, env, configurations);
   }
 

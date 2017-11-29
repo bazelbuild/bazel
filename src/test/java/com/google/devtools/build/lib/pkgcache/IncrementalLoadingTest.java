@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -452,6 +453,7 @@ public class IncrementalLoadingTest {
     private final List<Path> changes = new ArrayList<>();
     private boolean everythingModified = false;
     private ModifiedFileSet modifiedFileSet;
+    private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
     public PackageCacheTester(FileSystem fs, ManualClock clock) throws IOException {
       this.clock = clock;
@@ -474,6 +476,7 @@ public class IncrementalLoadingTest {
                   .build(loadingMock.createRuleClassProvider(), fs),
               fs,
               directories,
+              actionKeyContext,
               null, /* workspaceStatusActionFactory */
               loadingMock.createRuleClassProvider().getBuildInfoFactories(),
               ImmutableList.of(new ManualDiffAwarenessFactory()),

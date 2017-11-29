@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -229,7 +230,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   @Override
-  protected String computeKey() throws CommandLineExpansionException {
+  protected String computeKey(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
     f.addStrings(executionSettings.getArgs().arguments());

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -189,6 +190,11 @@ public final class AnalysisTestUtil {
     public ImmutableSet<Artifact> getOrphanArtifacts() {
       return original.getOrphanArtifacts();
     }
+
+    @Override
+    public ActionKeyContext getActionKeyContext() {
+      return original.getActionKeyContext();
+    }
   }
 
   /** A dummy WorkspaceStatusAction. */
@@ -227,7 +233,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public String computeKey() {
+    public String computeKey(ActionKeyContext actionKeyContext) {
       return "";
     }
 
@@ -393,6 +399,11 @@ public final class AnalysisTestUtil {
     @Override
     public ImmutableSet<Artifact> getOrphanArtifacts() {
       return ImmutableSet.<Artifact>of();
+    }
+
+    @Override
+    public ActionKeyContext getActionKeyContext() {
+      return null;
     }
   };
 

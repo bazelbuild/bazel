@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
 public final class NestedSet<E> implements Iterable<E> {
 
   private final Order order;
-  final Object children;
+  private final Object children;
   private byte[] memo;
 
   private static final byte[] LEAF_MEMO = {};

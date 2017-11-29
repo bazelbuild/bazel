@@ -22,6 +22,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -127,6 +128,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected PackageManager packageManager;
   private LoadingPhaseRunner loadingPhaseRunner;
   private BuildView buildView;
+  protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   // Note that these configurations are virtual (they use only VFS)
   private BuildConfigurationCollection masterConfig;
@@ -167,6 +169,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         pkgFactory,
         fileSystem,
         directories,
+        actionKeyContext,
         workspaceStatusActionFactory,
         buildInfoFactories,
         ImmutableList.of(),

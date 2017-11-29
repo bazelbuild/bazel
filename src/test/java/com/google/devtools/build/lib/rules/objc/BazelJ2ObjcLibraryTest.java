@@ -662,7 +662,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ActionExecutionContext dummyActionExecutionContext =
         new ActionExecutionContext(
-            null, null, ActionInputPrefetcher.NONE, null, null, ImmutableMap.<String, String>of(),
+            null,
+            null,
+            ActionInputPrefetcher.NONE,
+            actionKeyContext,
+            null,
+            null,
+            ImmutableMap.<String, String>of(),
             DUMMY_ARTIFACT_EXPANDER);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
@@ -705,7 +711,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ActionExecutionContext dummyActionExecutionContext =
         new ActionExecutionContext(
-            null, null, ActionInputPrefetcher.NONE, null, null, ImmutableMap.<String, String>of(),
+            null,
+            null,
+            ActionInputPrefetcher.NONE,
+            actionKeyContext,
+            null,
+            null,
+            ImmutableMap.<String, String>of(),
             DUMMY_ARTIFACT_EXPANDER);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();

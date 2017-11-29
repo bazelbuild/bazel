@@ -26,6 +26,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -133,6 +134,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       PackageFactory pkgFactory,
       FileSystem fileSystem,
       BlazeDirectories directories,
+      ActionKeyContext actionKeyContext,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
@@ -147,6 +149,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         pkgFactory,
         fileSystem,
         directories,
+        actionKeyContext,
         workspaceStatusActionFactory,
         buildInfoFactories,
         extraSkyFunctions,
@@ -163,6 +166,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       PackageFactory pkgFactory,
       FileSystem fileSystem,
       BlazeDirectories directories,
+      ActionKeyContext actionKeyContext,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
@@ -178,6 +182,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             pkgFactory,
             fileSystem,
             directories,
+            actionKeyContext,
             workspaceStatusActionFactory,
             buildInfoFactories,
             diffAwarenessFactories,

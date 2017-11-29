@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -224,12 +225,9 @@ public final class FileWriteAction extends AbstractFileWriteAction {
     };
   }
 
-  /**
-   * Computes the Action key for this action by computing the fingerprint for
-   * the file contents.
-   */
+  /** Computes the Action key for this action by computing the fingerprint for the file contents. */
   @Override
-  protected String computeKey() {
+  protected String computeKey(ActionKeyContext actionKeyContext) {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
     f.addString(String.valueOf(makeExecutable));

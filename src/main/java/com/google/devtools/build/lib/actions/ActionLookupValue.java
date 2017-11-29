@@ -42,9 +42,9 @@ public class ActionLookupValue implements SkyValue {
   private final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
   private static Actions.GeneratingActions filterSharedActionsAndThrowRuntimeIfConflict(
-      List<ActionAnalysisMetadata> actions) {
+      ActionKeyContext actionKeyContext, List<ActionAnalysisMetadata> actions) {
     try {
-      return Actions.filterSharedActionsAndThrowActionConflict(actions);
+      return Actions.filterSharedActionsAndThrowActionConflict(actionKeyContext, actions);
     } catch (ActionConflictException e) {
       // Programming bug.
       throw new IllegalStateException(e);
@@ -53,12 +53,19 @@ public class ActionLookupValue implements SkyValue {
 
   @VisibleForTesting
   public ActionLookupValue(
-      List<ActionAnalysisMetadata> actions, boolean removeActionsAfterEvaluation) {
-    this(filterSharedActionsAndThrowRuntimeIfConflict(actions), removeActionsAfterEvaluation);
+      ActionKeyContext actionKeyContext,
+      List<ActionAnalysisMetadata> actions,
+      boolean removeActionsAfterEvaluation) {
+    this(
+        filterSharedActionsAndThrowRuntimeIfConflict(actionKeyContext, actions),
+        removeActionsAfterEvaluation);
   }
 
-  protected ActionLookupValue(ActionAnalysisMetadata action, boolean removeActionAfterEvaluation) {
-    this(ImmutableList.of(action), removeActionAfterEvaluation);
+  protected ActionLookupValue(
+      ActionKeyContext actionKeyContext,
+      ActionAnalysisMetadata action,
+      boolean removeActionAfterEvaluation) {
+    this(actionKeyContext, ImmutableList.of(action), removeActionAfterEvaluation);
   }
 
   protected ActionLookupValue(

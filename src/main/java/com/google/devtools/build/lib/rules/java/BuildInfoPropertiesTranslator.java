@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import java.util.Map;
 import java.util.Properties;
 
@@ -26,8 +27,8 @@ public interface BuildInfoPropertiesTranslator {
   public void translate(Map<String, String> buildInfo, Properties properties);
 
   /**
-   * Returns a unique key for this translator to be used by the
-   * {@link com.google.devtools.build.lib.actions.Action#getKey()} method
+   * Returns a unique key for this translator to be used by the {@link
+   * ActionExecutionMetadata#getKey(com.google.devtools.build.lib.actions.ActionKeyContext)} method.
    */
   public String computeKey();
 }

@@ -35,8 +35,9 @@ public class FailActionTest {
   private Artifact anOutput;
   private Collection<Artifact> outputs;
   private FailAction failAction;
+  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
-  protected MutableActionGraph actionGraph = new MapBasedActionGraph();
+  protected MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
 
   @Before
   public final void setUp() throws Exception  {

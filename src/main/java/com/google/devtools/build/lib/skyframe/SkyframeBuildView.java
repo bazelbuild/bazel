@@ -25,6 +25,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -472,7 +473,13 @@ public final class SkyframeBuildView {
     boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
     boolean allowRegisteringActions = config == null || config.isActionsEnabled();
     return new CachingAnalysisEnvironment(
-        artifactFactory, owner, isSystemEnv, extendedSanityChecks, eventHandler, env,
+        artifactFactory,
+        skyframeExecutor.getActionKeyContext(),
+        owner,
+        isSystemEnv,
+        extendedSanityChecks,
+        eventHandler,
+        env,
         allowRegisteringActions);
   }
 
@@ -616,6 +623,10 @@ public final class SkyframeBuildView {
    */
   public void enableAnalysis(boolean enable) {
     this.enableAnalysis = enable;
+  }
+
+  public ActionKeyContext getActionKeyContext() {
+    return skyframeExecutor.getActionKeyContext();
   }
 
   private class ConfiguredTargetValueProgressReceiver

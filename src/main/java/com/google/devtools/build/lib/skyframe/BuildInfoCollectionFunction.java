@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.Root;
@@ -36,15 +37,18 @@ import com.google.devtools.build.skyframe.SkyValue;
  * injected value.
  */
 public class BuildInfoCollectionFunction implements SkyFunction {
+  private final ActionKeyContext actionKeyContext;
   // Supplier only because the artifact factory has not yet been created at constructor time.
   private final Supplier<ArtifactFactory> artifactFactory;
   private final Supplier<Boolean> removeActionsAfterEvaluation;
   private final ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories;
 
   BuildInfoCollectionFunction(
+      ActionKeyContext actionKeyContext,
       Supplier<ArtifactFactory> artifactFactory,
       ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories,
       Supplier<Boolean> removeActionsAfterEvaluation) {
+    this.actionKeyContext = actionKeyContext;
     this.artifactFactory = artifactFactory;
     this.buildInfoFactories = buildInfoFactories;
     this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
@@ -77,6 +81,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     };
 
     return new BuildInfoCollectionValue(
+        actionKeyContext,
         buildInfoFactories
             .get(keyAndConfig.getInfoKey())
             .create(

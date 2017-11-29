@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -103,38 +104,59 @@ public final class ActionsTestUtil {
 
   private static final Label NULL_LABEL = Label.parseAbsoluteUnchecked("//null/action:owner");
 
-  public static ActionExecutionContext createContext(Executor executor, FileOutErr fileOutErr,
-      Path execRoot, MetadataHandler metadataHandler, @Nullable ActionGraph actionGraph) {
+  public static ActionExecutionContext createContext(
+      Executor executor,
+      ActionKeyContext actionKeyContext,
+      FileOutErr fileOutErr,
+      Path execRoot,
+      MetadataHandler metadataHandler,
+      @Nullable ActionGraph actionGraph) {
     return createContext(
-        executor, fileOutErr, execRoot, metadataHandler, ImmutableMap.<String, String>of(),
+        executor,
+        actionKeyContext,
+        fileOutErr,
+        execRoot,
+        metadataHandler,
+        ImmutableMap.of(),
         actionGraph);
   }
 
-  public static ActionExecutionContext createContext(Executor executor, FileOutErr fileOutErr,
-      Path execRoot, MetadataHandler metadataHandler, Map<String, String> clientEnv,
+  public static ActionExecutionContext createContext(
+      Executor executor,
+      ActionKeyContext actionKeyContext,
+      FileOutErr fileOutErr,
+      Path execRoot,
+      MetadataHandler metadataHandler,
+      Map<String, String> clientEnv,
       @Nullable ActionGraph actionGraph) {
     return new ActionExecutionContext(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         ActionInputPrefetcher.NONE,
+        actionKeyContext,
         metadataHandler,
         fileOutErr,
-        ImmutableMap.<String, String>copyOf(clientEnv),
+        ImmutableMap.copyOf(clientEnv),
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
   }
 
-  public static ActionExecutionContext createContextForInputDiscovery(Executor executor,
-      FileOutErr fileOutErr, Path execRoot, MetadataHandler metadataHandler,
+  public static ActionExecutionContext createContextForInputDiscovery(
+      Executor executor,
+      ActionKeyContext actionKeyContext,
+      FileOutErr fileOutErr,
+      Path execRoot,
+      MetadataHandler metadataHandler,
       BuildDriver buildDriver) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         ActionInputPrefetcher.NONE,
+        actionKeyContext,
         metadataHandler,
         fileOutErr,
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         new BlockingSkyFunctionEnvironment(
             buildDriver, executor == null ? null : executor.getEventHandler()));
   }
@@ -142,8 +164,14 @@ public final class ActionsTestUtil {
   public static ActionExecutionContext createContext(EventHandler eventHandler) {
     DummyExecutor dummyExecutor = new DummyExecutor(eventHandler);
     return new ActionExecutionContext(
-        dummyExecutor, null, ActionInputPrefetcher.NONE, null, null,
-        ImmutableMap.<String, String>of(), createDummyArtifactExpander());
+        dummyExecutor,
+        null,
+        ActionInputPrefetcher.NONE,
+        new ActionKeyContext(),
+        null,
+        null,
+        ImmutableMap.of(),
+        createDummyArtifactExpander());
   }
 
   private static ArtifactExpander createDummyArtifactExpander() {
@@ -271,7 +299,8 @@ public final class ActionsTestUtil {
       return ActionResult.EMPTY;
     }
 
-    @Override protected String computeKey() {
+    @Override
+    protected String computeKey(ActionKeyContext actionKeyContext) {
       return "action";
     }
 

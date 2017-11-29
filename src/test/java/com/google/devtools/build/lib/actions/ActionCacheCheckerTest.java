@@ -62,7 +62,9 @@ public class ActionCacheCheckerTest {
     ArtifactResolver artifactResolver = new FakeArtifactResolverBase();
 
     cache = new CorruptibleCompactPersistentActionCache(scratch.resolve("/cache/test.dat"), clock);
-    cacheChecker = new ActionCacheChecker(cache, artifactResolver, Predicates.alwaysTrue(), null);
+    cacheChecker =
+        new ActionCacheChecker(
+            cache, artifactResolver, new ActionKeyContext(), Predicates.alwaysTrue(), null);
   }
 
   @Before
@@ -167,19 +169,21 @@ public class ActionCacheCheckerTest {
 
   @Test
   public void testDifferentActionKey() throws Exception {
-    Action action = new NullAction() {
-      @Override
-      protected String computeKey() {
-        return "key1";
-      }
-    };
+    Action action =
+        new NullAction() {
+          @Override
+          protected String computeKey(ActionKeyContext actionKeyContext) {
+            return "key1";
+          }
+        };
     runAction(action);
-    action = new NullAction() {
-      @Override
-      protected String computeKey() {
-        return "key2";
-      }
-    };
+    action =
+        new NullAction() {
+          @Override
+          protected String computeKey(ActionKeyContext actionKeyContext) {
+            return "key2";
+          }
+        };
     runAction(action);
 
     assertStatistics(

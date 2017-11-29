@@ -73,6 +73,7 @@ public final class WorkspaceBuilder {
             packageFactory,
             runtime.getFileSystem(),
             directories,
+            runtime.getActionKeyContext(),
             workspaceStatusActionFactory,
             ruleClassProvider.getBuildInfoFactories(),
             diffAwarenessFactories.build(),

@@ -702,6 +702,7 @@ public class ExecutionTool {
         new ActionCacheChecker(
             actionCache,
             artifactFactory,
+            skyframeExecutor.getActionKeyContext(),
             executionFilter,
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)

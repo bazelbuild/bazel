@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -41,6 +42,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
   private static final Logger logger = Logger.getLogger(BuildSummaryStatsModule.class.getName());
 
+  private ActionKeyContext actionKeyContext;
   private SimpleCriticalPathComputer criticalPathComputer;
   private EventBus eventBus;
   private Reporter reporter;
@@ -51,6 +53,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     this.reporter = env.getReporter();
     this.eventBus = env.getEventBus();
+    this.actionKeyContext = env.getSkyframeExecutor().getActionKeyContext();
     eventBus.register(this);
   }
 
@@ -70,7 +73,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @Subscribe
   public void executionPhaseStarting(ExecutionStartingEvent event) {
     if (enabled) {
-      criticalPathComputer = new SimpleCriticalPathComputer(BlazeClock.instance(), discardActions);
+      criticalPathComputer =
+          new SimpleCriticalPathComputer(actionKeyContext, BlazeClock.instance(), discardActions);
       eventBus.register(criticalPathComputer);
     }
   }

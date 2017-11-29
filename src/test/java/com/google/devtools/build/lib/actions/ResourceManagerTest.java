@@ -549,7 +549,7 @@ public class ResourceManagerTest {
   }
 
     @Override
-    public String getKey() {
+    public String getKey(ActionKeyContext actionKeyContext) {
       throw new IllegalStateException();
     }
 

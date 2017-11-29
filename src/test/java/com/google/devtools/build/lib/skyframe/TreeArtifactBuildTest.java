@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -742,10 +743,12 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     Action noGenerateOutputAction = new DummyAction(
         ImmutableList.<Artifact>of(treeFileArtifactB), expectedOutputTreeFileArtifact2);
 
-    actionTemplateExpansionFunction = new DummyActionTemplateExpansionFunction(
-        ImmutableMultimap.<ActionTemplate<?>, Action>of(
-            actionTemplate, generateOutputAction,
-            actionTemplate, noGenerateOutputAction));
+    actionTemplateExpansionFunction =
+        new DummyActionTemplateExpansionFunction(
+            actionKeyContext,
+            ImmutableMultimap.<ActionTemplate<?>, Action>of(
+                actionTemplate, generateOutputAction,
+                actionTemplate, noGenerateOutputAction));
 
     buildArtifact(artifact2);
   }
@@ -782,10 +785,12 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         ImmutableList.<Artifact>of(treeFileArtifactB),
         ImmutableList.<Artifact>of(expectedOutputTreeFileArtifact2));
 
-    actionTemplateExpansionFunction = new DummyActionTemplateExpansionFunction(
-        ImmutableMultimap.<ActionTemplate<?>, Action>of(
-            actionTemplate, generateOutputAction,
-            actionTemplate, noGenerateOutputAction));
+    actionTemplateExpansionFunction =
+        new DummyActionTemplateExpansionFunction(
+            actionKeyContext,
+            ImmutableMultimap.<ActionTemplate<?>, Action>of(
+                actionTemplate, generateOutputAction,
+                actionTemplate, noGenerateOutputAction));
 
     try {
       buildArtifact(artifact2);
@@ -826,11 +831,13 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     Action throwingAction = new ThrowingDummyAction(
         ImmutableList.<Artifact>of(treeFileArtifactB),
         ImmutableList.<Artifact>of(expectedOutputTreeFileArtifact2));
-    
-    actionTemplateExpansionFunction = new DummyActionTemplateExpansionFunction(
-        ImmutableMultimap.<ActionTemplate<?>, Action>of(
-            actionTemplate, generateOutputAction,
-            actionTemplate, throwingAction));
+
+    actionTemplateExpansionFunction =
+        new DummyActionTemplateExpansionFunction(
+            actionKeyContext,
+            ImmutableMultimap.<ActionTemplate<?>, Action>of(
+                actionTemplate, generateOutputAction,
+                actionTemplate, throwingAction));
 
     try {
       buildArtifact(artifact2);
@@ -870,11 +877,13 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     Action anotherThrowingAction = new ThrowingDummyAction(
         ImmutableList.<Artifact>of(treeFileArtifactB),
         ImmutableList.<Artifact>of(expectedOutputTreeFileArtifact2));
-    
-    actionTemplateExpansionFunction = new DummyActionTemplateExpansionFunction(
-        ImmutableMultimap.<ActionTemplate<?>, Action>of(
-            actionTemplate, throwingAction,
-            actionTemplate, anotherThrowingAction));
+
+    actionTemplateExpansionFunction =
+        new DummyActionTemplateExpansionFunction(
+            actionKeyContext,
+            ImmutableMultimap.<ActionTemplate<?>, Action>of(
+                actionTemplate, throwingAction,
+                actionTemplate, anotherThrowingAction));
 
     try {
       buildArtifact(artifact2);
@@ -1217,10 +1226,13 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
   /** A dummy action template expansion function that just returns the injected actions */
   private static class DummyActionTemplateExpansionFunction implements SkyFunction {
+    private final ActionKeyContext actionKeyContext;
     private final Multimap<ActionTemplate<?>, Action> actionTemplateToActionMap;
 
     DummyActionTemplateExpansionFunction(
+        ActionKeyContext actionKeyContext,
         Multimap<ActionTemplate<?>, Action> actionTemplateToActionMap) {
+      this.actionKeyContext = actionKeyContext;
       this.actionTemplateToActionMap = actionTemplateToActionMap;
     }
 
@@ -1229,7 +1241,9 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       ActionTemplateExpansionKey key = (ActionTemplateExpansionKey) skyKey.argument();
       ActionTemplate<?> actionTemplate = key.getActionTemplate();
       return new ActionTemplateExpansionValue(
-          Preconditions.checkNotNull(actionTemplateToActionMap.get(actionTemplate)), false);
+          actionKeyContext,
+          Preconditions.checkNotNull(actionTemplateToActionMap.get(actionTemplate)),
+          false);
     }
 
     @Override

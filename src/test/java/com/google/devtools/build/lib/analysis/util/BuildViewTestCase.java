@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -177,6 +178,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected TimestampGranularityMonitor tsgm;
   protected BlazeDirectories directories;
+  protected ActionKeyContext actionKeyContext;
   protected BinTools binTools;
 
   // Note that these configurations are virtual (they use only VFS)
@@ -204,6 +206,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             new ServerDirectories(outputBase, outputBase),
             rootDirectory,
             analysisMock.getProductName());
+    actionKeyContext = new ActionKeyContext();
     binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
     analysisMock.setupMockClient(mockToolsConfig);
@@ -213,7 +216,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skylarkSemanticsOptions = parseSkylarkSemanticsOptions();
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
-    mutableActionGraph = new MapBasedActionGraph();
+    mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = getRuleClassProvider();
 
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of(
@@ -233,6 +236,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             pkgFactory,
             fileSystem,
             directories,
+            actionKeyContext,
             workspaceStatusActionFactory,
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),
@@ -493,6 +497,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() {
     return new CachingAnalysisEnvironment(
         view.getArtifactFactory(),
+        actionKeyContext,
         ArtifactOwner.NULL_OWNER,
         /*isSystemEnv=*/ true, /*extendedSanityChecks*/
         false,
@@ -1757,6 +1762,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     @Override
     public ImmutableSet<Artifact> getOrphanArtifacts() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ActionKeyContext getActionKeyContext() {
+      return actionKeyContext;
     }
   }
 

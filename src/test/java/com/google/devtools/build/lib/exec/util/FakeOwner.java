@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -117,7 +118,7 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public String getKey() {
+  public String getKey(ActionKeyContext actionKeyContext) {
     return "MockOwner.getKey";
   }
 

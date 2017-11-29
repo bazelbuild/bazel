@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -83,7 +84,7 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public String computeKey() {
+  public String computeKey(ActionKeyContext actionKeyContext) {
     Fingerprint key = new Fingerprint();
     for (Map.Entry<Artifact, Artifact> entry : symlinks.entrySet()) {
       key.addPath(entry.getKey().getPath());

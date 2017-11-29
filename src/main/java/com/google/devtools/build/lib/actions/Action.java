@@ -192,5 +192,6 @@ public interface Action extends ActionExecutionMetadata, Describable {
    * <p>As this method is called from the ExtraAction, make sure it is ok to call this method from a
    * different thread than the one this action is executed on.
    */
-  ExtraActionInfo.Builder getExtraActionInfo() throws CommandLineExpansionException;
+  ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException;
 }

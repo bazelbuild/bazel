@@ -45,7 +45,7 @@ public final class FailAction extends AbstractAction {
   }
 
   @Override
-  protected String computeKey() {
+  protected String computeKey(ActionKeyContext actionKeyContext) {
     return GUID;
   }
 

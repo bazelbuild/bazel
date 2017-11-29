@@ -595,7 +595,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "        outs=['a.out'])");
     update("//pkg:a.out");
     assertWithMessage("Actions should not be compatible")
-        .that(Actions.canBeShared(action, getGeneratingAction(outputArtifact)))
+        .that(Actions.canBeShared(actionKeyContext, action, getGeneratingAction(outputArtifact)))
         .isFalse();
   }
 

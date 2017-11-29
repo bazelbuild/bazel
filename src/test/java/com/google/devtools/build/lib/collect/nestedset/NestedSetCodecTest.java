@@ -64,7 +64,7 @@ public class NestedSetCodecTest {
     NestedSet<String> other = (NestedSet<String>) deserialized;
     assertThat(subject.getOrder()).isEqualTo(other.getOrder());
     assertThat(subject.toSet()).isEqualTo(other.toSet());
-    verifyStructure(subject.children, other.children);
+    verifyStructure(subject.rawChildren(), other.rawChildren());
   }
 
   private static void verifyStructure(Object lhs, Object rhs) {

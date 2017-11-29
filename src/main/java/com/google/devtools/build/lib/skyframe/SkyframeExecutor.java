@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -244,6 +245,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // Having the BuildInfoFunction own the supplier is currently not possible either, because then
   // it would be invalidated on every build, since it would depend on the build id value.
   private MutableSupplier<UUID> buildId = new MutableSupplier<>();
+  private final ActionKeyContext actionKeyContext;
 
   protected boolean active = true;
   private final SkyframePackageManager packageManager;
@@ -293,6 +295,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       PackageFactory pkgFactory,
       FileSystem fileSystem,
       BlazeDirectories directories,
+      ActionKeyContext actionKeyContext,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
@@ -311,9 +314,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(),
         syscalls, cyclesReporter, pkgLocator, numPackagesLoaded, this);
     this.resourceManager = ResourceManager.instance();
-    this.skyframeActionExecutor = new SkyframeActionExecutor(eventBus, statusReporterRef);
+    this.skyframeActionExecutor =
+        new SkyframeActionExecutor(actionKeyContext, eventBus, statusReporterRef);
     this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
+    this.actionKeyContext = Preconditions.checkNotNull(actionKeyContext);
     ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder = ImmutableMap.builder();
     for (BuildInfoFactory factory : buildInfoFactories) {
       factoryMapBuilder.put(factory.getKey(), factory);
@@ -431,11 +436,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.BUILD_INFO_COLLECTION,
         new BuildInfoCollectionFunction(
-            artifactFactory, buildInfoFactories, removeActionsAfterEvaluation));
+            actionKeyContext, artifactFactory, buildInfoFactories, removeActionsAfterEvaluation));
     map.put(
         SkyFunctions.BUILD_INFO,
-        new WorkspaceStatusFunction(removeActionsAfterEvaluation, this::makeWorkspaceStatusAction));
-    map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(removeActionsAfterEvaluation));
+        new WorkspaceStatusFunction(
+            actionKeyContext, removeActionsAfterEvaluation, this::makeWorkspaceStatusAction));
+    map.put(
+        SkyFunctions.COVERAGE_REPORT,
+        new CoverageReportFunction(actionKeyContext, removeActionsAfterEvaluation));
     ActionExecutionFunction actionExecutionFunction =
         new ActionExecutionFunction(skyframeActionExecutor, tsgm);
     map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
@@ -445,7 +453,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction());
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-        new ActionTemplateExpansionFunction(removeActionsAfterEvaluation));
+        new ActionTemplateExpansionFunction(actionKeyContext, removeActionsAfterEvaluation));
     map.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     map.put(SkyFunctions.REGISTERED_TOOLCHAINS, new RegisteredToolchainsFunction());
     map.put(SkyFunctions.TOOLCHAIN_RESOLUTION, new ToolchainResolutionFunction());
@@ -1779,6 +1787,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public PackageManager getPackageManager() {
     return packageManager;
+  }
+
+  public ActionKeyContext getActionKeyContext() {
+    return actionKeyContext;
   }
 
   class SkyframePackageLoader {

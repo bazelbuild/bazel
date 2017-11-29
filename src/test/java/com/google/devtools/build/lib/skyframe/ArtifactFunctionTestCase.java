@@ -17,6 +17,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -59,6 +60,7 @@ abstract class ArtifactFunctionTestCase {
   protected MemoizingEvaluator evaluator;
   protected Path root;
   protected Path middlemanPath;
+  protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   /**
    * The test action execution function. The Skyframe evaluator's action execution function
@@ -116,7 +118,8 @@ abstract class ArtifactFunctionTestCase {
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                    new ActionTemplateExpansionFunction(Suppliers.ofInstance(false)))
+                    new ActionTemplateExpansionFunction(
+                        actionKeyContext, Suppliers.ofInstance(false)))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);

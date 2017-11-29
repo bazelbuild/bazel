@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -121,6 +122,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   private Set<ActionAnalysisMetadata> actions;
 
   protected AtomicReference<EventBus> eventBusRef = new AtomicReference<>();
+  protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
   public final void initialize() throws Exception  {
@@ -129,7 +131,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     ResourceManager.instance().setAvailableResources(ResourceSet.createWithRamCpuIo(100, 1, 1));
     actions = new HashSet<>();
     actionTemplateExpansionFunction =
-        new ActionTemplateExpansionFunction(Suppliers.ofInstance(false));
+        new ActionTemplateExpansionFunction(actionKeyContext, Suppliers.ofInstance(false));
   }
 
   protected void clearActions() {
@@ -180,7 +182,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     ActionExecutionStatusReporter statusReporter =
         ActionExecutionStatusReporter.create(new StoredEventHandler());
     final SkyframeActionExecutor skyframeActionExecutor =
-        new SkyframeActionExecutor(eventBusRef, new AtomicReference<>(statusReporter));
+        new SkyframeActionExecutor(
+            actionKeyContext, eventBusRef, new AtomicReference<>(statusReporter));
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
@@ -238,7 +241,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         if (evaluator.getExistingValue(OWNER_KEY) == null) {
           differencer.inject(
               ImmutableMap.of(
-                  OWNER_KEY, new ActionLookupValue(ImmutableList.copyOf(actions), false)));
+                  OWNER_KEY,
+                  new ActionLookupValue(actionKeyContext, ImmutableList.copyOf(actions), false)));
         }
       }
 
@@ -263,7 +267,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             executor,
             keepGoing,
             /*explain=*/ false,
-            new ActionCacheChecker(actionCache, null, ALWAYS_EXECUTE_FILTER, null),
+            new ActionCacheChecker(
+                actionCache, null, actionKeyContext, ALWAYS_EXECUTE_FILTER, null),
             null);
         skyframeActionExecutor.setActionExecutionProgressReportingObjects(
             EMPTY_PROGRESS_SUPPLIER, EMPTY_COMPLETION_RECEIVER);

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -267,7 +268,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     @Override
-    protected String computeKey() {
+    protected String computeKey(ActionKeyContext actionKeyContext) {
       return "";
     }
 

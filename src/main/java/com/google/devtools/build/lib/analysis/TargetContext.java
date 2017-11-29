@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Objects;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -69,6 +70,10 @@ public class TargetContext {
 
   public AnalysisEnvironment getAnalysisEnvironment() {
     return env;
+  }
+
+  public ActionKeyContext getActionKeyContext() {
+    return env.getActionKeyContext();
   }
 
   public Target getTarget() {

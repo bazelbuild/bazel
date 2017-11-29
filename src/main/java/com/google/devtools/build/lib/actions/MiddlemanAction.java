@@ -56,7 +56,7 @@ public final class MiddlemanAction extends AbstractAction {
   }
 
   @Override
-  protected String computeKey() {
+  protected String computeKey(ActionKeyContext actionKeyContext) {
     // TODO(bazel-team): Need to take middlemanType into account here.
     // Only the set of inputs matters, and the dependency checker is
     // responsible for considering those.

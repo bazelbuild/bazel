@@ -34,3 +34,12 @@ java_library(
         "//third_party/protobuf:protobuf_java",
     ],
 )
+
+java_library(
+    name = "fingerprint_cache",
+    srcs = ["NestedSetFingerprintCache.java"],
+    deps = [
+        ":nestedset",
+        "//src/main/java/com/google/devtools/build/lib:util",
+    ],
+)

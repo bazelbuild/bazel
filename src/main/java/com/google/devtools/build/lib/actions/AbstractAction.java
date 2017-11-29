@@ -295,16 +295,17 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   /**
    * See the javadoc for {@link com.google.devtools.build.lib.actions.Action} and {@link
-   * com.google.devtools.build.lib.actions.ActionExecutionMetadata#getKey()} for the contract for
-   * {@link #computeKey()}.
+   * ActionExecutionMetadata#getKey(ActionKeyContext)} for the contract for {@link
+   * #computeKey(ActionKeyContext)}.
    */
-  protected abstract String computeKey() throws CommandLineExpansionException;
+  protected abstract String computeKey(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException;
 
   @Override
-  public final synchronized String getKey() {
+  public final synchronized String getKey(ActionKeyContext actionKeyContext) {
     if (cachedKey == null) {
       try {
-        cachedKey = computeKey();
+        cachedKey = computeKey(actionKeyContext);
       } catch (CommandLineExpansionException e) {
         cachedKey = KEY_ERROR;
       }
@@ -481,12 +482,13 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() throws CommandLineExpansionException {
+  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException {
     ActionOwner owner = getOwner();
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
             .setOwner(owner.getLabel().toString())
-            .setId(getKey())
+            .setId(getKey(actionKeyContext))
             .setMnemonic(getMnemonic());
     Iterable<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
     AspectDescriptor lastAspect = null;

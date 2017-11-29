@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -416,7 +417,7 @@ public final class CppLinkAction extends AbstractAction
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() {
+  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext) {
     // The uses of getLinkConfiguration in this method may not be consistent with the computed key.
     // I.e., this may be incrementally incorrect.
     CppLinkInfo.Builder info = CppLinkInfo.newBuilder();
@@ -435,7 +436,8 @@ public final class CppLinkAction extends AbstractAction
     info.addAllLinkOpt(getLinkCommandLine().getRawLinkArgv());
 
     try {
-      return super.getExtraActionInfo().setExtension(CppLinkInfo.cppLinkInfo, info.build());
+      return super.getExtraActionInfo(actionKeyContext)
+          .setExtension(CppLinkInfo.cppLinkInfo, info.build());
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("CppLinkAction command line expansion cannot fail.");
     }
@@ -447,7 +449,7 @@ public final class CppLinkAction extends AbstractAction
   }
 
   @Override
-  protected String computeKey() {
+  protected String computeKey(ActionKeyContext actionKeyContext) {
     Fingerprint f = new Fingerprint();
     f.addString(fake ? FAKE_LINK_GUID : LINK_GUID);
     f.addString(ldExecutable.getPathString());

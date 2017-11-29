@@ -25,6 +25,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -704,7 +705,7 @@ public class CppCompileAction extends AbstractAction
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() {
+  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext) {
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
     info.setTool(gccToolPath.getPathString());
     for (String option : getCompilerOptions()) {
@@ -728,7 +729,8 @@ public class CppCompileAction extends AbstractAction
     }
 
     try {
-      return super.getExtraActionInfo().setExtension(CppCompileInfo.cppCompileInfo, info.build());
+      return super.getExtraActionInfo(actionKeyContext)
+          .setExtension(CppCompileInfo.cppCompileInfo, info.build());
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("CppCompileAction command line expansion cannot fail.");
     }
@@ -1051,7 +1053,7 @@ public class CppCompileAction extends AbstractAction
   }
 
   @Override
-  public String computeKey() {
+  public String computeKey(ActionKeyContext actionKeyContext) {
     Fingerprint f = new Fingerprint();
     f.addUUID(actionClassId);
     f.addStringMap(getEnvironment());
@@ -1075,17 +1077,11 @@ public class CppCompileAction extends AbstractAction
      */
     f.addPaths(context.getDeclaredIncludeDirs());
     f.addPaths(context.getDeclaredIncludeWarnDirs());
-    for (Artifact declaredIncludeSrc : context.getDeclaredIncludeSrcs()) {
-      f.addPath(declaredIncludeSrc.getExecPath());
-    }
+    actionKeyContext.addArtifactsToFingerprint(f, context.getDeclaredIncludeSrcs());
     f.addInt(0);  // mark the boundary between input types
-    for (Artifact input : getMandatoryInputs()) {
-      f.addPath(input.getExecPath());
-    }
+    actionKeyContext.addArtifactsToFingerprint(f, getMandatoryInputs());
     f.addInt(0);
-    for (Artifact input : prunableInputs) {
-      f.addPath(input.getExecPath());
-    }
+    actionKeyContext.addArtifactsToFingerprint(f, prunableInputs);
     return f.hexDigestAndReset();
   }
 

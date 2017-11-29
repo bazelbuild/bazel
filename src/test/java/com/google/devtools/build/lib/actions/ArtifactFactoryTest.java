@@ -68,6 +68,7 @@ public class ArtifactFactoryTest {
   private PathFragment alienRelative;
 
   private ArtifactFactory artifactFactory;
+  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
   public final void createFiles() throws Exception  {
@@ -194,7 +195,7 @@ public class ArtifactFactoryTest {
   public void testSetGeneratingActionIdempotenceNewActionGraph() throws Exception {
     Artifact a = artifactFactory.getDerivedArtifact(fooRelative, outRoot, NULL_ARTIFACT_OWNER);
     Artifact b = artifactFactory.getDerivedArtifact(barRelative, outRoot, NULL_ARTIFACT_OWNER);
-    MutableActionGraph actionGraph = new MapBasedActionGraph();
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     Action originalAction = new ActionsTestUtil.NullAction(NULL_ACTION_OWNER, a);
     actionGraph.registerAction(originalAction);
 

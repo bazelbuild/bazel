@@ -74,6 +74,7 @@ public class ActionCacheChecker {
   };
 
   private final ActionCache actionCache;
+  private final ActionKeyContext actionKeyContext;
   private final Predicate<? super Action> executionFilter;
   private final ArtifactResolver artifactResolver;
   private final CacheConfig cacheConfig;
@@ -103,10 +104,12 @@ public class ActionCacheChecker {
   public ActionCacheChecker(
       ActionCache actionCache,
       ArtifactResolver artifactResolver,
+      ActionKeyContext actionKeyContext,
       Predicate<? super Action> executionFilter,
       @Nullable CacheConfig cacheConfig) {
     this.actionCache = actionCache;
     this.executionFilter = executionFilter;
+    this.actionKeyContext = actionKeyContext;
     this.artifactResolver = artifactResolver;
     this.cacheConfig =
         cacheConfig != null
@@ -303,7 +306,7 @@ public class ActionCacheChecker {
       reportChanged(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_FILES);
       return true;
-    } else if (!entry.getActionKey().equals(action.getKey())) {
+    } else if (!entry.getActionKey().equals(action.getKey(actionKeyContext))) {
       reportCommand(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_ACTION_KEY);
       return true;
@@ -356,7 +359,8 @@ public class ActionCacheChecker {
     }
     Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
     ActionCache.Entry entry =
-        new ActionCache.Entry(action.getKey(), usedClientEnv, action.discoversInputs());
+        new ActionCache.Entry(
+            action.getKey(actionKeyContext), usedClientEnv, action.discoversInputs());
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();

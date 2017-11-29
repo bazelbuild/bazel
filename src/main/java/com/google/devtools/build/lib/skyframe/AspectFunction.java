@@ -19,7 +19,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectResolver;
@@ -217,7 +217,12 @@ public final class AspectFunction implements SkyFunction {
     Target target = associatedTarget.getTarget();
 
     if (configuredTargetValue.getConfiguredTarget().getProvider(AliasProvider.class) != null) {
-      return createAliasAspect(env, target, aspect, key,
+      return createAliasAspect(
+          env,
+          view.getActionKeyContext(),
+          target,
+          aspect,
+          key,
           configuredTargetValue.getConfiguredTarget());
     }
 
@@ -322,6 +327,7 @@ public final class AspectFunction implements SkyFunction {
 
       return createAspect(
           env,
+          view.getActionKeyContext(),
           key,
           aspectPath,
           aspect,
@@ -407,6 +413,7 @@ public final class AspectFunction implements SkyFunction {
 
   private SkyValue createAliasAspect(
       Environment env,
+      ActionKeyContext actionKeyContext,
       Target originalTarget,
       Aspect aspect,
       AspectKey originalKey,
@@ -438,7 +445,8 @@ public final class AspectFunction implements SkyFunction {
         originalTarget.getLabel(),
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
-        ImmutableList.<ActionAnalysisMetadata>of(),
+        actionKeyContext,
+        ImmutableList.of(),
         transitivePackages,
         removeActionsAfterEvaluation.get());
   }
@@ -446,6 +454,7 @@ public final class AspectFunction implements SkyFunction {
   @Nullable
   private AspectValue createAspect(
       Environment env,
+      ActionKeyContext actionKeyContext,
       AspectKey key,
       ImmutableList<Aspect> aspectPath,
       Aspect aspect,
@@ -513,6 +522,7 @@ public final class AspectFunction implements SkyFunction {
         associatedTarget.getLabel(),
         associatedTarget.getTarget().getLocation(),
         configuredAspect,
+        actionKeyContext,
         ImmutableList.copyOf(analysisEnvironment.getRegisteredActions()),
         transitivePackages.build(),
         removeActionsAfterEvaluation.get());

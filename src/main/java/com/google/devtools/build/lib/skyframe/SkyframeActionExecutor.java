@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -113,6 +114,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   // more detail.
   private static final Striped<Lock> outputDirectoryDeletionLock = Striped.lock(64);
 
+  private final ActionKeyContext actionKeyContext;
   private Reporter reporter;
   private final AtomicReference<EventBus> eventBus;
   private Map<String, String> clientEnv = ImmutableMap.of();
@@ -154,8 +156,10 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private OutputService outputService;
 
   SkyframeActionExecutor(
+      ActionKeyContext actionKeyContext,
       AtomicReference<EventBus> eventBus,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef) {
+    this.actionKeyContext = actionKeyContext;
     this.eventBus = eventBus;
     this.statusReporterRef = statusReporterRef;
   }
@@ -235,7 +239,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
     Pair<ActionGraph, SortedMap<PathFragment, Artifact>> result;
-    result = constructActionGraphAndPathMap(actionLookupValues, temporaryBadActionMap);
+    result =
+        constructActionGraphAndPathMap(actionKeyContext, actionLookupValues, temporaryBadActionMap);
     ActionGraph actionGraph = result.first;
     SortedMap<PathFragment, Artifact> artifactPathMap = result.second;
 
@@ -251,16 +256,17 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   }
 
   /**
-   * Simultaneously construct an action graph for all the actions in Skyframe and a map from
-   * {@link PathFragment}s to their respective {@link Artifact}s. We do this in a threadpool to save
-   * around 1.5 seconds on a mid-sized build versus a single-threaded operation.
+   * Simultaneously construct an action graph for all the actions in Skyframe and a map from {@link
+   * PathFragment}s to their respective {@link Artifact}s. We do this in a threadpool to save around
+   * 1.5 seconds on a mid-sized build versus a single-threaded operation.
    */
   private static Pair<ActionGraph, SortedMap<PathFragment, Artifact>>
       constructActionGraphAndPathMap(
+          ActionKeyContext actionKeyContext,
           Iterable<ActionLookupValue> values,
           ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
-      throws InterruptedException {
-    MutableActionGraph actionGraph = new MapBasedActionGraph();
+          throws InterruptedException {
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap = new ConcurrentSkipListMap<>();
     // Action graph construction is CPU-bound.
     int numJobs = Runtime.getRuntime().availableProcessors();
@@ -309,8 +315,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
                 actionGraph.registerAction(action);
               } catch (ActionConflictException e) {
                 Exception oldException = badActionMap.put(action, new ConflictException(e));
-                Preconditions.checkState(oldException == null,
-                  "%s | %s | %s", action, e, oldException);
+                Preconditions.checkState(
+                    oldException == null, "%s | %s | %s", action, e, oldException);
                 // We skip the rest of the loop, and do not add the path->artifact mapping for this
                 // artifact below -- we don't need to check it since this action is already in
                 // error.
@@ -468,6 +474,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         executorEngine,
         new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
         actionInputPrefetcher,
+        actionKeyContext,
         metadataHandler,
         fileOutErr,
         clientEnv,
@@ -577,6 +584,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
             executorEngine,
             new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
             actionInputPrefetcher,
+            actionKeyContext,
             metadataHandler,
             actionLogBufferPathGenerator.generate(),
             clientEnv,

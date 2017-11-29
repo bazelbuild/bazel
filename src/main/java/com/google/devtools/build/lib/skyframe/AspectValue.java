@@ -18,6 +18,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -323,10 +324,11 @@ public final class AspectValue extends ActionLookupValue {
       Label label,
       Location location,
       ConfiguredAspect configuredAspect,
+      ActionKeyContext actionKeyContext,
       List<ActionAnalysisMetadata> actions,
       NestedSet<Package> transitivePackages,
       boolean removeActionsAfterEvaluation) {
-    super(actions, removeActionsAfterEvaluation);
+    super(actionKeyContext, actions, removeActionsAfterEvaluation);
     this.label = Preconditions.checkNotNull(label, actions);
     this.aspect = Preconditions.checkNotNull(aspect, label);
     this.location = Preconditions.checkNotNull(location, label);

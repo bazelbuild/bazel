@@ -179,7 +179,7 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
   private static Collection<Object> getTopologicallySortedChildren(
       NestedSet<?> nestedSet) {
     LinkedHashSet<Object> result = new LinkedHashSet<>();
-    dfs(result, nestedSet.children);
+    dfs(result, nestedSet.rawChildren());
     return result;
   }
 

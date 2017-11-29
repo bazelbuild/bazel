@@ -198,7 +198,9 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
 
     // Regression test for b/63134122
     JavaCompileInfo javaCompileInfo =
-        binCompileAction.getExtraActionInfo().getExtension(JavaCompileInfo.javaCompileInfo);
+        binCompileAction
+            .getExtraActionInfo(actionKeyContext)
+            .getExtension(JavaCompileInfo.javaCompileInfo);
     assertThat(javaCompileInfo.getJavacOptList()).containsAllIn(expectedJavacopts);
   }
 

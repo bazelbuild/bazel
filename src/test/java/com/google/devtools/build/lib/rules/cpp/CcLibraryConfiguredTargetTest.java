@@ -265,7 +265,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         CppFileTypes.SHARED_LIBRARY));
     CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
 
-    ExtraActionInfo.Builder builder = action.getExtraActionInfo();
+    ExtraActionInfo.Builder builder = action.getExtraActionInfo(actionKeyContext);
     ExtraActionInfo info = builder.build();
     assertThat(info.getMnemonic()).isEqualTo("CppLink");
 
@@ -299,7 +299,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         FileType.filter(getFilesToBuild(hello), CppFileTypes.SHARED_LIBRARY).iterator().next();
     CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
 
-    ExtraActionInfo.Builder builder = action.getExtraActionInfo();
+    ExtraActionInfo.Builder builder = action.getExtraActionInfo(actionKeyContext);
     ExtraActionInfo info = builder.build();
     assertThat(info.getMnemonic()).isEqualTo("CppLink");
 

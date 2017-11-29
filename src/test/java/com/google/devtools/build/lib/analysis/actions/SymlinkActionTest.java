@@ -80,6 +80,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 executor,
                 null,
                 ActionInputPrefetcher.NONE,
+                actionKeyContext,
                 null,
                 null,
                 ImmutableMap.<String, String>of(),

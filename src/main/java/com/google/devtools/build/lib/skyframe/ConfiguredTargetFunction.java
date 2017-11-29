@@ -614,8 +614,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // Check for conflicting actions within this configured target (that indicates a bug in the
     // rule implementation).
     try {
-      generatingActions = Actions.filterSharedActionsAndThrowActionConflict(
-          analysisEnvironment.getRegisteredActions());
+      generatingActions =
+          Actions.filterSharedActionsAndThrowActionConflict(
+              analysisEnvironment.getActionKeyContext(),
+              analysisEnvironment.getRegisteredActions());
     } catch (ActionConflictException e) {
       throw new ConfiguredTargetFunctionException(e);
     }

@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -359,7 +360,7 @@ public final class JavaCompileAction extends SpawnAction {
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() {
+  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext) {
     JavaCompileInfo.Builder info = JavaCompileInfo.newBuilder();
     info.addAllSourceFile(Artifact.toExecPaths(getSourceFiles()));
     info.addAllClasspath(Artifact.toExecPaths(getClasspath()));
@@ -371,7 +372,8 @@ public final class JavaCompileAction extends SpawnAction {
     info.setOutputjar(getOutputJar().getExecPathString());
 
     try {
-      return super.getExtraActionInfo().setExtension(JavaCompileInfo.javaCompileInfo, info.build());
+      return super.getExtraActionInfo(actionKeyContext)
+          .setExtension(JavaCompileInfo.javaCompileInfo, info.build());
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("JavaCompileAction command line expansion cannot fail");
     }

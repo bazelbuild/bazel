@@ -76,8 +76,16 @@ public class LtoBackendActionTest extends BuildViewTestCase {
   @Before
   public final void createExecutorAndContext() throws Exception {
     executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
-    context = new ActionExecutionContext(executor, null, ActionInputPrefetcher.NONE, null,
-        new FileOutErr(), ImmutableMap.<String, String>of(), null);
+    context =
+        new ActionExecutionContext(
+            executor,
+            null,
+            ActionInputPrefetcher.NONE,
+            actionKeyContext,
+            null,
+            new FileOutErr(),
+            ImmutableMap.<String, String>of(),
+            null);
   }
 
   @Test
@@ -203,6 +211,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             collectingAnalysisEnvironment.registerAction(actions);
             return actions[0];
           }
-        });
+        },
+        actionKeyContext);
   }
 }

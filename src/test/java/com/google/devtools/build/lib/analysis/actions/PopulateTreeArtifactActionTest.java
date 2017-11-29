@@ -293,7 +293,8 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
                 treeArtifactToPopulate,
                 zipper);
           }
-        });
+        },
+        actionKeyContext);
   }
 
   private PopulateTreeArtifactAction createPopulateTreeArtifactAction() throws Exception {
@@ -328,6 +329,7 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
         executor,
         null,
         ActionInputPrefetcher.NONE,
+        actionKeyContext,
         new TestMetadataHandler(storingExpandedTreeFileArtifacts),
         null,
         ImmutableMap.<String, String>of(),

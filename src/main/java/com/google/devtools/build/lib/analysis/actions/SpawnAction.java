@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -332,7 +333,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @Override
-  protected String computeKey() throws CommandLineExpansionException {
+  protected String computeKey(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
     f.addStrings(argv.arguments());
@@ -397,8 +399,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() throws CommandLineExpansionException {
-    ExtraActionInfo.Builder builder = super.getExtraActionInfo();
+  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException {
+    ExtraActionInfo.Builder builder = super.getExtraActionInfo(actionKeyContext);
     if (extraActionInfoSupplier == null) {
       SpawnInfo spawnInfo = getExtraActionSpawnInfo();
       return builder

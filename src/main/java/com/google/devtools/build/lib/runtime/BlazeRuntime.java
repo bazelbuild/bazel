@@ -23,6 +23,7 @@ import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -149,6 +150,7 @@ public final class BlazeRuntime {
   private final SubscriberExceptionHandler eventBusExceptionHandler;
   private final String productName;
   private final PathConverter pathToUriConverter;
+  private final ActionKeyContext actionKeyContext;
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
@@ -162,6 +164,7 @@ public final class BlazeRuntime {
       ConfiguredRuleClassProvider ruleClassProvider,
       ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories,
       ImmutableMap<String, InfoItem> infoItems,
+      ActionKeyContext actionKeyContext,
       Clock clock,
       Runnable abruptShutdownHandler,
       OptionsProvider startupOptionsProvider,
@@ -184,6 +187,7 @@ public final class BlazeRuntime {
     this.ruleClassProvider = ruleClassProvider;
     this.configurationFragmentFactories = configurationFragmentFactories;
     this.infoItems = infoItems;
+    this.actionKeyContext = actionKeyContext;
     this.clock = clock;
     this.abruptShutdownHandler = abruptShutdownHandler;
     this.startupOptionsProvider = startupOptionsProvider;
@@ -292,6 +296,10 @@ public final class BlazeRuntime {
 
   public BlazeWorkspace getWorkspace() {
     return workspace;
+  }
+
+  public ActionKeyContext getActionKeyContext() {
+    return actionKeyContext;
   }
 
   /**
@@ -440,6 +448,8 @@ public final class BlazeRuntime {
       env.getReporter().handle(Event.error("Error while writing profile file: " + e.getMessage()));
     }
     env.getReporter().clearEventBus();
+
+    actionKeyContext.clear();
   }
 
   // Make sure we keep a strong reference to this logger, so that the
@@ -971,6 +981,7 @@ public final class BlazeRuntime {
             .setProductName(productName)
             .setFileSystem(fs)
             .setServerDirectories(serverDirectories)
+            .setActionKeyContext(new ActionKeyContext())
             .setStartupOptionsProvider(options)
             .setClock(clock)
             .setAbruptShutdownHandler(abruptShutdownHandler)
@@ -1122,11 +1133,14 @@ public final class BlazeRuntime {
     private SubscriberExceptionHandler eventBusExceptionHandler = new RemoteExceptionHandler();
     private UUID instanceId;
     private String productName;
+    private ActionKeyContext actionKeyContext;
 
     public BlazeRuntime build() throws AbruptExitException {
       Preconditions.checkNotNull(productName);
       Preconditions.checkNotNull(serverDirectories);
       Preconditions.checkNotNull(startupOptionsProvider);
+      ActionKeyContext actionKeyContext =
+          this.actionKeyContext != null ? this.actionKeyContext : new ActionKeyContext();
       Clock clock = (this.clock == null) ? BlazeClock.instance() : this.clock;
       UUID instanceId =  (this.instanceId == null) ? UUID.randomUUID() : this.instanceId;
 
@@ -1197,6 +1211,7 @@ public final class BlazeRuntime {
           ruleClassProvider,
           ruleClassProvider.getConfigurationFragments(),
           serverBuilder.getInfoItems(),
+          actionKeyContext,
           clock,
           abruptShutdownHandler,
           startupOptionsProvider,
@@ -1253,6 +1268,11 @@ public final class BlazeRuntime {
     public Builder setEventBusExceptionHandler(
         SubscriberExceptionHandler eventBusExceptionHandler) {
       this.eventBusExceptionHandler = eventBusExceptionHandler;
+      return this;
+    }
+
+    public Builder setActionKeyContext(ActionKeyContext actionKeyContext) {
+      this.actionKeyContext = actionKeyContext;
       return this;
     }
   }

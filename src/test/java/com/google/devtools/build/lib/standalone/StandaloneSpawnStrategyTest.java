@@ -24,6 +24,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -183,6 +184,7 @@ public class StandaloneSpawnStrategyTest {
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         ActionInputPrefetcher.NONE,
+        new ActionKeyContext(),
         null,
         outErr,
         ImmutableMap.<String, String>of(),
