@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -548,7 +549,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
                   "change_deps",
                   (builder, env) ->
                       builder
-                          .add(MockRule.DEPS_ATTRIBUTE)
+                          .add(MockRuleDefaults.DEPS_ATTRIBUTE)
                           .requiresConfigurationFragments(TestConfiguration.class)
                           .depsCfg(RULE_BASED_TEST_FILTER));
 
