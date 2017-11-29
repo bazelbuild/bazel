@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
-import com.google.devtools.build.lib.analysis.util.TestAspects.AspectRequiringRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -145,7 +144,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   @Test
   public void hasAspectsRequiredByRule() throws Exception {
-    setRulesAvailableInTests(new AspectRequiringRule(), new TestAspects.BaseRule());
+    setRulesAvailableInTests(TestAspects.ASPECT_REQUIRING_RULE, TestAspects.BASE_RULE);
     pkg("a",
         "aspect(name='a', foo=[':b'])",
         "aspect(name='b', foo=[])");
@@ -157,7 +156,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   @Test
   public void hasAspectsRequiredByAspect() throws Exception {
-    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.SimpleRule());
+    setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE);
     pkg("a",
         "simple(name='a', foo=[':b'])",
         "simple(name='b', foo=[])");
@@ -170,7 +169,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   @Test
   public void hasAllAttributesAspect() throws Exception {
-    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.SimpleRule());
+    setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE);
     pkg("a",
         "simple(name='a', foo=[':b'])",
         "simple(name='b', foo=[])");
@@ -183,7 +182,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   @Test
   public void hasAspectDependencies() throws Exception {
-    setRulesAvailableInTests(new TestAspects.BaseRule());
+    setRulesAvailableInTests(TestAspects.BASE_RULE);
     pkg("a", "base(name='a')");
     pkg("extra", "base(name='extra')");
     OrderedSetMultimap<Attribute, Dependency> map =
