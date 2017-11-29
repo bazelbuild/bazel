@@ -233,6 +233,11 @@ public class InMemoryNodeEntry implements NodeEntry {
     return GroupedList.create(directDeps);
   }
 
+  public int getNumDirectDeps() {
+    Preconditions.checkState(isDone(), "no deps until done. NodeEntry: %s", this);
+    return GroupedList.numElements(directDeps);
+  }
+
   @Override
   @Nullable
   public synchronized ErrorInfo getErrorInfo() {

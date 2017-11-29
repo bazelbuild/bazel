@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,6 +56,11 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
   public GroupedList(int size, List<Object> elements) {
     this.size = size;
     this.elements = new ArrayList<>(elements);
+  }
+
+  private GroupedList(int size, Object[] elements) {
+    this.size = size;
+    this.elements = Lists.newArrayList(elements);
   }
 
   /**
@@ -210,16 +216,30 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
       return new GroupedList<>();
     }
     if (compressed.getClass().isArray()) {
-      List<Object> elements = new ArrayList<>();
       int size = 0;
-      for (Object item : (Object[]) compressed) {
+      Object[] compressedArray = ((Object[]) compressed);
+      for (Object item : compressedArray) {
         size += sizeOf(item);
-        elements.add(item);
       }
-      return new GroupedList<>(size, elements);
+      return new GroupedList<>(size, compressedArray);
     }
     // Just a single element.
     return new GroupedList<>(1, ImmutableList.of(compressed));
+  }
+
+  public static int numElements(Object compressed) {
+    if (compressed == EMPTY_LIST) {
+      return 0;
+    }
+    if (compressed.getClass().isArray()) {
+      int size = 0;
+      for (Object item : (Object[]) compressed) {
+        size += sizeOf(item);
+      }
+      return size;
+    }
+    // Just a single element.
+    return 1;
   }
 
   @Override

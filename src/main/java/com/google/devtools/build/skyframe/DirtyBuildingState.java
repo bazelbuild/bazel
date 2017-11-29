@@ -55,6 +55,9 @@ public abstract class DirtyBuildingState {
    */
   protected abstract int getNumOfGroupsInLastBuildDirectDeps();
 
+  /** The number of total dependencies requested the last time the node was built. */
+  public abstract int getNumElementsInLastBuildDirectDeps();
+
   /**
    * The value of the node the last time it was built.
    *
@@ -234,6 +237,11 @@ public abstract class DirtyBuildingState {
     @Override
     protected int getNumOfGroupsInLastBuildDirectDeps() {
       return lastBuildDirectDeps.listSize();
+    }
+
+    @Override
+    public int getNumElementsInLastBuildDirectDeps() {
+      return lastBuildDirectDeps.numElements();
     }
 
     @Override
