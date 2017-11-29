@@ -111,7 +111,7 @@ For GitHub, this takes the form:
 <pre>
 http_archive(
     name = "&lt;name&gt;",
-    strip-prefix = "&lt;top-level-name&gt;",
+    strip_prefix = "&lt;top-level-name&gt;",
     urls = ["https://github.com/&lt;user&gt;/&lt;repo&gt;/archive/&lt;commit or tag&gt;.tar.gz"],
 )
 </pre>
