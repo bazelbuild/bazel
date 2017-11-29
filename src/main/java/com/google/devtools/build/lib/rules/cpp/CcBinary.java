@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -168,10 +169,20 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   public static ConfiguredTarget init(CppSemantics semantics, RuleContext ruleContext, boolean fake)
       throws InterruptedException, RuleErrorException {
     ruleContext.checkSrcsSamePackage(true);
-    ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
 
     CcCommon common = new CcCommon(ruleContext);
     CcToolchainProvider ccToolchain = common.getToolchain();
+
+    if (CppHelper.shouldUseToolchainForMakeVariables(ruleContext)) {
+      ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();
+      ccToolchain.addGlobalMakeVariables(toolchainMakeVariables);
+      ruleContext.initConfigurationMakeVariableContext(
+          new MapBackedMakeVariableSupplier(toolchainMakeVariables.build()),
+          new CcFlagsSupplier(ruleContext));
+    } else {
+      ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
+    }
+
     FdoSupportProvider fdoSupport = common.getFdoSupport();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeatures(ruleContext, ccToolchain);

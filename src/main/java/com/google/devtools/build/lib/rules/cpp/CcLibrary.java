@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -105,10 +107,20 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean linkStatic,
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
       throws RuleErrorException, InterruptedException {
-    ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
-
     final CcCommon common = new CcCommon(ruleContext);
+
     CcToolchainProvider ccToolchain = common.getToolchain();
+
+    if (CppHelper.shouldUseToolchainForMakeVariables(ruleContext)) {
+      ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();
+      ccToolchain.addGlobalMakeVariables(toolchainMakeVariables);
+      ruleContext.initConfigurationMakeVariableContext(
+          new MapBackedMakeVariableSupplier(toolchainMakeVariables.build()),
+          new CcFlagsSupplier(ruleContext));
+    } else {
+      ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
+    }
+
     FdoSupportProvider fdoSupport = common.getFdoSupport();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeatures(ruleContext, ccToolchain);

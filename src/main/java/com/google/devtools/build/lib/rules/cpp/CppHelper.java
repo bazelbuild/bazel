@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -145,6 +147,20 @@ public class CppHelper {
 
   public static TransitiveInfoCollection mallocForTarget(RuleContext ruleContext) {
     return mallocForTarget(ruleContext, "malloc");
+  }
+
+  /**
+   * Returns true if this target should obtain c++ make variables from the toolchain instead of from
+   * the configuration.
+   */
+  public static boolean shouldUseToolchainForMakeVariables(RuleContext ruleContext) {
+    Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
+    return (ruleContext.getConfiguration().getOptions().get(Options.class).makeVariableSource
+            == MakeVariableSource.TOOLCHAIN)
+        && (ruleContext
+            .getFragment(PlatformConfiguration.class)
+            .getEnabledToolchainTypes()
+            .contains(toolchainType));
   }
 
   /**
