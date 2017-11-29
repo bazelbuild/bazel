@@ -14,7 +14,9 @@ originally developed for) the [Bazel build tool](https://bazel.build),
 and [Bazel's build language](https://docs.bazel.build/versions/master/skylark/language.html) is based on Skylark.
 Another implementation in Go can be found here: https://github.com/google/skylark/
 
-This document was first written by Alan Donovan <adonovan@google.com>.
+This document was derived from the [description of the Go
+implementation](https://github.com/google/skylark/blob/master/doc/spec.md)
+of Skylark.
 It was was influenced by the Python specification,
 Copyright 1990&ndash;2017, Python Software Foundation,
 and the Go specification, Copyright 2009&ndash;2017, The Go Authors. It is
@@ -40,8 +42,20 @@ However, Skylark is intended not for writing applications but for
 expressing configuration: its programs are short-lived and have no
 external side effects and their main result is structured data or side
 effects on the host application.
-As a result, Skylark has no need for classes, exceptions, reflection,
-concurrency, and other such features of Python.
+
+Skylark is intended to be simple. There are no user-defined types, no
+inheritance, no reflection, no exceptions, no explicit memory management.
+Execution is finite. The language does not allow recursion or unbounded loops.
+
+Skylark is suitable for use in highly parallel applications.  An application may
+invoke the Skylark interpreter concurrently from many threads, without the
+possibility of a data race, because shared data structures become immutable due
+to _freezing_.
+
+The language is deterministic and hermetic. Executing the same file with the
+same interpreter leads to the same result. By default, user code cannot
+interact with the environment.
+
 
 ## Lexical elements
 
@@ -110,14 +124,15 @@ appear in the grammar; they are reserved as possible future keywords:
 <!-- and to remain a syntactic subset of Python -->
 
 ```text
-as             import
-assert         is
+as             is
+assert         lambda
 class          nonlocal
 del            raise
 except         try
 finally        while
 from           with
 global         yield
+import
 ```
 
 *Identifiers*: an identifier is a sequence of Unicode letters, decimal
@@ -138,7 +153,7 @@ has string and integer literals.
 0                               # int
 123                             # decimal int
 0x7f                            # hexadecimal int
-0755                            # octal int
+0o755                           # octal int
 
 "hello"      'hello'            # string
 '''hello'''  """hello"""        # triple-quoted string
@@ -148,10 +163,10 @@ r'hello'     r"hello"           # raw string literal
 Integer literal tokens are defined by the following grammar:
 
 ```grammar {.good}
-int         = decimal_lit | octal_lit | hex_lit .
+int         = decimal_lit | octal_lit | hex_lit | 0 .
 decimal_lit = ('1' … '9') {decimal_digit} .
-octal_lit   = '0' {octal_digit} .
-hex_lit     = '0' ('x'|'X') hex_digit {hex_digit} .
+octal_lit   = '0' ('o' | 'O') octal_digit {octal_digit} .
+hex_lit     = '0' ('x' | 'X') hex_digit {hex_digit} .
 
 decimal_digit = '0' … '9' .
 octal_digit   = '0' … '7' .
@@ -2869,7 +2884,7 @@ that if the substring is not found, the operation fails.
 <a id='string·isalnum'></a>
 ### string·isalnum
 
-`S.isalpha()` reports whether the string S is non-empty and consists only
+`S.isalnum()` reports whether the string S is non-empty and consists only
 Unicode letters and digits.
 
 ```python
