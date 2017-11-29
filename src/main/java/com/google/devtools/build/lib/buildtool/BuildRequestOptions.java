@@ -252,7 +252,7 @@ public class BuildRequestOptions extends OptionsBase {
     defaultValue = "",
     help =
         "Specifies which output groups of the top-level targets to build. If omitted, a default "
-            + "set of output groups are built. When specified the default set is overridden."
+            + "set of output groups are built. When specified the default set is overridden. "
             + "However you may use --output_groups=+<output_group> or "
             + "--output_groups=-<output_group> to instead modify the set of output groups."
   )

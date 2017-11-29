@@ -130,7 +130,7 @@ public class LoadingOptions extends OptionsBase {
             + "optionally preceded with '-' to specify excluded languages. Only those "
             + "test targets will be found that are written in the specified languages. "
             + "The name used for each language should be the same as the language prefix in the "
-            + "*_test rule, e.g. one of 'cc', 'java', 'py', etc."
+            + "*_test rule, e.g. one of 'cc', 'java', 'py', etc. "
             + "This option affects --build_tests_only behavior and the test command."
   )
   public List<String> testLangFilterList;
