@@ -115,7 +115,7 @@ genrule(
   tags = [ "local" ],
 )
 
-load('/examples/genrule/skylark', 'skylark_breaks1')
+load('//examples/genrule:skylark.bzl', 'skylark_breaks1')
 
 skylark_breaks1(
   name = "skylark_breaks1",

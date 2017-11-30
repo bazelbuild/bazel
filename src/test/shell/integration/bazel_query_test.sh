@@ -210,7 +210,7 @@ function test_minrank_le_depth_bound() {
 
 function test_skylark_dep_in_sky_query() {
   mkdir -p foo bar || fail "Couldn't make directories"
-  echo 'load("/bar/fakerule", "const")' > foo/BUILD || fail "Couldn't write"
+  echo 'load("//bar:fakerule.bzl", "const")' > foo/BUILD || fail "Couldn't write"
   touch bar/BUILD || fail "Couldn't touch bar/BUILD"
   echo 'const = 2' > bar/fakerule.bzl || fail "Couldn't write fakerule"
   bazel query --universe_scope=//foo/...:* --order_output=no \
@@ -336,7 +336,7 @@ function test_skylark_recursive_glob_symlink_target_not_included_in_rbuildfiles(
 
 function test_skylark_subdir_dep_in_sky_query() {
   mkdir -p foo bar/baz || fail "Couldn't make directories"
-  echo 'load("/bar/baz/fakerule", "const")' > foo/BUILD || fail "Couldn't write"
+  echo 'load("//bar:baz/fakerule.bzl", "const")' > foo/BUILD || fail "Couldn't write"
   touch bar/BUILD || fail "Couldn't touch bar/BUILD"
   echo 'const = 2' > bar/baz/fakerule.bzl || fail "Couldn't write fakerule"
   bazel query --universe_scope=//foo/...:* --order_output=no \

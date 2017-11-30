@@ -571,7 +571,7 @@ public class IosTestTest extends ObjcRuleTestCase {
     scratch.file(
         "examples/ios_test/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('/examples/rule/apple_rules', 'skylark_xctest_app')",
+        "load('//examples/rule:apple_rules.bzl', 'skylark_xctest_app')",
         "skylark_xctest_app(",
         "    name = 'my_xctest_app',",
         ")",

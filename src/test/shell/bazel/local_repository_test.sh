@@ -708,7 +708,7 @@ local_repository(
 )
 EOF
   cat > BUILD <<EOF
-load('/sample', 'sample_bin')
+load('//:sample.bzl', 'sample_bin')
 
 sample_bin(
     name = "x",
@@ -808,7 +808,7 @@ function test_load_in_remote_repository() {
   touch $r/WORKSPACE
   cat > $r/BUILD <<EOF
 package(default_visibility=["//visibility:public"])
-load("r", "r_filegroup")
+load(":r.bzl", "r_filegroup")
 r_filegroup(name="rfg", srcs=["rfgf"])
 EOF
 

@@ -128,7 +128,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   private void setUpAttributeErrorTest() throws Exception {
     scratch.file("test/BUILD",
-        "load('/test/macros', 'macro_native_rule', 'macro_skylark_rule', 'skylark_rule')",
+        "load('//test:macros.bzl', 'macro_native_rule', 'macro_skylark_rule', 'skylark_rule')",
         "macro_native_rule(name = 'm_native',",
         "  deps = [':jlib'])",
         "macro_skylark_rule(name = 'm_skylark',",
@@ -229,7 +229,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testMandatoryProvidersListWithSkylark() throws Exception {
     scratch.file("test/BUILD",
-            "load('/test/rules', 'skylark_rule', 'my_rule', 'my_other_rule')",
+            "load('//test:rules.bzl', 'skylark_rule', 'my_rule', 'my_other_rule')",
             "my_rule(name = 'mylib',",
             "  srcs = ['a.py'])",
             "skylark_rule(name = 'skyrule1',",
@@ -272,7 +272,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testMandatoryProvidersListWithNative() throws Exception {
     scratch.file("test/BUILD",
-            "load('/test/rules', 'my_rule', 'my_other_rule')",
+            "load('//test:rules.bzl', 'my_rule', 'my_other_rule')",
             "my_rule(name = 'mylib',",
             "  srcs = ['a.py'])",
             "testing_rule_for_mandatory_providers(name = 'skyrule1',",
@@ -321,7 +321,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testPackageBoundaryError_SkylarkRule() throws Exception {
     scratch.file("test/BUILD",
-        "load('/test/macros', 'skylark_rule')",
+        "load('//test:macros.bzl', 'skylark_rule')",
         "skylark_rule(name = 'skyrule',",
         "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("test/sub/BUILD",
@@ -346,7 +346,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testPackageBoundaryError_SkylarkMacro() throws Exception {
     scratch.file("test/BUILD",
-        "load('/test/macros', 'macro_skylark_rule')",
+        "load('//test:macros.bzl', 'macro_skylark_rule')",
         "macro_skylark_rule(name = 'm_skylark',",
         "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("test/sub/BUILD",
@@ -422,7 +422,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testPackageBoundaryError_SkylarkMacroWithErrorInBzlFile() throws Exception {
     scratch.file("test/BUILD",
-        "load('/test/macros', 'macro_skylark_rule')",
+        "load('//test:macros.bzl', 'macro_skylark_rule')",
         "macro_skylark_rule(name = 'm_skylark')");
     scratch.file("test/sub/BUILD",
         "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
@@ -447,7 +447,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testPackageBoundaryError_NativeMacro() throws Exception {
     scratch.file("test/BUILD",
-        "load('/test/macros', 'macro_native_rule')",
+        "load('//test:macros.bzl', 'macro_native_rule')",
         "macro_native_rule(name = 'm_native',",
         "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("test/sub/BUILD",
@@ -525,7 +525,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     scratch.file(
         "test/getrule/BUILD",
-        "load('/test/skylark/rulestr', 'rule_dict')",
+        "load('//test/skylark:rulestr.bzl', 'rule_dict')",
         "cc_library(name ='x', ",
         "  srcs = select({'//conditions:default': []})",
         ")",
@@ -586,7 +586,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     scratch.file(
         "test/getrule/BUILD",
-        "load('/test/skylark/rulestr', 'rules_dict', 'rule_dict', 'nop_rule', 'consume_rule')",
+        "load('//test/skylark:rulestr.bzl', 'rules_dict', 'rule_dict', 'nop_rule', 'consume_rule')",
         "genrule(name = 'a', outs = ['a.txt'], ",
         "        licenses = ['notice'],",
         "        output_to_bindir = False,",
@@ -1267,7 +1267,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         ")");
 
     scratch.file(
-        "BUILD", "filegroup(name='dep')", "load('/my_rule', 'my_rule')", "my_rule(name='r')");
+        "BUILD", "filegroup(name='dep')", "load('//:my_rule.bzl', 'my_rule')", "my_rule(name='r')");
 
     invalidatePackages();
     SkylarkRuleContext context = createRuleContext("//:r");
@@ -1302,7 +1302,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     scratch.file("/r/WORKSPACE");
     scratch.file("/r/a/BUILD",
-        "load('/external_rule', 'external_rule')",
+        "load('@//:external_rule.bzl', 'external_rule')",
         "external_rule(name='r')");
 
     scratch.overwriteFile("WORKSPACE",
@@ -1337,7 +1337,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "filegroup(name='dep')");
 
     scratch.file("/r/a/BUILD",
-        "load('/external_rule', 'external_rule')",
+        "load('@//:external_rule.bzl', 'external_rule')",
         "external_rule(name='r')");
 
     scratch.overwriteFile("WORKSPACE",
@@ -1457,7 +1457,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('/test/rule', 'skylark_rule')",
+        "load('//test:rule.bzl', 'skylark_rule')",
         "py_library(name = 'lib', srcs = ['a.py', 'b.py'])",
         "skylark_rule(name = 'foo', dep = ':lib')",
         "py_library(name = 'lib_with_init', srcs = ['a.py', 'b.py', '__init__.py'])",
@@ -2017,7 +2017,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {
     scratch.file("test/BUILD",
-        "load('/test/rules', 'main_rule', 'dep_rule')",
+        "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
         "dep_rule(name = 'dep')",
         "main_rule(name = 'main', deps = [':dep'])");
     scratch.file("test/rules.bzl");
@@ -2064,7 +2064,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "rule.files",
         "rule.kind"));
     scratch.file("test/BUILD",
-        "load('/test/rules', 'my_rule')",
+        "load('//test:rules.bzl', 'my_rule')",
         "my_rule(name = 'dep')",
         "my_rule(name = 'mid', deps = [':dep'])",
         "my_rule(name = 'main', deps = [':mid'])");
@@ -2116,7 +2116,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testIncompatibleNewActionsApi() throws Exception {
     scratch.file("test/BUILD",
-        "load('/test/rules', 'main_rule')",
+        "load('//test:rules.bzl', 'main_rule')",
         "main_rule(name = 'main')");
     scratch.file("test/rules.bzl");
 
