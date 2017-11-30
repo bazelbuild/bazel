@@ -30,6 +30,7 @@ PROTO_FILES=$(ls \
   third_party/googleapis/google/watcher/v1/*.proto \
 )
 LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac-9-dev-r3297-4.jar | grep -Fv /javac-9-dev-4023-3.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve third_party/grpc/grpc.*jar | tr "\n" " ")
+PROTOBUF_VERSION=3.4.0
 GRPC_JAVA_VERSION=1.7.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e .*${GRPC_JAVA_VERSION}.*jar | tr "\n" " ")
 GUAVA_VERSION=23.1
@@ -61,6 +62,7 @@ EXCLUDE_FILES="src/main/java/com/google/devtools/build/lib/server/GrpcServerImpl
 
 mkdir -p "${OUTPUT_DIR}/classes"
 mkdir -p "${OUTPUT_DIR}/src"
+mkdir -p "${OUTPUT_DIR}/bootstrap"
 
 # May be passed in from outside.
 ZIPOPTS="$ZIPOPTS"
@@ -189,11 +191,37 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
         cp -r derived/src/java/* "${OUTPUT_DIR}/src"
     else
 
-        [ -n "${PROTOC}" ] \
-            || fail "Must specify PROTOC if not bootstrapping from the distribution artifact${HOW_TO_BOOTSTRAP}"
+        if [ -z "${PROTOC}" ] || [ -z "${GRPC_JAVA_PLUGIN}" ]
+        then
+          log "Compiling protoc"
+          export PROTOBUF_PREFIX="${OUTPUT_DIR}/bootstrap/protobuf/usr/local"
+          mkdir -p "${PROTOBUF_PREFIX}"
+          
+          pushd "third_party/protobuf/${PROTOBUF_VERSION}" >/dev/null
+          run ./autogen.sh
+          run ./configure "--prefix=${PROTOBUF_PREFIX}"
+          run make install
+          export PROTOC="${PROTOBUF_PREFIX}/bin/protoc"
+          popd >/dev/null
+        fi
 
-        [ -n "${GRPC_JAVA_PLUGIN}" ] \
-            || fail "Must specify GRPC_JAVA_PLUGIN if not bootstrapping from the distribution artifact${HOW_TO_BOOTSTRAP}"
+        if [ -z "${GRPC_JAVA_PLUGIN}" ]
+        then
+          log "Compiling GRPC_JAVA_PLUGIN"
+          GRPC_JAVA_OUTPUT_DIR="${OUTPUT_DIR}/bootstrap/grpc-java"
+          mkdir -p "${GRPC_JAVA_OUTPUT_DIR}"
+
+          export GRPC_JAVA_PLUGIN="${GRPC_JAVA_OUTPUT_DIR}/protoc-gen-grpc-java"
+          pushd third_party/grpc/compiler/src/java_plugin/cpp >/dev/null
+          run g++ -std=c++11 \
+            "-I${PROTOBUF_PREFIX}/include" \
+            -w -O2 -export-dynamic \
+            *.cpp \
+            "${PROTOBUF_PREFIX}/lib/libprotobuf.a" \
+            "${PROTOBUF_PREFIX}/lib/libprotoc.a" \
+            -o "${GRPC_JAVA_PLUGIN}"
+          popd >/dev/null
+        fi
 
         [[ -x "${PROTOC-}" ]] \
             || fail "Protobuf compiler not found in ${PROTOC-}"
