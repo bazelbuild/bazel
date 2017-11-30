@@ -428,10 +428,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testTransitiveSkylarkDepsStoredInPackage() throws Exception {
     scratch.file("foo/BUILD",
-        "load('/bar/ext', 'a')");
+        "load('//bar:ext.bzl', 'a')");
     scratch.file("bar/BUILD");
     scratch.file("bar/ext.bzl",
-        "load('/baz/ext', 'b')",
+        "load('//baz:ext.bzl', 'b')",
         "a = b");
     scratch.file("baz/BUILD");
     scratch.file("baz/ext.bzl",
@@ -448,7 +448,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         Label.parseAbsolute("//bar:ext.bzl"), Label.parseAbsolute("//baz:ext.bzl"));
 
     scratch.overwriteFile("bar/ext.bzl",
-        "load('/qux/ext', 'c')",
+        "load('//qux:ext.bzl', 'c')",
         "a = c");
     getSkyframeExecutor().invalidateFilesUnderPathForTesting(
         reporter,
@@ -464,7 +464,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testNonExistingSkylarkExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("test/skylark/BUILD",
-        "load('/test/skylark/bad_extension', 'some_symbol')",
+        "load('//test/skylark:bad_extension.bzl', 'some_symbol')",
         "genrule(name = gr,",
         "    outs = ['out.txt'],",
         "    cmd = 'echo hello >@')");
@@ -486,10 +486,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testNonExistingSkylarkExtensionFromExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("test/skylark/extension.bzl",
-        "load('/test/skylark/bad_extension', 'some_symbol')",
+        "load('//test/skylark:bad_extension.bzl', 'some_symbol')",
         "a = 'a'");
     scratch.file("test/skylark/BUILD",
-        "load('/test/skylark/extension', 'a')",
+        "load('//test/skylark:extension.bzl', 'a')",
         "genrule(name = gr,",
         "    outs = ['out.txt'],",
         "    cmd = 'echo hello >@')");
@@ -512,7 +512,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Path extensionFilePath = scratch.resolve("/workspace/test/skylark/extension.bzl");
     FileSystemUtils.ensureSymbolicLink(extensionFilePath, PathFragment.create("extension.bzl"));
     scratch.file("test/skylark/BUILD",
-        "load('/test/skylark/extension', 'a')",
+        "load('//test/skylark:extension.bzl', 'a')",
         "genrule(name = gr,",
         "    outs = ['out.txt'],",
         "    cmd = 'echo hello >@')");
@@ -546,7 +546,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadRelativePath() throws Exception {
-    scratch.file("pkg/BUILD", "load('ext', 'a')");
+    scratch.file("pkg/BUILD", "load(':ext.bzl', 'a')");
     scratch.file("pkg/ext.bzl", "a = 1");
     validPackage(PackageValue.key(PackageIdentifier.parse("@//pkg")));
   }
@@ -555,7 +555,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testLoadAbsolutePath() throws Exception {
     scratch.file("pkg1/BUILD");
     scratch.file("pkg2/BUILD",
-        "load('/pkg1/ext', 'a')");
+        "load('//pkg1:ext.bzl', 'a')");
     scratch.file("pkg1/ext.bzl", "a = 1");
     validPackage(PackageValue.key(PackageIdentifier.parse("@//pkg2")));
   }

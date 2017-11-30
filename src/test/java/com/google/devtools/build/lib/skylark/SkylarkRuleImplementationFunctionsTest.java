@@ -462,7 +462,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('/test/empty', 'empty_action_rule')",
+        "load('//test:empty.bzl', 'empty_action_rule')",
         "empty_action_rule(name = 'my_empty_action',",
         "                srcs = ['foo.in', 'other_foo.in'])",
         "action_listener(name = 'listener',",
@@ -1673,7 +1673,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('/test/glob', 'glob_rule')",
+        "load('//test:glob.bzl', 'glob_rule')",
         "glob_rule(name = 'my_glob',",
         "  srcs = ['foo.bar', 'other_foo.bar'])");
     reporter.removeHandler(failFastHandler);
@@ -1720,7 +1720,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     scratch.file("test/b.bar", "b");
     scratch.file(
         "test/BUILD",
-        "load('/test/glob', 'glob_rule')",
+        "load('//test:glob.bzl', 'glob_rule')",
         "glob_rule(name = 'my_glob', srcs = glob(['*.bar']))");
     ConfiguredTarget ct = getConfiguredTarget("//test:my_glob");
     assertThat(ct).isNotNull();
@@ -1742,7 +1742,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     );
     scratch.file(
         "test/BUILD",
-        "load('/test/rule', 'silly_rule')",
+        "load('//test:rule.bzl', 'silly_rule')",
         "silly_rule(name = 'silly')");
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
@@ -2016,7 +2016,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testLazyArgsObjectImmutability() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load('/test/rules', 'main_rule', 'dep_rule')",
+        "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
         "dep_rule(name = 'dep')",
         "main_rule(name = 'main', deps = [':dep'])");
     scratch.file(

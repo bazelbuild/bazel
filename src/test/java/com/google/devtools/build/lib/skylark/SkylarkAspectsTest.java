@@ -293,7 +293,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('/test/aspect', 'my_rule')",
+        "load('//test:aspect.bzl', 'my_rule')",
         "cc_library(",
         "     name = 'xxx',",
         ")",
@@ -338,7 +338,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     SkylarkKey providerKey = new SkylarkKey(Label.parseAbsoluteUnchecked("//test:aspect.bzl"), "p");
     scratch.file(
         "test/BUILD",
-        "load('/test/aspect', 'my_rule')",
+        "load('//test:aspect.bzl', 'my_rule')",
         "my_rule(name = 'xxx',)",
         "my_rule(name = 'yyy', dep = ':xxx')");
     AnalysisResult analysisResult = update("//test:yyy");
@@ -524,7 +524,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('/test/aspect', 'my_rule')",
+        "load('//test:aspect.bzl', 'my_rule')",
         "java_library(",
         "     name = 'yyy',",
         ")",
@@ -649,7 +649,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('/test/aspect', 'my_rule')",
+        "load('//test:aspect.bzl', 'my_rule')",
         "java_library(",
         "     name = 'yyy',",
         ")",
@@ -687,7 +687,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('/test/aspect', 'my_rule')",
+        "load('//test:aspect.bzl', 'my_rule')",
         "java_library(",
         "     name = 'yyy',",
         ")",
@@ -1413,7 +1413,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     scratch.file("foo/tool.sh", "#!/bin/bash");
     scratch.file("foo/BUILD",
-        "load('extension',  'my_rule')",
+        "load(':extension.bzl',  'my_rule')",
         "my_rule(name = 'main', exe1 = ':tool.sh', exe2 = ':tool.sh')"
     );
     AnalysisResult analysisResultOfRule =
@@ -1503,7 +1503,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('/test/aspect', 'my_rule')",
+        "load('//test:aspect.bzl', 'my_rule')",
         "exports_files(['zzz'])",
         "my_rule(",
         "     name = 'yyy',",
@@ -1528,7 +1528,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file("test/build_defs.bzl", aspectBzlFile("'deps'"));
     scratch.file(
         "test/BUILD",
-        "load('build_defs', 'repro', 'repro_no_aspect')",
+        "load(':build_defs.bzl', 'repro', 'repro_no_aspect')",
         "repro_no_aspect(name = 'r0')",
         "repro_no_aspect(name = 'r1', deps = [':r0'])",
         "repro(name = 'r2', deps = [':r1'])");
@@ -1617,7 +1617,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         ")");
 
     scratch.file("foo/BUILD",
-        "load('extension', 'rule_bin_out', 'rule_gen_out', 'main_rule')",
+        "load(':extension.bzl', 'rule_bin_out', 'rule_gen_out', 'main_rule')",
         "rule_bin_out(name = 'rbin')",
         "rule_gen_out(name = 'rgen')",
         "main_rule(name = 'main', deps = [':rbin', ':rgen'])"

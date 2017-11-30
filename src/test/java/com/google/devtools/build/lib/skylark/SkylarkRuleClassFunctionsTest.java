@@ -951,7 +951,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "  }",
         ")");
     scratch.file("third_party/foo/BUILD",
-        "load('/test/rule', 'some_rule')",
+        "load('//test:rule.bzl', 'some_rule')",
         "some_rule(",
         "    name='r',",
         "    licenses = ['unencumbered']",
@@ -1604,7 +1604,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
       ")"
     );
     scratch.file("third_party/foo/BUILD",
-      "load('extension',  'my_rule')",
+      "load(':extension.bzl', 'my_rule')",
       "my_rule(name = 'main', exe = ':tool.sh')"
     );
 

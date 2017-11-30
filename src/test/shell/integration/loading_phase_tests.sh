@@ -43,7 +43,7 @@ function tear_down() {
 
 function test_query_buildfiles_with_load() {
     mkdir -p x || fail "mkdir x failed"
-    echo "load('/y/rules', 'a')" >x/BUILD
+    echo "load('//y:rules.bzl', 'a')" >x/BUILD
     echo "cc_library(name='x')"   >>x/BUILD
     mkdir -p y || fail "mkdir y failed"
     touch y/BUILD

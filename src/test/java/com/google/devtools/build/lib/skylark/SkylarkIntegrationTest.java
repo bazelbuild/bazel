@@ -81,7 +81,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark",
         "the_rule",
         "no such package '@r//': The repository could not be resolved",
-        "load('/test/skylark/extension', 'my_rule')",
+        "load('//test/skylark:extension.bzl', 'my_rule')",
         "",
         "my_rule(name='the_rule')");
   }
@@ -93,14 +93,14 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     // Consequently, no "Recursion was detected" error must be thrown.
     scratch.file(
         "test/skylark/extension.bzl",
-        "load('/test/skylark/other', other_impl = 'impl')",
+        "load('//test/skylark:other.bzl', other_impl = 'impl')",
         "def impl(ctx):",
         "  other_impl(ctx)",
         "empty = rule(implementation = impl)");
     scratch.file("test/skylark/other.bzl", "def impl(ctx):", "  print('This rule does nothing')");
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'empty')",
+        "load('//test/skylark:extension.bzl', 'empty')",
         "empty(name = 'test_target')");
 
     getConfiguredTarget("//test/skylark:test_target");
@@ -127,7 +127,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  native.cc_library(name = name + '_suffix')");
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', macro_rule = 'macro', no_macro_rule = 'no_macro',",
+        "load('//test/skylark:extension.bzl', macro_rule = 'macro', no_macro_rule = 'no_macro',",
         "  native_macro_rule = 'native_macro')",
         "macro_rule(name = 'macro_target')",
         "no_macro_rule(name = 'no_macro_target')",
@@ -171,7 +171,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "    attrs = { 'dep' : attr.label() })");
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension',  'my_rule')",
+        "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='my', dep = ':lib')");
     NestedSet<Artifact> hiddenTopLevelArtifacts =
@@ -196,7 +196,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "    attrs = { 'dep' : attr.label() })");
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension',  'my_rule')",
+        "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='my', dep = ':lib')");
     NestedSet<Artifact> hiddenTopLevelArtifacts =
@@ -228,7 +228,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "    attrs = { 'dep' : attr.label() })");
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension',  'my_rule')",
+        "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='my', dep = ':lib')");
     NestedSet<Artifact> hiddenTopLevelArtifacts =
@@ -262,7 +262,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "    attrs = { 'dep' : attr.label() })");
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension',  'my_rule')",
+        "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='my', dep = ':lib')");
     NestedSet<Artifact> hiddenTopLevelArtifacts =
@@ -288,7 +288,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "    attrs = { 'dep' : attr.label() })");
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension',  'my_rule')",
+        "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='my', dep = ':lib')");
     NestedSet<Artifact> hiddenTopLevelArtifacts =
@@ -317,7 +317,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "    attrs = { 'dep' : attr.label() })");
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension',  'my_rule')",
+        "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='my', dep = ':lib')");
     NestedSet<Artifact> hiddenTopLevelArtifacts =
@@ -372,7 +372,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
                 errorMessage);
     scratch.file(
         "test/skylark/extension.bzl",
-        "load('/test/skylark/functions', 'first')",
+        "load('//test/skylark:functions.bzl', 'first')",
         "def custom_rule_impl(ctx):",
         "  attr1 = ctx.files.attr1",
         "  ftb = depset(attr1)",
@@ -395,7 +395,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  " + object + ".index(1)");
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', attr1 = [':a.txt'])");
 
@@ -417,7 +417,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', attr1 = [':a.txt'])");
 
@@ -444,7 +444,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', attr1 = [':a.txt'])");
 
@@ -474,7 +474,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "cc_library(name = 'lib', data = ['a.txt'])",
         "custom_rule(name = 'cr1', x = ':lib')",
@@ -509,7 +509,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', attr1 = [':a.txt'])");
 
@@ -537,7 +537,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', data = [':a.txt'])");
 
@@ -570,7 +570,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "cr",
         "Cannot specify the provider 'runfiles' together with "
             + "'data_runfiles' or 'default_runfiles'",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr')");
   }
@@ -592,7 +592,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "java_library(name='jl', srcs = [':A.java'])",
         "custom_rule(name = 'cr', attr1 = [':a.txt', ':a.random'], attr2 = [':jl'])");
@@ -624,7 +624,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "java_library(name='jl', srcs = [':A.java'])",
         "custom_rule(name = 'cr', attr1 = [':a.txt', ':a.random'], attr2 = [':jl'])");
@@ -654,7 +654,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', attr1 = [':a.txt'])");
 
@@ -685,8 +685,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "b",
         "in dependencies attribute of main_rule rule //test:b: "
             + "'//test:a' does not have mandatory providers: 'some_provider'",
-        "load('/test/skylark/extension', 'dependent_rule')",
-        "load('/test/skylark/extension', 'main_rule')",
+        "load('//test/skylark:extension.bzl', 'dependent_rule')",
+        "load('//test/skylark:extension.bzl', 'main_rule')",
         "",
         "dependent_rule(name = 'a')",
         "main_rule(name = 'b', dependencies = [':a'])");
@@ -745,7 +745,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', attr1 = [':a.txt'])");
 
@@ -781,7 +781,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', public_attr = 'bar')");
 
@@ -823,7 +823,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule', 'empty_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule', 'empty_rule')",
         "",
         "empty_rule(name = 'foo')",
         "custom_rule(name = 'cr', public_attr = '//test/skylark:foo')");
@@ -863,7 +863,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(",
         "  name='cr',",
@@ -902,7 +902,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', attr1 = None)");
 
@@ -928,7 +928,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr')");
 
@@ -952,7 +952,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark",
         "cr",
         "Multiple outputs with the same key: o",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', o = [':bar.txt'])");
   }
@@ -982,7 +982,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', attr1 = 'bar', out=['other'])");
 
@@ -1057,7 +1057,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "empty = rule(implementation = _impl)");
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'empty')",
+        "load('//test/skylark:extension.bzl', 'empty')",
         "empty(name = 'test_target')");
 
     getConfiguredTarget("//test/skylark:test_target");
@@ -1073,7 +1073,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark",
         "cr",
         "impl() does not accept positional arguments",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr')");
   }
@@ -1096,7 +1096,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark",
         "cr",
         "Attribute 'bad_attr' either doesn't exist or uses a select()",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', attr1 = 'bar')");
   }
@@ -1118,7 +1118,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr', attr1 = [':a.txt'])");
 
@@ -1144,12 +1144,12 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark1/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "custom_rule(name = 'cr1')");
 
     scratch.file(
         "test/skylark2/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "custom_rule(name = 'cr2', dep = ['//test/skylark1:cr1'])");
 
     getConfiguredTarget("//test/skylark2:cr2");
@@ -1165,7 +1165,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "s = gen()");
 
     scratch.file(
-        "test/skylark/BUILD", "load('extension', 'r', 's')", "r(name = 'r')", "s(name = 's')");
+        "test/skylark/BUILD", "load(':extension.bzl', 'r', 's')", "r(name = 'r')", "s(name = 's')");
 
     getConfiguredTarget("//test/skylark:r");
     getConfiguredTarget("//test/skylark:s");
@@ -1177,14 +1177,14 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/extension.bzl",
-        "load('/test/skylark/implementation', 'custom_rule_impl')",
+        "load('//test/skylark:implementation.bzl', 'custom_rule_impl')",
         "",
         "custom_rule = rule(implementation = custom_rule_impl,",
         "     attrs = {'dep': attr.label_list(allow_files=True)})");
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "custom_rule(name = 'cr')");
 
     getConfiguredTarget("//test/skylark:cr");
@@ -1199,7 +1199,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/ext.bzl",
-        "load('/test/skylark/implementation', 'custom_rule')",
+        "load('//test/skylark:implementation.bzl', 'custom_rule')",
         "def impl(ctx): return struct()",
         "custom_rule1 = rule(implementation = impl)",
         "custom_rule2 = custom_rule1",
@@ -1207,7 +1207,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/ext', 'custom_rule1', 'custom_rule2', 'custom_rule3')",
+        "load('//test/skylark:ext.bzl', 'custom_rule1', 'custom_rule2', 'custom_rule3')",
         "custom_rule4 = custom_rule3",
         "custom_rule1(name = 'cr1')",
         "custom_rule2(name = 'cr2')",
@@ -1222,13 +1222,13 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testRecursiveImport() throws Exception {
-    scratch.file("test/skylark/ext2.bzl", "load('/test/skylark/ext1', 'symbol2')");
+    scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext1.bzl', 'symbol2')");
 
-    scratch.file("test/skylark/ext1.bzl", "load('/test/skylark/ext2', 'symbol1')");
+    scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol1')");
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/ext1', 'custom_rule')",
+        "load('//test/skylark:ext1.bzl', 'custom_rule')",
         "genrule(name = 'rule')");
 
     reporter.removeHandler(failFastHandler);
@@ -1279,18 +1279,19 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     scratch.file("test/skylark/implementation.bzl", "def custom_rule_impl(ctx):", "  return None");
 
     scratch.file(
-        "test/skylark/extension2.bzl", "load('/test/skylark/implementation', 'custom_rule_impl')");
+        "test/skylark/extension2.bzl",
+        "load('//test/skylark:implementation.bzl', 'custom_rule_impl')");
 
     scratch.file(
         "test/skylark/extension1.bzl",
-        "load('/test/skylark/extension2', 'custom_rule_impl')",
+        "load('//test/skylark:extension2.bzl', 'custom_rule_impl')",
         "",
         "custom_rule = rule(implementation = custom_rule_impl,",
         "     attrs = {'dep': attr.label_list()})");
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension1', 'custom_rule')",
+        "load('//test/skylark:extension1.bzl', 'custom_rule')",
         "custom_rule(name = 'cr')");
 
     getConfiguredTarget("//test/skylark:cr");
@@ -1558,13 +1559,13 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     @Override
     @Test
     public void testRecursiveImport() throws Exception {
-      scratch.file("test/skylark/ext2.bzl", "load('/test/skylark/ext1', 'symbol2')");
+      scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext1.bzl', 'symbol2')");
 
-      scratch.file("test/skylark/ext1.bzl", "load('/test/skylark/ext2', 'symbol1')");
+      scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol1')");
 
       scratch.file(
           "test/skylark/BUILD",
-          "load('/test/skylark/ext1', 'custom_rule')",
+          "load('//test/skylark:ext1.bzl', 'custom_rule')",
           "genrule(name = 'rule')");
 
       reporter.removeHandler(failFastHandler);

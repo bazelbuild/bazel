@@ -43,7 +43,7 @@ public class SkylarkTestingModuleTest extends BuildViewTestCase {
     scratch.file(
         "examples/apple_skylark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('/examples/rule/apple_rules', 'my_rule')",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
         "my_rule(",
         "    name = 'my_target',",
         ")");
@@ -68,7 +68,7 @@ public class SkylarkTestingModuleTest extends BuildViewTestCase {
     scratch.file(
         "examples/apple_skylark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('/examples/rule/apple_rules', 'my_rule')",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
         "my_rule(",
         "    name = 'my_target',",
         ")");
@@ -96,7 +96,7 @@ public class SkylarkTestingModuleTest extends BuildViewTestCase {
     scratch.file(
         "examples/apple_skylark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('/examples/rule/apple_rules', 'my_rule_test')",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule_test')",
         "my_rule_test(",
         "    name = 'my_target',",
         ")");

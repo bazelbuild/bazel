@@ -385,7 +385,7 @@ public class IncrementalLoadingTest {
   @Test
   public void testChangedExternalFile() throws Exception {
     tester.addFile("a/BUILD",
-        "load('/a/b', 'b')",
+        "load('//a:b.bzl', 'b')",
         "b()");
 
     tester.addFile("/b.bzl",

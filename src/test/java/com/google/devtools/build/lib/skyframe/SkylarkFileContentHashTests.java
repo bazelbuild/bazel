@@ -55,22 +55,22 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
 
     scratch.file(
         "foo/ext.bzl",
-        "load('/helper/ext', 'rule_impl')",
+        "load('//helper:ext.bzl', 'rule_impl')",
         "",
         "foo1 = rule(implementation = rule_impl)",
         "foo2 = rule(implementation = rule_impl)");
 
     scratch.file(
         "bar/ext.bzl",
-        "load('/helper/ext', 'rule_impl')",
+        "load('//helper:ext.bzl', 'rule_impl')",
         "",
         "bar1 = rule(implementation = rule_impl)");
 
     scratch.file(
         "pkg/BUILD",
-        "load('/foo/ext', 'foo1')",
-        "load('/foo/ext', 'foo2')",
-        "load('/bar/ext', 'bar1')",
+        "load('//foo:ext.bzl', 'foo1')",
+        "load('//foo:ext.bzl', 'foo2')",
+        "load('//bar:ext.bzl', 'bar1')",
         "",
         "foo1(name = 'foo1')",
         "foo2(name = 'foo2')",
@@ -87,7 +87,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     String bar1 = getHash("pkg", "bar1");
     scratch.overwriteFile(
         "bar/ext.bzl",
-        "load('/helper/ext', 'rule_impl')",
+        "load('//helper:ext.bzl', 'rule_impl')",
         "",
         "bar1 = rule(implementation = rule_impl)");
     invalidatePackages();
@@ -109,7 +109,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     String bar1 = getHash("pkg", "bar1");
     scratch.overwriteFile(
         "bar/ext.bzl",
-        "load('/helper/ext', 'rule_impl')",
+        "load('//helper:ext.bzl', 'rule_impl')",
         "# Some comments to change file hash",
         "",
         "bar1 = rule(implementation = rule_impl)");
@@ -139,7 +139,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     String foo2 = getHash("pkg", "foo2");
     scratch.overwriteFile(
         "bar/ext.bzl",
-        "load('/helper/ext', 'rule_impl')",
+        "load('//helper:ext.bzl', 'rule_impl')",
         "# Some comments to change file hash",
         "",
         "bar1 = rule(implementation = rule_impl)");

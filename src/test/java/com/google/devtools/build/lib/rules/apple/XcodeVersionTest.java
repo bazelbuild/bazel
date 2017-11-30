@@ -56,7 +56,7 @@ public final class XcodeVersionTest extends BuildViewTestCase {
     scratch.file(
         "examples/apple_skylark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('/examples/rule/apple_rules', 'my_rule')",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
         "my_rule(",
         "    name = 'my_target',",
         "    xcode = ':my_xcode',",
