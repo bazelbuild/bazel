@@ -29,7 +29,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GrpcUtils;
-import com.google.devtools.build.lib.remote.Digests.ActionKey;
+import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -75,6 +76,9 @@ import org.mockito.stubbing.Answer;
 /** Tests for {@link GrpcRemoteCache}. */
 @RunWith(JUnit4.class)
 public class GrpcRemoteCacheTest {
+
+  private static final DigestUtil DIGEST_UTIL = new DigestUtil(HashFunction.SHA256);
+
   private FileSystem fs;
   private Path execRoot;
   private FileOutErr outErr;
@@ -85,7 +89,6 @@ public class GrpcRemoteCacheTest {
 
   @Before
   public final void setUp() throws Exception {
-    FileSystem.setDigestFunctionForTesting(HashFunction.SHA1);
     // Use a mutable service registry for later registering the service impl for each test case.
     fakeServer =
         InProcessServerBuilder.forName(fakeServerName)
@@ -94,7 +97,7 @@ public class GrpcRemoteCacheTest {
             .build()
             .start();
     Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
-    fs = new InMemoryFileSystem();
+    fs = new InMemoryFileSystem(new JavaClock(), HashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -106,7 +109,7 @@ public class GrpcRemoteCacheTest {
     outErr = new FileOutErr(stdout, stderr);
     Context withEmptyMetadata =
         TracingMetadataUtils.contextWithMetadata(
-            "none", "none", Digests.unsafeActionKeyFromDigest(Digest.getDefaultInstance()));
+            "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
     withEmptyMetadata.attach();
   }
 
@@ -156,13 +159,14 @@ public class GrpcRemoteCacheTest {
             ImmutableList.of(new CallCredentialsInterceptor(creds))),
         creds,
         remoteOptions,
-        retrier);
+        retrier,
+        DIGEST_UTIL);
   }
 
   @Test
   public void testDownloadEmptyBlob() throws Exception {
     GrpcRemoteCache client = newClient();
-    Digest emptyDigest = Digests.computeDigest(new byte[0]);
+    Digest emptyDigest = DIGEST_UTIL.compute(new byte[0]);
     // Will not call the mock Bytestream interface at all.
     assertThat(client.downloadBlob(emptyDigest)).isEmpty();
   }
@@ -170,7 +174,7 @@ public class GrpcRemoteCacheTest {
   @Test
   public void testDownloadBlobSingleChunk() throws Exception {
     final GrpcRemoteCache client = newClient();
-    final Digest digest = Digests.computeDigestUtf8("abcdefg");
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -187,7 +191,7 @@ public class GrpcRemoteCacheTest {
   @Test
   public void testDownloadBlobMultipleChunks() throws Exception {
     final GrpcRemoteCache client = newClient();
-    final Digest digest = Digests.computeDigestUtf8("abcdefg");
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -208,9 +212,9 @@ public class GrpcRemoteCacheTest {
   @Test
   public void testDownloadAllResults() throws Exception {
     GrpcRemoteCache client = newClient();
-    Digest fooDigest = Digests.computeDigestUtf8("foo-contents");
-    Digest barDigest = Digests.computeDigestUtf8("bar-contents");
-    Digest emptyDigest = Digests.computeDigest(new byte[0]);
+    Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
+    Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
+    Digest emptyDigest = DIGEST_UTIL.compute(new byte[0]);
     serviceRegistry.addService(
         new FakeImmutableCacheByteStreamImpl(fooDigest, "foo-contents", barDigest, "bar-contents"));
 
@@ -219,16 +223,16 @@ public class GrpcRemoteCacheTest {
     result.addOutputFilesBuilder().setPath("b/empty").setDigest(emptyDigest);
     result.addOutputFilesBuilder().setPath("a/bar").setDigest(barDigest).setIsExecutable(true);
     client.download(result.build(), execRoot, null);
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
-    assertThat(Digests.computeDigest(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
     assertThat(execRoot.getRelative("a/bar").isExecutable()).isTrue();
   }
 
   @Test
   public void testUploadBlobCacheHitWithRetries() throws Exception {
     final GrpcRemoteCache client = newClient();
-    final Digest digest = Digests.computeDigestUtf8("abcdefg");
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
           private int numErrors = 4;
@@ -251,7 +255,7 @@ public class GrpcRemoteCacheTest {
   @Test
   public void testUploadBlobSingleChunk() throws Exception {
     final GrpcRemoteCache client = newClient();
-    final Digest digest = Digests.computeDigestUtf8("abcdefg");
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
           @Override
@@ -302,7 +306,7 @@ public class GrpcRemoteCacheTest {
       this.responseObserver = responseObserver;
       this.contents = contents;
       try {
-        chunker = new Chunker(contents.getBytes(UTF_8), chunkSizeBytes);
+        chunker = new Chunker(contents.getBytes(UTF_8), chunkSizeBytes, DIGEST_UTIL);
       } catch (IOException e) {
         fail("An error occurred:" + e);
       }
@@ -357,7 +361,7 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void testUploadBlobMultipleChunks() throws Exception {
-    final Digest digest = Digests.computeDigestUtf8("abcdef");
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdef");
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
           @Override
@@ -446,7 +450,7 @@ public class GrpcRemoteCacheTest {
           }
         });
 
-    ActionKey emptyKey = Digests.computeActionKey(Action.getDefaultInstance());
+    ActionKey emptyKey = DIGEST_UTIL.computeActionKey(Action.getDefaultInstance());
     Path fooFile = execRoot.getRelative("a/foo");
     Path barFile = execRoot.getRelative("bar");
     client.upload(emptyKey, execRoot, ImmutableList.<Path>of(fooFile, barFile), outErr, false);
@@ -464,7 +468,7 @@ public class GrpcRemoteCacheTest {
     final Path fooFile = execRoot.getRelative("a/foo");
     final Path barFile = execRoot.getRelative("bar");
     final Path bazFile = execRoot.getRelative("baz");
-    ActionKey actionKey = Digests.unsafeActionKeyFromDigest(fooDigest); // Could be any key.
+    ActionKey actionKey = DIGEST_UTIL.asActionKey(fooDigest); // Could be any key.
     barFile.setExecutable(true);
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
@@ -576,7 +580,7 @@ public class GrpcRemoteCacheTest {
   @Test
   public void testGetCachedActionResultWithRetries() throws Exception {
     final GrpcRemoteCache client = newClient();
-    ActionKey actionKey = Digests.unsafeActionKeyFromDigest(Digests.computeDigestUtf8("key"));
+    ActionKey actionKey = DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key"));
     serviceRegistry.addService(
         new ActionCacheImplBase() {
           private int numErrors = 4;

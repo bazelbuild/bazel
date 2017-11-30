@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static junit.framework.TestCase.fail;
 
 import com.google.devtools.build.lib.remote.Chunker.Chunk;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
@@ -36,14 +37,16 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 public class ChunkerTest {
 
+  private final DigestUtil digestUtil = new DigestUtil(HashFunction.SHA256);
+
   @Test
   public void chunkingShouldWork() throws IOException {
     Random rand = new Random();
     byte[] expectedData = new byte[21];
     rand.nextBytes(expectedData);
-    Digest expectedDigest = Digests.computeDigest(expectedData);
+    Digest expectedDigest = digestUtil.compute(expectedData);
 
-    Chunker chunker = new Chunker(expectedData, 10);
+    Chunker chunker = new Chunker(expectedData, 10, digestUtil);
 
     ByteArrayOutputStream actualData = new ByteArrayOutputStream();
 
@@ -76,7 +79,7 @@ public class ChunkerTest {
   @Test
   public void nextShouldThrowIfNoMoreData() throws IOException {
     byte[] data = new byte[10];
-    Chunker chunker = new Chunker(data, 10);
+    Chunker chunker = new Chunker(data, 10, digestUtil);
 
     assertThat(chunker.hasNext()).isTrue();
     assertThat(chunker.next()).isNotNull();
@@ -94,7 +97,7 @@ public class ChunkerTest {
   @Test
   public void emptyData() throws Exception {
     byte[] data = new byte[0];
-    Chunker chunker = new Chunker(data);
+    Chunker chunker = new Chunker(data, digestUtil);
 
     assertThat(chunker.hasNext()).isTrue();
 
@@ -117,7 +120,7 @@ public class ChunkerTest {
   @Test
   public void reset() throws Exception {
     byte[] data = new byte[]{1, 2, 3};
-    Chunker chunker = new Chunker(data, 1);
+    Chunker chunker = new Chunker(data, 1, digestUtil);
 
     assertNextEquals(chunker, (byte) 1);
     assertNextEquals(chunker, (byte) 2);
@@ -144,9 +147,9 @@ public class ChunkerTest {
       in.set(Mockito.spy(new ByteArrayInputStream(data)));
       return in.get();
     };
-    Digest digest = Digests.computeDigest(data);
+    Digest digest = digestUtil.compute(data);
 
-    Chunker chunker = new Chunker(supplier, digest, 1);
+    Chunker chunker = new Chunker(supplier, digest, 1, digestUtil);
     assertThat(in.get()).isNull();
     assertNextEquals(chunker, (byte) 1);
     Mockito.verify(in.get(), Mockito.never()).close();

@@ -70,7 +70,18 @@ public class InMemoryFileSystem extends FileSystem {
    * paths are considered to be within scope).
    */
   public InMemoryFileSystem(Clock clock) {
-    this(clock, null);
+    this(clock, (PathFragment) null);
+  }
+
+  /**
+   * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
+   * within scope).
+   */
+  public InMemoryFileSystem(Clock clock, HashFunction hashFunction) {
+    super(hashFunction);
+    this.clock = clock;
+    this.rootInode = newRootInode(clock);
+    this.scopeRoot = null;
   }
 
   /**
@@ -80,9 +91,14 @@ public class InMemoryFileSystem extends FileSystem {
   public InMemoryFileSystem(Clock clock, PathFragment scopeRoot) {
     this.scopeRoot = scopeRoot;
     this.clock = clock;
-    this.rootInode = new InMemoryDirectoryInfo(clock);
+    this.rootInode = newRootInode(clock);
+  }
+
+  private static InMemoryDirectoryInfo newRootInode(Clock clock) {
+    InMemoryDirectoryInfo rootInode = new InMemoryDirectoryInfo(clock);
     rootInode.addChild(".", rootInode);
     rootInode.addChild("..", rootInode);
+    return rootInode;
   }
 
   /**

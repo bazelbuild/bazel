@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteSource;
@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
 import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,23 +70,17 @@ public abstract class FileSystem {
     }
   }
 
-  // This is effectively final, should be changed only in unit-tests!
-  private static HashFunction digestFunction;
-  static {
-    try {
-      digestFunction = new HashFunction.Converter().convert(
-          System.getProperty("bazel.DigestFunction", "MD5"));
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException(e);
-    }
+  private final HashFunction digestFunction;
+
+  public FileSystem() {
+    this(HashFunction.MD5);
   }
 
-  @VisibleForTesting
-  public static void setDigestFunctionForTesting(HashFunction value) {
-    digestFunction = value;
+  public FileSystem(HashFunction digestFunction) {
+    this.digestFunction = Preconditions.checkNotNull(digestFunction);
   }
 
-  public static HashFunction getDigestFunction() {
+  public HashFunction getDigestFunction() {
     return digestFunction;
   }
 

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GrpcUtils;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -102,6 +103,9 @@ import org.mockito.stubbing.Answer;
 /** Tests for {@link RemoteSpawnRunner} in combination with {@link GrpcRemoteExecutor}. */
 @RunWith(JUnit4.class)
 public class GrpcRemoteExecutionClientTest {
+
+  private static final DigestUtil DIGEST_UTIL = new DigestUtil(HashFunction.SHA256);
+
   private static final ArtifactExpander SIMPLE_ARTIFACT_EXPANDER =
       new ArtifactExpander() {
         @Override
@@ -176,7 +180,6 @@ public class GrpcRemoteExecutionClientTest {
 
   @Before
   public final void setUp() throws Exception {
-    FileSystem.setDigestFunctionForTesting(HashFunction.SHA1);
     String fakeServerName = "fake server for " + getClass();
     // Use a mutable service registry for later registering the service impl for each test case.
     fakeServer =
@@ -187,7 +190,7 @@ public class GrpcRemoteExecutionClientTest {
             .start();
 
     Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
-    fs = new InMemoryFileSystem();
+    fs = new InMemoryFileSystem(new JavaClock(), HashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -236,7 +239,7 @@ public class GrpcRemoteExecutionClientTest {
     CallCredentials creds =
         GrpcUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel, creds, options, retrier);
+        new GrpcRemoteCache(channel, creds, options, retrier, DIGEST_UTIL);
     client =
         new RemoteSpawnRunner(
             execRoot,
@@ -247,7 +250,8 @@ public class GrpcRemoteExecutionClientTest {
             "build-req-id",
             "command-id",
             remoteCache,
-            executor);
+            executor,
+            DIGEST_UTIL);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 
@@ -277,8 +281,8 @@ public class GrpcRemoteExecutionClientTest {
 
   @Test
   public void cacheHitWithOutput() throws Exception {
-    final Digest stdOutDigest = Digests.computeDigestUtf8("stdout");
-    final Digest stdErrDigest = Digests.computeDigestUtf8("stderr");
+    final Digest stdOutDigest = DIGEST_UTIL.computeAsUtf8("stdout");
+    final Digest stdErrDigest = DIGEST_UTIL.computeAsUtf8("stderr");
     serviceRegistry.addService(
         new ActionCacheImplBase() {
           @Override
@@ -326,7 +330,7 @@ public class GrpcRemoteExecutionClientTest {
   }
 
   private Answer<StreamObserver<WriteRequest>> blobWriteAnswer(final byte[] data) {
-    final Digest digest = Digests.computeDigest(data);
+    final Digest digest = DIGEST_UTIL.compute(data);
     return new Answer<StreamObserver<WriteRequest>>() {
       @Override
       public StreamObserver<WriteRequest> answer(InvocationOnMock invocation) {
@@ -444,7 +448,7 @@ public class GrpcRemoteExecutionClientTest {
                     .setValue("value")
                     .build())
             .build();
-    final Digest cmdDigest = Digests.computeDigest(command);
+    final Digest cmdDigest = DIGEST_UTIL.compute(command);
     BindableService cas =
         new ContentAddressableStorageImplBase() {
           @Override
@@ -633,7 +637,7 @@ public class GrpcRemoteExecutionClientTest {
                     .setValue("value")
                     .build())
             .build();
-    final Digest cmdDigest = Digests.computeDigest(command);
+    final Digest cmdDigest = DIGEST_UTIL.compute(command);
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
           private int numErrors = 4;
@@ -738,7 +742,7 @@ public class GrpcRemoteExecutionClientTest {
             responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
           }
         });
-    Digest stdOutDigest = Digests.computeDigestUtf8("bla");
+    Digest stdOutDigest = DIGEST_UTIL.computeAsUtf8("bla");
     final ActionResult actionResult =
         ActionResult.newBuilder().setStdoutDigest(stdOutDigest).build();
     serviceRegistry.addService(
@@ -788,7 +792,7 @@ public class GrpcRemoteExecutionClientTest {
 
   @Test
   public void remotelyReExecuteOrphanedCachedActions() throws Exception {
-    final Digest stdOutDigest = Digests.computeDigestUtf8("stdout");
+    final Digest stdOutDigest = DIGEST_UTIL.computeAsUtf8("stdout");
     final ActionResult actionResult =
         ActionResult.newBuilder().setStdoutDigest(stdOutDigest).build();
     serviceRegistry.addService(
@@ -858,7 +862,9 @@ public class GrpcRemoteExecutionClientTest {
       fail("Expected an exception");
     } catch (ExecException expected) {
       assertThat(expected).hasMessageThat().contains("Missing digest");
-      assertThat(expected).hasMessageThat().contains("476d9ec701e2de6a6c37ab5211117a7cb8333a27");
+      assertThat(expected)
+          .hasMessageThat()
+          .contains(DIGEST_UTIL.computeAsUtf8("stdout").toString());
     }
   }
 }

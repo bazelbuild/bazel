@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
-import com.google.devtools.build.lib.remote.Digests.ActionKey;
+import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -64,6 +64,8 @@ final class RemoteSpawnCache implements SpawnCache {
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
 
+  private final DigestUtil digestUtil;
+
   RemoteSpawnCache(
       Path execRoot,
       RemoteOptions options,
@@ -71,7 +73,8 @@ final class RemoteSpawnCache implements SpawnCache {
       String buildRequestId,
       String commandId,
       boolean verboseFailures,
-      @Nullable Reporter cmdlineReporter) {
+      @Nullable Reporter cmdlineReporter,
+      DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.options = options;
     this.platform = options.parseRemotePlatformOverride();
@@ -80,6 +83,7 @@ final class RemoteSpawnCache implements SpawnCache {
     this.cmdlineReporter = cmdlineReporter;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
+    this.digestUtil = digestUtil;
   }
 
   @Override
@@ -87,7 +91,7 @@ final class RemoteSpawnCache implements SpawnCache {
       throws InterruptedException, IOException, ExecException {
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     TreeNodeRepository repository =
-        new TreeNodeRepository(execRoot, policy.getActionInputFileCache());
+        new TreeNodeRepository(execRoot, policy.getActionInputFileCache(), digestUtil);
     SortedMap<PathFragment, ActionInput> inputMap = policy.getInputMapping();
     TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
     repository.computeMerkleDigests(inputRoot);
@@ -95,13 +99,13 @@ final class RemoteSpawnCache implements SpawnCache {
     Action action =
         RemoteSpawnRunner.buildAction(
             spawn.getOutputFiles(),
-            Digests.computeDigest(command),
+            digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
             platform,
             policy.getTimeout());
 
     // Look up action cache, and reuse the action output if it is found.
-    final ActionKey actionKey = Digests.computeActionKey(action);
+    final ActionKey actionKey = digestUtil.computeActionKey(action);
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
     // Metadata will be available in context.current() until we detach.

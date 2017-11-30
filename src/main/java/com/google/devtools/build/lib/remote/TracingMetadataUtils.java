@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.remote.Digests.ActionKey;
+import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
 import com.google.devtools.remoteexecution.v1test.ToolDetails;
 import io.grpc.ClientInterceptor;

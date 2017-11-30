@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
@@ -42,10 +43,11 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
-import com.google.devtools.build.lib.remote.Digests.ActionKey;
+import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -80,6 +82,7 @@ public class RemoteSpawnCacheTest {
       };
 
   private FileSystem fs;
+  private DigestUtil digestUtil;
   private Path execRoot;
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
@@ -147,7 +150,8 @@ public class RemoteSpawnCacheTest {
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
-    fs = new InMemoryFileSystem();
+    fs = new InMemoryFileSystem(new JavaClock(), HashFunction.SHA256);
+    digestUtil = new DigestUtil(HashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -172,7 +176,14 @@ public class RemoteSpawnCacheTest {
     reporter.addHandler(eventHandler);
     cache =
         new RemoteSpawnCache(
-            execRoot, options, remoteCache, "build-req-id", "command-id", false, reporter);
+            execRoot,
+            options,
+            remoteCache,
+            "build-req-id",
+            "command-id",
+            false,
+            reporter,
+            digestUtil);
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 

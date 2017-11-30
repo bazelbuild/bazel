@@ -30,6 +30,12 @@ abstract class AbstractFileSystem extends FileSystem {
   protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
   protected static final Profiler profiler = Profiler.instance();
 
+  public AbstractFileSystem() {}
+
+  public AbstractFileSystem(HashFunction digestFunction) {
+    super(digestFunction);
+  }
+
   @Override
   protected InputStream getInputStream(Path path) throws IOException {
     // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates

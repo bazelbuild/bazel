@@ -56,6 +56,11 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     this(new JavaClock());
   }
 
+  public JavaIoFileSystem(HashFunction hashFunction) {
+    super(hashFunction);
+    this.clock = new JavaClock();
+  }
+
   @VisibleForTesting
   JavaIoFileSystem(Clock clock) {
     this.clock = clock;

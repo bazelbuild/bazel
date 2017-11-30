@@ -80,7 +80,7 @@ public abstract class BlazeModule {
    *
    * @param startupOptions the server's startup options
    */
-  public FileSystem getFileSystem(OptionsProvider startupOptions) {
+  public FileSystem getFileSystem(OptionsProvider startupOptions) throws AbruptExitException {
     return null;
   }
 

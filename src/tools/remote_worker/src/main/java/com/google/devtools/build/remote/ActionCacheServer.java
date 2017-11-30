@@ -16,8 +16,8 @@ package com.google.devtools.build.remote;
 
 import static java.util.logging.Level.WARNING;
 
-import com.google.devtools.build.lib.remote.Digests;
-import com.google.devtools.build.lib.remote.Digests.ActionKey;
+import com.google.devtools.build.lib.remote.DigestUtil;
+import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
@@ -31,16 +31,18 @@ final class ActionCacheServer extends ActionCacheImplBase {
   private static final Logger logger = Logger.getLogger(ActionCacheImplBase.class.getName());
 
   private final SimpleBlobStoreActionCache cache;
+  private final DigestUtil digestUtil;
 
-  public ActionCacheServer(SimpleBlobStoreActionCache cache) {
+  public ActionCacheServer(SimpleBlobStoreActionCache cache, DigestUtil digestUtil) {
     this.cache = cache;
+    this.digestUtil = digestUtil;
   }
 
   @Override
   public void getActionResult(
       GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
     try {
-      ActionKey actionKey = Digests.unsafeActionKeyFromDigest(request.getActionDigest());
+      ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
       ActionResult result = cache.getCachedActionResult(actionKey);
 
       if (result == null) {
@@ -60,7 +62,7 @@ final class ActionCacheServer extends ActionCacheImplBase {
   public void updateActionResult(
       UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
     try {
-      ActionKey actionKey = Digests.unsafeActionKeyFromDigest(request.getActionDigest());
+      ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
       cache.setCachedActionResult(actionKey, request.getActionResult());
       responseObserver.onNext(request.getActionResult());
       responseObserver.onCompleted();

@@ -24,7 +24,7 @@ import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.Chunker;
-import com.google.devtools.build.lib.remote.Digests;
+import com.google.devtools.build.lib.remote.DigestUtil;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -44,6 +44,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
   private static final Logger logger = Logger.getLogger(ByteStreamServer.class.getName());
   private final SimpleBlobStoreActionCache cache;
   private final Path workPath;
+  private final DigestUtil digestUtil;
 
   static @Nullable Digest parseDigestFromResourceName(String resourceName) {
     try {
@@ -53,15 +54,16 @@ final class ByteStreamServer extends ByteStreamImplBase {
       }
       String hash = tokens[tokens.length - 2];
       long size = Long.parseLong(tokens[tokens.length - 1]);
-      return Digests.buildDigest(hash, size);
+      return DigestUtil.buildDigest(hash, size);
     } catch (NumberFormatException e) {
       return null;
     }
   }
 
-  public ByteStreamServer(SimpleBlobStoreActionCache cache, Path workPath) {
+  public ByteStreamServer(SimpleBlobStoreActionCache cache, Path workPath, DigestUtil digestUtil) {
     this.cache = cache;
     this.workPath = workPath;
+    this.digestUtil = digestUtil;
   }
 
   @Override
@@ -78,7 +80,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
     try {
       // This still relies on the blob size to be small enough to fit in memory.
       // TODO(olaola): refactor to fix this if the need arises.
-      Chunker c = new Chunker(cache.downloadBlob(digest));
+      Chunker c = new Chunker(cache.downloadBlob(digest), digestUtil);
       while (c.hasNext()) {
         responseObserver.onNext(
             ReadResponse.newBuilder().setData(c.next().getData()).build());
@@ -227,7 +229,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
         }
 
         try {
-          Digest d = Digests.computeDigest(temp);
+          Digest d = digestUtil.compute(temp);
           try (InputStream in = temp.getInputStream()) {
             cache.uploadStream(d, in);
           }

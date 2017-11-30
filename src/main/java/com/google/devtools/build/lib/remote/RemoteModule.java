@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
@@ -50,16 +51,17 @@ public final class RemoteModule extends BlazeModule {
     // TODO(ulfjack): Change the Bazel startup process to make the options available when we create
     // the PathConverter.
     RemoteOptions options;
+    DigestUtil digestUtil;
 
     @Override
     public String apply(Path path) {
-      if (options == null || !remoteEnabled(options)) {
+      if (options == null || digestUtil == null || !remoteEnabled(options)) {
         return null;
       }
       String server = options.remoteCache;
       String remoteInstanceName = options.remoteInstanceName;
       try {
-        Digest digest = Digests.computeDigest(path);
+        Digest digest = digestUtil.compute(path);
         return remoteInstanceName.isEmpty()
             ? String.format(
                 "bytestream://%s/blobs/%s/%d",
@@ -97,12 +99,16 @@ public final class RemoteModule extends BlazeModule {
     logger.info("Command: buildRequestId = " + buildRequestId + ", commandId = " + commandId);
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
+    HashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
+    DigestUtil digestUtil = new DigestUtil(hashFn);
     converter.options = remoteOptions;
+    converter.digestUtil = digestUtil;
 
     // Quit if no remote options specified.
     if (remoteOptions == null) {
       return;
     }
+
 
     try {
       boolean remoteOrLocalCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
@@ -116,12 +122,13 @@ public final class RemoteModule extends BlazeModule {
       if (remoteOrLocalCache) {
         cache =
             new SimpleBlobStoreActionCache(
-                SimpleBlobStoreFactory.create(remoteOptions, env.getWorkingDirectory()));
+                SimpleBlobStoreFactory.create(remoteOptions, env.getWorkingDirectory()),
+                digestUtil);
       } else if (grpcCache || remoteOptions.remoteExecutor != null) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
         String target = grpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
         Channel ch = GrpcUtils.newChannel(target, authAndTlsOptions);
-        cache = new GrpcRemoteCache(ch, creds, remoteOptions, retrier);
+        cache = new GrpcRemoteCache(ch, creds, remoteOptions, retrier, digestUtil);
       } else {
         cache = null;
       }
@@ -137,7 +144,7 @@ public final class RemoteModule extends BlazeModule {
         executor = null;
       }
 
-      actionContextProvider = new RemoteActionContextProvider(env, cache, executor);
+      actionContextProvider = new RemoteActionContextProvider(env, cache, executor, digestUtil);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       env.getBlazeModuleEnvironment().exit(new AbruptExitException(ExitCode.COMMAND_LINE_ERROR));

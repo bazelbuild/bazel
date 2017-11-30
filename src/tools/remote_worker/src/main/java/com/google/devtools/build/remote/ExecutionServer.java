@@ -25,8 +25,8 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.Digests;
-import com.google.devtools.build.lib.remote.Digests.ActionKey;
+import com.google.devtools.build.lib.remote.DigestUtil;
+import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.TracingMetadataUtils;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
@@ -93,18 +93,21 @@ final class ExecutionServer extends ExecutionImplBase {
   private final SimpleBlobStoreActionCache cache;
   private final ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache;
   private final ListeningExecutorService executorService;
+  private final DigestUtil digestUtil;
 
   public ExecutionServer(
       Path workPath,
       Path sandboxPath,
       RemoteWorkerOptions workerOptions,
       SimpleBlobStoreActionCache cache,
-      ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache) {
+      ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache,
+      DigestUtil digestUtil) {
     this.workPath = workPath;
     this.sandboxPath = sandboxPath;
     this.workerOptions = workerOptions;
     this.cache = cache;
     this.operationsCache = operationsCache;
+    this.digestUtil = digestUtil;
     ThreadPoolExecutor realExecutor = new ThreadPoolExecutor(
         // This is actually the max number of concurrent jobs.
         workerOptions.jobs,
@@ -265,7 +268,7 @@ final class ExecutionServer extends ExecutionImplBase {
     cache.uploadOutErr(result, stdout, stderr);
     ActionResult finalResult = result.setExitCode(exitCode).build();
     if (exitCode == 0) {
-      ActionKey actionKey = Digests.computeActionKey(action);
+      ActionKey actionKey = digestUtil.computeActionKey(action);
       cache.setCachedActionResult(actionKey, finalResult);
     }
     return finalResult;

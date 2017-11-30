@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.remote.Digests.ActionKey;
+import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -79,6 +79,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
   private final String buildRequestId;
   private final String commandId;
+  private final DigestUtil digestUtil;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -92,7 +93,8 @@ class RemoteSpawnRunner implements SpawnRunner {
       String buildRequestId,
       String commandId,
       @Nullable RemoteActionCache remoteCache,
-      @Nullable GrpcRemoteExecutor remoteExecutor) {
+      @Nullable GrpcRemoteExecutor remoteExecutor,
+      DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.options = options;
     this.platform = options.parseRemotePlatformOverride();
@@ -103,6 +105,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     this.cmdlineReporter = cmdlineReporter;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
+    this.digestUtil = digestUtil;
   }
 
   @Override
@@ -115,7 +118,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     policy.report(ProgressStatus.EXECUTING, "remote");
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     ActionInputFileCache inputFileCache = policy.getActionInputFileCache();
-    TreeNodeRepository repository = new TreeNodeRepository(execRoot, inputFileCache);
+    TreeNodeRepository repository = new TreeNodeRepository(execRoot, inputFileCache, digestUtil);
     SortedMap<PathFragment, ActionInput> inputMap = policy.getInputMapping();
     TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
     repository.computeMerkleDigests(inputRoot);
@@ -123,13 +126,13 @@ class RemoteSpawnRunner implements SpawnRunner {
     Action action =
         buildAction(
             spawn.getOutputFiles(),
-            Digests.computeDigest(command),
+            digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
             platform,
             policy.getTimeout());
 
     // Look up action cache, and reuse the action output if it is found.
-    ActionKey actionKey = Digests.computeActionKey(action);
+    ActionKey actionKey = digestUtil.computeActionKey(action);
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
     Context previous = withMetadata.attach();

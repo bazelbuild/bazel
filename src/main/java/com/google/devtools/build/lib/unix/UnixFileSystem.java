@@ -36,7 +36,12 @@ import java.util.List;
  */
 @ThreadSafe
 public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
+
   public UnixFileSystem() {
+  }
+
+  public UnixFileSystem(HashFunction hashFunction) {
+    super(hashFunction);
   }
 
   /**

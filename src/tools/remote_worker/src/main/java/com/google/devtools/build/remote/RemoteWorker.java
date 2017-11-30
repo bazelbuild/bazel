@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.remote.DigestUtil;
 import com.google.devtools.build.lib.remote.RemoteOptions;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
@@ -39,11 +40,13 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
@@ -85,15 +88,28 @@ public final class RemoteWorker {
   private final ExecutionImplBase execServer;
 
   static FileSystem getFileSystem() {
-    return OS.getCurrent() == OS.WINDOWS ? new JavaIoFileSystem() : new UnixFileSystem();
+    final HashFunction hashFunction;
+    String value = null;
+    try {
+      value = System.getProperty("bazel.DigestFunction", "MD5");
+      hashFunction = new HashFunction.Converter().convert(value);
+    } catch (OptionsParsingException e) {
+      throw new Error("The specified hash function '" + value + "' is not supported.");
+    }
+    return OS.getCurrent() == OS.WINDOWS
+        ? new JavaIoFileSystem(hashFunction)
+        : new UnixFileSystem(hashFunction);
   }
 
   public RemoteWorker(
-      FileSystem fs, RemoteWorkerOptions workerOptions, SimpleBlobStoreActionCache cache,
-      Path sandboxPath)
+      FileSystem fs,
+      RemoteWorkerOptions workerOptions,
+      SimpleBlobStoreActionCache cache,
+      Path sandboxPath,
+      DigestUtil digestUtil)
       throws IOException {
     this.workerOptions = workerOptions;
-    this.actionCacheServer = new ActionCacheServer(cache);
+    this.actionCacheServer = new ActionCacheServer(cache, digestUtil);
     Path workPath;
     if (workerOptions.workPath != null) {
       workPath = fs.getPath(workerOptions.workPath);
@@ -110,7 +126,7 @@ public final class RemoteWorker {
       // For now, we use a temporary path if no work path was provided.
       workPath = fs.getPath("/tmp/remote-worker");
     }
-    this.bsServer = new ByteStreamServer(cache, workPath);
+    this.bsServer = new ByteStreamServer(cache, workPath, digestUtil);
     this.casServer = new CasServer(cache);
 
     if (workerOptions.workPath != null) {
@@ -119,7 +135,8 @@ public final class RemoteWorker {
       FileSystemUtils.createDirectoryAndParents(workPath);
       watchServer = new WatcherServer(operationsCache);
       execServer =
-          new ExecutionServer(workPath, sandboxPath, workerOptions, cache, operationsCache);
+          new ExecutionServer(
+              workPath, sandboxPath, workerOptions, cache, operationsCache, digestUtil);
     } else {
       watchServer = null;
       execServer = null;
@@ -252,9 +269,14 @@ public final class RemoteWorker {
       blobStore = new ConcurrentMapBlobStore(new ConcurrentHashMap<String, byte[]>());
     }
 
+    DigestUtil digestUtil = new DigestUtil(HashFunction.SHA256);
     RemoteWorker worker =
         new RemoteWorker(
-            fs, remoteWorkerOptions, new SimpleBlobStoreActionCache(blobStore), sandboxPath);
+            fs,
+            remoteWorkerOptions,
+            new SimpleBlobStoreActionCache(blobStore, digestUtil),
+            sandboxPath,
+            digestUtil);
 
     final Server server = worker.startServer();
     worker.createPidFile();

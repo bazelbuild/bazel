@@ -308,6 +308,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   public static final LinkOption[] NO_OPTIONS = new LinkOption[0];
   public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
+  public WindowsFileSystem() {}
+
+  public WindowsFileSystem(HashFunction hashFunction) {
+    super(hashFunction);
+  }
+
   @Override
   protected PathFactory getPathFactory() {
     return WindowsPathFactory.INSTANCE;

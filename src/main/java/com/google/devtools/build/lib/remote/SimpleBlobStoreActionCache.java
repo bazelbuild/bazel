@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.remote.Digests.ActionKey;
+import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -55,9 +55,11 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
   private static final int MAX_BLOB_SIZE_FOR_INLINE = 10 * 1024;
 
   private final SimpleBlobStore blobStore;
+  private final DigestUtil digestUtil;
 
-  public SimpleBlobStoreActionCache(SimpleBlobStore blobStore) {
+  public SimpleBlobStoreActionCache(SimpleBlobStore blobStore, DigestUtil digestUtil) {
     this.blobStore = blobStore;
+    this.digestUtil = digestUtil;
   }
 
   @Override
@@ -88,7 +90,7 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
   }
 
   private Digest uploadFileContents(Path file) throws IOException, InterruptedException {
-    Digest digest = Digests.computeDigest(file);
+    Digest digest = digestUtil.compute(file);
     try (InputStream in = file.getInputStream()) {
       return uploadStream(digest, in);
     }
@@ -99,10 +101,10 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
           throws IOException, InterruptedException {
     if (input instanceof VirtualActionInput) {
       byte[] blob = ((VirtualActionInput) input).getBytes().toByteArray();
-      return uploadBlob(blob, Digests.computeDigest(blob));
+      return uploadBlob(blob, digestUtil.compute(blob));
     }
     try (InputStream in = execRoot.getRelative(input.getExecPathString()).getInputStream()) {
-      return uploadStream(Digests.getDigestFromInputCache(input, inputCache), in);
+      return uploadStream(DigestUtil.getFromInputCache(input, inputCache), in);
     }
   }
 
@@ -243,7 +245,7 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
   }
 
   public Digest uploadBlob(byte[] blob) throws IOException, InterruptedException {
-    return uploadBlob(blob, Digests.computeDigest(blob));
+    return uploadBlob(blob, digestUtil.compute(blob));
   }
 
   private Digest uploadBlob(byte[] blob, Digest digest) throws IOException, InterruptedException {

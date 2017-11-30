@@ -55,28 +55,28 @@ public class DigestUtilsTest {
     final CountDownLatch barrierLatch = new CountDownLatch(2); // Used to block test threads.
     final CountDownLatch readyLatch = new CountDownLatch(1);   // Used to block main thread.
 
-    FileSystem myfs = new InMemoryFileSystem(BlazeClock.instance()) {
-        @Override
-        protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
-          try {
-            barrierLatch.countDown();
-            readyLatch.countDown();
-            // Either both threads will be inside getDigest at the same time or they
-            // both will be blocked.
-            barrierLatch.await();
-          } catch (Exception e) {
-            throw new IOException(e);
+    FileSystem myfs =
+        new InMemoryFileSystem(BlazeClock.instance(), hf) {
+          @Override
+          protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
+            try {
+              barrierLatch.countDown();
+              readyLatch.countDown();
+              // Either both threads will be inside getDigest at the same time or they
+              // both will be blocked.
+              barrierLatch.await();
+            } catch (Exception e) {
+              throw new IOException(e);
+            }
+            return super.getDigest(path, hashFunction);
           }
-          return super.getDigest(path, hashFunction);
-        }
 
-        @Override
-        protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
-          return fastDigest ? super.getDigest(path, hashFunction) : null;
-        }
-    };
+          @Override
+          protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
+            return fastDigest ? super.getDigest(path, hashFunction) : null;
+          }
+        };
 
-    FileSystem.setDigestFunctionForTesting(hf);
     final Path myFile1 = myfs.getPath("/f1.dat");
     final Path myFile2 = myfs.getPath("/f2.dat");
     FileSystemUtils.writeContentAsLatin1(myFile1, Strings.repeat("a", fileSize1));
@@ -126,18 +126,19 @@ public class DigestUtilsTest {
   }
 
   public void assertRecoverFromMalformedDigest(HashFunction... hashFunctions) throws Exception {
-    final byte[] malformed = {0, 0, 0};
-    FileSystem myFS = new InMemoryFileSystem(BlazeClock.instance()) {
-      @Override
-      protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
-        // Digest functions have more than 3 bytes, usually at least 16.
-        return malformed;
-      }
-    };
-    Path path = myFS.getPath("/file");
-    FileSystemUtils.writeContentAsLatin1(path, "a");
     for (HashFunction hf : hashFunctions) {
-      FileSystem.setDigestFunctionForTesting(hf);
+      final byte[] malformed = {0, 0, 0};
+      FileSystem myFS =
+          new InMemoryFileSystem(BlazeClock.instance(), hf) {
+            @Override
+            protected byte[] getFastDigest(Path path, HashFunction hashFunction)
+                throws IOException {
+              // Digest functions have more than 3 bytes, usually at least 16.
+              return malformed;
+            }
+          };
+      Path path = myFS.getPath("/file");
+      FileSystemUtils.writeContentAsLatin1(path, "a");
       byte[] result = DigestUtils.getDigestOrFail(path, 1);
       assertThat(result).isEqualTo(path.getDigest());
       assertThat(result).isNotSameAs(malformed);
