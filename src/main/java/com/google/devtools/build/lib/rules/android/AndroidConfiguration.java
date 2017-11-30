@@ -798,21 +798,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean skipParsingAction;
 
     @Option(
-        name = "experimental_android_inherit_resources_in_tests",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-            OptionEffectTag.AFFECTS_OUTPUTS,
-            OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        help = "If true, local_resource_files indicates that resource files should be inherited"
-            + "from deps in android_test targets. Otherwise, resources will not be inherited from"
-            + " deps for those targets."
-    )
-    public boolean inheritResourcesInTests;
-
-    @Option(
         name = "android_fixed_resource_neverlinking",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -905,7 +890,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useParallelDex2Oat;
   private final boolean allowAndroidResources;
   private final boolean allowResourcesAttr;
-  private final boolean inheritResourcesInTests;
   private final boolean skipParsingAction;
   private final boolean fixedResourceNeverlinking;
 
@@ -945,7 +929,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useParallelDex2Oat = options.useParallelDex2Oat;
     this.allowAndroidResources = options.allowAndroidResources;
     this.allowResourcesAttr = options.allowResourcesAttr;
-    this.inheritResourcesInTests = options.inheritResourcesInTests;
     this.skipParsingAction = options.skipParsingAction;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
 
@@ -1103,10 +1086,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean allowResourcesAttr() {
     return this.allowResourcesAttr;
-  }
-
-  public boolean inheritResourcesInTests() {
-    return this.inheritResourcesInTests;
   }
 
   public boolean skipParsingAction() {
