@@ -179,7 +179,7 @@ TODO: define string_lit, indent, outdent, semicolon, newline, eof
 
 These are the main data types built in to the interpreter:
 
-```shell
+```text
 NoneType                     # the type of None
 bool                         # True or False
 int                          # a signed integer
@@ -1343,7 +1343,7 @@ conjunction of their arguments, which need not be Booleans.
 The expression `x or y` yields the value of `x` if its truth value is `True`,
 or the value of `y` otherwise.
 
-```skylark
+```python
 False or False		# False
 False or True		# True
 True  or False		# True
@@ -1356,7 +1356,7 @@ True  or True		# True
 Similarly, `x and y` yields the value of `x` if its truth value is
 `False`, or the value of `y` otherwise.
 
-```skylark
+```python
 False and False		# False
 False and True		# False
 True  and False		# False
@@ -1387,7 +1387,7 @@ of their operands.  It is an error to apply these operators to
 operands of unequal type.  Of the built-in types, only the following
 support ordered comparison, using the ordering relation shown:
 
-```shell
+```text
 NoneType        # None <= None
 bool            # False < True
 int             # mathematical
@@ -1403,7 +1403,7 @@ The remaining built-in types support only equality comparisons.
 Values of type `dict` compare equal if their elements compare
 equal, and values of type `function` are equal only to themselves.
 
-```shell
+```text
 dict                            # equal contents
 function                        # identity
 ```
@@ -1413,7 +1413,7 @@ function                        # identity
 The following table summarizes the binary arithmetic operations
 available for built-in types:
 
-```shell
+```text
 Arithmetic
    number + number              # addition
    number - number              # subtraction
@@ -1749,7 +1749,7 @@ if the dictionary contains no such key.
 An index expression appearing on the left side of an assignment causes
 the specified list or dictionary element to be updated:
 
-```skylark
+```python
 a = range(3)            # a == [0, 1, 2]
 a[2] = 7                # a == [0, 1, 7]
 
