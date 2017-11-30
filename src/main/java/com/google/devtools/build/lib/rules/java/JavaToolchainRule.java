@@ -201,6 +201,14 @@ public final class JavaToolchainRule implements RuleDefinition {
             attr("compatible_javacopts", STRING_LIST_DICT)
                 .undocumented("internal")
                 .value(ImmutableMap.<String, List<String>>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(plugin_configuration) -->
+        Java plugins that should be enabled for the specified package groups.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("plugin_configuration", LABEL_LIST)
+                .cfg(HOST)
+                .allowedFileTypes()
+                .mandatoryNativeProviders(ImmutableList.of(JavaPluginConfigurationProvider.class)))
         .build();
   }
 

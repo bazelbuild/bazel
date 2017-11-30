@@ -82,6 +82,11 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             ImmutableMap.<Label, ImmutableCollection<Artifact>>of(
                 AliasProvider.getDependencyLabel(javacDep), ImmutableList.of(javac)));
 
+    ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration =
+        ImmutableList.copyOf(
+            ruleContext.getPrerequisites(
+                "plugin_configuration", Mode.HOST, JavaPluginConfigurationProvider.class));
+
     JavaToolchainData toolchainData =
         new JavaToolchainData(
             source,
@@ -113,7 +118,8 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             resourceJarBuilder,
             timezoneData,
             ijar,
-            compatibleJavacOptions);
+            compatibleJavacOptions,
+            pluginConfiguration);
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addSkylarkTransitiveInfo(

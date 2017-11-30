@@ -80,7 +80,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
-      ImmutableListMultimap<String, String> compatibleJavacOptions) {
+      ImmutableListMultimap<String, String> compatibleJavacOptions,
+      ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration) {
     return new JavaToolchainProvider(
         label,
         data.getSourceVersion(),
@@ -108,7 +109,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
             .addAll(defaultJavacFlags)
             .build(),
         data.getJvmOptions(),
-        data.getJavacSupportsWorkers());
+        data.getJavacSupportsWorkers(),
+        pluginConfiguration);
   }
 
   private final Label label;
@@ -133,6 +135,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> jvmOptions;
   private final boolean javacSupportsWorkers;
+  private final ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration;
 
   private JavaToolchainProvider(
       Label label,
@@ -156,7 +159,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
-      boolean javacSupportsWorkers) {
+      boolean javacSupportsWorkers,
+      ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration) {
     super(ImmutableMap.of(), Location.BUILTIN);
 
     this.label = label;
@@ -181,6 +185,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
     this.javacOptions = javacOptions;
     this.jvmOptions = jvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
+    this.pluginConfiguration = pluginConfiguration;
   }
 
   /** Returns the label for this {@code java_toolchain}. */
@@ -310,5 +315,10 @@ public class JavaToolchainProvider extends ToolchainInfo {
   /** @return whether JavaBuilders supports running as a persistent worker or not */
   public boolean getJavacSupportsWorkers() {
     return javacSupportsWorkers;
+  }
+
+  /** Returns the global {@code java_plugin_configuration} data. */
+  public ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration() {
+    return pluginConfiguration;
   }
 }
