@@ -109,6 +109,9 @@ public class JarCreator extends JarHelper {
    * @param directory the directory to add to the jar
    */
   public void addDirectory(Path directory) {
+    if (!Files.exists(directory)) {
+      throw new IllegalArgumentException("directory does not exist: " + directory);
+    }
     try {
       Files.walkFileTree(
           directory,
