@@ -58,6 +58,13 @@ public class DigestUtils {
   private static final Object DIGEST_LOCK = new Object();
   private static final AtomicBoolean MULTI_THREADED_DIGEST = new AtomicBoolean(false);
 
+  // The time that a digest computation has to take at least in order to be considered a slow-read.
+  private static final long SLOW_READ_MILLIS = 5000L;
+
+  // The average bytes-per-millisecond throughput that a digest computation has to go below in order
+  // to be considered a slow-read.
+  private static final long SLOW_READ_THROUGHPUT = (10 * 1024 * 1024) / 1000;
+
   /**
    * Keys used to cache the values of the digests for files where we don't have fast digests.
    *
@@ -151,7 +158,7 @@ public class DigestUtils {
     byte[] digest = path.getDigest();
 
     long millis = (BlazeClock.nanoTime() - startTime) / 1000000;
-    if (millis > 5000L) {
+    if (millis > SLOW_READ_MILLIS && (path.getFileSize() / millis) < SLOW_READ_THROUGHPUT) {
       System.err.println("Slow read: a " + path.getFileSize() + "-byte read from " + path
           + " took " +  millis + "ms.");
     }
