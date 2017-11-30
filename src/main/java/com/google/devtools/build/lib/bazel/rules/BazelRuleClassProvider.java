@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRul
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
-import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidRuleClasses.BazelAndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.common.BazelFilegroupRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
@@ -79,13 +78,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.rules.Alias.AliasRule;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
-import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceRule;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidNeverlinkAspect;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
+import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.rules.android.AndroidSkylarkCommon;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
@@ -472,13 +471,12 @@ public class BazelRuleClassProvider {
           builder.addNativeAspectClass(dexArchiveAspect);
 
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidSdkRule());
-          builder.addRuleDefinition(new BazelAndroidToolsDefaultsJarRule());
+          builder.addRuleDefinition(new AndroidToolsDefaultsJarRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidBaseRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidResourceSupportRule());
           builder.addRuleDefinition(
               new AndroidRuleClasses.AndroidBinaryBaseRule(
                   androidNeverlinkAspect, dexArchiveAspect));
-          builder.addRuleDefinition(new AndroidBinaryOnlyRule());
           builder.addRuleDefinition(new AndroidLibraryBaseRule(androidNeverlinkAspect));
           builder.addRuleDefinition(new BazelAndroidLibraryRule());
           builder.addRuleDefinition(new BazelAndroidBinaryRule());

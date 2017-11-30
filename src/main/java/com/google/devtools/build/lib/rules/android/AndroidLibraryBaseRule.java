@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidResourceSupportRule;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
@@ -46,6 +46,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     return builder
+        .requiresConfigurationFragments(JavaConfiguration.class, AndroidConfiguration.class)
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(srcs) -->
          The list of <code>.java</code> or <code>.srcjar</code> files that
          are processed to create the target.
@@ -101,7 +102,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         Whether to export manifest entries to <code>android_binary</code> targets
         that depend on this target. <code>uses-permissions</code> attributes are never exported.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("exports_manifest", TRISTATE).value(TriState.AUTO))
+        .add(attr("exports_manifest", TRISTATE).value(TriState.YES))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exported_plugins) -->
         The list of <code><a href="#${link java_plugin}">java_plugin</a></code>s (e.g. annotation
         processors) to export to libraries that directly depend on this library.
@@ -190,11 +191,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
             attr("idl_preprocessed", LABEL_LIST)
                 .direct_compile_time_input()
                 .allowedFileTypes(AndroidRuleClasses.ANDROID_IDL))
-        .add(
-            attr("$android_manifest_merge_tool", LABEL)
-                .cfg(HOST)
-                .exec()
-                .value(env.getToolsLabel(AndroidRuleClasses.MANIFEST_MERGE_TOOL_LABEL)))
         .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }

@@ -13,24 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.util.FileType;
 
 /**
  * Rule class definition for {@code android_binary}.
@@ -40,16 +31,6 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .requiresConfigurationFragments(
-            AndroidConfiguration.class,
-            JavaConfiguration.class,
-            CppConfiguration.class)
-        .override(
-            attr("manifest", BuildType.LABEL).mandatory().allowedFileTypes(FileType.of(".xml")))
-        .add(
-            attr(":cc_toolchain_split", BuildType.LABEL)
-                .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
-                .value(CppRuleClasses.ccToolchainAttribute(environment)))
         /* <!-- #BLAZE_RULE(android_binary).IMPLICIT_OUTPUTS -->
          <ul>
          <li><code><var>name</var>.apk</code>: An Android application
@@ -95,7 +76,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("android_binary")
         .ancestors(
-            AndroidBinaryOnlyRule.class,
+            AndroidRuleClasses.AndroidBinaryBaseRule.class,
             BazelJavaRuleClasses.JavaBaseRule.class,
             BazelCppRuleClasses.CcLinkingRule.class)
         .factoryClass(BazelAndroidBinary.class)

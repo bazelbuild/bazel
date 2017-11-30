@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -56,7 +55,9 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidA
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
 
 /** Rule definitions for Android rules. */
@@ -442,7 +444,7 @@ public final class AndroidRuleClasses {
           The name of the Android manifest file, normally <code>AndroidManifest.xml</code>.
           Must be defined if resource_files or assets are defined.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("manifest", LABEL).legacyAllowAnyFileType())
+          .add(attr("manifest", LABEL).allowedFileTypes(FileType.of(".xml")))
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(resource_files) -->
           The list of resources to be packaged.
           This is typically a <code>glob</code> of all files under the
@@ -453,7 +455,7 @@ public final class AndroidRuleClasses {
           the generated outputs must be under the same "<code>res</code>" directory as any other
           resource files that are included.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("resource_files", LABEL_LIST).legacyAllowAnyFileType())
+          .add(attr("resource_files", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(assets_dir) -->
           The string giving the path to the files in <code>assets</code>.
           The pair <code>assets</code> and <code>assets_dir</code> describe packaged
@@ -467,7 +469,7 @@ public final class AndroidRuleClasses {
           files) or exported files in the other packages, as long as all those files are under the
           <code>assets_dir</code> directory in the corresponding package.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("assets", LABEL_LIST).legacyAllowAnyFileType())
+          .add(attr("assets", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(inline_constants) -->
           Let the compiler inline the constants defined in the generated java sources.
           This attribute must be set to 0 for all <code>android_library</code> rules
@@ -507,9 +509,15 @@ public final class AndroidRuleClasses {
           // The javac annotation processor from Android's data binding library that turns
           // processed XML expressions into Java code.
           .add(
-              attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, BuildType.LABEL)
+              attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, LABEL)
                   .cfg(HOST)
                   .value(env.getToolsLabel("//tools/android:databinding_annotation_processor")))
+          // TODO(b/30816740): Remove this once legacy manifest merging is no longer supported.
+          .add(
+              attr("$android_manifest_merge_tool", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel(AndroidRuleClasses.MANIFEST_MERGE_TOOL_LABEL)))
           .build();
     }
 
@@ -606,6 +614,8 @@ public final class AndroidRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
       return builder
+          .requiresConfigurationFragments(
+              AndroidConfiguration.class, JavaConfiguration.class, CppConfiguration.class)
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(srcs) -->
           The list of source files that are processed to create the target.
           <p><code>srcs</code> files of type <code>.java</code> are compiled.
@@ -625,6 +635,8 @@ public final class AndroidRuleClasses {
               attr("srcs", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedFileTypes(JavaSemantics.JAVA_SOURCE, JavaSemantics.SOURCE_JAR))
+          // manifest is required for android_binary to ensure that we have an Android package.
+          .override(builder.copy("manifest").mandatory())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
           Permitted library types are: <code>android_library</code>,
@@ -663,6 +675,53 @@ public final class AndroidRuleClasses {
                   .allowedRuleClasses("android_binary")
                   .allowedFileTypes()
                   .undocumented("experimental, see b/36226333"))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(nocompress_extensions) -->
+          A list of file extension to leave uncompressed in apk.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("nocompress_extensions", STRING_LIST))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(crunch_png) -->
+          Do PNG crunching (or not). This is independent of nine-patch processing, which is always
+          done. Currently only supported for local resources (not android_resources).
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("crunch_png", BOOLEAN).value(true))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(resource_configuration_filters) -->
+          A list of resource configuration filters, such 'en' that will limit the resources in the
+          apk to only the ones in the 'en' configuration.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr(ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME, STRING_LIST))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(shrink_resources) -->
+          Whether to perform resource shrinking. Resources that are not used by the binary will be
+          removed from the APK. This is only supported for rules using local resources (i.e. the
+          <code>manifest</code> and <code>resource_files</code> attributes) and requires ProGuard.
+          It operates in mostly the same manner as the Gradle resource shrinker
+          (https://developer.android.com/studio/build/shrink-code.html#shrink-resources).
+          <p>Notable differences:
+          <ul>
+            <li>resources in <code>values/</code> will be removed as well as file based
+                resources</li>
+            <li>uses <code>strict mode</code> by default</li>
+            <li>removing unused ID resources is not supported</li>
+          </ul>
+          If resource shrinking is enabled, <code><var>name</var>_files/resource_shrinker.log</code>
+          will also be generated, detailing the analysis and deletions performed.
+          <p>Possible values:
+          <ul>
+            <li><code>shrink_resources = 1</code>: Turns on Android resource shrinking</li>
+            <li><code>shrink_resources = 0</code>: Turns off Android resource shrinking</li>
+            <li><code>shrink_resources = -1</code>: Shrinking is controlled by the
+                <a href="../user-manual.html#flag--android_resource_shrinking">
+                --android_resource_shrinking</a> flag.</li>
+          </ul>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("shrink_resources", TRISTATE).value(TriState.AUTO))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(densities) -->
+          Densities to filter for when building the apk.
+          This will strip out raster drawable resources that would not be loaded by a device with
+          the specified screen densities, to reduce APK size. A corresponding compatible-screens
+          section will also be added to the manifest if it does not already contain a superset
+          listing.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr(ResourceFilterFactory.DENSITIES_NAME, STRING_LIST))
           .add(
               attr("$build_incremental_dexmanifest", LABEL)
                   .cfg(HOST)
@@ -845,6 +904,11 @@ public final class AndroidRuleClasses {
               attr(":bytecode_optimizers", LABEL_LIST)
                   .cfg(HOST)
                   .value(JavaSemantics.BYTECODE_OPTIMIZERS))
+          // We need the C++ toolchain for every sub-configuration to get the correct linker.
+          .add(
+              attr(":cc_toolchain_split", LABEL)
+                  .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
+                  .value(CppRuleClasses.ccToolchainAttribute(env)))
           .add(attr("rewrite_dexes_with_rex", BOOLEAN).value(false).undocumented("experimental"))
           /*
           File to be used as a package map for Rex tool that keeps the assignment of classes to
@@ -924,7 +988,7 @@ public final class AndroidRuleClasses {
                   .exec()
                   .value(env.getToolsLabel("//tools/android:resource_extractor")))
           .add(
-              attr("instruments", BuildType.LABEL)
+              attr("instruments", LABEL)
                   .undocumented("blocked by android_instrumentation_test")
                   .allowedRuleClasses("android_binary")
                   .allowedFileTypes(NO_FILE))
@@ -933,6 +997,8 @@ public final class AndroidRuleClasses {
                   .cfg(HOST)
                   .exec()
                   .value(env.getToolsLabel("//tools/android:zip_filter")))
+          .removeAttribute("data")
+          .advertiseProvider(ApkProvider.class)
           .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
           .build();
     }
@@ -942,7 +1008,7 @@ public final class AndroidRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$android_binary_base")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(AndroidRuleClasses.AndroidBaseRule.class, AndroidResourceSupportRule.class)
+          .ancestors(AndroidResourceSupportRule.class)
           .build();
     }
   }
@@ -988,6 +1054,39 @@ public final class AndroidRuleClasses {
         ans.add(mode.getAttributeValue());
       }
       return ans;
+    }
+  }
+
+  /** Definition of the {@code android_tools_defaults_jar} rule. */
+  public static final class AndroidToolsDefaultsJarRule implements RuleDefinition {
+
+    private final Label[] compatibleWithAndroidEnvironments;
+
+    public AndroidToolsDefaultsJarRule(Label... compatibleWithAndroidEnvironments) {
+      this.compatibleWithAndroidEnvironments = compatibleWithAndroidEnvironments;
+    }
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      builder
+          .setUndocumented()
+          .add(
+              attr(":android_sdk", LABEL)
+                  .allowedRuleClasses("android_sdk", "filegroup")
+                  .value(getAndroidSdkLabel(environment.getToolsLabel(DEFAULT_SDK))));
+      if (compatibleWithAndroidEnvironments.length > 0) {
+        builder.compatibleWith(compatibleWithAndroidEnvironments);
+      }
+      return builder.build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return Metadata.builder()
+          .name("android_tools_defaults_jar")
+          .ancestors(BaseRuleClasses.BaseRule.class)
+          .factoryClass(AndroidToolsDefaultsJar.class)
+          .build();
     }
   }
 }
