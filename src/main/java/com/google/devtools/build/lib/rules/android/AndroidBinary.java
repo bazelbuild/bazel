@@ -166,6 +166,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ruleContext.throwWithAttributeError("rex_package_map",
           "'rex_package_map' can only be used when 'proguard_specs' is also set");
     }
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("rexopts")
+        && !ruleContext.attributes().get("rewrite_dexes_with_rex", Type.BOOLEAN)) {
+      ruleContext.throwWithAttributeError(
+          "rexopts", "'rexopts' can only be used when 'rewrite_dexes_with_rex' is also set");
+    }
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")
       && DataBinding.isEnabled(ruleContext)) {
       ruleContext.throwWithRuleError("Data binding doesn't work with the \"resources\" attribute. "
@@ -519,6 +524,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       if (ruleContext.attributes().isAttributeValueExplicitlySpecified("main_dex_list")
           || getMultidexMode(ruleContext) == MultidexMode.LEGACY) {
         commandLine.add("--keep-main-dex");
+      }
+      // Pass rexopts to rex as a list of strings without validation
+      if (ruleContext.attributes().isAttributeValueExplicitlySpecified("rexopts")) {
+        List<String> rexopts = ruleContext.getExpander().withDataLocations().tokenized("rexopts");
+        commandLine.addAll(rexopts);
       }
       rexActionBuilder.addCommandLine(commandLine.build());
       ruleContext.registerAction(rexActionBuilder.build(ruleContext));
