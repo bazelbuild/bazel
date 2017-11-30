@@ -139,6 +139,15 @@ public abstract class LinkerInputs {
     ImmutableMap<Artifact, Artifact> getLtoBitcodeFiles();
 
     /**
+     * Return a map of object file artifacts to associated LTOBackendArtifacts objects generated
+     * when LTO backend actions are to be shared among different targets using this library. This is
+     * the case when we opt not to perform the LTO indexing step, such as when building tests with
+     * static linking. ThinLTO is otherwise too expensive when statically linking tests, due to the
+     * number of LTO backends that can be generated for a single blaze test invocation.
+     */
+    ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
+
+    /**
      * Return the identifier for the library. This is used for de-duplication of linker inputs: two
      * libraries should have the same identifier iff they are in fact the same library but linked
      * in a different way (e.g. static/dynamic, PIC/no-PIC)
@@ -208,6 +217,12 @@ public abstract class LinkerInputs {
     }
 
     @Override
+    public ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends() {
+      throw new IllegalStateException(
+          "LinkerInputs: does not support getSharedNonLtoBackends: " + this);
+    }
+
+    @Override
     public Artifact getOriginalLibraryArtifact() {
       return libraryArtifact;
     }
@@ -244,13 +259,15 @@ public abstract class LinkerInputs {
     private final String libraryIdentifier;
     private final Iterable<Artifact> objectFiles;
     private final ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
+    private final ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends;
 
     private CompoundLibraryToLink(
         Artifact libraryArtifact,
         ArtifactCategory category,
         String libraryIdentifier,
         Iterable<Artifact> objectFiles,
-        ImmutableMap<Artifact, Artifact> ltoBitcodeFiles) {
+        ImmutableMap<Artifact, Artifact> ltoBitcodeFiles,
+        ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends) {
       String basename = libraryArtifact.getFilename();
       switch (category) {
         case ALWAYSLINK_STATIC_LIBRARY:
@@ -275,6 +292,7 @@ public abstract class LinkerInputs {
       this.objectFiles = objectFiles == null ? null : CollectionUtils.makeImmutable(objectFiles);
       this.ltoBitcodeFiles =
           (ltoBitcodeFiles == null) ? ImmutableMap.<Artifact, Artifact>of() : ltoBitcodeFiles;
+      this.sharedNonLtoBackends = sharedNonLtoBackends;
     }
 
     @Override
@@ -310,6 +328,11 @@ public abstract class LinkerInputs {
     @Override
     public boolean isFake() {
       return false;
+    }
+
+    @Override
+    public ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends() {
+      return sharedNonLtoBackends;
     }
 
     @Override
@@ -399,12 +422,23 @@ public abstract class LinkerInputs {
     //     !(artifact.getGeneratingAction() instanceof CppLinkAction) ||
     //     !Link.ARCHIVE_LIBRARY_FILETYPES.contains(artifact.getFileType()));
     return new CompoundLibraryToLink(
-        artifact, category, CcLinkingOutputs.libraryIdentifierOf(artifact), null, null);
+        artifact,
+        category,
+        CcLinkingOutputs.libraryIdentifierOf(artifact),
+        /* objectFiles= */ null,
+        /* ltoBitcodeFiles= */ null,
+        /* sharedNonLtoBackends= */ null);
   }
 
   public static LibraryToLink opaqueLibraryToLink(
       Artifact artifact, ArtifactCategory category, String libraryIdentifier) {
-    return new CompoundLibraryToLink(artifact, category, libraryIdentifier, null, null);
+    return new CompoundLibraryToLink(
+        artifact,
+        category,
+        libraryIdentifier,
+        /* objectFiles= */ null,
+        /* ltoBitcodeFiles= */ null,
+        /* sharedNonLtoBackends= */ null);
   }
 
   /** Creates a library to link with the specified object files. */
@@ -413,9 +447,10 @@ public abstract class LinkerInputs {
       ArtifactCategory category,
       String libraryIdentifier,
       Iterable<Artifact> objectFiles,
-      ImmutableMap<Artifact, Artifact> ltoBitcodeFiles) {
+      ImmutableMap<Artifact, Artifact> ltoBitcodeFiles,
+      ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends) {
     return new CompoundLibraryToLink(
-        library, category, libraryIdentifier, objectFiles, ltoBitcodeFiles);
+        library, category, libraryIdentifier, objectFiles, ltoBitcodeFiles, sharedNonLtoBackends);
   }
 
   public static Iterable<Artifact> toNonSolibArtifacts(Iterable<LibraryToLink> libraries) {

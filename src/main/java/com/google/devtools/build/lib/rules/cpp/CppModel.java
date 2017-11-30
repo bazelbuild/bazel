@@ -1449,7 +1449,9 @@ public final class CppModel {
       dynamicLinkActionBuilder.setLtoIndexing(true);
       dynamicLinkActionBuilder.setUsePicForLtoBackendActions(usePicForSharedLibs);
       CppLinkAction indexAction = dynamicLinkActionBuilder.build();
-      env.registerAction(indexAction);
+      if (indexAction != null) {
+        env.registerAction(indexAction);
+      }
 
       dynamicLinkActionBuilder.setLtoIndexing(false);
     }
