@@ -54,8 +54,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     List<String>outputTemplates =
         context.attributes().get("out_templates", Type.STRING_LIST);
 
-    String command = commandHelper.resolveCommandAndExpandLabels(
-        context.attributes().get("cmd", Type.STRING), "cmd", /*allowDataInLabel=*/true);
+    String command = context.attributes().get("cmd", Type.STRING);
     // This is a bit of a hack. We want to run the MakeVariableExpander first, so we expand $ on
     // variables that are expanded below with $$, which gets reverted to $ by the
     // MakeVariableExpander. This allows us to expand package-specific make variables in the
@@ -67,7 +66,10 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     command = command.replace("$(output ", "$$(output ");
     ConfigurationMakeVariableContext makeVariableContext = new ConfigurationMakeVariableContext(
         context, context.getTarget().getPackage(), context.getConfiguration());
-    command = context.getExpander(makeVariableContext).expand("cmd", command);
+    command = context
+        .getExpander(makeVariableContext)
+        .withDataExecLocations()
+        .expand("cmd", command);
 
     boolean requiresActionOutput =
         context.attributes().get("requires_action_output", Type.BOOLEAN);
