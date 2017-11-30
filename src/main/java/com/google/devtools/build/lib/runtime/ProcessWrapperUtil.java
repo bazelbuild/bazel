@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Utility functions for the process wrapper embedded tool, which should work on most platforms and
@@ -41,23 +43,96 @@ public final class ProcessWrapperUtil {
     return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
+  /** Returns a new {@link CommandLineBuilder} for the process wrapper tool. */
+  public static CommandLineBuilder commandLineBuilder() {
+    return new CommandLineBuilder();
+  }
+
   /**
-   * Returns a command line to execute a specific command using the process wrapper with a timeout.
-   *
-   * @param processWrapper the path to the process wrapper
-   * @param spawnArguments the command to execute, and its arguments
-   * @param timeout the time limit to run command using the process wrapper
-   * @param timeoutGraceSeconds the delay (in seconds) to kill a command that exceeds its timeout
-   *
-   * @return the constructed command line to execute a command using the process wrapper
+   * A builder class for constructing the full command line to run a command using the
+   * process-wrapper tool.
    */
-  public static List<String> getCommandLine(
-      Path processWrapper, List<String> spawnArguments, Duration timeout, int timeoutGraceSeconds) {
-    List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
-    commandLineArgs.add(processWrapper.getPathString());
-    commandLineArgs.add("--timeout=" + timeout.getSeconds());
-    commandLineArgs.add("--kill_delay=" + timeoutGraceSeconds);
-    commandLineArgs.addAll(spawnArguments);
-    return commandLineArgs;
+  public static class CommandLineBuilder {
+    private Optional<String> stdoutPath;
+    private Optional<String> stderrPath;
+    private Optional<Duration> timeout;
+    private Optional<Duration> killDelay;
+    private Optional<List<String>> commandArguments;
+    private Optional<String> processWrapperPath;
+
+    private CommandLineBuilder() {
+      this.stdoutPath = Optional.empty();
+      this.stderrPath = Optional.empty();
+      this.timeout = Optional.empty();
+      this.killDelay = Optional.empty();
+      this.commandArguments = Optional.empty();
+      this.processWrapperPath = Optional.empty();
+    }
+
+    /** Sets the path to use for redirecting stdout, if any. */
+    public CommandLineBuilder setStdoutPath(String stdoutPath) {
+      this.stdoutPath = Optional.of(stdoutPath);
+      return this;
+    }
+
+    /** Sets the path to use for redirecting stderr, if any. */
+    public CommandLineBuilder setStderrPath(String stderrPath) {
+      this.stderrPath = Optional.of(stderrPath);
+      return this;
+    }
+
+    /** Sets the timeout for the command run using the process-wrapper tool. */
+    public CommandLineBuilder setTimeout(Duration timeout) {
+      this.timeout = Optional.of(timeout);
+      return this;
+    }
+
+    /**
+     * Sets the kill delay for commands run using the process-wrapper tool that exceed their
+     * timeout.
+     */
+    public CommandLineBuilder setKillDelay(Duration killDelay) {
+      this.killDelay = Optional.of(killDelay);
+      return this;
+    }
+
+    /** Sets the command (and its arguments) to run using the process wrapper tool. */
+    public CommandLineBuilder setCommandArguments(List<String> commandArguments) {
+      this.commandArguments = Optional.of(commandArguments);
+      return this;
+    }
+
+    /** Sets the path of the process wrapper tool. */
+    public CommandLineBuilder setProcessWrapperPath(String processWrapperPath) {
+      this.processWrapperPath = Optional.of(processWrapperPath);
+      return this;
+    }
+
+    /** Build the command line to invoke a specific command using the process wrapper tool. */
+    public List<String> build() {
+      Preconditions.checkState(
+          this.processWrapperPath.isPresent(), "processWrapperPath is required");
+      Preconditions.checkState(this.commandArguments.isPresent(), "commandArguments are required");
+
+      List<String> fullCommandLine = new ArrayList<>();
+      fullCommandLine.add(processWrapperPath.get());
+
+      if (timeout.isPresent()) {
+        fullCommandLine.add("--timeout=" + timeout.get().getSeconds());
+      }
+      if (killDelay.isPresent()) {
+        fullCommandLine.add("--kill_delay=" + killDelay.get().getSeconds());
+      }
+      if (stdoutPath.isPresent()) {
+        fullCommandLine.add("--stdout=" + stdoutPath.get());
+      }
+      if (stderrPath.isPresent()) {
+        fullCommandLine.add("--stderr=" + stderrPath.get());
+      }
+
+      fullCommandLine.addAll(commandArguments.get());
+
+      return fullCommandLine;
+    }
   }
 }

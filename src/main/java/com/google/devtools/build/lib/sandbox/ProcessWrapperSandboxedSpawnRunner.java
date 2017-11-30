@@ -70,8 +70,12 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
 
     Duration timeout = policy.getTimeout();
     List<String> arguments =
-        ProcessWrapperUtil.getCommandLine(
-            processWrapper, spawn.getArguments(), timeout, timeoutGraceSeconds);
+        ProcessWrapperUtil.commandLineBuilder()
+            .setProcessWrapperPath(processWrapper.getPathString())
+            .setCommandArguments(spawn.getArguments())
+            .setTimeout(timeout)
+            .setKillDelay(Duration.ofSeconds(timeoutGraceSeconds))
+            .build();
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 

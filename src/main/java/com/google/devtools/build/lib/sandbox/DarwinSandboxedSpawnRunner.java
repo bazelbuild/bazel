@@ -224,8 +224,12 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     commandLineArgs.add("-f");
     commandLineArgs.add(sandboxConfigPath.getPathString());
     commandLineArgs.addAll(
-        ProcessWrapperUtil.getCommandLine(
-            processWrapper, spawn.getArguments(), timeout, timeoutGraceSeconds));
+        ProcessWrapperUtil.commandLineBuilder()
+            .setProcessWrapperPath(processWrapper.getPathString())
+            .setCommandArguments(spawn.getArguments())
+            .setTimeout(timeout)
+            .setKillDelay(Duration.ofSeconds(timeoutGraceSeconds))
+            .build());
     return commandLineArgs;
   }
 

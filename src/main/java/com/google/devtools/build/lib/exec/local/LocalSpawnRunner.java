@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -43,7 +44,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +78,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
   private final String productName;
   private final LocalEnvProvider localEnvProvider;
 
+  // TODO(b/62588075): Move this logic to ProcessWrapperUtil?
   private static Path getProcessWrapper(Path execRoot, OS localOs) {
     return execRoot.getRelative("_bin/process-wrapper" + OsUtils.executableExtension(localOs));
   }
@@ -265,13 +266,15 @@ public final class LocalSpawnRunner implements SpawnRunner {
           // a stack trace, test log or similar, which is incredibly helpful for debugging. The
           // process wrapper also supports output file redirection, so we don't need to stream the
           // output through this process.
-          List<String> cmdLine = new ArrayList<>();
-          cmdLine.add(processWrapper);
-          cmdLine.add("--timeout=" + policy.getTimeout().getSeconds());
-          cmdLine.add("--kill_delay=" + localExecutionOptions.localSigkillGraceSeconds);
-          cmdLine.add("--stdout=" + getPathOrDevNull(outErr.getOutputPath()));
-          cmdLine.add("--stderr=" + getPathOrDevNull(outErr.getErrorPath()));
-          cmdLine.addAll(spawn.getArguments());
+          List<String> cmdLine =
+              ProcessWrapperUtil.commandLineBuilder()
+                  .setProcessWrapperPath(processWrapper)
+                  .setCommandArguments(spawn.getArguments())
+                  .setStdoutPath(getPathOrDevNull(outErr.getOutputPath()))
+                  .setStderrPath(getPathOrDevNull(outErr.getErrorPath()))
+                  .setTimeout(policy.getTimeout())
+                  .setKillDelay(Duration.ofSeconds(localExecutionOptions.localSigkillGraceSeconds))
+                  .build();
           cmd =
               new Command(
                   cmdLine.toArray(new String[0]),
