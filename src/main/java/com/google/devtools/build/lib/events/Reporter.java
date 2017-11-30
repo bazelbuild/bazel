@@ -70,7 +70,7 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
   /** Constructor which configures a reporter with the specified handlers. */
   public Reporter(EventBus eventBus, EventHandler... handlers) {
     this.eventBus = eventBus;
-    for (EventHandler handler: handlers) {
+    for (EventHandler handler : handlers) {
       addHandler(handler);
     }
   }
@@ -103,7 +103,10 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
    */
   @Override
   public synchronized void handle(Event e) {
-    if (e.getKind() != EventKind.ERROR && e.getTag() != null && !showOutput(e.getTag())) {
+    if (e.getKind() != EventKind.ERROR
+        && e.getKind() != EventKind.DEBUG
+        && e.getTag() != null
+        && !showOutput(e.getTag())) {
       return;
     }
     for (EventHandler handler : handlers) {

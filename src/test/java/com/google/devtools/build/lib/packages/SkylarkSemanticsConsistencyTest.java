@@ -117,6 +117,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_list_plus_equals_inplace=" + rand.nextBoolean(),
         "--incompatible_load_argument_is_label=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
+        "--incompatible_show_all_print_messages=" + rand.nextBoolean(),
         "--incompatible_string_is_not_iterable=" + rand.nextBoolean(),
         "--internal_do_not_export_builtins=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
@@ -141,6 +142,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleListPlusEqualsInplace(rand.nextBoolean())
         .incompatibleLoadArgumentIsLabel(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())
+        .incompatibleShowAllPrintMessages(rand.nextBoolean())
         .incompatibleStringIsNotIterable(rand.nextBoolean())
         .internalDoNotExportBuiltins(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())

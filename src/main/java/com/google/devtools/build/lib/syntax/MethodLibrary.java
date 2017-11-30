@@ -2139,18 +2139,17 @@ public class MethodLibrary {
         public Runtime.NoneType invoke(
             String sep, SkylarkList<?> starargs, Location loc, Environment env)
             throws EvalException {
-          String msg =
-              starargs
-                  .stream()
-                  .map(Printer::str)
-                  .collect(joining(sep));
+          String msg = starargs.stream().map(Printer::str).collect(joining(sep));
           // As part of the integration test "skylark_flag_test.sh", if the
           // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
           // the output.
           if (env.getSemantics().internalSkylarkFlagTestCanary()) {
             msg += "<== skylark flag test ==>";
           }
-          env.handleEvent(Event.debug(loc, msg));
+          env.handleEvent(
+              env.getSemantics().incompatibleShowAllPrintMessages()
+                  ? Event.debug(loc, msg)
+                  : Event.warn(loc, msg));
           return Runtime.NONE;
         }
       };
