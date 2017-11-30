@@ -591,7 +591,7 @@ static void VerifyJavaVersionAndSetJvm() {
 }
 
 // Starts the Blaze server.
-static void StartServer(const WorkspaceLayout *workspace_layout,
+static int StartServer(const WorkspaceLayout *workspace_layout,
                         BlazeServerStartup **server_startup) {
   vector<string> jvm_args_vector = GetArgumentArray();
   string argument_string = GetArgumentString(jvm_args_vector);
@@ -616,8 +616,8 @@ static void StartServer(const WorkspaceLayout *workspace_layout,
   // we can still print errors to the terminal.
   GoToWorkspace(workspace_layout);
 
-  ExecuteDaemon(exe, jvm_args_vector, globals->jvm_log_file, server_dir,
-                server_startup);
+  return ExecuteDaemon(exe, jvm_args_vector, globals->jvm_log_file, server_dir,
+                       server_startup);
 }
 
 // Replace this process with blaze in standalone/batch mode.
@@ -747,7 +747,7 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
                 globals->options->io_nice_level);
 
   BlazeServerStartup *server_startup;
-  StartServer(workspace_layout, &server_startup);
+  server_pid = StartServer(workspace_layout, &server_startup);
 
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
@@ -782,7 +782,8 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
     }
   }
   die(blaze_exit_code::INTERNAL_ERROR,
-      "\nError: couldn't connect to server after 120 seconds.");
+      "\nError: couldn't connect to server (%d) after 120 seconds.",
+      server_pid);
 }
 
 // A devtools_ijar::ZipExtractorProcessor to extract the files from the blaze

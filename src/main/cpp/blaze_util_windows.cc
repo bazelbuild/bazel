@@ -501,9 +501,9 @@ class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
 };
 
 
-void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
-                   const string& daemon_output, const string& server_dir,
-                   BlazeServerStartup** server_startup) {
+int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+                  const string& daemon_output, const string& server_dir,
+                  BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
   if (!blaze_util::AsAbsoluteWindowsPath(daemon_output, &wdaemon_output)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -593,6 +593,8 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   // Don't close processInfo.hProcess here, it's now owned by the
   // ProcessHandleBlazeServerStartup instance.
   CloseHandle(processInfo.hThread);
+
+  return processInfo.dwProcessId;
 }
 
 // Returns whether nested jobs are not available on the current system.

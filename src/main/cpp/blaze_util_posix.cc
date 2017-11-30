@@ -338,10 +338,10 @@ void WriteSystemSpecificProcessIdentifier(
 // daemonizes then exec()s the actual JVM, which is also non-trivial. So I hope
 // this will be good enough because for all its flaws, this solution is at least
 // localized here.
-void ExecuteDaemon(const string& exe,
-                   const std::vector<string>& args_vector,
-                   const string& daemon_output, const string& server_dir,
-                   BlazeServerStartup** server_startup) {
+int ExecuteDaemon(const string& exe,
+                  const std::vector<string>& args_vector,
+                  const string& daemon_output, const string& server_dir,
+                  BlazeServerStartup** server_startup) {
   int fds[2];
 
   if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds)) {
@@ -373,7 +373,7 @@ void ExecuteDaemon(const string& exe,
     WriteToFdWithRetryEintr(fds[0], &dummy, 1,
                        "cannot notify server about having written PID file");
     *server_startup = new SocketBlazeServerStartup(fds[0]);
-    return;
+    return server_pid;
   } else {
     // Child process (i.e. the server)
     // NB: There should only be system calls in this branch. See the comment
@@ -397,6 +397,7 @@ void ExecuteDaemon(const string& exe,
 
     execv(exe_chars, const_cast<char**>(argv));
     DieAfterFork("Cannot execute daemon");
+    return -1;
   }
 }
 
