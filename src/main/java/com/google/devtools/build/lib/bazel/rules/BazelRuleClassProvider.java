@@ -97,9 +97,7 @@ import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
 import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchainRule;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
-import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagConfiguration;
-import com.google.devtools.build.lib.rules.config.ConfigRuleClasses;
-import com.google.devtools.build.lib.rules.config.ConfigSkylarkCommon;
+import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcIncLibraryRule;
@@ -274,26 +272,6 @@ public class BazelRuleClassProvider {
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }
-        }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of(CoreRules.INSTANCE);
-        }
-      };
-
-  public static final RuleSet CONFIG_RULES =
-      new RuleSet() {
-        @Override
-        public void init(Builder builder) {
-          builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
-          builder.addRuleDefinition(new ConfigRuleClasses.ConfigSettingRule());
-
-          builder.addConfig(
-              ConfigFeatureFlagConfiguration.Options.class,
-              new ConfigFeatureFlagConfiguration.Loader());
-          builder.addRuleDefinition(new ConfigRuleClasses.ConfigFeatureFlagRule());
-          builder.addSkylarkAccessibleTopLevels("config_common", new ConfigSkylarkCommon());
         }
 
         @Override
@@ -662,7 +640,7 @@ public class BazelRuleClassProvider {
           CoreRules.INSTANCE,
           CORE_WORKSPACE_RULES,
           GENERIC_RULES,
-          CONFIG_RULES,
+          ConfigRules.INSTANCE,
           PLATFORM_RULES,
           PROTO_RULES,
           SH_RULES,

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import java.util.HashSet;
 import java.util.List;
@@ -97,7 +98,7 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void configConsistency() {
-    checkModule(BazelRuleClassProvider.CONFIG_RULES);
+    checkModule(ConfigRules.INSTANCE);
   }
 
   @Test

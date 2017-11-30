@@ -886,7 +886,6 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//third_party:guava",
     ],
 )
