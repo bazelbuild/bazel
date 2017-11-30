@@ -34,7 +34,7 @@ public interface SpawnResult {
   /** The status of the attempted Spawn execution. */
   public enum Status {
     /** Subprocess executed successfully, and returned a zero exit code. */
-    SUCCESS(true),
+    SUCCESS,
 
     /** Subprocess executed successfully, but returned a non-zero exit code. */
     NON_ZERO_EXIT(true),
