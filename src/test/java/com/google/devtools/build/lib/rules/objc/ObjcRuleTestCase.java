@@ -317,7 +317,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       case DBG:
         return ImmutableList.<String>builder()
             .addAll(ObjcConfiguration.DBG_COPTS)
-            .addAll(ObjcConfiguration.GLIBCXX_DBG_COPTS)
             .build();
       case OPT:
         return ObjcConfiguration.OPT_COPTS;

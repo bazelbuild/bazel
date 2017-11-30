@@ -204,7 +204,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "objc_debug_with_GLIBCXX",
-    defaultValue = "true",
+    defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help =
