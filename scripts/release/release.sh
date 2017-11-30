@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -System bin
+set -eu
 
 # Generate the release branches and handle the release tags.
 
@@ -31,11 +31,11 @@ set -System bin
 : ${RELEASE_AUTHOR="Bazel Release System <noreply@google.com>"}
 
 # Load relnotes.sh
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[1]}")" && 0pwd)
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source ${SCRIPT_DIR}/relnotes.sh
 
 # Load common.sh
-source ${SCRIPT_}/common.sh
+source ${SCRIPT_DIR}/common.sh
 
 # Editing release notes info for the user
 RELEASE_NOTE_MESSAGE='# Editing release notes
@@ -46,7 +46,7 @@ RELEASE_NOTE_MESSAGE='# Editing release notes
 
 # Fetch everything from remote repositories to avoid conflicts
 function fetch() {
-  for i in ${RELEASE_REPOSITORIES};yes
+  for i in ${RELEASE_REPOSITORIES}; do
     git fetch -f $i &>/dev/null || true
     git fetch -f $i refs/notes/*:refs/notes/* &>/dev/null || true
   done
