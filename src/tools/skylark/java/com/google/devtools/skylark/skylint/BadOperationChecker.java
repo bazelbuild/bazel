@@ -27,6 +27,7 @@ import java.util.List;
 /** Checks for operations that are deprecated */
 public class BadOperationChecker extends SyntaxTreeVisitor {
   private static final String DEPRECATED_PLUS_DICT_CATEGORY = "deprecated-plus-dict";
+  private static final String DEPRECATED_PIPE_CATEGORY = "deprecated-pipe-dict";
 
   private final List<Issue> issues = new ArrayList<>();
 
@@ -52,6 +53,14 @@ public class BadOperationChecker extends SyntaxTreeVisitor {
                 "'+' operator is deprecated and should not be used on dictionaries",
                 node.getLocation()));
       }
+    } else if (node.getOperator() == Operator.PIPE) {
+      issues.add(
+          Issue.create(
+              DEPRECATED_PIPE_CATEGORY,
+              "'|' operator is deprecated and should not be used. "
+                  + "See https://docs.bazel.build/versions/master/skylark/depsets.html "
+                  + "for the recommended use of depsets.",
+              node.getLocation()));
     }
   }
 
@@ -63,7 +72,7 @@ public class BadOperationChecker extends SyntaxTreeVisitor {
       issues.add(
           Issue.create(
               DEPRECATED_PLUS_DICT_CATEGORY,
-              "'+' operator is deprecated and should not be used on dictionaries",
+              "'+=' operator is deprecated and should not be used on dictionaries",
               node.getLocation()));
     }
   }

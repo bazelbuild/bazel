@@ -46,7 +46,7 @@ public class BadOperationCheckerTest {
                 + " [deprecated-plus-dict]");
     Truth.assertThat(findIssues("foo += {}").toString())
         .contains(
-            "1:1-1:9: '+' operator is deprecated and should not be used on dictionaries"
+            "1:1-1:9: '+=' operator is deprecated and should not be used on dictionaries"
                 + " [deprecated-plus-dict]");
   }
 
@@ -62,7 +62,7 @@ public class BadOperationCheckerTest {
                 + " [deprecated-plus-dict]");
     Truth.assertThat(findIssues("foo += {k:v for k,v in []}").toString())
         .contains(
-            "1:1-1:26: '+' operator is deprecated and should not be used on dictionaries"
+            "1:1-1:26: '+=' operator is deprecated and should not be used on dictionaries"
                 + " [deprecated-plus-dict]");
   }
 
@@ -76,6 +76,12 @@ public class BadOperationCheckerTest {
         .contains(
             "1:7-1:16: '+' operator is deprecated and should not be used on dictionaries"
                 + " [deprecated-plus-dict]");
+  }
+
+  @Test
+  public void pipeOperator() {
+    Truth.assertThat(findIssues("foo | bar").toString())
+        .contains("1:1-1:9: '|' operator is deprecated");
   }
 
   @Test
