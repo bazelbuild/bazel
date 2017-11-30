@@ -39,10 +39,14 @@ import java.util.stream.Collectors;
 public class ResourceLinker {
 
   /** Represents errors thrown during linking. */
-  public static class LinkError extends RuntimeException {
+  public static class LinkError extends Aapt2Exception {
 
-    public LinkError(Throwable e) {
+    private LinkError(Throwable e) {
       super(e);
+    }
+
+    public static LinkError of(IOException e) {
+      return new LinkError(e);
     }
   }
 
@@ -192,7 +196,7 @@ public class ResourceLinker {
       profiler.recordEndOf("sourcejar");
       return StaticLibrary.from(outPath, rTxt, ImmutableList.of(), sourceJar);
     } catch (IOException e) {
-      throw new LinkError(e);
+      throw LinkError.of(e);
     }
   }
 

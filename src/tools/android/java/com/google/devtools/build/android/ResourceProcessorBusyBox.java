@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.android;
 
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
+import com.google.devtools.build.android.aapt2.Aapt2Exception;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -21,7 +23,10 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import java.io.IOException;
 import java.nio.file.FileSystems;
+import java.util.Arrays;
+import java.util.logging.Logger;
 
 /**
  * Provides an entry point for the resource processing stages.
@@ -144,6 +149,8 @@ public class ResourceProcessorBusyBox {
     abstract void call(String[] args) throws Exception;
   }
 
+  private static final Logger logger = Logger.getLogger(ResourceProcessorBusyBox.class.getName());
+
   /** Converter for the Tool enum. */
   public static final class ToolConverter extends EnumConverter<Tool> {
 
@@ -177,6 +184,18 @@ public class ResourceProcessorBusyBox {
         new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parse(args);
     Options options = optionsParser.getOptions(Options.class);
-    options.tool.call(optionsParser.getResidue().toArray(new String[0]));
+    try {
+      options.tool.call(optionsParser.getResidue().toArray(new String[0]));
+    } catch (MergingException | IOException e) {
+      logger.severe(e.getMessage());
+      logSuppressedAndExit(e);
+    } catch (Aapt2Exception e) {
+      logSuppressedAndExit(e);
+    }
+  }
+
+  private static void logSuppressedAndExit(Throwable e) {
+    Arrays.stream(e.getSuppressed()).map(Throwable::getMessage).forEach(logger::severe);
+    System.exit(1);
   }
 }

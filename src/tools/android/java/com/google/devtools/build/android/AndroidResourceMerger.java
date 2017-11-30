@@ -38,7 +38,7 @@ public class AndroidResourceMerger {
     }
 
     private MergingException(String message) {
-      super(message);
+      super("Merging Error: \n" + message);
     }
 
     static MergingException wrapException(Throwable e) {

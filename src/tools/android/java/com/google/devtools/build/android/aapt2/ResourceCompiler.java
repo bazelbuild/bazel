@@ -17,7 +17,8 @@ package com.google.devtools.build.android.aapt2;
 import com.android.builder.core.VariantType;
 import com.android.repository.Revision;
 import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AaptCommandBuilder;
@@ -29,12 +30,30 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 /** Invokes aapt2 to compile resources. */
 public class ResourceCompiler {
+  static class CompileError extends Aapt2Exception {
+
+    protected CompileError(Throwable e) {
+      super(e);
+    }
+
+    private CompileError() {
+      super();
+    }
+
+    public static CompileError of(List<Throwable> compilationErrors) {
+      final CompileError compileError = new CompileError();
+      compilationErrors.forEach(compileError::addSuppressed);
+      return compileError;
+    }
+  }
+
   private static final Logger logger = Logger.getLogger(ResourceCompiler.class.getName());
 
   private final CompilingVisitor compilingVisitor;
@@ -131,7 +150,19 @@ public class ResourceCompiler {
     }
 
     List<Path> getCompiledArtifacts() throws InterruptedException, ExecutionException {
-      return Futures.allAsList(tasks).get();
+      Builder<Path> builder = ImmutableList.builder();
+      List<Throwable> compilationErrors = new ArrayList<>();
+      for (ListenableFuture<Path> task : tasks) {
+        try {
+          builder.add(task.get());
+        } catch (InterruptedException | ExecutionException e) {
+          compilationErrors.add(Optional.ofNullable(e.getCause()).orElse(e));
+        }
+      }
+      if (compilationErrors.isEmpty()) {
+        return builder.build();
+      }
+      throw CompileError.of(compilationErrors);
     }
   }
 

@@ -19,7 +19,6 @@ import static java.util.stream.Collectors.toList;
 import com.android.utils.StdLogger;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessingAction.Options;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
@@ -31,13 +30,11 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import com.google.devtools.common.options.TriState;
 import java.io.Closeable;
-import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
-import java.util.logging.Logger;
 
 /**
  * Provides an entry point for the resource processing using the AOSP build tools.
@@ -62,9 +59,6 @@ import java.util.logging.Logger;
 public class Aapt2ResourcePackagingAction {
 
   private static final StdLogger STD_LOGGER = new StdLogger(StdLogger.Level.WARNING);
-
-  private static final Logger logger =
-      Logger.getLogger(Aapt2ResourcePackagingAction.class.getName());
 
   private static Aapt2ConfigOptions aaptConfigOptions;
   private static Options options;
@@ -112,25 +106,24 @@ public class Aapt2ResourcePackagingAction {
       // Checks for merge conflicts.
       MergedAndroidData mergedAndroidData =
           AndroidResourceMerger.mergeData(
-              ParsedAndroidData.from(options.primaryData),
-              options.primaryData.getManifest(),
-              options.directData,
-              options.transitiveData,
-              mergedResources,
-              mergedAssets,
-              null /* cruncher. Aapt2 automatically chooses to crunch or not. */,
-              options.packageType,
-              options.symbolsOut,
-              null /* rclassWriter */,
-              dataDeserializer,
-              options.throwOnResourceConflict)
+                  ParsedAndroidData.from(options.primaryData),
+                  options.primaryData.getManifest(),
+                  options.directData,
+                  options.transitiveData,
+                  mergedResources,
+                  mergedAssets,
+                  null /* cruncher. Aapt2 automatically chooses to crunch or not. */,
+                  options.packageType,
+                  options.symbolsOut,
+                  null /* rclassWriter */,
+                  dataDeserializer,
+                  options.throwOnResourceConflict)
               .filter(
                   new DensitySpecificResourceFilter(
                       densitiesToFilter, filteredResources, mergedResources),
                   new DensitySpecificManifestProcessor(densitiesForManifest, densityManifest));
 
       profiler.recordEndOf("merging");
-
 
       final ListeningExecutorService executorService = ExecutorServiceCloser.createDefaultService();
       try (final Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
@@ -209,16 +202,6 @@ public class Aapt2ResourcePackagingAction {
           profiler.recordEndOf("package");
         }
       }
-    } catch (MergingException e) {
-      logger.severe("Merging exception: " + e.getMessage());
-      // throw an error, as system.exit will fail tests.
-      throw new RuntimeException();
-    } catch (IOException e) {
-      logger.severe("File error: " + e.getMessage());
-      // throw an error, as system.exit will fail tests.
-      throw new RuntimeException();
-    } catch (Exception e) {
-      throw e;
     }
   }
 }
