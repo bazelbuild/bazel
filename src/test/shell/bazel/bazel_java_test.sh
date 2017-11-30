@@ -510,9 +510,6 @@ java_library(name = "test_runner",
 
 java_test(name = "Tests",
           srcs = ['Tests.java'],
-          jvm_flags = [
-              "-Dbazel.test_suite=testrunners.Tests",
-          ],
           deps = ['//third_party:junit4'],
           main_class = "testrunners.TestRunner",
           runtime_deps = [':test_runner']
@@ -521,7 +518,6 @@ EOF
   bazel test --test_output=streamed //java/testrunners:Tests &> "$TEST_log"
   expect_log "Custom test runner was run"
   expect_log "testTest was run"
-  rm -fr java/testrunners
 }
 
 function test_basic_java_sandwich() {
