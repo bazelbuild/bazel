@@ -51,7 +51,7 @@ public final class Spawns {
    * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return -1.
    */
   public static Duration getTimeout(Spawn spawn) throws ExecException {
-    String timeoutStr = spawn.getExecutionInfo().get("timeout");
+    String timeoutStr = spawn.getExecutionInfo().get(ExecutionRequirements.TIMEOUT);
     if (timeoutStr == null) {
       return Duration.ZERO;
     }

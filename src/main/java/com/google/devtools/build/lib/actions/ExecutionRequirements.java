@@ -105,6 +105,9 @@ public class ExecutionRequirements {
     }
   }
 
+  /** If specified, the timeout of this action in seconds. Must be decimal integer. */
+  public static final String TIMEOUT = "timeout";
+
   /** If an action would not successfully run other than on Darwin. */
   public static final String REQUIRES_DARWIN = "requires-darwin";
 
