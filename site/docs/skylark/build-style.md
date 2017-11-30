@@ -5,6 +5,7 @@ title: Style guide for BUILD files
 
 # BUILD file style guide
 
+
 In `BUILD` files, we take the same approach as in Go: We let the machine take care
 of most formatting issues.
 [Buildifier](https://github.com/bazelbuild/buildifier) is a tool that parses and
