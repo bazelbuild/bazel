@@ -82,18 +82,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns an {@link Iterable} of {@link NestedSet}s, which will be added to the genrule's inputs
-   * using the {@link NestedSetBuilder#addTransitive} method.
-   *
-   * <p>GenRule implementations can override this method to better control what inputs are needed
-   * for specific command inputs.
-   */
-  protected Iterable<NestedSet<Artifact>> getExtraInputArtifacts(
-      RuleContext ruleContext, String command) {
-    return ImmutableList.of();
-  }
-
-  /**
    * Returns {@code true} if the rule should be stamped.
    *
    * <p>Genrule implementations can set this based on the rule context, including by defining their
@@ -205,10 +193,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       // If javac is used, silently throw in the jdk filegroup as a dependency.
       // Note we expand Java-related variables with the *host* configuration.
       inputs.addTransitive(JavaHelper.getHostJavabaseInputs(ruleContext));
-    }
-
-    for (NestedSet<Artifact> extraInputs : getExtraInputArtifacts(ruleContext, baseCommand)) {
-      inputs.addTransitive(extraInputs);
     }
 
     if (isStampingEnabled(ruleContext)) {
