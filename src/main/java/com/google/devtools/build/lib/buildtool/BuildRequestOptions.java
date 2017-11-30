@@ -54,7 +54,8 @@ public class BuildRequestOptions extends OptionsBase {
     converter = JobsConverter.class,
     help =
         "The number of concurrent jobs to run. 0 means build sequentially."
-            + " \"auto\" means to use a reasonable value derived from the machine's hardware"
+            + " \"auto\" means to use a reasonable value derived from the machine's hardware."
+            + " \"cores\" means using number of available cpu cores."
             + " profile (e.g. the number of processors). Values above "
             + MAX_JOBS
             + " are not allowed, and values above "
@@ -431,10 +432,16 @@ public class BuildRequestOptions extends OptionsBase {
 
     @Override
     public Integer convert(String input) throws OptionsParsingException {
-      if (input.equals("auto")) {
+      if (input.equals("auto") || input.equals("cores")) {
         int jobs;
         if (fixedAutoJobs == null) {
-          jobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
+          double cpuUsage;
+          if (input.equals("auto")) {
+            cpuUsage = LocalHostCapacity.getLocalHostCapacity().getCpuUsage();
+          } else {
+            cpuUsage = LocalHostCapacity.getLocalHostCapacity(1.0).getCpuUsage();
+          }
+          jobs = (int) Math.ceil(cpuUsage);
           if (jobs > MAX_JOBS) {
             logger.warning(
                 "Detected "

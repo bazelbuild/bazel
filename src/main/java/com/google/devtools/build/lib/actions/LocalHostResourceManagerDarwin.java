@@ -24,7 +24,6 @@ import java.io.IOException;
 public class LocalHostResourceManagerDarwin {
   private static final Boolean JNI_UNAVAILABLE =
       "0".equals(System.getProperty("io.bazel.EnableJni"));
-  private static final double EFFECTIVE_CPUS_PER_HYPERTHREADED_CPU = 0.6;
 
   private static int getLogicalCpuCount() throws IOException {
     return (int) NativePosixSystem.sysctlbynameGetLong("hw.logicalcpu");
@@ -38,7 +37,7 @@ public class LocalHostResourceManagerDarwin {
     return NativePosixSystem.sysctlbynameGetLong("hw.memsize") / 1E6;
   }
 
-  public static ResourceSet getLocalHostResources() {
+  public static ResourceSet getLocalHostResources(double cpusPerHyperthreadedCpuFactor) {
     if (JNI_UNAVAILABLE) {
       return null;
     }
@@ -50,7 +49,7 @@ public class LocalHostResourceManagerDarwin {
 
       return ResourceSet.create(
           ramMb,
-          logicalCpuCount * (hyperthreading ? EFFECTIVE_CPUS_PER_HYPERTHREADED_CPU : 1.0),
+          logicalCpuCount * (hyperthreading ? cpusPerHyperthreadedCpuFactor : 1.0),
           1.0,
           Integer.MAX_VALUE);
     } catch (IOException e) {

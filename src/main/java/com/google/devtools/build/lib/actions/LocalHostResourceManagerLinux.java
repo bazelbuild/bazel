@@ -48,17 +48,16 @@ public class LocalHostResourceManagerLinux {
     return getMemoryInMbHelper(MEM_INFO_FILE);
   }
 
-  public static ResourceSet getLocalHostResources() {
+  public static ResourceSet getLocalHostResources(double cpusPerHyperthreadedCpuFactor) {
     try {
       int logicalCpuCount = getLogicalCpuCount();
       int physicalCpuCount = getPhysicalCpuCount(logicalCpuCount);
       double ramMb = getMemoryInMb();
 
       boolean hyperthreading = (logicalCpuCount != physicalCpuCount);
-      final double EFFECTIVE_CPUS_PER_HYPERTHREADED_CPU = 0.6;
       return ResourceSet.create(
           ramMb,
-          logicalCpuCount * (hyperthreading ? EFFECTIVE_CPUS_PER_HYPERTHREADED_CPU : 1.0),
+          logicalCpuCount * (hyperthreading ? cpusPerHyperthreadedCpuFactor : 1.0),
           1.0,
           Integer.MAX_VALUE);
     } catch (IOException | ProcMeminfoParser.KeywordNotFoundException e) {

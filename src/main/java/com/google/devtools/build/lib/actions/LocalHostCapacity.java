@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.util.OS;
  */
 @ThreadCompatible
 public final class LocalHostCapacity {
+  private static final double EFFECTIVE_CPUS_PER_HYPERTHREADED_CPU = 0.6;
 
   private static final OS currentOS = OS.getCurrent();
   private static ResourceSet localHostCapacity;
@@ -30,20 +31,24 @@ public final class LocalHostCapacity {
   private LocalHostCapacity() {}
 
   public static ResourceSet getLocalHostCapacity() {
+    return getLocalHostCapacity(EFFECTIVE_CPUS_PER_HYPERTHREADED_CPU);
+  }
+
+  public static ResourceSet getLocalHostCapacity(double cpusPerHyperthreadedCpuFactor) {
     if (localHostCapacity == null) {
-      localHostCapacity = getNewLocalHostCapacity();
+      localHostCapacity = getNewLocalHostCapacity(cpusPerHyperthreadedCpuFactor);
     }
     return localHostCapacity;
   }
 
-  private static ResourceSet getNewLocalHostCapacity() {
+  private static ResourceSet getNewLocalHostCapacity(double cpusPerHyperthreadedCpuFactor) {
     ResourceSet localResources = null;
     switch (currentOS) {
       case DARWIN:
-        localResources = LocalHostResourceManagerDarwin.getLocalHostResources();
+        localResources = LocalHostResourceManagerDarwin.getLocalHostResources(cpusPerHyperthreadedCpuFactor);
         break;
       case LINUX:
-        localResources = LocalHostResourceManagerLinux.getLocalHostResources();
+        localResources = LocalHostResourceManagerLinux.getLocalHostResources(cpusPerHyperthreadedCpuFactor);
         break;
       default:
         break;
