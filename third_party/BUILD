@@ -297,6 +297,11 @@ java_import(
 )
 
 java_import(
+    name = "compile_testing",
+    jars = ["compile_testing/compile-testing-0.13.jar"],
+)
+
+java_import(
     name = "gson",
     jars = ["gson/gson-2.2.4.jar"],
 )
