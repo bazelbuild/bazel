@@ -148,26 +148,8 @@ if [ "${MACHINE_TYPE}" = 's390x' ]; then
   MACHINE_IS_Z='yes'
 fi
 
-case "${PLATFORM}" in
-  darwin)
-    if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
-      protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-osx-x86_64.exe"
-    else
-      protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-osx-x86_32.exe"
-    fi
-    ;;
-  *)
-    if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
-      if [ "${MACHINE_IS_Z}" = 'yes' ]; then
-        protoc_compiler="${BAZEL_RUNFILES}//third_party/protobuf/protoc-linux-s390x_64.exe"
-      else
-        protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_64.exe"
-      fi
-    else
-        protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_32.exe"
-    fi
-    ;;
-esac
+# Requires //third_party/protobuf:protoc
+protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/3.4.0/protoc"
 
 if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
   junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"

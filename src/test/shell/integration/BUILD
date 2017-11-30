@@ -292,6 +292,7 @@ sh_test(
         ":spend_cpu_time",
         ":test-deps",
         "//src/main/protobuf:execution_statistics.proto",
+        "//third_party/protobuf:protoc",
     ],
 )
 
