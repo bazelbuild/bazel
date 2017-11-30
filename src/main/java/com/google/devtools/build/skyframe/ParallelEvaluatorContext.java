@@ -231,9 +231,8 @@ class ParallelEvaluatorContext {
 
     @Override
     public void accept(TaggedEvents events) {
-      String tag = events.getTag();
       for (Event e : events.getEvents()) {
-        reporter.handle(e.withTag(tag));
+        reporter.handle(e);
       }
     }
   }

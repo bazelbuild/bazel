@@ -66,6 +66,9 @@ public final class Event implements Serializable {
   }
 
   public Event withTag(String tag) {
+    if (Objects.equals(tag, this.tag)) {
+      return this;
+    }
     if (this.message != null) {
       return new Event(this.kind, this.location, this.message, tag);
     } else {
