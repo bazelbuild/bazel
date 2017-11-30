@@ -948,8 +948,13 @@ public class SkylarkRuleClassFunctions {
         named = true,
         positional = false,
         doc =
-            "whether the label should be resolved relative to the label of the file this "
-                + "function is called from."
+            "Deprecated. Do not use. "
+                + "When relative_to_caller_repository is True and the calling thread is a rule's "
+                + "implementation function, then a repo-relative label //foo:bar is resolved "
+                + "relative to the rule's repository.  For calls to Label from any other "
+                + "thread, or calls in which the relative_to_caller_repository flag is False, "
+                + "a repo-relative label is resolved relative to the file in which the "
+                + "Label() call appears."
       )
     },
     useLocation = true,
