@@ -16,27 +16,18 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.util.FileType;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -172,81 +163,6 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), "dummyTest"));
     assertThat(action.getFileContents()).contains(mainClass);
   }
-
-  @Test
-  public void testResourcesFromRuntimeDepsAreIncluded() throws Exception {
-    writeFile(
-        "java/android/BUILD",
-        "android_library(name = 'dummyLibraryOne',",
-        "                exports_manifest = 1,",
-        "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = ['res/drawable/dummyResource1.png'],",
-        "                srcs = ['libraryOne.java'])",
-        "",
-        "android_library(name = 'dummyLibraryTwo',",
-        "                exports_manifest = 1,",
-        "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = ['res/drawable/dummyResource2.png'],",
-        "                srcs = ['libraryTwo.java'])");
-    final String libraryOne = "dummyLibraryOne";
-    final String libraryTwo = "dummyLibraryTwo";
-
-    checkForCorrectLibraries(
-        "no-runtime", Arrays.asList(libraryOne), Collections.<String>emptyList());
-    checkForCorrectLibraries(
-        "no-runtime-2", Arrays.asList(libraryOne, libraryTwo), Collections.<String>emptyList());
-    checkForCorrectLibraries(
-        "only-runtime", Collections.<String>emptyList(), Arrays.asList(libraryOne));
-    checkForCorrectLibraries(
-        "only-runtime-2", Collections.<String>emptyList(), Arrays.asList(libraryOne, libraryTwo));
-    checkForCorrectLibraries(
-        "runtime-and-dep", Arrays.asList(libraryOne), Arrays.asList(libraryTwo));
-    checkForCorrectLibraries(
-        "runtime-and-dep-2", Arrays.asList(libraryTwo), Arrays.asList(libraryOne));
-  }
-
-  private String createDepArrayString(Collection<String> deps) {
-    if (deps.isEmpty()) {
-      return "";
-    }
-    ArrayList<String> list = new ArrayList<>();
-    for (String dep : deps) {
-      list.add(String.format("//java/android:%s", dep));
-    }
-    return "'" + Joiner.on("', '").join(list) + "'";
-  }
-
-  private void checkForCorrectLibraries(
-      String name, Collection<String> deps, Collection<String> runtimeDeps) throws Exception {
-    final String libraryFormat =
-        "java/android/%s_processed_manifest/AndroidManifest.xml:" + "java/android/%s.aar";
-    writeFile(
-        String.format("javatests/android/%s/BUILD", name),
-        "android_local_test(name = 'dummyTest',",
-        "                         srcs = ['test.java'],",
-        "                         runtime_deps = [" + createDepArrayString(runtimeDeps) + "],",
-        "                         deps = [" + createDepArrayString(deps) + "])");
-    ConfiguredTarget target =
-        getConfiguredTarget(String.format("//javatests/android/%s:dummyTest", name));
-    assertThat(target).isNotNull();
-    RunfilesSupport support = target.getProvider(FilesToRunProvider.class).getRunfilesSupport();
-    assertThat(support).isNotNull();
-    Artifact deployJar =
-        getFileConfiguredTarget(String.format("//javatests/android/%s:dummyTest_deploy.jar", name))
-            .getArtifact();
-    List<String> deployJarInputs =
-        ActionsTestUtil.prettyArtifactNames(getGeneratingAction(deployJar).getInputs());
-
-    LinkedHashSet<String> uniqueDeps = new LinkedHashSet<>();
-    for (String dep : Iterables.concat(runtimeDeps, deps)) {
-      uniqueDeps.add(String.format(libraryFormat, dep, dep));
-      assertThat(deployJarInputs).contains("java/android/" + dep + "_resources.jar");
-    }
-    checkRuntimeSupportInputs(uniqueDeps, support);
-  }
-
-  protected abstract void checkRuntimeSupportInputs(
-      LinkedHashSet<String> uniqueDeps, RunfilesSupport support) throws Exception;
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInDependency() throws Exception {

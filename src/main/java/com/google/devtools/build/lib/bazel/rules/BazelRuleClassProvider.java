@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceRule;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
+import com.google.devtools.build.lib.rules.android.AndroidLocalTestBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidNeverlinkAspect;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.android.AndroidSkylarkCommon;
@@ -506,6 +507,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AarImportBaseRule());
           builder.addRuleDefinition(new BazelAarImportRule());
           builder.addRuleDefinition(new AndroidDeviceRule());
+          builder.addRuleDefinition(new AndroidLocalTestBaseRule());
 
           builder.addSkylarkAccessibleTopLevels("android_common", new AndroidSkylarkCommon());
           builder.addSkylarkAccessibleTopLevels("java_common",
