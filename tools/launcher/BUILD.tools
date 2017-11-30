@@ -3,7 +3,7 @@ package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "launcher_windows",
     srcs = select({
-      "//src:remote": ["//src/tools/launcher:launcher"],
+      "//src/conditions:remote": ["//src/tools/launcher:launcher"],
       "//conditions:default": ["launcher.exe"],
     }),
 )
@@ -11,9 +11,9 @@ filegroup(
 filegroup(
     name = "launcher",
     srcs = select({
-      "//src:host_windows": [":launcher_windows"],
-      "//src:host_windows_msvc": [":launcher_windows"],
-      "//src:host_windows_msys": [":launcher_windows"],
+      "//src/conditions:host_windows": [":launcher_windows"],
+      "//src/conditions:host_windows_msvc": [":launcher_windows"],
+      "//src/conditions:host_windows_msys": [":launcher_windows"],
       "//conditions:default": [
         "//src/tools/launcher:launcher",
       ],

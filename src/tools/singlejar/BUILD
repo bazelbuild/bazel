@@ -5,9 +5,9 @@ package(default_visibility = ["//src:__subpackages__"])
 JAR_TOOL_PATH_COPT_TPL = "-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar%s\\\""
 
 JAR_TOOL_PATH_COPTS = select({
-    "//src:windows": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
-    "//src:windows_msvc": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
-    "//src:windows_msys": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//src/conditions:windows": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//src/conditions:windows_msvc": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//src/conditions:windows_msys": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
     "//conditions:default": [JAR_TOOL_PATH_COPT_TPL % ""],
 })
 
@@ -46,7 +46,7 @@ cc_binary(
         "singlejar_main.cc",
     ],
     linkopts = select({
-        "//src:freebsd": ["-lm"],
+        "//src/conditions:freebsd": ["-lm"],
         "//conditions:default": [],
     }),
     linkstatic = 1,

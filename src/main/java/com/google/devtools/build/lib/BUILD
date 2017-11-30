@@ -76,9 +76,9 @@ java_library(
     ]) + ["UnixJniLoader.java"],
     resources = select({
         # todo(dslomov): Get rid of this whole library on Windows.
-        "//src:windows": [],
-        "//src:windows_msys": [],
-        "//src:windows_msvc": [],
+        "//src/conditions:windows": [],
+        "//src/conditions:windows_msys": [],
+        "//src/conditions:windows_msvc": [],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     deps = [

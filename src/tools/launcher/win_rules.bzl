@@ -20,11 +20,11 @@ def cc_library(srcs=[], hdrs=[], **kwargs):
   native.cc_library(
       srcs = select({
             "//conditions:default": ["dummy.cc"],
-            "//src:windows": srcs,
+            "//src/conditions:windows": srcs,
           }),
       hdrs = select({
             "//conditions:default": [],
-            "//src:windows": hdrs,
+            "//src/conditions:windows": hdrs,
           }),
       **kwargs)
 
@@ -33,7 +33,7 @@ def cc_binary(srcs=[], **kwargs):
   native.cc_binary(
       srcs = select({
             "//conditions:default": ["dummy.cc"],
-            "//src:windows": srcs,
+            "//src/conditions:windows": srcs,
           }),
       **kwargs)
 
@@ -42,6 +42,6 @@ def cc_test(srcs=[], **kwargs):
   native.cc_test(
       srcs = select({
             "//conditions:default": ["dummy.cc"],
-            "//src:windows": srcs,
+            "//src/conditions:windows": srcs,
           }),
       **kwargs)

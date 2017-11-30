@@ -22,9 +22,9 @@ WINDOWS_ON_WINDOWS_TESTS = glob(
 ALL_WINDOWS_TESTS = CROSS_PLATFORM_WINDOWS_TESTS + WINDOWS_ON_WINDOWS_TESTS
 
 JNI_LIB = select({
-    "//src:windows": ["//src/main/native/windows:windows_jni.dll"],
-    "//src:windows_msys": ["//src/main/native/windows:windows_jni.dll"],
-    "//src:windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
+    "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
+    "//src/conditions:windows_msys": ["//src/main/native/windows:windows_jni.dll"],
+    "//src/conditions:windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
     "//conditions:default": [
         "//src/main/native:libunix.dylib",
         "//src/main/native:libunix.so",

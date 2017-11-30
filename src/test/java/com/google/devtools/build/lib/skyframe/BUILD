@@ -50,8 +50,8 @@ java_library(
 java_test(
     name = "SkyframeTests",
     srcs = select({
-        "//src:darwin": glob(["*.java"]),
-        "//src:darwin_x86_64": glob(["*.java"]),
+        "//src/conditions:darwin": glob(["*.java"]),
+        "//src/conditions:darwin_x86_64": glob(["*.java"]),
         "//conditions:default": glob(
             ["*.java"],
             exclude = ["MacOSXFsEventsDiffAwarenessTest.java"],

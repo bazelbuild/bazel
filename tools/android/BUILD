@@ -171,13 +171,13 @@ py_library(
 py_test(
     name = "junction_test",
     srcs = select({
-        "//src:windows": ["junction_test.py"],
-        "//src:windows_msvc": ["junction_test.py"],
+        "//src/conditions:windows": ["junction_test.py"],
+        "//src/conditions:windows_msvc": ["junction_test.py"],
         "//conditions:default": ["dummy_test.py"],
     }),
     main = select({
-        "//src:windows": "junction_test.py",
-        "//src:windows_msvc": "junction_test.py",
+        "//src/conditions:windows": "junction_test.py",
+        "//src/conditions:windows_msvc": "junction_test.py",
         "//conditions:default": "dummy_test.py",
     }),
     deps = [

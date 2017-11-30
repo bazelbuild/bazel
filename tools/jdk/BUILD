@@ -74,7 +74,7 @@ alias(
 filegroup(
     name = "ijar",
     srcs = select({
-        "//src:remote": ["//third_party/ijar:ijar"],
+        "//src/conditions:remote": ["//third_party/ijar:ijar"],
         "//conditions:default": glob(["ijar/*"]),
     }),
 )
@@ -88,7 +88,7 @@ filegroup(
 filegroup(
     name = "singlejar",
     srcs = select({
-        "//src:remote": ["//src/tools/singlejar:singlejar"],
+        "//src/conditions:remote": ["//src/tools/singlejar:singlejar"],
         "//conditions:default": glob(["singlejar/*"]),
     }),
 )

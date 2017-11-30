@@ -47,9 +47,9 @@ filegroup(
     ] + select({
         # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
         # is resolved, use cc implementation of singlejar on windows
-        "//src:windows": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
-        "//src:windows_msys": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
-        "//src:windows_msvc": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//src/conditions:windows": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//src/conditions:windows_msys": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//src/conditions:windows_msvc": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
         "//conditions:default": ["//src/tools/singlejar:singlejar"],
     }),
     visibility = [
@@ -175,11 +175,11 @@ sh_test(
     size = "medium",
     srcs = ["bazel_toolchain_test.sh"],
     data = [":test-deps"] + select({
-        "//src:darwin": [],
-        "//src:darwin_x86_64": [],
-        "//src:windows": [],
-        "//src:windows_msys": [],
-        "//src:windows_msvc": [],
+        "//src/conditions:darwin": [],
+        "//src/conditions:darwin_x86_64": [],
+        "//src/conditions:windows": [],
+        "//src/conditions:windows_msys": [],
+        "//src/conditions:windows_msvc": [],
         "//conditions:default": ["//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg"],
     }),
     tags = [
