@@ -260,7 +260,7 @@ cc_library(
         "src/google/protobuf/stubs/time.cc",
         "src/google/protobuf/wire_format_lite.cc",
     ],
-    hdrs = glob(["src/google/protobuf/**/*.h"]),
+    hdrs = [":headers"],
     copts = select({
         ":ios_armv7": IOS_ARM_COPTS,
         ":ios_armv7s": IOS_ARM_COPTS,
@@ -332,7 +332,7 @@ cc_library(
         "src/google/protobuf/wire_format.cc",
         "src/google/protobuf/wrappers.pb.cc",
     ],
-    hdrs = glob(["src/**/*.h"]),
+    hdrs = [":headers"],
     copts = select({
         ":ios_armv7": IOS_ARM_COPTS,
         ":ios_armv7s": IOS_ARM_COPTS,
@@ -345,13 +345,28 @@ cc_library(
     deps = [":protobuf_lite"],
 )
 
+filegroup(
+    name = "headers",
+    srcs = glob(
+      ["src/**/*.h"],
+      exclude = [
+        "**/testdata/**/*.h",
+        "**/*unittest*.h",
+        # cpp_test_large_enum_value.pb.h, 
+        "**/*_test*.h",
+        # imports unittest, oops.
+        "**/json_format_proto3.pb.h",
+      ]
+    )
+)
+
 # This provides just the header files for use in projects that need to build
 # shared libraries for dynamic loading. This target is available until Bazel
 # adds native support for such use cases.
 # TODO(keveman): Remove this target once the support gets added to Bazel.
 cc_library(
     name = "protobuf_headers",
-    hdrs = glob(["src/**/*.h"]),
+    hdrs = [":headers"],
     includes = ["src/"],
     visibility = ["//visibility:public"],
 )
