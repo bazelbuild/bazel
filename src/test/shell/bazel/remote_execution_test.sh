@@ -472,6 +472,35 @@ EOF
     [ $? -eq 34 ]) || fail "Test failed due to wrong exit code"
 }
 
+# Bazel should display non-test errors to the user, instead of hiding them behind test failures.
+# For example, if the network connection to the remote executor fails it shouldn't be displayed as
+# a test error.
+function test_display_non_testerrors() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "test",
+  timeout = "short",
+  srcs = ["test.sh"],
+)
+EOF
+  cat > a/test.sh <<'EOF'
+#!/bin/sh
+#This will never run, because the remote side is not reachable.
+EOF
+  chmod +x a/test.sh
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+      --spawn_strategy=remote \
+      --remote_executor=bazel.does.not.exist:1234 \
+      --noexperimental_remote_retry \
+      --test_output=all \
+      --test_env=USER=boo \
+      //a:test >& $TEST_log \
+      && fail "Test failure expected" || true
+  expect_not_log "test.log"
+  expect_log "Remote connection/protocol failed"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

@@ -367,8 +367,15 @@ public class StandaloneTestStrategy extends TestStrategy {
             .setPassedLog(testLogPath.getPathString());
       } catch (SpawnExecException e) {
         // If this method returns normally, then the higher level will rerun the test (up to
-        // --flaky_test_attempts times). We don't catch any other ExecException here, so those never
-        // get retried.
+        // --flaky_test_attempts times).
+        if (e.isCatastrophic()) {
+          // Rethrow as the error was catastrophic and thus the build has to be halted.
+          throw e;
+        }
+        if (!e.getSpawnResult().setupSuccess()) {
+          // Rethrow as the test could not be run and thus there's no point in retrying.
+          throw e;
+        }
         builder
             .setTestPassed(false)
             .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)

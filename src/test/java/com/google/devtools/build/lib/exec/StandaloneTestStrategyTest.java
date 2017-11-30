@@ -194,7 +194,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getFileOutErr()).thenReturn(outErr);
 
     SpawnResult expectedSpawnResult =
-        new SpawnResult.Builder().setStatus(Status.EXECUTION_FAILED).setExitCode(1).build();
+        new SpawnResult.Builder().setStatus(Status.NON_ZERO_EXIT).setExitCode(1).build();
     when(spawnActionContext.exec(any(), any()))
         .thenThrow(
             new SpawnExecException(
