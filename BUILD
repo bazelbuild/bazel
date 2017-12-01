@@ -27,7 +27,9 @@ filegroup(
 
 filegroup(
     name = "git",
-    srcs = glob([".git/**"]),
+    srcs = glob([".git/**"],
+        exclude = [".git/**/*[*"], # gitk creates temp files with []
+    ),
 )
 
 filegroup(
