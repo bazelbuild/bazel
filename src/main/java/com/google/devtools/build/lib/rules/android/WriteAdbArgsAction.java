@@ -68,15 +68,6 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
     )
     public List<String> adbArgs;
 
-    @Option(
-      name = "adb_jobs",
-      category = "mobile-install",
-      defaultValue = "2",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help = "The number of instances of adb to use in parallel to update files on the device"
-    )
-    public int adbJobs;
 
     @Option(
       name = "incremental_install_verbosity",
@@ -134,7 +125,6 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
     Options options = ctx.getOptions().getOptions(Options.class);
     final List<String> args = options.adbArgs;
     final String adb = options.adb;
-    final int adbJobs = options.adbJobs;
     final String incrementalInstallVerbosity = options.incrementalInstallVerbosity;
     final StartType start = options.start;
     final String userHomeDirectory =
@@ -152,8 +142,6 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
         for (String arg : args) {
           ps.printf("--extra_adb_arg=%s\n", arg);
         }
-
-        ps.printf("--adb_jobs=%d\n", adbJobs);
 
         if (!incrementalInstallVerbosity.isEmpty()) {
           ps.printf("--verbosity=%s\n", incrementalInstallVerbosity);
