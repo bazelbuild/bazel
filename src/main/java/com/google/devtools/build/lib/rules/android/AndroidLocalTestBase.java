@@ -257,15 +257,20 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         javaExecutable);
 
     Artifact oneVersionOutputArtifact = null;
-    OneVersionEnforcementLevel oneVersionEnforcementLevel =
-        ruleContext.getFragment(JavaConfiguration.class).oneVersionEnforcementLevel();
-    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
+    JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
+    OneVersionEnforcementLevel oneVersionEnforcementLevel = javaConfig.oneVersionEnforcementLevel();
+
+    boolean doOneVersionEnforcement =
+        oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF
+            && javaConfig.enforceOneVersionOnJavaTests();
+    JavaToolchainProvider javaToolchain = JavaToolchainProvider.from(ruleContext);
+    if (doOneVersionEnforcement) {
       oneVersionOutputArtifact =
           OneVersionCheckActionBuilder.newBuilder()
               .withEnforcementLevel(oneVersionEnforcementLevel)
               .outputArtifact(
                   ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
-              .useToolchain(JavaToolchainProvider.from(ruleContext))
+              .useToolchain(javaToolchain)
               .checkJars(
                   NestedSetBuilder.fromNestedSet(helper.getAttributes().getRuntimeClassPath())
                       .add(classJar)

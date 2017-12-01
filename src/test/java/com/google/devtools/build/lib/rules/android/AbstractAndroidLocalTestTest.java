@@ -96,6 +96,36 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testOneVersionEnforcement_excludesWhenFlagIsOff() throws Exception {
+    useConfiguration(
+        "--experimental_one_version_enforcement=error",
+        "--one_version_enforcement_on_java_tests=false");
+
+    writeFile(
+        "java/test/resource/BUILD",
+        "android_local_test(name = 'dummyTest',",
+        "                         srcs = ['test.java'],",
+        "                         deps = [':dummyLibraryOne', ':dummyLibraryTwo'])",
+        "",
+        "android_library(name = 'dummyLibraryOne',",
+        "                srcs = ['libraryOne.java'])",
+        "",
+        "android_library(name = 'dummyLibraryTwo',",
+        "                srcs = ['libraryTwo.java'],",
+        "                deps = [':dummyLibraryThree'])",
+        "",
+        "android_library(name = 'dummyLibraryThree',",
+        "                srcs = ['libraryThree.java'])",
+        "");
+
+    ConfiguredTarget thingToTest = getConfiguredTarget("//java/test/resource:dummyTest");
+
+    assertThat(
+            prettyArtifactNames(getOutputGroup(thingToTest, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+        .doesNotContain("java/test/resource/dummyTest-one-version.txt");
+  }
+
+  @Test
   public void testCollectCodeCoverageWorks() throws Exception {
     writeFile("java/test/BUILD",
         "android_local_test(name = 'dummyTest',",
