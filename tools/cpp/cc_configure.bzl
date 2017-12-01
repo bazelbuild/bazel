@@ -35,7 +35,7 @@ def _impl(repository_ctx):
   elif cpu_value == "darwin":
     configure_osx_toolchain(repository_ctx)
   else:
-    configure_unix_toolchain(repository_ctx, cpu_value)
+    configure_unix_toolchain(repository_ctx, cpu_value, struct())
 
 
 cc_autoconf = repository_rule(

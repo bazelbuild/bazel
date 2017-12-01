@@ -54,9 +54,49 @@ def _build_tool_path(d):
   return "\n".join(lines)
 
 
-def _get_tool_paths(repository_ctx, darwin, cc):
+def _get_non_empty_string_attr(obj, key):
+  val = getattr(obj, key, default = None)
+  if val != None:
+    # This is disallowing strings, that have a whitespace on either end
+    val = val.strip()
+  if val:
+    return val
+
+  return None # Only return non-empty paths
+
+
+def _get_tool_path(repository_ctx, overrides, executable_name, default):
+  """Compute the path to a tool"""
+
+  tool_path = _get_non_empty_string_attr(overrides, executable_name)
+  if tool_path:
+    return tool_path
+  return which(repository_ctx, executable_name, default)
+
+
+def _get_darwin_archiver_path(repository_ctx, overrides):
+  """Compute the path for a binary, which can handle binary archives on Darwin."""
+
+  ar_path = _get_non_empty_string_attr(overrides, "ar")
+  if ar_path:
+    return ar_path
+
+  return "/usr/bin/libtool"
+
+
+def _get_unix_archiver_path(repository_ctx, overrides):
+  """Compute the path for a binary, which can handle binary archives on Unix."""
+  return _get_tool_path(repository_ctx, overrides, "ar", "/usr/bin/ar")
+
+
+def _get_tool_paths(repository_ctx, darwin, settings):
+  if darwin:
+    get_archiver_path = _get_darwin_archiver_path
+  else:
+    get_archiver_path = _get_unix_archiver_path
+
   """Compute the path to the various tools. Doesn't %-escape the result!"""
-  return {k: which(repository_ctx, k, "/usr/bin/" + k)
+  return {k: _get_tool_path(repository_ctx, settings, k, "/usr/bin/" + k)
           for k in [
               "ld",
               "cpp",
@@ -67,9 +107,8 @@ def _get_tool_paths(repository_ctx, darwin, cc):
               "objdump",
               "strip",
           ]} + {
-              "gcc": cc,
-              "ar": "/usr/bin/libtool"
-                    if darwin else which(repository_ctx, "ar", "/usr/bin/ar")
+              "gcc": settings.cc,
+              "ar": get_archiver_path(repository_ctx, settings),
           }
 
 
@@ -351,13 +390,17 @@ def find_cc(repository_ctx):
   return cc
 
 
-def configure_unix_toolchain(repository_ctx, cpu_value):
+def configure_unix_toolchain(repository_ctx, cpu_value, settings_override):
   """Configure C++ toolchain on Unix platforms."""
   repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   darwin = cpu_value == "darwin"
   cc = find_cc(repository_ctx)
-  tool_paths = _get_tool_paths(repository_ctx, darwin,
-                               "cc_wrapper.sh" if darwin else str(cc))
+  cc_path = "cc_wrapper.sh" if darwin else str(cc)
+  if settings_override == None:
+      settings_override = struct()
+  settings = struct(cc = cc_path, **settings_override)
+
+  tool_paths = _get_tool_paths(repository_ctx, darwin, settings)
   crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
   opt_content = _opt_content(darwin)
   dbg_content = _dbg_content()
