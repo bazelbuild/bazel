@@ -489,7 +489,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget idlTarget =
         getConfiguredTarget("//java/android:idl");
     NestedSet<Artifact> outputGroup =
-        getOutputGroup(idlTarget, AndroidSemantics.IDL_JARS_OUTPUT_GROUP);
+        getOutputGroup(idlTarget, AndroidIdlHelper.IDL_JARS_OUTPUT_GROUP);
 
     SpawnAction classJarAction = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         actionsTestUtil().artifactClosureOf(outputGroup), "libidl-idl.jar");
@@ -520,7 +520,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget idlTarget =
         getConfiguredTarget("//java/android:lib");
     NestedSet<Artifact> outputGroup =
-        getOutputGroup(idlTarget, AndroidSemantics.IDL_JARS_OUTPUT_GROUP);
+        getOutputGroup(idlTarget, AndroidIdlHelper.IDL_JARS_OUTPUT_GROUP);
     List<String> asString = Lists.newArrayList();
     for (Artifact artifact : outputGroup) {
       asString.add(artifact.getRootRelativePathString());

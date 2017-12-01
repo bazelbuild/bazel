@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -33,12 +32,6 @@ import javax.annotation.Nullable;
  * to keep state.
  */
 public interface AndroidSemantics {
-  /**
-   * Name of the output group used for idl jars (the jars containing the class files for sources
-   * generated from annotation processors).
-   */
-  String IDL_JARS_OUTPUT_GROUP =
-      OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "idl_jars";
 
   /**
    * Add additional resources to IDE info for {@code android_binary} and {@code android_library}

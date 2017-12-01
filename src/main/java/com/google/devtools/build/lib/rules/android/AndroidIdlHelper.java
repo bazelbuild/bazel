@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -46,6 +47,13 @@ import javax.annotation.Nullable;
  * Helper class for Android IDL processing.
  */
 public class AndroidIdlHelper {
+
+  /**
+   * Name of the output group used for idl jars (the jars containing the class files for sources
+   * generated from annotation processors).
+   */
+  static final String IDL_JARS_OUTPUT_GROUP =
+      OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "idl_jars";
 
   private final RuleContext ruleContext;
   private final AndroidIdlProvider androidIdlProvider;
@@ -102,9 +110,8 @@ public class AndroidIdlHelper {
           manifestProtoOutput, idlClassJar, idlSourceJar);
     }
     builder
-        .add(AndroidIdlProvider.class, androidIdlProvider)
-        .addOutputGroup(
-            AndroidSemantics.IDL_JARS_OUTPUT_GROUP, androidIdlProvider.getTransitiveIdlJars());
+        .addProvider(AndroidIdlProvider.class, androidIdlProvider)
+        .addOutputGroup(IDL_JARS_OUTPUT_GROUP, androidIdlProvider.getTransitiveIdlJars());
   }
 
   /**
