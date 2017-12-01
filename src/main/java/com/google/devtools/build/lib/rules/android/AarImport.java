@@ -63,9 +63,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    if (!AndroidSdkProvider.verifyPresence(ruleContext)) {
-      return null;
-    }
+    AndroidSdkProvider.verifyPresence(ruleContext);
 
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(ruleContext);
     Artifact aar = ruleContext.getPrerequisiteArtifact("aar", Mode.TARGET);

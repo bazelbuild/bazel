@@ -101,9 +101,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     CppSemantics cppSemantics = createCppSemantics();
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
-    if (!AndroidSdkProvider.verifyPresence(ruleContext)) {
-      return null;
-    }
+    AndroidSdkProvider.verifyPresence(ruleContext);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     JavaCommon javaCommon =
