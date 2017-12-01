@@ -49,6 +49,30 @@ struct AutoHandle {
   HANDLE handle_;
 };
 
+struct AutoAttributeList {
+  AutoAttributeList(DWORD dwAttributeCount) {
+    SIZE_T size = 0;
+    InitializeProcThreadAttributeList(NULL, dwAttributeCount, 0, &size);
+    lpAttributeList =
+        reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(malloc(size));
+    InitializeProcThreadAttributeList(lpAttributeList, dwAttributeCount, 0,
+                                      &size);
+  }
+
+  ~AutoAttributeList() {
+    if (lpAttributeList) {
+      DeleteProcThreadAttributeList(lpAttributeList);
+      free(lpAttributeList);
+    }
+    lpAttributeList = NULL;
+  }
+
+  operator LPPROC_THREAD_ATTRIBUTE_LIST() const { return lpAttributeList; }
+
+ private:
+  LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList;
+};
+
 #define WSTR1(x) L##x
 #define WSTR(x) WSTR1(x)
 
