@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import java.time.Duration;
@@ -90,6 +92,28 @@ public abstract class ActionResult {
    */
   public Optional<Duration> cumulativeCommandExecutionSystemTime() {
     return getCumulativeTime(spawnResult -> spawnResult.getSystemTime());
+  }
+
+  /**
+   * Returns the cumulative command execution CPU time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeCommandExecutionCpuTime() {
+    Optional<Duration> userTime = cumulativeCommandExecutionUserTime();
+    Optional<Duration> systemTime = cumulativeCommandExecutionSystemTime();
+
+    if (!userTime.isPresent() && !systemTime.isPresent()) {
+      return Optional.empty();
+    } else if (userTime.isPresent() && !systemTime.isPresent()) {
+      return userTime;
+    } else if (!userTime.isPresent() && systemTime.isPresent()) {
+      return systemTime;
+    } else {
+      checkState(userTime.isPresent() && systemTime.isPresent());
+      return Optional.of(userTime.get().plus(systemTime.get()));
+    }
   }
 
   /** Creates an ActionResult given a list of SpawnResults. */
