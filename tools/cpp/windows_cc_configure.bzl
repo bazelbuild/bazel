@@ -110,7 +110,7 @@ def _add_system_root(repository_ctx, env):
   return env
 
 
-def _find_vc_path(repository_ctx):
+def find_vc_path(repository_ctx):
   """Find Visual C++ build tools install path. Doesn't %-escape the result."""
   # 1. Check if BAZEL_VC or BAZEL_VS is already set by user.
   if "BAZEL_VC" in repository_ctx.os.environ:
@@ -205,7 +205,7 @@ def _find_env_vars(repository_ctx, vc_path):
   return env_map
 
 
-def _find_msvc_tool(repository_ctx, vc_path, tool):
+def find_msvc_tool(repository_ctx, vc_path, tool):
   """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
   tool_path = ""
   if _is_vs_2017(vc_path):
@@ -235,7 +235,7 @@ def _is_support_whole_archive(repository_ctx, vc_path):
   env = repository_ctx.os.environ
   if "NO_WHOLE_ARCHIVE_OPTION" in env and env["NO_WHOLE_ARCHIVE_OPTION"] == "1":
     return False
-  linker = _find_msvc_tool(repository_ctx, vc_path, "link.exe")
+  linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
   result = execute(repository_ctx, [linker], expect_failure = True)
   return result.find("/WHOLEARCHIVE") != -1
 
@@ -287,7 +287,7 @@ def configure_windows_toolchain(repository_ctx):
   """Configure C++ toolchain on Windows."""
   repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
 
-  vc_path = _find_vc_path(repository_ctx)
+  vc_path = find_vc_path(repository_ctx)
   if vc_path == "visual-studio-not-found":
     vc_path_error_script = "vc_path_not_found.bat"
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:vc_path_not_found.bat"), vc_path_error_script)
@@ -317,10 +317,10 @@ def configure_windows_toolchain(repository_ctx):
   escaped_lib_paths = escape_string(env["LIB"])
   escaped_tmp_dir = escape_string(
       get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\"))
-  msvc_cl_path = _find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
-  msvc_ml_path = _find_msvc_tool(repository_ctx, vc_path, "ml64.exe").replace("\\", "/")
-  msvc_link_path = _find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
-  msvc_lib_path = _find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
+  msvc_cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
+  msvc_ml_path = find_msvc_tool(repository_ctx, vc_path, "ml64.exe").replace("\\", "/")
+  msvc_link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
+  msvc_lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
   escaped_cxx_include_directories = []
   compilation_mode_content = ""
 
