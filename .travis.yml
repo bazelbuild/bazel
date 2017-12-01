@@ -1,0 +1,19 @@
+services:
+- docker
+script:
+# Ideally we'd just run compile.sh here:
+#
+# - VERBOSE=yes bash ./compile.sh
+#
+# Unfortunately bazel workers seem to hang in Travis right now so we test the
+# build from scratch in a controlled Docker container (that's... a docker
+# inside a docker inside a VM). This also helps test which packages are actually
+# required for a successful build from scratch (Travis otherwise has tons of
+# installed installed by default).
+#
+# Note: Verbosity is to avoid being killed by Travis after 10min w/o output.
+- echo "set -ex" > docker-test.sh
+- echo "apt-get update" >> docker-test.sh
+- echo "apt-get install -y automake g++ libtool make curl default-jdk git python unzip wget zip" >> docker-test.sh
+- echo "VERBOSE=yes bash ./compile.sh" >> docker-test.sh
+- docker run --rm -v `pwd`:`pwd` -w `pwd` -it debian:stable bash docker-test.sh
