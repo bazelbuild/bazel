@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -205,8 +206,7 @@ public class AttributeTest {
   @Test
   public void testCloneBuilder() {
     FileTypeSet txtFiles = FileTypeSet.of(FileType.of("txt"));
-    RuleClass.Builder.RuleClassNamePredicate ruleClasses =
-        new RuleClass.Builder.RuleClassNamePredicate("mock_rule");
+    RuleClassNamePredicate ruleClasses = RuleClassNamePredicate.only("mock_rule");
 
     Attribute parentAttr =
         attr("x", LABEL_LIST)
@@ -235,7 +235,8 @@ public class AttributeTest {
               .build();
       assertThat(childAttr2.getName()).isEqualTo("x");
       assertThat(childAttr2.getAllowedFileTypesPredicate()).isEqualTo(txtFiles);
-      assertThat(childAttr2.getAllowedRuleClassesPredicate()).isEqualTo(ruleClasses);
+      assertThat(childAttr2.getAllowedRuleClassesPredicate())
+          .isEqualTo(ruleClasses.asPredicateOfRuleClass());
       assertThat(childAttr2.isMandatory()).isTrue();
       assertThat(childAttr2.isNonEmpty()).isTrue();
       assertThat(childAttr2.getAspects(null /* rule */)).hasSize(2);

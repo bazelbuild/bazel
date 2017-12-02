@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -380,47 +381,135 @@ public class RuleClass {
       public abstract void checkAttributes(Map<String, Attribute> attributes);
     }
 
-    /**
-     * A predicate that filters rule classes based on their names.
-     */
-    public static class RuleClassNamePredicate implements Predicate<RuleClass> {
+    /** A predicate that filters rule classes based on their names. */
+    public static class RuleClassNamePredicate {
 
-      private final Set<String> ruleClasses;
+      private final Predicate<String> ruleClassNamePredicate;
+      private final Predicate<RuleClass> ruleClassPredicate;
+      // if non-null, used ONLY for checking overlap
+      @Nullable private final Set<?> overlappable;
 
-      public RuleClassNamePredicate(Iterable<String> ruleClasses) {
-        this.ruleClasses = ImmutableSet.copyOf(ruleClasses);
+      private RuleClassNamePredicate(
+          Predicate<String> ruleClassNamePredicate, @Nullable Set<?> overlappable) {
+        this(
+            ruleClassNamePredicate,
+            new DescribedPredicate<>(
+                Predicates.compose(ruleClassNamePredicate, RuleClass::getName),
+                ruleClassNamePredicate.toString()),
+            overlappable);
       }
 
-      public RuleClassNamePredicate(String... ruleClasses) {
-        this.ruleClasses = ImmutableSet.copyOf(ruleClasses);
+      private RuleClassNamePredicate(
+          Predicate<String> ruleClassNamePredicate,
+          Predicate<RuleClass> ruleClassPredicate,
+          @Nullable Set<?> overlappable) {
+        this.ruleClassNamePredicate = ruleClassNamePredicate;
+        this.ruleClassPredicate = ruleClassPredicate;
+        this.overlappable = overlappable;
       }
 
-      @Override
-      public boolean apply(RuleClass ruleClass) {
-        return ruleClasses.contains(ruleClass.getName());
+      public static RuleClassNamePredicate only(Iterable<String> ruleClassNamesAsIterable) {
+        ImmutableSet<String> ruleClassNames = ImmutableSet.copyOf(ruleClassNamesAsIterable);
+        return new RuleClassNamePredicate(
+            new DescribedPredicate<>(
+                Predicates.in(ruleClassNames), StringUtil.joinEnglishList(ruleClassNames)),
+            ruleClassNames);
+      }
+
+      public static RuleClassNamePredicate only(String... ruleClasses) {
+        return only(Arrays.asList(ruleClasses));
+      }
+
+      public static RuleClassNamePredicate allExcept(String... ruleClasses) {
+        ImmutableSet<String> ruleClassNames = ImmutableSet.copyOf(ruleClasses);
+        Preconditions.checkState(!ruleClassNames.isEmpty(), "Use unspecified() instead");
+        Predicate<String> containing = only(ruleClassNames).asPredicateOfRuleClassName();
+        return new RuleClassNamePredicate(
+            new DescribedPredicate<>(
+                Predicates.not(containing), "all but " + containing.toString()),
+            null);
+      }
+
+      /**
+       * This is a special sentinel value which represents a "default" {@link
+       * RuleClassNamePredicate} which is unspecified. Note that a call to its {@link
+       * RuleClassNamePredicate#asPredicateOfRuleClass} produces {@code
+       * Predicates.<RuleClass>alwaysTrue()}, which is a sentinel value for other parts of bazel.
+       */
+      public static RuleClassNamePredicate unspecified() {
+        return new RuleClassNamePredicate(Predicates.alwaysTrue(), Predicates.alwaysTrue(), null);
+      }
+
+      public final Predicate<String> asPredicateOfRuleClassName() {
+        return ruleClassNamePredicate;
+      }
+
+      public final Predicate<RuleClass> asPredicateOfRuleClass() {
+        return ruleClassPredicate;
+      }
+
+      /**
+       * Determines whether two {@code RuleClassNamePredicate}s should be considered incompatible as
+       * rule class predicate and rule class warning predicate.
+       *
+       * <p>Specifically, if both list sets of explicit rule class names to permit, those two sets
+       * must be disjoint, so the restriction only applies when both predicates have been created by
+       * {@link #only}.
+       */
+      boolean consideredOverlapping(RuleClassNamePredicate that) {
+        return this.overlappable != null
+            && that.overlappable != null
+            && !Collections.disjoint(this.overlappable, that.overlappable);
       }
 
       @Override
       public int hashCode() {
-        return ruleClasses.hashCode();
+        return ruleClassNamePredicate.hashCode();
       }
 
       @Override
-      public boolean equals(Object o) {
-        return (o instanceof RuleClassNamePredicate)
-            && ruleClasses.equals(((RuleClassNamePredicate) o).ruleClasses);
-      }
-
-      /**
-       * Returns true if this and the other predicate have common rule class entries.
-       */
-      public boolean intersects(RuleClassNamePredicate other) {
-        return !Collections.disjoint(ruleClasses, other.ruleClasses);
+      public boolean equals(Object obj) {
+        // NOTE: Specifically not checking equality of ruleClassPredicate.
+        // By construction, if the name predicates are equals, the rule class predicates are, too.
+        return obj instanceof RuleClassNamePredicate
+            && ruleClassNamePredicate.equals(((RuleClassNamePredicate) obj).ruleClassNamePredicate);
       }
 
       @Override
       public String toString() {
-        return ruleClasses.isEmpty() ? "nothing" : StringUtil.joinEnglishList(ruleClasses);
+        return ruleClassNamePredicate.toString();
+      }
+
+      /** A pass-through predicate, except that an explicit {@link #toString()} is provided. */
+      private static class DescribedPredicate<T> implements Predicate<T> {
+        private final Predicate<T> delegate; // the actual predicate
+        private final String description;
+
+        private DescribedPredicate(Predicate<T> delegate, String description) {
+          this.delegate = delegate;
+          this.description = description;
+        }
+
+        @Override
+        public boolean apply(T input) {
+          return delegate.apply(input);
+        }
+
+        @Override
+        public int hashCode() {
+          return delegate.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+          return obj instanceof DescribedPredicate
+              && delegate.equals(((DescribedPredicate<?>) obj).delegate);
+        }
+
+        @Override
+        public String toString() {
+          return description;
+        }
       }
     }
 
