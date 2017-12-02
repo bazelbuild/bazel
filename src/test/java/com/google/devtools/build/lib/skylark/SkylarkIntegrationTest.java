@@ -915,6 +915,35 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRuleClassImplicitOutputFunctionPrints() throws Exception {
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  print('implementation', ctx.label)",
+        "  files = [ctx.outputs.o]",
+        "  ctx.actions.run_shell(",
+        "    outputs = files,",
+        "    command = 'echo')",
+        "",
+        "def output_func(name):",
+        "  print('output function', name)",
+        "  return {'o': name + '.txt'}",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "  outputs = output_func)");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('/test/skylark/extension', 'custom_rule')",
+        "",
+        "custom_rule(name = 'cr')");
+
+    getConfiguredTarget("//test/skylark:cr");
+    assertContainsEvent("output function cr");
+    assertContainsEvent("implementation //test/skylark:cr");
+  }
+
+  @Test
   public void testRuleClassNonMandatoryEmptyOutputs() throws Exception {
     scratch.file(
         "test/skylark/extension.bzl",

@@ -232,7 +232,10 @@ public final class SkylarkRuleContext implements SkylarkValue {
         SkylarkImplicitOutputsFunction func =
             (SkylarkImplicitOutputsFunction) implicitOutputsFunction;
         for (Map.Entry<String, String> entry :
-            func.calculateOutputs(RawAttributeMapper.of(ruleContext.getRule())).entrySet()) {
+            func.calculateOutputs(
+                    ruleContext.getAnalysisEnvironment().getEventHandler(),
+                    RawAttributeMapper.of(ruleContext.getRule()))
+                .entrySet()) {
           outputs.addOutput(
               entry.getKey(),
               ruleContext.getImplicitOutputArtifact(entry.getValue()));

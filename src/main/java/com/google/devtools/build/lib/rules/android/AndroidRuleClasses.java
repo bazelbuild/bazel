@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
@@ -339,7 +340,7 @@ public final class AndroidRuleClasses {
       new SafeImplicitOutputsFunction() {
 
         @Override
-        public Iterable<String> getImplicitOutputs(AttributeMap rule) {
+        public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
           List<SafeImplicitOutputsFunction> functions = Lists.newArrayList();
           functions.add(AndroidRuleClasses.ANDROID_BINARY_APK);
           functions.add(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
@@ -352,14 +353,15 @@ public final class AndroidRuleClasses {
               functions.add(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
             }
           }
-          return fromFunctions(functions).getImplicitOutputs(rule);
+          return fromFunctions(functions).getImplicitOutputs(eventHandler, rule);
         }
       };
 
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_IMPLICIT_OUTPUTS =
       new SafeImplicitOutputsFunction() {
         @Override
-        public Iterable<String> getImplicitOutputs(AttributeMap attributes) {
+        public Iterable<String> getImplicitOutputs(
+            EventHandler eventHandler, AttributeMap attributes) {
 
           ImmutableList.Builder<SafeImplicitOutputsFunction> implicitOutputs =
               ImmutableList.builder();
@@ -376,7 +378,8 @@ public final class AndroidRuleClasses {
                 AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
           }
 
-          return fromFunctions(implicitOutputs.build()).getImplicitOutputs(attributes);
+          return fromFunctions(implicitOutputs.build())
+              .getImplicitOutputs(eventHandler, attributes);
         }
       };
 

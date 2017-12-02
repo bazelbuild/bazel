@@ -1410,7 +1410,7 @@ public final class Attribute implements Comparable<Attribute> {
             @Override
             public Object compute(AttributeMap map) throws InterruptedException {
               try {
-                return owner.computeValue(map);
+                return owner.computeValue(eventHandler, map);
               } catch (EvalException ex) {
                 caughtEvalExceptionIfAny.compareAndSet(null, ex);
                 return null;
@@ -1445,7 +1445,8 @@ public final class Attribute implements Comparable<Attribute> {
       return new SkylarkComputedDefault(dependencies, dependencyTypesBuilder.build(), lookupTable);
     }
 
-    private Object computeValue(AttributeMap rule) throws EvalException, InterruptedException {
+    private Object computeValue(EventHandler eventHandler, AttributeMap rule)
+        throws EvalException, InterruptedException {
       Map<String, Object> attrValues = new HashMap<>();
       for (String attrName : rule.getAttributeNames()) {
         Attribute attr = rule.getAttributeDefinition(attrName);
@@ -1456,15 +1457,15 @@ public final class Attribute implements Comparable<Attribute> {
           }
         }
       }
-      return invokeCallback(attrValues);
+      return invokeCallback(eventHandler, attrValues);
     }
 
-    private Object invokeCallback(Map<String, Object> attrValues)
+    private Object invokeCallback(EventHandler eventHandler, Map<String, Object> attrValues)
         throws EvalException, InterruptedException {
       ClassObject attrs =
           NativeProvider.STRUCT.create(
               attrValues, "No such regular (non computed) attribute '%s'.");
-      Object result = callback.call(attrs);
+      Object result = callback.call(eventHandler, attrs);
       try {
         return type.cast((result == Runtime.NONE) ? type.getDefaultValue() : result);
       } catch (ClassCastException ex) {

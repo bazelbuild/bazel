@@ -189,7 +189,8 @@ public final class SkylarkAttr implements SkylarkValue {
       if (defaultValue instanceof UserDefinedFunction) {
         // Computed attribute. Non label type attributes already caused a type check error.
         SkylarkCallbackFunction callback =
-            new SkylarkCallbackFunction((UserDefinedFunction) defaultValue, ast, env);
+            new SkylarkCallbackFunction(
+                (UserDefinedFunction) defaultValue, ast, env.getSemantics());
         // SkylarkComputedDefaultTemplate needs to know the names of all attributes that it depends
         // on. However, this method does not know anything about other attributes.
         // We solve this problem by asking the SkylarkCallbackFunction for the parameter names used

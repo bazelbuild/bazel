@@ -27,6 +27,7 @@ import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -64,13 +65,13 @@ public abstract class ImplicitOutputsFunction {
    */
   public abstract static class SkylarkImplicitOutputsFunction extends ImplicitOutputsFunction {
 
-    public abstract ImmutableMap<String, String> calculateOutputs(AttributeMap map)
-        throws EvalException, InterruptedException;
+    public abstract ImmutableMap<String, String> calculateOutputs(
+        EventHandler eventHandler, AttributeMap map) throws EvalException, InterruptedException;
 
     @Override
-    public Iterable<String> getImplicitOutputs(AttributeMap map)
+    public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap map)
         throws EvalException, InterruptedException {
-      return calculateOutputs(map).values();
+      return calculateOutputs(eventHandler, map).values();
     }
   }
 
@@ -90,8 +91,8 @@ public abstract class ImplicitOutputsFunction {
     }
 
     @Override
-    public ImmutableMap<String, String> calculateOutputs(AttributeMap map)
-        throws EvalException, InterruptedException {
+    public ImmutableMap<String, String> calculateOutputs(
+        EventHandler eventHandler, AttributeMap map) throws EvalException, InterruptedException {
       Map<String, Object> attrValues = new HashMap<>();
       for (String attrName : map.getAttributeNames()) {
         Type<?> attrType = map.getAttributeType(attrName);
@@ -109,11 +110,17 @@ public abstract class ImplicitOutputsFunction {
                   + "or uses a select() (i.e. could have multiple values)");
       try {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        for (Map.Entry<String, String> entry : castMap(callback.call(attrs),
-            String.class, String.class, "implicit outputs function return value").entrySet()) {
+        for (Map.Entry<String, String> entry :
+            castMap(
+                    callback.call(eventHandler, attrs),
+                    String.class,
+                    String.class,
+                    "implicit outputs function return value")
+                .entrySet()) {
 
           // Returns empty string only in case of invalid templates
-          Iterable<String> substitutions = fromTemplates(entry.getValue()).getImplicitOutputs(map);
+          Iterable<String> substitutions =
+              fromTemplates(entry.getValue()).getImplicitOutputs(eventHandler, map);
           if (Iterables.isEmpty(substitutions)) {
             throw new EvalException(
                 loc,
@@ -144,15 +151,15 @@ public abstract class ImplicitOutputsFunction {
     }
 
     @Override
-    public ImmutableMap<String, String> calculateOutputs(AttributeMap map)
-        throws EvalException, InterruptedException {
+    public ImmutableMap<String, String> calculateOutputs(
+        EventHandler eventHandler, AttributeMap map) throws EvalException, InterruptedException {
 
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       for (Map.Entry<String, String> entry : outputMap.entrySet()) {
         // Empty iff invalid placeholders present.
         ImplicitOutputsFunction outputsFunction =
             fromUnsafeTemplates(ImmutableList.of(entry.getValue()));
-        Iterable<String> substitutions = outputsFunction.getImplicitOutputs(map);
+        Iterable<String> substitutions = outputsFunction.getImplicitOutputs(eventHandler, map);
         if (Iterables.isEmpty(substitutions)) {
           throw new EvalException(
               null,
@@ -173,7 +180,8 @@ public abstract class ImplicitOutputsFunction {
    */
   public abstract static class SafeImplicitOutputsFunction extends ImplicitOutputsFunction {
     @Override
-    public abstract Iterable<String> getImplicitOutputs(AttributeMap map);
+    public abstract Iterable<String> getImplicitOutputs(
+        EventHandler eventHandler, AttributeMap map);
   }
 
   /**
@@ -203,20 +211,20 @@ public abstract class ImplicitOutputsFunction {
   private static final Escaper PERCENT_ESCAPER = Escapers.builder().addEscape('%', "%%").build();
 
   /**
-   * Given a newly-constructed Rule instance (with attributes populated),
-   * returns the list of output files that this rule produces implicitly.
+   * Given a newly-constructed Rule instance (with attributes populated), returns the list of output
+   * files that this rule produces implicitly.
    */
-  public abstract Iterable<String> getImplicitOutputs(AttributeMap rule)
+  public abstract Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule)
       throws EvalException, InterruptedException;
 
-  /**
-   * The implicit output function that returns no files.
-   */
-  public static final SafeImplicitOutputsFunction NONE = new SafeImplicitOutputsFunction() {
-      @Override public Iterable<String> getImplicitOutputs(AttributeMap rule) {
-        return Collections.emptyList();
-      }
-    };
+  /** The implicit output function that returns no files. */
+  public static final SafeImplicitOutputsFunction NONE =
+      new SafeImplicitOutputsFunction() {
+        @Override
+        public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
+          return Collections.emptyList();
+        }
+      };
 
   /**
    * A convenience wrapper for {@link #fromTemplates(Iterable)}.
@@ -240,7 +248,7 @@ public abstract class ImplicitOutputsFunction {
     return new SafeImplicitOutputsFunction() {
       // TODO(bazel-team): parse the templates already here
       @Override
-      public Iterable<String> getImplicitOutputs(AttributeMap rule) {
+      public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
         ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
         for (String template : templates) {
           List<String> substitutions = substitutePlaceholderIntoTemplate(template, rule);
@@ -277,7 +285,8 @@ public abstract class ImplicitOutputsFunction {
     return new ImplicitOutputsFunction() {
       // TODO(bazel-team): parse the templates already here
       @Override
-      public Iterable<String> getImplicitOutputs(AttributeMap rule) throws EvalException {
+      public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule)
+          throws EvalException {
         ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
         for (String template : templates) {
           List<String> substitutions =
@@ -319,13 +328,14 @@ public abstract class ImplicitOutputsFunction {
       final Iterable<SafeImplicitOutputsFunction> functions) {
     return new SafeImplicitOutputsFunction() {
       @Override
-      public Iterable<String> getImplicitOutputs(AttributeMap rule) {
+      public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
         Collection<String> result = new LinkedHashSet<>();
         for (SafeImplicitOutputsFunction function : functions) {
-          Iterables.addAll(result, function.getImplicitOutputs(rule));
+          Iterables.addAll(result, function.getImplicitOutputs(eventHandler, rule));
         }
         return result;
       }
+
       @Override
       public String toString() {
         return StringUtil.joinEnglishList(functions);

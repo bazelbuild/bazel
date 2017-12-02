@@ -549,7 +549,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
       throws InterruptedException {
     try {
       RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
-      for (String out : implicitOutputsFunction.getImplicitOutputs(attributeMap)) {
+      for (String out : implicitOutputsFunction.getImplicitOutputs(eventHandler, attributeMap)) {
         Label label;
         if (performChecks) {
           try {

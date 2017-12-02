@@ -1211,7 +1211,9 @@ public final class RuleContext extends TargetContext
       throws InterruptedException {
     Iterable<String> result;
     try {
-      result = function.getImplicitOutputs(RawAttributeMapper.of(rule));
+      result =
+          function.getImplicitOutputs(
+              getAnalysisEnvironment().getEventHandler(), RawAttributeMapper.of(rule));
     } catch (EvalException e) {
       // It's ok as long as we don't use this method from Skylark.
       throw new IllegalStateException(e);
