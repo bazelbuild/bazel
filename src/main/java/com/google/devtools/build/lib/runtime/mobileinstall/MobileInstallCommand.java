@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNA
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
@@ -234,27 +235,41 @@ public class MobileInstallCommand implements BlazeCommand {
         targetToRun.getConfiguration().getBinFragment().getPathString()
             + "/"
             + targetToRun.getLabel().toPathFragment().getPathString()
-            + "_mi/launcher.sh");
+            + "_mi/launcher");
     cmdLine.addAll(runTargetArgs);
 
-    // Make mobile-install v2 understand relevant v1 flags for ASwB compatibility.
+    cmdLine.add("--build_id=" + env.getCommandId());
+
+    // Collect relevant common command options
     CommonCommandOptions commonCommandOptions = options.getOptions(CommonCommandOptions.class);
-    if (commonCommandOptions != null && !"".equals(commonCommandOptions.toolTag)) {
-      cmdLine.add("--tool_tag");
-      cmdLine.add(commonCommandOptions.toolTag);
+    if (!commonCommandOptions.toolTag.isEmpty()) {
+      cmdLine.add("--tool_tag=" + commonCommandOptions.toolTag);
     }
-    cmdLine.add("--start_type");
-    cmdLine.add(adbOptions.start.toString());
-    if (!"".equals(adbOptions.adb)) {
-      cmdLine.add("--adb_path");
-      cmdLine.add(adbOptions.adb);
+
+    // Collect relevant adb options
+    cmdLine.add("--start_type=" + adbOptions.start);
+    if (!adbOptions.adb.isEmpty()) {
+      cmdLine.add("--adb=" + adbOptions.adb);
     }
     for (String adbArg : adbOptions.adbArgs) {
-      cmdLine.add("--adb_arg");
-      cmdLine.add(adbArg);
+      if (!adbArg.isEmpty()) {
+        cmdLine.add("--adb_arg=" + adbArg);
+      }
     }
-    cmdLine.add("--build_id");
-    cmdLine.add(env.getCommandId().toString());
+    if (!adbOptions.device.isEmpty()) {
+      cmdLine.add("--device=" + adbOptions.device);
+    }
+
+    // Collect relevant test options
+    TestOptions testOptions = options.getOptions(TestOptions.class);
+    if (!testOptions.testFilter.isEmpty()){
+      cmdLine.add("--test_filter=" + testOptions.testFilter);
+    }
+    for (String arg : testOptions.testArguments) {
+      if (!arg.isEmpty()) {
+        cmdLine.add("--test_arg=" + arg);
+      }
+    }
 
     Path workingDir = env.getBlazeWorkspace().getOutputPath().getParentDirectory();
     com.google.devtools.build.lib.shell.Command command =

@@ -68,6 +68,15 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
     )
     public List<String> adbArgs;
 
+    @Option(
+      name = "device",
+      category = "mobile-install",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "The adb device serial number. If not specified, the first device will be used."
+    )
+    public String device;
 
     @Option(
       name = "incremental_install_verbosity",
@@ -125,6 +134,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
     Options options = ctx.getOptions().getOptions(Options.class);
     final List<String> args = options.adbArgs;
     final String adb = options.adb;
+    final String device = options.device;
     final String incrementalInstallVerbosity = options.incrementalInstallVerbosity;
     final StartType start = options.start;
     final String userHomeDirectory =
@@ -139,6 +149,11 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
           ps.printf("--adb=%s\n", adb);
         }
 
+        if (!device.isEmpty()){
+          args.add("-s");
+          args.add(device);
+        }
+
         for (String arg : args) {
           ps.printf("--extra_adb_arg=%s\n", arg);
         }
@@ -148,7 +163,6 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
         }
 
         ps.printf("--start=%s\n", start.name().toLowerCase());
-
 
         if (userHomeDirectory != null) {
           ps.printf("--user_home_dir=%s\n", userHomeDirectory);
