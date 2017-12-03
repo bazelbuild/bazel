@@ -18,8 +18,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
+import org.apache.http.Header;
+import org.apache.http.HttpHeaders;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
@@ -60,13 +64,19 @@ public final class RestBlobStore implements SimpleBlobStore {
    * @param baseUrl base URL for the remote cache
    * @param poolSize maximum number of simultaneous connections
    */
-  public RestBlobStore(String baseUrl, int poolSize) throws IOException {
+  public RestBlobStore(String baseUrl, int poolSize, String authorizationHeader) throws IOException {
     validateUrl(baseUrl);
     this.baseUrl = baseUrl;
     connMan = new PoolingHttpClientConnectionManager();
     connMan.setDefaultMaxPerRoute(poolSize);
     connMan.setMaxTotal(poolSize);
     clientFactory = HttpClientBuilder.create();
+
+    // Add default authorization header from options
+    HashSet<Header> defaultHeaders = new HashSet<Header>();
+    defaultHeaders.add(new BasicHeader(HttpHeaders.AUTHORIZATION, authorizationHeader));
+    clientFactory.setDefaultHeaders(defaultHeaders);
+
     clientFactory.setConnectionManager(connMan);
     clientFactory.setConnectionManagerShared(true);
   }

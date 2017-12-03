@@ -49,6 +49,16 @@ public final class RemoteOptions extends OptionsBase {
   public int restCachePoolSize;
 
   @Option(
+          name = "remote_rest_cache_auth_header",
+          defaultValue = "null",
+          category = "remote",
+          documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+          effectTags = {OptionEffectTag.UNKNOWN},
+          help = "Set the authorization header for each request to the REST cache."
+  )
+  public String restCacheAuthHeader;
+
+  @Option(
     name = "remote_executor",
     defaultValue = "null",
     category = "remote",
