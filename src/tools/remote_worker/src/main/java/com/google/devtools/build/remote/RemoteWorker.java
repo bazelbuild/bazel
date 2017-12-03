@@ -91,7 +91,7 @@ public final class RemoteWorker {
     final HashFunction hashFunction;
     String value = null;
     try {
-      value = System.getProperty("bazel.DigestFunction", "MD5");
+      value = System.getProperty("bazel.DigestFunction", "SHA256");
       hashFunction = new HashFunction.Converter().convert(value);
     } catch (OptionsParsingException e) {
       throw new Error("The specified hash function '" + value + "' is not supported.");

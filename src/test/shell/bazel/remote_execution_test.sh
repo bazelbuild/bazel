@@ -83,7 +83,7 @@ EOF
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -106,7 +106,7 @@ EOF
 #include <iostream>
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -133,7 +133,7 @@ EOF
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
@@ -155,7 +155,7 @@ EOF
 #include <iostream>
 int main() { std::cout << "Fail me!" << std::endl; return 1; }
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -187,7 +187,7 @@ EOF
   cp -f bazel-genfiles/a/large_blob.txt ${TEST_TMPDIR}/large_blob_expected.txt
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -215,7 +215,7 @@ EOF
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --experimental_remote_spawn_cache=true  \
       --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
       //a:test >& $TEST_log \
@@ -249,7 +249,7 @@ EOF
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --experimental_remote_spawn_cache=true \
       --remote_rest_cache=http://bad.hostname/bad/cache \
       //a:test >& $TEST_log \
@@ -279,7 +279,7 @@ import sys
 if __name__ == "__main__":
     sys.exit(0)
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -314,7 +314,7 @@ if __name__ == "__main__":
 ''')
     sys.exit(0)
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -353,7 +353,7 @@ if __name__ == "__main__":
 ''')
     sys.exit(1)
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -385,7 +385,7 @@ load("//a:rule.bzl", "empty")
 package(default_visibility = ["//visibility:public"])
 empty(name = 'test')
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
@@ -408,7 +408,7 @@ EOF
 sleep 2
 EOF
   chmod +x a/sleep.sh
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --test_output=errors \
@@ -433,7 +433,7 @@ EOF
 echo "user=$USER"
 EOF
   chmod +x a/user_test.sh
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --test_output=all \
@@ -444,7 +444,7 @@ EOF
 
   # Rely on the test-setup script to set USER value to whoami.
   export USER=
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --test_output=all \
@@ -465,7 +465,7 @@ genrule(
 EOF
 
   (set +e
-    bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+    bazel build \
       --genrule_strategy=remote \
       --remote_executor=bazel-test-does-not-exist \
       //a:foo >& $TEST_log

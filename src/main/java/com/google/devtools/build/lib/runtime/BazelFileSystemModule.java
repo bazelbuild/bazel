@@ -37,7 +37,7 @@ public class BazelFileSystemModule extends BlazeModule {
     final HashFunction hashFunction;
     String value = null;
     try {
-      value = System.getProperty("bazel.DigestFunction", "MD5");
+      value = System.getProperty("bazel.DigestFunction", "SHA256");
       hashFunction = new HashFunction.Converter().convert(value);
     } catch (OptionsParsingException e) {
       throw new AbruptExitException(
