@@ -71,13 +71,29 @@ EOF
     }
   }
 EOF
-  assert_build //cpp/rpaths:test >& $TEST_log || fail "//cpp/rpaths:test didn't build"
+  assert_build //cpp/rpaths:test
   # Paths originally hardcoded in the binary assume workspace directory. Let's change the
   # directory and execute the binary to test whether the paths in the binary have been
   # updated to use @loader_path.
   cd bazel-bin
-  ./cpp/rpaths/test >& $TEST_log || \
+  ./cpp/rpaths/test || \
       fail "//cpp/rpaths:test execution failed, expected to return 0, but got $?"
+}
+
+function test_osx_binary_strip() {
+  mkdir -p cpp/osx_binary_strip
+  cat > cpp/osx_binary_strip/BUILD <<EOF
+cc_binary(
+  name = "main",
+  srcs = ["main.cc"],
+)
+EOF
+  cat > cpp/osx_binary_strip/main.cc <<EOF
+int main() { return 0; }
+EOF
+  assert_build //cpp/osx_binary_strip:main.stripped
+  ! dsymutil -s bazel-bin/cpp/osx_binary_strip/main | grep N_FUN || \
+      fail "Stripping failed, debug symbols still found in the stripped binary"
 }
 
 run_suite "Tests for Bazel's C++ rules on Darwin"

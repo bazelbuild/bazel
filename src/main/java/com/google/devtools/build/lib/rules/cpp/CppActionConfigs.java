@@ -910,24 +910,26 @@ public class CppActionConfigs {
                 "      flag: '-o'",
                 "      flag: '%{output_file}'",
                 "    }",
-                "    flag_group {",
-                "      flag: '-R'",
-                "      flag: '.gnu.switches.text.quote_paths'",
-                "      flag: '-R'",
-                "      flag: '.gnu.switches.text.bracket_paths'",
-                "      flag: '-R'",
-                "      flag: '.gnu.switches.text.system_paths'",
-                "      flag: '-R'",
-                "      flag: '.gnu.switches.text.cpp_defines'",
-                "      flag: '-R'",
-                "      flag: '.gnu.switches.text.cpp_includes'",
-                "      flag: '-R'",
-                "      flag: '.gnu.switches.text.cl_args'",
-                "      flag: '-R'",
-                "      flag: '.gnu.switches.text.lipo_info'",
-                "      flag: '-R'",
-                "      flag: '.gnu.switches.text.annotation'",
-                "    }",
+                ifLinux(
+                    platform,
+                    "    flag_group {",
+                    "      flag: '-R'",
+                    "      flag: '.gnu.switches.text.quote_paths'",
+                    "      flag: '-R'",
+                    "      flag: '.gnu.switches.text.bracket_paths'",
+                    "      flag: '-R'",
+                    "      flag: '.gnu.switches.text.system_paths'",
+                    "      flag: '-R'",
+                    "      flag: '.gnu.switches.text.cpp_defines'",
+                    "      flag: '-R'",
+                    "      flag: '.gnu.switches.text.cpp_includes'",
+                    "      flag: '-R'",
+                    "      flag: '.gnu.switches.text.cl_args'",
+                    "      flag: '-R'",
+                    "      flag: '.gnu.switches.text.lipo_info'",
+                    "      flag: '-R'",
+                    "      flag: '.gnu.switches.text.annotation'",
+                    "    }"),
                 "    flag_group {",
                 "      iterate_over: 'stripopts'",
                 "      flag: '%{stripopts}'",
@@ -1045,6 +1047,7 @@ public class CppActionConfigs {
   }
 
   private static String ifLinux(CppPlatform platform, String... lines) {
+    // Platform `LINUX` also includes FreeBSD.
     return ifTrue(platform == CppPlatform.LINUX, lines);
   }
 
