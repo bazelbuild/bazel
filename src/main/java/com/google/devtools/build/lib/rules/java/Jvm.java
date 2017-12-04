@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -65,8 +64,6 @@ public final class Jvm extends BuildConfiguration.Fragment {
    * Use {@link JavaCommon#getHostJavaExecutable(RuleContext)} and
    * {@link JavaCommon#getJavaExecutable(RuleContext)} instead.
    */
-  @SkylarkCallable(name = "java_executable", structField = true,
-      doc = "The java executable, i.e. bin/java relative to the Java home.")
   public PathFragment getJavaExecutable() {
     return java;
   }
