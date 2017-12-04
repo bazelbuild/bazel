@@ -84,6 +84,12 @@ py_test(
 )
 
 py_test(
+    name = "runfiles_test",
+    srcs = ["runfiles_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "bazel_windows_cpp_test",
     size = "large",
     srcs = select({

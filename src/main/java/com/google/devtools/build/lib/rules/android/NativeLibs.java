@@ -159,17 +159,11 @@ public final class NativeLibs {
             .build();
     ruleContext.registerAction(sourceManifestAction);
     Artifact outputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks/MANIFEST");
-    Artifact nativeLibsMiddleman =
-        ruleContext.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
-            ruleContext.getActionOwner(), null, symlinks.values(),
-            ruleContext.getConfiguration().getMiddlemanDirectory(
-                ruleContext.getRule().getRepository()), "android_native_libs");
 
     ruleContext.registerAction(
         new SymlinkTreeAction(
             ruleContext.getActionOwner(),
             inputManifest,
-            nativeLibsMiddleman,
             outputManifest,
             false,
             ruleContext.getConfiguration().getLocalShellEnvironment(),
