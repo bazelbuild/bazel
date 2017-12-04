@@ -1134,55 +1134,6 @@ $ bazel fetch //...
   checking is done.
 
 </p>
-
-<h4 id='flag--experimental_action_listener'>
-  <code class='flag'>--experimental_action_listener=<var>label</var></code>
-</h4>
-<p>
-  The <code>experimental_action_listener</code> option instructs Bazel to use
-  details from the <a href="be/extra-actions.html#action_listener"
-  ><code>action_listener</code></a> rule specified by <var>label</var> to
-  insert <a href="be/extra-actions.html#extra_action"
-  ><code>extra_actions</code></a> into the build graph.
-</p>
-
-<h4 id='flag--experimental_extra_action_top_level_only'>
-  <code class='flag'>--[no]experimental_extra_action_top_level_only</code>
-</h4>
-<p>
-  If this option is set to true, extra actions specified by the
-  <a href='#flag--experimental_action_listener'> <code>
-  --experimental_action_listener</code></a> command line option will only be
-  scheduled for top level targets.
-</p>
-
-<h4 id='flag--experimental_extra_action_filter'>
-  <code class='flag'>--experimental_extra_action_filter=<var>regex</var></code>
-</h4>
-<p>
-  The <code>experimental_extra_action_filter</code> option instructs Bazel to
-  filter the set of targets to schedule <code>extra_actions</code> for.
-</p>
-<p>
-  This flag is only applicable in combination with the
-  <a href='#flag--experimental_action_listener'
-  ><code>--experimental_action_listener</code></a> flag.
-</p>
-<p>
-  By default all <code>extra_actions</code> in the transitive closure of the
-  requested targets-to-build get scheduled for execution.
-  <code>--experimental_extra_action_filter</code> will restrict scheduling to
-  <code>extra_actions</code> of which the owner's label matches the specified
-  regular expression.
-</p>
-<p>
-  The following example will limit scheduling of <code>extra_actions</code>
-  to only apply to actions of which the owner's label contains '/bar/':
-</p>
-<pre>% bazel build --experimental_action_listener=//test:al //foo/... \
-  --experimental_extra_action_filter=.*/bar/.*
-</pre>
-
 <h4 id='flag--output_filter'><code class='flag'>--output_filter <var>regex</var></code></h4>
 <p>
   The <code class='flag'>--output_filter</code> option will only show build and compilation
@@ -1582,6 +1533,55 @@ the compilation of binaries during the build.
 
 </p>
 
+<h4 id='flag--experimental_action_listener'>
+  <code class='flag'>--experimental_action_listener=<var>label</var></code>
+</h4>
+<p>
+  The <code>experimental_action_listener</code> option instructs Bazel to use
+  details from the <a href="be/extra-actions.html#action_listener"
+  ><code>action_listener</code></a> rule specified by <var>label</var> to
+  insert <a href="be/extra-actions.html#extra_action"
+  ><code>extra_actions</code></a> into the build graph.
+</p>
+
+<h4 id='flag--experimental_extra_action_top_level_only'>
+  <code class='flag'>--[no]experimental_extra_action_top_level_only</code>
+</h4>
+<p>
+  If this option is set to true, extra actions specified by the
+  <a href='#flag--experimental_action_listener'> <code>
+  --experimental_action_listener</code></a> command line option will only be
+  scheduled for top level targets.
+</p>
+
+<h4 id='flag--experimental_extra_action_filter'>
+  <code class='flag'>--experimental_extra_action_filter=<var>regex</var></code>
+</h4>
+<p>
+  The <code>experimental_extra_action_filter</code> option instructs Bazel to
+  filter the set of targets to schedule <code>extra_actions</code> for.
+</p>
+<p>
+  This flag is only applicable in combination with the
+  <a href='#flag--experimental_action_listener'
+  ><code>--experimental_action_listener</code></a> flag.
+</p>
+<p>
+  By default all <code>extra_actions</code> in the transitive closure of the
+  requested targets-to-build get scheduled for execution.
+  <code>--experimental_extra_action_filter</code> will restrict scheduling to
+  <code>extra_actions</code> of which the owner's label matches the specified
+  regular expression.
+</p>
+<p>
+  The following example will limit scheduling of <code>extra_actions</code>
+  to only apply to actions of which the owner's label contains '/bar/':
+</p>
+<pre>% bazel build --experimental_action_listener=//test:al //foo/... \
+  --experimental_extra_action_filter=.*/bar/.*
+</pre>
+
+<h3 id='strategy-options'>Build strategy options</h3>
 <p>
   Note that a particular combination of crosstool version, compiler version,
   libc version, and target CPU is allowed only if it has been specified
