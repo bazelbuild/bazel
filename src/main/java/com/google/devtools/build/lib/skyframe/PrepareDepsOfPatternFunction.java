@@ -144,7 +144,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     public DepsOfPatternPreparer(Environment env, PathPackageLocator pkgPath) {
       this.env = env;
-      this.packageProvider = new EnvironmentBackedRecursivePackageProvider(env);
+      this.packageProvider = new EnvironmentBackedRecursivePackageProvider(env, pkgPath);
       this.pkgPath = pkgPath;
     }
 

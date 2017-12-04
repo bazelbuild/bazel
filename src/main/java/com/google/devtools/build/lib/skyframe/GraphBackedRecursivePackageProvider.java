@@ -132,6 +132,14 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     return pkgResults.build();
   }
 
+  @Override
+  public Path getBuildFileForPackage(PackageIdentifier packageName) {
+    try {
+      return pkgPath.getPackageBuildFile(packageName);
+    } catch (NoSuchPackageException e) {
+      return null;
+    }
+  }
 
   @Override
   public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)

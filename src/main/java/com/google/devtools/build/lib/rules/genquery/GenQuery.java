@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -559,6 +560,15 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     @Override
     public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName) {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Path getBuildFileForPackage(PackageIdentifier packageId) {
+      Package pkg = pkgMap.get(packageId);
+      if (pkg == null) {
+        return null;
+      }
+      return pkg.getBuildFile().getPath();
     }
   }
 
