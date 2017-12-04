@@ -322,9 +322,9 @@ static vector<string> GetArgumentArray() {
   vector<string> result;
 
   // e.g. A Blaze server process running in ~/src/build_root (where there's a
-  // ~/src/build_root/WORKSPACE file) will appear in ps(1) as "blaze(src)".
-  string workspace =
-      blaze_util::Basename(blaze_util::Dirname(globals->workspace));
+  // ~/src/build_root/WORKSPACE file) will appear in ps(1) as
+  // "blaze(build_root)".
+  string workspace = blaze_util::Basename(globals->workspace);
   string product = globals->options->product_name;
   blaze_util::ToLower(&product);
   result.push_back(product + "(" + workspace + ")");
