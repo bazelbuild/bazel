@@ -50,7 +50,7 @@ def IsRunningFromZip():
   return %is_zipfile%
 
 # Find the real Python binary if it's not a normal absolute path
-def FindPythonBinary():
+def FindPythonBinary(module_space):
   if PYTHON_BINARY.startswith('//'):
     # Case 1: Path is a label. Not supported yet.
     raise AssertionError(
@@ -59,8 +59,8 @@ def FindPythonBinary():
     # Case 2: Absolute path.
     return PYTHON_BINARY
   elif '/' in PYTHON_BINARY:
-    # Case 3: Path is relative to current working directory.
-    return os.path.join(os.getcwd(), PYTHON_BINARY)
+    # Case 3: Path is relative to the repo root.
+    return os.path.join(module_space, PYTHON_BINARY)
   else:
     # Case 4: Path has to be looked up in the search path.
     return SearchPath(PYTHON_BINARY)
@@ -140,7 +140,7 @@ def Main():
   assert os.access(main_filename, os.R_OK), \
          'Cannot exec() %r: file not readable.' % main_filename
 
-  program = python_program = FindPythonBinary()
+  program = python_program = FindPythonBinary(module_space)
   if python_program is None:
     raise AssertionError('Could not find python binary: ' + PYTHON_BINARY)
   args = [python_program, main_filename] + args

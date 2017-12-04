@@ -74,6 +74,7 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void collectDefaultRunfilesForBinary(RuleContext ruleContext, Builder builder) {
+    addRuntime(ruleContext, builder);
   }
 
   @Override
@@ -348,7 +349,10 @@ public class BazelPythonSemantics implements PythonSemantics {
         pythonBinary = provider.interpreterPath();
       } else {
         // checked in Python interpreter in py_runtime
-        pythonBinary = provider.interpreter().getExecPathString();
+        PathFragment workspaceName =
+            PathFragment.create(ruleContext.getRule().getPackage().getWorkspaceName());
+        pythonBinary =
+            workspaceName.getRelative(provider.interpreter().getRunfilesPath()).getPathString();
       }
     } else  {
       // make use of the Python interpreter in an absolute path
