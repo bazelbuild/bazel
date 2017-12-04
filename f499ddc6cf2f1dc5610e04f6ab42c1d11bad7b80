@@ -1,0 +1,3 @@
+0.8.1rc1
+Cherry-picked https://github.com/bazelbuild/bazel/commit/49008a3c90e65bc4abf5292af823a931b8f4e096.
+Additional change to fix the missing imports.
