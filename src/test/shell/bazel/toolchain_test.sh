@@ -498,22 +498,22 @@ EOF
 
   # This should use toolchain_1.
   bazel build \
-    --experimental_host_platform=//:platform1 \
-    --experimental_platforms=//:platform2 \
+    --host_platform=//:platform1 \
+    --platforms=//:platform2 \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 1"'
 
   # This should use toolchain_2.
   bazel build \
-    --experimental_host_platform=//:platform2 \
-    --experimental_platforms=//:platform1 \
+    --host_platform=//:platform2 \
+    --platforms=//:platform1 \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 2"'
 
   # This should not match any toolchains.
   bazel build \
-    --experimental_host_platform=//:platform1 \
-    --experimental_platforms=//:platform1 \
+    --host_platform=//:platform1 \
+    --platforms=//:platform1 \
     //demo:use &> $TEST_log && fail "Build failure expected"
   expect_log 'While resolving toolchains for target //demo:use: no matching toolchains found for types //toolchain:test_toolchain'
   expect_not_log 'Using toolchain: rule message:'
@@ -645,10 +645,10 @@ EOF
   filegroup(name = 'not_a_platform')
 EOF
 
-  bazel build --experimental_platforms=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"
+  bazel build --platforms=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"
   expect_log "While resolving toolchains for target //demo:use: Target filegroup rule //platform:not_a_platform was found as the target platform, but does not provide PlatformInfo"
 
-  bazel build --experimental_host_platform=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"
+  bazel build --host_platform=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"
   expect_log "While resolving toolchains for target //demo:use: Target filegroup rule //platform:not_a_platform was found as the execution platform, but does not provide PlatformInfo"
 }
 

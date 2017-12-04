@@ -73,8 +73,8 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   @Test
   public void createToolchainContext() throws Exception {
     useConfiguration(
-        "--experimental_host_platform=//platforms:linux",
-        "--experimental_platforms=//platforms:mac");
+        "--host_platform=//platforms:linux",
+        "--platforms=//platforms:mac");
     CreateToolchainContextKey key =
         CreateToolchainContextKey.create("test", ImmutableSet.of(testToolchainType), targetConfig);
 
@@ -100,8 +100,8 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   @Test
   public void createToolchainContext_unavailableToolchainType_single() throws Exception {
     useConfiguration(
-        "--experimental_host_platform=//platforms:linux",
-        "--experimental_platforms=//platforms:mac");
+        "--host_platform=//platforms:linux",
+        "--platforms=//platforms:mac");
     CreateToolchainContextKey key =
         CreateToolchainContextKey.create(
             "test",
@@ -131,8 +131,8 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   @Test
   public void createToolchainContext_unavailableToolchainType_multiple() throws Exception {
     useConfiguration(
-        "--experimental_host_platform=//platforms:linux",
-        "--experimental_platforms=//platforms:mac");
+        "--host_platform=//platforms:linux",
+        "--platforms=//platforms:mac");
     CreateToolchainContextKey key =
         CreateToolchainContextKey.create(
             "test",

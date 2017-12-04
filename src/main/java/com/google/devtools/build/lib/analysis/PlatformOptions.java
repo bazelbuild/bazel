@@ -34,7 +34,8 @@ import java.util.List;
 public class PlatformOptions extends FragmentOptions {
 
   @Option(
-    name = "experimental_host_platform",
+    name = "host_platform",
+    oldName = "experimental_host_platform",
     converter = BuildConfiguration.EmptyToNullLabelConverter.class,
     defaultValue = "@bazel_tools//platforms:host_platform",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -47,7 +48,8 @@ public class PlatformOptions extends FragmentOptions {
   // TODO(katre): Add execution platforms.
 
   @Option(
-    name = "experimental_platforms",
+    name = "platforms",
+    oldName = "experimental_platforms",
     converter = BuildConfiguration.LabelListConverter.class,
     defaultValue = "@bazel_tools//platforms:target_platform",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
