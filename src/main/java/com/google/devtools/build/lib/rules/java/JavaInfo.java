@@ -24,17 +24,18 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
@@ -209,11 +210,7 @@ public final class JavaInfo extends NativeInfo {
       structField = true
   )
   public SkylarkNestedSet getTransitiveRuntimeJars() {
-    JavaCompilationArgsProvider provider = getProvider(JavaCompilationArgsProvider.class);
-    NestedSet<Artifact> runtimeJars = provider == null
-        ? NestedSetBuilder.<Artifact>stableOrder().build()
-        : provider.getRecursiveJavaCompilationArgs().getRuntimeJars();
-    return SkylarkNestedSet.of(Artifact.class, runtimeJars);
+    return SkylarkNestedSet.of(Artifact.class, getTransitiveRuntimeDeps());
   }
 
   @SkylarkCallable(
@@ -223,11 +220,7 @@ public final class JavaInfo extends NativeInfo {
       structField = true
   )
   public SkylarkNestedSet getTransitiveCompileTimeJars() {
-    JavaCompilationArgsProvider provider = getProvider(JavaCompilationArgsProvider.class);
-    NestedSet<Artifact> compileTimeJars = provider == null
-        ? NestedSetBuilder.<Artifact>stableOrder().build()
-        : provider.getRecursiveJavaCompilationArgs().getCompileTimeJars();
-    return SkylarkNestedSet.of(Artifact.class, compileTimeJars);
+    return SkylarkNestedSet.of(Artifact.class, getTransitiveDeps());
   }
 
   @SkylarkCallable(
@@ -242,10 +235,11 @@ public final class JavaInfo extends NativeInfo {
       structField = true
   )
   public SkylarkNestedSet getCompileTimeJars() {
-    JavaCompilationArgsProvider provider = getProvider(JavaCompilationArgsProvider.class);
-    NestedSet<Artifact> compileTimeJars = provider == null
-        ? NestedSetBuilder.<Artifact>stableOrder().build()
-        : provider.getJavaCompilationArgs().getCompileTimeJars();
+    NestedSet<Artifact> compileTimeJars =
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::getJavaCompilationArgs,
+            JavaCompilationArgs::getCompileTimeJars);
     return SkylarkNestedSet.of(Artifact.class, compileTimeJars);
   }
 
@@ -260,10 +254,11 @@ public final class JavaInfo extends NativeInfo {
       structField = true
   )
   public SkylarkNestedSet getFullCompileTimeJars() {
-    JavaCompilationArgsProvider provider = getProvider(JavaCompilationArgsProvider.class);
-    NestedSet<Artifact> fullCompileTimeJars = provider == null
-        ? NestedSetBuilder.<Artifact>stableOrder().build()
-        : provider.getJavaCompilationArgs().getFullCompileTimeJars();
+    NestedSet<Artifact> fullCompileTimeJars =
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::getJavaCompilationArgs,
+            JavaCompilationArgs::getFullCompileTimeJars);
     return SkylarkNestedSet.of(Artifact.class, fullCompileTimeJars);
   }
 
@@ -275,24 +270,11 @@ public final class JavaInfo extends NativeInfo {
       structField = true
   )
   public SkylarkList<Artifact> getSourceJars() {
+    //TODO(http://github.com/bazelbuild/bazel/issues/4221) change return type to NestedSet<Artifact>
     JavaSourceJarsProvider provider = providers.getProvider(JavaSourceJarsProvider.class);
     ImmutableList<Artifact> sourceJars =
         provider == null ? ImmutableList.of() : provider.getSourceJars();
     return SkylarkList.createImmutable(sourceJars);
-  }
-
-  @SkylarkCallable(
-      name = "transitive_source_jars",
-      doc =  "Returns the Jars containing Java source files for the target and all of its "
-          + "transitive dependencies.",
-      structField = true
-  )
-  public NestedSet<Artifact> getTransitiveSourceJars() {
-    JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class);
-    if (sourceJarsProvider == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    return sourceJarsProvider.getTransitiveSourceJars();
   }
 
   @SkylarkCallable(
@@ -304,6 +286,83 @@ public final class JavaInfo extends NativeInfo {
   public JavaRuleOutputJarsProvider getOutputJars() {
     return getProvider(JavaRuleOutputJarsProvider.class);
   }
+
+
+  @SkylarkCallable(
+    name = "transitive_deps",
+    doc = "Returns the transitive set of Jars required to build the target.",
+    structField = true
+  )
+  public NestedSet<Artifact> getTransitiveDeps() {
+    return getProviderAsNestedSet(
+        JavaCompilationArgsProvider.class,
+        JavaCompilationArgsProvider::getRecursiveJavaCompilationArgs,
+        JavaCompilationArgs::getCompileTimeJars);
+  }
+
+  @SkylarkCallable(
+    name = "transitive_runtime_deps",
+    doc = "Returns the transitive set of Jars required on the target's runtime classpath.",
+    structField = true
+  )
+  public NestedSet<Artifact> getTransitiveRuntimeDeps() {
+    return getProviderAsNestedSet(
+        JavaCompilationArgsProvider.class,
+        JavaCompilationArgsProvider::getRecursiveJavaCompilationArgs,
+        JavaCompilationArgs::getRuntimeJars);
+  }
+
+  @SkylarkCallable(
+    name = "transitive_source_jars",
+    doc = "Returns the Jars containing Java source files for the target "
+            + "and all of its transitive dependencies.",
+    structField = true
+  )
+  public NestedSet<Artifact> getTransitiveSourceJars() {
+    return getProviderAsNestedSet(
+        JavaSourceJarsProvider.class,
+        JavaSourceJarsProvider::getTransitiveSourceJars);
+  }
+
+
+  /**
+   * Gets Provider, check it for not null and call function to get NestedSet&lt;S&gt; from it.
+   *
+   * <p>Gets provider from map. If Provider is null, return default, empty, stabled ordered
+   * NestedSet. If provider is not null, then delegates to mapper all responsibility to fetch
+   * required NestedSet from provider.
+   *
+   * @see JavaInfo#getProviderAsNestedSet(Class, Function, Function)
+   * @param providerClass provider class. used as key to look up for provider.
+   * @param mapper Function used to convert provider to NesteSet&lt;S&gt;
+   * @param <P> type of Provider
+   * @param <S> type of returned NestedSet items
+   */
+  private <P extends TransitiveInfoProvider, S extends SkylarkValue>
+      NestedSet<S> getProviderAsNestedSet(
+          Class<P> providerClass, Function<P, NestedSet<S>> mapper) {
+
+    P provider = getProvider(providerClass);
+    if (provider == null) {
+      return NestedSetBuilder.<S>stableOrder().build();
+    }
+    return mapper.apply(provider);
+  }
+
+  /**
+   * The same as {@link JavaInfo#getProviderAsNestedSet(Class, Function)}, but uses
+   * sequence of two mappers.
+   *
+   * @see JavaInfo#getProviderAsNestedSet(Class, Function)
+   */
+  private <P extends TransitiveInfoProvider, S extends SkylarkValue, V>
+      NestedSet<S> getProviderAsNestedSet(
+          Class<P> providerClass,
+          Function<P, V> firstMapper,
+          Function<V, NestedSet<S>> secondMapper) {
+    return getProviderAsNestedSet(providerClass, firstMapper.andThen(secondMapper));
+  }
+
 
   @Override
   public boolean equals(Object otherObject) {
