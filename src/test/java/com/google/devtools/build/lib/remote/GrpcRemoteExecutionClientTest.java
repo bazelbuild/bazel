@@ -232,7 +232,8 @@ public class GrpcRemoteExecutionClientTest {
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    Retrier retrier = new Retrier(options);
+    RemoteRetrier retrier =
+        new RemoteRetrier(options, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
     Channel channel = InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel, null, options.remoteTimeout, retrier);

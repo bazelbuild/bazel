@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -70,7 +71,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
   private final RemoteOptions options;
   private final CallCredentials credentials;
   private final Channel channel;
-  private final Retrier retrier;
+  private final RemoteRetrier retrier;
   private final ByteStreamUploader uploader;
   private final DigestUtil digestUtil;
   private final ListeningScheduledExecutorService retryScheduler =
@@ -81,7 +82,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
       Channel channel,
       CallCredentials credentials,
       RemoteOptions options,
-      Retrier retrier,
+      RemoteRetrier retrier,
       DigestUtil digestUtil) {
     this.options = options;
     this.credentials = credentials;
@@ -266,7 +267,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
    * This method can throw {@link StatusRuntimeException}, but the RemoteCache interface does not
    * allow throwing such an exception. Any caller must make sure to catch the
    * {@link StatusRuntimeException}. Note that the retrier implicitly catches it, so if this is used
-   * in the context of {@link Retrier#execute}, that's perfectly safe.
+   * in the context of {@link RemoteRetrier#execute}, that's perfectly safe.
    *
    * <p>This method also converts any NOT_FOUND code returned from the server into a
    * {@link CacheNotFoundException}. TODO(olaola): this is not enough. NOT_FOUND can also be raised
@@ -318,7 +319,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
                           .setActionResult(result)
                           .build()));
     } catch (RetryException e) {
-      if (e.causedByStatusCode(Status.Code.UNIMPLEMENTED)) {
+      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.UNIMPLEMENTED)) {
         // Silently return without upload.
         return;
       }
@@ -443,7 +444,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
                           .setActionDigest(actionKey.getDigest())
                           .build()));
     } catch (RetryException e) {
-      if (e.causedByStatusCode(Status.Code.NOT_FOUND)) {
+      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
         // Return null to indicate that it was a cache miss.
         return null;
       }

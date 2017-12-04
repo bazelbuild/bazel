@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -223,9 +224,10 @@ class RemoteSpawnRunner implements SpawnRunner {
     return handleError(cause, policy.getFileOutErr());
   }
 
-  private SpawnResult handleError(IOException cause, FileOutErr outErr) throws IOException,
+  private SpawnResult handleError(IOException exception, FileOutErr outErr) throws IOException,
       ExecException {
-    if (cause instanceof TimeoutException) {
+    final Throwable cause = exception.getCause();
+    if (exception instanceof TimeoutException || cause instanceof TimeoutException) {
       // TODO(buchgr): provide stdout/stderr from the action that timed out.
       // Remove the unsuported message once remote execution tests no longer check for it.
       try (OutputStream out = outErr.getOutputStream()) {
@@ -238,8 +240,8 @@ class RemoteSpawnRunner implements SpawnRunner {
           .build();
     }
     final Status status;
-    if (cause instanceof RetryException
-        && ((RetryException) cause).causedByStatusCode(Code.UNAVAILABLE)) {
+    if (exception instanceof RetryException
+        && RemoteRetrierUtils.causedByStatus((RetryException) exception, Code.UNAVAILABLE)) {
       status = Status.EXECUTION_FAILED_CATASTROPHICALLY;
     } else if (cause instanceof CacheNotFoundException) {
       status = Status.REMOTE_CACHE_FAILED;
@@ -247,7 +249,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       status = Status.EXECUTION_FAILED;
     }
     throw new SpawnExecException(
-        Throwables.getStackTraceAsString(cause),
+        Throwables.getStackTraceAsString(exception),
         new SpawnResult.Builder()
             .setStatus(status)
             .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())

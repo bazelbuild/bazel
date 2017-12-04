@@ -26,6 +26,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
@@ -89,8 +90,7 @@ public class ByteStreamUploaderTest {
   private Channel channel;
   private Context withEmptyMetadata;
 
-  @Mock
-  private Retrier.Backoff mockBackoff;
+  @Mock private Retrier.Backoff mockBackoff;
 
   @Before
   public final void setUp() throws Exception {
@@ -117,7 +117,8 @@ public class ByteStreamUploaderTest {
   @Test(timeout = 10000)
   public void singleBlobUploadShouldWork() throws Exception {
     withEmptyMetadata.attach();
-    Retrier retrier = new Retrier(() -> mockBackoff, (Status s) -> true);
+    RemoteRetrier retrier =
+        new RemoteRetrier(() -> mockBackoff, (e) -> true, Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
         new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
 
@@ -186,7 +187,8 @@ public class ByteStreamUploaderTest {
   @Test(timeout = 20000)
   public void multipleBlobsUploadShouldWork() throws Exception {
     withEmptyMetadata.attach();
-    Retrier retrier = new Retrier(() -> new FixedBackoff(1, 0), (Status s) -> true);
+    RemoteRetrier retrier =
+        new RemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
         new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
 
@@ -276,7 +278,8 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.attach();
     // We upload blobs with different context, and retry 3 times for each upload.
     // We verify that the correct metadata is passed to the server with every blob.
-    Retrier retrier = new Retrier(() -> new FixedBackoff(3, 0), (Status s) -> true);
+    RemoteRetrier retrier =
+        new RemoteRetrier(() -> new FixedBackoff(3, 0), (e) -> true, Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
         new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
 
@@ -365,7 +368,8 @@ public class ByteStreamUploaderTest {
     // Test that uploading the same file concurrently triggers only one file upload.
 
     withEmptyMetadata.attach();
-    Retrier retrier = new Retrier(() -> mockBackoff, (Status s) -> true);
+    RemoteRetrier retrier =
+        new RemoteRetrier(() -> mockBackoff, (e) -> true, Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
         new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
 
@@ -424,7 +428,8 @@ public class ByteStreamUploaderTest {
   @Test(timeout = 10000)
   public void errorsShouldBeReported() throws IOException, InterruptedException {
     withEmptyMetadata.attach();
-    Retrier retrier = new Retrier(() -> new FixedBackoff(1, 10), (Status s) -> true);
+    RemoteRetrier retrier =
+        new RemoteRetrier(() -> new FixedBackoff(1, 10), (e) -> true, Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
         new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
 
@@ -444,14 +449,15 @@ public class ByteStreamUploaderTest {
       fail("Should have thrown an exception.");
     } catch (RetryException e) {
       assertThat(e.getAttempts()).isEqualTo(2);
-      assertThat(e.causedByStatusCode(Code.INTERNAL)).isTrue();
+      assertThat(RemoteRetrierUtils.causedByStatus(e, Code.INTERNAL)).isTrue();
     }
   }
 
   @Test(timeout = 10000)
   public void shutdownShouldCancelOngoingUploads() throws Exception {
     withEmptyMetadata.attach();
-    Retrier retrier = new Retrier(() -> new FixedBackoff(1, 10), (Status s) -> true);
+    RemoteRetrier retrier =
+        new RemoteRetrier(() -> new FixedBackoff(1, 10), (e) -> true, Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
         new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
 
@@ -503,7 +509,8 @@ public class ByteStreamUploaderTest {
   @Test(timeout = 10000)
   public void failureInRetryExecutorShouldBeHandled() throws Exception {
     withEmptyMetadata.attach();
-    Retrier retrier = new Retrier(() -> new FixedBackoff(1, 10), (Status s) -> true);
+    RemoteRetrier retrier =
+        new RemoteRetrier(() -> new FixedBackoff(1, 10), (e) -> true, Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
         new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, retrier, retryService);
 
@@ -534,7 +541,8 @@ public class ByteStreamUploaderTest {
   @Test(timeout = 10000)
   public void resourceNameWithoutInstanceName() throws Exception {
     withEmptyMetadata.attach();
-    Retrier retrier = new Retrier(() -> mockBackoff, (Status s) -> true);
+    RemoteRetrier retrier =
+        new RemoteRetrier(() -> mockBackoff, (e) -> true, Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
         new ByteStreamUploader(/* instanceName */ null, channel, null, 3, retrier, retryService);
 
@@ -571,8 +579,11 @@ public class ByteStreamUploaderTest {
   @Test(timeout = 10000)
   public void nonRetryableStatusShouldNotBeRetried() throws Exception {
     withEmptyMetadata.attach();
-    Retrier retrier = new Retrier(() -> new FixedBackoff(1, 0),
-        /* No Status is retriable. */ (Status s) -> false);
+    RemoteRetrier retrier =
+        new RemoteRetrier(
+            () -> new FixedBackoff(1, 0),
+            /* No Status is retriable. */ (e) -> false,
+            Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader =
         new ByteStreamUploader(/* instanceName */ null, channel, null, 3, retrier, retryService);
 

@@ -20,9 +20,9 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Range;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
-import com.google.devtools.build.lib.remote.Retrier2.Backoff;
-import com.google.devtools.build.lib.remote.Retrier2.RetryException2;
-import com.google.devtools.build.lib.remote.Retrier2.Sleeper;
+import com.google.devtools.build.lib.remote.Retrier.Backoff;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
+import com.google.devtools.build.lib.remote.Retrier.Sleeper;
 import com.google.devtools.common.options.Options;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -42,7 +42,7 @@ import org.mockito.Mockito;
 public class RemoteRetrierTest {
 
   interface Foo {
-    public String foo();
+    String foo();
   }
 
   private RemoteRetrierTest.Foo fooMock;
@@ -54,7 +54,7 @@ public class RemoteRetrierTest {
 
   @Test
   public void testExponentialBackoff() throws Exception {
-    Retrier2.Backoff backoff =
+    Retrier.Backoff backoff =
         new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2, 0, 6);
     assertThat(backoff.nextDelayMillis()).isEqualTo(1000);
     assertThat(backoff.nextDelayMillis()).isEqualTo(2000);
@@ -67,7 +67,7 @@ public class RemoteRetrierTest {
 
   @Test
   public void testExponentialBackoffJittered() throws Exception {
-    Retrier2.Backoff backoff =
+    Retrier.Backoff backoff =
         new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2, 0.1, 6);
     assertThat(backoff.nextDelayMillis()).isIn(Range.closedOpen(900L, 1100L));
     assertThat(backoff.nextDelayMillis()).isIn(Range.closedOpen(1800L, 2200L));
@@ -82,7 +82,7 @@ public class RemoteRetrierTest {
     try {
       retrier.execute(() -> fooMock.foo());
       fail();
-    } catch (RetryException2 e) {
+    } catch (RetryException e) {
       assertThat(e.getAttempts()).isEqualTo(attempts);
     }
   }
@@ -92,8 +92,8 @@ public class RemoteRetrierTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.experimentalRemoteRetry = false;
 
-    RemoteRetrier retrier = Mockito.spy(new RemoteRetrier(options,
-        RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier2.ALLOW_ALL_CALLS));
+    RemoteRetrier retrier =
+        Mockito.spy(new RemoteRetrier(options, (e) -> true, Retrier.ALLOW_ALL_CALLS));
     when(fooMock.foo())
         .thenReturn("bla")
         .thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
@@ -107,7 +107,7 @@ public class RemoteRetrierTest {
     Supplier<Backoff> s =
         () -> new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2.0, 0.0, 2);
     RemoteRetrier retrier = Mockito.spy(new RemoteRetrier(s, (e) -> false,
-        Retrier2.ALLOW_ALL_CALLS, Mockito.mock(Sleeper.class)));
+        Retrier.ALLOW_ALL_CALLS, Mockito.mock(Sleeper.class)));
     when(fooMock.foo()).thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
     assertThrows(retrier, 1);
     Mockito.verify(fooMock, Mockito.times(1)).foo();
@@ -119,7 +119,7 @@ public class RemoteRetrierTest {
         () -> new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2.0, 0.0, 2);
     Sleeper sleeper = Mockito.mock(Sleeper.class);
     RemoteRetrier retrier = Mockito.spy(new RemoteRetrier(s, (e) -> true,
-        Retrier2.ALLOW_ALL_CALLS, sleeper));
+        Retrier.ALLOW_ALL_CALLS, sleeper));
 
     when(fooMock.foo()).thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
     assertThrows(retrier, 3);
@@ -135,8 +135,7 @@ public class RemoteRetrierTest {
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.experimentalRemoteRetry = false;
-    RemoteRetrier retrier = new RemoteRetrier(options, RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-        Retrier2.ALLOW_ALL_CALLS);
+    RemoteRetrier retrier = new RemoteRetrier(options, (e) -> true, Retrier.ALLOW_ALL_CALLS);
     try {
       retrier.execute(() -> {
         throw thrown;
@@ -152,8 +151,7 @@ public class RemoteRetrierTest {
     StatusRuntimeException thrown = Status.Code.UNKNOWN.toStatus().asRuntimeException();
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    RemoteRetrier retrier = new RemoteRetrier(options, RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-        Retrier2.ALLOW_ALL_CALLS);
+    RemoteRetrier retrier = new RemoteRetrier(options, (e) -> true, Retrier.ALLOW_ALL_CALLS);
 
     AtomicInteger numCalls = new AtomicInteger();
     try {
@@ -162,7 +160,7 @@ public class RemoteRetrierTest {
         throw new RemoteRetrier.PassThroughException(thrown);
       });
       fail();
-    } catch (RetryException2 expected) {
+    } catch (RetryException expected) {
       assertThat(expected).hasCauseThat().isSameAs(thrown);
     }
 

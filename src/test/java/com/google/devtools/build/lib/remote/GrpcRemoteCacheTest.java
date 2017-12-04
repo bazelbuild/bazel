@@ -152,7 +152,9 @@ public class GrpcRemoteCacheTest {
         scratch.resolve(authTlsOptions.authCredentials).getInputStream(),
         authTlsOptions.authScope);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    Retrier retrier = new Retrier(remoteOptions);
+    RemoteRetrier retrier =
+        new RemoteRetrier(
+            remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
     return new GrpcRemoteCache(
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),

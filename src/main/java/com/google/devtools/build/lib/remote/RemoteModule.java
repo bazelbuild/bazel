@@ -114,7 +114,9 @@ public final class RemoteModule extends BlazeModule {
       boolean remoteOrLocalCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
       boolean grpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
 
-      Retrier retrier = new Retrier(remoteOptions);
+      RemoteRetrier retrier =
+          new RemoteRetrier(
+              remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
       CallCredentials creds = GrpcUtils.newCallCredentials(authAndTlsOptions);
       // TODO(davido): The naming is wrong here. "Remote"-prefix in RemoteActionCache class has no
       // meaning.
