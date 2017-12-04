@@ -139,7 +139,7 @@ load("//path:foo.bzl", "var")  # recommended
 ```
 
 *   Flag: `--incompatible_load_argument_is_label`
-*   Default: `false`
+*   Default: `true`
 
 
 ### Top level `if` statements

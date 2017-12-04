@@ -184,7 +184,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
 
   @Option(
     name = "incompatible_load_argument_is_label",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},

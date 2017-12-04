@@ -149,7 +149,7 @@ work = rule(
 )
 EOF
   cat >BUILD <<EOF
-load("work", "work")
+load(":work.bzl", "work")
 
 java_import(
   name = "worker_lib",

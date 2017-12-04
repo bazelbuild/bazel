@@ -1055,8 +1055,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         ")");
     scratch.file("test/BUILD",
         "genrule(name = \"foo\", srcs = [], outs = [\"foo.out\"], cmd = \"\")");
-    scratch.file("foo/BUILD",
-        "load(\"/test/selector_rules\", \"selector_rule\")",
+    scratch.file(
+        "foo/BUILD",
+        "load('//test:selector_rules.bzl', \"selector_rule\")",
         "selector_rule(",
         "    name = \"rule\",",
         "    out_file = \"rule.out\",",

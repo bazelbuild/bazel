@@ -73,7 +73,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowToplevelIfStatement(true)
           .incompatibleDisallowUncalledSetConstructor(false)
           .incompatibleListPlusEqualsInplace(true)
-          .incompatibleLoadArgumentIsLabel(false)
+          .incompatibleLoadArgumentIsLabel(true)
           .incompatibleNewActionsApi(false)
           .incompatibleShowAllPrintMessages(true)
           .incompatibleStringIsNotIterable(false)

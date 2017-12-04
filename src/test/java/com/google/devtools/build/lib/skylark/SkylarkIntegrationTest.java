@@ -934,7 +934,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'custom_rule')",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr')");
 
