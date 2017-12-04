@@ -295,7 +295,10 @@ public class TryWithResourcesRewriter extends ClassVisitor {
             checkState(
                 isAssignableFrom(
                     "java.lang.Throwable", exceptionClassInternalName.replace('/', '.')),
-                "The exception type should be a subclass of java.lang.Throwable.");
+                "The exception type %s in %s.%s should be a subclass of java.lang.Throwable.",
+                exceptionClassInternalName,
+                internalName,
+                methodSignature);
           }
         }
 
