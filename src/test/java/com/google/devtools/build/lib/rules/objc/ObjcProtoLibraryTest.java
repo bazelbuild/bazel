@@ -504,7 +504,8 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
             .addAll(FASTBUILD_COPTS)
             .addAll(
                 ObjcLibraryTest.iquoteArgs(
-                    binaryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR), getTargetConfiguration()))
+                    providerForTarget("//package:opl_binary"),
+                    getTargetConfiguration()))
             .add("-I")
             .add(sourceFile.getExecPath().getParentDirectory().getParentDirectory().toString())
             .add("-fno-objc-arc")

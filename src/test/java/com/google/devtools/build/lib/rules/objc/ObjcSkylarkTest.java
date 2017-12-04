@@ -204,7 +204,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_skylark:bin");
-    ObjcProvider objcProvider = binaryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    AppleExecutableBinaryProvider executableProvider =
+        binaryTarget.get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider objcProvider = executableProvider.getDepsObjcProvider();
 
     assertThat(Artifact.toRootRelativePaths(objcProvider.get(ObjcProvider.LIBRARY)))
         .contains("examples/apple_skylark/liblib.a");
@@ -242,7 +244,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_skylark:bin");
-    ObjcProvider objcProvider = binaryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    AppleExecutableBinaryProvider executableProvider =
+        binaryTarget.get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider objcProvider = executableProvider.getDepsObjcProvider();
 
     assertThat(objcProvider.get(ObjcProvider.DEFINE)).contains("mock_define");
   }

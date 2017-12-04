@@ -352,6 +352,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
         .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
 
+    // TODO(b/32411441): This flag will be flipped off by default imminently, at which point
+    // this can be removed. The flag itself is for safe rollout of a backwards incompatible change.
+    extraArgsBuilder.add("--noexperimental_objc_provider_from_linked");
+
     ImmutableList<String> extraArgs = extraArgsBuilder.build();
     args = Arrays.copyOf(args, args.length + extraArgs.size());
     for (int i = 0; i < extraArgs.size(); i++) {
@@ -1045,7 +1049,21 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected ObjcProvider providerForTarget(String label) throws Exception {
-    return getConfiguredTarget(label).get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider objcProvider = getConfiguredTarget(label).get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    if (objcProvider != null) {
+      return objcProvider;
+    }
+    AppleExecutableBinaryProvider executableProvider =
+        getConfiguredTarget(label).get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
+    if (executableProvider != null) {
+      return executableProvider.getDepsObjcProvider();
+    }
+    AppleDylibBinaryProvider dylibProvider =
+        getConfiguredTarget(label).get(AppleDylibBinaryProvider.SKYLARK_CONSTRUCTOR);
+    if (dylibProvider != null) {
+      return dylibProvider.getDepsObjcProvider();
+    }
+    return null;
   }
 
   protected CommandAction archiveAction(String label) throws Exception {
