@@ -56,7 +56,7 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
       Iterable<ObjcProtoProvider> depObjcProtoProviders =
-          ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+          ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
       aspectObjcProtoProvider.addTransitive(depObjcProtoProviders);
     }
 
@@ -105,7 +105,7 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     // Only add the provider if it has any values, otherwise skip it.
     if (!aspectObjcProtoProvider.isEmpty()) {
-      aspectBuilder.addProvider(aspectObjcProtoProvider.build());
+      aspectBuilder.addNativeDeclaredProvider(aspectObjcProtoProvider.build());
     }
     return aspectBuilder.build();
   }

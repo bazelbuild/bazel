@@ -54,7 +54,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  portable_proto_filters = ['data_filter.pbascii'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.getProvider(ObjcProtoProvider.class);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
   }
 
@@ -72,7 +72,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  portable_proto_filters = ['data_filter.pbascii'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.getProvider(ObjcProtoProvider.class);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
     assertThat(Artifact.toExecPaths(objcProtoProvider.getProtobufHeaders()))
         .containsExactly(TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "objcproto/include/header.h");
@@ -96,7 +96,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  srcs = ['A.m'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.getProvider(ObjcProtoProvider.class);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNull();
   }
 
@@ -127,7 +127,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  portable_proto_filters = ['data_filter.pbascii'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.getProvider(ObjcProtoProvider.class);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
     assertThat(Artifact.toExecPaths(Iterables.concat(objcProtoProvider.getProtoGroups())))
@@ -156,7 +156,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  deps = [':protos'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.getProvider(ObjcProtoProvider.class);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
     assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
@@ -195,7 +195,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  deps = [':protos'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.getProvider(ObjcProtoProvider.class);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
     assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))

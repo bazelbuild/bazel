@@ -89,7 +89,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");
 
     Iterable<ObjcProtoProvider> objcProtoProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
 
     ProtobufSupport protoSupport =
         new ProtobufSupport(
