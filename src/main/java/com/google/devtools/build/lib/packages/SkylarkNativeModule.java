@@ -229,8 +229,9 @@ public class SkylarkNativeModule {
         "The name of the repository the rule or build extension is called from. "
             + "For example, in packages that are called into existence by the WORKSPACE stanza "
             + "<code>local_repository(name='local', path=...)</code> it will be set to "
-            + "<code>@local</code>. In packages in the main repository, it will be empty. This "
-            + "function is equivalent to the deprecated variable <code>REPOSITORY_NAME</code>.",
+            + "<code>@local</code>. In packages in the main repository, it will be set to "
+            + "<code>@</code>. This function is equivalent to the deprecated variable "
+            + "<code>REPOSITORY_NAME</code>.",
     parameters = {},
     useAst = true,
     useEnvironment = true
