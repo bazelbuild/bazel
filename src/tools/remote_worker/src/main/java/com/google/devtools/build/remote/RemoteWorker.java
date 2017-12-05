@@ -269,7 +269,7 @@ public final class RemoteWorker {
       blobStore = new ConcurrentMapBlobStore(new ConcurrentHashMap<String, byte[]>());
     }
 
-    DigestUtil digestUtil = new DigestUtil(HashFunction.SHA256);
+    DigestUtil digestUtil = new DigestUtil(fs.getDigestFunction());
     RemoteWorker worker =
         new RemoteWorker(
             fs,
