@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -45,6 +46,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -598,6 +600,12 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       structField = true,
       allowReturnNones = true)
   public SkylarkDict<String, String> getSkylarkSubstitutions() {
+    return null;
+  }
+
+  @Nullable
+  @Override
+  public PlatformInfo getExecutionPlatform() {
     return null;
   }
 }

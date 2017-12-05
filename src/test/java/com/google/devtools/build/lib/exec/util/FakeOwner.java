@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import javax.annotation.Nullable;
@@ -151,5 +152,11 @@ public final class FakeOwner implements ActionExecutionMetadata {
   @Override
   public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
     throw new UnsupportedOperationException();
+  }
+
+  @Nullable
+  @Override
+  public PlatformInfo getExecutionPlatform() {
+    throw new IllegalStateException();
   }
 }

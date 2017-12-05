@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -74,7 +75,8 @@ public final class LtoBackendAction extends SpawnAction {
       Map<String, String> executionInfo,
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
-      String mnemonic) {
+      String mnemonic,
+      @Nullable PlatformInfo executionPlatform) {
     super(
         owner,
         ImmutableList.<Artifact>of(),
@@ -89,7 +91,8 @@ public final class LtoBackendAction extends SpawnAction {
         runfilesSupplier,
         mnemonic,
         false,
-        null);
+        null,
+        executionPlatform);
     mandatoryInputs = inputs;
     Preconditions.checkState(
         (bitcodeFiles == null) == (imports == null),
@@ -219,7 +222,8 @@ public final class LtoBackendAction extends SpawnAction {
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
-        String mnemonic) {
+        String mnemonic,
+        @Nullable PlatformInfo executionPlatform) {
       return new LtoBackendAction(
           inputsAndTools.toCollection(),
           bitcodeFiles,
@@ -232,7 +236,8 @@ public final class LtoBackendAction extends SpawnAction {
           executionInfo,
           progressMessage,
           runfilesSupplier,
-          mnemonic);
+          mnemonic,
+          executionPlatform);
     }
   }
 }

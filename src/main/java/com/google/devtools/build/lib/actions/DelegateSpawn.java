@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * A delegating spawn that allow us to overwrite certain methods while maintaining the original
@@ -83,5 +85,11 @@ public class DelegateSpawn implements Spawn {
   @Override
   public String getMnemonic() {
     return spawn.getMnemonic();
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform() {
+    return spawn.getExecutionPlatform();
   }
 }

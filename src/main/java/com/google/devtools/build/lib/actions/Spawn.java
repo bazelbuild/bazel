@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * An object representing a subprocess to be invoked, including its command and
@@ -107,4 +109,7 @@ public interface Spawn {
    * Returns a mnemonic (string constant) for this kind of spawn.
    */
   String getMnemonic();
+
+  @Nullable
+  PlatformInfo getExecutionPlatform();
 }

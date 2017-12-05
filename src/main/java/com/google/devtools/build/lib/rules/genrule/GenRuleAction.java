@@ -64,6 +64,7 @@ public class GenRuleAction extends SpawnAction {
         runfilesSupplier,
         "Genrule",
         false,
+        null,
         null);
   }
 

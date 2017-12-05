@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -134,5 +136,11 @@ public final class SimpleSpawn implements Spawn {
   @Override
   public String getMnemonic() {
     return owner.getMnemonic();
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform() {
+    return null;
   }
 }

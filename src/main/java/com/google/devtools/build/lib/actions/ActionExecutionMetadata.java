@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import javax.annotation.Nullable;
 
@@ -126,4 +127,11 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    */
   @ThreadSafe
   boolean discoversInputs();
+
+  /**
+   * Returns the {@link PlatformInfo} platform this action should be executed on. If the execution
+   * platform is {@code null}, then the host platform is assumed.
+   */
+  @Nullable
+  PlatformInfo getExecutionPlatform();
 }
