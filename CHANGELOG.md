@@ -1,3 +1,32 @@
+## Release 0.8.1 (2017-12-05)
+
+```
+Baseline: cff0dc94f6a8e16492adf54c88d0b26abe903d4c
+
+Cherry picks:
+   + 8a49b156c4edf710e3e1e0acfde5a8d27cc3a086:
+     Fix ImportError on tools.android for junction_lib
+   + 275ae45b1228bdd0f912c4fbd634b29ba4180383:
+     Automated rollback of commit
+     4869c4e17d5b1410070a1570f3244148d8f97b5d.
+   + d0bf589f2716b3d139c210930371a684c6e158eb:
+     Add a random number to action temp dir
+   + 9738f35abddb7ef7a7ef314b5d2a52a3be1b830a:
+     CcProtoLibrary: Don't add dynamic librarys to filesToBuild on
+     Windows
+   + 0d6ff477099fdf6c8c1c7d4e2104f9184afe0a2b:
+     Automated rollback of commit
+     0ebb3e54fc890946ae6b3d059ecbd50e4b5ec840.
+   + 49008a3c90e65bc4abf5292af823a931b8f4e096:
+     Avoid NPEs when providers are not found in JavaInfo.
+   + f499ddc6cf2f1dc5610e04f6ab42c1d11bad7b80:
+     Added missed imports.
+```
+
+0.8.1rc3
+Cherry-picked https://github.com/bazelbuild/bazel/commit/49008a3c90e65bc4abf5292af823a931b8f4e096.
+Additional change to fix the missing imports.
+
 ## Release 0.8.0 (2017-11-27)
 
 ```
@@ -2188,6 +2217,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
