@@ -1504,7 +1504,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (makeDexArchives && proguardedJar != null) {
       for (int i = 0; i < shards.size(); ++i) {
-        checkState(shuffleOutputs.get(i) != shards.get(i));
+        checkState(!shuffleOutputs.get(i).equals(shards.get(i)));
         DexArchiveAspect.createDexArchiveAction(
             ruleContext,
             shuffleOutputs.get(i),
