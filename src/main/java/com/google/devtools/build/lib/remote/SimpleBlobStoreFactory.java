@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.remote.blobstore.RestBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
@@ -32,7 +33,8 @@ public final class SimpleBlobStoreFactory {
   private SimpleBlobStoreFactory() {}
 
   public static SimpleBlobStore createRest(RemoteOptions options) throws IOException {
-    return new RestBlobStore(options.remoteRestCache, options.restCachePoolSize);
+    return new RestBlobStore(options.remoteRestCache, options.restCachePoolSize,
+        (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout));
   }
 
   public static SimpleBlobStore createLocalDisk(RemoteOptions options, Path workingDirectory)

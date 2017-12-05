@@ -21,6 +21,7 @@ import java.net.URISyntaxException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPut;
@@ -60,7 +61,7 @@ public final class RestBlobStore implements SimpleBlobStore {
    * @param baseUrl base URL for the remote cache
    * @param poolSize maximum number of simultaneous connections
    */
-  public RestBlobStore(String baseUrl, int poolSize) throws IOException {
+  public RestBlobStore(String baseUrl, int poolSize, int timeoutMillis) throws IOException {
     validateUrl(baseUrl);
     this.baseUrl = baseUrl;
     connMan = new PoolingHttpClientConnectionManager();
@@ -69,6 +70,12 @@ public final class RestBlobStore implements SimpleBlobStore {
     clientFactory = HttpClientBuilder.create();
     clientFactory.setConnectionManager(connMan);
     clientFactory.setConnectionManagerShared(true);
+    clientFactory.setDefaultRequestConfig(RequestConfig.custom()
+        // Timeout to establish a connection.
+        .setConnectTimeout(timeoutMillis)
+        // Timeout between reading data.
+        .setSocketTimeout(timeoutMillis)
+        .build());
   }
 
   @Override
