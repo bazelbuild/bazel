@@ -158,6 +158,11 @@ alias(
     actual = "@local_jdk//:jdk",
 )
 
+alias(
+    name = "host_jdk",
+    actual = "@local_jdk//:jdk",
+)
+
 java_toolchain(
     name = "toolchain",
     bootclasspath = [":bootclasspath"],
