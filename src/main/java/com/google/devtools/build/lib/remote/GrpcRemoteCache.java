@@ -62,7 +62,7 @@ import java.util.concurrent.TimeUnit;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
-public class GrpcRemoteCache extends RemoteActionCacheBase {
+public class GrpcRemoteCache extends AbstractRemoteActionCache {
   private final RemoteOptions options;
   private final CallCredentials credentials;
   private final Channel channel;

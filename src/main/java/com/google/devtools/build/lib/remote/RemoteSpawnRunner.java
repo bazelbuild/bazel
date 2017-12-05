@@ -76,7 +76,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   private final boolean verboseFailures;
 
   @Nullable private final Reporter cmdlineReporter;
-  @Nullable private final RemoteActionCache remoteCache;
+  @Nullable private final AbstractRemoteActionCache remoteCache;
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
   private final String buildRequestId;
   private final String commandId;
@@ -332,7 +332,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       SpawnExecutionPolicy policy,
       SortedMap<PathFragment, ActionInput> inputMap,
       boolean uploadToCache,
-      @Nullable RemoteActionCache remoteCache,
+      @Nullable AbstractRemoteActionCache remoteCache,
       @Nullable ActionKey actionKey)
       throws ExecException, IOException, InterruptedException {
     if (uploadToCache && Spawns.mayBeCached(spawn) && remoteCache != null && actionKey != null) {
@@ -346,7 +346,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionPolicy policy,
       SortedMap<PathFragment, ActionInput> inputMap,
-      RemoteActionCache remoteCache,
+      AbstractRemoteActionCache remoteCache,
       ActionKey actionKey)
       throws ExecException, IOException, InterruptedException {
     Map<Path, Long> ctimesBefore = getInputCtimes(inputMap);

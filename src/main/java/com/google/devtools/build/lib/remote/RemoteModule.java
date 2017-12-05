@@ -120,7 +120,7 @@ public final class RemoteModule extends BlazeModule {
       CallCredentials creds = GrpcUtils.newCallCredentials(authAndTlsOptions);
       // TODO(davido): The naming is wrong here. "Remote"-prefix in RemoteActionCache class has no
       // meaning.
-      final RemoteActionCache cache;
+      final AbstractRemoteActionCache cache;
       if (remoteOrLocalCache) {
         cache =
             new SimpleBlobStoreActionCache(

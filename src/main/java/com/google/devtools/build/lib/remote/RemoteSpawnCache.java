@@ -54,7 +54,7 @@ final class RemoteSpawnCache implements SpawnCache {
   // TODO(olaola): This will be set on a per-action basis instead.
   private final Platform platform;
 
-  private final RemoteActionCache remoteCache;
+  private final AbstractRemoteActionCache remoteCache;
   private final String buildRequestId;
   private final String commandId;
   private final boolean verboseFailures;
@@ -69,7 +69,7 @@ final class RemoteSpawnCache implements SpawnCache {
   RemoteSpawnCache(
       Path execRoot,
       RemoteOptions options,
-      RemoteActionCache remoteCache,
+      AbstractRemoteActionCache remoteCache,
       String buildRequestId,
       String commandId,
       boolean verboseFailures,

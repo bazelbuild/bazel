@@ -49,7 +49,7 @@ import java.util.Map;
  * <p>Note that this class is used from src/tools/remote.
  */
 @ThreadSafe
-public final class SimpleBlobStoreActionCache extends RemoteActionCacheBase {
+public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache {
   private static final int MAX_BLOB_SIZE_FOR_INLINE = 10 * 1024;
 
   private final SimpleBlobStore blobStore;

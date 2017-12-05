@@ -123,7 +123,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     }
 
     // Should only be called by the TreeNodeRepository.
-    private TreeNode(Iterable<ChildEntry> childEntries, ActionInput actionInput) {
+    private TreeNode(Iterable<ChildEntry> childEntries, @Nullable ActionInput actionInput) {
       isLeaf = false;
       this.actionInput = actionInput;
       this.childEntries = ImmutableList.copyOf(childEntries);
@@ -138,7 +138,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     // Should only be called by the TreeNodeRepository.
     private TreeNode(ActionInput actionInput) {
       isLeaf = true;
-      this.actionInput = Preconditions.checkNotNull(actionInput);
+      this.actionInput = Preconditions.checkNotNull(actionInput, "a TreeNode leaf should have an ActionInput");
       this.childEntries = ImmutableList.of();
       hashCode = actionInput.hashCode(); // This will ensure efficient interning of TreeNodes as
       // long as all ActionInputs either implement data-based hashCode or are interned themselves.
@@ -287,7 +287,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     List<Dirent> sortedDirent = new ArrayList<>(path.readdir(symlinkPolicy));
     sortedDirent.sort(Comparator.comparing(Dirent::getName));
 
-    List<TreeNode.ChildEntry> entries = new ArrayList<>();
+    List<TreeNode.ChildEntry> entries = new ArrayList<>(sortedDirent.size());
     for (Dirent dirent: sortedDirent) {
       String name = dirent.getName();
       Path child = path.getRelative(name);
@@ -441,7 +441,8 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     if (digest == null) {
       // If the artifact does not have a digest, it is because it is a directory.
       // We get the digest from the set of Merkle hashes computed in this TreeNodeRepository.
-      return Preconditions.checkNotNull(inputDirectoryDigestCache.get(input));
+      return Preconditions.checkNotNull(inputDirectoryDigestCache.get(input),
+          "a directory should have a precomputed Merkle hash (instead of a digest)");
     }
     return Digests.getDigestFromInputCache(input, inputFileCache);
   }
