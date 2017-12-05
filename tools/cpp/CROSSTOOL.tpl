@@ -131,6 +131,20 @@ toolchain {
   linking_mode_flags { mode: DYNAMIC }
 
 %{coverage}
+
+  feature {
+    name: 'fdo_optimize'
+    provides: 'profile'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      expand_if_all_available: 'fdo_profile_path'
+      flag_group {
+        flag: '-fprofile-use=%{fdo_profile_path}'
+        flag: '-fprofile-correction',
+      }
+    }
+  }
 }
 
 toolchain {
