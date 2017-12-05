@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.remote;
+package com.google.devtools.build.remote.worker;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.FINE;
@@ -298,7 +298,7 @@ public final class RemoteWorker {
     if (sandbox == null) {
       logger.severe(
           "Sandboxing requested, but could not find bundled linux-sandbox binary. "
-              + "Please rebuild a remote_worker_deploy.jar on Linux to make this work.");
+              + "Please rebuild a worker_deploy.jar on Linux to make this work.");
       System.exit(1);
     }
 

@@ -48,7 +48,7 @@ import java.util.Collection;
  *
  * <p>The thread safety is guaranteed by the underlying map.
  *
- * <p>Note that this class is used from src/tools/remote_worker.
+ * <p>Note that this class is used from src/tools/remote.
  */
 @ThreadSafe
 public final class SimpleBlobStoreActionCache implements RemoteActionCache {

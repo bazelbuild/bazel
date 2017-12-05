@@ -1,15 +1,15 @@
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/tools/remote_worker:__pkg__"],
+    visibility = ["//src/tools/remote:__pkg__"],
 )
 
 java_library(
-    name = "remote",
+    name = "worker",
     srcs = glob(["*.java"]),
     data = ["//src:libunix"],
     resources = ["//src/main/tools:linux-sandbox"],
-    visibility = ["//src/tools/remote_worker:__subpackages__"],
+    visibility = ["//src/tools/remote:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:os_util",

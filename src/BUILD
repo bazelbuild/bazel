@@ -17,7 +17,7 @@ filegroup(
     }),
     visibility = [
         "//src/test/java:__pkg__",
-        "//src/tools/remote_worker:__subpackages__",
+        "//src/tools/remote:__subpackages__",
     ],
 )
 
@@ -379,7 +379,7 @@ filegroup(
         "//src/tools/xcode/stdredirect:srcs",
         "//src/tools/xcode/swiftstdlibtoolwrapper:srcs",
         "//src/tools/xcode-common:srcs",
-        "//src/tools/remote_worker:srcs",
+        "//src/tools/remote:srcs",
         "//tools/osx:srcs",
     ],
     visibility = ["//:__pkg__"],

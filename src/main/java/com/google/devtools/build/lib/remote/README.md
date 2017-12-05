@@ -127,11 +127,11 @@ build --strategy=Closure=remote
 Bazel currently provides a sample gRPC CAS implementation with a SimpleBlobStore as caching backend. To use it you need to clone from [Bazel](https://github.com/bazelbuild/bazel) and then build it with:
 
 ```
-bazel build //src/tools/remote_worker
+bazel build //src/tools/remote:worker
 ```
 
 The following command will then start the cache server listening on port 8080 using a local in-memory cache:
 
 ```
-bazel-bin/src/tools/remote_worker/remote_worker --listen_port=8080
+bazel-bin/src/tools/remote/worker --listen_port=8080
 ```

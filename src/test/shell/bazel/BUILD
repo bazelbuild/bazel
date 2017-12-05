@@ -416,7 +416,7 @@ sh_test(
     srcs = ["remote_execution_test.sh"],
     data = [
         ":test-deps",
-        "//src/tools/remote_worker",
+        "//src/tools/remote:worker",
     ],
 )
 
@@ -426,7 +426,7 @@ sh_test(
     srcs = ["remote_execution_sandboxing_test.sh"],
     data = [
         ":test-deps",
-        "//src/tools/remote_worker",
+        "//src/tools/remote:worker",
     ],
 )
 
