@@ -275,7 +275,7 @@ public final class TargetUtils {
       }
 
       if (!(input instanceof Rule)) {
-        return false;
+        return requiredTags.isEmpty();
       }
       // Note that test_tags are those originating from the XX_test rule,
       // whereas the requiredTags and excludedTags originate from the command
