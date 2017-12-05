@@ -81,7 +81,7 @@ final class FakeActionInputFileCache implements ActionInputFileCache {
   public Digest createScratchInputDirectory(ActionInput input, Tree content) throws IOException {
     Path inputFile = execRoot.getRelative(input.getExecPath());
     FileSystemUtils.createDirectoryAndParents(inputFile);
-    Digest digest = Digests.computeDigest(content);
+    Digest digest = digestUtil.compute(content);
     setDigest(input, digest.getHash());
     return digest;
   }

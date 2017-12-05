@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -444,7 +443,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
       return Preconditions.checkNotNull(inputDirectoryDigestCache.get(input),
           "a directory should have a precomputed Merkle hash (instead of a digest)");
     }
-    return Digests.getDigestFromInputCache(input, inputFileCache);
+    return DigestUtil.getFromInputCache(input, inputFileCache);
   }
 
   /**

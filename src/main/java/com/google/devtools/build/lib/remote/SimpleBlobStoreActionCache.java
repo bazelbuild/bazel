@@ -53,11 +53,10 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   private static final int MAX_BLOB_SIZE_FOR_INLINE = 10 * 1024;
 
   private final SimpleBlobStore blobStore;
-  private final DigestUtil digestUtil;
 
   public SimpleBlobStoreActionCache(SimpleBlobStore blobStore, DigestUtil digestUtil) {
+    super(digestUtil);
     this.blobStore = blobStore;
-    this.digestUtil = digestUtil;
   }
 
   @Override

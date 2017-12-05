@@ -40,7 +40,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   RemoteActionContextProvider(
       CommandEnvironment env,
-      @Nullable RemoteActionCache cache,
+      @Nullable AbstractRemoteActionCache cache,
       @Nullable GrpcRemoteExecutor executor,
       DigestUtil digestUtil) {
     this.env = env;

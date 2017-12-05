@@ -239,8 +239,8 @@ public class GrpcRemoteCacheTest {
   @Test
   public void testDownloadDirectory() throws Exception {
     GrpcRemoteCache client = newClient();
-    Digest fooDigest = Digests.computeDigestUtf8("foo-contents");
-    Digest quxDigest = Digests.computeDigestUtf8("qux-contents");
+    Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
+    Digest quxDigest = DIGEST_UTIL.computeAsUtf8("qux-contents");
     Tree barTreeMessage = Tree.newBuilder()
         .setRoot(Directory.newBuilder()
             .addFiles(FileNode.newBuilder()
@@ -248,7 +248,7 @@ public class GrpcRemoteCacheTest {
                 .setDigest(quxDigest)
                 .setIsExecutable(true)))
         .build();
-    Digest barTreeDigest = Digests.computeDigest(barTreeMessage);
+    Digest barTreeDigest = DIGEST_UTIL.compute(barTreeMessage);
     serviceRegistry.addService(
         new FakeImmutableCacheByteStreamImpl(ImmutableMap.of(
             fooDigest, "foo-contents",
@@ -260,8 +260,8 @@ public class GrpcRemoteCacheTest {
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
     client.download(result.build(), execRoot, null);
 
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/bar/qux"))).isEqualTo(quxDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/qux"))).isEqualTo(quxDigest);
     assertThat(execRoot.getRelative("a/bar/qux").isExecutable()).isTrue();
   }
 
@@ -271,7 +271,7 @@ public class GrpcRemoteCacheTest {
     Tree barTreeMessage = Tree.newBuilder()
         .setRoot(Directory.newBuilder())
         .build();
-    Digest barTreeDigest = Digests.computeDigest(barTreeMessage);
+    Digest barTreeDigest = DIGEST_UTIL.compute(barTreeMessage);
     serviceRegistry.addService(
         new FakeImmutableCacheByteStreamImpl(ImmutableMap.of(
             barTreeDigest, barTreeMessage.toByteString())));
@@ -286,14 +286,14 @@ public class GrpcRemoteCacheTest {
   @Test
   public void testDownloadDirectoryNested() throws Exception {
     GrpcRemoteCache client = newClient();
-    Digest fooDigest = Digests.computeDigestUtf8("foo-contents");
-    Digest quxDigest = Digests.computeDigestUtf8("qux-contents");
+    Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
+    Digest quxDigest = DIGEST_UTIL.computeAsUtf8("qux-contents");
     Directory wobbleDirMessage = Directory.newBuilder()
         .addFiles(FileNode.newBuilder()
             .setName("qux")
             .setDigest(quxDigest))
         .build();
-    Digest wobbleDirDigest = Digests.computeDigest(wobbleDirMessage);
+    Digest wobbleDirDigest = DIGEST_UTIL.compute(wobbleDirMessage);
     Tree barTreeMessage = Tree.newBuilder()
         .setRoot(Directory.newBuilder()
             .addFiles(FileNode.newBuilder()
@@ -305,7 +305,7 @@ public class GrpcRemoteCacheTest {
                 .setDigest(wobbleDirDigest)))
         .addChildren(wobbleDirMessage)
         .build();
-    Digest barTreeDigest = Digests.computeDigest(barTreeMessage);
+    Digest barTreeDigest = DIGEST_UTIL.compute(barTreeMessage);
     serviceRegistry.addService(
         new FakeImmutableCacheByteStreamImpl(ImmutableMap.of(
             fooDigest, "foo-contents",
@@ -317,8 +317,8 @@ public class GrpcRemoteCacheTest {
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
     client.download(result.build(), execRoot, null);
 
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/bar/wobble/qux"))).isEqualTo(quxDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/wobble/qux"))).isEqualTo(quxDigest);
     assertThat(execRoot.getRelative("a/bar/wobble/qux").isExecutable()).isFalse();
   }
 
@@ -574,7 +574,7 @@ public class GrpcRemoteCacheTest {
             .setDigest(wobbleDigest)
             .build())
         .build();
-    final Digest testDigest = Digests.computeDigest(testDirMessage);
+    final Digest testDigest = DIGEST_UTIL.compute(testDirMessage);
     final Tree barTree = Tree.newBuilder()
         .setRoot(Directory.newBuilder()
             .addFiles(FileNode.newBuilder()

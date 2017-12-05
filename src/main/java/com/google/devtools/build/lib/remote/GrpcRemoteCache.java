@@ -68,7 +68,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   private final Channel channel;
   private final RemoteRetrier retrier;
   private final ByteStreamUploader uploader;
-  private final DigestUtil digestUtil;
   private final ListeningScheduledExecutorService retryScheduler =
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
@@ -79,11 +78,11 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       RemoteOptions options,
       RemoteRetrier retrier,
       DigestUtil digestUtil) {
+    super(digestUtil);
     this.options = options;
     this.credentials = credentials;
     this.channel = channel;
     this.retrier = retrier;
-    this.digestUtil = digestUtil;
 
     uploader = new ByteStreamUploader(options.remoteInstanceName, channel, credentials,
         options.remoteTimeout, retrier, retryScheduler);
@@ -318,6 +317,22 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
       uploader.uploadBlob(new Chunker(file));
+    }
+    return digest;
+  }
+
+  /**
+   * Put the file contents cache if it is not already in it. No-op if the file is already stored in
+   * cache. The given path must be a full absolute path.
+   *
+   * @return The key for fetching the file contents blob from cache.
+   */
+  Digest uploadFileContents(ActionInput input, Path execRoot, MetadataProvider inputCache)
+      throws IOException, InterruptedException {
+    Digest digest = DigestUtil.getFromInputCache(input, inputCache);
+    ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
+    if (!missing.isEmpty()) {
+      uploader.uploadBlob(new Chunker(input, inputCache, execRoot, digestUtil));
     }
     return digest;
   }

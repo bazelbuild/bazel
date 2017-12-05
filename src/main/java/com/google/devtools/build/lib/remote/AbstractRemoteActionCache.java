@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -45,6 +44,12 @@ import javax.annotation.Nullable;
 /** A cache for storing artifacts (input and output) as well as the output of running an action. */
 @ThreadSafety.ThreadSafe
 public abstract class AbstractRemoteActionCache implements AutoCloseable {
+  protected final DigestUtil digestUtil;
+
+  public AbstractRemoteActionCache(DigestUtil digestUtil) {
+    this.digestUtil = digestUtil;
+  }
+
   /**
    * Ensures that the tree structure of the inputs, the input files themselves, and the command are
    * available in the remote cache, such that the tree can be reassembled and executed on another
@@ -72,7 +77,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @throws IOException if the remote cache is unavailable.
    */
   abstract @Nullable
-  ActionResult getCachedActionResult(ActionKey actionKey) throws IOException, InterruptedException;
+  ActionResult getCachedActionResult(DigestUtil.ActionKey actionKey) throws IOException, InterruptedException;
 
   /**
    * Upload the result of a locally executed action to the cache by uploading any necessary files,
@@ -82,7 +87,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @throws IOException if the remote cache is unavailable.
    */
   abstract void upload(
-      ActionKey actionKey,
+      DigestUtil.ActionKey actionKey,
       Path execRoot,
       Collection<Path> files,
       FileOutErr outErr,
@@ -126,7 +131,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       for (OutputDirectory dir : result.getOutputDirectoriesList()) {
         Digest treeDigest = dir.getTreeDigest();
         byte[] b = downloadBlob(treeDigest);
-        Digest receivedTreeDigest = Digests.computeDigest(b);
+        Digest receivedTreeDigest = digestUtil.compute(b);
         if (!receivedTreeDigest.equals(treeDigest)) {
           throw new IOException(
               "Digest does not match " + receivedTreeDigest + " != " + treeDigest);
@@ -134,7 +139,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
         Tree tree = Tree.parseFrom(b);
         Map<Digest, Directory> childrenMap = new HashMap<>();
         for (Directory child : tree.getChildrenList()) {
-          childrenMap.put(Digests.computeDigest(child), child);
+          childrenMap.put(digestUtil.compute(child), child);
         }
         Path path = execRoot.getRelative(dir.getPath());
         downloadDirectory(path, tree.getRoot(), childrenMap);
@@ -152,8 +157,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           execRoot.getRelative(directory.getPath()).delete();
         }
         if (outErr != null) {
-        outErr.getOutputPath().delete();
-        outErr.getErrorPath().delete();
+          outErr.getOutputPath().delete();
+          outErr.getErrorPath().delete();
         }
       } catch (IOException e) {
         // If deleting of output files failed, we abort the build with a decent error message as
@@ -216,7 +221,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
         }
       } else {
         downloadBlob(digest, path);
-        Digest receivedDigest = Digests.computeDigest(path);
+        Digest receivedDigest = digestUtil.compute(path);
         if (!receivedDigest.equals(digest)) {
           throw new IOException(
               "Digest does not match " + receivedDigest + " != " + digest);
@@ -285,7 +290,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
         if (file.isDirectory()) {
           addDirectory(file);
         } else {
-          Digest digest = Digests.computeDigest(file);
+          Digest digest = digestUtil.compute(file);
           addFile(digest, file);
         }
       }
@@ -323,8 +328,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       tree.setRoot(root);
 
       byte[] blob = tree.build().toByteArray();
-      Digest digest = Digests.computeDigest(blob);
-      Chunker chunker = new Chunker(blob, blob.length);
+      Digest digest = digestUtil.compute(blob);
+      Chunker chunker = new Chunker(blob, blob.length, digestUtil);
 
       if (result != null) {
         result
@@ -349,10 +354,10 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           Directory dir = computeDirectory(child, tree);
           b.addDirectoriesBuilder()
               .setName(name)
-              .setDigest(Digests.computeDigest(dir));
+              .setDigest(digestUtil.compute(dir));
           tree.addChildren(dir);
         } else {
-          Digest digest = Digests.computeDigest(child);
+          Digest digest = digestUtil.compute(child);
           b.addFilesBuilder()
               .setName(name)
               .setDigest(digest)

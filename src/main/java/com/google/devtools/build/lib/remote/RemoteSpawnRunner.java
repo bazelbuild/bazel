@@ -93,7 +93,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       @Nullable Reporter cmdlineReporter,
       String buildRequestId,
       String commandId,
-      @Nullable RemoteActionCache remoteCache,
+      @Nullable AbstractRemoteActionCache remoteCache,
       @Nullable GrpcRemoteExecutor remoteExecutor,
       DigestUtil digestUtil) {
     this.execRoot = execRoot;

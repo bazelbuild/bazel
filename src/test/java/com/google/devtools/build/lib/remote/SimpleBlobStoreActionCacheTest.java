@@ -19,8 +19,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -41,15 +43,16 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link SimpleBlobStoreActionCache}. */
 @RunWith(JUnit4.class)
 public class SimpleBlobStoreActionCacheTest {
+  private static final DigestUtil DIGEST_UTIL = new DigestUtil(HashFunction.SHA256);
+
   private FileSystem fs;
   private Path execRoot;
   private FakeActionInputFileCache fakeFileCache;
 
   @Before
   public final void setUp() throws Exception {
-    FileSystem.setDigestFunctionForTesting(FileSystem.HashFunction.SHA1);
     Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
-    fs = new InMemoryFileSystem();
+    fs = new InMemoryFileSystem(new JavaClock(), HashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -60,7 +63,7 @@ public class SimpleBlobStoreActionCacheTest {
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     Context withEmptyMetadata =
         TracingMetadataUtils.contextWithMetadata(
-            "none", "none", Digests.unsafeActionKeyFromDigest(Digest.getDefaultInstance()));
+            "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
     withEmptyMetadata.attach();
   }
 
@@ -69,13 +72,13 @@ public class SimpleBlobStoreActionCacheTest {
   }
 
   private SimpleBlobStoreActionCache newClient(ConcurrentMap<String, byte[]> map) {
-    return new SimpleBlobStoreActionCache(new ConcurrentMapBlobStore(map));
+    return new SimpleBlobStoreActionCache(new ConcurrentMapBlobStore(map), DIGEST_UTIL);
   }
 
   @Test
   public void testDownloadEmptyBlob() throws Exception {
     SimpleBlobStoreActionCache client = newClient();
-    Digest emptyDigest = Digests.computeDigest(new byte[0]);
+    Digest emptyDigest = DIGEST_UTIL.compute(new byte[0]);
     // Will not call the mock Bytestream interface at all.
     assertThat(client.downloadBlob(emptyDigest)).isEmpty();
   }
@@ -83,7 +86,7 @@ public class SimpleBlobStoreActionCacheTest {
   @Test
   public void testDownloadBlob() throws Exception {
     final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
-    Digest digest = Digests.computeDigestUtf8("abcdefg");
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     map.put(digest.getHash(), "abcdefg".getBytes(Charsets.UTF_8));
     final SimpleBlobStoreActionCache client = newClient(map);
     assertThat(new String(client.downloadBlob(digest), UTF_8)).isEqualTo("abcdefg");
@@ -91,9 +94,9 @@ public class SimpleBlobStoreActionCacheTest {
 
   @Test
   public void testDownloadAllResults() throws Exception {
-    Digest fooDigest = Digests.computeDigestUtf8("foo-contents");
-    Digest barDigest = Digests.computeDigestUtf8("bar-contents");
-    Digest emptyDigest = Digests.computeDigest(new byte[0]);
+    Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
+    Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
+    Digest emptyDigest = DIGEST_UTIL.compute(new byte[0]);
 
     final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
     map.put(fooDigest.getHash(), "foo-contents".getBytes(Charsets.UTF_8));
@@ -105,16 +108,16 @@ public class SimpleBlobStoreActionCacheTest {
     result.addOutputFilesBuilder().setPath("b/empty").setDigest(emptyDigest);
     result.addOutputFilesBuilder().setPath("a/bar").setDigest(barDigest).setIsExecutable(true);
     client.download(result.build(), execRoot, null);
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
-    assertThat(Digests.computeDigest(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
     assertThat(execRoot.getRelative("a/bar").isExecutable()).isTrue();
   }
 
   @Test
   public void testDownloadDirectory() throws Exception {
-    Digest fooDigest = Digests.computeDigestUtf8("foo-contents");
-    Digest quxDigest = Digests.computeDigestUtf8("qux-contents");
+    Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
+    Digest quxDigest = DIGEST_UTIL.computeAsUtf8("qux-contents");
     Tree barTreeMessage = Tree.newBuilder()
         .setRoot(Directory.newBuilder()
             .addFiles(FileNode.newBuilder()
@@ -122,7 +125,7 @@ public class SimpleBlobStoreActionCacheTest {
                 .setDigest(quxDigest)
                 .setIsExecutable(true)))
         .build();
-    Digest barTreeDigest = Digests.computeDigest(barTreeMessage);
+    Digest barTreeDigest = DIGEST_UTIL.compute(barTreeMessage);
 
     final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
     map.put(fooDigest.getHash(), "foo-contents".getBytes(Charsets.UTF_8));
@@ -135,8 +138,8 @@ public class SimpleBlobStoreActionCacheTest {
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
     client.download(result.build(), execRoot, null);
 
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/bar/qux"))).isEqualTo(quxDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/qux"))).isEqualTo(quxDigest);
     assertThat(execRoot.getRelative("a/bar/qux").isExecutable()).isTrue();
   }
 
@@ -145,7 +148,7 @@ public class SimpleBlobStoreActionCacheTest {
     Tree barTreeMessage = Tree.newBuilder()
         .setRoot(Directory.newBuilder())
         .build();
-    Digest barTreeDigest = Digests.computeDigest(barTreeMessage);
+    Digest barTreeDigest = DIGEST_UTIL.compute(barTreeMessage);
 
     final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
     map.put(barTreeDigest.getHash(), barTreeMessage.toByteArray());
@@ -160,14 +163,14 @@ public class SimpleBlobStoreActionCacheTest {
 
   @Test
   public void testDownloadDirectoryNested() throws Exception {
-    Digest fooDigest = Digests.computeDigestUtf8("foo-contents");
-    Digest quxDigest = Digests.computeDigestUtf8("qux-contents");
+    Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
+    Digest quxDigest = DIGEST_UTIL.computeAsUtf8("qux-contents");
     Directory wobbleDirMessage = Directory.newBuilder()
         .addFiles(FileNode.newBuilder()
             .setName("qux")
             .setDigest(quxDigest))
         .build();
-    Digest wobbleDirDigest = Digests.computeDigest(wobbleDirMessage);
+    Digest wobbleDirDigest = DIGEST_UTIL.compute(wobbleDirMessage);
     Tree barTreeMessage = Tree.newBuilder()
         .setRoot(Directory.newBuilder()
             .addFiles(FileNode.newBuilder()
@@ -179,7 +182,7 @@ public class SimpleBlobStoreActionCacheTest {
                 .setDigest(wobbleDirDigest)))
         .addChildren(wobbleDirMessage)
         .build();
-    Digest barTreeDigest = Digests.computeDigest(barTreeMessage);
+    Digest barTreeDigest = DIGEST_UTIL.compute(barTreeMessage);
 
     final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
     map.put(fooDigest.getHash(), "foo-contents".getBytes(Charsets.UTF_8));
@@ -192,14 +195,14 @@ public class SimpleBlobStoreActionCacheTest {
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
     client.download(result.build(), execRoot, null);
 
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
-    assertThat(Digests.computeDigest(execRoot.getRelative("a/bar/wobble/qux"))).isEqualTo(quxDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/wobble/qux"))).isEqualTo(quxDigest);
     assertThat(execRoot.getRelative("a/bar/wobble/qux").isExecutable()).isFalse();
   }
 
   @Test
   public void testUploadBlob() throws Exception {
-    final Digest digest = Digests.computeDigestUtf8("abcdefg");
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
 
     final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
     final SimpleBlobStoreActionCache client = newClient(map);
@@ -291,7 +294,7 @@ public class SimpleBlobStoreActionCacheTest {
             .setDigest(wobbleDigest)
             .build())
         .build();
-    final Digest testDigest = Digests.computeDigest(testDirMessage);
+    final Digest testDigest = DIGEST_UTIL.compute(testDirMessage);
     final Tree barTree = Tree.newBuilder()
         .setRoot(Directory.newBuilder()
             .addFiles(FileNode.newBuilder()
