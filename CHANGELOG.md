@@ -1,3 +1,172 @@
+## Release 0.8.1 (2017-12-05)
+
+```
+Baseline: cff0dc94f6a8e16492adf54c88d0b26abe903d4c
+
+Cherry picks:
+   + 8a49b156c4edf710e3e1e0acfde5a8d27cc3a086:
+     Fix ImportError on tools.android for junction_lib
+   + 275ae45b1228bdd0f912c4fbd634b29ba4180383:
+     Automated rollback of commit
+     4869c4e17d5b1410070a1570f3244148d8f97b5d.
+   + d0bf589f2716b3d139c210930371a684c6e158eb:
+     Add a random number to action temp dir
+   + 9738f35abddb7ef7a7ef314b5d2a52a3be1b830a:
+     CcProtoLibrary: Don't add dynamic librarys to filesToBuild on
+     Windows
+   + 0d6ff477099fdf6c8c1c7d4e2104f9184afe0a2b:
+     Automated rollback of commit
+     0ebb3e54fc890946ae6b3d059ecbd50e4b5ec840.
+   + 49008a3c90e65bc4abf5292af823a931b8f4e096:
+     Avoid NPEs when providers are not found in JavaInfo.
+   + f499ddc6cf2f1dc5610e04f6ab42c1d11bad7b80:
+     Added missed imports.
+```
+
+0.8.1rc3
+Cherry-picked https://github.com/bazelbuild/bazel/commit/49008a3c90e65bc4abf5292af823a931b8f4e096.
+Additional change to fix the missing imports.
+
+## Release 0.8.0 (2017-11-27)
+
+```
+Baseline: cff0dc94f6a8e16492adf54c88d0b26abe903d4c
+
+Cherry picks:
+   + 8a49b156c4edf710e3e1e0acfde5a8d27cc3a086:
+     Fix ImportError on tools.android for junction_lib
+   + 275ae45b1228bdd0f912c4fbd634b29ba4180383:
+     Automated rollback of commit
+     4869c4e17d5b1410070a1570f3244148d8f97b5d.
+   + d0bf589f2716b3d139c210930371a684c6e158eb:
+     Add a random number to action temp dir
+   + 9738f35abddb7ef7a7ef314b5d2a52a3be1b830a:
+     CcProtoLibrary: Don't add dynamic librarys to filesToBuild on
+     Windows
+   + 0d6ff477099fdf6c8c1c7d4e2104f9184afe0a2b:
+     Automated rollback of commit
+     0ebb3e54fc890946ae6b3d059ecbd50e4b5ec840.
+```
+
+Incompatible changes:
+
+  - ctx.fragments.apple.{xcode_version,ios_minimum_os} is not
+    supported anymore. The same information is accessible through the
+    target @bazel_tools//tools/osx:current_xcode_config: point an
+    implicit attribute to it (i.e.
+    attr.label(default=Label("@bazel_tools//tools/osx:current_xcode_co
+    nfig")) then use
+    ctx.attr._xcode_config[apple_common].XcodeVersionConfig].
+  - ctx.fragments.apple.minimum_os_for_platform_type is not supported
+    anymore. The same information is accessible through the target
+    @bazel_tools//tools/osx:current_xcode_config: point an implicit
+    attribute to it (i.e.
+    attr.label(default=Label("@bazel_tools//tools/osx:current_xcode_co
+    nfig")) then use
+    ctx.attr._xcode_config[apple_common].XcodeVersionConfig].minimum_o
+    s_for_platform_type .
+  - ctx.fragments.apple.sdk_version_for_platform is not supported
+    anymore. The same information is accessible through the target
+    @bazel_tools//tools/osx:current_xcode_config: point an implicit
+    attribute to it (i.e.
+    attr.label(default=Label("@bazel_tools//tools/osx:current_xcode_co
+    nfig")) then use
+    ctx.attr._xcode_config[apple_common].XcodeVersionConfig].sdk_versi
+    on_for_platform .
+  - --javabase=<absolute path> and --host_javabase=<absolute path>
+    are not supported anymore. If you need this functionality
+    java_runtime_suite(name="suite", default=":runtime")
+    java_runtime(name="runtime", java_home=<path to the JDK>) is an
+    alternative.
+  - The flag --incompatible_descriptive_string_representations is no
+    longer available, old style string representations of objects are
+    not supported
+    anymore.
+  - The flag --incompatible_disallow_set_constructor is no longer
+    available, the deprecated `set` constructor is not available
+    anymore.
+  - += on lists now mutates them. `list1 += list2` is now equivalent
+    to `list1.extend(list2)` and not equivalent to `list1 = list1 +
+    list2` anymore.
+  - the target_apple_env and apple_host_system_env methods on
+    ctx.fragments.apple are not supported anymore. The same
+    information is accessible through apple_common.target_apple_env
+    and apple_common.apple_host_system_env . They need the Xcode
+    configuration as an argument, which can be obtained by declaring
+    an implicit dependency on it (i.e.
+    attr.label(default=Label("@bazel_tools//tools/osx:current_xcode_co
+    nfig")) and then calling e.g.
+    apple_common.apple_host_system_env(ctx.attr._xcode_config[apple_co
+    mmon.XcodeVersionConfig]).
+  - C++ toolchain identifiers are not in the name of the output
+    directory anymore.
+  - Selecting on "xcode_version" and
+    "{ios,tvos,macos,watchos}_sdk_version" is not supported anymore.
+    What was config_setting(values={"$FOO_version": $VALUE}) is now
+    config_setting(flag_values={"@bazel_tools//tools/osx:$FOO_version_
+    flag": $VALUE}).
+  - Selecting on "xcode_version" and
+    "{ios,tvos,macos,watchos}_sdk_version" is not supported anymore.
+    What was config_setting(values={"$FOO_version": $VALUE}) is now
+    config_setting(flag_values={"@bazel_tools//tools/osx:$FOO_version_
+    flag": $VALUE}).
+  - The flag --incompatible_disallow_set_constructor is no longer
+    available, the deprecated `set` constructor is not available
+    anymore.
+  - Selecting on "xcode_version" and
+    "{ios,tvos,macos,watchos}_sdk_version" is not supported anymore.
+    What was config_setting(values={"$FOO_version": $VALUE}) is now
+    config_setting(flag_values={"@bazel_tools//tools/osx:$FOO_versi...
+
+New features:
+
+  - runfiles, sh: Shell scripts may now depend on
+    //src/tools/runfiles:runfiles_sh_lib and source runfiles.sh. The
+    script defines the `rlocation` function which returns runfile
+    paths on every platform.
+  - In addition to $(location), Bazel now also supports $(rootpath)
+    to obtain
+        the root-relative path (i.e., for runfiles locations), and
+    $(execpath) to
+        obtain the exec path (i.e., for build-time locations)
+
+Important changes:
+
+  - android_binary now supports custom debug keys via the debug_key
+    attribute.
+  - Updated Android proguard to 5.3.3. It now works with android-24+.
+  - --experimental_use_parallel_android_resource_processing and
+    --experimental_android_use_nocompress_extensions_on_apk are
+    removed. These features are fully rolled out.
+  - Fixes #2574
+  - Fixes #3834
+  - Enable experimental UI by default.
+  - .
+    RELNOTES: None.
+    RELNOTES: No.
+  - Add memory profiler.
+  - [Bazel] {java,cc}_proto_library now look for dependencies in
+    @com_google_protobuf, instead of in @com_google_protobuf_$LANG
+  - Improved merge.sh script in cookbook.
+  - Fixing regression to --experimental_remote_spawn_cache
+  - Support for linker scripts in NativeDepsHelper (e.g.,
+    android_binary)
+  - Skylark semantics flags now affect WORKSPACE files and repository
+    rules.
+  - ctx.outputs.executable is deprecated. Use DefaultInfo(executable
+    = ...) instead.
+  - Update "mirror.bazel.build" urls to use https.
+  - Improve --config logging when --announce_rc is present.
+  - Document interaction between test_suite and target exclusions
+  - Replace version numbers for Bazel installers with "<version>"
+    (because this will change often)
+  - Published command lines should have improved lists of effective
+    options.
+  - --incremental_dexing_binary_types has been removed. All builds
+    are supported by incremental dexing (modulo proguard and some
+    blacklisted dx flags).
+  - Document --host_javabase, --host_java_toolchain
+
 ## Release 0.7.0 (2017-10-18)
 
 ```
@@ -2048,6 +2217,8 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
+
 
 
 
