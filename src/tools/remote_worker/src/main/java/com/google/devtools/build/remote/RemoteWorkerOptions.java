@@ -130,6 +130,7 @@ public class RemoteWorkerOptions extends OptionsBase {
     help =
         "The maximum number of concurrent jobs to run. \"auto\" means to use a reasonable value"
             + " derived from the machine's hardware profile (e.g. the number of processors)."
+            + " \"cores\" means using number of available cpu cores."
             + " Values above " + MAX_JOBS + " are not allowed."
   )
   public int jobs;
@@ -156,8 +157,14 @@ public class RemoteWorkerOptions extends OptionsBase {
 
     @Override
     public Integer convert(String input) throws OptionsParsingException {
-      if (input.equals("auto")) {
-        int autoJobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
+      if (input.equals("auto") || input.equals("cores")) {
+        double cpuUsage;
+        if (input.equals("auto")) {
+          cpuUsage = LocalHostCapacity.getLocalHostCapacity().getCpuUsage();
+        } else {
+          cpuUsage = LocalHostCapacity.getLocalHostCapacity(1.0).getCpuUsage();
+        }
+        int autoJobs = (int) Math.ceil(cpuUsage);
         return Math.min(autoJobs, MAX_JOBS);
       } else {
         return super.convert(input);
