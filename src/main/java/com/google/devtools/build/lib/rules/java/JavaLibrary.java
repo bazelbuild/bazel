@@ -209,7 +209,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
     common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
-    common.addGenJarsProvider(builder, genClassJar, genSourceJar);
+
+    JavaGenJarsProvider javaGenJarsProvider =
+        common.createJavaGenJarsProvider(genClassJar, genSourceJar);
+    common.addJavaGenJarsProvider(builder, javaGenJarsProvider);
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
@@ -228,6 +231,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         // TODO(bazel-team): this should only happen for java_plugin
         .addProvider(JavaPluginInfoProvider.class, pluginInfoProvider)
+        .addProvider(JavaGenJarsProvider.class, javaGenJarsProvider)
         .build();
 
     builder

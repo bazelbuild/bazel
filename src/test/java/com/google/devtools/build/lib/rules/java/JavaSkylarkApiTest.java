@@ -987,7 +987,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         myRuleTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));
 
     @SuppressWarnings("unchecked")
-    SkylarkNestedSet sourceJars = (SkylarkNestedSet) (info.getValue("property"));
+    SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
 
     assertThat(prettyJarNames(sourceJars.getSet(Artifact.class)))
         .containsExactly(
@@ -1018,7 +1018,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         myRuleTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));
 
     @SuppressWarnings("unchecked")
-    SkylarkNestedSet sourceJars = (SkylarkNestedSet) (info.getValue("property"));
+    SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
 
     assertThat(prettyJarNames(sourceJars.getSet(Artifact.class)))
         .containsExactly(
@@ -1049,12 +1049,42 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         myRuleTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));
 
     @SuppressWarnings("unchecked")
-    SkylarkNestedSet sourceJars = (SkylarkNestedSet) (info.getValue("property"));
+    SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
 
     assertThat(prettyJarNames(sourceJars.getSet(Artifact.class)))
         .containsExactly(
             "foo/libmy_java_lib_a.jar", "foo/libmy_java_lib_b.jar", "foo/libmy_java_lib_c.jar");
   }
+
+
+  @Test
+  public void testJavaInfoGetGenJarsProvider() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(property = ctx.attr.dep[JavaInfo].annotation_processing)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
+        "javacopts = ['-processor com.google.process.Processor'])",
+        "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    Info info = myRuleTarget.get(
+        new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));
+
+    JavaGenJarsProvider javaGenJarsProvider = (JavaGenJarsProvider) info.getValue("property");
+
+    assertThat(javaGenJarsProvider.getGenClassJar().getFilename())
+        .isEqualTo("libmy_java_lib_a-gen.jar");
+    assertThat(javaGenJarsProvider.getGenSourceJar().getFilename())
+        .isEqualTo("libmy_java_lib_a-gensrc.jar");
+  }
+
 
   @Test
   public void strictDepsEnabled() throws Exception {

@@ -428,11 +428,15 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
 
     common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
-    common.addGenJarsProvider(builder, genClassJar, genSourceJar);
+
+    JavaGenJarsProvider javaGenJarsProvider =
+        common.createJavaGenJarsProvider(genClassJar, genSourceJar);
+    common.addJavaGenJarsProvider(builder, javaGenJarsProvider);
 
     JavaInfo javaInfo = JavaInfo.Builder.create()
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .addProvider(JavaGenJarsProvider.class, javaGenJarsProvider)
         .build();
 
     return builder

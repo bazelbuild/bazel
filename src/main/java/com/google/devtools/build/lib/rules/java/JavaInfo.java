@@ -59,7 +59,8 @@ public final class JavaInfo extends NativeInfo {
         ProtoJavaApiInfoAspectProvider.class,
         JavaRuleOutputJarsProvider.class,
         JavaRunfilesProvider.class,
-        JavaPluginInfoProvider.class
+        JavaPluginInfoProvider.class,
+        JavaGenJarsProvider.class
       );
 
   private final TransitiveInfoProviderMap providers;
@@ -287,6 +288,16 @@ public final class JavaInfo extends NativeInfo {
     return getProvider(JavaRuleOutputJarsProvider.class);
   }
 
+
+  @SkylarkCallable(
+      name = "annotation_processing",
+      structField = true,
+      allowReturnNones = true,
+      doc = "Returns information about annotation processing for this Java target."
+  )
+  public JavaGenJarsProvider getGenJarsProvider() {
+    return getProvider(JavaGenJarsProvider.class);
+  }
 
   @SkylarkCallable(
     name = "transitive_deps",

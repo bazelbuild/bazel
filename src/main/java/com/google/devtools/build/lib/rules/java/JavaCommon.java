@@ -737,20 +737,22 @@ public class JavaCommon {
         /*withBaselineCoverage*/!TargetUtils.isTestRule(ruleContext.getTarget()));
   }
 
-  public void addGenJarsProvider(
+  public JavaGenJarsProvider createJavaGenJarsProvider(
+      @Nullable Artifact genClassJar, @Nullable Artifact genSourceJar) {
+    return collectTransitiveGenJars(
+        javaCompilationHelper.usesAnnotationProcessing(), genClassJar, genSourceJar);
+  }
+
+  public void addJavaGenJarsProvider(
       RuleConfiguredTargetBuilder builder,
-      @Nullable Artifact genClassJar,
-      @Nullable Artifact genSourceJar) {
-    JavaGenJarsProvider genJarsProvider = collectTransitiveGenJars(
-        javaCompilationHelper.usesAnnotationProcessing(),
-        genClassJar, genSourceJar);
+      JavaGenJarsProvider javaGenJarsProvider) {
 
     NestedSetBuilder<Artifact> genJarsBuilder = NestedSetBuilder.stableOrder();
-    genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenClassJars());
-    genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenSourceJars());
+    genJarsBuilder.addTransitive(javaGenJarsProvider.getTransitiveGenClassJars());
+    genJarsBuilder.addTransitive(javaGenJarsProvider.getTransitiveGenSourceJars());
 
     builder
-        .add(JavaGenJarsProvider.class, genJarsProvider)
+        .addProvider(javaGenJarsProvider)
         .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJarsBuilder.build());
   }
 
