@@ -1,4 +1,9 @@
-package(default_visibility = ["//tools:__pkg__"])
+package(default_visibility = ["//tools:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + ["//tools/android/emulator:srcs"],
+)
 
 py_binary(
     name = "merge_manifests",
@@ -24,9 +29,7 @@ py_binary(
 
 sh_test(
     name = "build_incremental_dexmanifest_test",
-    srcs = [
-        "build_incremental_dexmanifest_test.sh",
-    ],
+    srcs = ["build_incremental_dexmanifest_test.sh"],
     args = ["$(location //tools/zip:zipper)"],
     data = [
         ":build_incremental_dexmanifest",
@@ -71,7 +74,9 @@ py_test(
 py_binary(
     name = "strip_resources",
     srcs = ["strip_resources.py"],
-    deps = ["//third_party/py/gflags"],
+    deps = [
+        "//third_party/py/gflags",
+    ],
 )
 
 sh_test(
@@ -86,9 +91,7 @@ sh_test(
 
 py_binary(
     name = "aar_native_libs_zip_creator",
-    srcs = [
-        "aar_native_libs_zip_creator.py",
-    ],
+    srcs = ["aar_native_libs_zip_creator.py"],
     deps = [
         ":junction_lib",
         "//third_party/py/gflags",
@@ -97,12 +100,8 @@ py_binary(
 
 py_test(
     name = "aar_native_libs_zip_creator_test",
-    srcs = [
-        "aar_native_libs_zip_creator_test.py",
-    ],
-    deps = [
-        ":aar_native_libs_zip_creator",
-    ],
+    srcs = ["aar_native_libs_zip_creator_test.py"],
+    deps = [":aar_native_libs_zip_creator"],
 )
 
 py_binary(
@@ -121,6 +120,22 @@ py_test(
     ],
 )
 
+sh_binary(
+    name = "zip_manifest_creator",
+    srcs = ["zip_manifest_creator.sh"],
+    data = ["//tools/zip:zipper"],
+)
+
+sh_test(
+    name = "zip_manifest_creator_test",
+    srcs = ["zip_manifest_creator_test.sh"],
+    args = ["$(location //tools/zip:zipper)"],
+    data = [
+        ":zip_manifest_creator",
+        "//tools/zip:zipper",
+    ],
+)
+
 py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
@@ -133,7 +148,10 @@ py_binary(
 py_test(
     name = "aar_embedded_jars_extractor_test",
     srcs = ["aar_embedded_jars_extractor_test.py"],
-    deps = [":aar_embedded_jars_extractor"],
+    deps = [
+        ":aar_embedded_jars_extractor",
+        "//third_party/py/gflags",
+    ],
 )
 
 py_binary(
@@ -159,13 +177,14 @@ py_binary(
 py_test(
     name = "resource_extractor_test",
     srcs = ["resource_extractor_test.py"],
-    deps = [":resource_extractor"],
+    deps = [
+        ":resource_extractor",
+    ],
 )
 
 py_library(
     name = "junction_lib",
     srcs = ["junction.py"],
-    visibility = ["//visibility:private"],
 )
 
 py_test(
@@ -184,11 +203,6 @@ py_test(
         ":junction_lib",
         "//src/test/py/bazel:test_base",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]) + ["//tools/android/emulator:srcs"],
 )
 
 filegroup(
