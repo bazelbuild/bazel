@@ -19,7 +19,6 @@ import static org.junit.Assert.fail;
 
 import com.android.dex.ClassDef;
 import com.android.dex.Dex;
-import com.android.dex.DexException;
 import com.android.dx.command.dexer.DxContext;
 import com.android.dx.dex.code.PositionList;
 import com.google.common.base.Function;
@@ -68,21 +67,21 @@ public class DexFileMergerTest {
   }
 
   @Test
-  public void testMergeDexArchive_duplicateInputFails() throws Exception {
+  public void testMergeDexArchive_duplicateInputDeduped() throws Exception {
     Path dexArchive = buildDexArchive();
-    try {
-      runDexFileMerger(
-          256 * 256,
-          /*forceJumbo=*/ false,
-          "duplicate.dex.zip",
-          MultidexStrategy.MINIMAL,
-          /*mainDexList=*/ null,
-          /*minimalMainDex=*/ false,
-          DEX_PREFIX,
-          dexArchive,
-          dexArchive);  // input Jar twice to induce failure
-      fail("DexException expected");
-    } catch (DexException expected) {}
+    Path outputArchive = runDexFileMerger(
+        256 * 256,
+        /*forceJumbo=*/ false,
+        "duplicate.dex.zip",
+        MultidexStrategy.MINIMAL,
+        /*mainDexList=*/ null,
+        /*minimalMainDex=*/ false,
+        DEX_PREFIX,
+        dexArchive,
+        dexArchive);  // input Jar twice to induce duplicates
+
+    int expectedClassCount = matchingFileCount(dexArchive, ".*\\.class.dex$");
+    assertSingleDexOutput(expectedClassCount, outputArchive, "classes.dex");
   }
 
   /** Similar to {@link #testMergeDexArchive_singleOutputDex} but uses --multidex=given_shard. */

@@ -47,6 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -82,8 +83,8 @@ class DexFileMerger {
       converter = ExistingPathConverter.class,
       abbrev = 'i',
       help = "Input archives with .dex files to merge.  Inputs are processed in given order, so "
-          + "classes from later inputs will be added after earlier inputs.  Classes mustn't appear "
-          + "more than once."
+          + "classes from later inputs will be added after earlier inputs.  Duplicate classes "
+          + "are dropped."
     )
     public List<Path> inputArchives;
 
@@ -232,27 +233,29 @@ class DexFileMerger {
         System.setOut(Dexing.nullout);
       }
 
+      HashSet<String> seen = new HashSet<>();
       for (Path inputArchive : options.inputArchives) {
         // Simply merge files from inputs in order.  Doing that with a main dex list doesn't work,
         // but we rule out more than one input with a main dex list above.
         try (ZipFile zip = new ZipFile(inputArchive.toFile())) {
           ArrayList<ZipEntry> dexFiles = filesToProcess(zip);
           if (classesInMainDex == null) {
-            processDexFiles(zip, dexFiles, out);
+            processDexFiles(zip, dexFiles, seen, out);
           } else {
             // To honor --main_dex_list make two passes:
             // 1. process only the classes listed in the given file
             // 2. process the remaining files
             Predicate<ZipEntry> mainDexFilter =
                 ZipEntryPredicates.classFileFilter(classesInMainDex);
-            processDexFiles(zip, Iterables.filter(dexFiles, mainDexFilter), out);
+            processDexFiles(zip, Iterables.filter(dexFiles, mainDexFilter), seen, out);
             // Fail if main_dex_list is too big, following dx's example
             checkState(out.getDexFilesWritten() == 0, "Too many classes listed in main dex list "
                 + "file %s, main dex capacity exceeded", options.mainDexListFile);
             if (options.minimalMainDex) {
               out.flush(); // Start new .dex file if requested
             }
-            processDexFiles(zip, Iterables.filter(dexFiles, Predicates.not(mainDexFilter)), out);
+            processDexFiles(
+                zip, Iterables.filter(dexFiles, Predicates.not(mainDexFilter)), seen, out);
           }
         }
       }
@@ -279,11 +282,15 @@ class DexFileMerger {
   }
 
   private static void processDexFiles(
-      ZipFile zip, Iterable<ZipEntry> filesToProcess, DexFileAggregator out) throws IOException {
+      ZipFile zip, Iterable<ZipEntry> filesToProcess, HashSet<String> seen, DexFileAggregator out)
+      throws IOException {
     for (ZipEntry entry : filesToProcess) {
       String filename = entry.getName();
+      checkState(filename.endsWith(".dex"), "Input shouldn't contain .class files: %s", filename);
+      if (!seen.add(filename)) {
+        continue;  // pick first occurrence of each file to match how JVM treats dupes on classpath
+      }
       try (InputStream content = zip.getInputStream(entry)) {
-        checkState(filename.endsWith(".dex"), "Input shouldn't contain .class files: %s", filename);
         // We don't want to use the Dex(InputStream) constructor because it closes the stream,
         // which will break the for loop, and it has its own bespoke way of reading the file into
         // a byte buffer before effectively calling Dex(byte[]) anyway.
