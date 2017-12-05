@@ -522,7 +522,7 @@ java_import(
 
 java_import(
     name = "turbine",
-    jars = ["turbine/turbine-0.1-20170828.jar"],
+    jars = ["turbine/turbine-0.1-20171205.jar"],
 )
 
 java_import(
