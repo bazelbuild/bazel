@@ -175,7 +175,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
                 executableForRunfiles,
                 instrumentationMetadata,
                 javaArtifactsBuilder,
-                mainClass);
+                mainClass,
+                ruleContext.getConfiguration().isExperimentalJavaCoverage());
       }
     } else {
       filesBuilder.add(classJar);
@@ -262,6 +263,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               jvmFlags,
               executableForRunfiles,
               mainClass,
+              originalMainClass,
+              filesBuilder,
               javaExecutable);
       if (!executableToRun.equals(executableForRunfiles)) {
         filesBuilder.add(executableToRun);
@@ -526,7 +529,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
     semantics.addDependenciesForRunfiles(ruleContext, builder);
 
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
+        && !ruleContext.getConfiguration().isExperimentalJavaCoverage()) {
       Artifact instrumentedJar = javaArtifacts.getInstrumentedJar();
       if (instrumentedJar != null) {
         builder.addArtifact(instrumentedJar);

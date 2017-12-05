@@ -168,14 +168,15 @@ public final class JavaCompilationHelper {
    *        (null if no sources will be generated).
    * @param outputDepsProto the compiler-generated jdeps file to create with the Action
    *        (null if not requested)
-   * @param outputMetadata metadata file (null if no instrumentation is needed).
+   * @param instrumentationMetadataJar metadata file (null if no instrumentation is needed or if
+   * --experimental_java_coverage is true).
    */
   public void createCompileAction(
       Artifact outputJar,
       Artifact manifestProtoOutput,
       @Nullable Artifact gensrcOutputJar,
       @Nullable Artifact outputDepsProto,
-      @Nullable Artifact outputMetadata) {
+      @Nullable Artifact instrumentationMetadataJar) {
 
     JavaTargetAttributes attributes = getAttributes();
 
@@ -196,6 +197,7 @@ public final class JavaCompilationHelper {
     }
 
     JavaCompileAction.Builder builder = createJavaCompileActionBuilder(semantics);
+    builder.setArtifactForExperimentalCoverage(maybeCreateExperimentalCoverageArtifact(outputJar));
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(getBootclasspathOrDefault());
     builder.setSourcePathEntries(attributes.getSourcePath());
@@ -208,7 +210,7 @@ public final class JavaCompilationHelper {
     builder.setGensrcOutputJar(gensrcOutputJar);
     builder.setOutputDepsProto(outputDepsProto);
     builder.setAdditionalOutputs(attributes.getAdditionalOutputs());
-    builder.setMetadata(outputMetadata);
+    builder.setMetadata(instrumentationMetadataJar);
     builder.setInstrumentationJars(jacocoInstrumentation);
     builder.setSourceFiles(attributes.getSourceFiles());
     builder.addSourceJars(attributes.getSourceJars());
@@ -250,6 +252,26 @@ public final class JavaCompilationHelper {
     } else {
       return getBootClasspath();
     }
+  }
+
+  /**
+   * Creates an {@link Artifact} needed by {@code JacocoCoverageRunner} when
+   * {@code --experimental_java_coverage} is true.
+   *
+   * <p> The {@link Artifact} is created in the same directory as the given {@code compileJar} and
+   * has the suffix {@code -paths-for-coverage.txt}.
+   *
+   * <p> Returns {@code null} if {@code compileJar} should not be instrumented.
+   */
+  private Artifact maybeCreateExperimentalCoverageArtifact(Artifact compileJar) {
+    if (!shouldInstrumentJar() || !getConfiguration().isExperimentalJavaCoverage()) {
+      return null;
+    }
+    PathFragment packageRelativePath =
+        compileJar.getRootRelativePath().relativeTo(ruleContext.getPackageDirectory());
+    PathFragment path =
+        FileSystemUtils.replaceExtension(packageRelativePath, "-paths-for-coverage.txt");
+    return ruleContext.getPackageRelativeArtifact(path, compileJar.getRoot());
   }
 
   /**
@@ -299,6 +321,10 @@ public final class JavaCompilationHelper {
   @Nullable
   public Artifact createInstrumentationMetadata(Artifact outputJar,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder) {
+    // In the experimental java coverage we don't create the .em jar for instrumentation.
+    if (getConfiguration().isExperimentalJavaCoverage()) {
+      return null;
+    }
     // If we need to instrument the jar, add additional output (the coverage metadata file) to the
     // JavaCompileAction.
     Artifact instrumentationMetadata = null;

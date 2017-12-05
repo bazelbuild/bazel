@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -511,6 +512,7 @@ public final class JavaCompileAction extends SpawnAction {
     private Collection<Artifact> additionalOutputs;
     private Artifact paramFile;
     private Artifact metadata;
+    private Artifact artifactForExperimentalCoverage;
     private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
     private final Collection<Artifact> sourceJars = new ArrayList<>();
     private BuildConfiguration.StrictDepsMode strictJavaDeps =
@@ -625,6 +627,11 @@ public final class JavaCompileAction extends SpawnAction {
               semantics.getJavaBuilderMainClass(),
               pathSeparator);
 
+      if (artifactForExperimentalCoverage != null) {
+        analysisEnvironment.registerAction(new LazyWritePathsFileAction(
+            owner, artifactForExperimentalCoverage, sourceFiles, false));
+      }
+
       // The actual params-file-based command line executed for a compile action.
       CommandLine javaBuilderCommandLine =
           CustomCommandLine.builder()
@@ -640,7 +647,7 @@ public final class JavaCompileAction extends SpawnAction {
               .addAll(instrumentationJars)
               .build();
 
-      NestedSet<Artifact> inputs =
+      NestedSetBuilder<Artifact> inputsBuilder =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(classpathEntries)
               .addTransitive(compileTimeDependencyArtifacts)
@@ -652,8 +659,11 @@ public final class JavaCompileAction extends SpawnAction {
               .addAll(sourcePathEntries)
               .addAll(extdirInputs)
               .add(paramFile)
-              .addTransitive(tools)
-              .build();
+              .addTransitive(tools);
+      if (artifactForExperimentalCoverage != null) {
+        inputsBuilder.add(artifactForExperimentalCoverage);
+      }
+      NestedSet<Artifact> inputs = inputsBuilder.build();
 
       return new JavaCompileAction(
           owner,
@@ -768,9 +778,13 @@ public final class JavaCompileAction extends SpawnAction {
           }
         }
       }
-      if (metadata != null) {
+
+      // Chose what artifact to pass to JavaBuilder, as input to jacoco instrumentation processor.
+      // metadata should be null when --experimental_java_coverage is true.
+      Artifact coverageArtifact = metadata != null ? metadata : artifactForExperimentalCoverage;
+      if (coverageArtifact != null) {
         result.add("--post_processor");
-        result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, metadata);
+        result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, coverageArtifact);
         result.addPath(
             configuration
                 .getCoverageMetadataDirectory(targetLabel.getPackageIdentifier().getRepository())
@@ -1003,6 +1017,11 @@ public final class JavaCompileAction extends SpawnAction {
 
     public Builder setInstrumentationJars(Iterable<Artifact> instrumentationJars) {
       this.instrumentationJars = ImmutableList.copyOf(instrumentationJars);
+      return this;
+    }
+
+    public Builder setArtifactForExperimentalCoverage(Artifact artifactForExperimentalCoverage) {
+      this.artifactForExperimentalCoverage = artifactForExperimentalCoverage;
       return this;
     }
 

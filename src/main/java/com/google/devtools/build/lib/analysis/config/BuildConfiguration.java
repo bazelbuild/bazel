@@ -665,6 +665,16 @@ public class BuildConfiguration implements BuildEvent {
     public boolean collectCodeCoverage;
 
     @Option(
+        name = "experimental_java_coverage",
+        defaultValue = "false",
+        category = "testing",
+        documentationCategory  = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags =  { OptionEffectTag.AFFECTS_OUTPUTS },
+        help = "If true Bazel will use a new way of computing code coverage for java targets."
+    )
+    public boolean experimentalJavaCoverage;
+
+    @Option(
       name = "coverage_support",
       converter = LabelConverter.class,
       defaultValue = "@bazel_tools//tools/test:coverage_support",
@@ -1906,6 +1916,10 @@ public class BuildConfiguration implements BuildEvent {
           + "ctx.coverage_instrumented</code></a> function.")
   public boolean isCodeCoverageEnabled() {
     return options.collectCodeCoverage;
+  }
+
+  public boolean isExperimentalJavaCoverage() {
+    return options.experimentalJavaCoverage;
   }
 
   public boolean isLLVMCoverageMapFormatEnabled() {

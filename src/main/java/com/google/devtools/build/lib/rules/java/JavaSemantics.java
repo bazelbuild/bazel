@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -45,8 +47,10 @@ import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistry
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.File;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -84,6 +88,9 @@ public interface JavaSemantics {
       fromTemplates("%{name}_proguard.config");
   SafeImplicitOutputsFunction JAVA_ONE_VERSION_ARTIFACT =
       fromTemplates("%{name}-one-version.txt");
+
+  SafeImplicitOutputsFunction JAVA_COVERAGE_RUNTIME_CLASS_PATH_TXT =
+      fromTemplates("%{name}-runtime-classpath.txt");
 
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
       fromTemplates("%{name}_deploy-src.jar");
@@ -212,6 +219,35 @@ public interface JavaSemantics {
 
   String IJAR_LABEL = "//tools/defaults:ijar";
 
+  String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
+  String JACOCO_MAIN_CLASS_PLACEHOLDER = "%set_jacoco_main_class%";
+  String JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER = "%set_jacoco_java_runfiles_root%";
+
+  /**
+   * Substitution for exporting the jars needed for jacoco coverage.
+   */
+  class ComputedJacocoSubstitution extends ComputedSubstitution {
+    private final NestedSet<Artifact> jars;
+    private final String pathPrefix;
+
+    public ComputedJacocoSubstitution(NestedSet<Artifact> jars, String workspacePrefix) {
+      super(JACOCO_METADATA_PLACEHOLDER);
+      this.jars = jars;
+      this.pathPrefix = "${JAVA_RUNFILES}/" + workspacePrefix;
+    }
+
+    /**
+     * Concatenating the root relative paths of the artifacts. Each relative path entry is prepended
+     * with "${JAVA_RUNFILES}" and the workspace prefix.
+     */
+    @Override
+    public String getValue() {
+      return Streams.stream(jars)
+          .map(artifact -> pathPrefix + "/" + artifact.getRootRelativePathString())
+          .collect(Collectors.joining(File.pathSeparator, "export JACOCO_METADATA_JARS=", ""));
+    }
+  }
+
   /**
    * Verifies if the rule contains any errors.
    *
@@ -293,6 +329,24 @@ public interface JavaSemantics {
       String javaExecutable);
 
   /**
+   * Same as {@link #createStubAction(RuleContext, JavaCommon, List, Artifact, String, String)}.
+   *
+   * <p> In *experimental* coverage mode creates a txt file containing the runtime jars names.
+   * {@code JacocoCoverageRunner} will use it to retrieve the name of the jars considered for
+   * collecting coverage. {@code JacocoCoverageRunner} will *not* collect coverage implicitly
+   * for all the runtime jars, only for those that pack a file ending in "-paths-for-coverage.txt".
+   */
+  public Artifact createStubAction(
+      RuleContext ruleContext,
+      JavaCommon javaCommon,
+      List<String> jvmFlags,
+      Artifact executable,
+      String javaStartClass,
+      String coverageStartClass,
+      NestedSetBuilder<Artifact> filesBuilder,
+      String javaExecutable);
+
+  /**
    * Returns true if {@code createStubAction} considers {@code javaExecutable} as a substitution.
    * Returns false if {@code createStubAction} considers {@code javaExecutable} as a file path.
    */
@@ -342,6 +396,23 @@ public interface JavaSemantics {
       Artifact instrumentationMetadata,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       String mainClass)
+      throws InterruptedException;
+
+  /**
+   * Same as {@link #addCoverageSupport(JavaCompilationHelper, JavaTargetAttributes.Builder,
+   * Artifact, Artifact, JavaCompilationArtifacts.Builder, String)}.
+   *
+   * <p> In *experimental* coverage mode omits dealing with instrumentation metadata and does not
+   * create the instrumented jar.
+   */
+  String addCoverageSupport(
+      JavaCompilationHelper helper,
+      JavaTargetAttributes.Builder attributes,
+      Artifact executable,
+      Artifact instrumentationMetadata,
+      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
+      String mainClass,
+      boolean isExperimentalCoverage)
       throws InterruptedException;
 
   /**
