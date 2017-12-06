@@ -99,6 +99,7 @@ public class DexFileSplitterTest {
     ImmutableList<Path> outputArchives =
         runDexSplitter(
             200,
+            /*inclusionFilterJar=*/ null,
             "main_dex_list",
             MAIN_DEX_LIST_FILE,
             /*minimalMainDex=*/ false,
@@ -117,6 +118,7 @@ public class DexFileSplitterTest {
     ImmutableList<Path> outputArchives =
         runDexSplitter(
             256 * 256,
+            /*inclusionFilterJar=*/ null,
             "minimal_main_dex",
             MAIN_DEX_LIST_FILE,
             /*minimalMainDex=*/ true,
@@ -127,6 +129,24 @@ public class DexFileSplitterTest {
     assertThat(dexEntries(outputArchives.get(0)))
         .containsExactlyElementsIn(expectedMainDexEntries());
     assertExpectedEntries(outputArchives, expectedEntries);
+  }
+
+  @Test
+  public void testInclusionFilterJar() throws Exception {
+    Path dexArchive = buildDexArchive();
+    Path dexArchive2 = buildDexArchive(INPUT_JAR2, "jar2.dex.zip");
+    ImmutableList<Path> outputArchives =
+        runDexSplitter(
+            256 * 256,
+            INPUT_JAR2,
+            "filtered",
+            /*mainDexList=*/ null,
+            /*minimalMainDex=*/ false,
+            dexArchive,
+            dexArchive2);
+
+    // Only expect entries from the Jar we filtered by
+    assertExpectedEntries(outputArchives, dexEntries(dexArchive2));
   }
 
   private static Iterable<String> expectedMainDexEntries() throws IOException {
@@ -146,6 +166,7 @@ public class DexFileSplitterTest {
     try {
       runDexSplitter(
           200,
+          /*inclusionFilterJar=*/ null,
           "should_fail",
           /*mainDexList=*/ null,
           /*minimalMainDex=*/ true,
@@ -183,6 +204,7 @@ public class DexFileSplitterTest {
       Path... dexArchives) throws IOException {
     return runDexSplitter(
         maxNumberOfIdxPerDex,
+        /*inclusionFilterJar=*/ null,
         outputRoot,
         /*mainDexList=*/ null,
         /*minimalMainDex=*/ false,
@@ -191,6 +213,7 @@ public class DexFileSplitterTest {
 
   private ImmutableList<Path> runDexSplitter(
       int maxNumberOfIdxPerDex,
+      @Nullable Path inclusionFilterJar,
       String outputRoot,
       @Nullable Path mainDexList,
       boolean minimalMainDex,
@@ -203,6 +226,7 @@ public class DexFileSplitterTest {
     options.maxNumberOfIdxPerDex = maxNumberOfIdxPerDex;
     options.mainDexListFile = mainDexList;
     options.minimalMainDex = minimalMainDex;
+    options.inclusionFilterJar = inclusionFilterJar;
     DexFileSplitter.splitIntoShards(options);
     assertThat(options.outputDirectory.toFile().exists()).isTrue();
     ImmutableSet<Path> files =

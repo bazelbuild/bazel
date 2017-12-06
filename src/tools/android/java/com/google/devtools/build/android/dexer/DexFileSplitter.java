@@ -20,10 +20,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.android.dex.Dex;
 import com.android.dex.DexFormat;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -46,6 +46,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -118,6 +120,17 @@ class DexFileSplitter implements Closeable {
       help = "Limit on fields and methods in a single dex file."
     )
     public int maxNumberOfIdxPerDex;
+
+    @Option(
+      name = "inclusion_filter_jar",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ExistingPathConverter.class,
+      help = "If given, only classes in the given Jar are included in outputs."
+    )
+    public Path inclusionFilterJar;
   }
 
   public static void main(String[] args) throws Exception {
@@ -141,9 +154,12 @@ class DexFileSplitter implements Closeable {
       Files.createDirectories(options.outputDirectory);
     }
 
-    ImmutableSet<String> classesInMainDex = options.mainDexListFile != null
-        ? ImmutableSet.copyOf(Files.readAllLines(options.mainDexListFile, UTF_8))
-        : null;
+    ImmutableSet<String> classesInMainDex =
+        options.mainDexListFile != null
+            ? ImmutableSet.copyOf(Files.readAllLines(options.mainDexListFile, UTF_8))
+            : null;
+    ImmutableSet<String> expected =
+        options.inclusionFilterJar != null ? expectedEntries(options.inclusionFilterJar) : null;
     try (Closer closer = Closer.create();
         DexFileSplitter out =
             new DexFileSplitter(options.outputDirectory, options.maxNumberOfIdxPerDex)) {
@@ -152,11 +168,15 @@ class DexFileSplitter implements Closeable {
       // if presented with a single jar containing all the given inputs.
       // TODO(kmb): Abandon alphabetic sorting to process each input fully before moving on (still
       // requires scanning inputs twice for main dex list).
+      Predicate<ZipEntry> inclusionFilter = ZipEntryPredicates.suffixes(".dex", ".class");
+      if (expected != null) {
+        inclusionFilter = inclusionFilter.and(e -> expected.contains(e.getName()));
+      }
       LinkedHashMap<String, ZipFile> deduped = new LinkedHashMap<>();
       for (Path inputArchive : options.inputArchives) {
         ZipFile zip = closer.register(new ZipFile(inputArchive.toFile()));
         zip.stream()
-            .filter(ZipEntryPredicates.suffixes(".dex", ".class"))
+            .filter(inclusionFilter)
             .forEach(e -> deduped.putIfAbsent(e.getName(), zip));
       }
       ImmutableList<Map.Entry<String, ZipFile>> files =
@@ -165,6 +185,13 @@ class DexFileSplitter implements Closeable {
               .stream()
               .sorted(Comparator.comparing(e -> e.getKey(), ZipEntryComparator::compareClassNames))
               .collect(ImmutableList.toImmutableList());
+      if (expected != null) {
+        ImmutableSet<String> actual =
+            files.stream().map(e -> e.getKey()).collect(ImmutableSet.toImmutableSet());
+        Set<String> difference = Sets.difference(expected, actual);
+        checkState(difference.isEmpty(),
+            "--inclusion_filter_jar given but didn't find: %s", difference);
+      }
 
       // 2. Process each class in desired order, rolling from shard to shard as needed.
       if (classesInMainDex == null || classesInMainDex.isEmpty()) {
@@ -181,8 +208,17 @@ class DexFileSplitter implements Closeable {
         if (options.minimalMainDex) {
           out.nextShard(); // Start new .dex file if requested
         }
-        out.processDexFiles(files, Predicates.not(mainDexFilter));
+        out.processDexFiles(files, mainDexFilter.negate());
       }
+    }
+  }
+
+  private static ImmutableSet<String> expectedEntries(Path filterJar) throws IOException {
+    try (ZipFile zip = new ZipFile(filterJar.toFile())) {
+      return zip.stream()
+          .filter(ZipEntryPredicates.suffixes(".class"))
+          .map(e -> e.getName() + ".dex")
+          .collect(ImmutableSet.toImmutableSet());
     }
   }
 
@@ -235,7 +271,7 @@ class DexFileSplitter implements Closeable {
       throws IOException {
     for (Map.Entry<String, ZipFile> entry : filesToProcess) {
       String filename = entry.getKey();
-      if (filter.apply(filename)) {
+      if (filter.test(filename)) {
         ZipFile zipFile = entry.getValue();
         processDexEntry(zipFile, zipFile.getEntry(filename));
       }
