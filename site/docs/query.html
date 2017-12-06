@@ -220,6 +220,31 @@ title: Query Language
   <code>dir/...</code>, etc.
 </p>
 
+<h3 id='sky-query'>Sky Query</h3>
+
+<p>
+  Query has two different implementations, with slightly different features. The alternative one is
+  called "Sky Query", and is activated by passing the following two flags:
+  <code>--universe_scope</code> and <code>--order_output=no</code>.
+  <code>--universe_scope=&lt;target_pattern1&gt;,...,&lt;target_patternN&gt;</code> tells query to
+  preload the transitive closure of the target pattern specified by the target patterns, which can
+  be both additive and subtractive. All queries are then evaluated in this "scope". In particular,
+  the <a href='#allrdeps'><code>allrdeps</code></a> and
+  <a href='#rbuildfiles'><code>rbuildfiles</code></a> operators only return results from this scope.
+</p>
+
+<p>
+  Sky Query has some advantages and disadvantages compared to the default query. The main
+  disadvantage is that it cannot order its output according to graph order, and thus certain
+  <a href='#output-formats'>output formats</a> are forbidden. Its advantages are that it provides
+  two operators (<a href='#allrdeps'><code>allrdeps</code></a> and
+  <a href='#rbuildfiles'><code>rbuildfiles</code></a>) that are not available in the default query.
+  As well, Sky Query does its work by introspecting the
+  <a href='https://bazel.build/designs/skyframe.html'>Skyframe</a> graph, rather than creating a new
+  graph, which is what the default implementation does. Thus, there are some circumstances in which
+  it is faster and uses less memory.
+</p>
+
 <h2>Expressions: syntax and semantics of the grammar</h2>
 
 <p>
@@ -479,6 +504,7 @@ x intersect (y union z)</pre>
 <a href="#attr">attr</a><br/>
 
 <a href="#buildfiles">buildfiles</a><br/>
+<a href="#rbuildfiles">rbuildfiles</a><br/>
 
 <a href="#deps">deps</a><br/>
 <a href="#filter">filter</a><br/>
@@ -486,6 +512,7 @@ x intersect (y union z)</pre>
 <a href="#labels">labels</a><br/>
 <a href="#loadfiles">loadfiles</a><br/>
 <a href="#rdeps">rdeps</a><br/>
+<a href="#allrdeps">allrdeps</a><br/>
 <a href="#siblings">siblings</a><br/>
 <a href="#some">some</a><br/>
 <a href="#path-operators">somepath</a><br/>
@@ -556,6 +583,18 @@ x intersect (y union z)</pre>
   <code>//common</code>.  (These numbers correspond to the ranks shown in the
   <a href='#output-ranked'><code>minrank</code></a> output format.)  If the
   <var>depth</var> parameter is omitted, the search is unbounded.
+</p>
+
+<h3 id="allrdeps">Transitive closure of all reverse dependencies: allrdeps</h3>
+<pre>expr ::= allrdeps(<var>expr</var>)
+       | allrdeps(<var>expr</var>, <var>depth</var>)</pre>
+<b>Only available with <a href='#sky-query'>Sky Query</a></b><br/>
+<p>
+  The <code>allrdeps</code> operator behaves just like the <a href='#rdeps'><code>rdeps</code></a>
+  operator, except that the "universe set" is whatever the <code>--universe_scope</code> flag
+  evaluated to, instead of being separately specified. Thus, if
+  <code>--universe_scope=//foo/...</code> was passed, then <code>allrdeps(//bar)</code> is
+  equivalent to <code>rdeps(//bar, //foo/...)</code>.
 </p>
 
 <h3 id="siblings">Dealing with a target's package: siblings</h3>
@@ -953,10 +992,8 @@ genrule(
   The <code>buildfiles(<var>x</var>)</code> operator returns the set
   of files that define the packages of each target in
   set <var>x</var>; in other words, for each package, its BUILD file,
-  plus any files it references
-
-  via <code>load</code>.  Note that this also returns the BUILD files of the
-  packages containing these <code>load</code>ed files.
+  plus any files it references via <code>load</code>.  Note that this also returns the BUILD files
+  of the packages containing these <code>load</code>ed files.
 </p>
 
 <p>
@@ -976,9 +1013,41 @@ genrule(
   the <code>buildfiles</code> operator and use only <code>deps</code>,
   but this yields an incorrect result: while the result contains the
   majority of needed packages, those packages that contain only files
-  that are <code>load()</code>'ed
+  that are <code>load()</code>'ed will be missing.
+</p>
 
-  will be missing.
+<h3 id="rbuildfiles">Package definition files: rbuildfiles</h3>
+<pre>expr ::= buildfiles(<var>expr</var>)</pre>
+<b>Only available with <a href='#sky-query'>Sky Query</a></b><br/>
+<p>
+  The <code>rbuildfiles(<var>x</var>)</code> operator returns the set of "buildfiles" (BUILD and
+  .bzl files) that depend on <var>x</var>, where <var>x</var> is a list of path fragments for
+  buildfiles. For instance, if <code>//foo</code> is a package, then
+  <code>rbuildfiles(foo/BUILD)</code> will return the <code>//foo:BUILD</code> target. If the
+  <code>foo/BUILD</code> file has <code>load('//bar:file.bzl'...</code> in it, then
+  <code>rbuildfiles(bar/file.bzl)</code> will return the <code>//foo:BUILD</code> target and the
+  <code>//bar:file.bzl</code> target, as well as the targets for any other BUILD files and .bzl
+  files that load <code>//bar:file.bzl</code>
+</p>
+
+<p>
+  The scope of the <scope>rbuildfiles</scope> operator is the universe specified by the
+  <code>--universe_scope</code> flag. Files that do not correspond directly to BUILD files and .bzl
+  files do not affect the results. For instance, source files (like <code>foo.cc</code>) are ignored,
+  even if they are explicitly mentioned in the BUILD file. Symlinks, however, are respected, so that
+  if <code>foo/BUILD</code> is a symlink to <code>bar/BUILD</code>, then
+  <code>rbuildfiles(bar/BUILD)</code> will include <code>//foo:BUILD</code> in its results.
+</p>
+
+<p>
+  The <code>rbuildfiles</code> operator is morally the inverse of the
+  <a href='#buildfiles'><code>buildfiles</code></a> operator. However, this moral inversion
+  holds more strongly in one direction: the outputs of <code>rbuildfiles</code> are just like the
+  inputs of <code>buildfiles</code>, since both are targets corresponding to packages and .bzl
+  files. In the other direction, the correspondence is weaker. The outputs of the
+  <code>buildfiles</code> operator are targets corresponding to all packages and .bzl files needed
+  by a given input. However, the inputs of the <code>rbuildfiles</code> operator are not those
+  targets, but rather the path fragments that correspond to those targets.
 </p>
 
 <h3 id="loadfiles">Package definition files: loadfiles</h3>
@@ -990,7 +1059,7 @@ genrule(
   .bzl files that are referenced from its BUILD files.
 </p>
 
-<h2>Output formats</h2>
+<h2 id='output-formats'>Output formats</h2>
 
 <p>
   <code>bazel query</code> generates a graph.
@@ -999,6 +1068,12 @@ genrule(
   by means of the <code>--output</code>
   command-line option.
  </p>
+
+<p>
+  When running with <a href='sky-query'>Sky Query</a>, only output formats that are compatible with
+  unordered output are allowed. Specifically, <code>graph</code>, <code>minrank</code>, and
+  <code>maxrank</code> output formats are forbidden.
+</p>
 
 <p>
   Some of the output formats accept additional options.  The name of
