@@ -32,6 +32,8 @@ py_test(
     ],
     data = [":archive_testdata"],
     srcs_version = "PY2AND3",
+    # archive.py requires xzcat, which is not available by default on Mac
+    tags = ["noci"],
     deps = [":archive"],
 )
 
@@ -216,6 +218,8 @@ sh_test(
         ":test-tar-xz.tar.xz",
         ":titi_test_all.changes",
     ],
+    # archive.py requires xzcat, which is not available by default on Mac
+    tags = ["noci"],
     deps = [
         "//src/test/shell:bashunit",
     ],
