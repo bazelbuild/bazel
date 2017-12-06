@@ -613,10 +613,8 @@ public class BuildView {
     }
 
     Set<ConfiguredTarget> targetsToSkip =
-        TopLevelConstraintSemantics.checkTargetEnvironmentRestrictions(
-            skyframeAnalysisResult.getConfiguredTargets(),
-            skyframeExecutor.getPackageManager(),
-            eventHandler);
+        new TopLevelConstraintSemantics(skyframeExecutor.getPackageManager(), eventHandler)
+            .checkTargetEnvironmentRestrictions(skyframeAnalysisResult.getConfiguredTargets());
 
     AnalysisResult result =
         createResult(
