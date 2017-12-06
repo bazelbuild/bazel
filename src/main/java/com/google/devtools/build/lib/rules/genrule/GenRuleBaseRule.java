@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -68,7 +67,7 @@ public class GenRuleBaseRule implements RuleDefinition {
       @Override
       public Object getDefault(AttributeMap rule) {
         return GenRuleBase.requiresCrosstool(rule.get("cmd", Type.STRING))
-            ? CppHelper.getCcToolchainType(env.getToolsRepository())
+            ? CppRuleClasses.ccToolchainTypeAttribute(env)
             : null;
       }
     };

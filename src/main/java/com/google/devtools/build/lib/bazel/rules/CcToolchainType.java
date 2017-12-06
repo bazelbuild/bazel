@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppHelper;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /** A toolchain type for the c++ toolchain. */
 public class CcToolchainType extends ToolchainType {
@@ -39,7 +39,7 @@ public class CcToolchainType extends ToolchainType {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
-          .addRequiredToolchains(CppHelper.getCcToolchainType(environment.getToolsRepository()))
+          .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))
           .add(attr("$tools_repo", STRING).value(environment.getToolsRepository()))
           .removeAttribute("licenses")
           .removeAttribute("distribs")
