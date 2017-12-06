@@ -23,44 +23,129 @@ import java.util.Optional;
 
 /** Provides execution statistics (e.g. resource usage) for external commands. */
 public final class ExecutionStatistics {
-  private final com.google.devtools.build.lib.shell.Protos.ExecutionStatistics
-      executionStatisticsProto;
-
   /**
    * Provides execution statistics based on a {@code execution_statistics.proto} file.
    *
    * @param executionStatisticsProtoPath path to a materialized ExecutionStatistics proto
+   * @return a {@link ResourceUsage} object containing execution statistics, if available
    */
-  public ExecutionStatistics(String executionStatisticsProtoPath) throws IOException {
-    try (InputStream protoInputStream =
-        new BufferedInputStream(new FileInputStream(executionStatisticsProtoPath))) {
-      executionStatisticsProto =
-          com.google.devtools.build.lib.shell.Protos.ExecutionStatistics.parseFrom(
-              protoInputStream);
-    }
-  }
-
-  /** Returns the user time for command execution, if available. */
-  public Optional<Duration> getUserExecutionTime() {
+  public static Optional<ResourceUsage> getResourceUsage(String executionStatisticsProtoPath)
+      throws IOException {
+    InputStream protoInputStream =
+        new BufferedInputStream(new FileInputStream(executionStatisticsProtoPath));
+    com.google.devtools.build.lib.shell.Protos.ExecutionStatistics executionStatisticsProto =
+        com.google.devtools.build.lib.shell.Protos.ExecutionStatistics.parseFrom(protoInputStream);
     if (executionStatisticsProto.hasResourceUsage()) {
-      return Optional.of(
-          Duration.ofSeconds(
-              executionStatisticsProto.getResourceUsage().getUtimeSec(),
-              executionStatisticsProto.getResourceUsage().getUtimeUsec() * 1000));
+      return Optional.of(new ResourceUsage(executionStatisticsProto.getResourceUsage()));
     } else {
       return Optional.empty();
     }
   }
 
-  /** Returns the system time for command execution, if available. */
-  public Optional<Duration> getSystemExecutionTime() {
-    if (executionStatisticsProto.hasResourceUsage()) {
-      return Optional.of(
-          Duration.ofSeconds(
-              executionStatisticsProto.getResourceUsage().getStimeSec(),
-              executionStatisticsProto.getResourceUsage().getStimeUsec() * 1000));
-    } else {
-      return Optional.empty();
+  /**
+   * Provides resource usage statistics for command execution, derived from the getrusage() system
+   * call.
+   */
+  public static class ResourceUsage {
+    private final com.google.devtools.build.lib.shell.Protos.ResourceUsage resourceUsageProto;
+
+    /** Provides resource usage statistics via a ResourceUsage proto object. */
+    public ResourceUsage(
+        com.google.devtools.build.lib.shell.Protos.ResourceUsage resourceUsageProto) {
+      this.resourceUsageProto = resourceUsageProto;
+    }
+
+    /** Returns the user time for command execution, if available. */
+    public Duration getUserExecutionTime() {
+      return Duration.ofSeconds(
+          resourceUsageProto.getUtimeSec(), resourceUsageProto.getUtimeUsec() * 1000);
+    }
+
+    /** Returns the system time for command execution, if available. */
+    public Duration getSystemExecutionTime() {
+      return Duration.ofSeconds(
+          resourceUsageProto.getStimeSec(), resourceUsageProto.getStimeUsec() * 1000);
+    }
+
+    /** Returns the maximum resident set size (in bytes) during command execution, if available. */
+    public long getMaximumResidentSetSize() {
+      return resourceUsageProto.getMaxrss();
+    }
+
+    /**
+     * Returns the integral shared memory size (in bytes) during command execution, if available.
+     */
+    public long getIntegralSharedMemorySize() {
+      return resourceUsageProto.getIxrss();
+    }
+
+    /**
+     * Returns the integral unshared data size (in bytes) during command execution, if available.
+     */
+    public long getIntegralUnsharedDataSize() {
+      return resourceUsageProto.getIdrss();
+    }
+
+    /**
+     * Returns the integral unshared stack size (in bytes) during command execution, if available.
+     */
+    public long getIntegralUnsharedStackSize() {
+      return resourceUsageProto.getIsrss();
+    }
+
+    /**
+     * Returns the number of page reclaims (soft page faults) during command execution, if
+     * available.
+     */
+    public long getPageReclaims() {
+      return resourceUsageProto.getMinflt();
+    }
+
+    /** Returns the number of (hard) page faults during command execution, if available. */
+    public long getPageFaults() {
+      return resourceUsageProto.getMajflt();
+    }
+
+    /** Returns the number of swaps during command execution, if available. */
+    public long getSwaps() {
+      return resourceUsageProto.getNswap();
+    }
+
+    /** Returns the number of block input operations during command execution, if available. */
+    public long getBlockInputOperations() {
+      return resourceUsageProto.getInblock();
+    }
+
+    /** Returns the number of block output operations during command execution, if available. */
+    public long getBlockOutputOperations() {
+      return resourceUsageProto.getOublock();
+    }
+
+    /** Returns the number of IPC messages sent during command execution, if available. */
+    public long getIpcMessagesSent() {
+      return resourceUsageProto.getMsgsnd();
+    }
+
+    /** Returns the number of IPC messages received during command execution, if available. */
+    public long getIpcMessagesReceived() {
+      return resourceUsageProto.getMsgrcv();
+    }
+
+    /** Returns the number of signals received during command execution, if available. */
+    public long getSignalsReceived() {
+      return resourceUsageProto.getNsignals();
+    }
+
+    /** Returns the number of voluntary context switches during command execution, if available. */
+    public long getVoluntaryContextSwitches() {
+      return resourceUsageProto.getNvcsw();
+    }
+
+    /**
+     * Returns the number of involuntary context switches during command execution, if available.
+     */
+    public long getInvoluntaryContextSwitches() {
+      return resourceUsageProto.getNivcsw();
     }
   }
 }

@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.shell;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 
-import com.google.devtools.build.lib.shell.Protos.ResourceUsage;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.time.Duration;
+import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,30 +29,9 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ExecutionStatistics}. */
 @RunWith(JUnit4.class)
 public final class ExecutionStatisticsTest {
-
-  private com.google.devtools.build.lib.shell.Protos.ExecutionStatistics
-      makeExecutionStatisticsProto(Duration userExecutionTime, Duration systemExecutionTime) {
-    ResourceUsage resourceUsage =
-        ResourceUsage.newBuilder()
-            .setUtimeSec(userExecutionTime.getSeconds())
-            .setUtimeUsec((long) (userExecutionTime.getNano() / 1000))
-            .setStimeSec(systemExecutionTime.getSeconds())
-            .setStimeUsec((long) (systemExecutionTime.getNano() / 1000))
-            .build();
-
-    return com.google.devtools.build.lib.shell.Protos.ExecutionStatistics.newBuilder()
-        .setResourceUsage(resourceUsage)
-        .build();
-  }
-
-  @Test
-  public void testStatiticsProvided_fromProtoFilename() throws Exception {
-    Duration riggedUserExecutionTime = Duration.ofSeconds(42).plusNanos(19790000);
-    Duration riggedSystemExecutionTime = Duration.ofSeconds(33).plusNanos(290000);
-
-    com.google.devtools.build.lib.shell.Protos.ExecutionStatistics executionStatisticsProto =
-        makeExecutionStatisticsProto(riggedUserExecutionTime, riggedSystemExecutionTime);
-
+  private String createExecutionStatisticsProtoFile(
+      com.google.devtools.build.lib.shell.Protos.ExecutionStatistics executionStatisticsProto)
+      throws Exception {
     byte[] protoBytes = executionStatisticsProto.toByteArray();
     File encodedProtoFile = File.createTempFile("encoded_action_execution_proto", "");
     String protoFilename = encodedProtoFile.getPath();
@@ -59,10 +39,92 @@ public final class ExecutionStatisticsTest {
         new BufferedOutputStream(new FileOutputStream(encodedProtoFile))) {
       bufferedOutputStream.write(protoBytes);
     }
+    return protoFilename;
+  }
 
-    ExecutionStatistics executionStatistics = new ExecutionStatistics(protoFilename);
+  @Test
+  public void testNoResourceUsage_whenNoResourceUsageProto() throws Exception {
+    com.google.devtools.build.lib.shell.Protos.ExecutionStatistics executionStatisticsProto =
+        com.google.devtools.build.lib.shell.Protos.ExecutionStatistics.getDefaultInstance();
+    String protoFilename = createExecutionStatisticsProtoFile(executionStatisticsProto);
 
-    assertThat(executionStatistics.getUserExecutionTime()).hasValue(riggedUserExecutionTime);
-    assertThat(executionStatistics.getSystemExecutionTime()).hasValue(riggedSystemExecutionTime);
+    Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
+        ExecutionStatistics.getResourceUsage(protoFilename);
+    assertThat(resourceUsage).isEmpty();
+  }
+
+  @Test
+  public void testStatiticsProvided_fromProtoFilename() throws Exception {
+    Duration riggedUserExecutionTime = Duration.ofSeconds(42).plusNanos(19790000);
+    Duration riggedSystemExecutionTime = Duration.ofSeconds(33).plusNanos(290000);
+    long riggedMaximumResidentSetSize = 1;
+    long riggedIntegralSharedMemorySize = 2;
+    long riggedIntegralUnsharedDataSize = 3;
+    long riggedIntegralUnsharedStackSize = 4;
+    long riggedPageReclaims = 5;
+    long riggedPageFaults = 6;
+    long riggedSwaps = 7;
+    long riggedBlockInputOperations = 8;
+    long riggedBlockOutputOperations = 9;
+    long riggedIpcMessagesSent = 10;
+    long riggedIpcMessagesReceived = 11;
+    long riggedSignalsReceived = 12;
+    long riggedVoluntaryContextSwitches = 13;
+    long riggedInvoluntaryContextSwitches = 14;
+
+    com.google.devtools.build.lib.shell.Protos.ResourceUsage resourceUsageProto =
+        com.google.devtools.build.lib.shell.Protos.ResourceUsage.newBuilder()
+            .setUtimeSec(riggedUserExecutionTime.getSeconds())
+            .setUtimeUsec((long) (riggedUserExecutionTime.getNano() / 1000))
+            .setStimeSec(riggedSystemExecutionTime.getSeconds())
+            .setStimeUsec((long) (riggedSystemExecutionTime.getNano() / 1000))
+            .setMaxrss(riggedMaximumResidentSetSize)
+            .setIxrss(riggedIntegralSharedMemorySize)
+            .setIdrss(riggedIntegralUnsharedDataSize)
+            .setIsrss(riggedIntegralUnsharedStackSize)
+            .setMinflt(riggedPageReclaims)
+            .setMajflt(riggedPageFaults)
+            .setNswap(riggedSwaps)
+            .setInblock(riggedBlockInputOperations)
+            .setOublock(riggedBlockOutputOperations)
+            .setMsgsnd(riggedIpcMessagesSent)
+            .setMsgrcv(riggedIpcMessagesReceived)
+            .setNsignals(riggedSignalsReceived)
+            .setNvcsw(riggedVoluntaryContextSwitches)
+            .setNivcsw(riggedInvoluntaryContextSwitches)
+            .build();
+
+    com.google.devtools.build.lib.shell.Protos.ExecutionStatistics executionStatisticsProto =
+        com.google.devtools.build.lib.shell.Protos.ExecutionStatistics.newBuilder()
+            .setResourceUsage(resourceUsageProto)
+            .build();
+    String protoFilename = createExecutionStatisticsProtoFile(executionStatisticsProto);
+
+    Optional<ExecutionStatistics.ResourceUsage> maybeResourceUsage =
+        ExecutionStatistics.getResourceUsage(protoFilename);
+    assertThat(maybeResourceUsage).isPresent();
+    ExecutionStatistics.ResourceUsage resourceUsage = maybeResourceUsage.get();
+
+    assertThat(resourceUsage.getUserExecutionTime()).isEqualTo(riggedUserExecutionTime);
+    assertThat(resourceUsage.getSystemExecutionTime()).isEqualTo(riggedSystemExecutionTime);
+    assertThat(resourceUsage.getMaximumResidentSetSize()).isEqualTo(riggedMaximumResidentSetSize);
+    assertThat(resourceUsage.getIntegralSharedMemorySize())
+        .isEqualTo(riggedIntegralSharedMemorySize);
+    assertThat(resourceUsage.getIntegralUnsharedDataSize())
+        .isEqualTo(riggedIntegralUnsharedDataSize);
+    assertThat(resourceUsage.getIntegralUnsharedStackSize())
+        .isEqualTo(riggedIntegralUnsharedStackSize);
+    assertThat(resourceUsage.getPageReclaims()).isEqualTo(riggedPageReclaims);
+    assertThat(resourceUsage.getPageFaults()).isEqualTo(riggedPageFaults);
+    assertThat(resourceUsage.getSwaps()).isEqualTo(riggedSwaps);
+    assertThat(resourceUsage.getBlockInputOperations()).isEqualTo(riggedBlockInputOperations);
+    assertThat(resourceUsage.getBlockOutputOperations()).isEqualTo(riggedBlockOutputOperations);
+    assertThat(resourceUsage.getIpcMessagesSent()).isEqualTo(riggedIpcMessagesSent);
+    assertThat(resourceUsage.getIpcMessagesReceived()).isEqualTo(riggedIpcMessagesReceived);
+    assertThat(resourceUsage.getSignalsReceived()).isEqualTo(riggedSignalsReceived);
+    assertThat(resourceUsage.getVoluntaryContextSwitches())
+        .isEqualTo(riggedVoluntaryContextSwitches);
+    assertThat(resourceUsage.getInvoluntaryContextSwitches())
+        .isEqualTo(riggedInvoluntaryContextSwitches);
   }
 }

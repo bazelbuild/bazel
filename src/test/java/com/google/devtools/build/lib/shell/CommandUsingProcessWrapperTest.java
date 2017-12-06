@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -96,15 +97,15 @@ public final class CommandUsingProcessWrapperTest {
     CommandResult commandResult = command.execute();
     assertThat(commandResult.getTerminationStatus().success()).isTrue();
 
-    ExecutionStatistics executionStatistics = new ExecutionStatistics(statisticsFilePath);
+    Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
+        ExecutionStatistics.getResourceUsage(statisticsFilePath);
+    assertThat(resourceUsage).isPresent();
 
-    assertThat(executionStatistics.getUserExecutionTime()).isPresent();
-    Duration userTime = executionStatistics.getUserExecutionTime().get();
+    Duration userTime = resourceUsage.get().getUserExecutionTime();
     assertThat(userTime).isAtLeast(userTimeLowerBound);
     assertThat(userTime).isAtMost(userTimeUpperBound);
 
-    assertThat(executionStatistics.getSystemExecutionTime()).isPresent();
-    Duration systemTime = executionStatistics.getSystemExecutionTime().get();
+    Duration systemTime = resourceUsage.get().getSystemExecutionTime();
     assertThat(systemTime).isAtLeast(systemTimeLowerBound);
     assertThat(systemTime).isAtMost(systemTimeUpperBound);
   }
