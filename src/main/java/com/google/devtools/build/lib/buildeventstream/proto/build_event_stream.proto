@@ -514,6 +514,12 @@ message TestResult {
     // "remote")
     string strategy = 2;
 
+    // True, if the reported attempt was a cache hit in a remote cache.
+    bool cached_remotely = 6;
+
+    // The exit code of the test action.
+    int32 exit_code = 7;
+
     // The hostname of the machine where the test action was executed (in case
     // of remote execution), if known.
     string hostname = 3;
