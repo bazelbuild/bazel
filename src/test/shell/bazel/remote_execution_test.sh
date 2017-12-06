@@ -437,7 +437,7 @@ function test_directory_artifact_local() {
 function test_directory_artifact() {
   set_directory_artifact_testfixtures
 
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -450,7 +450,7 @@ function test_directory_artifact() {
 function test_directory_artifact_grpc_cache() {
   set_directory_artifact_testfixtures
 
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
@@ -462,7 +462,7 @@ function test_directory_artifact_grpc_cache() {
 function test_directory_artifact_rest_cache() {
   set_directory_artifact_testfixtures
 
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
       //a:test >& $TEST_log \
@@ -567,7 +567,7 @@ EOF
 #This will never run, because the remote side is not reachable.
 EOF
   chmod +x a/test.sh
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=bazel.does.not.exist:1234 \
       --noexperimental_remote_retry \
