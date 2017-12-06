@@ -1,5 +1,8 @@
 package(
-    default_visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
+    default_visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+        "//tools/test:__pkg__",
+    ],
 )
 
 # Tests for Windows-specific functionality that can run cross-platform.

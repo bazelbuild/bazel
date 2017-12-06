@@ -81,7 +81,7 @@ def _macos_sdk_version_flag_impl(ctx):
   return struct(providers = [
       config_common.FeatureFlagInfo(value = _strip_version(
           xcode_config.sdk_version_for_platform(
-              apple_common.platform.macos_device)))])
+              apple_common.platform.macos)))])
 
 
 xcode_version_flag = rule(
