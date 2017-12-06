@@ -1,4 +1,4 @@
-package(default_visibility = ["//tools:__subpackages__"])
+package(default_visibility = ["//tools/android:__pkg__"])
 
 filegroup(
     name = "srcs",
