@@ -140,10 +140,10 @@ http_archive(
 http_archive(
     name = "com_googlesource_code_re2",
     urls = [
-        "https://github.com/google/re2/archive/2017-08-01.tar.gz",
+        "https://github.com/google/re2/archive/2017-12-01.tar.gz",
     ],
-    strip_prefix = "re2-2017-08-01",
-    sha256 = "938723dc197125392698c5fcf41acb74877866ff140b81fd50b7314bf26f1636",
+    strip_prefix = "re2-2017-12-01",
+    sha256 = "62797e7cd7cc959419710cd25b075b5f5b247da0e8214d47bf5af9b32128fb0d",
 )
 
 # For src/test/shell/bazel:bazel_sandboxing_test
