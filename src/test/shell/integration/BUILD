@@ -296,10 +296,20 @@ sh_test(
     ],
 )
 
+package_group(
+    name = "spend_cpu_time_users",
+    packages = [
+        "//src/test/java/com/google/devtools/build/lib/...",
+    ],
+)
+
 cc_binary(
     name = "spend_cpu_time",
     testonly = 1,
     srcs = ["spend_cpu_time.cc"],
+    visibility = [
+        ":spend_cpu_time_users",
+    ],
 )
 
 ########################################################################

@@ -57,6 +57,7 @@ public final class ProcessWrapperUtil {
     private Optional<String> stderrPath;
     private Optional<Duration> timeout;
     private Optional<Duration> killDelay;
+    private Optional<String> statisticsPath;
     private Optional<List<String>> commandArguments;
     private Optional<String> processWrapperPath;
 
@@ -65,6 +66,7 @@ public final class ProcessWrapperUtil {
       this.stderrPath = Optional.empty();
       this.timeout = Optional.empty();
       this.killDelay = Optional.empty();
+      this.statisticsPath = Optional.empty();
       this.commandArguments = Optional.empty();
       this.processWrapperPath = Optional.empty();
     }
@@ -93,6 +95,12 @@ public final class ProcessWrapperUtil {
      */
     public CommandLineBuilder setKillDelay(Duration killDelay) {
       this.killDelay = Optional.of(killDelay);
+      return this;
+    }
+
+    /** Sets the path for writing execution statistics (e.g. resource usage). */
+    public CommandLineBuilder setStatisticsPath(String statisticsPath) {
+      this.statisticsPath = Optional.of(statisticsPath);
       return this;
     }
 
@@ -128,6 +136,9 @@ public final class ProcessWrapperUtil {
       }
       if (stderrPath.isPresent()) {
         fullCommandLine.add("--stderr=" + stderrPath.get());
+      }
+      if (statisticsPath.isPresent()) {
+        fullCommandLine.add("--stats=" + statisticsPath.get());
       }
 
       fullCommandLine.addAll(commandArguments.get());

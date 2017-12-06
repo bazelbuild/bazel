@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
+import com.google.common.collect.ImmutableList;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,9 +30,7 @@ public final class ProcessWrapperUtilTest {
 
   @Test
   public void testProcessWrapperCommandLineBuilder_ProcessWrapperPathIsRequired() {
-    List<String> commandArguments = new ArrayList<>();
-    commandArguments.add("echo");
-    commandArguments.add("hello, world");
+    ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, world");
 
     Exception e =
         expectThrows(
@@ -62,13 +60,10 @@ public final class ProcessWrapperUtilTest {
   public void testProcessWrapperCommandLineBuilder_BuildsWithoutOptionalArguments() {
     String processWrapperPath = "process-wrapper";
 
-    List<String> commandArguments = new ArrayList<>();
-    commandArguments.add("echo");
-    commandArguments.add("hello, world");
+    ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, world");
 
-    List<String> expectedCommandLine = new ArrayList<>();
-    expectedCommandLine.add(processWrapperPath);
-    expectedCommandLine.addAll(commandArguments);
+    ImmutableList<String> expectedCommandLine =
+        ImmutableList.<String>builder().add(processWrapperPath).addAll(commandArguments).build();
 
     List<String> commandLine =
         ProcessWrapperUtil.commandLineBuilder()
@@ -83,22 +78,24 @@ public final class ProcessWrapperUtilTest {
   public void testProcessWrapperCommandLineBuilder_BuildsWithOptionalArguments() {
     String processWrapperPath = "process-wrapper";
 
-    List<String> commandArguments = new ArrayList<>();
-    commandArguments.add("echo");
-    commandArguments.add("hello, world");
+    ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, world");
 
     Duration timeout = Duration.ofSeconds(10);
     Duration killDelay = Duration.ofSeconds(2);
     String stdoutPath = "stdout.txt";
     String stderrPath = "stderr.txt";
+    String statisticsPath = "stats.out";
 
-    List<String> expectedCommandLine = new ArrayList<>();
-    expectedCommandLine.add(processWrapperPath);
-    expectedCommandLine.add("--timeout=" + timeout.getSeconds());
-    expectedCommandLine.add("--kill_delay=" + killDelay.getSeconds());
-    expectedCommandLine.add("--stdout=" + stdoutPath);
-    expectedCommandLine.add("--stderr=" + stderrPath);
-    expectedCommandLine.addAll(commandArguments);
+    ImmutableList<String> expectedCommandLine =
+        ImmutableList.<String>builder()
+            .add(processWrapperPath)
+            .add("--timeout=" + timeout.getSeconds())
+            .add("--kill_delay=" + killDelay.getSeconds())
+            .add("--stdout=" + stdoutPath)
+            .add("--stderr=" + stderrPath)
+            .add("--stats=" + statisticsPath)
+            .addAll(commandArguments)
+            .build();
 
     List<String> commandLine =
         ProcessWrapperUtil.commandLineBuilder()
@@ -108,6 +105,7 @@ public final class ProcessWrapperUtilTest {
             .setKillDelay(killDelay)
             .setStdoutPath(stdoutPath)
             .setStderrPath(stderrPath)
+            .setStatisticsPath(statisticsPath)
             .build();
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine);

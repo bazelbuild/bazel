@@ -734,6 +734,8 @@ java_test(
     ]),
     data = [
         ":shell/killmyself",
+        "//src/main/tools:process-wrapper",
+        "//src/test/shell/integration:spend_cpu_time",
     ],
     flaky = True,
     tags = [
@@ -746,8 +748,11 @@ java_test(
         ":test_runner",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/protobuf:execution_statistics_java_proto",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
