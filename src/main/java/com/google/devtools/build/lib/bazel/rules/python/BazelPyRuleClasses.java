@@ -64,8 +64,7 @@ public final class BazelPyRuleClasses {
           Attributes common to all build rules</a>.
           These can be
           <a href="${link py_binary}"><code>py_binary</code></a> rules,
-          <a href="${link py_library}"><code>py_library</code></a> rules or
-          <a href="${link cc_library}"><code>cc_library</code></a> rules,
+          <a href="${link py_library}"><code>py_library</code></a> rules.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(builder.copy("deps")
               .legacyMandatoryProviders(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME)
