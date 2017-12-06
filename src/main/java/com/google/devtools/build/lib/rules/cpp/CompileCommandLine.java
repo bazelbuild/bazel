@@ -57,7 +57,7 @@ public final class CompileCommandLine {
     this.cppConfiguration = Preconditions.checkNotNull(cppConfiguration);
     this.variables = variables;
     this.actionName = actionName;
-    this.dotdFile = isGenerateDotdFile(sourceFile) ? Preconditions.checkNotNull(dotdFile) : null;
+    this.dotdFile = isGenerateDotdFile(sourceFile) ? dotdFile : null;
   }
 
   /** Returns true if Dotd file should be generated. */

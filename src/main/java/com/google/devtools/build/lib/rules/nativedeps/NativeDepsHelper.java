@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.nativedeps;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
@@ -47,7 +49,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Helper class to create a dynamic library for rules which support integration with native code.
@@ -185,8 +186,8 @@ public abstract class NativeDepsHelper {
     List<String> linkopts = new ArrayList<>(extraLinkOpts);
     linkopts.addAll(linkParams.flattenedLinkopts());
 
-    Map<Artifact, NestedSet<Artifact>> linkstamps =
-        CppHelper.resolveLinkstamps(ruleContext, linkParams);
+    CppHelper.checkLinkstampsUnique(ruleContext, linkParams);
+    ImmutableSet<Linkstamp> linkstamps = ImmutableSet.copyOf(linkParams.getLinkstamps());
     List<Artifact> buildInfoArtifacts = linkstamps.isEmpty()
         ? ImmutableList.<Artifact>of()
         : ruleContext.getAnalysisEnvironment().getBuildInfo(
@@ -196,10 +197,16 @@ public abstract class NativeDepsHelper {
     NestedSet<LibraryToLink> linkerInputs = linkParams.getLibraries();
     Artifact sharedLibrary;
     if (shareNativeDeps) {
-      PathFragment sharedPath = getSharedNativeDepsPath(
-          LinkerInputs.toLibraryArtifacts(linkerInputs),
-          linkopts, linkstamps.keySet(), buildInfoArtifacts,
-          ruleContext.getFeatures());
+      PathFragment sharedPath =
+          getSharedNativeDepsPath(
+              LinkerInputs.toLibraryArtifacts(linkerInputs),
+              linkopts,
+              linkstamps
+                  .stream()
+                  .map(Linkstamp::getArtifact)
+                  .collect(ImmutableList.toImmutableList()),
+              buildInfoArtifacts,
+              ruleContext.getFeatures());
       libraryIdentifier = sharedPath.getPathString();
       sharedLibrary = ruleContext.getShareableArtifact(
           sharedPath.replaceName(sharedPath.getBaseName() + ".so"),
