@@ -416,18 +416,21 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             Path buildFileForSubinclude =
                 packageProvider.getBuildFileForPackage(
                     subincludeTarget.getLabel().getLabel().getPackageIdentifier());
-            Label buildFileLabel =
-                Label.createUnvalidated(
-                    subincludeTarget.getLabel().getLabel().getPackageIdentifier(),
-                    buildFileForSubinclude.getBaseName());
-            addIfUniqueLabel(
-                getNode(new FakeLoadTarget(buildFileLabel, pkg)), seenLabels, dependentFiles);
+            if (buildFileForSubinclude != null) {
+              Label buildFileLabel =
+                  Label.createUnvalidated(
+                      subincludeTarget.getLabel().getLabel().getPackageIdentifier(),
+                      buildFileForSubinclude.getBaseName());
+              addIfUniqueLabel(
+                  getNode(new FakeLoadTarget(buildFileLabel, pkg)), seenLabels, dependentFiles);
+            }
           }
         }
       }
     }
     return dependentFiles;
   }
+
   @Override
   protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
       throws TargetParsingException, InterruptedException {
