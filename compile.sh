@@ -28,7 +28,8 @@ set -o errexit
 # when running "find".
 hash tr >&/dev/null || {
   echo >&2 "ERROR: cannot locate GNU coreutils; check your PATH."
-  echo >&2 "       (You may need to run 'export PATH=/bin:/usr/bin:\$PATH)'"
+  echo >&2 "       You may need to run the following command:"
+  echo >&2 "         export PATH=\"/bin:/usr/bin:\$PATH\""
   exit 1
 }
 
@@ -38,8 +39,9 @@ case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
   which python.exe >&/dev/null || {
     echo >&2 "ERROR: cannot locate python.exe; check your PATH."
-    echo >&2 "       (You may need to run 'export PATH=/c/Python27:\$PATH)' or similar,"
-    echo >&2 "       depending on where you installed Python)."
+    echo >&2 "       You may need to run the following command, or something"
+    echo >&2 "       similar, depending on where you installed Python:"
+    echo >&2 "         export PATH=\"/c/Python27:\$PATH\""
     exit 1
   }
 esac
