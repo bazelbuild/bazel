@@ -457,6 +457,30 @@ EOF
   expect_not_log "//foo:BUILD$"
 }
 
+function test_buildfile_in_genquery() {
+  mkdir -p papaya
+  cat > papaya/BUILD <<EOF
+exports_files(['papaya.bzl'])
+EOF
+  cat > papaya/papaya.bzl <<EOF
+foo = 1
+EOF
+  mkdir -p honeydew
+  cat > honeydew/BUILD <<EOF
+load('//papaya:papaya.bzl', 'foo')
+sh_library(name='honeydew', deps=[':pineapple'])
+sh_library(name='pineapple')
+genquery(name='q',
+         scope=[':honeydew'],
+         strict=0,
+         expression='buildfiles(//honeydew:all)')
+EOF
+
+  bazel build //honeydew:q >& $TEST_log || fail "Expected success"
+  cat bazel-bin/honeydew/q > $TEST_log
+  expect_log_once "^//honeydew:BUILD$"
+}
+
 function tear_down() {
   bazel shutdown
 }
