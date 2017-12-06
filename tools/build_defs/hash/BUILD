@@ -21,3 +21,10 @@ exports_files(
     ["hash.bzl"],
     visibility = ["//visibility:public"],
 )
+
+sh_test(
+    name = "sha256_test",
+    srcs = ["sha256_test.sh"],
+    data = ["sha256"],
+    size = "small",
+)
