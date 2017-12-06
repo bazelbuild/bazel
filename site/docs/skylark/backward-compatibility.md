@@ -57,7 +57,7 @@ called). Enable this flag to confirm that your code does not still refer to the
 old `set` constructor from unexecuted code.
 
 *   Flag: `--incompatible_disallow_uncalled_set_constructor`
-*   Default: `false`
+*   Default: `true`
 
 
 ### Keyword-only arguments
