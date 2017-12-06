@@ -428,6 +428,7 @@ java_library(
             "analysis/BuildInfo.java",
             "analysis/TransitiveInfoProvider.java",
             "analysis/config/BuildConfigurationOptionDetails.java",
+            "rules/repository/CoreWorkspaceRules.java",
         ],
     ) + [
         "runtime/BlazeServerStartupOptions.java",
@@ -505,6 +506,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:build-info",
         "//src/main/java/com/google/devtools/build/lib:core-rules",
+        "//src/main/java/com/google/devtools/build/lib:core-workspace-rules",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:java-compilation",
         "//src/main/java/com/google/devtools/build/lib:java-rules",
@@ -886,6 +888,23 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//third_party:guava",
+    ],
+)
+
+# TODO(bazel-team): Include in the srcs the implementations of the rules inside
+# CoreWorkspaceRules.java once they can be extracted from the "build-base" target. They can't be
+# extracted currently because of non-trivial inter-package dependencies.
+java_library(
+    name = "core-workspace-rules",
+    srcs = [
+        "rules/repository/CoreWorkspaceRules.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:core-rules",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:util",
         "//third_party:guava",
     ],
 )

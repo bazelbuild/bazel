@@ -163,10 +163,8 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
-import com.google.devtools.build.lib.rules.repository.BindRule;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
+import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
-import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.rules.test.SkylarkTestingModule;
 import com.google.devtools.build.lib.rules.test.TestSuiteRule;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -271,21 +269,6 @@ public class BazelRuleClassProvider {
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }
-        }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of(CoreRules.INSTANCE);
-        }
-      };
-
-  public static final RuleSet CORE_WORKSPACE_RULES =
-      new RuleSet() {
-        @Override
-        public void init(Builder builder) {
-          builder.addRuleDefinition(new BindRule());
-          builder.addRuleDefinition(new WorkspaceBaseRule());
-          builder.addRuleDefinition(new LocalRepositoryRule());
         }
 
         @Override
@@ -628,7 +611,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of(CoreRules.INSTANCE, CORE_WORKSPACE_RULES);
+          return ImmutableList.of(CoreRules.INSTANCE, CoreWorkspaceRules.INSTANCE);
         }
       };
 
@@ -636,7 +619,7 @@ public class BazelRuleClassProvider {
       ImmutableSet.of(
           BAZEL_SETUP,
           CoreRules.INSTANCE,
-          CORE_WORKSPACE_RULES,
+          CoreWorkspaceRules.INSTANCE,
           GENERIC_RULES,
           ConfigRules.INSTANCE,
           PLATFORM_RULES,
