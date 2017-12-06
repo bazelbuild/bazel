@@ -39,10 +39,12 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -194,6 +196,8 @@ class DexFileMerger {
 
   public static void main(String[] args) throws Exception {
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
+    optionsParser.enableParamsFileSupport(
+        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parseAndExitUponError(args);
 
     buildMergedDexFiles(optionsParser.getOptions(Options.class));

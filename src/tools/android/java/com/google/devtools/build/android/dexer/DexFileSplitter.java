@@ -33,10 +33,12 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.BufferedOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -122,6 +124,8 @@ class DexFileSplitter implements Closeable {
     OptionsParser optionsParser =
         OptionsParser.newOptionsParser(Options.class);
     optionsParser.setAllowResidue(false);
+    optionsParser.enableParamsFileSupport(
+        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parseAndExitUponError(args);
 
     splitIntoShards(optionsParser.getOptions(Options.class));
