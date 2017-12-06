@@ -355,6 +355,7 @@ int ExecuteDaemon(const string& exe,
   int child = fork();
   if (child == -1) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
+    return -1;
   } else if (child > 0) {
     // Parent process (i.e. the client)
     close(fds[1]);  // parent keeps one side...
@@ -366,6 +367,7 @@ int ExecuteDaemon(const string& exe,
     string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
     if (!blaze_util::WriteFile(ToString(server_pid), pid_file)) {
       pdie(blaze_exit_code::INTERNAL_ERROR, "cannot write PID file");
+      return -1;
     }
 
     WriteSystemSpecificProcessIdentifier(server_dir, server_pid);
