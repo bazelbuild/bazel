@@ -92,6 +92,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ")",
         "java_runtime(name = 'jdk-default', srcs = [])",
         "java_runtime_suite(name = 'jdk', runtimes = {}, default = ':jdk-default')",
+        "java_runtime_suite(name = 'host_jdk', runtimes = {}, default = ':jdk-default')",
         "filegroup(name='langtools', srcs=['jdk/lib/tools.jar'])",
         "filegroup(name='bootclasspath', srcs=['jdk/jre/lib/rt.jar'])",
         "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*']))",

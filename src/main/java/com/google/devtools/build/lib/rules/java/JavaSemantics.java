@@ -148,7 +148,7 @@ public interface JavaSemantics {
   static LateBoundDefault<?, Label> hostJdkAttribute(RuleDefinitionEnvironment env) {
     return LateBoundDefault.fromHostConfiguration(
         Jvm.class,
-        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
+        env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
         (rule, attributes, jvm) -> jvm.getJvmLabel());
   }
 

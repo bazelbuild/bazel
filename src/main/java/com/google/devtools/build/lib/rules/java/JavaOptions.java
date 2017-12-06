@@ -104,7 +104,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
     name = "host_javabase",
-    defaultValue = "@bazel_tools//tools/jdk:jdk",
+    defaultValue = "@bazel_tools//tools/jdk:host_jdk",
     converter = LabelConverter.class,
     category = "version",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
