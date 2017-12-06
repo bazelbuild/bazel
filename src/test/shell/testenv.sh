@@ -545,6 +545,7 @@ setup_clean_workspace
 # Setting up the environment for our legacy integration tests.
 #
 PRODUCT_NAME=bazel
+TOOLS_REPOSITORY="@bazel_tools"
 WORKSPACE_NAME=main
 bazelrc=$TEST_TMPDIR/bazelrc
 

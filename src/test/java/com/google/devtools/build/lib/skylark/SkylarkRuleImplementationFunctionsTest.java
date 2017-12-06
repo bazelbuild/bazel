@@ -1563,11 +1563,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testDefinedMakeVariable() throws Exception {
+    useConfiguration("--define=FOO=bar");
     SkylarkRuleContext ctx = createRuleContext("//foo:baz");
-    String java = (String) evalRuleContextCode(ctx, "ruleContext.var['JAVA']");
-    // Get the last path segment
-    java = java.substring(java.lastIndexOf('/'));
-    assertThat(java).isEqualTo("/java" + OsUtils.executableExtension());
+    String foo = (String) evalRuleContextCode(ctx, "ruleContext.var['FOO']");
+    assertThat(foo).isEqualTo("bar");
   }
 
   @Test

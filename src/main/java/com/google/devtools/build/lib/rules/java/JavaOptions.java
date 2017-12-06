@@ -531,18 +531,6 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean jplPropagateCcLinkParamsStore;
 
-  @Option(
-      name = "experimental_enable_jvm_configuration_make_variables",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If enabled, the Java configuration fragment supplies the JAVA and JAVABASE "
-          + "Make variables. This option is used in the migration to remove them in favor of "
-          + "requiring an explicit dependency on the Java runtime for rules that use them."
-  )
-  public boolean enableMakeVariables;
-
   // Plugins are built using the host config. To avoid cycles we just don't propagate
   // this option to the host config. If one day we decide to use plugins when building
   // host tools, we can improve this by (for example) creating a compiler configuration that is
@@ -588,7 +576,6 @@ public class JavaOptions extends FragmentOptions {
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
-    host.enableMakeVariables = enableMakeVariables;
 
     return host;
   }

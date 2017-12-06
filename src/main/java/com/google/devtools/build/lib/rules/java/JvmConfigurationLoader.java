@@ -59,8 +59,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
 
     String cpu = buildOptions.get(BuildConfiguration.Options.class).cpu;
 
-    return createFromJavaRuntimeSuite(env, javaOptions.javaBase, cpu,
-        javaOptions.enableMakeVariables);
+    return createFromJavaRuntimeSuite(env, javaOptions.javaBase, cpu);
   }
 
   @Override
@@ -75,7 +74,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
 
   @Nullable
   private static Jvm createFromJavaRuntimeSuite(
-      ConfigurationEnvironment lookup, Label javaBase, String cpu, boolean enableMakeVariables)
+      ConfigurationEnvironment lookup, Label javaBase, String cpu)
       throws InvalidConfigurationException, InterruptedException {
     try {
       javaBase = RedirectChaser.followRedirects(lookup, javaBase, "jdk");
@@ -90,7 +89,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
                   + ((Rule) javaHomeTarget).getRuleClass()
                   + "'. Expected java_runtime_suite");
         }
-        return createFromRuntimeSuite(lookup, (Rule) javaHomeTarget, cpu, enableMakeVariables);
+        return createFromRuntimeSuite(lookup, (Rule) javaHomeTarget, cpu);
       }
       throw new InvalidConfigurationException(
           "No JVM target found under " + javaBase + " that would work for " + cpu);
@@ -103,7 +102,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
   // TODO(b/34175492): eventually the Jvm fragement will containg only the label of a java_runtime
   // rule, and all of the configuration will be accessed using JavaRuntimeInfo.
   private static Jvm createFromRuntimeSuite(ConfigurationEnvironment lookup, Rule javaRuntimeSuite,
-      String cpu, boolean enableMakeVariables)
+      String cpu)
       throws InvalidConfigurationException, InterruptedException, NoSuchTargetException,
           NoSuchPackageException {
     Label javaRuntimeLabel = selectRuntime(javaRuntimeSuite, cpu);
@@ -133,7 +132,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
                 javaHomePath, srcs.toString()));
       }
     }
-    return new Jvm(javaHomePath, javaRuntimeSuite.getLabel(), enableMakeVariables);
+    return new Jvm(javaHomePath, javaRuntimeSuite.getLabel());
   }
 
   private static Label selectRuntime(Rule javaRuntimeSuite, String cpu)

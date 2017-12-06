@@ -635,22 +635,23 @@ EOF
 function test_jvm_flags_are_passed_verbatim() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/com/google/jvmflags || fail "mkdir"
-  cat >$pkg/java/com/google/jvmflags/BUILD <<'EOF'
+  cat >$pkg/java/com/google/jvmflags/BUILD <<EOF
 java_binary(
     name = 'foo',
     srcs = ['Foo.java'],
     main_class = 'com.google.jvmflags.Foo',
+    toolchains = ['${TOOLS_REPOSITORY}//tools/jdk:current_java_runtime'],
     jvm_flags = [
         # test quoting
-        '--a=\'single_single\'',
+        '--a=\\'single_single\\'',
         '--b="single_double"',
         "--c='double_single'",
-        "--d=\"double_double\"",
+        "--d=\\"double_double\\"",
         '--e=no_quotes',
         # no escaping expected
-        '--f=stuff$$to"escape\\',
+        '--f=stuff\$\$to"escape\\\\',
         # test make variable expansion
-        '--g=$(JAVABASE)',
+        '--g=\$(JAVABASE)',
     ],
 )
 EOF

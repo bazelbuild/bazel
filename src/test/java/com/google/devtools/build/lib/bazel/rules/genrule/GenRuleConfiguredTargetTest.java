@@ -350,32 +350,6 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     assertThat(getPrerequisites(getConfiguredTarget("//foo:cc"), ccToolchainAttr)).isNotEmpty();
   }
 
-  /** Ensure that Java make variables get expanded under the *host* configuration. */
-  @Test
-  public void testJavaMakeVarExpansion() throws Exception {
-    String ruleTemplate =
-        "genrule(name = '%s',"
-            + "  srcs = [],"
-            + "  cmd = 'echo $(%s) > $@',"
-            + "  outs = ['%s'])";
-
-    scratch.file(
-        "foo/BUILD",
-        String.format(ruleTemplate, "java_rule", "JAVA", "java.txt"),
-        String.format(ruleTemplate, "javabase_rule", "JAVABASE", "javabase.txt"));
-
-    Artifact javaOutput = getFileConfiguredTarget("//foo:java.txt").getArtifact();
-    Artifact javabaseOutput = getFileConfiguredTarget("//foo:javabase.txt").getArtifact();
-
-    String javaCommand =
-        ((SpawnAction) getGeneratingAction(javaOutput)).getArguments().get(2);
-    assertThat(javaCommand).containsMatch("jdk/bin/java(.exe)? >");
-
-    String javabaseCommand =
-        ((SpawnAction) getGeneratingAction(javabaseOutput)).getArguments().get(2);
-    assertThat(javabaseCommand).contains("jdk >");
-  }
-
   // Returns the expansion of 'cmd' for the specified genrule.
   private String getCommand(String label) throws Exception {
     return getSpawnAction(label).getArguments().get(2);

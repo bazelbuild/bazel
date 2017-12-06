@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -345,21 +344,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       String valueFromToolchains = resolveVariableFromToolchains(variableName);
       if (valueFromToolchains != null) {
         return valueFromToolchains;
-      }
-
-      // We use the presence of the Java Make variable in the current configuration as a proxy for
-      // whether Java Make variables are enabled. This lets us avoid declaring a dependency on the
-      // Jvm fragment (genrules should not depend on Java so they shouldn't do that).
-      if (JDK_MAKE_VARIABLE.matcher("$(" + variableName + ")").find()
-          && ruleContext.getConfiguration().getMakeEnvironment().containsKey(variableName)) {
-        List<String> attributes = new ArrayList<>();
-        attributes.addAll(ConfigurationMakeVariableContext.DEFAULT_MAKE_VARIABLE_ATTRIBUTES);
-        attributes.add(":host_jdk");
-        return new ConfigurationMakeVariableContext(
-                ruleContext.getMakeVariables(attributes),
-                ruleContext.getTarget().getPackage(),
-                ruleContext.getHostConfiguration())
-            .lookupVariable(variableName);
       }
 
       return super.lookupVariable(variableName);
