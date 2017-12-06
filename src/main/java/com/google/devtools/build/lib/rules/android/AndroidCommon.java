@@ -91,6 +91,8 @@ public class AndroidCommon {
 
   public static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
       ImmutableSet.of("deps", "exports");
+  private static final ResourceSet DEX_RESOURCE_SET =
+      ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0);
 
   public static final <T extends TransitiveInfoProvider> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, Mode mode, final Class<T> classType) {
@@ -232,7 +234,7 @@ public class AndroidCommon {
             .setProgressMessage("Converting %s to dex format", jarToDex.getExecPathString())
             .setMnemonic("AndroidDexer")
             .addCommandLine(commandLine.build())
-            .setResources(ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0));
+            .setResources(DEX_RESOURCE_SET);
     if (mainDexList != null) {
       builder.addInput(mainDexList);
     }
