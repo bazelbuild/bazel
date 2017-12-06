@@ -45,6 +45,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * filesystem) idempotent.
  */
 public class PathPackageLocator implements Serializable {
+  private static final String WORKSPACE_WILDCARD = "%workspace%";
+
   private final ImmutableList<Path> pathEntries;
   // Transient because this is an injected value in Skyframe, and as such, its serialized
   // representation is used as a key. We want a change to output base not to invalidate things.
@@ -144,6 +146,9 @@ public class PathPackageLocator implements Serializable {
     return "PathPackageLocator" + pathEntries;
   }
 
+  public static String maybeReplaceWorkspaceInString(String pathElement, Path workspace) {
+    return pathElement.replace(WORKSPACE_WILDCARD, workspace.getPathString());
+  }
   /**
    * A factory of PathPackageLocators from a list of path elements. Elements may contain
    * "%workspace%", indicating the workspace.
@@ -225,11 +230,10 @@ public class PathPackageLocator implements Serializable {
       List<BuildFileName> buildFilesByPriority,
       boolean checkExistence) {
     List<Path> resolvedPaths = new ArrayList<>();
-    final String workspaceWildcard = "%workspace%";
 
     for (String pathElement : pathElements) {
       // Replace "%workspace%" with the path of the enclosing workspace directory.
-      pathElement = pathElement.replace(workspaceWildcard, workspace.getPathString());
+      pathElement = maybeReplaceWorkspaceInString(pathElement, workspace);
 
       PathFragment pathElementFragment = PathFragment.create(pathElement);
 
@@ -239,10 +243,14 @@ public class PathPackageLocator implements Serializable {
 
       if (!pathElementFragment.isAbsolute() && !clientWorkingDirectory.equals(workspace)) {
         eventHandler.handle(
-            Event.warn("The package path element '" + pathElementFragment + "' will be "
-                + "taken relative to your working directory. You may have intended "
-                + "to have the path taken relative to your workspace directory. "
-                + "If so, please use the '" + workspaceWildcard + "' wildcard."));
+            Event.warn(
+                "The package path element '"
+                    + pathElementFragment
+                    + "' will be taken relative to your working directory. You may have intended to"
+                    + " have the path taken relative to your workspace directory. If so, please use"
+                    + "the '"
+                    + WORKSPACE_WILDCARD
+                    + "' wildcard."));
       }
 
       if (!checkExistence || rootPath.exists()) {
