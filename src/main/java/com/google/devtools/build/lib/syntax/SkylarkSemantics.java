@@ -56,8 +56,16 @@ public abstract class SkylarkSemantics {
   public abstract boolean internalDoNotExportBuiltins();
   public abstract boolean internalSkylarkFlagTestCanary();
 
+  /** Returns a {@link Builder} initialized with the values of this instance. */
+  public abstract Builder toBuilder();
+
   public static Builder builder() {
     return new AutoValue_SkylarkSemantics.Builder();
+  }
+
+  /** Returns a {@link Builder} initialized with default values for all options. */
+  public static Builder builderWithDefaults() {
+    return DEFAULT_SEMANTICS.toBuilder();
   }
 
   public static final SkylarkSemantics DEFAULT_SEMANTICS =

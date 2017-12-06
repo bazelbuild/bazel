@@ -74,7 +74,7 @@ public class SkylarkSemanticsConsistencyTest {
     }
   }
 
-  /*
+  /**
    * Checks that a randomly generated {@link SkylarkSemantics} object can be serialized and
    * deserialized to an equivalent object.
    */
@@ -95,6 +95,14 @@ public class SkylarkSemanticsConsistencyTest {
     SkylarkSemantics defaultSemantics = SkylarkSemantics.DEFAULT_SEMANTICS;
     SkylarkSemantics semanticsFromOptions = defaultOptions.toSkylarkSemantics();
     assertThat(semanticsFromOptions).isEqualTo(defaultSemantics);
+  }
+
+  @Test
+  public void canGetBuilderFromInstance() {
+    SkylarkSemantics original = SkylarkSemantics.DEFAULT_SEMANTICS;
+    assertThat(original.internalSkylarkFlagTestCanary()).isFalse();
+    SkylarkSemantics modified = original.toBuilder().internalSkylarkFlagTestCanary(true).build();
+    assertThat(modified.internalSkylarkFlagTestCanary()).isTrue();
   }
 
   /**
