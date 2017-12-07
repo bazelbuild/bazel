@@ -309,7 +309,7 @@ def _docker_build_impl(ctx):
                [l["id"] for l in layers] +
                [l["layer"] for l in layers]))
   return struct(runfiles = runfiles,
-                files = set([ctx.outputs.layer]),
+                files = depset([ctx.outputs.layer]),
                 docker_layers = layers)
 
 
@@ -502,7 +502,7 @@ def docker_build(**kwargs):
     if reserved in kwargs:
       fail("reserved for internal use by docker_build macro", attr=reserved)
   if "labels" in kwargs:
-    files = sorted(set([v[1:] for v in kwargs["labels"].values() if v[0] == "@"]))
+    files = sorted(depset([v[1:] for v in kwargs["labels"].values() if v[0] == "@"]))
     kwargs["label_files"] = files
     kwargs["label_file_strings"] = files
   if "entrypoint" in kwargs:

@@ -13,14 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.util.Preconditions;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -74,64 +73,77 @@ public final class SelectorList implements SkylarkValue {
    * Creates a "wrapper" list that consists of a single select.
    */
   public static SelectorList of(SelectorValue selector) {
-    return new SelectorList(selector.getType(), ImmutableList.<Object>of(selector));
+    return new SelectorList(selector.getType(), ImmutableList.of(selector));
   }
 
   /**
-   * Creates a list that concatenates two values, where each value may be either a native
-   * type or a select over that type.
+   * Creates a list that concatenates two values, where each value may be a native
+   * type, a select over that type, or a selector list over that type.
    *
    * @throws EvalException if the values don't have the same underlying type
    */
   public static SelectorList concat(Location location, Object value1, Object value2)
       throws EvalException {
-    ImmutableList.Builder<Object> builder = ImmutableList.builder();
-    Class<?> type1 = addValue(value1, builder);
-    Class<?> type2 = addValue(value2, builder);
-    if (!canConcatenate(type1, type2)) {
-      throw new EvalException(
-          location,
-          String.format(
-              "'+' operator applied to incompatible types (%s, %s)",
-              EvalUtils.getDataTypeName(value1, true),
-              EvalUtils.getDataTypeName(value2, true)));
-    }
-    return new SelectorList(type1, builder.build());
+    return of(location, value1, value2);
   }
 
   /**
-   * Creates a list consisting of the given selects.
+   * Creates a list from the given sequence of values, which must be non-empty. Each value may be a
+   * native type, a select over that type, or a selector list over that type.
+   *
+   * @throws EvalException if all values don't have the same underlying type
    */
-  public static SelectorList of(List<SelectorValue> selectors) throws EvalException {
-    Preconditions.checkArgument(!selectors.isEmpty());
-    Iterator<SelectorValue> it = selectors.iterator();
-    SelectorList list = SelectorList.of(it.next());
-    while (it.hasNext()) {
-      list = SelectorList.concat(null, list, it.next());
-    }
-    return list;
+  public static SelectorList of(Location location, Object... values) throws EvalException {
+    return SelectorList.of(location, ImmutableList.copyOf(values));
   }
 
-  // TODO(bazel-team): match on the List interface, not the actual implementation. For now,
-  // we verify this is the right class through test coverage.
-  private static final Class<?> NATIVE_LIST_TYPE = ArrayList.class;
+  /**
+   * Creates a list from the given sequence of values, which must be non-empty. Each value may be a
+   * native type, a select over that type, or a selector list over that type.
+   *
+   * @throws EvalException if all values don't have the same underlying type
+   */
+  public static SelectorList of(Location location, Iterable<?> values) throws EvalException {
+    Preconditions.checkArgument(!Iterables.isEmpty(values));
+    ImmutableList.Builder<Object> elements = ImmutableList.builder();
+    Object firstValue = null;
 
-  private static Class<?> addValue(Object value, ImmutableList.Builder<Object> builder) {
+    for (Object value : values) {
+      if (value instanceof SelectorList) {
+        elements.addAll(((SelectorList) value).getElements());
+      } else {
+        elements.add(value);
+      }
+      if (firstValue == null) {
+        firstValue = value;
+      }
+      if (!canConcatenate(getNativeType(firstValue), getNativeType(value))) {
+        throw new EvalException(
+            location,
+            String.format(
+                "'+' operator applied to incompatible types (%s, %s)",
+                EvalUtils.getDataTypeName(firstValue, true),
+                EvalUtils.getDataTypeName(value, true)));
+      }
+    }
+
+    return new SelectorList(getNativeType(firstValue), elements.build());
+  }
+
+  private static final Class<?> NATIVE_LIST_TYPE = List.class;
+
+  private static Class<?> getNativeType(Object value) {
     if (value instanceof SelectorList) {
-      SelectorList selectorList = (SelectorList) value;
-      builder.addAll(selectorList.getElements());
-      return selectorList.getType();
+      return ((SelectorList) value).getType();
     } else if (value instanceof SelectorValue) {
-      builder.add(value);
       return ((SelectorValue) value).getType();
     } else {
-      builder.add(value);
       return value.getClass();
     }
   }
 
   private static boolean isListType(Class<?> type) {
-    return type == NATIVE_LIST_TYPE
+    return NATIVE_LIST_TYPE.isAssignableFrom(type)
         || type.getSuperclass() == SkylarkList.class
         || type == GlobList.class;
   }
@@ -154,10 +166,5 @@ public final class SelectorList implements SkylarkValue {
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.printList(elements, "", " + ", "", null);
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return false;
   }
 }

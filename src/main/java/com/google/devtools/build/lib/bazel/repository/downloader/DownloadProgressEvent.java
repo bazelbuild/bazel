@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.net.URL;
+import java.text.NumberFormat;
+import java.util.Locale;
 
 /**
  * Postable event reporting on progress made downloading an URL. It can be used to report the URL
@@ -70,6 +72,12 @@ public class DownloadProgressEvent implements ExtendedEventHandler.FetchProgress
 
   @Override
   public String getProgress() {
-    return bytesRead > 0 ? "" + bytesRead + "b" : "";
+    if (bytesRead > 0) {
+      NumberFormat formatter = NumberFormat.getIntegerInstance(Locale.ENGLISH);
+      formatter.setGroupingUsed(true);
+      return formatter.format(bytesRead) + "b";
+    } else {
+      return "";
+    }
   }
 }

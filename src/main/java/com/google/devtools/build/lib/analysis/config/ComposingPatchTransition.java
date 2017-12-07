@@ -29,12 +29,6 @@ public class ComposingPatchTransition implements PatchTransition {
   }
 
   @Override
-  public boolean defaultsToSelf() {
-    throw new UnsupportedOperationException(
-        "dynamic configurations don't use global transition tables");
-  }
-
-  @Override
   public BuildOptions apply(BuildOptions options) {
     return Iterables.getOnlyElement(delegate.split(options));
   }

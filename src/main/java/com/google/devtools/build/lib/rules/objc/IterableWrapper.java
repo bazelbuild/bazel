@@ -14,9 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Iterator;
 
 /**

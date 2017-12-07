@@ -14,15 +14,14 @@
 
 package com.google.devtools.build.lib.buildtool;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Collection;
 import java.util.Collections;
-
 import javax.annotation.Nullable;
 
 /**
@@ -42,6 +41,7 @@ public final class BuildResult {
   private Collection<ConfiguredTarget> actualTargets;
   private Collection<ConfiguredTarget> testTargets;
   private Collection<ConfiguredTarget> successfulTargets;
+  private Collection<ConfiguredTarget> skippedTargets;
 
   public BuildResult(long startTimeMillis) {
     this.startTimeMillis = startTimeMillis;
@@ -205,6 +205,22 @@ public final class BuildResult {
    */
   public Collection<ConfiguredTarget> getSuccessfulTargets() {
     return successfulTargets;
+  }
+
+  /**
+   * See {@link #getSkippedTargets()}.
+   */
+  void setSkippedTargets(Collection<ConfiguredTarget> skippedTargets) {
+    this.skippedTargets = skippedTargets;
+  }
+
+  /**
+   * Returns the set of targets which were skipped (Blaze didn't attempt to execute them)
+   * because they're not compatible with the build's target platform.
+   */
+  @VisibleForTesting
+  public Collection<ConfiguredTarget> getSkippedTargets() {
+    return skippedTargets;
   }
 
   /** For debugging. */

@@ -2,6 +2,7 @@
 layout: documentation
 title: Deploying new Skylark rules
 ---
+
 # Deploying new Skylark rules
 
 This documentation is for Skylark rule writers who are planning to make their
@@ -38,24 +39,24 @@ Every rule repository should have a certain layout so that users can quickly
 understand new rules.
 
 For example, suppose we are writing new Skylark rules for the (make-believe)
-chaiscript language. We would have the following structure:
+mockascript language. We would have the following structure:
 
 ```
 .travis.yml
 README.md
 WORKSPACE
-chaiscript/
+mockascript/
   BUILD
-  chaiscript.bzl
+  mockascript.bzl
 tests/
   BUILD
   some_test.sh
   another_test.py
 examples/
   BUILD
-  bin.chai
-  lib.chai
-  test.chai
+  bin.mocs
+  lib.mocs
+  test.mocs
 ```
 
 ### README.md
@@ -101,18 +102,15 @@ docs](https://docs.travis-ci.com/user/getting-started/). Then add a
 `.travis.yml` file to your repository with the following content:
 
 ```
-language:
-  - java
-jdk:
-  - oraclejdk8  # Building Bazel requires JDK8.
-before_install:
-  - wget https://github.com/bazelbuild/bazel/archive/0.3.0.zip  # Replace with desired version
-  - unzip 0.3.0.zip
-  - cd bazel-0.3.0
-  - ./compile.sh
-  - sudo cp output/bazel /usr/bin/bazel
-  - cd ..
-  - rm -rf bazel-0.3.0
+# On trusty images, the Bazel apt repository can be used.
+addons:
+  apt:
+    sources:
+    - sourceline: 'deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8'
+      key_url: 'https://bazel.build/bazel-release.pub.gpg'
+    packages:
+    - bazel
+
 script:
   - bazel build //...
   - bazel test //...

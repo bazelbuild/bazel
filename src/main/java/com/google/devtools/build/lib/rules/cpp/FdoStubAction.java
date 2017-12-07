@@ -16,9 +16,12 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 
 /**
@@ -43,7 +46,8 @@ public final class FdoStubAction extends AbstractAction {
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext) {
+  public ActionResult execute(ActionExecutionContext actionExecutionContext) {
+    return ActionResult.EMPTY;
   }
 
   @Override
@@ -52,12 +56,12 @@ public final class FdoStubAction extends AbstractAction {
   }
 
   @Override
-  protected String computeKey() {
+  protected String computeKey(ActionKeyContext actionKeyContext) {
     return "fdoStubAction";
   }
 
   @Override
-  public void prepare(Path execRoot) {
+  public void prepare(FileSystem fileSystem, Path execRoot) {
     // The superclass would delete the output files here. We can't let that happen, since this
     // action does not in fact create those files; it is only a placeholder and the actual files
     // are created *before* the execution phase in FdoSupport.extractFdoZip()

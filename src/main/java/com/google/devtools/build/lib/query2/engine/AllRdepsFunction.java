@@ -58,7 +58,7 @@ public class AllRdepsFunction implements QueryFunction {
       QueryExpression expression,
       List<Argument> args,
       Callback<T> callback) {
-    return eval(env, context, args, callback, Optional.<Predicate<T>>absent());
+    return evalRdeps(env, context, args, callback, Optional.<Predicate<T>>absent());
   }
 
   /** Evaluates rdeps query. */
@@ -101,7 +101,7 @@ public class AllRdepsFunction implements QueryFunction {
         });
   }
 
-  protected <T> QueryTaskFuture<Void> eval(
+  static <T> QueryTaskFuture<Void> evalRdeps(
       final QueryEnvironment<T> env,
       VariableContext<T> context,
       final List<Argument> args,

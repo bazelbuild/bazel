@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.server;
 
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.CommandExecutor;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 

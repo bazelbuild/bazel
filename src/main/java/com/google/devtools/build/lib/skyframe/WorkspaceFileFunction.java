@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.WorkspaceFileValue.WorkspaceFileKe
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -66,19 +67,27 @@ public class WorkspaceFileFunction implements SkyFunction {
     if (workspaceASTValue == null) {
       return null;
     }
+    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return null;
+    }
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
     Package.Builder builder = packageFactory.newExternalPackageBuilder(
         repoWorkspace, ruleClassProvider.getRunfilesPrefix());
 
     if (workspaceASTValue.getASTs().isEmpty()) {
-      return new WorkspaceFileValue(
-          builder.build(), // resulting package
-          ImmutableMap.<String, Extension>of(), // list of imports
-          ImmutableMap.<String, Object>of(), // list of symbol bindings
-          workspaceRoot, // Workspace root
-          0, // first fragment, idx = 0
-          false); // last fragment
+      try {
+        return new WorkspaceFileValue(
+            builder.build(), // resulting package
+            ImmutableMap.<String, Extension>of(), // list of imports
+            ImmutableMap.<String, Object>of(), // list of symbol bindings
+            workspaceRoot, // Workspace root
+            0, // first fragment, idx = 0
+            false); // last fragment
+      } catch (NoSuchPackageException e) {
+        throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
+      }
     }
     WorkspaceFactory parser;
     try (Mutability mutability = Mutability.create("workspace %s", repoWorkspace)) {
@@ -108,20 +117,24 @@ public class WorkspaceFileFunction implements SkyFunction {
       if (importResult == null) {
         return null;
       }
-      parser.execute(ast, importResult.importMap);
+      parser.execute(ast, importResult.importMap, skylarkSemantics);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }
 
-    return new WorkspaceFileValue(
-        builder.build(),
-        parser.getImportMap(),
-        parser.getVariableBindings(),
-        workspaceRoot,
-        key.getIndex(),
-        key.getIndex() < workspaceASTValue.getASTs().size() - 1);
+    try {
+      return new WorkspaceFileValue(
+          builder.build(),
+          parser.getImportMap(),
+          parser.getVariableBindings(),
+          workspaceRoot,
+          key.getIndex(),
+          key.getIndex() < workspaceASTValue.getASTs().size() - 1);
+    } catch (NoSuchPackageException e) {
+      throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
+    }
   }
 
   @Override

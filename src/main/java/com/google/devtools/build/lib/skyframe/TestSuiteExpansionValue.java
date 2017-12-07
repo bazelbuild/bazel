@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -21,13 +22,12 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.util.Collection;
 
 /**
@@ -50,12 +50,12 @@ public final class TestSuiteExpansionValue implements SkyValue {
 
   @SuppressWarnings("unused")
   private void writeObject(ObjectOutputStream out) {
-    throw new UnsupportedOperationException();
+    throw new NotSerializableRuntimeException();
   }
 
   @SuppressWarnings("unused")
   private void readObject(ObjectInputStream in) {
-    throw new UnsupportedOperationException();
+    throw new NotSerializableRuntimeException();
   }
 
   @SuppressWarnings("unused")
@@ -70,20 +70,21 @@ public final class TestSuiteExpansionValue implements SkyValue {
    */
   @ThreadSafe
   public static SkyKey key(Collection<Label> targets) {
-    return LegacySkyKey.create(
-        SkyFunctions.TEST_SUITE_EXPANSION,
-        new TestSuiteExpansion(ImmutableSortedSet.copyOf(targets)));
+    return new TestSuiteExpansionKey(ImmutableSortedSet.copyOf(targets));
   }
 
-  /**
-   * A list of targets of which all test suites should be expanded.
-   */
+  /** A list of targets of which all test suites should be expanded. */
   @ThreadSafe
-  static final class TestSuiteExpansion implements Serializable {
+  static final class TestSuiteExpansionKey implements SkyKey {
     private final ImmutableSortedSet<Label> targets;
 
-    public TestSuiteExpansion(ImmutableSortedSet<Label> targets) {
+    public TestSuiteExpansionKey(ImmutableSortedSet<Label> targets) {
       this.targets = targets;
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.TEST_SUITE_EXPANSION;
     }
 
     public ImmutableSet<Label> getTargets() {
@@ -105,10 +106,10 @@ public final class TestSuiteExpansionValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TestSuiteExpansion)) {
+      if (!(obj instanceof TestSuiteExpansionKey)) {
         return false;
       }
-      TestSuiteExpansion other = (TestSuiteExpansion) obj;
+      TestSuiteExpansionKey other = (TestSuiteExpansionKey) obj;
       return other.targets.equals(targets);
     }
   }

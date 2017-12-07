@@ -14,26 +14,26 @@
 
 package com.google.devtools.build.lib.query2;
 
-import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 
-/** An adapter from a {@link PackageSpecification} to a {@link QueryVisibility}. */
+/** An adapter from {@link PackageGroupContents} to a {@link QueryVisibility}. */
 public class BlazeQueryVisibility extends QueryVisibility<Target> {
 
-  private final PackageSpecification packageSpecification;
+  private final PackageGroupContents packageSpecifications;
 
-  public BlazeQueryVisibility(PackageSpecification packageSpecification) {
-    this.packageSpecification = packageSpecification;
+  public BlazeQueryVisibility(PackageGroupContents packageSpecifications) {
+    this.packageSpecifications = packageSpecifications;
   }
 
   @Override
   public boolean contains(Target target) {
-    return packageSpecification.containsPackage(target.getLabel().getPackageIdentifier());
+    return packageSpecifications.containsPackage(target.getLabel().getPackageIdentifier());
   }
 
   @Override
   public String toString() {
-    return packageSpecification.toString();
+    return packageSpecifications.toString();
   }
 }

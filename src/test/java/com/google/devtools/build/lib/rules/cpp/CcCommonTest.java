@@ -25,25 +25,20 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
-import com.google.devtools.build.lib.bazel.rules.BazelToolchainType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.ToolchainType;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -149,7 +144,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name = 'c_lib',",
         "    srcs = ['foo.cc'],",
         "    copts = [ '-Wmy-warning', '-frun-faster' ])");
-    MoreAsserts.assertContainsSublist(getCopts("//copts:c_lib"), "-Wmy-warning", "-frun-faster");
+    assertThat(getCopts("//copts:c_lib")).containsAllOf("-Wmy-warning", "-frun-faster");
   }
 
   @Test
@@ -160,8 +155,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "    srcs = ['foo.cc'],",
         "    copts = ['-Wmy-warning -frun-faster'])");
     List<String> copts = getCopts("//copts:c_lib");
-    MoreAsserts.assertContainsSublist(copts, "-Wmy-warning", "-frun-faster");
-    assertContainsEvent("each item in the list should contain only one option");
+    assertThat(copts).containsAllOf("-Wmy-warning", "-frun-faster");
   }
 
   @Test
@@ -173,7 +167,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "    srcs = ['foo.cc'],",
         "    copts = ['-Wmy-warning -frun-faster'])");
     List<String> copts = getCopts("//copts:c_lib");
-    MoreAsserts.assertContainsSublist(copts, "-Wmy-warning -frun-faster");
+    assertThat(copts).contains("-Wmy-warning -frun-faster");
   }
 
   /**
@@ -191,7 +185,8 @@ public class CcCommonTest extends BuildViewTestCase {
             "archive_in_srcs_test",
             "cc_test(name = 'archive_in_srcs_test',",
             "           srcs = ['archive_in_srcs_test.cc'],",
-            "           deps = [':archive_in_srcs_lib'])",
+            "           deps = [':archive_in_srcs_lib'],",
+            "           linkstatic = 0,)",
             "cc_library(name = 'archive_in_srcs_lib',",
             "           srcs = ['libstatic.a', 'libboth.a', 'libboth.so'])");
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(archiveInSrcsTest));
@@ -300,9 +295,12 @@ public class CcCommonTest extends BuildViewTestCase {
     for (String cpu : new String[] {"k8", "piii"}) {
       useConfiguration("--cpu=" + cpu, "--save_temps");
       ConfiguredTarget foo = getConfiguredTarget("//foo:foo");
+      CcToolchainProvider toolchain =
+          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(foo));
       List<String> temps =
           ActionsTestUtil.baseArtifactNames(getOutputGroup(foo, OutputGroupProvider.TEMP_FILES));
-      if (getTargetConfiguration().getFragment(CppConfiguration.class).usePicForBinaries()) {
+      if (CppHelper.usePicForBinaries(
+          getTargetConfiguration().getFragment(CppConfiguration.class), toolchain)) {
         assertThat(temps).named(cpu).containsExactly("foo.pic.ii", "foo.pic.s");
       } else {
         assertThat(temps).named(cpu).containsExactly("foo.ii", "foo.s");
@@ -317,9 +315,12 @@ public class CcCommonTest extends BuildViewTestCase {
       useConfiguration("--cpu=" + cpu, "--save_temps");
       // Now try with a .c source file.
       ConfiguredTarget csrc = getConfiguredTarget("//csrc:csrc");
+      CcToolchainProvider toolchain =
+          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(csrc));
       List<String> temps =
           ActionsTestUtil.baseArtifactNames(getOutputGroup(csrc, OutputGroupProvider.TEMP_FILES));
-      if (getTargetConfiguration().getFragment(CppConfiguration.class).usePicForBinaries()) {
+      if (CppHelper.usePicForBinaries(
+          getTargetConfiguration().getFragment(CppConfiguration.class), toolchain)) {
         assertThat(temps).named(cpu).containsExactly("foo.pic.i", "foo.pic.s");
       } else {
         assertThat(temps).named(cpu).containsExactly("foo.i", "foo.s");
@@ -821,8 +822,24 @@ public class CcCommonTest extends BuildViewTestCase {
     CppLinkAction action =
         (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
     assertThat(action.getLinkCommandLine().getLinkopts()).containsExactly(
-        String.format("-Wl,@%s/genfiles/a/a.lds", getTargetConfiguration().getOutputDirectory(
+        String.format("-Wl,@%s/a/a.lds", getTargetConfiguration().getGenfilesDirectory(
             RepositoryName.MAIN).getExecPath().getPathString()));
+  }
+
+  @Test
+  public void testProvidesLinkerScriptToLinkAction() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_binary(",
+        "    name='bin',",
+        "    srcs=['b.cc'],",
+        "    linkopts=['-Wl,@$(location a.lds)'],",
+        "    deps=['a.lds'])");
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+    CppLinkAction action =
+        (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
+    Iterable<Artifact> linkInputs = action.getInputs();
+    assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("a.lds");
   }
 
   @Test
@@ -905,6 +922,26 @@ public class CcCommonTest extends BuildViewTestCase {
         .doesNotContain("third_party/_virtual_includes/a/third_party/a.h");
   }
 
+  @Test
+  public void
+  testConfigureFeaturesDoesntCrashOnCollidingFeaturesExceptionButReportsRuleErrorCleanly()
+      throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            "feature { name: 'a1' provides: 'a' }",
+            "feature { name: 'a2' provides: 'a' }");
+    useConfiguration("--features=a1", "--features=a2");
+
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//x:foo");
+    assertContainsEvent("Symbol a is provided by all of the following features: a1 a2");
+  }
+
   /**
    * A {@code toolchain_type} rule for testing that only supports C++.
    */
@@ -913,31 +950,6 @@ public class CcCommonTest extends BuildViewTestCase {
       super(
           ImmutableMap.<Label, Class<? extends BuildConfiguration.Fragment>>of(),
           ImmutableMap.<Label, ImmutableMap<String, String>>of());
-    }
-  }
-
-  /**
-   * A {@code toolchain_type} rule for testing that only supports C++.
-   */
-  public static class OnlyCppToolchainTypeRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          // This means that *every* toolchain_type rule depends on every configuration fragment
-          // that contributes Make variables, regardless of which one it is.
-          .requiresConfigurationFragments(CppConfiguration.class)
-          .removeAttribute("licenses")
-          .removeAttribute("distribs")
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return Metadata.builder()
-          .name("toolchain_type")
-          .factoryClass(BazelToolchainType.class)
-          .ancestors(BaseRuleClasses.BaseRule.class)
-          .build();
     }
   }
 
@@ -952,22 +964,15 @@ public class CcCommonTest extends BuildViewTestCase {
       final AnalysisMock original = BazelAnalysisMock.INSTANCE;
       return new AnalysisMock.Delegate(original) {
         @Override
-        public ConfigurationFactory createConfigurationFactory() {
-          return new ConfigurationFactory(
-              createRuleClassProvider().getConfigurationCollectionFactory(),
-              createRuleClassProvider().getConfigurationFragments());
-        }
-
-        @Override
         public ConfiguredRuleClassProvider createRuleClassProvider() {
           ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
           builder.setToolsRepository("@bazel_tools");
           BazelRuleClassProvider.BAZEL_SETUP.init(builder);
-          BazelRuleClassProvider.CORE_RULES.init(builder);
-          BazelRuleClassProvider.CORE_WORKSPACE_RULES.init(builder);
+          CoreRules.INSTANCE.init(builder);
+          CoreWorkspaceRules.INSTANCE.init(builder);
+          BazelRuleClassProvider.PLATFORM_RULES.init(builder);
           BazelRuleClassProvider.GENERIC_RULES.init(builder);
           BazelRuleClassProvider.CPP_RULES.init(builder);
-          builder.addRuleDefinition(new OnlyCppToolchainTypeRule());
           return builder.build();
         }
 

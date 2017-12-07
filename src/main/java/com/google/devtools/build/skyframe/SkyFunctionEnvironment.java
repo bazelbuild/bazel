@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.devtools.build.skyframe.ParallelEvaluator.isDoneForBuild;
+import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.isDoneForBuild;
 import static com.google.devtools.build.skyframe.ParallelEvaluator.maybeGetValueFromError;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
@@ -270,7 +270,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
   }
 
-  private Map<SkyKey, SkyValue> getValuesMaybeFromError(Iterable<SkyKey> keys)
+  private Map<SkyKey, SkyValue> getValuesMaybeFromError(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
     // Use a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
     // and ImmutableMap.Builder does not tolerate duplicates.  The map will be thrown away
@@ -341,7 +341,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
   @Override
   protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-      Iterable<SkyKey> depKeys) throws InterruptedException {
+      Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     checkActive();
     Map<SkyKey, SkyValue> values = getValuesMaybeFromError(depKeys);
     for (Map.Entry<SkyKey, SkyValue> depEntry : values.entrySet()) {
@@ -387,9 +387,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         if (bubbleErrorInfo == null) {
           addDep(depKey);
         }
-        for (Postable post : ValueWithMetadata.getPosts(depValue)) {
-          evaluatorContext.getReporter().post(post);
-        }
+        evaluatorContext
+            .getReplayingNestedSetPostableVisitor()
+            .visit(ValueWithMetadata.getPosts(depValue));
         evaluatorContext
             .getReplayingNestedSetEventVisitor()
             .visit(ValueWithMetadata.getEvents(depValue));
@@ -449,13 +449,13 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           E4 extends Exception,
           E5 extends Exception>
       Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
-          Iterable<SkyKey> depKeys,
+          Iterable<? extends SkyKey> depKeys,
           Class<E1> exceptionClass1,
           Class<E2> exceptionClass2,
           Class<E3> exceptionClass3,
           Class<E4> exceptionClass4,
           Class<E5> exceptionClass5)
-          throws InterruptedException {
+              throws InterruptedException {
     newlyRequestedDeps.startGroup();
     Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> result =
         super.getValuesOrThrow(
@@ -513,10 +513,11 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * (1) this node is being built after the main evaluation has aborted, or (2) this node is being
    * built with --nokeep_going, and so we are about to shut down the main evaluation anyway.
    *
-   * <p>The node entry is informed if the node's value and error are definitive via the flag {@code
-   * completeValue}.
+   * <p>The reverse deps that would have been enqueued are returned if {@code enqueueParents} is
+   * {@link EnqueueParentBehavior#SIGNAL} or {@link EnqueueParentBehavior#NO_ACTION}, so that the
+   * caller may simulate actions on the parents if desired. Otherwise this method returns null.
    */
-  void commit(NodeEntry primaryEntry, EnqueueParentBehavior enqueueParents)
+  Set<SkyKey> commit(NodeEntry primaryEntry, EnqueueParentBehavior enqueueParents)
       throws InterruptedException {
     // Construct the definitive error info, if there is one.
     if (errorInfo == null) {
@@ -533,9 +534,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
     NestedSet<Postable> posts = buildPosts(primaryEntry);
     NestedSet<TaggedEvents> events = buildEvents(primaryEntry, /*missingChildren=*/ false);
-    for (ExtendedEventHandler.Postable post : posts) {
-      evaluatorContext.getReporter().post(post);
-    }
 
     Version valueVersion;
     SkyValue valueWithMetadata;
@@ -592,10 +590,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     evaluatorContext.signalValuesAndEnqueueIfReady(
         skyKey, reverseDeps, valueVersion, enqueueParents);
 
-    for (Postable post : posts) {
-      evaluatorContext.getReporter().post(post);
-    }
+    evaluatorContext.getReplayingNestedSetPostableVisitor().visit(posts);
     evaluatorContext.getReplayingNestedSetEventVisitor().visit(events);
+    return enqueueParents == EnqueueParentBehavior.ENQUEUE ? null : reverseDeps;
   }
 
   @Nullable

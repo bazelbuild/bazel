@@ -63,17 +63,17 @@ public final class DictionaryLiteral extends Expression {
 
   /** A new literal for an empty dictionary, onto which a new location can be specified */
   public static DictionaryLiteral emptyDict() {
-    return new DictionaryLiteral(ImmutableList.<DictionaryEntryLiteral>of());
+    return new DictionaryLiteral(ImmutableList.of());
   }
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    SkylarkDict<Object, Object> dict = SkylarkDict.<Object, Object>of(env);
+    SkylarkDict<Object, Object> dict = SkylarkDict.of(env);
     Location loc = getLocation();
     for (DictionaryEntryLiteral entry : entries) {
       Object key = entry.key.eval(env);
       Object val = entry.value.eval(env);
-      if (env.getSemantics().incompatibleDictLiteralHasNoDuplicates && dict.containsKey(key)) {
+      if (env.getSemantics().incompatibleDictLiteralHasNoDuplicates() && dict.containsKey(key)) {
         throw new EvalException(
             loc, "Duplicated key " + Printer.repr(key) + " when creating dictionary");
       }
@@ -99,15 +99,12 @@ public final class DictionaryLiteral extends Expression {
     visitor.visit(this);
   }
 
-  public ImmutableList<DictionaryEntryLiteral> getEntries() {
-    return entries;
+  @Override
+  public Kind kind() {
+    return Kind.DICTIONARY_LITERAL;
   }
 
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    for (DictionaryEntryLiteral entry : entries) {
-      entry.key.validate(env);
-      entry.value.validate(env);
-    }
+  public ImmutableList<DictionaryEntryLiteral> getEntries() {
+    return entries;
   }
 }

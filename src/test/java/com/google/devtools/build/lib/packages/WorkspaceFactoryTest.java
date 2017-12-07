@@ -18,13 +18,16 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.List;
@@ -83,6 +86,31 @@ public class WorkspaceFactoryTest {
         "workspace() function should be used only at the top of the WORKSPACE file");
   }
 
+  @Test
+  public void testRegisterToolchains() throws Exception {
+    WorkspaceFactoryHelper helper = parse("register_toolchains('//toolchain:tc1')");
+    assertThat(helper.getPackage().getRegisteredToolchainLabels())
+        .containsExactly(Label.parseAbsolute("//toolchain:tc1"));
+  }
+
+  @Test
+  public void testRegisterToolchains_multipleLabels() throws Exception {
+    WorkspaceFactoryHelper helper =
+        parse("register_toolchains(", "  '//toolchain:tc1',", "  '//toolchain:tc2')");
+    assertThat(helper.getPackage().getRegisteredToolchainLabels())
+        .containsExactly(
+            Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2"));
+  }
+
+  @Test
+  public void testRegisterToolchains_multipleCalls() throws Exception {
+    WorkspaceFactoryHelper helper =
+        parse("register_toolchains('//toolchain:tc1')", "register_toolchains('//toolchain:tc2')");
+    assertThat(helper.getPackage().getRegisteredToolchainLabels())
+        .containsExactly(
+            Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2"));
+  }
+
   private WorkspaceFactoryHelper parse(String... args) {
     return new WorkspaceFactoryHelper(args);
   }
@@ -123,7 +151,13 @@ public class WorkspaceFactoryTest {
           root);
       Exception exception = null;
       try {
-        factory.parse(ParserInputSource.create(workspaceFilePath), eventHandler);
+        byte[] bytes =
+            FileSystemUtils.readWithKnownFileSize(
+                workspaceFilePath, workspaceFilePath.getFileSize());
+        factory.parse(
+            ParserInputSource.create(bytes, workspaceFilePath.asFragment()),
+            SkylarkSemantics.DEFAULT_SEMANTICS,
+            eventHandler);
       } catch (BuildFileContainsErrorsException e) {
         exception = e;
       } catch (IOException | InterruptedException e) {
@@ -133,7 +167,7 @@ public class WorkspaceFactoryTest {
       this.exception = exception;
     }
 
-    public Package getPackage() throws InterruptedException {
+    public Package getPackage() throws InterruptedException, NoSuchPackageException {
       return builder.build();
     }
 

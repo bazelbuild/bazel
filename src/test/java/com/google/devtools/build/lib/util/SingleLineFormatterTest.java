@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.time.temporal.ChronoUnit.MILLIS;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,8 +27,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SingleLineFormatterTest {
 
-  private static final DateTime TIMESTAMP =
-      new DateTime(2017, 04, 01, 17, 03, 43, 142, DateTimeZone.UTC);
+  private static final ZonedDateTime TIMESTAMP =
+      ZonedDateTime.of(2017, 04, 01, 17, 03, 43, 0, ZoneOffset.UTC).plus(142, MILLIS);
 
   @Test
   public void testFormat() {
@@ -48,7 +49,8 @@ public class SingleLineFormatterTest {
   public void testTime() {
     LogRecord logRecord =
         createLogRecord(
-            Level.SEVERE, new DateTime(1999, 11, 30, 03, 04, 05, 722, DateTimeZone.UTC));
+            Level.SEVERE,
+            ZonedDateTime.of(1999, 11, 30, 03, 04, 05, 0, ZoneOffset.UTC).plus(722, MILLIS));
     assertThat(new SingleLineFormatter().format(logRecord)).contains("991130 03:04:05.722");
   }
 
@@ -63,14 +65,14 @@ public class SingleLineFormatterTest {
             + "\tat com.google.devtools.build.lib.util.SingleLineFormatterTest.testStackTrace");
   }
 
-  private static LogRecord createLogRecord(Level level, DateTime dateTime) {
+  private static LogRecord createLogRecord(Level level, ZonedDateTime dateTime) {
     return createLogRecord(level, dateTime, null);
   }
 
   private static LogRecord createLogRecord(
-      Level level, DateTime dateTime, RuntimeException thrown) {
+      Level level, ZonedDateTime dateTime, RuntimeException thrown) {
     LogRecord record = new LogRecord(level, "some message");
-    record.setMillis(dateTime.getMillis());
+    record.setMillis(dateTime.toInstant().toEpochMilli());
     record.setSourceClassName("SomeSourceClass");
     record.setSourceMethodName("aSourceMethod");
     record.setThreadID(543);

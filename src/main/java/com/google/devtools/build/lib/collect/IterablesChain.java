@@ -116,7 +116,7 @@ public final class IterablesChain<T> implements Iterable<T> {
      */
     public IterablesChain<T> build() {
       if (isEmpty()) {
-        return new IterablesChain<>(ImmutableList.<T>of());
+        return new IterablesChain<>(ImmutableList.of());
       }
       Iterable<T> concat = Iterables.concat(ImmutableList.copyOf(iterables));
       return new IterablesChain<>(deduplicate ? new Deduper<>(concat) : concat);
@@ -136,7 +136,7 @@ public final class IterablesChain<T> implements Iterable<T> {
 
     @Override
     public Iterator<T> iterator() {
-      return new DedupingIterator<T>(iterable.iterator());
+      return new DedupingIterator<>(iterable.iterator());
     }
   }
 

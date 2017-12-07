@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -35,26 +35,26 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.Util;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -86,7 +86,8 @@ public class JavaCommon {
             ActionAnalysisMetadata action = analysisEnvironment.getLocalGeneratingAction(artifact);
             if (action instanceof JavaCompileAction) {
               addOutputs(metadataFilesBuilder, action, JavaSemantics.COVERAGE_METADATA);
-            } else if (action != null && action.getMnemonic().equals("JavaResourceJar")) {
+            } else if (action != null
+                && action.getMnemonic().equals(ResourceJarActionBuilder.MNEMONIC)) {
               // recurse on resource jar actions
               collectMetadataArtifacts(
                   action.getInputs(), analysisEnvironment, metadataFilesBuilder);
@@ -289,7 +290,7 @@ public class JavaCommon {
       builder.add(outDeps);
     }
 
-    for (JavaCompilationArgsProvider provider : JavaProvider.getProvidersFromListOfTargets(
+    for (JavaCompilationArgsProvider provider : JavaInfo.getProvidersFromListOfTargets(
         JavaCompilationArgsProvider.class, getExports(ruleContext))) {
       builder.addTransitive(provider.getCompileTimeJavaDependencyArtifacts());
     }
@@ -301,9 +302,7 @@ public class JavaCommon {
     // We need to check here because there are classes inheriting from this class that implement
     // rules that don't have this attribute.
     if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
-      // Do not remove <SplitTransition<?>, BuildConfiguration>:
-      // workaround for Java 7 type inference.
-      return ImmutableList.<TransitiveInfoCollection>copyOf(
+      return ImmutableList.copyOf(
           ruleContext.getPrerequisites("exports", Mode.TARGET));
     } else {
       return ImmutableList.of();
@@ -322,7 +321,8 @@ public class JavaCommon {
       if (neverLinkedness == null) {
         continue;
       }
-      boolean reportError = !ruleContext.getConfiguration().getAllowRuntimeDepsOnNeverLink();
+      boolean reportError =
+          !ruleContext.getFragment(JavaConfiguration.class).getAllowRuntimeDepsOnNeverLink();
       if (neverLinkedness.isNeverlink()) {
         String msg = String.format("neverlink dep %s not allowed in runtime deps", c.getLabel());
         if (reportError) {
@@ -371,7 +371,7 @@ public class JavaCommon {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(targetSrcJars);
 
-    for (JavaSourceJarsProvider sourceJarsProvider : JavaProvider.getProvidersFromListOfTargets(
+    for (JavaSourceJarsProvider sourceJarsProvider : JavaInfo.getProvidersFromListOfTargets(
         JavaSourceJarsProvider.class, getDependencies())) {
       builder.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
     }
@@ -460,35 +460,54 @@ public class JavaCommon {
 
   private ImmutableList<String> computeJavacOpts(Iterable<String> extraJavacOpts) {
     return Streams.concat(
-            JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions().stream(),
+            JavaToolchainProvider.from(ruleContext).getJavacOptions().stream(),
             Streams.stream(extraJavacOpts),
-            ruleContext.getTokenizedStringListAttr("javacopts").stream())
+            ruleContext.getExpander().withDataLocations().tokenized("javacopts").stream())
         .collect(toImmutableList());
   }
 
   public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
-    JavaRuntimeProvider javaRuntime = JavaHelper.getHostJavaRuntime(ruleContext);
+    JavaRuntimeInfo javaRuntime = JavaHelper.getHostJavaRuntime(ruleContext);
+    return javaRuntime != null
+        ? javaRuntime.javaBinaryExecPath()
+        : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
+  }
+
+  /**
+   * Returns the host java executable.
+   *
+   * <p>The method looks for the executable in the following
+   * locations (in the specified order) and returns it immediately after it's found:
+   * <ol>
+   * <li> The JavaRuntimeInfo in the given hostJavabase target
+   * <li> The JVM fragment of the host configuration, retrieved from the given rule context
+   * </ol>
+   */
+  public static PathFragment getHostJavaExecutable(
+      RuleContext ruleContext, TransitiveInfoCollection hostJavabase) {
+    JavaRuntimeInfo javaRuntime = hostJavabase.get(JavaRuntimeInfo.PROVIDER);
     return javaRuntime != null
         ? javaRuntime.javaBinaryExecPath()
         : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
   }
 
   public static PathFragment getJavaExecutable(RuleContext ruleContext) {
-    JavaRuntimeProvider javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
+    JavaRuntimeInfo javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
     return javaRuntime != null
         ? javaRuntime.javaBinaryExecPath()
         : ruleContext.getFragment(Jvm.class).getJavaExecutable();
   }
 
   /**
-   * Returns the string that the stub should use to determine the JVM
+   * Returns the path of the java executable that the java stub should use.
+   *
    * @param launcher if non-null, the cc_binary used to launch the Java Virtual Machine
    */
-  public static String getJavaBinSubstitution(
+  public static String getJavaExecutableForStub(
       RuleContext ruleContext, @Nullable Artifact launcher) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
     PathFragment javaExecutable;
-    JavaRuntimeProvider javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
+    JavaRuntimeInfo javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
 
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
@@ -502,8 +521,16 @@ public class JavaCommon {
       javaExecutable =
           PathFragment.create(PathFragment.create(ruleContext.getWorkspaceName()), javaExecutable);
     }
-    javaExecutable = javaExecutable.normalize();
+    return javaExecutable.normalize().getPathString();
+  }
 
+  /**
+   * Returns the shell command that computes `JAVABIN`.
+   * The command derives the JVM location from a given Java executable path.
+   */
+  public static String getJavaBinSubstitutionFromJavaExecutable(
+      RuleContext ruleContext, String javaExecutableStr) {
+    PathFragment javaExecutable = PathFragment.create(javaExecutableStr);
     if (ruleContext.getConfiguration().runfilesEnabled()) {
       String prefix = "";
       if (!javaExecutable.isAbsolute()) {
@@ -513,6 +540,13 @@ public class JavaCommon {
     } else {
       return "JAVABIN=${JAVABIN:-$(rlocation " + javaExecutable.getPathString() + ")}";
     }
+  }
+
+  /** Returns the string that the stub should use to determine the JVM binary (java) path */
+  public static String getJavaBinSubstitution(
+      RuleContext ruleContext, @Nullable Artifact launcher) {
+    return getJavaBinSubstitutionFromJavaExecutable(
+        ruleContext, getJavaExecutableForStub(ruleContext, launcher));
   }
 
   /**
@@ -554,7 +588,7 @@ public class JavaCommon {
   public static List<String> getJvmFlags(RuleContext ruleContext) {
     List<String> jvmFlags = new ArrayList<>();
     jvmFlags.addAll(ruleContext.getFragment(JavaConfiguration.class).getDefaultJvmFlags());
-    jvmFlags.addAll(ruleContext.getExpandedStringListAttr("jvm_flags", RuleContext.Tokenize.NO));
+    jvmFlags.addAll(ruleContext.getExpander().withDataLocations().list("jvm_flags"));
     return jvmFlags;
   }
 
@@ -562,8 +596,7 @@ public class JavaCommon {
     // We need to check here because there are classes inheriting from this class that implement
     // rules that don't have this attribute.
     if (ruleContext.attributes().has("runtime_deps", BuildType.LABEL_LIST)) {
-      // Do not remove <TransitiveInfoCollection>: workaround for Java 7 type inference.
-      return ImmutableList.<TransitiveInfoCollection>copyOf(
+      return ImmutableList.copyOf(
           ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
     } else {
       return ImmutableList.of();
@@ -669,13 +702,16 @@ public class JavaCommon {
 
   public void addTransitiveInfoProviders(
       RuleConfiguredTargetBuilder builder,
+      JavaInfo.Builder javaInfoBuilder,
       NestedSet<Artifact> filesToBuild,
       @Nullable Artifact classJar) {
-    addTransitiveInfoProviders(builder, filesToBuild, classJar, JAVA_COLLECTION_SPEC);
+    addTransitiveInfoProviders(
+        builder, javaInfoBuilder, filesToBuild, classJar, JAVA_COLLECTION_SPEC);
   }
 
   public void addTransitiveInfoProviders(
       RuleConfiguredTargetBuilder builder,
+      JavaInfo.Builder javaInfoBuilder,
       NestedSet<Artifact> filesToBuild,
       @Nullable Artifact classJar,
       InstrumentationSpec instrumentationSpec) {
@@ -690,6 +726,9 @@ public class JavaCommon {
         .add(JavaExportsProvider.class, exportsProvider)
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar))
         .add(JavaCompilationInfoProvider.class, compilationInfoProvider);
+
+    javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
+    javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
   }
 
   private static InstrumentedFilesProvider getInstrumentationFilesProvider(RuleContext ruleContext,
@@ -706,6 +745,7 @@ public class JavaCommon {
 
   public void addGenJarsProvider(
       RuleConfiguredTargetBuilder builder,
+      JavaInfo.Builder javaInfoBuilder,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar) {
     JavaGenJarsProvider genJarsProvider = collectTransitiveGenJars(
@@ -719,6 +759,8 @@ public class JavaCommon {
     builder
         .add(JavaGenJarsProvider.class, genJarsProvider)
         .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJarsBuilder.build());
+
+    javaInfoBuilder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
   }
 
   /**
@@ -783,13 +825,20 @@ public class JavaCommon {
         getPluginInfoProvidersForAttribute(ruleContext, ":java_plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "deps", Mode.TARGET));
+    // Enable any plugins from java_toolchain.plugins that are configured for the current package.
+    JavaToolchainProvider.from(ruleContext)
+        .pluginConfiguration()
+        .stream()
+        .filter(p -> p.matches(ruleContext.getLabel()))
+        .map(JavaPluginConfigurationProvider::plugin)
+        .forEachOrdered(result::add);
     return ImmutableList.copyOf(result);
   }
 
   private static Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(
       RuleContext ruleContext, String attribute, Mode mode) {
     if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
-      return JavaProvider.getProvidersFromListOfTargets(
+      return JavaInfo.getProvidersFromListOfTargets(
           JavaPluginInfoProvider.class, ruleContext.getPrerequisites(attribute, mode));
     }
     return ImmutableList.of();
@@ -877,12 +926,11 @@ public class JavaCommon {
    */
   public final <P extends TransitiveInfoProvider> Iterable<P> getDependencies(
       Class<P> provider) {
-    return AnalysisUtils.getProviders(getDependencies(), provider);
+    return JavaInfo.getProvidersFromListOfTargets(provider, getDependencies());
   }
 
   /** Gets all the deps that implement a particular provider. */
-  public final <P extends SkylarkClassObject> Iterable<P> getDependencies(
-      NativeClassObjectConstructor<P> provider) {
+  public final <P extends Info> Iterable<P> getDependencies(NativeProvider<P> provider) {
     return AnalysisUtils.getProviders(getDependencies(), provider);
   }
 

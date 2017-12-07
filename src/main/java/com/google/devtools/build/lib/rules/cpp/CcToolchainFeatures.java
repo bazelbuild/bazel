@@ -19,6 +19,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
+import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -29,10 +31,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.IOException;
@@ -50,6 +55,8 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
+import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 
 /**
  * Provides access to features supported by a specific toolchain.
@@ -82,10 +89,8 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
-  /**
-   * Thrown when multiple features provide the same string symbol.
-   */
-  public static class CollidingProvidesException extends RuntimeException {
+  /** Thrown when multiple features provide the same string symbol. */
+  public static class CollidingProvidesException extends Exception {
     CollidingProvidesException(String message) {
       super(message);
     }
@@ -474,12 +479,19 @@ public class CcToolchainFeatures implements Serializable {
   }
 
   private static boolean isWithFeaturesSatisfied(
-      Set<CToolchain.FeatureSet> withFeatureSets, Set<String> enabledFeatureNames) {
+      Collection<CToolchain.WithFeatureSet> withFeatureSets, Set<String> enabledFeatureNames) {
     if (withFeatureSets.isEmpty()) {
       return true;
     }
-    for (CToolchain.FeatureSet featureSet : withFeatureSets) {
-      if (enabledFeatureNames.containsAll(featureSet.getFeatureList())) {
+    for (CToolchain.WithFeatureSet featureSet : withFeatureSets) {
+      boolean negativeMatch =
+          featureSet
+              .getNotFeatureList()
+              .stream()
+              .anyMatch(notFeature -> enabledFeatureNames.contains(notFeature));
+      boolean positiveMatch = enabledFeatureNames.containsAll(featureSet.getFeatureList());
+
+      if (!negativeMatch && positiveMatch) {
         return true;
       }
     }
@@ -493,7 +505,7 @@ public class CcToolchainFeatures implements Serializable {
   private static class FlagSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableSet<String> expandIfAllAvailable;
-    private final ImmutableSet<CToolchain.FeatureSet> withFeatureSets;
+    private final ImmutableSet<CToolchain.WithFeatureSet> withFeatureSets;
     private final ImmutableList<FlagGroup> flagGroups;
     
     private FlagSet(CToolchain.FlagSet flagSet) throws InvalidConfigurationException {
@@ -545,7 +557,8 @@ public class CcToolchainFeatures implements Serializable {
   private static class EnvSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableList<EnvEntry> envEntries;
-    
+    private final ImmutableSet<CToolchain.WithFeatureSet> withFeatureSets;
+
     private EnvSet(CToolchain.EnvSet envSet) throws InvalidConfigurationException {
       this.actions = ImmutableSet.copyOf(envSet.getActionList());
       ImmutableList.Builder<EnvEntry> builder = ImmutableList.builder();
@@ -553,15 +566,22 @@ public class CcToolchainFeatures implements Serializable {
         builder.add(new EnvEntry(envEntry));
       }
       this.envEntries = builder.build();
+      this.withFeatureSets = ImmutableSet.copyOf(envSet.getWithFeatureList());
     }
 
     /**
      * Adds the environment key/value pairs that apply to the given {@code action} to
      * {@code envBuilder}.
      */
-    private void expandEnvironment(String action, Variables variables,
+    private void expandEnvironment(
+        String action,
+        Variables variables,
+        Set<String> enabledFeatureNames,
         ImmutableMap.Builder<String, String> envBuilder) {
       if (!actions.contains(action)) {
+        return;
+      }
+      if (!isWithFeaturesSatisfied(withFeatureSets, enabledFeatureNames)) {
         return;
       }
       for (EnvEntry envEntry : envEntries) {
@@ -613,13 +633,14 @@ public class CcToolchainFeatures implements Serializable {
       return name;
     }
 
-    /**
-     * Adds environment variables for the given action to the provided builder.
-     */
+    /** Adds environment variables for the given action to the provided builder. */
     private void expandEnvironment(
-        String action, Variables variables, ImmutableMap.Builder<String, String> envBuilder) {
+        String action,
+        Variables variables,
+        Set<String> enabledFeatureNames,
+        ImmutableMap.Builder<String, String> envBuilder) {
       for (EnvSet envSet : envSets) {
-        envSet.expandEnvironment(action, variables, envBuilder);
+        envSet.expandEnvironment(action, variables, enabledFeatureNames, envBuilder);
       }
     }
 
@@ -742,8 +763,7 @@ public class CcToolchainFeatures implements Serializable {
           Iterables.tryFind(
               tools,
               input -> {
-                Collection<String> featureNamesForTool = input.getWithFeature().getFeatureList();
-                return enabledFeatureNames.containsAll(featureNamesForTool);
+                return isWithFeaturesSatisfied(input.getWithFeatureList(), enabledFeatureNames);
               });
       if (tool.isPresent()) {
         return new Tool(tool.get());
@@ -825,17 +845,37 @@ public class CcToolchainFeatures implements Serializable {
     public static final Variables EMPTY = new Variables.Builder().build();
 
     /**
-     * Variables can be either String values or an arbitrarily deeply nested recursive sequences,
-     * which we represent as a tree of {@code VariableValue} nodes. The nodes are {@code Sequence}
-     * objects, while the leafs are {@code StringSequence} objects. We do not allow {@code
-     * StringValue} objects in the tree, as the object memory overhead is too large when we have
-     * millions of values. If we find single element {@code StringSequence} in memory profiles in
-     * the future, we can introduce another special case type.
+     * Retrieves a {@link StringSequence} variable named {@code variableName} from {@code variables}
+     * and converts it into a list of plain strings.
+     *
+     * <p>Throws {@link ExpansionException} when the variable is not a {@link StringSequence}.
+     */
+    public static final ImmutableList<String> toStringList(
+        CcToolchainFeatures.Variables variables, String variableName) {
+      return Streams
+          .stream(variables.getSequenceVariable(variableName))
+          .map(variable -> variable.getStringValue(variableName))
+          .collect(ImmutableList.toImmutableList());
+    }
+
+    public Variables getParent() {
+      return parent;
+    }
+
+    /**
+     * Value of a build variable exposed to the CROSSTOOL used for flag expansion.
+     *
+     * <p>{@link VariableValue} represent either primitive values or an arbitrarily deeply nested
+     * recursive structures or sequences. Since there are builds with millions of values, some
+     * implementations might exist only to optimize memory usage.
+     *
+     * <p>Implementations must be immutable and without any side-effects. They will be expanded and
+     * queried multiple times.
      */
     interface VariableValue {
 
       /**
-       * Return string value of the variable, if the variable type can be converted to string (e.g.
+       * Returns string value of the variable, if the variable type can be converted to string (e.g.
        * StringValue), or throw exception if it cannot (e.g. Sequence).
        *
        * @param variableName name of the variable value at hand, for better exception message.
@@ -843,7 +883,7 @@ public class CcToolchainFeatures implements Serializable {
       String getStringValue(String variableName);
 
       /**
-       * Return Iterable value of the variable, if the variable type can be converted to a Iterable
+       * Returns Iterable value of the variable, if the variable type can be converted to a Iterable
        * (e.g. Sequence), or throw exception if it cannot (e.g. StringValue).
        *
        * @param variableName name of the variable value at hand, for better exception message.
@@ -851,39 +891,62 @@ public class CcToolchainFeatures implements Serializable {
       Iterable<? extends VariableValue> getSequenceValue(String variableName);
 
       /**
-       * Return value of the field, if the variable is of struct type or throw exception if it is
+       * Returns value of the field, if the variable is of struct type or throw exception if it is
        * not or no such field exists.
        *
        * @param variableName name of the variable value at hand, for better exception message.
        */
       VariableValue getFieldValue(String variableName, String field);
 
-      /** Return true if the variable is truthy */
+      /** Returns true if the variable is truthy */
       boolean isTruthy();
+    }
+
+    /**
+     * Adapter for {@link VariableValue} predefining error handling methods. Override {@link
+     * #getVariableTypeName()}, {@link #isTruthy()}, and one of {@link #getFieldValue(String,
+     * String)}, {@link #getSequenceValue(String)}, or {@link #getStringValue(String)}, and you'll
+     * get error handling for the other methods for free.
+     */
+    abstract static class VariableValueAdapter implements VariableValue {
+
+      /** Returns human-readable variable type name to be used in error messages. */
+      public abstract String getVariableTypeName();
+
+      @Override
+      public abstract boolean isTruthy();
+
+      @Override
+      public VariableValue getFieldValue(String variableName, String field) {
+        throw new ExpansionException(
+            String.format(
+                "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
+                    + "%s, expected structure",
+                variableName, field, variableName, getVariableTypeName()));
+      }
+
+      @Override
+      public String getStringValue(String variableName) {
+        throw new ExpansionException(
+            String.format(
+                "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
+                    + "found %s",
+                variableName, getVariableTypeName()));
+      }
+
+      @Override
+      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+        throw new ExpansionException(
+            String.format(
+                "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
+                    + "found %s",
+                variableName, getVariableTypeName()));
+      }
     }
 
     /** Interface for VariableValue builders */
     public interface VariableValueBuilder {
       VariableValue build();
-    }
-
-    /** Builder for StructureSequence. */
-    public static class StructureSequenceBuilder implements VariableValueBuilder {
-
-      private final ImmutableList.Builder<ImmutableMap<String, VariableValue>> values =
-          ImmutableList.builder();
-
-      /** Adds a structure to the sequence. */
-      public StructureSequenceBuilder addValue(ImmutableMap<String, VariableValue> value) {
-        values.add(value);
-        return this;
-      }
-
-      /** Returns an immutable structure sequence. */
-      @Override
-      public StructureSequence build() {
-        return new StructureSequence(values.build());
-      }
     }
 
     /** Builder for StringSequence. */
@@ -922,16 +985,6 @@ public class CcToolchainFeatures implements Serializable {
         return this;
       }
 
-      /** Adds a value to the sequence. */
-      public SequenceBuilder addValues(ImmutableList<VariableValueBuilder> builders) {
-        Preconditions.checkArgument(
-            builders != null, "Cannot use null builders as a sequence value");
-        for (VariableValueBuilder builder : builders) {
-          addValue(builder);
-        }
-        return this;
-      }
-
       /** Returns an immutable sequence. */
       @Override
       public Sequence build() {
@@ -967,12 +1020,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       /** Adds a field to the structure. */
-      public StructureBuilder addField(String name, int value) {
-        fields.put(name, new IntegerValue(value));
-        return this;
-      }
-
-      /** Adds a field to the structure. */
       public StructureBuilder addField(String name, ImmutableList<String> values) {
         fields.put(name, new StringSequence(values));
         return this;
@@ -986,17 +1033,53 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /**
+     * Lazily computed string sequence. Exists as a memory optimization. Make sure the {@param
+     * supplier} doesn't capture anything that shouldn't outlive analysis phase (e.g. {@link
+     * RuleContext}).
+     */
+    private static final class LazyStringSequence extends VariableValueAdapter {
+
+      private final Supplier<ImmutableList<String>> supplier;
+
+      private LazyStringSequence(Supplier<ImmutableList<String>> supplier) {
+        this.supplier = Preconditions.checkNotNull(supplier);
+      }
+
+      @Override
+      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+        return supplier
+            .get()
+            .stream()
+            .map(flag -> new StringValue(flag))
+            .collect(ImmutableList.toImmutableList());
+      }
+
+      @Override
+      public String getVariableTypeName() {
+        return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+      }
+
+      @Override
+      public boolean isTruthy() {
+        return !supplier.get().isEmpty();
+      }
+    }
+
+    /**
      * A sequence of structure values. Exists as a memory optimization - a typical build can contain
      * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
      * significantly reduces memory overhead.
      */
     @Immutable
-    public static class LibraryToLinkValue implements VariableValue {
+    public static class LibraryToLinkValue extends VariableValueAdapter {
 
       public static final String OBJECT_FILES_FIELD_NAME = "object_files";
       public static final String NAME_FIELD_NAME = "name";
       public static final String TYPE_FIELD_NAME = "type";
       public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
+
+      private static final String LIBRARY_TO_LINK_VARIABLE_TYPE_NAME = "structure (LibraryToLink)";
+
       private enum Type {
         OBJECT_FILE("object_file"),
         OBJECT_FILE_GROUP("object_file_group"),
@@ -1018,28 +1101,35 @@ public class CcToolchainFeatures implements Serializable {
       private final Type type;
 
       public static LibraryToLinkValue forDynamicLibrary(String name) {
-        return new LibraryToLinkValue(name, null, false, Type.DYNAMIC_LIBRARY);
+        return new LibraryToLinkValue(
+            Preconditions.checkNotNull(name), null, false, Type.DYNAMIC_LIBRARY);
       }
 
       public static LibraryToLinkValue forVersionedDynamicLibrary(
           String name) {
-        return new LibraryToLinkValue(name, null, false, Type.VERSIONED_DYNAMIC_LIBRARY);
+        return new LibraryToLinkValue(
+            Preconditions.checkNotNull(name), null, false, Type.VERSIONED_DYNAMIC_LIBRARY);
       }
 
       public static LibraryToLinkValue forInterfaceLibrary(String name) {
-        return new LibraryToLinkValue(name, null, false, Type.INTERFACE_LIBRARY);
+        return new LibraryToLinkValue(
+            Preconditions.checkNotNull(name), null, false, Type.INTERFACE_LIBRARY);
       }
 
       public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
-        return new LibraryToLinkValue(name, null, isWholeArchive, Type.STATIC_LIBRARY);
+        return new LibraryToLinkValue(
+            Preconditions.checkNotNull(name), null, isWholeArchive, Type.STATIC_LIBRARY);
       }
 
       public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
-        return new LibraryToLinkValue(name, null, isWholeArchive, Type.OBJECT_FILE);
+        return new LibraryToLinkValue(
+            Preconditions.checkNotNull(name), null, isWholeArchive, Type.OBJECT_FILE);
       }
 
       public static LibraryToLinkValue forObjectFileGroup(
           ImmutableList<String> objects, boolean isWholeArchive) {
+        Preconditions.checkNotNull(objects);
+        Preconditions.checkArgument(!objects.isEmpty());
         return new LibraryToLinkValue(null, objects, isWholeArchive, Type.OBJECT_FILE_GROUP);
       }
 
@@ -1049,15 +1139,6 @@ public class CcToolchainFeatures implements Serializable {
         this.objectFiles = objectFiles;
         this.isWholeArchive = isWholeArchive;
         this.type = type;
-      }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
-                    + "found structure (LibraryToLink)",
-                variableName));
       }
 
       @Override
@@ -1077,17 +1158,41 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public String getStringValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
-                    + "found structure (LibraryToLink)",
-                variableName));
+      public String getVariableTypeName() {
+        return LIBRARY_TO_LINK_VARIABLE_TYPE_NAME;
       }
 
       @Override
       public boolean isTruthy() {
         return true;
+      }
+    }
+
+    /** Sequence of arbitrary VariableValue objects. */
+    @Immutable
+    private static final class Sequence extends VariableValueAdapter {
+
+      private static final String SEQUENCE_VARIABLE_TYPE_NAME = "sequence";
+
+      private final ImmutableList<VariableValue> values;
+
+      public Sequence(ImmutableList<VariableValue> values) {
+        this.values = values;
+      }
+
+      @Override
+      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+        return values;
+      }
+
+      @Override
+      public String getVariableTypeName() {
+        return SEQUENCE_VARIABLE_TYPE_NAME;
+      }
+
+      @Override
+      public boolean isTruthy() {
+        return values.isEmpty();
       }
     }
 
@@ -1097,11 +1202,12 @@ public class CcToolchainFeatures implements Serializable {
      * significantly reduces memory overhead.
      */
     @Immutable
-    private static final class StructureSequence implements VariableValue {
+    private static final class StructureSequence extends VariableValueAdapter {
 
       private final ImmutableList<ImmutableMap<String, VariableValue>> values;
 
       private StructureSequence(ImmutableList<ImmutableMap<String, VariableValue>> values) {
+        Preconditions.checkNotNull(values);
         this.values = values;
       }
 
@@ -1115,21 +1221,8 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public VariableValue getFieldValue(String variableName, String field) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
-                    + "sequence, expected structure",
-                variableName, field, variableName));
-      }
-
-      @Override
-      public String getStringValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
-                    + "found sequence",
-                variableName));
+      public String getVariableTypeName() {
+        return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
       }
 
       @Override
@@ -1144,12 +1237,12 @@ public class CcToolchainFeatures implements Serializable {
      * objects significantly reduces memory overhead.
      */
     @Immutable
-    private static final class StringSequence implements VariableValue {
+    static final class StringSequence extends VariableValueAdapter {
 
       private final Iterable<String> values;
 
       public StringSequence(Iterable<String> values) {
-        Preconditions.checkNotNull(values, "Cannot create StringSequence from null");
+        Preconditions.checkNotNull(values);
         this.values = values;
       }
 
@@ -1163,21 +1256,8 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public VariableValue getFieldValue(String variableName, String field) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
-                    + "sequence, expected structure",
-                variableName, field, variableName));
-      }
-
-      @Override
-      public String getStringValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
-                    + "found sequence",
-                variableName));
+      public String getVariableTypeName() {
+        return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
       }
 
       @Override
@@ -1186,74 +1266,19 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
 
-    /** Sequence of arbitrary VariableValue objects. */
-    @Immutable
-    private static final class Sequence implements VariableValue {
-
-      private final ImmutableList<VariableValue> values;
-
-      public Sequence(ImmutableList<VariableValue> values) {
-        this.values = values;
-      }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        return values;
-      }
-
-      @Override
-      public VariableValue getFieldValue(String variableName, String field) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
-                    + "sequence, expected structure",
-                variableName, field, variableName));
-      }
-
-      @Override
-      public String getStringValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
-                    + "found sequence",
-                variableName));
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return values.isEmpty();
-      }
-    }
-
     /**
      * Single structure value. Be careful not to create sequences of single structures, as the
      * memory overhead is prohibitively big. Use optimized {@link StructureSequence} instead.
      */
     @Immutable
-    private static final class StructureValue implements VariableValue {
+    private static final class StructureValue extends VariableValueAdapter {
+
+      private static final String STRUCTURE_VARIABLE_TYPE_NAME = "structure";
 
       private final ImmutableMap<String, VariableValue> value;
 
       public StructureValue(ImmutableMap<String, VariableValue> value) {
         this.value = value;
-      }
-
-      @Override
-      public String getStringValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
-                    + "found structure",
-                variableName));
-      }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
-                    + "found structure",
-                variableName));
       }
 
       @Override
@@ -1263,6 +1288,11 @@ public class CcToolchainFeatures implements Serializable {
         } else {
           return null;
         }
+      }
+
+      @Override
+      public String getVariableTypeName() {
+        return STRUCTURE_VARIABLE_TYPE_NAME;
       }
 
       @Override
@@ -1276,7 +1306,9 @@ public class CcToolchainFeatures implements Serializable {
      * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
      */
     @Immutable
-    private static final class StringValue implements VariableValue {
+    private static final class StringValue extends VariableValueAdapter {
+
+      private static final String STRING_VARIABLE_TYPE_NAME = "string";
 
       private final String value;
 
@@ -1291,21 +1323,8 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
-                    + "found string",
-                variableName));
-      }
-
-      @Override
-      public VariableValue getFieldValue(String variableName, String field) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
-                    + "string, expected structure",
-                variableName, field, variableName));
+      public String getVariableTypeName() {
+        return STRING_VARIABLE_TYPE_NAME;
       }
 
       @Override
@@ -1320,8 +1339,9 @@ public class CcToolchainFeatures implements Serializable {
      * expensive.
      */
     @Immutable
-    static final class IntegerValue implements VariableValue {
+    static final class IntegerValue extends VariableValueAdapter {
 
+      private static final String INTEGER_VALUE_TYPE_NAME = "integer";
       private final int value;
 
       public IntegerValue(int value) {
@@ -1334,21 +1354,8 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
-                    + "found integer",
-                variableName));
-      }
-
-      @Override
-      public VariableValue getFieldValue(String variableName, String field) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
-                    + "integer, expected structure",
-                variableName, field, variableName));
+      public String getVariableTypeName() {
+        return INTEGER_VALUE_TYPE_NAME;
       }
 
       @Override
@@ -1360,15 +1367,18 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * Builder for {@code Variables}.
      */
+    // TODO(b/65472725): Forbid sequences with empty string in them.
     public static class Builder {
       private final Map<String, VariableValue> variablesMap = new LinkedHashMap<>();
       private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
+      private final Variables parent;
 
-      public Builder() {};
+      public Builder() {
+        parent = null;
+      }
 
-      public Builder(Variables variables) {
-        variablesMap.putAll(variables.variablesMap);
-        stringVariablesMap.putAll(variables.stringVariablesMap);
+      public Builder(@Nullable Variables parent) {
+        this.parent = parent;
       }
 
       /** Add an integer variable that expands {@code name} to {@code value}. */
@@ -1379,10 +1389,7 @@ public class CcToolchainFeatures implements Serializable {
 
       /** Add a string variable that expands {@code name} to {@code value}. */
       public Builder addStringVariable(String name, String value) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-        Preconditions.checkArgument(
-            !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        checkVariableNotPresentAlready(name);
         Preconditions.checkNotNull(
             value, "Cannot set null as a value for variable '%s'", name);
         stringVariablesMap.put(name, value);
@@ -1397,6 +1404,14 @@ public class CcToolchainFeatures implements Serializable {
         return this;
       }
 
+      /** Overrides a variable to expands {@code name} to {@code value} instead. */
+      public Builder overrideLazyStringSequenceVariable(
+          String name, Supplier<ImmutableList<String>> supplier) {
+        Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
+        variablesMap.put(name, new LazyStringSequence(supplier));
+        return this;
+      }
+
       /**
        * Add a sequence variable that expands {@code name} to {@code values}.
        *
@@ -1404,8 +1419,8 @@ public class CcToolchainFeatures implements Serializable {
        * the values into a new list.
        */
       public Builder addStringSequenceVariable(String name, ImmutableSet<String> values) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        checkVariableNotPresentAlready(name);
+        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         builder.addAll(values);
         variablesMap.put(name, new StringSequence(builder.build()));
@@ -1418,8 +1433,8 @@ public class CcToolchainFeatures implements Serializable {
        * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
        */
       public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        checkVariableNotPresentAlready(name);
+        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
         variablesMap.put(name, new StringSequence(values));
         return this;
       }
@@ -1433,9 +1448,17 @@ public class CcToolchainFeatures implements Serializable {
        * side effects.
        */
       public Builder addStringSequenceVariable(String name, Iterable<String> values) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        checkVariableNotPresentAlready(name);
+        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
         variablesMap.put(name, new StringSequence(values));
+        return this;
+      }
+
+      public Builder addLazyStringSequenceVariable(
+          String name, Supplier<ImmutableList<String>> supplier) {
+        checkVariableNotPresentAlready(name);
+        Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
+        variablesMap.put(name, new LazyStringSequence(supplier));
         return this;
       }
 
@@ -1444,8 +1467,7 @@ public class CcToolchainFeatures implements Serializable {
        * the value returned by the {@code builder}.
        */
       public Builder addCustomBuiltVariable(String name, Variables.VariableValueBuilder builder) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        checkVariableNotPresentAlready(name);
         Preconditions.checkNotNull(
             builder,
             "Cannot use null builder to get variable value for variable '%s'",
@@ -1457,17 +1479,25 @@ public class CcToolchainFeatures implements Serializable {
       /** Add all string variables in a map. */
       public Builder addAllStringVariables(Map<String, String> variables) {
         for (String name : variables.keySet()) {
-          Preconditions.checkArgument(
-              !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-          Preconditions.checkArgument(
-              !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+          checkVariableNotPresentAlready(name);
         }
         stringVariablesMap.putAll(variables);
         return this;
       }
 
-      /** Adds all variables to this builder. Note: cannot override already added variables. */
-      public Builder addAll(Variables variables) {
+      private void checkVariableNotPresentAlready(String name) {
+        Preconditions.checkNotNull(name);
+        Preconditions.checkArgument(
+            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        Preconditions.checkArgument(
+            !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+      }
+
+      /**
+       * Adds all variables to this builder. Cannot override already added variables. Does not add
+       * variables defined in the {@code parent} variables.
+       */
+      public Builder addAllNonTransitive(Variables variables) {
         SetView<String> intersection =
             Sets.intersection(variables.variablesMap.keySet(), variablesMap.keySet());
         SetView<String> stringIntersection =
@@ -1484,7 +1514,7 @@ public class CcToolchainFeatures implements Serializable {
 
       /**
        * Add all variables to this builder, possibly overriding variables already present in the
-       * builder. Use cautiously, prefer {@code addAll} if possible.
+       * builder. Use cautiously, prefer {@code addAllNonTransitive} if possible.
        * TODO(b/32893861) Clean 'module_files' to be registered only once and remove this method.
        */
       Builder addAndOverwriteAll(Variables overwrittenVariables) {
@@ -1493,12 +1523,10 @@ public class CcToolchainFeatures implements Serializable {
         return this;
       }
 
-      /**
-       * @return a new {@Variables} object.
-       */
-      Variables build() {
+      /** @return a new {@Variables} object. */
+      public Variables build() {
         return new Variables(
-            ImmutableMap.copyOf(variablesMap), ImmutableMap.copyOf(stringVariablesMap));
+            parent, ImmutableMap.copyOf(variablesMap), ImmutableMap.copyOf(stringVariablesMap));
       }
     }
     
@@ -1515,11 +1543,12 @@ public class CcToolchainFeatures implements Serializable {
     private final Variables parent;
 
     private Variables(
+        Variables parent,
         ImmutableMap<String, VariableValue> variablesMap,
         ImmutableMap<String, String> stringVariablesMap) {
       this.variablesMap = variablesMap;
       this.stringVariablesMap = stringVariablesMap;
-      this.parent = null;
+      this.parent = parent;
     }
 
     /**
@@ -1638,19 +1667,25 @@ public class CcToolchainFeatures implements Serializable {
    */
   @Immutable
   public static class FeatureConfiguration {
-    private final FeatureSpecification featureSpecification;
     private final ImmutableSet<String> enabledFeatureNames;
     private final Iterable<Feature> enabledFeatures;
     private final ImmutableSet<String> enabledActionConfigActionNames;
     
     private final ImmutableMap<String, ActionConfig> actionConfigByActionName;
 
-    public FeatureConfiguration() {
+    /**
+     * {@link FeatureConfiguration} instance that doesn't produce any command lines. This is to be
+     * used when creation of the real {@link FeatureConfiguration} failed, the rule error was
+     * reported, but the analysis continues to collect more rule errors.
+     */
+    public static final FeatureConfiguration EMPTY = new FeatureConfiguration();
+
+    protected FeatureConfiguration() {
       this(
           FeatureSpecification.EMPTY,
-          ImmutableList.<Feature>of(),
-          ImmutableList.<ActionConfig>of(),
-          ImmutableMap.<String, ActionConfig>of());
+          ImmutableList.of(),
+          ImmutableList.of(),
+          ImmutableMap.of());
     }
 
     private FeatureConfiguration(
@@ -1658,7 +1693,6 @@ public class CcToolchainFeatures implements Serializable {
         Iterable<Feature> enabledFeatures,
         Iterable<ActionConfig> enabledActionConfigs,
         ImmutableMap<String, ActionConfig> actionConfigByActionName) {
-      this.featureSpecification = featureSpecification;
       this.enabledFeatures = enabledFeatures;
       
       this.actionConfigByActionName = actionConfigByActionName;
@@ -1695,26 +1729,47 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * @return the command line for the given {@code action}.
      */
-    List<String> getCommandLine(String action, Variables variables) {
+    public List<String> getCommandLine(String action, Variables variables) {
       List<String> commandLine = new ArrayList<>();
-      for (Feature feature : enabledFeatures) {
-        feature.expandCommandLine(action, variables, enabledFeatureNames, commandLine);
-      }
-      
       if (actionIsConfigured(action)) {
         actionConfigByActionName
             .get(action)
             .expandCommandLine(variables, enabledFeatureNames, commandLine);
       }
 
+      for (Feature feature : enabledFeatures) {
+        feature.expandCommandLine(action, variables, enabledFeatureNames, commandLine);
+      }
+
       return commandLine;
+    }
+
+    /** @return the flags expanded for the given {@code action} in per-feature buckets. */
+    public ImmutableList<Pair<String, List<String>>> getPerFeatureExpansions(
+        String action, Variables variables) {
+      ImmutableList.Builder<Pair<String, List<String>>> perFeatureExpansions =
+          ImmutableList.builder();
+      if (actionIsConfigured(action)) {
+        List<String> commandLine = new ArrayList<>();
+        ActionConfig actionConfig = actionConfigByActionName.get(action);
+        actionConfig.expandCommandLine(variables, enabledFeatureNames, commandLine);
+        perFeatureExpansions.add(Pair.of(actionConfig.getName(), commandLine));
+      }
+
+      for (Feature feature : enabledFeatures) {
+        List<String> commandLine = new ArrayList<>();
+        feature.expandCommandLine(action, variables, enabledFeatureNames, commandLine);
+        perFeatureExpansions.add(Pair.of(feature.getName(), commandLine));
+      }
+
+      return perFeatureExpansions.build();
     }
 
     /** @return the environment variables (key/value pairs) for the given {@code action}. */
     ImmutableMap<String, String> getEnvironmentVariables(String action, Variables variables) {
       ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
       for (Feature feature : enabledFeatures) {
-        feature.expandEnvironment(action, variables, envBuilder);
+        feature.expandEnvironment(action, variables, enabledFeatureNames, envBuilder);
       }
       return envBuilder.build();
     }
@@ -1729,10 +1784,6 @@ public class CcToolchainFeatures implements Serializable {
           actionName);
       ActionConfig actionConfig = actionConfigByActionName.get(actionName);
       return actionConfig.getTool(enabledFeatureNames);
-    }
-
-    public FeatureSpecification getFeatureSpecification() {
-      return featureSpecification;
     }
   }
 
@@ -1793,8 +1844,8 @@ public class CcToolchainFeatures implements Serializable {
    */
   private final ImmutableMultimap<CrosstoolSelectable, CrosstoolSelectable> requiredBy;
 
-  private final ImmutableList<String> defaultFeatures;
- 
+  private final ImmutableList<String> defaultSelectables;
+
   /**
    * A cache of feature selection results, so we do not recalculate the feature selection for all
    * actions.
@@ -1820,23 +1871,26 @@ public class CcToolchainFeatures implements Serializable {
     // Also build a map from action -> action_config, for use in tool lookups
     ImmutableMap.Builder<String, ActionConfig> actionConfigsByActionName = ImmutableMap.builder();
 
-    ImmutableList.Builder<String> defaultFeaturesBuilder = ImmutableList.builder();
+    ImmutableList.Builder<String> defaultSelectablesBuilder = ImmutableList.builder();
     for (CToolchain.Feature toolchainFeature : toolchain.getFeatureList()) {
       Feature feature = new Feature(toolchainFeature);
       selectablesBuilder.add(feature);
       selectablesByName.put(feature.getName(), feature);
       if (toolchainFeature.getEnabled()) {
-        defaultFeaturesBuilder.add(feature.getName());
+        defaultSelectablesBuilder.add(feature.getName());
       }
     }
-    this.defaultFeatures = defaultFeaturesBuilder.build();
-    
+
     for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
       ActionConfig actionConfig = new ActionConfig(toolchainActionConfig);
       selectablesBuilder.add(actionConfig);
       selectablesByName.put(actionConfig.getName(), actionConfig);
       actionConfigsByActionName.put(actionConfig.getActionName(), actionConfig);
+      if (toolchainActionConfig.getEnabled()) {
+        defaultSelectablesBuilder.add(actionConfig.getName());
+      }
     }
+    this.defaultSelectables = defaultSelectablesBuilder.build();
        
     this.selectables = selectablesBuilder.build();
     this.selectablesByName = ImmutableMap.copyOf(selectablesByName);
@@ -1949,7 +2003,8 @@ public class CcToolchainFeatures implements Serializable {
         .build(
             new CacheLoader<FeatureSpecification, FeatureConfiguration>() {
               @Override
-              public FeatureConfiguration load(FeatureSpecification featureSpecification) {
+              public FeatureConfiguration load(FeatureSpecification featureSpecification)
+                  throws CollidingProvidesException {
                 return computeFeatureConfiguration(featureSpecification);
               }
             });
@@ -1965,8 +2020,15 @@ public class CcToolchainFeatures implements Serializable {
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
    */
-  public FeatureConfiguration getFeatureConfiguration(FeatureSpecification featureSpecification) {
-    return configurationCache.getUnchecked(featureSpecification);
+  public FeatureConfiguration getFeatureConfiguration(FeatureSpecification featureSpecification)
+      throws CollidingProvidesException {
+    try {
+      return configurationCache.get(featureSpecification);
+    } catch (ExecutionException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), CollidingProvidesException.class);
+      Throwables.throwIfUnchecked(e.getCause());
+      throw new IllegalStateException("Unexpected checked exception encountered", e);
+    }
   }
 
   /**
@@ -1979,16 +2041,15 @@ public class CcToolchainFeatures implements Serializable {
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
    */
-  public FeatureConfiguration computeFeatureConfiguration(
-      FeatureSpecification featureSpecification) {
+  public FeatureConfiguration computeFeatureConfiguration(FeatureSpecification featureSpecification)
+      throws CollidingProvidesException {
     // Command line flags will be output in the order in which they are specified in the toolchain
     // configuration.
     return new FeatureSelection(featureSpecification).run();
   }
 
-  /** Returns the list of features that specify themselves as enabled by default. */
-  public ImmutableList<String> getDefaultFeatures() {
-    return defaultFeatures;
+  public ImmutableList<String> getDefaultFeaturesAndActionConfigs() {
+    return defaultSelectables;
   }
 
   /**
@@ -2084,10 +2145,10 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /**
-     * @return a {@code FeatureConfiguration} that reflects the set of activated features and
-     * action configs.
+     * @return a {@code FeatureConfiguration} that reflects the set of activated features and action
+     *     configs.
      */
-    private FeatureConfiguration run() {
+    private FeatureConfiguration run() throws CollidingProvidesException {
       for (CrosstoolSelectable selectable : requestedSelectables) {
         enableAllImpliedBy(selectable);
       }
@@ -2152,7 +2213,7 @@ public class CcToolchainFeatures implements Serializable {
         checkActivatable(check.poll());
       }
     }
-    
+
     /**
      * Check if the given selectable is still satisfied within the set of currently enabled
      * selectables.

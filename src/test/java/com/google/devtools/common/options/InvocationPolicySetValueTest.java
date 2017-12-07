@@ -232,77 +232,33 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testSetValueWithExpansionFunctionFlags() throws Exception {
+  public void testSetValueWithExpansionFlagOnExpansionFlag() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
-        .setFlagName("test_expansion_function")
-        .getSetValueBuilder()
-        .addFlagValue(TestOptions.TEST_EXPANSION_FUNCTION_ACCEPTED_VALUE);
+        .setFlagName("test_recursive_expansion_top_level")
+        .getSetValueBuilder();
+
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    // Unrelated flag, but --test_expansion_function is not set
+    // Unrelated flag, but --test_expansion is not set
     parser.parse("--test_string=throwaway value");
 
-    // The flags that --test_expansion_function expands into should still be their default values
+    // The flags that --test_expansion expands into should still be their default values
     TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
+    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
 
     enforcer.enforce(parser, BUILD_COMMAND);
 
-    // After policy enforcement, the flags should be the values from
-    // --test_expansion_function=valueA
+    // After policy enforcement, the flags should be the values from the expansion flag
     testOptions = getTestOptions();
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_EXPANSION_FUNCTION_VALUE);
-  }
-
-  @Test
-  public void testSetValueWithExpansionFunctionFlagsDefault() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
-        .addFlagPoliciesBuilder()
-        .setFlagName("test_expansion_function")
-        .getSetValueBuilder();
-
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    // Unrelated flag, but --test_expansion_function is not set
-    parser.parse("--test_string=throwaway value");
-
-    // The flags that --test_expansion_function expands into should still be their default values
-    TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
-
-    try {
-      enforcer.enforce(parser, BUILD_COMMAND);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessage("Expansion value not set.");
-    }
-  }
-
-  @Test
-  public void testSetValueWithExpansionFunctionFlagsWrongValue() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
-        .addFlagPoliciesBuilder()
-        .setFlagName("test_expansion_function")
-        .getSetValueBuilder()
-        .addFlagValue("unknown_value");
-
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    // Unrelated flag, but --test_expansion_function is not set
-    parser.parse("--test_string=throwaway value");
-
-    // The flags that --test_expansion_function expands into should still be their default values
-    TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
-
-    try {
-      enforcer.enforce(parser, BUILD_COMMAND);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessage("Unrecognized expansion value: unknown_value");
-    }
+    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_RECURSIVE_EXPANSION);
   }
 
   @Test
@@ -336,33 +292,6 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
     assertThat(testOptions.expandedC).isEqualTo(23);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
-  }
-
-  @Test
-  public void testOverridableSetValueWithExpansionFunction() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
-        .addFlagPoliciesBuilder()
-        .setFlagName("test_expansion_function")
-        .getSetValueBuilder()
-        .addFlagValue(TestOptions.TEST_EXPANSION_FUNCTION_ACCEPTED_VALUE)
-        .setOverridable(true);
-
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    // Unrelated flag, but --test_expansion_function is not set
-    parser.parse("--expanded_d=value that overrides");
-
-    // The flags that --test_expansion_function expands into should still be their default values
-    // except for the explicitly marked flag.
-    TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedD).isEqualTo("value that overrides");
-
-    enforcer.enforce(parser, "build");
-
-    // After policy enforcement, the flags should be the values from --test_expansion_function,
-    // except for the user-set value, since the expansion flag was set to overridable.
-    testOptions = getTestOptions();
-    assertThat(testOptions.expandedD).isEqualTo("value that overrides");
   }
 
   @Test
@@ -423,34 +352,6 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
     assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
-  }
-
-  @Test
-  public void testNonoverridableSetValueWithExpansionFlags() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
-        .addFlagPoliciesBuilder()
-        .setFlagName("test_expansion_function")
-        .getSetValueBuilder()
-        .addFlagValue(TestOptions.TEST_EXPANSION_FUNCTION_ACCEPTED_VALUE)
-        .setOverridable(false);
-
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    // Unrelated flag, but --test_expansion_function is not set
-    parser.parse("--expanded_d=value to override");
-
-    // The flags that --test_expansion_function expands into should still be their default values
-    // except for the explicitly marked flag.
-    TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedD).isEqualTo("value to override");
-
-    enforcer.enforce(parser, "build");
-
-    // After policy enforcement, the flags should be the values from --test_expansion_function,
-    // including the value that the user tried to set, since the expansion flag was set
-    // non-overridably.
-    testOptions = getTestOptions();
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_EXPANSION_FUNCTION_VALUE);
   }
 
   @Test

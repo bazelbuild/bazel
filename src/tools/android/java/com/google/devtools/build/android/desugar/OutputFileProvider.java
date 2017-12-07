@@ -18,6 +18,9 @@ import java.io.IOException;
 /** Output file provider allows to write files in directory or jar files. */
 interface OutputFileProvider extends AutoCloseable {
 
+  /** Filename to use to write out dependency metadata for later consistency checking. */
+  public static final String DESUGAR_DEPS_FILENAME = "META-INF/desugar_deps";
+
   /**
    * Copy {@code filename} from {@code inputFileProvider} to this output. If input file provider is
    * a {@link ZipInputFileProvider} then the metadata of the zip entry are kept.

@@ -4,7 +4,7 @@ licenses(["notice"])
 
 load(":proto_alias.bzl", "proto_alias")
 
-PROTOBUF_VERSION = "3.2.0"
+PROTOBUF_VERSION = "3.4.0"
 
 filegroup(
     name = "srcs",

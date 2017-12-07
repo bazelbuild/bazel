@@ -1,31 +1,28 @@
-package(default_visibility = ["//visibility:private"])
-
-package_group(
-    name = "android-tests",
-    packages = [
-        "//src/test/java/com/google/devtools/build/android/...",
-    ],
+package(
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
-    visibility = [":android-tests"],
+    visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
 )
 
 java_test(
     name = "JunctionCreatorTest",
     size = "small",
     srcs = select({
-        "//src:windows": ["WindowsJunctionCreatorTest.java"],
-        "//src:windows_msvc": ["WindowsJunctionCreatorTest.java"],
-        "//src:windows_msys": ["WindowsJunctionCreatorTest.java"],
+        "//src/conditions:windows": ["WindowsJunctionCreatorTest.java"],
+        "//src/conditions:windows_msvc": ["WindowsJunctionCreatorTest.java"],
+        "//src/conditions:windows_msys": ["WindowsJunctionCreatorTest.java"],
         "//conditions:default": ["NoopJunctionCreatorTest.java"],
     }),
     test_class = select({
-        "//src:windows": "com.google.devtools.build.android.junctions.WindowsJunctionCreatorTest",
-        "//src:windows_msvc": "com.google.devtools.build.android.junctions.WindowsJunctionCreatorTest",
-        "//src:windows_msys": "com.google.devtools.build.android.junctions.WindowsJunctionCreatorTest",
+        "//src/conditions:windows": "com.google.devtools.build.android.junctions.WindowsJunctionCreatorTest",
+        "//src/conditions:windows_msvc": "com.google.devtools.build.android.junctions.WindowsJunctionCreatorTest",
+        "//src/conditions:windows_msys": "com.google.devtools.build.android.junctions.WindowsJunctionCreatorTest",
         "//conditions:default": "com.google.devtools.build.android.junctions.NoopJunctionCreatorTest",
     }),
     deps = [
@@ -33,4 +30,21 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
     ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
 )

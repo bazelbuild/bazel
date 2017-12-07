@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import java.io.File;
@@ -31,26 +31,28 @@ import java.io.Serializable;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Objects;
 
 /**
- * <p>Instances of this class represent pathnames, forming a tree
- * structure to implement sharing of common prefixes (parent directory names).
- * A node in these trees is something like foo, bar, .., ., or /. If the
- * instance is not a root path, it will have a parent path. A path can also
- * have children, which are indexed by name in a map.
+ * Instances of this class represent pathnames, forming a tree structure to implement sharing of
+ * common prefixes (parent directory names). A node in these trees is something like foo, bar, ..,
+ * ., or /. If the instance is not a root path, it will have a parent path. A path can also have
+ * children, which are indexed by name in a map.
  *
- * <p>There is some limited support for Windows-style paths. Most importantly, drive identifiers
- * in front of a path (c:/abc) are supported. However, Windows-style backslash separators
+ * <p>There is some limited support for Windows-style paths. Most importantly, drive identifiers in
+ * front of a path (c:/abc) are supported. However, Windows-style backslash separators
  * (C:\\foo\\bar) and drive-relative paths ("C:foo") are explicitly not supported, same with
  * advanced features like \\\\network\\paths and \\\\?\\unc\\paths.
  *
  * <p>{@link FileSystem} implementations maintain pointers into this graph.
  */
 @ThreadSafe
-public class Path implements Comparable<Path>, Serializable {
+public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
 
   /** Filesystem-specific factory for {@link Path} objects. */
   public static interface PathFactory {
@@ -216,7 +218,8 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   private void writeObject(ObjectOutputStream out) throws IOException {
-    Preconditions.checkState(fileSystem == fileSystemForSerialization, fileSystem);
+    Preconditions.checkState(
+        fileSystem == fileSystemForSerialization, "%s %s", fileSystem, fileSystemForSerialization);
     out.writeUTF(getPathString());
   }
 
@@ -381,6 +384,39 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   /**
+   * Returns the path encoded as an {@link URI}.
+   *
+   * <p>This concrete implementation returns URIs with "file" as the scheme.
+   * For Example:
+   *  - On Unix the path "/tmp/foo bar.txt" will be encoded as
+   *    "file:///tmp/foo%20bar.txt".
+   *  - On Windows the path "C:\Temp\Foo Bar.txt" will be encoded as
+   *    "file:///C:/Temp/Foo%20Bar.txt"
+   *
+   * <p>Implementors extending this class for special filesystems will likely need to override
+   * this method.
+   *
+   * @throws URISyntaxException if the URI cannot be constructed.
+   */
+  public URI toURI() {
+    String ps = getPathString();
+    if (!ps.startsWith("/")) {
+      // On Windows URI's need to start with a '/'. i.e. C:\Foo\Bar would be file:///C:/Foo/Bar
+      ps = "/" + ps;
+    }
+    try {
+      return new URI("file",
+          // Needs to be "" instead of null, so that toString() will append "//" after the scheme.
+          // We need this for backwards compatibility reasons as some consumers of the BEP are
+          // broken.
+          "",
+          ps, null, null);
+    } catch (URISyntaxException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /**
    * Returns the path as a string.
    */
   public String getPathString() {
@@ -390,6 +426,11 @@ public class Path implements Comparable<Path>, Serializable {
     StringBuilder builder = new StringBuilder(depth * 20);
     buildPathString(builder);
     return builder.toString();
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append(getPathString());
   }
 
   /**
@@ -451,194 +492,327 @@ public class Path implements Comparable<Path>, Serializable {
     return parent;
   }
 
-  /**
-   * Returns true iff this path denotes an existing file of any kind. Follows
-   * symbolic links.
-   */
+  /** Prefer to use {@link #exists(FileSystem)}. */
+  @Deprecated
   public boolean exists() {
+    return exists(fileSystem);
+  }
+
+  /**
+   * Returns true iff this path denotes an existing file of any kind. Follows symbolic links.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   */
+  public boolean exists(FileSystem fileSystem) {
     return fileSystem.exists(this, true);
+  }
+
+  /** Prefer to use {@link #exists(FileSystem, Symlinks)}. */
+  @Deprecated
+  public boolean exists(Symlinks followSymlinks) {
+    return exists(fileSystem, followSymlinks);
   }
 
   /**
    * Returns true iff this path denotes an existing file of any kind.
    *
-   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a
-   *        symbolic link, the link is dereferenced until a file other than a
-   *        symbolic link is found
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
+   *     link is dereferenced until a file other than a symbolic link is found
    */
-  public boolean exists(Symlinks followSymlinks) {
+  public boolean exists(FileSystem fileSystem, Symlinks followSymlinks) {
     return fileSystem.exists(this, followSymlinks.toBoolean());
   }
 
-  /**
-   * Returns a new, immutable collection containing the names of all entities
-   * within the directory denoted by the current path. Follows symbolic links.
-   *
-   * @throws FileNotFoundException If the directory is not found
-   * @throws IOException If the path does not denote a directory
-   */
+  /** Prefer to use {@link #getDirectoryEntries(FileSystem)}. */
+  @Deprecated
   public Collection<Path> getDirectoryEntries() throws IOException, FileNotFoundException {
-    return fileSystem.getDirectoryEntries(this);
+    return getDirectoryEntries(fileSystem);
   }
 
   /**
-   * Returns a collection of the names and types of all entries within the directory
-   * denoted by the current path.  Follows symbolic links if {@code followSymlinks} is true.
-   * Note that the order of the returned entries is not guaranteed.
+   * Returns a new, immutable collection containing the names of all entities within the directory
+   * denoted by the current path. Follows symbolic links.
    *
-   * @param followSymlinks whether to follow symlinks or not
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    *
    * @throws FileNotFoundException If the directory is not found
    * @throws IOException If the path does not denote a directory
    */
+  public Collection<Path> getDirectoryEntries(FileSystem fileSystem)
+      throws IOException, FileNotFoundException {
+    Collection<String> entries = fileSystem.getDirectoryEntries(this);
+    Collection<Path> result = new ArrayList<>(entries.size());
+    for (String entry : entries) {
+      result.add(getChild(entry));
+    }
+    return result;
+  }
+
+  /** Prefer to use {@link #readdir(FileSystem, Symlinks)}. */
+  @Deprecated
   public Collection<Dirent> readdir(Symlinks followSymlinks) throws IOException {
+    return readdir(fileSystem, followSymlinks);
+  }
+
+  /**
+   * Returns a collection of the names and types of all entries within the directory denoted by the
+   * current path. Follows symbolic links if {@code followSymlinks} is true. Note that the order of
+   * the returned entries is not guaranteed.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param followSymlinks whether to follow symlinks or not
+   * @throws FileNotFoundException If the directory is not found
+   * @throws IOException If the path does not denote a directory
+   */
+  public Collection<Dirent> readdir(FileSystem fileSystem, Symlinks followSymlinks)
+      throws IOException {
     return fileSystem.readdir(this, followSymlinks.toBoolean());
   }
 
-  /**
-   * Returns a new, immutable collection containing the names of all entities
-   * within the directory denoted by the current path, for which the given
-   * predicate is true.
-   *
-   * @throws FileNotFoundException If the directory is not found
-   * @throws IOException If the path does not denote a directory
-   */
-  public Collection<Path> getDirectoryEntries(Predicate<? super Path> predicate)
-      throws IOException, FileNotFoundException {
-    return getDirectoryEntries().stream().filter(predicate).collect(toImmutableList());
+  /** Prefer to use {@link #stat(FileSystem)}. */
+  @Deprecated
+  public FileStatus stat() throws IOException {
+    return stat(fileSystem);
   }
 
   /**
    * Returns the status of a file, following symbolic links.
    *
-   * @throws IOException if there was an error obtaining the file status. Note,
-   *         some implementations may defer the I/O, and hence the throwing of
-   *         the exception, until the accessor methods of {@code FileStatus} are
-   *         called.
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws IOException if there was an error obtaining the file status. Note, some implementations
+   *     may defer the I/O, and hence the throwing of the exception, until the accessor methods of
+   *     {@code FileStatus} are called.
    */
-  public FileStatus stat() throws IOException {
+  public FileStatus stat(FileSystem fileSystem) throws IOException {
     return fileSystem.stat(this, true);
   }
 
-  /**
-   * Like stat(), but returns null on file-nonexistence instead of throwing.
-   */
+  /** Prefer to use {@link #statNullable(FileSystem)}. */
+  @Deprecated
   public FileStatus statNullable() {
-    return statNullable(Symlinks.FOLLOW);
+    return statNullable(fileSystem);
   }
 
   /**
    * Like stat(), but returns null on file-nonexistence instead of throwing.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    */
+  public FileStatus statNullable(FileSystem fileSystem) {
+    return statNullable(fileSystem, Symlinks.FOLLOW);
+  }
+
+  /** Prefer to use {@link #statNullable(FileSystem, Symlinks)}. */
+  @Deprecated
   public FileStatus statNullable(Symlinks symlinks) {
+    return statNullable(fileSystem, symlinks);
+  }
+
+  /**
+   * Like stat(), but returns null on file-nonexistence instead of throwing.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   */
+  public FileStatus statNullable(FileSystem fileSystem, Symlinks symlinks) {
     return fileSystem.statNullable(this, symlinks.toBoolean());
+  }
+
+  /** Prefer to use {@link #stat(FileSystem, Symlinks)}. */
+  @Deprecated
+  public FileStatus stat(Symlinks followSymlinks) throws IOException {
+    return stat(fileSystem, followSymlinks);
   }
 
   /**
    * Returns the status of a file, optionally following symbolic links.
    *
-   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a
-   *        symbolic link, the link is dereferenced until a file other than a
-   *        symbolic link is found
-   * @throws IOException if there was an error obtaining the file status. Note,
-   *         some implementations may defer the I/O, and hence the throwing of
-   *         the exception, until the accessor methods of {@code FileStatus} are
-   *         called
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
+   *     link is dereferenced until a file other than a symbolic link is found
+   * @throws IOException if there was an error obtaining the file status. Note, some implementations
+   *     may defer the I/O, and hence the throwing of the exception, until the accessor methods of
+   *     {@code FileStatus} are called
    */
-  public FileStatus stat(Symlinks followSymlinks) throws IOException {
+  public FileStatus stat(FileSystem fileSystem, Symlinks followSymlinks) throws IOException {
     return fileSystem.stat(this, followSymlinks.toBoolean());
   }
 
-  /**
-   * Like {@link #stat}, but may return null if the file is not found (corresponding to
-   * {@code ENOENT} and {@code ENOTDIR} in Unix's stat(2) function) instead of throwing. Follows
-   * symbolic links.
-   */
+  /** Prefer to use {@link #statIfFound(FileSystem)}. */
+  @Deprecated
   public FileStatus statIfFound() throws IOException {
+    return statIfFound(fileSystem);
+  }
+
+  /**
+   * Like {@link #stat}, but may return null if the file is not found (corresponding to {@code
+   * ENOENT} and {@code ENOTDIR} in Unix's stat(2) function) instead of throwing. Follows symbolic
+   * links.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   */
+  public FileStatus statIfFound(FileSystem fileSystem) throws IOException {
     return fileSystem.statIfFound(this, true);
   }
 
-  /**
-   * Like {@link #stat}, but may return null if the file is not found (corresponding to
-   * {@code ENOENT} and {@code ENOTDIR} in Unix's stat(2) function) instead of throwing.
-   *
-   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a
-   *        symbolic link, the link is dereferenced until a file other than a
-   *        symbolic link is found
-   */
+  /** Prefer to use {@link #statIfFound(FileSystem, Symlinks)}. */
+  @Deprecated
   public FileStatus statIfFound(Symlinks followSymlinks) throws IOException {
+    return statIfFound(fileSystem, followSymlinks);
+  }
+
+  /**
+   * Like {@link #stat}, but may return null if the file is not found (corresponding to {@code
+   * ENOENT} and {@code ENOTDIR} in Unix's stat(2) function) instead of throwing.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
+   *     link is dereferenced until a file other than a symbolic link is found
+   */
+  public FileStatus statIfFound(FileSystem fileSystem, Symlinks followSymlinks) throws IOException {
     return fileSystem.statIfFound(this, followSymlinks.toBoolean());
   }
 
+  /** Prefer to use {@link #isDirectory()} (FileSystem)}. */
+  @Deprecated
+  public boolean isDirectory() {
+    return isDirectory(fileSystem);
+  }
 
   /**
-   * Returns true iff this path denotes an existing directory. Follows symbolic
-   * links.
+   * Returns true iff this path denotes an existing directory. Follows symbolic links.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    */
-  public boolean isDirectory() {
+  public boolean isDirectory(FileSystem fileSystem) {
     return fileSystem.isDirectory(this, true);
+  }
+
+  /** Prefer to use {@link #isDirectory(FileSystem, Symlinks)}. */
+  @Deprecated
+  public boolean isDirectory(Symlinks followSymlinks) {
+    return isDirectory(fileSystem, followSymlinks);
   }
 
   /**
    * Returns true iff this path denotes an existing directory.
    *
-   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a
-   *        symbolic link, the link is dereferenced until a file other than a
-   *        symbolic link is found
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
+   *     link is dereferenced until a file other than a symbolic link is found
    */
-  public boolean isDirectory(Symlinks followSymlinks) {
+  public boolean isDirectory(FileSystem fileSystem, Symlinks followSymlinks) {
     return fileSystem.isDirectory(this, followSymlinks.toBoolean());
   }
 
-  /**
-   * Returns true iff this path denotes an existing regular or special file.
-   * Follows symbolic links.
-   *
-   * <p>For our purposes, "file" includes special files (socket, fifo, block or
-   * char devices) too; it excludes symbolic links and directories.
-   */
+  /** Prefer to use {@link #isFile(FileSystem)}. */
+  @Deprecated
   public boolean isFile() {
+    return isFile(fileSystem);
+  }
+
+  /**
+   * Returns true iff this path denotes an existing regular or special file. Follows symbolic links.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * <p>For our purposes, "file" includes special files (socket, fifo, block or char devices) too;
+   * it excludes symbolic links and directories.
+   */
+  public boolean isFile(FileSystem fileSystem) {
     return fileSystem.isFile(this, true);
   }
 
+  /** Prefer to use {@link #isFile(FileSystem, Symlinks)}. */
+  @Deprecated
+  public boolean isFile(Symlinks followSymlinks) {
+    return isFile(fileSystem, followSymlinks);
+  }
+
   /**
    * Returns true iff this path denotes an existing regular or special file.
    *
-   * <p>For our purposes, a "file" includes special files (socket, fifo, block
-   * or char devices) too; it excludes symbolic links and directories.
+   * <p>For our purposes, a "file" includes special files (socket, fifo, block or char devices) too;
+   * it excludes symbolic links and directories.
    *
-   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a
-   *        symbolic link, the link is dereferenced until a file other than a
-   *        symbolic link is found.
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
+   *     link is dereferenced until a file other than a symbolic link is found.
    */
-  public boolean isFile(Symlinks followSymlinks) {
+  public boolean isFile(FileSystem fileSystem, Symlinks followSymlinks) {
     return fileSystem.isFile(this, followSymlinks.toBoolean());
   }
 
-  /**
-   * Returns true iff this path denotes an existing special file (e.g. fifo).
-   * Follows symbolic links.
-   */
+  /** Prefer to use {@link #isSpecialFile(FileSystem)}. */
+  @Deprecated
   public boolean isSpecialFile() {
+    return isSpecialFile(fileSystem);
+  }
+
+  /**
+   * Returns true iff this path denotes an existing special file (e.g. fifo). Follows symbolic
+   * links.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   */
+  public boolean isSpecialFile(FileSystem fileSystem) {
     return fileSystem.isSpecialFile(this, true);
+  }
+
+  /** Prefer to use {@link #isSpecialFile(FileSystem, Symlinks)}. */
+  @Deprecated
+  public boolean isSpecialFile(Symlinks followSymlinks) {
+    return isSpecialFile(fileSystem, followSymlinks);
   }
 
   /**
    * Returns true iff this path denotes an existing special file (e.g. fifo).
    *
-   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a
-   *        symbolic link, the link is dereferenced until a path other than a
-   *        symbolic link is found.
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
+   *     link is dereferenced until a path other than a symbolic link is found.
    */
-  public boolean isSpecialFile(Symlinks followSymlinks) {
+  public boolean isSpecialFile(FileSystem fileSystem, Symlinks followSymlinks) {
     return fileSystem.isSpecialFile(this, followSymlinks.toBoolean());
   }
 
-  /**
-   * Returns true iff this path denotes an existing symbolic link. Does not
-   * follow symbolic links.
-   */
+  /** Prefer to use {@link #isSymbolicLink(FileSystem)}. */
+  @Deprecated
   public boolean isSymbolicLink() {
+    return isSymbolicLink(fileSystem);
+  }
+
+  /**
+   * Returns true iff this path denotes an existing symbolic link. Does not follow symbolic links.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   */
+  public boolean isSymbolicLink(FileSystem fileSystem) {
     return fileSystem.isSymbolicLink(this);
   }
 
@@ -793,288 +967,464 @@ public class Path implements Comparable<Path>, Serializable {
     }
   }
 
+  /** Prefer to use {@link #getOutputStream(FileSystem)}. */
+  @Deprecated
+  public OutputStream getOutputStream() throws IOException, FileNotFoundException {
+    return getOutputStream(fileSystem);
+  }
+
   /**
-   * Returns an output stream to the file denoted by the current path, creating
-   * it and truncating it if necessary.  The stream is opened for writing.
+   * Returns an output stream to the file denoted by the current path, creating it and truncating it
+   * if necessary. The stream is opened for writing.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    *
    * @throws FileNotFoundException If the file cannot be found or created.
    * @throws IOException If a different error occurs.
    */
-  public OutputStream getOutputStream() throws IOException, FileNotFoundException {
-    return getOutputStream(false);
+  public OutputStream getOutputStream(FileSystem fileSystem)
+      throws IOException, FileNotFoundException {
+    return getOutputStream(fileSystem, false);
+  }
+
+  /** Prefer to use {@link #getOutputStream(FileSystem, boolean)}. */
+  @Deprecated
+  public OutputStream getOutputStream(boolean append) throws IOException, FileNotFoundException {
+    return getOutputStream(fileSystem, append);
   }
 
   /**
-   * Returns an output stream to the file denoted by the current path, creating
-   * it and truncating it if necessary.  The stream is opened for writing.
+   * Returns an output stream to the file denoted by the current path, creating it and truncating it
+   * if necessary. The stream is opened for writing.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    *
    * @param append whether to open the file in append mode.
    * @throws FileNotFoundException If the file cannot be found or created.
    * @throws IOException If a different error occurs.
    */
-  public OutputStream getOutputStream(boolean append) throws IOException, FileNotFoundException {
+  public OutputStream getOutputStream(FileSystem fileSystem, boolean append)
+      throws IOException, FileNotFoundException {
     return fileSystem.getOutputStream(this, append);
   }
 
-  /**
-   * Creates a directory with the name of the current path, not following
-   * symbolic links.  Returns normally iff the directory exists after the call:
-   * true if the directory was created by this call, false if the directory was
-   * already in existence.  Throws an exception if the directory could not be
-   * created for any reason.
-   *
-   * @throws IOException if the directory creation failed for any reason
-   */
+  /** Prefer to use {@link #createDirectory(FileSystem)}. */
+  @Deprecated
   public boolean createDirectory() throws IOException {
-    return fileSystem.createDirectory(this);
+    return createDirectory(fileSystem);
   }
 
   /**
-   * Creates a symbolic link with the name of the current path, following
-   * symbolic links. The referent of the created symlink is is the absolute path
-   * "target"; it is not possible to create relative symbolic links via this
-   * method.
+   * Creates a directory with the name of the current path, not following symbolic links. Returns
+   * normally iff the directory exists after the call: true if the directory was created by this
+   * call, false if the directory was already in existence. Throws an exception if the directory
+   * could not be created for any reason.
    *
-   * @throws IOException if the creation of the symbolic link was unsuccessful
-   *         for any reason
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws IOException if the directory creation failed for any reason
    */
+  public boolean createDirectory(FileSystem fileSystem) throws IOException {
+    return fileSystem.createDirectory(this);
+  }
+
+  /** Prefer to use {@link #createSymbolicLink(FileSystem, Path)}. */
+  @Deprecated
   public void createSymbolicLink(Path target) throws IOException {
+    createSymbolicLink(fileSystem, target);
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the absolute path "target"; it is not possible to create
+   * relative symbolic links via this method.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(FileSystem fileSystem, Path target) throws IOException {
     checkSameFilesystem(target);
     fileSystem.createSymbolicLink(this, target.asFragment());
   }
 
-  /**
-   * Creates a symbolic link with the name of the current path, following
-   * symbolic links. The referent of the created symlink is is the path fragment
-   * "target", which may be absolute or relative.
-   *
-   * @throws IOException if the creation of the symbolic link was unsuccessful
-   *         for any reason
-   */
+  /** Prefer to use {@link #createSymbolicLink(FileSystem, PathFragment)}. */
+  @Deprecated
   public void createSymbolicLink(PathFragment target) throws IOException {
+    createSymbolicLink(fileSystem, target);
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the path fragment "target", which may be absolute or
+   * relative.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(FileSystem fileSystem, PathFragment target) throws IOException {
     fileSystem.createSymbolicLink(this, target);
+  }
+
+  /** Prefer to use {@link #readSymbolicLink(FileSystem)}. */
+  @Deprecated
+  public PathFragment readSymbolicLink() throws IOException {
+    return readSymbolicLink(fileSystem);
   }
 
   /**
    * Returns the target of the current path, which must be a symbolic link. The link contents are
    * returned exactly, and may contain an absolute or relative path. Analogous to readlink(2).
    *
-   * <p>Note: for {@link FileSystem}s where {@link FileSystem#supportsSymbolicLinksNatively()}
+   * <p>Note: for {@link FileSystem}s where {@link FileSystem#supportsSymbolicLinksNatively(Path)}
    * returns false, this method will throw an {@link UnsupportedOperationException} if the link
    * points to a non-existent file.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    *
    * @return the content (i.e. target) of the symbolic link
    * @throws IOException if the current path is not a symbolic link, or the contents of the link
    *     could not be read for any reason
    */
-  public PathFragment readSymbolicLink() throws IOException {
+  public PathFragment readSymbolicLink(FileSystem fileSystem) throws IOException {
     return fileSystem.readSymbolicLink(this);
   }
 
+  /** Prefer to use {@link #readSymbolicLinkUnchecked(FileSystem)}. */
+  @Deprecated
+  public PathFragment readSymbolicLinkUnchecked() throws IOException {
+    return readSymbolicLinkUnchecked(fileSystem);
+  }
+
   /**
-   * If the current path is a symbolic link, returns the target of this symbolic link. The
-   * semantics are intentionally left underspecified otherwise to permit efficient implementations.
+   * If the current path is a symbolic link, returns the target of this symbolic link. The semantics
+   * are intentionally left underspecified otherwise to permit efficient implementations.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    *
    * @return the content (i.e. target) of the symbolic link
-   * @throws IOException if the current path is not a symbolic link, or the
-   *         contents of the link could not be read for any reason
+   * @throws IOException if the current path is not a symbolic link, or the contents of the link
+   *     could not be read for any reason
    */
-  public PathFragment readSymbolicLinkUnchecked() throws IOException {
+  public PathFragment readSymbolicLinkUnchecked(FileSystem fileSystem) throws IOException {
     return fileSystem.readSymbolicLinkUnchecked(this);
+  }
+
+  /** Prefer to use {@link #createHardLink(FileSystem, Path)}. */
+  @Deprecated
+  public void createHardLink(Path link) throws IOException {
+    createHardLink(fileSystem, link);
   }
 
   /**
    * Create a hard link for the current path.
    *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
    * @param link the path of the new link
    * @throws IOException if there was an error executing {@link FileSystem#createHardLink}
    */
-  public void createHardLink(Path link) throws IOException {
+  public void createHardLink(FileSystem fileSystem, Path link) throws IOException {
     fileSystem.createHardLink(link, this);
   }
 
-  /**
-   * Returns the canonical path for this path, by repeatedly replacing symbolic
-   * links with their referents. Analogous to realpath(3).
-   *
-   * @return the canonical path for this path
-   * @throws IOException if any symbolic link could not be resolved, or other
-   *         error occurred (for example, the path does not exist)
-   */
+  /** Prefer to use {@link #resolveSymbolicLinks(FileSystem)}. */
+  @Deprecated
   public Path resolveSymbolicLinks() throws IOException {
-    return fileSystem.resolveSymbolicLinks(this);
+    return resolveSymbolicLinks(fileSystem);
   }
 
   /**
-   * Renames the file denoted by the current path to the location "target", not
-   * following symbolic links.
+   * Returns the canonical path for this path, by repeatedly replacing symbolic links with their
+   * referents. Analogous to realpath(3).
    *
-   * <p>Files cannot be atomically renamed across devices; copying is required.
-   * Use {@link FileSystemUtils#copyFile} followed by {@link Path#delete}.
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @return the canonical path for this path
+   * @throws IOException if any symbolic link could not be resolved, or other error occurred (for
+   *     example, the path does not exist)
+   */
+  public Path resolveSymbolicLinks(FileSystem fileSystem) throws IOException {
+    return fileSystem.resolveSymbolicLinks(this);
+  }
+
+  /** Prefer to use {@link #renameTo(FileSystem, Path)}. */
+  @Deprecated
+  public void renameTo(Path target) throws IOException {
+    renameTo(fileSystem, target);
+  }
+
+  /**
+   * Renames the file denoted by the current path to the location "target", not following symbolic
+   * links.
+   *
+   * <p>Files cannot be atomically renamed across devices; copying is required. Use {@link
+   * FileSystemUtils#copyFile} followed by {@link Path#delete}.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    *
    * @throws IOException if the rename failed for any reason
    */
-  public void renameTo(Path target) throws IOException {
+  public void renameTo(FileSystem fileSystem, Path target) throws IOException {
     checkSameFilesystem(target);
     fileSystem.renameTo(this, target);
   }
 
+  /** Prefer to use {@link #getFileSize(FileSystem)}. */
+  @Deprecated
+  public long getFileSize() throws IOException, FileNotFoundException {
+    return getFileSize(fileSystem);
+  }
+
   /**
-   * Returns the size in bytes of the file denoted by the current path,
-   * following symbolic links.
+   * Returns the size in bytes of the file denoted by the current path, following symbolic links.
    *
    * <p>The size of a directory or special file is undefined and should not be used.
    *
-   * @throws FileNotFoundException if the file denoted by the current path does
-   *         not exist
-   * @throws IOException if the file's metadata could not be read, or some other
-   *         error occurred
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws FileNotFoundException if the file denoted by the current path does not exist
+   * @throws IOException if the file's metadata could not be read, or some other error occurred
    */
-  public long getFileSize() throws IOException, FileNotFoundException {
+  public long getFileSize(FileSystem fileSystem) throws IOException, FileNotFoundException {
     return fileSystem.getFileSize(this, true);
+  }
+
+  /** Prefer to use {@link #getFileSize(FileSystem, Symlinks)}. */
+  @Deprecated
+  public long getFileSize(Symlinks followSymlinks) throws IOException, FileNotFoundException {
+    return getFileSize(fileSystem, followSymlinks);
   }
 
   /**
    * Returns the size in bytes of the file denoted by the current path.
    *
-   * <p>The size of directory or special file is undefined. The size of a symbolic
-   * link is the length of the name of its referent.
+   * <p>The size of directory or special file is undefined. The size of a symbolic link is the
+   * length of the name of its referent.
    *
-   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a
-   *        symbolic link, the link is deferenced until a file other than a
-   *        symbol link is found
-   * @throws FileNotFoundException if the file denoted by the current path does
-   *         not exist
-   * @throws IOException if the file's metadata could not be read, or some other
-   *         error occurred
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
+   *     link is deferenced until a file other than a symbol link is found
+   * @throws FileNotFoundException if the file denoted by the current path does not exist
+   * @throws IOException if the file's metadata could not be read, or some other error occurred
    */
-  public long getFileSize(Symlinks followSymlinks) throws IOException, FileNotFoundException {
+  public long getFileSize(FileSystem fileSystem, Symlinks followSymlinks)
+      throws IOException, FileNotFoundException {
     return fileSystem.getFileSize(this, followSymlinks.toBoolean());
   }
 
+  /** Prefer to use {@link #delete(FileSystem)}. */
+  @Deprecated
+  public boolean delete() throws IOException {
+    return delete(fileSystem);
+  }
+
   /**
-   * Deletes the file denoted by this path, not following symbolic links.
-   * Returns normally iff the file doesn't exist after the call: true if this
-   * call deleted the file, false if the file already didn't exist.  Throws an
-   * exception if the file could not be deleted for any reason.
+   * Deletes the file denoted by this path, not following symbolic links. Returns normally iff the
+   * file doesn't exist after the call: true if this call deleted the file, false if the file
+   * already didn't exist. Throws an exception if the file could not be deleted for any reason.
+   *
+   * <p>This is a migration method. The method (and its FileSystem-less counterpart) will be deleted
+   * once the FileSystem instance is removed from Path.
    *
    * @return true iff the file was actually deleted by this call
-   * @throws IOException if the deletion failed but the file was present prior
-   *         to the call
+   * @throws IOException if the deletion failed but the file was present prior to the call
    */
-  public boolean delete() throws IOException {
+  public boolean delete(FileSystem fileSystem) throws IOException {
     return fileSystem.delete(this);
   }
 
+  /** Prefer to use {@link #getLastModifiedTime(FileSystem)}. */
+  @Deprecated
+  public long getLastModifiedTime() throws IOException {
+    return getLastModifiedTime(fileSystem);
+  }
+
   /**
-   * Returns the last modification time of the file, in milliseconds since the
-   * UNIX epoch, of the file denoted by the current path, following symbolic
-   * links.
+   * Returns the last modification time of the file, in milliseconds since the UNIX epoch, of the
+   * file denoted by the current path, following symbolic links.
    *
-   * <p>Caveat: many filesystems store file times in seconds, so do not rely on
-   * the millisecond precision.
+   * <p>Caveat: many filesystems store file times in seconds, so do not rely on the millisecond
+   * precision.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    *
    * @throws IOException if the operation failed for any reason
    */
-  public long getLastModifiedTime() throws IOException {
+  public long getLastModifiedTime(FileSystem fileSystem) throws IOException {
     return fileSystem.getLastModifiedTime(this, true);
   }
 
-  /**
-   * Returns the last modification time of the file, in milliseconds since the
-   * UNIX epoch, of the file denoted by the current path.
-   *
-   * <p>Caveat: many filesystems store file times in seconds, so do not rely on
-   * the millisecond precision.
-   *
-   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a
-   *        symbolic link, the link is dereferenced until a file other than a
-   *        symbolic link is found
-   * @throws IOException if the modification time for the file could not be
-   *         obtained for any reason
-   */
+  /** Prefer to use {@link #getLastModifiedTime(FileSystem, Symlinks)}. */
+  @Deprecated
   public long getLastModifiedTime(Symlinks followSymlinks) throws IOException {
+    return getLastModifiedTime(fileSystem, followSymlinks);
+  }
+
+  /**
+   * Returns the last modification time of the file, in milliseconds since the UNIX epoch, of the
+   * file denoted by the current path.
+   *
+   * <p>Caveat: many filesystems store file times in seconds, so do not rely on the millisecond
+   * precision.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
+   *     link is dereferenced until a file other than a symbolic link is found
+   * @throws IOException if the modification time for the file could not be obtained for any reason
+   */
+  public long getLastModifiedTime(FileSystem fileSystem, Symlinks followSymlinks)
+      throws IOException {
     return fileSystem.getLastModifiedTime(this, followSymlinks.toBoolean());
   }
 
-  /**
-   * Sets the modification time of the file denoted by the current path. Follows
-   * symbolic links. If newTime is -1, the current time according to the kernel
-   * is used; this may differ from the JVM's clock.
-   *
-   * <p>Caveat: many filesystems store file times in seconds, so do not rely on
-   * the millisecond precision.
-   *
-   * @param newTime time, in milliseconds since the UNIX epoch, or -1L, meaning
-   *        use the kernel's current time
-   * @throws IOException if the modification time for the file could not be set
-   *         for any reason
-   */
+  /** Prefer to use {@link #setLastModifiedTime(FileSystem, long)}. */
+  @Deprecated
   public void setLastModifiedTime(long newTime) throws IOException {
+    setLastModifiedTime(fileSystem, newTime);
+  }
+
+  /**
+   * Sets the modification time of the file denoted by the current path. Follows symbolic links. If
+   * newTime is -1, the current time according to the kernel is used; this may differ from the JVM's
+   * clock.
+   *
+   * <p>Caveat: many filesystems store file times in seconds, so do not rely on the millisecond
+   * precision.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param newTime time, in milliseconds since the UNIX epoch, or -1L, meaning use the kernel's
+   *     current time
+   * @throws IOException if the modification time for the file could not be set for any reason
+   */
+  public void setLastModifiedTime(FileSystem fileSystem, long newTime) throws IOException {
     fileSystem.setLastModifiedTime(this, newTime);
   }
 
-  /**
-   * Returns value of the given extended attribute name or null if attribute does not exist or
-   * file system does not support extended attributes. Follows symlinks.
-   */
+  /** Prefer to use {@link #getxattr(FileSystem, String)}. */
+  @Deprecated
   public byte[] getxattr(String name) throws IOException {
+    return getxattr(fileSystem, name);
+  }
+
+  /**
+   * Returns value of the given extended attribute name or null if attribute does not exist or file
+   * system does not support extended attributes. Follows symlinks.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   */
+  public byte[] getxattr(FileSystem fileSystem, String name) throws IOException {
     return fileSystem.getxattr(this, name);
   }
 
-  /**
-   * Gets a fast digest for the given path, or {@code null} if there isn't one available. The
-   * digest should be suitable for detecting changes to the file.
-   */
+  /** Prefer to use {@link #getFastDigest(FileSystem)}. */
+  @Deprecated
   public byte[] getFastDigest() throws IOException {
-    return fileSystem.getFastDigest(this);
+    return getFastDigest(fileSystem);
   }
 
   /**
-   * Gets a fast digest for the given path, or {@code null} if there isn't one available. The
-   * digest should be suitable for detecting changes to the file.
+   * Gets a fast digest for the given path, or {@code null} if there isn't one available. The digest
+   * should be suitable for detecting changes to the file.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    */
-  public byte[] getFastDigest(HashFunction hashFunction) throws IOException {
-    return fileSystem.getFastDigest(this, hashFunction);
+  public byte[] getFastDigest(FileSystem fileSystem) throws IOException {
+    return fileSystem.getFastDigest(this);
+  }
+
+  /** Prefer to use {@link #isValidDigest(FileSystem, byte[])}. */
+  @Deprecated
+  public boolean isValidDigest(byte[] digest) {
+    return isValidDigest(fileSystem, digest);
   }
 
   /**
    * Returns whether the given digest is a valid digest for the default system digest function.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    */
-  public boolean isValidDigest(byte[] digest) {
+  public boolean isValidDigest(FileSystem fileSystem, byte[] digest) {
     return fileSystem.isValidDigest(digest);
   }
 
+  /** Prefer to use {@link #getDigest(FileSystem)}. */
+  @Deprecated
+  public byte[] getDigest() throws IOException {
+    return getDigest(fileSystem);
+  }
+
   /**
-   * Returns the digest of the file denoted by the current path,
-   * following symbolic links.
+   * Returns the digest of the file denoted by the current path, following symbolic links.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    *
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
    */
-  public byte[] getDigest() throws IOException {
+  public byte[] getDigest(FileSystem fileSystem) throws IOException {
     return fileSystem.getDigest(this);
   }
 
+  /** Prefer to use {@link #getDigest(FileSystem, HashFunction)}. */
+  @Deprecated
+  public byte[] getDigest(HashFunction hashFunction) throws IOException {
+    return getDigest(fileSystem, hashFunction);
+  }
+
   /**
-   * Returns the digest of the file denoted by the current path and digest function,
-   * following symbolic links.
+   * Returns the digest of the file denoted by the current path and digest function, following
+   * symbolic links.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
    *
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
    */
-  public byte[] getDigest(HashFunction hashFunction) throws IOException {
+  public byte[] getDigest(FileSystem fileSystem, HashFunction hashFunction) throws IOException {
     return fileSystem.getDigest(this, hashFunction);
   }
 
-  /**
-   * Opens the file denoted by this path, following symbolic links, for reading,
-   * and returns an input stream to it.
-   *
-   * @throws IOException if the file was not found or could not be opened for
-   *         reading
-   */
+  /** Prefer to use {@link #getInputStream(FileSystem)}. */
+  @Deprecated
   public InputStream getInputStream() throws IOException {
+    return getInputStream(fileSystem);
+  }
+
+  /**
+   * Opens the file denoted by this path, following symbolic links, for reading, and returns an
+   * input stream to it.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws IOException if the file was not found or could not be opened for reading
+   */
+  public InputStream getInputStream(FileSystem fileSystem) throws IOException {
     return fileSystem.getInputStream(this);
   }
 
@@ -1088,101 +1438,166 @@ public class Path implements Comparable<Path>, Serializable {
     return new File(getPathString());
   }
 
-  /**
-   * Returns true if the file denoted by the current path, following symbolic
-   * links, is writable for the current user.
-   *
-   * @throws FileNotFoundException if the file does not exist, a dangling
-   *         symbolic link was encountered, or the file's metadata could not be
-   *         read
-   */
+  /** Prefer to use {@link #isWritable(FileSystem)}. */
+  @Deprecated
   public boolean isWritable() throws IOException, FileNotFoundException {
+    return isWritable(fileSystem);
+  }
+
+  /**
+   * Returns true if the file denoted by the current path, following symbolic links, is writable for
+   * the current user.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws FileNotFoundException if the file does not exist, a dangling symbolic link was
+   *     encountered, or the file's metadata could not be read
+   */
+  public boolean isWritable(FileSystem fileSystem) throws IOException, FileNotFoundException {
     return fileSystem.isWritable(this);
   }
 
+  /** Prefer to use {@link #setReadable(FileSystem, boolean)}. */
+  @Deprecated
+  public void setReadable(boolean readable) throws IOException, FileNotFoundException {
+    setReadable(fileSystem, readable);
+  }
+
   /**
-   * Sets the read permissions of the file denoted by the current path,
-   * following symbolic links. Permissions apply to the current user.
+   * Sets the read permissions of the file denoted by the current path, following symbolic links.
+   * Permissions apply to the current user.
    *
-   * @param readable if true, the file is set to readable; otherwise the file is
-   *        made non-readable
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param readable if true, the file is set to readable; otherwise the file is made non-readable
    * @throws FileNotFoundException if the file does not exist
    * @throws IOException If the action cannot be taken (ie. permissions)
    */
-  public void setReadable(boolean readable) throws IOException, FileNotFoundException {
+  public void setReadable(FileSystem fileSystem, boolean readable)
+      throws IOException, FileNotFoundException {
     fileSystem.setReadable(this, readable);
   }
 
+  /** Prefer to use {@link #setWritable(FileSystem, boolean)}. */
+  @Deprecated
+  public void setWritable(boolean writable) throws IOException, FileNotFoundException {
+    setWritable(fileSystem, writable);
+  }
+
   /**
-   * Sets the write permissions of the file denoted by the current path,
-   * following symbolic links. Permissions apply to the current user.
+   * Sets the write permissions of the file denoted by the current path, following symbolic links.
+   * Permissions apply to the current user.
    *
    * <p>TODO(bazel-team): (2009) what about owner/group/others?
    *
-   * @param writable if true, the file is set to writable; otherwise the file is
-   *        made non-writable
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @param writable if true, the file is set to writable; otherwise the file is made non-writable
    * @throws FileNotFoundException if the file does not exist
    * @throws IOException If the action cannot be taken (ie. permissions)
    */
-  public void setWritable(boolean writable) throws IOException, FileNotFoundException {
+  public void setWritable(FileSystem fileSystem, boolean writable)
+      throws IOException, FileNotFoundException {
     fileSystem.setWritable(this, writable);
   }
 
+  /** Prefer to use {@link #isExecutable(FileSystem)}. */
+  @Deprecated
+  public boolean isExecutable() throws IOException, FileNotFoundException {
+    return isExecutable(fileSystem);
+  }
+
   /**
-   * Returns true iff the file specified by the current path, following symbolic
-   * links, is executable by the current user.
+   * Returns true iff the file specified by the current path, following symbolic links, is
+   * executable by the current user.
    *
-   * @throws FileNotFoundException if the file does not exist or a dangling
-   *         symbolic link was encountered
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws FileNotFoundException if the file does not exist or a dangling symbolic link was
+   *     encountered
    * @throws IOException if some other I/O error occurred
    */
-  public boolean isExecutable() throws IOException, FileNotFoundException {
+  public boolean isExecutable(FileSystem fileSystem) throws IOException, FileNotFoundException {
     return fileSystem.isExecutable(this);
   }
 
+  /** Prefer to use {@link #isReadable(FileSystem)}. */
+  @Deprecated
+  public boolean isReadable() throws IOException, FileNotFoundException {
+    return isReadable(fileSystem);
+  }
+
   /**
-   * Returns true iff the file specified by the current path, following symbolic
-   * links, is readable by the current user.
+   * Returns true iff the file specified by the current path, following symbolic links, is readable
+   * by the current user.
    *
-   * @throws FileNotFoundException if the file does not exist or a dangling
-   *         symbolic link was encountered
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws FileNotFoundException if the file does not exist or a dangling symbolic link was
+   *     encountered
    * @throws IOException if some other I/O error occurred
    */
-  public boolean isReadable() throws IOException, FileNotFoundException {
+  public boolean isReadable(FileSystem fileSystem) throws IOException, FileNotFoundException {
     return fileSystem.isReadable(this);
   }
 
-  /**
-   * Sets the execute permission on the file specified by the current path,
-   * following symbolic links. Permissions apply to the current user.
-   *
-   * @throws FileNotFoundException if the file does not exist or a dangling
-   *         symbolic link was encountered
-   * @throws IOException if the metadata change failed, for example because of
-   *         permissions
-   */
+  /** Prefer to use {@link #setExecutable(FileSystem, boolean)}. */
+  @Deprecated
   public void setExecutable(boolean executable) throws IOException, FileNotFoundException {
+    setExecutable(fileSystem, executable);
+  }
+
+  /**
+   * Sets the execute permission on the file specified by the current path, following symbolic
+   * links. Permissions apply to the current user.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws FileNotFoundException if the file does not exist or a dangling symbolic link was
+   *     encountered
+   * @throws IOException if the metadata change failed, for example because of permissions
+   */
+  public void setExecutable(FileSystem fileSystem, boolean executable)
+      throws IOException, FileNotFoundException {
     fileSystem.setExecutable(this, executable);
   }
 
-  /**
-   * Sets the permissions on the file specified by the current path, following
-   * symbolic links. If permission changes on this path's {@link FileSystem} are
-   * slow (e.g. one syscall per change), this method should aim to be faster
-   * than setting each permission individually. If this path's
-   * {@link FileSystem} does not support group and others permissions, those
-   * bits will be ignored.
-   *
-   * @throws FileNotFoundException if the file does not exist or a dangling
-   *         symbolic link was encountered
-   * @throws IOException if the metadata change failed, for example because of
-   *         permissions
-   */
+  /** Prefer to use {@link #chmod(FileSystem, int)}. */
+  @Deprecated
   public void chmod(int mode) throws IOException {
+    chmod(fileSystem, mode);
+  }
+
+  /**
+   * Sets the permissions on the file specified by the current path, following symbolic links. If
+   * permission changes on this path's {@link FileSystem} are slow (e.g. one syscall per change),
+   * this method should aim to be faster than setting each permission individually. If this path's
+   * {@link FileSystem} does not support group and others permissions, those bits will be ignored.
+   *
+   * <p>This is a migration method. It will be deleted once the file system instance is deleted from
+   * Path.
+   *
+   * @throws FileNotFoundException if the file does not exist or a dangling symbolic link was
+   *     encountered
+   * @throws IOException if the metadata change failed, for example because of permissions
+   */
+  public void chmod(FileSystem fileSystem, int mode) throws IOException {
     fileSystem.chmod(this, mode);
   }
 
+  /** Prefer to use {@link #prefetchPackageAsync(FileSystem, int)}. */
+  @Deprecated
   public void prefetchPackageAsync(int maxDirs) {
+    prefetchPackageAsync(fileSystem, maxDirs);
+  }
+
+  public void prefetchPackageAsync(FileSystem fileSystem, int maxDirs) {
     fileSystem.prefetchPackageAsync(this, maxDirs);
   }
 

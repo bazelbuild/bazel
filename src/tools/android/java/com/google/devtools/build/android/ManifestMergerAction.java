@@ -25,10 +25,12 @@ import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.StringDictionaryConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -184,38 +186,34 @@ public class ManifestMergerAction {
 
   public static void main(String[] args) throws Exception {
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
+    optionsParser.enableParamsFileSupport(
+        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parseAndExitUponError(args);
     options = optionsParser.getOptions(Options.class);
 
     try {
       Path mergedManifest;
       AndroidManifestProcessor manifestProcessor = AndroidManifestProcessor.with(stdLogger);
-      if (options.mergeType == MergeType.APPLICATION) {
-        // Remove uses-permission tags from mergees before the merge.
-        Path tmp = Files.createTempDirectory("manifest_merge_tmp");
-        tmp.toFile().deleteOnExit();
-        ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
-        for (Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
-          mergeeManifests.put(
-              removePermissions(mergeeManifest.getKey(), tmp),
-              mergeeManifest.getValue());
-        }
 
-        // Ignore custom package at the binary level.
-        mergedManifest =
-            manifestProcessor.mergeManifest(
-                options.manifest,
-                mergeeManifests.build(),
-                options.mergeType,
-                options.manifestValues,
-                options.manifestOutput,
-                options.log);
-      } else {
-        // Only need to stamp custom package into the library level.
-        mergedManifest =
-            manifestProcessor.writeManifestPackage(
-                options.manifest, options.customPackage, options.manifestOutput);
+      // Remove uses-permission tags from mergees before the merge.
+      Path tmp = Files.createTempDirectory("manifest_merge_tmp");
+      tmp.toFile().deleteOnExit();
+      ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
+      for (Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
+        mergeeManifests.put(
+            removePermissions(mergeeManifest.getKey(), tmp),
+            mergeeManifest.getValue());
       }
+
+      mergedManifest =
+          manifestProcessor.mergeManifest(
+              options.manifest,
+              mergeeManifests.build(),
+              options.mergeType,
+              options.manifestValues,
+              options.customPackage,
+              options.manifestOutput,
+              options.log);
 
       if (!mergedManifest.equals(options.manifestOutput)) {
         Files.copy(options.manifest, options.manifestOutput, StandardCopyOption.REPLACE_EXISTING);
@@ -223,7 +221,9 @@ public class ManifestMergerAction {
 
       // Set to the epoch for caching purposes.
       Files.setLastModifiedTime(options.manifestOutput, FileTime.fromMillis(0L));
-    } catch (IOException e) {
+    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
+      System.exit(1);
+    } catch (Exception e) {
       logger.log(SEVERE, "Error during merging manifests", e);
       throw e;
     }

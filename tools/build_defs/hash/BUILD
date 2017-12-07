@@ -16,3 +16,8 @@ py_binary(
     srcs = ["sha256.py"],
     visibility = ["//visibility:public"],
 )
+
+exports_files(
+    ["hash.bzl"],
+    visibility = ["//visibility:public"],
+)

@@ -40,7 +40,7 @@ trap "rm -rf \"$TEMPDIR\"" EXIT
 
 TOOLARGS=()
 LASTARG=""
-for i in $@; do
+for i in "$@"; do
   if [ "$LASTARG" = "--output-partial-info-plist" ]; then
     touch "$i"
   fi

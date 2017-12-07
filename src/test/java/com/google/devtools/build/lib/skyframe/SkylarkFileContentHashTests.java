@@ -18,15 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -55,22 +55,22 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
 
     scratch.file(
         "foo/ext.bzl",
-        "load('/helper/ext', 'rule_impl')",
+        "load('//helper:ext.bzl', 'rule_impl')",
         "",
         "foo1 = rule(implementation = rule_impl)",
         "foo2 = rule(implementation = rule_impl)");
 
     scratch.file(
         "bar/ext.bzl",
-        "load('/helper/ext', 'rule_impl')",
+        "load('//helper:ext.bzl', 'rule_impl')",
         "",
         "bar1 = rule(implementation = rule_impl)");
 
     scratch.file(
         "pkg/BUILD",
-        "load('/foo/ext', 'foo1')",
-        "load('/foo/ext', 'foo2')",
-        "load('/bar/ext', 'bar1')",
+        "load('//foo:ext.bzl', 'foo1')",
+        "load('//foo:ext.bzl', 'foo2')",
+        "load('//bar:ext.bzl', 'bar1')",
         "",
         "foo1(name = 'foo1')",
         "foo2(name = 'foo2')",
@@ -87,7 +87,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     String bar1 = getHash("pkg", "bar1");
     scratch.overwriteFile(
         "bar/ext.bzl",
-        "load('/helper/ext', 'rule_impl')",
+        "load('//helper:ext.bzl', 'rule_impl')",
         "",
         "bar1 = rule(implementation = rule_impl)");
     invalidatePackages();
@@ -109,7 +109,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     String bar1 = getHash("pkg", "bar1");
     scratch.overwriteFile(
         "bar/ext.bzl",
-        "load('/helper/ext', 'rule_impl')",
+        "load('//helper:ext.bzl', 'rule_impl')",
         "# Some comments to change file hash",
         "",
         "bar1 = rule(implementation = rule_impl)");
@@ -139,7 +139,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     String foo2 = getHash("pkg", "foo2");
     scratch.overwriteFile(
         "bar/ext.bzl",
-        "load('/helper/ext', 'rule_impl')",
+        "load('//helper:ext.bzl', 'rule_impl')",
         "# Some comments to change file hash",
         "",
         "bar1 = rule(implementation = rule_impl)");
@@ -163,7 +163,10 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     packageCacheOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
-            new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.of(rootDirectory),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageCacheOptions,
             Options.getDefaults(SkylarkSemanticsOptions.class),
             "",

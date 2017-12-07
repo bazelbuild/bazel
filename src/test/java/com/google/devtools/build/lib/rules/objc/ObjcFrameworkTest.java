@@ -19,16 +19,12 @@ import static com.google.devtools.build.lib.rules.objc.ObjcCommon.FRAMEWORK_CONT
 import static com.google.devtools.build.lib.rules.objc.ObjcCommon.NOT_IN_CONTAINER_ERROR_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos;
-import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.BundleFile;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,7 +51,7 @@ public class ObjcFrameworkTest extends ObjcRuleTestCase {
   public void testProvidesFilesAndDirs_static() throws Exception {
     addBinWithTransitiveDepOnFrameworkImport();
     ObjcProvider provider = providerForTarget("//fx:fx");
-    assertThat(provider.get(STATIC_FRAMEWORK_DIR))
+    assertThat(provider.getStaticFrameworkDirs())
         .containsExactly(
             PathFragment.create("fx/fx1.framework"),
             PathFragment.create("fx/fx2.framework"));
@@ -97,7 +93,7 @@ public class ObjcFrameworkTest extends ObjcRuleTestCase {
             getSourceArtifact("fx/fx1.framework/b"),
             getSourceArtifact("fx/fx2.framework/c"),
             getSourceArtifact("fx/fx2.framework/d"));
-    assertThat(provider.get(ObjcProvider.STATIC_FRAMEWORK_DIR)).isEmpty();
+    assertThat(provider.getStaticFrameworkDirs()).isEmpty();
     assertThat(provider.get(ObjcProvider.STATIC_FRAMEWORK_FILE)).isEmpty();
   }
 
@@ -225,95 +221,5 @@ public class ObjcFrameworkTest extends ObjcRuleTestCase {
         "        '//conditions:default': []",
         "    })",
         ")");
-  }
-
-  @Test
-  public void testDynamicFrameworkInFinalBundle() throws Exception {
-    scratch.file("x/Foo.framework/Foo");
-    scratch.file("x/Foo.framework/Info.plist");
-    scratch.file("x/Foo.framework/Headers/Foo.h");
-    scratch.file("x/Foo.framework/Resources/bar.png");
-    scratch.file(
-        "x/BUILD",
-        "objc_framework(",
-        "    name = 'foo_framework',",
-        "    framework_imports = glob(['Foo.framework/**']),",
-        "    is_dynamic = 1,",
-        ")",
-        "",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = [ 'a.m' ],",
-        "    deps = [ ':foo_framework' ],",
-        ")",
-        "",
-        "ios_application(",
-        "    name = 'x',",
-        "    binary = ':bin',",
-        ")");
-
-    BundleMergeProtos.Control mergeControl = bundleMergeControl("//x:x");
-
-    assertThat(mergeControl.getBundleFileList())
-        .containsAllOf(
-            BundleFile.newBuilder()
-                .setBundlePath("Frameworks/Foo.framework/Foo")
-                .setSourceFile(getSourceArtifact("x/Foo.framework/Foo").getExecPathString())
-                .setExternalFileAttribute(BundleableFile.EXECUTABLE_EXTERNAL_FILE_ATTRIBUTE)
-                .build(),
-            BundleFile.newBuilder()
-                .setBundlePath("Frameworks/Foo.framework/Info.plist")
-                .setSourceFile(getSourceArtifact("x/Foo.framework/Info.plist").getExecPathString())
-                .setExternalFileAttribute(BundleableFile.EXECUTABLE_EXTERNAL_FILE_ATTRIBUTE)
-                .build(),
-            BundleFile.newBuilder()
-                .setBundlePath("Frameworks/Foo.framework/Resources/bar.png")
-                .setSourceFile(
-                    getSourceArtifact("x/Foo.framework/Resources/bar.png").getExecPathString())
-                .setExternalFileAttribute(BundleableFile.DEFAULT_EXTERNAL_FILE_ATTRIBUTE)
-                .build());
-
-    assertThat(mergeControl.getBundleFileList())
-        .doesNotContain(
-            BundleFile.newBuilder()
-                .setBundlePath("Frameworks/Foo.framework/Headers/Foo.h")
-                .setSourceFile(
-                    getSourceArtifact("x/Foo.framework/Headers/Foo.h").getExecPathString())
-                .setExternalFileAttribute(BundleableFile.DEFAULT_EXTERNAL_FILE_ATTRIBUTE)
-                .build());
-  }
-
-  @Test
-  public void testDynamicFrameworkSigned() throws Exception {
-    useConfiguration("--ios_cpu=arm64");
-
-    scratch.file("x/Foo.framework/Foo");
-    scratch.file("x/Foo.framework/Info.plist");
-    scratch.file("x/Foo.framework/Headers/Foo.h");
-    scratch.file("x/Foo.framework/Resources/bar.png");
-    scratch.file(
-        "x/BUILD",
-        "objc_framework(",
-        "    name = 'foo_framework',",
-        "    framework_imports = glob(['Foo.framework/**']),",
-        "    is_dynamic = 1,",
-        ")",
-        "",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = [ 'a.m' ],",
-        "    deps = [ ':foo_framework' ],",
-        ")",
-        "",
-        "ios_application(",
-        "    name = 'x',",
-        "    binary = ':bin',",
-        ")");
-
-    SpawnAction signingAction = (SpawnAction) ipaGeneratingAction();
-
-    assertThat(normalizeBashArgs(signingAction.getArguments()))
-        .containsAllOf("--sign", "${t}/Payload/x.app/Frameworks/*", "--sign", "${t}/Payload/x.app")
-        .inOrder();
   }
 }

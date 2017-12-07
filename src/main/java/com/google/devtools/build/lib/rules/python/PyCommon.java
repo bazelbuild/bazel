@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -27,31 +28,31 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.util.ArrayList;
@@ -96,7 +97,7 @@ public final class PyCommon {
 
   public void initCommon(PythonVersion defaultVersion) {
     this.sourcesVersion = getPythonVersionAttr(
-        ruleContext, "srcs_version", PythonVersion.getAllValues());
+        ruleContext, "srcs_version", PythonVersion.getAllVersions());
 
     this.version = ruleContext.getFragment(PythonConfiguration.class)
         .getPythonVersion(defaultVersion);
@@ -114,16 +115,32 @@ public final class PyCommon {
     Preconditions.checkNotNull(version);
 
     validatePackageName();
-    executable = ruleContext.createOutputArtifact();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      String executableSuffix;
+      if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+        executableSuffix = ".exe";
+      } else {
+        executableSuffix = ".cmd";
+      }
+      executable =
+          ruleContext.getImplicitOutputArtifact(
+              ruleContext.getTarget().getName() + executableSuffix);
+    } else {
+      executable = ruleContext.createOutputArtifact();
+    }
     if (this.version == PythonVersion.PY2AND3) {
       // TODO(bazel-team): we need to create two actions
       ruleContext.ruleError("PY2AND3 is not yet implemented");
     }
 
-    filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
-        .addAll(srcs)
-        .add(executable)
-        .build();
+    NestedSetBuilder<Artifact> filesToBuildBuilder =
+        NestedSetBuilder.<Artifact>stableOrder().addAll(srcs).add(executable);
+
+    if (ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
+      filesToBuildBuilder.add(getPythonZipArtifact(executable));
+    }
+
+    filesToBuild = filesToBuildBuilder.build();
 
     if (ruleContext.hasErrors()) {
       return;
@@ -132,12 +149,15 @@ public final class PyCommon {
     addPyExtraActionPseudoAction();
   }
 
-  public void addCommonTransitiveInfoProviders(
-      RuleContext ruleContext,
-      RuleConfiguredTargetBuilder builder,
-      PythonSemantics semantics,
-      NestedSet<Artifact> filesToBuild,
+  /** @return An artifact next to the executable file with ".zip" suffix */
+  public Artifact getPythonZipArtifact(Artifact executable) {
+    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".zip");
+  }
+
+  public void addCommonTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
+      PythonSemantics semantics, NestedSet<Artifact> filesToBuild,
       NestedSet<PathFragment> imports) {
+
     builder
         .add(
             InstrumentedFilesProvider.class,
@@ -161,13 +181,11 @@ public final class PyCommon {
   /**
    * Returns a Skylark struct for exposing transitive Python sources:
    *
-   *     addSkylarkTransitiveInfo(PYTHON_SKYLARK_PROVIDER_NAME, createSourceProvider(...))
+   * <p>addSkylarkTransitiveInfo(PYTHON_SKYLARK_PROVIDER_NAME, createSourceProvider(...))
    */
-  public static SkylarkClassObject createSourceProvider(
-      NestedSet<Artifact> transitivePythonSources,
-      boolean isUsingSharedLibrary,
-      NestedSet<PathFragment> imports) {
-    return NativeClassObjectConstructor.STRUCT.create(
+  public static Info createSourceProvider(
+      NestedSet<Artifact> transitivePythonSources, boolean isUsingSharedLibrary,  NestedSet<PathFragment> imports) {
+    return NativeProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
             TRANSITIVE_PYTHON_SRCS,
             SkylarkNestedSet.of(Artifact.class, transitivePythonSources),
@@ -211,10 +229,11 @@ public final class PyCommon {
     if (version != null) {
       return version;
     }
+    // Should already have been disallowed in the rule.
     ruleContext.attributeError(attrName,
         "'" + stringAttr + "' is not a valid value. Expected one of: " + Joiner.on(", ")
             .join(allowed));
-    return PythonVersion.defaultValue();
+    return PythonVersion.defaultTargetPythonVersion();
   }
 
   /**
@@ -322,14 +341,15 @@ public final class PyCommon {
 
   private NestedSet<Artifact> getTransitivePythonSourcesFromSkylarkProvider(
       TransitiveInfoCollection dep) {
-    SkylarkClassObject pythonSkylarkProvider = null;
+    Info pythonSkylarkProvider = null;
     try {
-      pythonSkylarkProvider = SkylarkType.cast(
+      pythonSkylarkProvider =
+          SkylarkType.cast(
               dep.get(PYTHON_SKYLARK_PROVIDER_NAME),
-              SkylarkClassObject.class,
+              Info.class,
               null,
-              "%s should be a struct", PYTHON_SKYLARK_PROVIDER_NAME
-      );
+              "%s should be a struct",
+              PYTHON_SKYLARK_PROVIDER_NAME);
 
       if (pythonSkylarkProvider != null) {
         Object sourceFiles = pythonSkylarkProvider.getValue(TRANSITIVE_PYTHON_SRCS);
@@ -405,14 +425,11 @@ public final class PyCommon {
    */
   private void checkSourceIsCompatible(PythonVersion targetVersion, PythonVersion sourceVersion,
                                           Label source) {
-    if (targetVersion == PythonVersion.PY2 || targetVersion == PythonVersion.PY2AND3) {
-      if (sourceVersion == PythonVersion.PY3ONLY) {
-        ruleContext.ruleError("Rule '" + source
-                  + "' can only be used with Python 3, and cannot be converted to Python 2");
-      } else if (sourceVersion == PythonVersion.PY3) {
-        ruleContext.ruleError("Rule '" + source
-                  + "' need to be converted to Python 2 (not yet implemented)");
-      }
+    // Treat PY3 as PY3ONLY: we'll never implement 3to2.
+    if ((targetVersion == PythonVersion.PY2 || targetVersion == PythonVersion.PY2AND3)
+        && (sourceVersion == PythonVersion.PY3 || sourceVersion == PythonVersion.PY3ONLY)) {
+      ruleContext.ruleError("Rule '" + source
+          + "' can only be used with Python 3, and cannot be converted to Python 2");
     }
     if ((targetVersion == PythonVersion.PY3 || targetVersion == PythonVersion.PY2AND3)
         && sourceVersion == PythonVersion.PY2ONLY) {
@@ -504,8 +521,8 @@ public final class PyCommon {
     for (TransitiveInfoCollection dep : deps) {
       Object providerObject = dep.get(PYTHON_SKYLARK_PROVIDER_NAME);
       if (providerObject != null) {
-        SkylarkType.checkType(providerObject, SkylarkClassObject.class, null);
-        SkylarkClassObject provider = (SkylarkClassObject) providerObject;
+        SkylarkType.checkType(providerObject, Info.class, null);
+        Info provider = (Info) providerObject;
         Boolean isUsingSharedLibrary = provider.getValue(IS_USING_SHARED_LIBRARY, Boolean.class);
         if (Boolean.TRUE.equals(isUsingSharedLibrary)) {
           return true;

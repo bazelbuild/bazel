@@ -14,16 +14,23 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableMap;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** Skylark Dict module. */
+/**
+ * A Skylark dictionary (dict).
+ *
+ * <p>Although this implements the {@link Map} interface, it is not mutable via that interface's
+ * methods. Instead, use the mutators that take in a {@link Mutability} object.
+ */
 @SkylarkModule(
   name = "dict",
   category = SkylarkModuleCategory.BUILTIN,
@@ -31,13 +38,15 @@ import javax.annotation.Nullable;
       "A language built-in type representating a dictionary (associative mapping). "
           + "Dictionaries may be constructed with a special literal syntax:<br>"
           + "<pre class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>"
+          + "See also the <a href=\"globals.html#dict\">dict()</a> constructor function. "
           + "When using the literal syntax, it is an error to have duplicated keys. "
           + "Use square brackets to access elements:<br>"
           + "<pre class=\"language-python\">e = d[\"a\"]   # e == 2</pre>"
           + "Like lists, they can also be constructed using a comprehension syntax:<br>"
           + "<pre class=\"language-python\">d = {i: 2*i for i in range(20)}\n"
           + "e = d[8]       # e == 16</pre>"
-          + "See also the <a href=\"globals.html#dict\">dict()</a> constructor function. "
+          + "Dictionaries are mutable. You can add new elements or mutate existing ones:"
+          + "<pre class=\"language-python\">d[\"key\"] = 5</pre>"
           + "<p>Iterating over a dict is equivalent to iterating over its keys. The "
           + "<code>in</code> operator tests for membership in the keyset of the dict.<br>"
           + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5} "
@@ -51,13 +60,26 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
 
   private final Mutability mutability;
 
-  @Override
-  public Mutability mutability() {
-    return mutability;
+  private SkylarkDict(@Nullable Mutability mutability) {
+    this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
   }
 
   private SkylarkDict(@Nullable Environment env) {
-    mutability = env == null ? Mutability.IMMUTABLE : env.mutability();
+    this.mutability = env == null ? Mutability.IMMUTABLE : env.mutability();
+  }
+
+  private static final SkylarkDict<?, ?> EMPTY = withMutability(Mutability.IMMUTABLE);
+
+  /** Returns an immutable empty dict. */
+  // Safe because the empty singleton is immutable.
+  @SuppressWarnings("unchecked")
+  public static <K, V> SkylarkDict<K, V> empty() {
+    return (SkylarkDict<K, V>) EMPTY;
+  }
+
+  /** Returns an empty dict with the given {@link Mutability}. */
+  public static <K, V> SkylarkDict<K, V> withMutability(@Nullable Mutability mutability) {
+    return new SkylarkDict<>(mutability);
   }
 
   /** @return a dict mutable in given environment only */
@@ -76,109 +98,132 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     return SkylarkDict.<K, V>of(env).putUnsafe(k1, v1).putUnsafe(k2, v2);
   }
 
+  // TODO(bazel-team): Make other methods that take in mutabilities instead of environments, make
+  // this method public.
+  @VisibleForTesting
+  static <K, V> SkylarkDict<K, V> copyOf(
+      @Nullable Mutability mutability, Map<? extends K, ? extends V> m) {
+    return SkylarkDict.<K, V>withMutability(mutability).putAllUnsafe(m);
+  }
+
   /** @return a dict mutable in given environment only, with contents copied from given map */
   public static <K, V> SkylarkDict<K, V> copyOf(
       @Nullable Environment env, Map<? extends K, ? extends V> m) {
     return SkylarkDict.<K, V>of(env).putAllUnsafe(m);
   }
 
+  /** Puts the given entry into the dict, without calling {@link #checkMutable}. */
   private SkylarkDict<K, V> putUnsafe(K k, V v) {
     contents.put(k, v);
     return this;
   }
 
-  private <KK extends K, VV extends V> SkylarkDict putAllUnsafe(Map<KK, VV> m) {
+  /** Puts all entries of the given map into the dict, without calling {@link #checkMutable}. */
+  private <KK extends K, VV extends V> SkylarkDict<K, V> putAllUnsafe(Map<KK, VV> m) {
     for (Map.Entry<KK, VV> e : m.entrySet()) {
       contents.put(e.getKey(), e.getValue());
     }
     return this;
   }
 
-  /**
-   * @return The underlying contents is a (usually) mutable data structure.
-   * Read access is forwarded to these contents.
-   * This object must not be modified outside an {@link Environment}
-   * with a correct matching {@link Mutability},
-   * which should be checked beforehand using {@link #checkMutable}.
-   * it need not be an instance of {@link com.google.common.collect.ImmutableMap}.
-   */
+  @Override
+  public Mutability mutability() {
+    return mutability;
+  }
+
   @Override
   protected Map<K, V> getContentsUnsafe() {
     return contents;
   }
 
   /**
-   * Put an entry into a SkylarkDict.
-   * @param k the key
-   * @param v the associated value
-   * @param loc a {@link Location} in case of error
-   * @param env an {@link Environment}, to check Mutability
-   * @throws EvalException if the key is invalid
+   * Puts an entry into a dict, after validating that mutation is allowed.
+   *
+   * @param key the key of the added entry
+   * @param value the value of the added entry
+   * @param loc the location to use for error reporting
+   * @param mutability the {@link Mutability} associated with the opreation
+   * @throws EvalException if the key is invalid or the dict is frozen
    */
-  public void put(K k, V v, Location loc, Environment env) throws EvalException {
-    checkMutable(loc, env);
-    EvalUtils.checkValidDictKey(k);
-    contents.put(k, v);
+  public void put(K key, V value, Location loc, Mutability mutability) throws EvalException {
+    checkMutable(loc, mutability);
+    EvalUtils.checkValidDictKey(key);
+    contents.put(key, value);
   }
 
   /**
-   * Put all the entries from a given dict into the SkylarkDict.
-   * @param m the map to copy
-   * @param loc a {@link Location} in case of error
-   * @param env an {@link Environment}, to check Mutability
-   * @throws EvalException if some key is invalid
+   * Convenience version of {@link #put(K, V, Location, Mutability)} that uses the {@link
+   * Mutability} of an {@link Environment}.
    */
-  public <KK extends K, VV extends V> void putAll(Map<KK, VV> m, Location loc, Environment env)
-      throws EvalException {
-    checkMutable(loc, env);
-    for (Map.Entry<KK, VV> e : m.entrySet()) {
+  // TODO(bazel-team): Decide whether to eliminate this overload.
+  public void put(K key, V value, Location loc, Environment env) throws EvalException {
+    put(key, value, loc, env.mutability());
+  }
+
+  /**
+   * Puts all the entries from a given map into the dict, after validating that mutation is allowed.
+   *
+   * @param map the map whose entries are added
+   * @param loc the location to use for error reporting
+   * @param mutability the {@link Mutability} associated with the operation
+   * @throws EvalException if some key is invalid or the dict is frozen
+   */
+  public <KK extends K, VV extends V> void putAll(
+      Map<KK, VV> map, Location loc, Mutability mutability) throws EvalException {
+    checkMutable(loc, mutability);
+    for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
       EvalUtils.checkValidDictKey(k);
       contents.put(k, e.getValue());
     }
   }
 
-  /** @return the first key in the dict */
-  K firstKey() {
-    return contents.entrySet().iterator().next().getKey();
-  }
-
   /**
-   * Delete the entry associated to a key.
+   * Deletes the entry associated with the given key.
+   *
    * @param key the key to delete
-   * @param loc a {@link Location} in case of error
-   * @param env an {@link Environment}, to check Mutability
+   * @param loc the location to use for error reporting
+   * @param mutability the {@link Mutability} associated with the operation
    * @return the value associated to the key, or {@code null} if not present
-   * @throws EvalException if the dict is frozen.
+   * @throws EvalException if the dict is frozen
    */
-  V remove(Object key, Location loc, Environment env) throws EvalException {
-    checkMutable(loc, env);
+  V remove(Object key, Location loc, Mutability mutability) throws EvalException {
+    checkMutable(loc, mutability);
     return contents.remove(key);
   }
 
   /**
-   * Clear the dict.
-   * @param loc a {@link Location} in case of error
-   * @param env an {@link Environment}, to check Mutability
-   * @throws EvalException if the dict is frozen.
+   * Clears the dict.
+   *
+   * @param loc the location to use for error reporting
+   * @param mutability the {@link Mutability} associated with the operation
+   * @throws EvalException if the dict is frozen
    */
-  void clear(Location loc, Environment env) throws EvalException {
-    checkMutable(loc, env);
+  void clear(Location loc, Mutability mutability) throws EvalException {
+    checkMutable(loc, mutability);
     contents.clear();
   }
 
-  // Other methods
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.printList(entrySet(), "{", ", ", "}", null);
   }
 
+  @Override
+  public String toString() {
+    return Printer.repr(this);
+  }
+
   /**
-   * Cast a SkylarkDict to a {@code Map<K, V>} after checking its current contents.
-   * Treat None as meaning the empty ImmutableMap.
-   * @param obj the Object to cast. null and None are treated as an empty list.
-   * @param keyType the expected class of keys
-   * @param valueType the expected class of values
+   * If {@code obj} is a {@code SkylarkDict}, casts it to an unmodifiable {@code Map<K, V>} after
+   * checking that each of its entries has key type {@code keyType} and value type {@code
+   * valueType}. If {@code obj} is {@code None} or null, treats it as an empty dict.
+   *
+   * <p>The returned map may or may not be a view that is affected by updates to the original dict.
+   *
+   * @param obj the object to cast. null and None are treated as an empty dict.
+   * @param keyType the expected type of all the dict's keys
+   * @param valueType the expected type of all the dict's values
    * @param description a description of the argument being converted, or null, for debugging
    */
   public static <K, V> Map<K, V> castSkylarkDictOrNoneToDict(
@@ -198,14 +243,18 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   /**
-   * Cast a SkylarkDict to a {@code SkylarkDict<K, V>} after checking its current contents.
+   * Casts this dict to an unmodifiable {@code SkylarkDict<X, Y>}, after checking that all keys and
+   * values have types {@code keyType} and {@code valueType} respectively.
+   *
+   * <p>The returned map may or may not be a view that is affected by updates to the original dict.
+   *
    * @param keyType the expected class of keys
    * @param valueType the expected class of values
    * @param description a description of the argument being converted, or null, for debugging
    */
   @SuppressWarnings("unchecked")
-  public <KeyType, ValueType> SkylarkDict<KeyType, ValueType> getContents(
-      Class<KeyType> keyType, Class<ValueType> valueType, @Nullable String description)
+  public <X, Y> Map<X, Y> getContents(
+      Class<X> keyType, Class<Y> valueType, @Nullable String description)
       throws EvalException {
     Object keyDescription = description == null
         ? null : Printer.formattable("'%s' key", description);
@@ -215,7 +264,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       SkylarkType.checkType(e.getKey(), keyType, keyDescription);
       SkylarkType.checkType(e.getValue(), valueType, valueDescription);
     }
-    return (SkylarkDict<KeyType, ValueType>) this;
+    return Collections.unmodifiableMap((SkylarkDict<X, Y>) this);
   }
 
   @Override
@@ -235,15 +284,9 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       SkylarkDict<? extends K, ? extends V> left,
       SkylarkDict<? extends K, ? extends V> right,
       @Nullable Environment env) {
-    SkylarkDict<K, V> result = SkylarkDict.<K, V>of(env);
+    SkylarkDict<K, V> result = SkylarkDict.of(env);
     result.putAllUnsafe(left);
     result.putAllUnsafe(right);
     return result;
-  }
-
-  private static final SkylarkDict<?, ?> EMPTY = of(null);
-
-  public static <K, V> SkylarkDict<K, V> empty() {
-    return (SkylarkDict<K, V>) EMPTY;
   }
 }

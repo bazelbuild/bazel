@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A simple {@link BuildEventTransport} that writes the JSON representation of the protocol-buffer
@@ -68,6 +69,6 @@ public final class JsonFormatFileTransport extends FileTransport {
       protoJsonRepresentation =
           "{\"id\" : \"unknown\", \"exception\" : \"InvalidProtocolBufferException\"}\n";
     }
-    writeData(protoJsonRepresentation.getBytes());
+    writeData(protoJsonRepresentation.getBytes(StandardCharsets.UTF_8));
   }
 }

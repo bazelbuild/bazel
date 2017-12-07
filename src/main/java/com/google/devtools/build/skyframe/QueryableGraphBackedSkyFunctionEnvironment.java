@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.Map;
 
@@ -61,7 +61,7 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
 
   @Override
   protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-      Iterable<SkyKey> depKeys) throws InterruptedException {
+      Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> resultMap =
         queryableGraph.getBatch(null, Reason.DEP_REQUESTED, depKeys);
     // resultMap will be smaller than what we actually return if some of depKeys were not found in

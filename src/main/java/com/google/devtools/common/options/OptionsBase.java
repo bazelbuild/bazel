@@ -75,8 +75,8 @@ public abstract class OptionsBase {
 
     Map<String, Object> map = new LinkedHashMap<>();
     for (Map.Entry<Field, Object> entry : OptionsParser.toMap(castClass, castThis).entrySet()) {
-      String name = entry.getKey().getAnnotation(Option.class).name();
-      map.put(name, entry.getValue());
+      OptionDefinition optionDefinition = OptionDefinition.extractOptionDefinition(entry.getKey());
+      map.put(optionDefinition.getOptionName(), entry.getValue());
     }
     return map;
   }

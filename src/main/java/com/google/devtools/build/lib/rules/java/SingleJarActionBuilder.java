@@ -13,19 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static java.util.Objects.requireNonNull;
+
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
-import java.util.Map;
 
 /**
  * Helper class to create singlejar actions - singlejar can merge multiple zip files without
@@ -41,6 +44,30 @@ public final class SingleJarActionBuilder {
       "--exclude_build_data",
       "--warn_duplicate_resources");
 
+  /** Constructs the base spawn for a singlejar action. */
+  private static SpawnAction.Builder singleJarActionBuilder(
+      JavaToolchainProvider provider,
+      NestedSet<Artifact> hostJavabaseInputs,
+      PathFragment hostJavaExecutable) {
+    Artifact singleJar = provider.getSingleJar();;
+    SpawnAction.Builder builder = new SpawnAction.Builder();
+    // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
+    // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
+    // the native singlejar is used on windows) remove support for the Java implementation
+    if (singleJar.getFilename().endsWith(".jar")) {
+      builder
+          .addTransitiveInputs(hostJavabaseInputs)
+          .setJarExecutable(
+              hostJavaExecutable,
+              singleJar,
+              provider.getJvmOptions())
+          .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
+    } else {
+      builder.setExecutable(singleJar);
+    }
+    return builder;
+  }
+
   /**
    * Creates an Action that packages files into a Jar file.
    *
@@ -50,57 +77,103 @@ public final class SingleJarActionBuilder {
    */
   public static void createSourceJarAction(
       RuleContext ruleContext,
-      Map<PathFragment, Artifact> resources,
-      Collection<Artifact> resourceJars,
+      JavaSemantics semantics,
+      ImmutableCollection<Artifact> resources,
+      NestedSet<Artifact> resourceJars,
       Artifact outputJar) {
-    Artifact singleJar = getSingleJar(ruleContext);
-    SpawnAction.Builder builder = new SpawnAction.Builder();
-    // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
-    // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
-    // the native singlejar is used on windows) remove support for the Java implementation
-    if (singleJar.getFilename().endsWith(".jar")) {
-      builder
-          .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
-          .setJarExecutable(
-              JavaCommon.getHostJavaExecutable(ruleContext),
-              singleJar,
-              JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
-          .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
-    } else {
-      builder.setExecutable(singleJar);
+    createSourceJarAction(
+        ruleContext, semantics, resources, resourceJars, outputJar,
+        JavaToolchainProvider.from(ruleContext),
+        JavaHelper.getHostJavabaseInputs(ruleContext),
+        JavaCommon.getHostJavaExecutable(ruleContext));
+  }
+
+  /**
+   * Creates an Action that packages files into a Jar file.
+   *
+   * @param resources the resources to put into the Jar.
+   * @param resourceJars the resource jars to merge into the jar
+   * @param outputJar the Jar to create
+   * @param toolchainProvider is used to retrieve jvm options
+   * @param hostJavabaseInputs Artifacts required to invoke java executable in the created action
+   * @param hostJavaExecutable the jar executable of the created action
+   */
+  public static void createSourceJarAction(
+      RuleContext ruleContext,
+      JavaSemantics semantics,
+      ImmutableCollection<Artifact> resources,
+      NestedSet<Artifact> resourceJars,
+      Artifact outputJar,
+      JavaToolchainProvider toolchainProvider,
+      NestedSet<Artifact> hostJavabaseInputs,
+      PathFragment hostJavaExecutable) {
+    requireNonNull(ruleContext);
+    requireNonNull(resourceJars);
+    requireNonNull(outputJar);
+    if (!resources.isEmpty()) {
+      requireNonNull(semantics);
     }
-    builder
-        .addOutput(outputJar)
-        .addInputs(resources.values())
-        .addInputs(resourceJars)
-        .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
-        .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
-        .setProgressMessage("Building source jar " + outputJar.prettyPrint())
-        .setMnemonic("JavaSourceJar");
+    SpawnAction.Builder builder = singleJarActionBuilder(
+        toolchainProvider, hostJavabaseInputs, hostJavaExecutable)
+            .addOutput(outputJar)
+            .addInputs(resources)
+            .addTransitiveInputs(resourceJars)
+            .addCommandLine(
+                sourceJarCommandLine(outputJar, semantics, resources, resourceJars),
+                ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
+            .setProgressMessage("Building source jar %s", outputJar.prettyPrint())
+            .setMnemonic("JavaSourceJar");
     ruleContext.registerAction(builder.build(ruleContext));
   }
 
-  /** Returns the SingleJar deploy jar Artifact. */
-  private static Artifact getSingleJar(RuleContext ruleContext) {
-    Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
-    if (singleJar != null) {
-      return singleJar;
-    }
-    return ruleContext.getPrerequisiteArtifact("$singlejar", Mode.HOST);
+  /**
+   * Creates an Action that merges jars into a single archive.
+   *
+   * @param jars the jars to merge.
+   * @param output the output jar to create
+   */
+  public static void createSingleJarAction(
+      RuleContext ruleContext, NestedSet<Artifact> jars, Artifact output) {
+     requireNonNull(ruleContext);
+    requireNonNull(jars);
+    requireNonNull(output);
+    SpawnAction.Builder builder =
+        singleJarActionBuilder(
+            JavaToolchainProvider.from(ruleContext),
+            JavaHelper.getHostJavabaseInputs(ruleContext),
+            JavaCommon.getHostJavaExecutable(ruleContext))
+        .addOutput(output)
+        .addInputs(jars)
+        .addCommandLine(
+            sourceJarCommandLine(
+                output, /* semantics= */ null, /* resources= */ ImmutableList.of(), jars),
+            ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
+        .setProgressMessage("Building singlejar jar %s", output.prettyPrint())
+        .setMnemonic("JavaSingleJar");
+    ruleContext.registerAction(builder.build(ruleContext));
   }
 
-  private static CommandLine sourceJarCommandLine(Artifact outputJar,
-      Map<PathFragment, Artifact> resources, Iterable<Artifact> resourceJars) {
+  private static CommandLine sourceJarCommandLine(
+      Artifact outputJar,
+      JavaSemantics semantics,
+      ImmutableCollection<Artifact> resources,
+      NestedSet<Artifact> resourceJars) {
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
-    args.add(SOURCE_JAR_COMMAND_LINE_ARGS);
+    args.addAll(SOURCE_JAR_COMMAND_LINE_ARGS);
     args.addExecPaths("--sources", resourceJars);
     if (!resources.isEmpty()) {
       args.add("--resources");
-      for (Map.Entry<PathFragment, Artifact> resource : resources.entrySet()) {
-        args.addPaths("%s:%s", resource.getValue().getExecPath(), resource.getKey());
-      }
+      args.addAll(VectorArg.of(resources).mapped(resource -> getResourceArg(semantics, resource)));
     }
     return args.build();
   }
+
+  private static String getResourceArg(JavaSemantics semantics, Artifact resource) {
+    return String.format(
+        "%s:%s",
+        resource.getExecPathString(),
+        semantics.getDefaultJavaResourcePath(resource.getRootRelativePath()));
+  }
 }
+

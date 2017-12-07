@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -39,12 +40,12 @@ import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -121,7 +122,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
     PathFragment filePath = fileLabel.toPathFragment();
 
-    SkylarkSemanticsOptions skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
     if (skylarkSemantics == null) {
       return null;
     }
@@ -368,7 +369,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       BuildFileAST ast,
       Label extensionLabel,
       Map<String, Extension> importMap,
-      SkylarkSemanticsOptions skylarkSemantics,
+      SkylarkSemantics skylarkSemantics,
       Environment env,
       boolean inWorkspace)
       throws SkylarkImportFailedException, InterruptedException {
@@ -383,8 +384,10 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           ruleClassProvider
               .createSkylarkRuleClassEnvironment(
                   extensionLabel, mutability, skylarkSemantics,
-                  eventHandler, ast.getContentHashCode(), importMap)
-              .setupOverride("native", packageFactory.getNativeModule(inWorkspace));
+                  eventHandler, ast.getContentHashCode(), importMap);
+      if (!skylarkSemantics.internalDoNotExportBuiltins()) {
+        extensionEnv.setupOverride("native", packageFactory.getNativeModule(inWorkspace));
+      }
       execAndExport(ast, extensionLabel, eventHandler, extensionEnv);
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
@@ -415,14 +418,14 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       return;
     }
     AssignmentStatement assignmentStatement = (AssignmentStatement) statement;
-    ImmutableSet<String> boundNames = assignmentStatement.getLValue().boundNames();
-    for (String name : boundNames) {
-      Object lookup = extensionEnv.lookup(name);
+    ImmutableSet<Identifier> boundIdentifiers = assignmentStatement.getLValue().boundIdentifiers();
+    for (Identifier ident : boundIdentifiers) {
+      Object lookup = extensionEnv.lookup(ident.getName());
       if (lookup instanceof SkylarkExportable) {
         try {
           SkylarkExportable exportable = (SkylarkExportable) lookup;
           if (!exportable.isExported()) {
-            exportable.export(extensionLabel, name);
+            exportable.export(extensionLabel, ident.getName());
           }
         } catch (EvalException e) {
           eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));

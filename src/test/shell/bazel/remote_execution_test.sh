@@ -25,17 +25,24 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 function set_up() {
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
-  worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
-  hazelcast_port=$(pick_random_unused_tcp_port) || fail "no port found"
-  "${bazel_data}/src/tools/remote_worker/remote_worker" \
-      --work_path="${work_path}" \
-      --listen_port=${worker_port} \
-      --hazelcast_standalone_listen_port=${hazelcast_port} \
-      --pid_file="${pid_file}" >& $TEST_log &
-  local wait_seconds=0
-  until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 30 ]; do
-    sleep 1
-    ((wait_seconds++)) || true
+  attempts=1
+  while [ $attempts -le 5 ]; do
+    (( attempts++ ))
+    worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
+    hazelcast_port=$(pick_random_unused_tcp_port) || fail "no port found"
+    "${bazel_data}/src/tools/remote/worker" \
+        --work_path="${work_path}" \
+        --listen_port=${worker_port} \
+        --hazelcast_standalone_listen_port=${hazelcast_port} \
+        --pid_file="${pid_file}" >& $TEST_log &
+    local wait_seconds=0
+    until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 15 ]; do
+      sleep 1
+      ((wait_seconds++)) || true
+    done
+    if [ -s "${pid_file}" ]; then
+      break
+    fi
   done
   if [ ! -s "${pid_file}" ]; then
     fail "Timed out waiting for remote worker to start."
@@ -76,7 +83,7 @@ EOF
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -99,7 +106,7 @@ EOF
 #include <iostream>
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -126,7 +133,7 @@ EOF
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
@@ -148,7 +155,7 @@ EOF
 #include <iostream>
 int main() { std::cout << "Fail me!" << std::endl; return 1; }
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -180,7 +187,7 @@ EOF
   cp -f bazel-genfiles/a/large_blob.txt ${TEST_TMPDIR}/large_blob_expected.txt
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -208,11 +215,45 @@ EOF
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
   bazel clean --expunge >& $TEST_log
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
-      --spawn_strategy=remote \
-      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps/cache \
+  bazel build \
+      --experimental_remote_spawn_cache=true  \
+      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
       //a:test >& $TEST_log \
-      || fail "Failed to build //a:test with remote gRPC cache service"
+      || fail "Failed to build //a:test with remote REST cache service"
+  diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
+      || fail "Remote cache generated different result"
+  # Check that persistent connections are closed after the build. Is there a good cross-platform way
+  # to check this?
+  if [[ "$PLATFORM" = "linux" ]]; then
+    if netstat -tn | grep -qE ":${hazelcast_port}\\s+ESTABLISHED$"; then
+      fail "connections to to cache not closed"
+    fi
+  fi
+}
+
+function test_cc_binary_rest_cache_bad_server() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_binary(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello world!" << std::endl; return 0; }
+EOF
+  bazel build //a:test >& $TEST_log \
+    || fail "Failed to build //a:test without remote cache"
+  cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
+
+  bazel clean --expunge >& $TEST_log
+  bazel build \
+      --experimental_remote_spawn_cache=true \
+      --remote_rest_cache=http://bad.hostname/bad/cache \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote REST cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote cache generated different result"
   # Check that persistent connections are closed after the build. Is there a good cross-platform way
@@ -238,7 +279,7 @@ import sys
 if __name__ == "__main__":
     sys.exit(0)
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -264,14 +305,16 @@ if __name__ == "__main__":
     f.write('''
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="test" tests="1" failures="0" errors="1">
-    <testcase name="first" status="run">That did not work!</testcase>
+  <testsuite name="test" tests="1" failures="1" errors="1">
+    <testcase name="first" status="run">
+      <failure>That did not work!</failure>
+    </testcase>
   </testsuite>
 </testsuites>
 ''')
     sys.exit(0)
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -301,14 +344,16 @@ if __name__ == "__main__":
     f.write('''
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="test" tests="1" failures="0" errors="1">
-    <testcase name="first" status="run">That did not work!</testcase>
+  <testsuite name="test" tests="1" failures="1" errors="1">
+    <testcase name="first" status="run">
+      <failure>That did not work!</failure>
+    </testcase>
   </testsuite>
 </testsuites>
 ''')
     sys.exit(1)
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -340,12 +385,120 @@ load("//a:rule.bzl", "empty")
 package(default_visibility = ["//visibility:public"])
 empty(name = 'test')
 EOF
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
+}
+
+function test_timeout() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "sleep",
+  timeout = "short",
+  srcs = ["sleep.sh"],
+)
+EOF
+
+  cat > a/sleep.sh <<'EOF'
+#!/bin/sh
+sleep 2
+EOF
+  chmod +x a/sleep.sh
+  bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --test_output=errors \
+      --test_timeout=1,1,1,1 \
+      //a:sleep >& $TEST_log \
+      && fail "Test failure (timeout) expected" || true
+  expect_log "TIMEOUT"
+}
+
+function test_passed_env_user() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "user_test",
+  timeout = "short",
+  srcs = ["user_test.sh"],
+)
+EOF
+
+  cat > a/user_test.sh <<'EOF'
+#!/bin/sh
+echo "user=$USER"
+EOF
+  chmod +x a/user_test.sh
+  bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --test_output=all \
+      --test_env=USER=boo \
+      //a:user_test >& $TEST_log \
+      || fail "Failed to run //a:user_test with remote execution"
+  expect_log "user=boo"
+
+  # Rely on the test-setup script to set USER value to whoami.
+  export USER=
+  bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --test_output=all \
+      //a:user_test >& $TEST_log \
+      || fail "Failed to run //a:user_test with remote execution"
+  expect_log "user=$(whoami)"
+}
+
+function test_exitcode() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"hello world\" > \"$@\"",
+)
+EOF
+
+  (set +e
+    bazel build \
+      --genrule_strategy=remote \
+      --remote_executor=bazel-test-does-not-exist \
+      //a:foo >& $TEST_log
+    [ $? -eq 34 ]) || fail "Test failed due to wrong exit code"
+}
+
+# Bazel should display non-test errors to the user, instead of hiding them behind test failures.
+# For example, if the network connection to the remote executor fails it shouldn't be displayed as
+# a test error.
+function test_display_non_testerrors() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "test",
+  timeout = "short",
+  srcs = ["test.sh"],
+)
+EOF
+  cat > a/test.sh <<'EOF'
+#!/bin/sh
+#This will never run, because the remote side is not reachable.
+EOF
+  chmod +x a/test.sh
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+      --spawn_strategy=remote \
+      --remote_executor=bazel.does.not.exist:1234 \
+      --noexperimental_remote_retry \
+      --test_output=all \
+      --test_env=USER=boo \
+      //a:test >& $TEST_log \
+      && fail "Test failure expected" || true
+  expect_not_log "test.log"
+  expect_log "Remote connection/protocol failed"
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker

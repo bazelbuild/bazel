@@ -15,15 +15,19 @@
 package com.google.devtools.build.lib.rules.config;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalException;
+import java.util.Map;
 
 /** Provider for exporting value and valid value predicate of feature flags to consuming targets. */
 @SkylarkModule(
@@ -31,16 +35,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
   doc = "A provider used to access information about config_feature_flag rules."
 )
 @Immutable
-public class ConfigFeatureFlagProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public class ConfigFeatureFlagProvider extends NativeInfo {
 
   /** Name used in Skylark for accessing ConfigFeatureFlagProvider. */
   static final String SKYLARK_NAME = "FeatureFlagInfo";
 
   /** Skylark constructor and identifier for ConfigFeatureFlagProvider. */
-  public static final NativeClassObjectConstructor<ConfigFeatureFlagProvider> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<ConfigFeatureFlagProvider>(
-          ConfigFeatureFlagProvider.class, SKYLARK_NAME) {};
+  static final NativeProvider<ConfigFeatureFlagProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private final String value;
   private final Predicate<String> validityPredicate;
@@ -55,6 +56,31 @@ public class ConfigFeatureFlagProvider extends SkylarkClassObject
   /** Creates a new ConfigFeatureFlagProvider with the given value and valid value predicate. */
   public static ConfigFeatureFlagProvider create(String value, Predicate<String> isValidValue) {
     return new ConfigFeatureFlagProvider(value, isValidValue);
+  }
+
+  /** A constructor callable from Skylark for OutputGroupProvider. */
+  private static class Constructor extends NativeProvider<ConfigFeatureFlagProvider> {
+
+    private Constructor() {
+      super(ConfigFeatureFlagProvider.class, SKYLARK_NAME);
+    }
+
+    @Override
+    protected ConfigFeatureFlagProvider createInstanceFromSkylark(Object[] args, Location loc)
+        throws EvalException {
+
+      @SuppressWarnings("unchecked")
+      Map<String, Object> kwargs = (Map<String, Object>) args[0];
+
+      if (!kwargs.containsKey("value") || !(kwargs.get("value") instanceof String)) {
+        throw new EvalException(loc, "FeatureFlagInfo requires 'value' to be set to a string");
+      }
+      return create((String) kwargs.get("value"), Predicates.alwaysTrue());
+    }
+}
+
+  public static SkylarkProviderIdentifier id() {
+    return SKYLARK_CONSTRUCTOR.id();
   }
 
   /** Retrieves and casts the provider from the given target. */
@@ -84,7 +110,7 @@ public class ConfigFeatureFlagProvider extends SkylarkClassObject
   }
 
   // ConfigFeatureFlagProvider instances should all be unique, so we override the default
-  // equals and hashCode from SkylarkClassObject to ensure that. SCO's toString is fine, however.
+  // equals and hashCode from Info to ensure that. SCO's toString is fine, however.
   @Override
   public boolean equals(Object other) {
     return other == this;

@@ -18,8 +18,8 @@ import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.nio.file.Path;
 
 /** The options for a {@IdlClass} action. */

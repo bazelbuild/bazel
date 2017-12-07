@@ -29,5 +29,7 @@ import java.io.Serializable;
 public interface SkyKey extends Serializable {
   SkyFunctionName functionName();
 
-  Object argument();
+  default Object argument() {
+    return this;
+  }
 }

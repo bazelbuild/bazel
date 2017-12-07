@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -31,10 +32,11 @@ public final class JavaRuntimeRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .advertiseProvider(TemplateVariableInfo.class)
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(srcs) -->
         All files in the runtime.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE).mandatory())
+        .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(java_home) -->
         The path to the root of the runtime.
         Subject to <a href="${link make-variables}">"Make" variable</a> substitution.

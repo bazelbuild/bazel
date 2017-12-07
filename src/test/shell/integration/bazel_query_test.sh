@@ -26,6 +26,7 @@ add_to_bazelrc "build --package_path=%workspace%"
 #### TESTS #############################################################
 
 function test_does_not_fail_horribly() {
+  rm -rf peach
   mkdir -p peach
   cat > peach/BUILD <<EOF
 sh_library(name='brighton', deps=[':harken'])
@@ -39,6 +40,7 @@ EOF
 }
 
 function test_visibility_affects_xml_output() {
+  rm -rf kiwi
   mkdir -p kiwi
 
   cat > kiwi/BUILD <<EOF
@@ -71,6 +73,7 @@ EOF
 }
 
 function test_visibility_affects_proto_output() {
+  rm -rf kiwi
   mkdir -p kiwi
 
   cat > kiwi/BUILD <<EOF
@@ -97,6 +100,8 @@ EOF
 }
 
 function make_depth_tests() {
+  rm -rf depth
+  rm -rf depth2
   mkdir -p depth depth2 || die "Could not create test directory"
   cat > "depth/BUILD" <<EOF
 sh_binary(name = 'one', srcs = ['one.sh'], deps = [':two'])
@@ -154,6 +159,7 @@ function test_depth_query_idempotence_unordered() {
 }
 
 function test_universe_scope_with_without_star() {
+  rm -rf foo
   mkdir -p foo || fail "Couldn't mkdir"
   echo "sh_library(name = 'foo')" > foo/BUILD || fail "Couldn't write BUILD"
   bazel query --order_output=no \
@@ -171,6 +177,8 @@ function test_universe_scope_with_without_star() {
 }
 
 function test_outside_universe_ok() {
+  rm -rf foo
+  rm -rf bar
   mkdir -p foo bar || fail "Couldn't mkdir"
   echo "sh_library(name = 'foo', deps = ['//bar:bar'])" > foo/BUILD ||
       fail "Couldn't write BUILD"
@@ -209,8 +217,10 @@ function test_minrank_le_depth_bound() {
 }
 
 function test_skylark_dep_in_sky_query() {
+  rm -rf foo
+  rm -rf bar
   mkdir -p foo bar || fail "Couldn't make directories"
-  echo 'load("/bar/fakerule", "const")' > foo/BUILD || fail "Couldn't write"
+  echo 'load("//bar:fakerule.bzl", "const")' > foo/BUILD || fail "Couldn't write"
   touch bar/BUILD || fail "Couldn't touch bar/BUILD"
   echo 'const = 2' > bar/fakerule.bzl || fail "Couldn't write fakerule"
   bazel query --universe_scope=//foo/...:* --order_output=no \
@@ -220,9 +230,133 @@ function test_skylark_dep_in_sky_query() {
   expect_not_log "fakerule\.bzl"
 }
 
+function test_skylark_regular_file_not_included_in_rbuildfiles() {
+  rm -rf foo
+  mkdir -p foo || fail "Couldn't make directories"
+  echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
+  echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
+  bazel query --universe_scope=//...:* --order_output=no \
+    'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
+  expect_not_log "//foo:BUILD"
+  # TODO(bazel-team): Remove this once test clean-up is automated.
+  # Clean up after ourselves.
+  rm -rf foo
+}
+
+function test_skylark_symlink_source_not_included_in_rbuildfiles() {
+  rm -rf foo
+  mkdir -p foo || fail "Couldn't make directories"
+  echo "moo" > "foo/moo" || fail "Couldn't create moo"
+  ln -s "foo/moo" "foo/baz.bzl" || fail "Couldn't create baz.bzl symlink"
+  echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
+  bazel query --universe_scope=//...:* --order_output=no \
+    'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
+  expect_not_log "//foo:BUILD"
+  # TODO(bazel-team): Remove this once test clean-up is automated.
+  # Clean up after ourselves.
+  rm -rf foo
+}
+
+function test_skylark_symlink_target_not_included_in_rbuildfiles() {
+  rm -rf foo
+  mkdir -p foo || fail "Couldn't make directories"
+  echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
+  ln -s "foo/baz.bzl" "foo/Moo.java" || fail "Couldn't create Moo.java symlink"
+  echo 'sh_library(name = "foo", srcs = ["Moo.java"])' > foo/BUILD
+  bazel query --universe_scope=//...:* --order_output=no \
+    'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
+  expect_not_log "//foo:BUILD"
+  # TODO(bazel-team): Remove this once test clean-up is automated.
+  # Clean up after ourselves.
+  rm -rf foo
+}
+
+function test_skylark_glob_regular_file_not_included_in_rbuildfiles() {
+  rm -rf foo
+  mkdir -p foo || fail "Couldn't make directories"
+  echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
+  echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
+  bazel query --universe_scope=//...:* --order_output=no \
+    'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
+  expect_not_log "//foo:BUILD"
+  # TODO(bazel-team): Remove this once test clean-up is automated.
+  # Clean up after ourselves.
+  rm -rf foo
+}
+
+function test_skylark_glob_symlink_source_not_included_in_rbuildfiles() {
+  rm -rf foo
+  mkdir -p foo || fail "Couldn't make directories"
+  echo "moo" > "foo/moo" || fail "Couldn't create moo"
+  ln -s "foo/moo" "foo/baz.bzl" || fail "Couldn't create baz.bzl symlink"
+  echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
+  bazel query --universe_scope=//...:* --order_output=no \
+    'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
+  expect_not_log "//foo:BUILD"
+  # TODO(bazel-team): Remove this once test clean-up is automated.
+  # Clean up after ourselves.
+  rm -rf foo
+}
+
+function test_skylark_glob_symlink_target_not_included_in_rbuildfiles() {
+  rm -rf foo
+  mkdir -p foo || fail "Couldn't make directories"
+  echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
+  ln -s "foo/baz.bzl" "foo/Moo.java" || fail "Couldn't create Moo.java symlink"
+  echo 'sh_library(name = "foo", srcs = glob(["*.java"]))' > foo/BUILD
+  bazel query --universe_scope=//...:* --order_output=no \
+    'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
+  expect_not_log "//foo:BUILD"
+  # TODO(bazel-team): Remove this once test clean-up is automated.
+  # Clean up after ourselves.
+  rm -rf foo
+}
+
+function test_skylark_recursive_glob_regular_file_not_included_in_rbuildfiles() {
+  rm -rf foo
+  mkdir -p foo/bar || fail "Couldn't make directories"
+  echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
+  echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
+  bazel query --universe_scope=//...:* --order_output=no \
+    'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
+  expect_not_log "//foo:BUILD"
+  # TODO(bazel-team): Remove this once test clean-up is automated.
+  # Clean up after ourselves.
+  rm -rf foo
+}
+
+function test_skylark_recursive_glob_symlink_source_not_included_in_rbuildfiles() {
+  rm -rf foo
+  mkdir -p foo/bar || fail "Couldn't make directories"
+  echo "moo" > "foo/moo" || fail "Couldn't create moo"
+  ln -s "foo/moo" "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl symlink"
+  echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
+  bazel query --universe_scope=//...:* --order_output=no \
+    'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
+  expect_not_log "//foo:BUILD"
+  # TODO(bazel-team): Remove this once test clean-up is automated.
+  # Clean up after ourselves.
+  rm -rf foo
+}
+
+function test_skylark_recursive_glob_symlink_target_not_included_in_rbuildfiles() {
+  rm -rf foo
+  mkdir -p foo/bar || fail "Couldn't make directories"
+  echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
+  ln -s "foo/bar/baz.bzl" "foo/Moo.java" || fail "Couldn't create Moo.java symlink"
+  echo 'sh_library(name = "foo", srcs = glob(["**/*.java"]))' > foo/BUILD
+  bazel query --universe_scope=//...:* --order_output=no \
+    'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
+  expect_not_log "//foo:BUILD"
+  # TODO(bazel-team): Remove this once test clean-up is automated.
+  # Clean up after ourselves.
+  rm -rf foo
+}
+
 function test_skylark_subdir_dep_in_sky_query() {
+  rm -rf foo
   mkdir -p foo bar/baz || fail "Couldn't make directories"
-  echo 'load("/bar/baz/fakerule", "const")' > foo/BUILD || fail "Couldn't write"
+  echo 'load("//bar:baz/fakerule.bzl", "const")' > foo/BUILD || fail "Couldn't write"
   touch bar/BUILD || fail "Couldn't touch bar/BUILD"
   echo 'const = 2' > bar/baz/fakerule.bzl || fail "Couldn't write fakerule"
   bazel query --universe_scope=//foo/...:* --order_output=no \
@@ -233,6 +367,7 @@ function test_skylark_subdir_dep_in_sky_query() {
 }
 
 function test_parent_independent_of_child() {
+  rm -rf foo
   mkdir -p foo/subdir || fail "Couldn't make directories"
   echo 'sh_library(name = "sh", data = glob(["**"]))' > foo/BUILD ||
       fail "Couldn't write"
@@ -244,6 +379,7 @@ function test_parent_independent_of_child() {
 }
 
 function test_does_not_fail_horribly_with_file() {
+  rm -rf peach
   mkdir -p peach
   cat > peach/BUILD <<EOF
 sh_library(name='brighton', deps=[':harken'])
@@ -258,7 +394,8 @@ EOF
 }
 
 function test_location_output_not_allowed_with_buildfiles_or_loadfiles() {
-  mkdir foo
+  rm -rf foo
+  mkdir -p foo
   cat > foo/bzl.bzl <<EOF
 x = 2
 EOF
@@ -286,5 +423,66 @@ EOF
   done
 }
 
+function test_subdirectory_named_external() {
+  mkdir -p foo/external foo/bar
+  cat > foo/external/BUILD <<EOF
+sh_library(name = 't1')
+EOF
+  cat > foo/bar/BUILD <<EOF
+sh_library(name = 't2')
+EOF
+
+  bazel query foo/... >& $TEST_log || fail "Expected success"
+  expect_log "//foo/external:t1"
+  expect_log "//foo/bar:t2"
+}
+
+function test_buildfiles_with_build_bazel() {
+  if [ "${PRODUCT_NAME}" != "bazel" ]; then
+    return 0
+  fi
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/bzl.bzl <<EOF
+x = 2
+EOF
+  cat > foo/BUILD.bazel <<EOF
+load('//foo:bzl.bzl', 'x')
+sh_library(name='foo')
+EOF
+
+  bazel query 'buildfiles(//foo)' >& $TEST_log || fail "Expected success"
+  expect_log "//foo:bzl.bzl$"
+  expect_log "//foo:BUILD.bazel$"
+  expect_not_log "//foo:BUILD$"
+}
+
+function test_buildfile_in_genquery() {
+  mkdir -p papaya
+  cat > papaya/BUILD <<EOF
+exports_files(['papaya.bzl'])
+EOF
+  cat > papaya/papaya.bzl <<EOF
+foo = 1
+EOF
+  mkdir -p honeydew
+  cat > honeydew/BUILD <<EOF
+load('//papaya:papaya.bzl', 'foo')
+sh_library(name='honeydew', deps=[':pineapple'])
+sh_library(name='pineapple')
+genquery(name='q',
+         scope=[':honeydew'],
+         strict=0,
+         expression='buildfiles(//honeydew:all)')
+EOF
+
+  bazel build //honeydew:q >& $TEST_log || fail "Expected success"
+  cat bazel-bin/honeydew/q > $TEST_log
+  expect_log_once "^//honeydew:BUILD$"
+}
+
+function tear_down() {
+  bazel shutdown
+}
 
 run_suite "${PRODUCT_NAME} query tests"

@@ -22,14 +22,19 @@
 # and checking the output.
 #
 
-DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+[ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
+
+# Load the unit-testing framework
+source "$1" || \
+  { echo "Failed to load unit-testing framework $1" >&2; exit 1; }
+
+set +o errexit
 
 unset TEST_PREMATURE_EXIT_FILE
-JAVA_HOME="$1"
-TESTBED_JAR="${PWD}/$2"
+JAVA_HOME="$2"
+TESTBED_JAR="${PWD}/$3"
 
-shift 2
-source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
+shift 3
 
 #######################
 

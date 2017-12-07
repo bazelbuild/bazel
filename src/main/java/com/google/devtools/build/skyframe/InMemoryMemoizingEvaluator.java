@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -22,7 +23,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
@@ -137,7 +137,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   public <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<SkyKey> roots,
+      Iterable<? extends SkyKey> roots,
       Version version,
       boolean keepGoing,
       int numThreads,
@@ -205,11 +205,19 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       if (prevEntry != null && prevEntry.isDone()) {
         try {
           Iterable<SkyKey> directDeps = prevEntry.getDirectDeps();
-          Preconditions.checkState(
-              Iterables.isEmpty(directDeps), "existing entry for %s has deps: %s", key, directDeps);
-          if (newValue.equals(prevEntry.getValue())
-              && !valuesToDirty.contains(key)
-              && !valuesToDelete.contains(key)) {
+          if (Iterables.isEmpty(directDeps)) {
+            if (newValue.equals(prevEntry.getValue())
+                && !valuesToDirty.contains(key)
+                && !valuesToDelete.contains(key)) {
+              it.remove();
+            }
+          } else {
+            // Rare situation of an injected dep that depends on another node. Usually the dep is
+            // the error transience node. When working with external repositories, it can also be an
+            // external workspace file. Don't bother injecting it, just invalidate it.
+            // We'll wastefully evaluate the node freshly during evaluation, but this happens very
+            // rarely.
+            valuesToDirty.add(key);
             it.remove();
           }
         } catch (InterruptedException e) {
@@ -273,7 +281,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   }
 
   @Override
-  @Nullable public SkyValue getExistingValueForTesting(SkyKey key) {
+  @Nullable
+  public SkyValue getExistingValue(SkyKey key) {
     NodeEntry entry = getExistingEntryForTesting(key);
     try {
       return isDone(entry) ? entry.getValue() : null;
@@ -340,11 +349,15 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         if (entry.isDone()) {
           out.print(keyFormatter.apply(key));
           out.print("|");
-          try {
-            out.println(
-                Joiner.on('|').join(Iterables.transform(entry.getDirectDeps(), keyFormatter)));
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("InMemoryGraph doesn't throw: " + entry, e);
+          if (((InMemoryNodeEntry) entry).keepEdges() == NodeEntry.KeepEdgesPolicy.NONE) {
+            out.println(" (direct deps not stored)");
+          } else {
+            try {
+              out.println(
+                  Joiner.on('|').join(Iterables.transform(entry.getDirectDeps(), keyFormatter)));
+            } catch (InterruptedException e) {
+              throw new IllegalStateException("InMemoryGraph doesn't throw: " + entry, e);
+            }
           }
         }
       }
@@ -360,11 +373,6 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         public boolean apply(Event event) {
           switch (event.getKind()) {
             case INFO:
-              throw new UnsupportedOperationException(
-                  "SkyFunctions should not display INFO messages: "
-                      + event.getLocation()
-                      + ": "
-                      + event.getMessage());
             case PROGRESS:
               return false;
             default:

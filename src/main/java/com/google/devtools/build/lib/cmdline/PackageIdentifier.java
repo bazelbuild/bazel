@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
@@ -27,12 +29,13 @@ import javax.annotation.concurrent.Immutable;
 /**
  * Uniquely identifies a package, given a repository name and a package's path fragment.
  *
- * <p>The repository the build is happening in is the <i>default workspace</i>, and is identified
- * by the workspace name "". Other repositories can be named in the WORKSPACE file.  These
- * workspaces are prefixed by {@literal @}.</p>
+ * <p>The repository the build is happening in is the <i>default workspace</i>, and is identified by
+ * the workspace name "". Other repositories can be named in the WORKSPACE file. These workspaces
+ * are prefixed by {@literal @}.
  */
 @Immutable
-public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
+public final class PackageIdentifier
+    implements Comparable<PackageIdentifier>, Serializable, SkylarkValue {
 
   private static final Interner<PackageIdentifier> INTERNER = BlazeInterners.newWeakInterner();
 
@@ -60,6 +63,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    * Tries to infer the package identifier from the given exec path. This method does not perform
    * any I/O, but looks solely at the structure of the exec path. The resulting identifier may
    * actually be a subdirectory of a package rather than a package, e.g.:
+   *
    * <pre><code>
    * + WORKSPACE
    * + foo/BUILD
@@ -69,8 +73,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    * In this case, this method returns a package identifier for foo/bar, even though that is not a
    * package. Callers need to look up the actual package if needed.
    *
-   * @throws LabelSyntaxException if the exec path seems to be for an external repository that doe
-   *         not have a valid repository name (see {@link RepositoryName#create})
+   * @throws LabelSyntaxException if the exec path seems to be for an external repository that does
+   *     not have a valid repository name (see {@link RepositoryName#create})
    */
   public static PackageIdentifier discoverFromExecPath(PathFragment execPath, boolean forFiles)
       throws LabelSyntaxException {
@@ -108,8 +112,10 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
     this.repository = Preconditions.checkNotNull(repository);
-    this.pkgName = Canonicalizer.fragments().intern(
-            Preconditions.checkNotNull(pkgName).normalize());
+    if (!pkgName.isNormalized()) {
+      pkgName = pkgName.normalize();
+    }
+    this.pkgName = Canonicalizer.fragments().intern(Preconditions.checkNotNull(pkgName));
     this.hashCode = Objects.hash(repository, pkgName);
   }
 
@@ -215,5 +221,10 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
         .compare(repository.toString(), that.repository.toString())
         .compare(pkgName, that.pkgName)
         .result();
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.repr(toString());
   }
 }

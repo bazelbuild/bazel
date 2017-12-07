@@ -55,8 +55,8 @@ public enum AttributeValueSource {
           location,
           String.format(
               "When an attribute value is a function, the attribute must be private "
-                  + "(i.e. start with '%s')",
-              SKYLARK_PREFIX));
+                  + "(i.e. start with '%s'). Found '%s'",
+              SKYLARK_PREFIX, attrSkylarkName));
     }
   }
 

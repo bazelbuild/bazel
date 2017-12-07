@@ -26,12 +26,13 @@ import java.util.Collections;
 public class BuildEncyclopediaGenerator {
   private static void printUsage(OptionsParser parser) {
     System.err.println(
-        "Usage: docgen_bin -p rule_class_provider (-i input_dir)+\n"
-        + "    [-o outputdir] [-b blacklist] [-1] [-h]\n\n"
-        + "Generates the Build Encyclopedia from embedded native rule documentation.\n"
-        + "The rule class provider (-p) and at least one input_dir (-i) must be specified.\n");
+        "Usage: docgen_bin -n product_name -p rule_class_provider (-i input_dir)+\n"
+            + "    [-o outputdir] [-b blacklist] [-1] [-h]\n\n"
+            + "Generates the Build Encyclopedia from embedded native rule documentation.\n"
+            + "The product name (-n), rule class provider (-p) and at least one input_dir\n"
+            + "(-i) must be specified.\n");
     System.err.println(
-        parser.describeOptions(
+        parser.describeOptionsWithDeprecatedCategories(
             Collections.<String, String>emptyMap(), OptionsParser.HelpVerbosity.LONG));
   }
 
@@ -62,7 +63,9 @@ public class BuildEncyclopediaGenerator {
       Runtime.getRuntime().exit(0);
     }
 
-    if (options.inputDirs.size() == 0 || options.provider.isEmpty()) {
+    if (options.productName.isEmpty()
+        || options.inputDirs.isEmpty()
+        || options.provider.isEmpty()) {
       printUsage(parser);
       Runtime.getRuntime().exit(1);
     }
@@ -70,11 +73,13 @@ public class BuildEncyclopediaGenerator {
     try {
       BuildEncyclopediaProcessor processor = null;
       if (options.singlePage) {
-        processor = new SinglePageBuildEncyclopediaProcessor(
-            createRuleClassProvider(options.provider));
+        processor =
+            new SinglePageBuildEncyclopediaProcessor(
+                options.productName, createRuleClassProvider(options.provider));
       } else {
-        processor = new MultiPageBuildEncyclopediaProcessor(
-            createRuleClassProvider(options.provider));
+        processor =
+            new MultiPageBuildEncyclopediaProcessor(
+                options.productName, createRuleClassProvider(options.provider));
       }
       processor.generateDocumentation(
           options.inputDirs, options.outputDir, options.blacklist);

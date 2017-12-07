@@ -22,10 +22,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.File;
 import java.io.IOException;
+import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** A class to assemble documentation for Skylark. */
@@ -60,6 +62,10 @@ public final class SkylarkDocumentationProcessor {
         modulesByCategory.get(module.getAnnotation().category()).add(module);
       }
     }
+    Collator us = Collator.getInstance(Locale.US);
+    for (List<SkylarkModuleDoc> module : modulesByCategory.values()) {
+      Collections.sort(module, (doc1, doc2) -> us.compare(doc1.getTitle(), doc2.getTitle()));
+    }
     writeCategoryPage(SkylarkModuleCategory.CONFIGURATION_FRAGMENT, outputDir, modulesByCategory);
     writeCategoryPage(SkylarkModuleCategory.BUILTIN, outputDir, modulesByCategory);
     writeCategoryPage(SkylarkModuleCategory.PROVIDER, outputDir, modulesByCategory);
@@ -91,7 +97,7 @@ public final class SkylarkDocumentationProcessor {
       }
     }
 
-    Collections.sort(globalModules);
+    Collections.sort(globalModules, us);
     writeOverviewPage(
         outputDir, globalModule.getName(), globalFunctions, globalModules, modulesByCategory);
   }

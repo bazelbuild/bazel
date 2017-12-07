@@ -154,7 +154,7 @@ public class XmlResourceValues {
         if (XmlResourceValues.getElementAttributeByName(attr, ATTR_FORMAT) != null
             || (XmlResourceValues.peekNextTag(eventReader) != null
                 && XmlResourceValues.peekNextTag(eventReader).isStartElement())) {
-          overwritingConsumer.consume(
+          overwritingConsumer.accept(
               attrName, DataResourceXml.createWithNoNamespace(path, parseAttr(eventReader, attr)));
           members.put(attrName, Boolean.TRUE);
         } else {
@@ -162,7 +162,7 @@ public class XmlResourceValues {
         }
       }
     }
-    combiningConsumer.consume(
+    combiningConsumer.accept(
         fqnFactory.create(ResourceType.STYLEABLE, getElementName(start)),
         DataResourceXml.createWithNoNamespace(path, StyleableXmlResourceValue.of(members)));
   }
@@ -178,12 +178,16 @@ public class XmlResourceValues {
   static XmlResourceValue parseId(
       XMLEventReader eventReader, StartElement start, Namespaces.Collector namespacesCollector)
       throws XMLStreamException {
-    if (XmlResourceValues.isEndTag(eventReader.peek(), start.getName())) {
-      return IdXmlResourceValue.of();
-    } else {
-      return IdXmlResourceValue.of(
-          readContentsAsString(
-              eventReader, start.getName(), namespacesCollector.collectFrom(start)));
+    try {
+      if (XmlResourceValues.isEndTag(eventReader.peek(), start.getName())) {
+        return IdXmlResourceValue.of();
+      } else {
+        return IdXmlResourceValue.of(
+            readContentsAsString(
+                eventReader, start.getName(), namespacesCollector.collectFrom(start)));
+      }
+    } catch (IllegalArgumentException e) {
+      throw new XMLStreamException(e);
     }
   }
 

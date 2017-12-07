@@ -14,12 +14,17 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -122,6 +127,54 @@ public final class TargetUtils {
     return hasConstraint(rule, "external");
   }
 
+  public static List<String> getStringListAttr(Target target, String attrName) {
+    Preconditions.checkArgument(target instanceof Rule);
+    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING_LIST);
+  }
+
+  public static String getStringAttr(Target target, String attrName) {
+    Preconditions.checkArgument(target instanceof Rule);
+    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING);
+  }
+
+  public static Iterable<String> getAttrAsString(Target target, String attrName) {
+    Preconditions.checkArgument(target instanceof Rule);
+    List<String> values = new ArrayList<>(); // May hold null values.
+    Attribute attribute = ((Rule) target).getAttributeDefinition(attrName);
+    if (attribute != null) {
+      Type<?> attributeType = attribute.getType();
+      for (Object attrValue :
+          AggregatingAttributeMapper.of((Rule) target)
+              .visitAttribute(attribute.getName(), attributeType)) {
+
+        // Ugly hack to maintain backward 'attr' query compatibility for BOOLEAN and TRISTATE
+        // attributes. These are internally stored as actual Boolean or TriState objects but were
+        // historically queried as integers. To maintain compatibility, we inspect their actual
+        // value and return the integer equivalent represented as a String. This code is the
+        // opposite of the code in BooleanType and TriStateType respectively.
+        if (attributeType == BOOLEAN) {
+          values.add(Type.BOOLEAN.cast(attrValue) ? "1" : "0");
+        } else if (attributeType == TRISTATE) {
+          switch (BuildType.TRISTATE.cast(attrValue)) {
+            case AUTO:
+              values.add("-1");
+              break;
+            case NO:
+              values.add("0");
+              break;
+            case YES:
+              values.add("1");
+              break;
+            default:
+              throw new AssertionError("This can't happen!");
+          }
+        } else {
+          values.add(attrValue == null ? null : attrValue.toString());
+        }
+      }
+    }
+    return values;
+  }
 
   /**
    * If the given target is a rule, returns its <code>deprecation<code/> value, or null if unset.
@@ -150,16 +203,23 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns the execution info. These include execution requirement
-   * tags ('requires-*' as well as "local") as keys with empty values.
+   * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
+   * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
    */
   public static Map<String, String> getExecutionInfo(Rule rule) {
     // tags may contain duplicate values.
     Map<String, String> map = new HashMap<>();
     for (String tag :
         NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
+      // We don't want to pollute the execution info with random things, and we also need to reserve
+      // some internal tags that we don't allow to be set on targets. We also don't want to
+      // exhaustively enumerate all the legal values here. Right now, only a ~small set of tags is
+      // recognized by Bazel.
       if (tag.startsWith("block-")
           || tag.startsWith("requires-")
+          || tag.startsWith("no-")
+          || tag.startsWith("supports-")
+          || tag.startsWith("disable-")
           || tag.equals("local")
           || tag.startsWith("cpu:")) {
         map.put(tag, "");
@@ -215,7 +275,7 @@ public final class TargetUtils {
       }
 
       if (!(input instanceof Rule)) {
-        return false;
+        return requiredTags.isEmpty();
       }
       // Note that test_tags are those originating from the XX_test rule,
       // whereas the requiredTags and excludedTags originate from the command

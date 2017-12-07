@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ActionCompletedId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.Path;
@@ -21,6 +23,7 @@ import com.google.protobuf.TextFormat;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -85,11 +88,24 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setStarted(startedId).build());
   }
 
-  public static BuildEventId commandlineId() {
-    BuildEventStreamProtos.BuildEventId.CommandLineId commandLineId =
-        BuildEventStreamProtos.BuildEventId.CommandLineId.getDefaultInstance();
+  public static BuildEventId unstructuredCommandlineId() {
+    BuildEventStreamProtos.BuildEventId.UnstructuredCommandLineId commandLineId =
+        BuildEventStreamProtos.BuildEventId.UnstructuredCommandLineId.getDefaultInstance();
     return new BuildEventId(
-        BuildEventStreamProtos.BuildEventId.newBuilder().setCommandLine(commandLineId).build());
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setUnstructuredCommandLine(commandLineId)
+            .build());
+  }
+
+  public static BuildEventId structuredCommandlineId(String commandLineLabel) {
+    BuildEventStreamProtos.BuildEventId.StructuredCommandLineId commandLineId =
+        BuildEventStreamProtos.BuildEventId.StructuredCommandLineId.newBuilder()
+            .setCommandLineLabel(commandLineLabel)
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setStructuredCommandLine(commandLineId)
+            .build());
   }
 
   public static BuildEventId optionsParsedId() {
@@ -105,6 +121,13 @@ public final class BuildEventId implements Serializable {
             .setWorkspaceStatus(
                 BuildEventStreamProtos.BuildEventId.WorkspaceStatusId.getDefaultInstance())
             .build());
+  }
+
+  public static BuildEventId fetchId(String url) {
+    BuildEventStreamProtos.BuildEventId.FetchId fetchId =
+        BuildEventStreamProtos.BuildEventId.FetchId.newBuilder().setUrl(url).build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setFetch(fetchId).build());
   }
 
   public static BuildEventId configurationId(String id) {
@@ -150,6 +173,16 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setTargetConfigured(configuredId).build());
   }
 
+  public static BuildEventId aspectConfigured(Label label, String aspect) {
+    BuildEventStreamProtos.BuildEventId.TargetConfiguredId configuredId =
+        BuildEventStreamProtos.BuildEventId.TargetConfiguredId.newBuilder()
+            .setLabel(label.toString())
+            .setAspect(aspect)
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setTargetConfigured(configuredId).build());
+  }
+
   public static BuildEventId targetCompleted(Label target, BuildEventId configuration) {
     BuildEventStreamProtos.BuildEventId.ConfigurationId configId =
         configuration.protoid.getConfiguration();
@@ -177,13 +210,21 @@ public final class BuildEventId implements Serializable {
   }
 
   public static BuildEventId actionCompleted(Path path) {
+    return actionCompleted(path, null, null);
+  }
+
+  public static BuildEventId actionCompleted(
+      Path path, @Nullable Label label, @Nullable String configurationChecksum) {
+    ActionCompletedId.Builder actionId =
+        ActionCompletedId.newBuilder().setPrimaryOutput(path.toString());
+    if (label != null) {
+      actionId.setLabel(label.toString());
+    }
+    if (configurationChecksum != null) {
+      actionId.setConfiguration(ConfigurationId.newBuilder().setId(configurationChecksum));
+    }
     return new BuildEventId(
-        BuildEventStreamProtos.BuildEventId.newBuilder()
-            .setActionCompleted(
-                BuildEventStreamProtos.BuildEventId.ActionCompletedId.newBuilder()
-                    .setPrimaryOutput(path.toString())
-                    .build())
-            .build());
+        BuildEventStreamProtos.BuildEventId.newBuilder().setActionCompleted(actionId).build());
   }
 
   public static BuildEventId fromArtifactGroupName(String name) {
@@ -231,5 +272,13 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.BuildFinishedId.getDefaultInstance();
     return new BuildEventId(
         BuildEventStreamProtos.BuildEventId.newBuilder().setBuildFinished(finishedId).build());
+  }
+
+  public static BuildEventId buildToolLogs() {
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setBuildToolLogs(
+                BuildEventStreamProtos.BuildEventId.BuildToolLogsId.getDefaultInstance())
+            .build());
   }
 }

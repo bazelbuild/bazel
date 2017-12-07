@@ -20,12 +20,13 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingR
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
@@ -59,7 +60,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     new BundleSupport(
             ruleContext,
             appleConfiguration,
-            appleConfiguration.getMultiArchPlatform(PlatformType.IOS),
+            appleConfiguration.getSingleArchPlatform(),
             bundling,
             new ExtraActoolArgs())
         .validateResources(common.getObjcProvider())
@@ -74,7 +75,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         .build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(ObjcProvider.class, nestedBundleProvider)
+        .addNativeDeclaredProvider(nestedBundleProvider)
         .build();
   }
 
@@ -102,7 +103,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         .setObjcProvider(common.getObjcProvider())
         .addInfoplistInputFromRule(ruleContext)
         .setIntermediateArtifacts(intermediateArtifacts)
-        .setMinimumOsVersion(appleConfiguration.getMinimumOsForPlatformType(PlatformType.IOS))
+        .setMinimumOsVersion(XcodeConfig.getMinimumOsForPlatformType(ruleContext, PlatformType.IOS))
         .setTargetDeviceFamilies(families)
         .build();
   }
@@ -111,7 +112,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     return new ObjcCommon.Builder(ruleContext)
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .build();
   }

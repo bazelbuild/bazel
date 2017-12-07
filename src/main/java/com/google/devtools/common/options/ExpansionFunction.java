@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
  * A function from an option parser's static setup (what flags it knows about) to a list of
  * expansion Strings to use for one of its options.
  */
+@FunctionalInterface
 public interface ExpansionFunction {
 
   /**
@@ -29,5 +30,5 @@ public interface ExpansionFunction {
    *     information is computed
    * @return An expansion to use on an empty list
    */
-  ImmutableList<String> getExpansion(ExpansionContext context) throws OptionsParsingException;
+  ImmutableList<String> getExpansion(IsolatedOptionsData optionsData);
 }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -21,7 +22,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -223,12 +223,12 @@ public class CcCompilationOutputs {
       return this;
     }
 
-    public Builder addLTOBitcodeFile(Artifact fullBitcode, Artifact ltoIndexingBitcode) {
+    public Builder addLtoBitcodeFile(Artifact fullBitcode, Artifact ltoIndexingBitcode) {
       ltoBitcodeFiles.put(fullBitcode, ltoIndexingBitcode);
       return this;
     }
 
-    public Builder addLTOBitcodeFile(ImmutableMap<Artifact, Artifact> artifacts) {
+    public Builder addLtoBitcodeFile(ImmutableMap<Artifact, Artifact> artifacts) {
       ltoBitcodeFiles.putAll(artifacts);
       return this;
     }

@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.lib.util.io;
 
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.util.Clock;
-
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.logging.Logger;
 
@@ -75,7 +74,8 @@ import java.util.logging.Logger;
  */
 @ThreadCompatible
 public class TimestampGranularityMonitor {
-  private static final Logger log = Logger.getLogger(TimestampGranularityMonitor.class.getName());
+  private static final Logger logger =
+      Logger.getLogger(TimestampGranularityMonitor.class.getName());
 
   /**
    * The time of the start of the current Blaze command,
@@ -127,11 +127,11 @@ public class TimestampGranularityMonitor {
   @ThreadSafe
   public void notifyDependenceOnFileTime(PathFragment path, long mtime) {
     if (mtime == this.commandStartTimeMillis) {
-      log.info("Will have to wait for a millisecond on completion because of " + path);
+      logger.info("Will have to wait for a millisecond on completion because of " + path);
       this.waitAMillisecond = true;
     }
     if (mtime == this.commandStartTimeMillisRounded) {
-      log.info("Will have to wait for a second on completion because of " + path);
+      logger.info("Will have to wait for a second on completion because of " + path);
       this.waitASecond = true;
     }
   }
@@ -187,8 +187,11 @@ public class TimestampGranularityMonitor {
 
       Profiler.instance().logSimpleTask(startedWaiting, ProfilerTask.WAIT,
                                         "Timestamp granularity");
-      log.info("Waited for " + (clock.currentTimeMillis() - before) + "ms for file system"
-          + " to catch up");
+      logger.info(
+          "Waited for "
+              + (clock.currentTimeMillis() - before)
+              + "ms for file system"
+              + " to catch up");
     }
   }
 

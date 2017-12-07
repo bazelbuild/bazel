@@ -18,7 +18,7 @@ package com.google.devtools.build.lib.analysis;
  * Contains rolled-up data about the transitive closure of a configured target.
  *
  * For more information about how analysis works, see
- * {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ * {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  * TransitiveInfoProviders need to be serializable, and for that reason they must conform to
  * the following restrictions:
  *
@@ -57,22 +57,8 @@ package com.google.devtools.build.lib.analysis;
  * implementation of NestedSet you pick.
  *
  * @see TransitiveInfoCollection
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  */
 public interface TransitiveInfoProvider {
 
-  /**
-   * Implement this to mark that a native provider should be exported with
-   * certain name to Skylark.
-   * Broken: only works for rules, not for aspects.
-   * DO NOT USE FOR NEW CODE!
-   *
-   * Use native declared providers
-   * ({@link com.google.devtools.build.lib.packages.NativeClassObjectConstructor}) to
-   * expose providers to both native and Skylark code.
-   */
-  @Deprecated
-  interface WithLegacySkylarkName {
-    String getSkylarkName();
-  }
 }

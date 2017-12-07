@@ -34,7 +34,8 @@ public final class CppFileTypes {
   public static final FileTypeSet LTO_SOURCE =
       FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE);
 
-  public static final FileType CPP_HEADER = FileType.of(".h", ".hh", ".hpp", ".hxx", ".inc");
+  public static final FileType CPP_HEADER =
+      FileType.of(".h", ".hh", ".hpp", ".ipp", ".hxx", ".inc");
   public static final FileType PCH = FileType.of(".pch");
   public static final FileTypeSet OBJC_HEADER = FileTypeSet.of(CPP_HEADER, PCH);
   
@@ -131,8 +132,14 @@ public final class CppFileTypes {
   public static final FileType LTO_INDEXING_OBJECT_FILE = FileType.of(".indexing.o");
 
   public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib", ".dll");
-  public static final FileType INTERFACE_SHARED_LIBRARY = FileType.of(".ifso");
+  // Unix shared libraries can be passed to linker, but not .dll on Windows
+  public static final FileType UNIX_SHARED_LIBRARY = FileType.of(".so", ".dylib");
+  public static final FileType INTERFACE_SHARED_LIBRARY = FileType.of(".ifso", ".tbd");
   public static final FileType LINKER_SCRIPT = FileType.of(".ld", ".lds", ".ldscript");
+
+  // Windows DEF file: https://msdn.microsoft.com/en-us/library/28d6s79h.aspx
+  public static final FileType WINDOWS_DEF_FILE = FileType.of(".def");
+
   // Matches shared libraries with version names in the extension, i.e.
   // libmylib.so.2 or libmylib.so.2.10.
   private static final Pattern VERSIONED_SHARED_LIBRARY_PATTERN =
@@ -192,7 +199,6 @@ public final class CppFileTypes {
     String fileName = source.getFilename();
     return !ASSEMBLER.matches(fileName)
         && !PIC_ASSEMBLER.matches(fileName)
-        && !CLIF_INPUT_PROTO.matches(fileName)
         && !CPP_MODULE.matches(fileName);
   }
 

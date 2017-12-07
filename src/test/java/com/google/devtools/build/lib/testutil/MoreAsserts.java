@@ -24,7 +24,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Event;
@@ -51,21 +50,6 @@ public class MoreAsserts {
 
   public static <T> void assertEquals(T expected, T actual, Comparator<T> comp) {
     assertThat(comp.compare(expected, actual)).isEqualTo(0);
-  }
-
-  public static <T> void assertContentsAnyOrder(
-      Iterable<? extends T> expected, Iterable<? extends T> actual,
-      Comparator<? super T> comp) {
-    assertThat(actual).hasSize(Iterables.size(expected));
-    int i = 0;
-    for (T e : expected) {
-      for (T a : actual) {
-        if (comp.compare(e, a) == 0) {
-          i++;
-        }
-      }
-    }
-    assertThat(actual).hasSize(i);
   }
 
   /**
@@ -454,5 +438,44 @@ public class MoreAsserts {
     List<Event> foundEvents = builder.build();
     assertWithMessage(events.toString()).that(foundEvents).hasSize(expectedFrequency);
     return foundEvents;
+  }
+
+  /*
+   * These methods will be in JUnit 4.13. Instead of patching Bazel's JUnit jar to contain the
+   * <a href="https://github.com/junit-team/junit4/commit/bdb1799">patch</a>, we define it here.
+   * Once JUnit 4.13 is released, we will switcher callers to use org.junit.Assert#assertThrows
+   * instead. See https://github.com/bazelbuild/bazel/issues/3729.
+   */
+  public static void assertThrows(
+      Class<? extends Throwable> expectedThrowable, ThrowingRunnable runnable) {
+    expectThrows(expectedThrowable, runnable);
+  }
+
+  public static <T extends Throwable> T expectThrows(
+      Class<T> expectedThrowable, ThrowingRunnable runnable) {
+    try {
+      runnable.run();
+    } catch (Throwable actualThrown) {
+      if (expectedThrowable.isInstance(actualThrown)) {
+        @SuppressWarnings("unchecked")
+        T retVal = (T) actualThrown;
+        return retVal;
+      } else {
+        throw new AssertionError(
+            String.format(
+                "expected %s to be thrown, but %s was thrown",
+                expectedThrowable.getSimpleName(), actualThrown.getClass().getSimpleName()),
+            actualThrown);
+      }
+    }
+    String message =
+        String.format(
+            "expected %s to be thrown, but nothing was thrown", expectedThrowable.getSimpleName());
+    throw new AssertionError(message);
+  }
+
+  /** A helper interface for {@link #assertThrows}. */
+  public interface ThrowingRunnable {
+    void run() throws Throwable;
   }
 }

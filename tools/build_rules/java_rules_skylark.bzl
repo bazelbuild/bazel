@@ -22,8 +22,8 @@ srcjar_filetype = FileType([".jar", ".srcjar"])
 def java_library_impl(ctx):
   javac_options = ctx.fragments.java.default_javac_flags
   class_jar = ctx.outputs.class_jar
-  compile_time_jars = set(order="link")
-  runtime_jars = set(order="link")
+  compile_time_jars = depset(order="topological")
+  runtime_jars = depset(order="topological")
   for dep in ctx.attr.deps:
     compile_time_jars += dep.compile_time_jars
     runtime_jars += dep.runtime_jars
@@ -42,7 +42,7 @@ def java_library_impl(ctx):
   sources_param_file = ctx.new_file(ctx.bin_dir, class_jar, "-2.params")
   ctx.file_action(
       output = sources_param_file,
-      content = cmd_helper.join_paths("\n", set(sources)),
+      content = cmd_helper.join_paths("\n", depset(sources)),
       executable = False)
 
   # Cleaning build output directory
@@ -79,7 +79,7 @@ def java_library_impl(ctx):
 
   runfiles = ctx.runfiles(collect_data = True)
 
-  return struct(files = set([class_jar]),
+  return struct(files = depset([class_jar]),
                 compile_time_jars = compile_time_jars + [class_jar],
                 runtime_jars = runtime_jars + [class_jar],
                 runfiles = runfiles)
@@ -158,7 +158,7 @@ def java_binary_impl(ctx):
     executable = True)
 
   runfiles = ctx.runfiles(files = [deploy_jar, executable] + ctx.files._jdk, collect_data = True)
-  files_to_build = set([deploy_jar, manifest, executable])
+  files_to_build = depset([deploy_jar, manifest, executable])
   files_to_build += library_result.files
 
   return struct(files = files_to_build, runfiles = runfiles)
@@ -167,8 +167,8 @@ def java_binary_impl(ctx):
 def java_import_impl(ctx):
   # TODO(bazel-team): Why do we need to filter here? The attribute
   # already says only jars are allowed.
-  jars = set(jar_filetype.filter(ctx.files.jars))
-  neverlink_jars = set(jar_filetype.filter(ctx.files.neverlink_jars))
+  jars = depset(jar_filetype.filter(ctx.files.jars))
+  neverlink_jars = depset(jar_filetype.filter(ctx.files.neverlink_jars))
   runfiles = ctx.runfiles(collect_data = True)
   return struct(files = jars,
                 compile_time_jars = jars + neverlink_jars,

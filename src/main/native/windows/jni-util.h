@@ -14,14 +14,13 @@
 #ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_JNI_UTIL_H_
 #define BAZEL_SRC_MAIN_NATIVE_WINDOWS_JNI_UTIL_H_
 
-#include <jni.h>
-
 #include <string>
+
+#include "src/main/native/jni.h"
 
 namespace bazel {
 namespace windows {
 
-std::string GetJavaUTFString(JNIEnv* env, jstring str);
 std::wstring GetJavaWstring(JNIEnv* env, jstring str);
 
 }  // namespace windows

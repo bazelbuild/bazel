@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.io.ByteStreams;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -45,7 +46,8 @@ public class ZipOutputFileProvider implements OutputFileProvider {
 
   @Override
   public void write(String filename, byte[] content) throws IOException {
-    Preconditions.checkArgument(filename.endsWith(".class"));
+    checkArgument(filename.equals(DESUGAR_DEPS_FILENAME) || filename.endsWith(".class"),
+        "Expect file to be copied: %s", filename);
     writeStoredEntry(out, filename, content);
   }
 

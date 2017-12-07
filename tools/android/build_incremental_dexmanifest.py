@@ -58,7 +58,7 @@ class DexmanifestBuilder(object):
   def Checksum(self, filename):
     """Compute the SHA-256 checksum of a file."""
     h = hashlib.sha256()
-    with file(filename, "r") as f:
+    with open(filename, "rb") as f:
       while True:
         data = f.read(65536)
         if not data:
@@ -99,7 +99,7 @@ class DexmanifestBuilder(object):
     if argv[0][0] == "@":
       if len(argv) != 1:
         raise IOError("A parameter file should be the only argument")
-      with file(argv[0][1:]) as param_file:
+      with open(argv[0][1:]) as param_file:
         argv = [a.strip() for a in param_file.readlines()]
 
     for input_filename in argv[1:]:
@@ -120,7 +120,7 @@ class DexmanifestBuilder(object):
       elif input_filename.endswith(".dex"):
         self.AddDex(input_filename, None, input_filename)
 
-    with file(argv[0], "w") as manifest:
+    with open(argv[0], "wb") as manifest:
       manifest.write("\n".join(self.manifest_lines))
 
 

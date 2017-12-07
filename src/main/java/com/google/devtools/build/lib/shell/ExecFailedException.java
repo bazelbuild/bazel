@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.shell;
 
 /**
- * Thrown when a command could not even be executed by the JVM --
- * in particular, when {@link Runtime#exec(String[])} fails.
+ * Thrown when a command could not even be executed by the JVM; in particular, when
+ * {@link Runtime#exec(String[])} fails.
  */
 public final class ExecFailedException extends CommandException {
 

@@ -22,7 +22,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.CompilationUnit;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
-import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -42,23 +42,24 @@ import java.util.jar.JarFile;
 public class IdlClass {
 
   public static void main(String[] args) throws IOException {
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(IdlClassOptions.class);
-    optionsParser.parseAndExitUponError(args);
-    IdlClassOptions options = optionsParser.getOptions(IdlClassOptions.class);
-    Preconditions.checkNotNull(options.manifestProto);
-    Preconditions.checkNotNull(options.classJar);
-    Preconditions.checkNotNull(options.outputClassJar);
-    Preconditions.checkNotNull(options.outputSourceJar);
-    Preconditions.checkNotNull(options.tempDir);
+    Options<IdlClassOptions> options =
+        Options.parseAndExitUponError(IdlClassOptions.class, /*allowResidue=*/ true, args);
+
+    IdlClassOptions idlClassOptions = options.getOptions();
+    Preconditions.checkNotNull(idlClassOptions.manifestProto);
+    Preconditions.checkNotNull(idlClassOptions.classJar);
+    Preconditions.checkNotNull(idlClassOptions.outputClassJar);
+    Preconditions.checkNotNull(idlClassOptions.outputSourceJar);
+    Preconditions.checkNotNull(idlClassOptions.tempDir);
 
     List<Path> idlSources = Lists.newArrayList();
-    for (String idlSource : optionsParser.getResidue()) {
+    for (String idlSource : options.getRemainingArgs()) {
       idlSources.add(Paths.get(idlSource));
     }
 
-    Manifest manifest = readManifest(options.manifestProto);
-    writeClassJar(options, idlSources, manifest);
-    writeSourceJar(options, idlSources, manifest);
+    Manifest manifest = readManifest(idlClassOptions.manifestProto);
+    writeClassJar(idlClassOptions, idlSources, manifest);
+    writeSourceJar(idlClassOptions, idlSources, manifest);
   }
 
   private static void writeClassJar(IdlClassOptions options,

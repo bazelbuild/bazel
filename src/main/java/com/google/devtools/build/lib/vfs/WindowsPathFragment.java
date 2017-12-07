@@ -56,11 +56,14 @@ abstract class WindowsPathFragment extends PathFragment {
     // primary separator char and do not use this.
     private static final char EXTRA_SEPARATOR_CHAR = '\\';
 
+    private static boolean isDriveLetter(char c) {
+      return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+    }
+
     @Override
     PathFragment create(String path) {
-      // TODO(laszlocsomor): Character#isLetter returns true for some non ASCII characters.
       char driveLetter =
-          path.length() >= 2 && path.charAt(1) == ':' && Character.isLetter(path.charAt(0))
+          path.length() >= 2 && path.charAt(1) == ':' && isDriveLetter(path.charAt(0))
               ? Character.toUpperCase(path.charAt(0))
               : '\0';
       if (driveLetter != '\0') {

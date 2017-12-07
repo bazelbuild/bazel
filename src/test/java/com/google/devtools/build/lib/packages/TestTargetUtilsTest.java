@@ -150,9 +150,9 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         TestTargetUtils.expandTestSuites(
             getPackageManager(),
             reporter,
-            Sets.newHashSet(getTarget("//broken")), /*strict=*/
-            false, /*keep_going=*/
-            true);
+            Sets.newHashSet(getTarget("//broken")),
+            /*strict=*/ false,
+            /* keepGoing= */ true);
     assertThat(actual.hasError()).isTrue();
     assertThat(actual.getTargets()).isEmpty();
   }
@@ -161,7 +161,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
       throws Exception {
     ResolvedTargets<Target> actual =
         TestTargetUtils.expandTestSuites(
-            getPackageManager(), reporter, suites, /*strict=*/ false, /*keep_going=*/ true);
+            getPackageManager(), reporter, suites, /*strict=*/ false, /* keepGoing= */ true);
     assertThat(actual.hasError()).isFalse();
     assertThat(actual.getTargets()).containsExactlyElementsIn(expected);
   }
@@ -201,9 +201,9 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
             }
           },
           reporter,
-          Sets.newHashSet(getTarget("//broken")), /*strict=*/
-          false, /*keep_going=*/
-          true);
+          Sets.newHashSet(getTarget("//broken")),
+          /*strict=*/ false,
+          /* keepGoing= */ true);
     } catch (TargetParsingException e) {
       assertThat(e).hasMessageThat().isNotNull();
     }

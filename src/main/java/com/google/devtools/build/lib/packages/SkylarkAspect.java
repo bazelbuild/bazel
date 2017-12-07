@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
 import java.util.List;
 
@@ -98,12 +98,6 @@ public class SkylarkAspect implements SkylarkExportable {
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<aspect>");
-  }
-
-  @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    printer.append("Aspect:");
-    printer.repr(implementation);
   }
 
   public String getName() {

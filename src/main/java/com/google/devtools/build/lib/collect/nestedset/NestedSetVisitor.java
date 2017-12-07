@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Set;
 
 /**
@@ -54,7 +53,6 @@ public final class NestedSetVisitor<E> {
    * Transitively visit a nested set.
    *
    * @param nestedSet the nested set to visit transitively.
-   *
    */
   public void visit(NestedSet<E> nestedSet) {
     Preconditions.checkArgument(nestedSet.getOrder() == Order.STABLE_ORDER);

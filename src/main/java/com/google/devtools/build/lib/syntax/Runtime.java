@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
@@ -97,7 +97,8 @@ public final class Runtime {
   public static final NoneType NONE = new NoneType();
 
   @SkylarkSignature(name = "PACKAGE_NAME", returnType = String.class,
-      doc = "The name of the package being evaluated. "
+      doc = "<b>Deprecated. Use <a href=\"native.html#package_name\">package_name()</a> "
+          + "instead.</b> The name of the package being evaluated. "
           + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
           + "will be <code>some/package</code>. "
           + "If the BUILD file calls a function defined in a .bzl file, PACKAGE_NAME will "
@@ -116,13 +117,19 @@ public final class Runtime {
           + "the rule comes from. ")
   public static final String PKG_NAME = "PACKAGE_NAME";
 
-  @SkylarkSignature(name = "REPOSITORY_NAME", returnType = String.class,
-      doc = "The name of the repository the rule or build extension is called from. "
-          + "For example, in packages that are called into existence by the WORKSPACE stanza "
-          + "<code>local_repository(name='local', path=...)</code> it will be set to "
-          + "<code>@local</code>. In packages in the main repository, it will be empty. "
-          + "It can only be accessed in functions (transitively) called from BUILD files, i.e. "
-          + "it follows the same restrictions as <a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>")
+  @SkylarkSignature(
+    name = "REPOSITORY_NAME",
+    returnType = String.class,
+    doc =
+        "<b>Deprecated. Use <a href=\"native.html#repository_name\">repository_name()</a> "
+            + "instead.</b> The name of the repository the rule or build extension is called from. "
+            + "For example, in packages that are called into existence by the WORKSPACE stanza "
+            + "<code>local_repository(name='local', path=...)</code> it will be set to "
+            + "<code>@local</code>. In packages in the main repository, it will be set to "
+            + "<code>@</code>. It can only be accessed in functions (transitively) called from "
+            + "BUILD files, i.e. it follows the same restrictions as "
+            + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>"
+  )
   public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
 
   /**
@@ -216,7 +223,7 @@ public final class Runtime {
    */
   public static Set<String> getFunctionNames(Class<?> nameSpace) {
     Map<String, BaseFunction> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
-    return nameSpaceFunctions != null ? nameSpaceFunctions.keySet() : ImmutableSet.<String>of();
+    return nameSpaceFunctions != null ? nameSpaceFunctions.keySet() : ImmutableSet.of();
   }
 
   static void setupMethodEnvironment(

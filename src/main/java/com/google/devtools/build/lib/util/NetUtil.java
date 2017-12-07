@@ -21,14 +21,31 @@ import java.net.UnknownHostException;
  */
 public final class NetUtil {
 
+  private static String hostname;
+
   private NetUtil() {
   }
 
   /**
-   * Returns the short hostname or <code>unknown</code> if the host name could not be determined.
-   * Performs reverse DNS lookup and can take seconds to complete!
+   * Returns the *cached* short hostname (computed at most once per the lifetime of a server). Can
+   * take seconds to complete when the cache is cold.
    */
-  public static String findShortHostName() {
+  public static String getCachedShortHostName() {
+    if (hostname == null) {
+      synchronized (NetUtil.class) {
+        if (hostname == null) {
+          hostname = computeShortHostName();
+        }
+      }
+    }
+    return hostname;
+  }
+
+  /**
+   * Returns the short hostname or <code>unknown</code> if the host name could not be determined.
+   * Performs reverse DNS lookup and can take seconds to complete.
+   */
+  private static String computeShortHostName() {
     try {
       return InetAddress.getLocalHost().getHostName();
     } catch (UnknownHostException e) {

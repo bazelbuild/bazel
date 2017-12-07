@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import org.junit.Test;
@@ -45,7 +46,8 @@ public class BuildFileASTTest extends EvaluationTestCase {
    */
   private BuildFileAST parseBuildFile(String... lines) throws IOException {
     Path file = scratch.file("/a/build/file/BUILD", lines);
-    ParserInputSource inputSource = ParserInputSource.create(file, file.getFileSize());
+    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
+    ParserInputSource inputSource = ParserInputSource.create(bytes, file.asFragment());
     return BuildFileAST.parseBuildFile(inputSource, getEventHandler());
   }
 

@@ -91,9 +91,7 @@ class BlazeUtilTest : public ::testing::Test {
     }
   }
 
-  static void AssertReadFrom(string input) {
-    AssertReadFrom2(std::move(input), "");
-  }
+  static void AssertReadFrom(string input) { AssertReadFrom2(input, ""); }
 
   static void AssertReadJvmVersion(string expected, const string& input) {
     ASSERT_EQ(expected, ReadJvmVersion(input));
@@ -264,6 +262,7 @@ TEST_F(BlazeUtilTest, MakeAbsolute) {
   EXPECT_EQ(MakeAbsolute("foo"), blaze_util::GetCwd() + "/foo");
 #endif
   EXPECT_EQ(MakeAbsolute(std::string()), blaze_util::GetCwd());
+  EXPECT_EQ(MakeAbsolute("/dev/null"), "/dev/null");
 }
 
 }  // namespace blaze

@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -28,7 +32,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -100,10 +103,12 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
   abstract TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException;
 
+  abstract Label argumentFromKey(SkyKey key);
+
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws TransitiveBaseTraversalFunctionException, InterruptedException {
-    Label label = (Label) key.argument();
+    Label label = argumentFromKey(key);
     LoadTargetResults loadTargetResults;
     try {
       loadTargetResults = loadTarget(env, label);
@@ -123,7 +128,8 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
     TProcessedTargets processedTargets = processTarget(label, targetAndErrorIfAny);
 
     // Process deps from attributes.
-    Iterable<SkyKey> labelDepKeys = getLabelDepKeys(targetAndErrorIfAny.getTarget());
+    Collection<SkyKey> labelDepKeys =
+        Collections2.transform(getLabelDeps(targetAndErrorIfAny.getTarget()), this::getKey);
 
     Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap =
         env.getValuesOrThrow(labelDepKeys, NoSuchPackageException.class,
@@ -149,7 +155,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(((Label) skyKey.argument()));
+    return Label.print(argumentFromKey(skyKey));
   }
 
   /**
@@ -169,7 +175,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
           new HashMap<>(depMap.size());
       for (Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
           depMap.entrySet()) {
-        labelDepMap.put((Label) entry.getKey().argument(), entry.getValue());
+        labelDepMap.put(argumentFromKey(entry.getKey()), entry.getValue());
       }
 
       Multimap<Attribute, Label> transitions =
@@ -195,42 +201,42 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
       Environment env)
       throws InterruptedException;
 
-  private Iterable<SkyKey> getLabelDepKeys(Target target) throws InterruptedException {
-    List<SkyKey> depKeys = Lists.newArrayList();
-    for (Label depLabel : getLabelDeps(target)) {
-      depKeys.add(getKey(depLabel));
-    }
-    return depKeys;
-  }
-
   // TODO(bazel-team): Unify this logic with that in LabelVisitor, and possibly DependencyResolver.
-  private static Iterable<Label> getLabelDeps(Target target) throws InterruptedException {
-    final Set<Label> labels = new HashSet<>();
+  private static Collection<Label> getLabelDeps(Target target) throws InterruptedException {
     if (target instanceof OutputFile) {
       Rule rule = ((OutputFile) target).getGeneratingRule();
-      labels.add(rule.getLabel());
-      visitTargetVisibility(target, labels);
+      List<Label> visibilityLabels = visitTargetVisibility(target);
+      HashSet<Label> result = Sets.newHashSetWithExpectedSize(visibilityLabels.size() + 1);
+      result.add(rule.getLabel());
+      result.addAll(visibilityLabels);
+      return result;
     } else if (target instanceof InputFile) {
-      visitTargetVisibility(target, labels);
+      return new HashSet<>(visitTargetVisibility(target));
     } else if (target instanceof Rule) {
-      visitTargetVisibility(target, labels);
-      visitRule(target, labels);
+      List<Label> visibilityLabels = visitTargetVisibility(target);
+      Collection<Label> ruleLabels = visitRule(target);
+      HashSet<Label> result =
+          Sets.newHashSetWithExpectedSize(visibilityLabels.size() + ruleLabels.size());
+      result.addAll(visibilityLabels);
+      result.addAll(ruleLabels);
+      return result;
     } else if (target instanceof PackageGroup) {
-      visitPackageGroup((PackageGroup) target, labels);
+      return new HashSet<>(visitPackageGroup((PackageGroup) target));
+    } else {
+      return ImmutableSet.of();
     }
-    return labels;
   }
 
-  private static void visitRule(Target target, Set<Label> labels) throws InterruptedException {
-    labels.addAll(((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES).values());
+  private static Collection<Label> visitRule(Target target) throws InterruptedException {
+    return ((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES).values();
   }
 
-  private static void visitTargetVisibility(Target target, Set<Label> labels) {
-    labels.addAll(target.getVisibility().getDependencyLabels());
+  private static List<Label> visitTargetVisibility(Target target) {
+    return target.getVisibility().getDependencyLabels();
   }
 
-  private static void visitPackageGroup(PackageGroup packageGroup, Set<Label> labels) {
-    labels.addAll(packageGroup.getIncludes());
+  private static List<Label> visitPackageGroup(PackageGroup packageGroup) {
+    return packageGroup.getIncludes();
   }
 
   enum LoadTargetResultsType {

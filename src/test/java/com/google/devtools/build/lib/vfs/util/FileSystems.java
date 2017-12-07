@@ -20,13 +20,7 @@ import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.UnionFileSystem;
-import com.google.devtools.build.lib.vfs.ZipFileSystem;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
-import java.io.IOException;
-import java.util.Map;
 
 /**
  * This static file system singleton manages access to a single default
@@ -39,7 +33,6 @@ public final class FileSystems {
 
   private static FileSystem defaultNativeFileSystem;
   private static FileSystem defaultJavaIoFileSystem;
-  private static FileSystem defaultUnionFileSystem;
 
   /**
    * Initializes the default native {@link FileSystem} instance as a platform native
@@ -81,31 +74,5 @@ public final class FileSystems {
       Verify.verify(defaultJavaIoFileSystem instanceof JavaIoFileSystem);
     }
     return defaultJavaIoFileSystem;
-  }
-
-  /**
-   * Initializes the default union {@link FileSystem} instance as a
-   * {@link UnionFileSystem}. If it's not initialized, then initialize it,
-   * otherwise verify if the type of the instance is correct.
-   *
-   * @param prefixMapping the desired mapping of path prefixes to delegate file systems
-   * @param rootFileSystem the default file system for paths that don't match any prefix map
-   */
-  public static synchronized FileSystem getUnionFileSystem(
-      Map<PathFragment, FileSystem> prefixMapping, FileSystem rootFileSystem) {
-    if (defaultUnionFileSystem == null) {
-      defaultUnionFileSystem = new UnionFileSystem(prefixMapping, rootFileSystem);
-    } else {
-      Verify.verify(defaultUnionFileSystem instanceof UnionFileSystem);
-    }
-    return defaultUnionFileSystem;
-  }
-
-  /**
-   * Returns a new instance of a simple {@link FileSystem} implementation that
-   * presents the contents of a zip file as a read-only file system view.
-   */
-  public static FileSystem getZipFileSystem(Path zipFile) throws IOException {
-    return new ZipFileSystem(zipFile);
   }
 }

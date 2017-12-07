@@ -39,13 +39,13 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
@@ -58,7 +58,6 @@ import java.util.Set;
  */
 @Command(name = "query",
          options = { PackageCacheOptions.class,
-                     SkylarkSemanticsOptions.class,
                      QueryOptions.class },
          help = "resource:query.txt",
          shortDescription = "Executes a dependency graph query.",
@@ -158,7 +157,15 @@ public final class QueryCommand implements BlazeCommand {
 
     expr = queryEnv.transformParsedQuery(expr);
 
-    OutputStream out = env.getReporter().getOutErr().getOutputStream();
+    OutputStream out;
+    if (formatter.canBeBuffered()) {
+      // There is no particular reason for the 16384 constant here, except its a multiple of the
+      // gRPC buffer size. We mainly don't want to send each label individually because the output
+      // stream is connected to gRPC, and every write gets converted to one gRPC call.
+      out = new BufferedOutputStream(env.getReporter().getOutErr().getOutputStream(), 16384);
+    } else {
+      out = env.getReporter().getOutErr().getOutputStream();
+    }
     ThreadSafeOutputFormatterCallback<Target> callback;
     if (streamResults) {
       disableAnsiCharactersFiltering(env);
@@ -219,7 +226,7 @@ public final class QueryCommand implements BlazeCommand {
             result,
             targets,
             formatter,
-            env.getReporter().getOutErr().getOutputStream(),
+            out,
             queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
       } catch (ClosedByInterruptException | InterruptedException e) {
         env.getReporter().handle(Event.error("query interrupted"));

@@ -97,11 +97,15 @@ public class GotOptionsEvent implements BuildEventWithOrderConstraint {
 
     optionsBuilder.setInvocationPolicy(getInvocationPolicy());
 
+    CommonCommandOptions commonOptions = getOptions().getOptions(CommonCommandOptions.class);
+    optionsBuilder.setToolTag(commonOptions.toolTag);
+
     return GenericBuildEvent.protoChaining(this).setOptionsParsed(optionsBuilder.build()).build();
   }
 
   @Override
   public Collection<BuildEventId> postedAfter() {
-    return ImmutableList.of(BuildEventId.buildStartedId(), BuildEventId.commandlineId());
+    return ImmutableList.of(
+        BuildEventId.buildStartedId(), BuildEventId.unstructuredCommandlineId());
   }
 }

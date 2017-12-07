@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.vfs.inmemoryfs;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestThread;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.ScopeEscapableFileSystemTest;
+import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -34,17 +34,15 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for {@link InMemoryFileSystem}. Note that most tests are inherited
- * from {@link ScopeEscapableFileSystemTest} and ancestors. This specific
- * file focuses only on concurrency tests.
- *
+ * Tests for {@link InMemoryFileSystem}. Note that most tests are inherited from {@link
+ * SymlinkAwareFileSystemTest} and ancestors. This specific file focuses only on concurrency tests.
  */
 @RunWith(JUnit4.class)
-public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
+public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Override
   public FileSystem getFreshFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance(), SCOPE_ROOT);
+    return new InMemoryFileSystem(BlazeClock.instance());
   }
 
   @Override

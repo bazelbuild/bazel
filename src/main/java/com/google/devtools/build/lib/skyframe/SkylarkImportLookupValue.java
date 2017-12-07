@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -101,5 +101,23 @@ public class SkylarkImportLookupValue implements SkyValue {
   static SkyKey key(Label importLabel, boolean inWorkspace) {
     return LegacySkyKey.create(
         SkyFunctions.SKYLARK_IMPORTS_LOOKUP, new SkylarkImportLookupKey(importLabel, inWorkspace));
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof SkylarkImportLookupValue)) {
+      return false;
+    }
+    SkylarkImportLookupValue other = (SkylarkImportLookupValue) obj;
+    return environmentExtension.equals(other.getEnvironmentExtension())
+        && dependency.equals(other.getDependency());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(environmentExtension, dependency);
   }
 }

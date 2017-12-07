@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
-import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.MutableMap;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
@@ -105,7 +105,10 @@ public final class QueryUtil {
     return new OrderedAggregateAllOutputFormatterCallbackImpl<>(env);
   }
 
-  /** Returns a fresh {@link AggregateAllCallback} instance. */
+  /**
+   * Returns a fresh {@link AggregateAllCallback} instance that aggregates all of the values into an
+   * {@link ThreadSafeMutableSet}.
+   */
   public static <T> AggregateAllCallback<T, ThreadSafeMutableSet<T>> newAggregateAllCallback(
       QueryEnvironment<T> env) {
     return new AggregateAllOutputFormatterCallbackImpl<>(env);

@@ -25,6 +25,22 @@ In this tutorial you'll learn how to:
 *  Control target visibility across packages
 *  Reference targets through labels
 
+## Contents
+
+*  [Before you begin](#before-you-begin)
+   *  [Install Bazel](#install-bazel)
+   *  [Get the sample project](#get-the-sample-project)
+*  [Build with Bazel](#build-with-bazel)
+   *  [Set up the workspace](#set-up-the-workspace)
+   *  [Understand the BUILD file](#understand-the-build-file)
+   *  [Build the project](#build-the-project)
+   *  [Review the dependency graph](#review-the-dependency-graph)
+*  [Refine your Bazel build](#refine-your-bazel-build)
+   *  [Specify multiple build targets](#specify-multiple-build-targets)
+   *  [Use multiple packages](#use-multiple-packages)
+*  [Use labels to reference targets](#use-labels-to-reference-targets)
+*  [Further reading](#further-reading)
+
 ## Before you begin
 
 To prepare for the tutorial, first [Install Bazel](../install.md) if
@@ -114,13 +130,13 @@ cc_binary(
 ```
 
 In our example, the `hello-world` target instantiates Bazel's built-in
-[`cc_binary` rule](docs/be/c-cpp.html#cc_binary). The rule tells Bazel to build
+[`cc_binary` rule](../be/c-cpp.html#cc_binary). The rule tells Bazel to build
 a self-contained executable binary from the `hello-world.cc` source file with no
 dependencies.
 
 The attributes in the target explicitly state its dependencies and options.
 While the `name` attribute is mandatory, many are optional. For example, in the
-`hello-greet` target, `name` is self-explanatory, and `srcs` specifies the
+`hello-world` target, `name` is self-explanatory, and `srcs` specifies the
 source file(s) from which Bazel builds the target.
 
 ### Build the project
@@ -176,7 +192,7 @@ output as a graph.
 
 Then, paste the text into [GraphViz](http://www.webgraphviz.com/).
 
-As you can see, the first stage of the sample project has a single target that
+As you can see, the first stage of the sample project has a single target
 that builds a single source file with no additional dependencies:
 
 ![Dependency graph for 'hello-world'](/assets/cpp-tutorial-stage1.png)
@@ -213,7 +229,7 @@ cc_binary(
 ```
 
 With this `BUILD` file, Bazel first builds the `hello-greet` library
-(using Bazel's built-in [`cc_library` rule](docs/be/c-cpp.html#cc_library),
+(using Bazel's built-in [`cc_library` rule](../be/c-cpp.html#cc_library),
 then the `hello-world` binary. The `deps` attribute in the `hello-world` target
 tells Bazel that the `hello-greet` library is required to build the `hello-world`
 binary.

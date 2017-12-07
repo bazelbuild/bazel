@@ -341,9 +341,10 @@ specified here.</p>
 
 <p>Tests may create subprocesses, but not process groups or sessions.</p>
 
-<p>There is a limit on both the number of input files a test may consume, and
-their aggregate size. Such limits are subject to change, but are currently in
-the range of tens of thousands of inputs and several GB of aggregate size.</p>
+<p>There is a limit on the number of input files a test may consume. This limit
+is subject to change, but is currently in the range of tens of thousands of inputs.
+
+</p>
 
 <h4>Time and date</h4>
 
@@ -420,9 +421,7 @@ prematurely and mark it as having failed.</p>
     </tr>
     <tr>
       <th><code>large</code></th>
-      <td><code>test_suite</code> convention; suite of large tests<br/>
-
-      </td>
+      <td><code>test_suite</code> convention; suite of large tests</td>
     </tr>
 
     <tr>
@@ -433,18 +432,16 @@ prematurely and mark it as having failed.</p>
     <tr>
       <th><code>medium</code></th>
 
-      <td><code>test_suite</code> convention; suite of medium tests
+      <td><code>test_suite</code> convention; suite of medium tests</td>
     </tr>
 
     <tr>
       <th><code>small</code></th>
-
       <td><code>test_suite</code> convention; suite of small tests</td>
     </tr>
 
     <tr>
       <th><code>smoke</code></th>
-
       <td>
         <code>test_suite</code> convention; means it should be run before committing code changes
         into the version control system

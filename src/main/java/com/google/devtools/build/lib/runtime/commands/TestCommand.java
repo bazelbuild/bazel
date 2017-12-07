@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.runtime.TestResultAnalyzer;
 import com.google.devtools.build.lib.runtime.TestResultNotifier;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
-import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
@@ -70,7 +70,8 @@ public class TestCommand implements BlazeCommand {
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
     try {
       if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
-        optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
+        optionsParser.parse(
+            PriorityCategory.SOFTWARE_REQUIREMENT,
             "streamed output requires locally run tests, without sharding",
             ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
       }
@@ -97,8 +98,8 @@ public class TestCommand implements BlazeCommand {
         options.getOptions(BlazeCommandEventHandler.Options.class).useColor());
 
     // Initialize test handler.
-    AggregatingTestListener testListener = new AggregatingTestListener(
-        resultAnalyzer, env.getEventBus(), env.getReporter());
+    AggregatingTestListener testListener =
+        new AggregatingTestListener(resultAnalyzer, env.getEventBus());
 
     env.getEventBus().register(testListener);
     return doTest(env, options, testListener);
@@ -130,18 +131,27 @@ public class TestCommand implements BlazeCommand {
       // (original exitcode=BUILD_FAILURE) or if there weren't but --noanalyze was given
       // (original exitcode=SUCCESS).
       env.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
-      return buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
+      ExitCode exitCode =
+          buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
+      env.getEventBus().post(new TestingCompleteEvent(exitCode, buildResult.getStopTime()));
+      return exitCode;
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
     // more tests
     if (testTargets.isEmpty()) {
       env.getReporter().handle(Event.error(
           null, "No test targets were found, yet testing was requested"));
-      return buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
+
+      ExitCode exitCode =
+          buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
+      env.getEventBus()
+          .post(new NoTestsFound(exitCode, env.getRuntime().getClock().currentTimeMillis()));
+      return exitCode;
     }
 
     boolean buildSuccess = buildResult.getSuccess();
-    boolean testSuccess = analyzeTestResults(testTargets, testListener, options);
+    boolean testSuccess = analyzeTestResults(
+        testTargets, buildResult.getSkippedTargets(), testListener, options);
 
     if (testSuccess && !buildSuccess) {
       // If all tests run successfully, test summary should include warning if
@@ -163,10 +173,11 @@ public class TestCommand implements BlazeCommand {
    * Returns true if and only if all tests were successful.
    */
   private boolean analyzeTestResults(Collection<ConfiguredTarget> testTargets,
+                                     Collection<ConfiguredTarget> skippedTargets,
                                      AggregatingTestListener listener,
                                      OptionsProvider options) {
     TestResultNotifier notifier = new TerminalTestResultNotifier(printer, options);
     return listener.getAnalyzer().differentialAnalyzeAndReport(
-        testTargets, listener, notifier);
+        testTargets, skippedTargets, listener, notifier);
   }
 }

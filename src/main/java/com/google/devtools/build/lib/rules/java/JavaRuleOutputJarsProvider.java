@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -170,6 +170,11 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
         @Nullable ImmutableList<Artifact> sourceJars) {
       Preconditions.checkState(classJar != null || iJar != null || !sourceJars.isEmpty());
       outputJars.add(new OutputJar(classJar, iJar, sourceJars));
+      return this;
+    }
+
+    public Builder addOutputJars(Iterable<OutputJar> outputJars) {
+      this.outputJars.addAll(outputJars);
       return this;
     }
 

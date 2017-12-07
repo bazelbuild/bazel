@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -102,7 +102,7 @@ import javax.annotation.Nullable;
         + "Files. If you have a Skylark rule that needs to create a new File, you have two options:"
         + "<ul>"
         + "<li>use <a href='actions.html#declare_file'>ctx.actions.declare_file</a> "
-        + "or <a href='actions.html#declare_file'>ctx.actions.declare_director</a>to "
+        + "or <a href='actions.html#declare_directory'>ctx.actions.declare_directory</a> to "
         + "declare a new file in the rule implementation.</li>"
         + "<li>add the label to the attrs (if it's an input) or the outputs (if it's an output)."
         + " Then you can access the File through the rule's "
@@ -111,6 +111,7 @@ public class Artifact
     implements FileType.HasFilename, ActionInput, SkylarkValue, Comparable<Object> {
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
+  @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
   public static final Comparator<Artifact> EXEC_PATH_COMPARATOR =
       (a, b) -> {
         if (a == b) {
@@ -349,6 +350,7 @@ public class Artifact
     structField = true,
     doc = "Returns true if this is a source file, i.e. it is not generated."
   )
+  @SuppressWarnings("ReferenceEquality")  // == is an optimization
   public final boolean isSourceArtifact() {
     return execPath == rootRelativePath;
   }
@@ -886,10 +888,5 @@ public class Artifact
     } else {
       printer.append("<generated file " + rootRelativePath + ">");
     }
-  }
-
-  @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    printer.append(toString());
   }
 }

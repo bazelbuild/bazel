@@ -67,9 +67,7 @@ public final class ConditionalExpression extends Expression {
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    condition.validate(env);
-    thenCase.validate(env);
-    elseCase.validate(env);
+  public Kind kind() {
+    return Kind.CONDITIONAL;
   }
 }

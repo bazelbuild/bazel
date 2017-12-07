@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -20,18 +21,20 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.util.BatchCallback;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -40,7 +43,10 @@ import javax.annotation.Nullable;
  */
 public class TargetPatternFunction implements SkyFunction {
 
-  public TargetPatternFunction() {
+  private final AtomicReference<PathPackageLocator> pkgPath;
+
+  public TargetPatternFunction(AtomicReference<PathPackageLocator> pkgPath) {
+    this.pkgPath = pkgPath;
   }
 
   @Override
@@ -51,7 +57,7 @@ public class TargetPatternFunction implements SkyFunction {
     ResolvedTargets<Target> resolvedTargets;
     try {
       EnvironmentBackedRecursivePackageProvider provider =
-          new EnvironmentBackedRecursivePackageProvider(env);
+          new EnvironmentBackedRecursivePackageProvider(env, pkgPath.get());
       RecursivePackageProviderBackedTargetPatternResolver resolver =
           new RecursivePackageProviderBackedTargetPatternResolver(
               provider,
@@ -68,9 +74,15 @@ public class TargetPatternFunction implements SkyFunction {
               Iterables.addAll(results, partialResult);
             }
           };
-      parsedPattern.eval(resolver, excludedSubdirectories, callback, RuntimeException.class);
+      parsedPattern.eval(
+          resolver,
+          /*blacklistedSubdirectories=*/ ImmutableSet.of(),
+          excludedSubdirectories,
+          callback,
+          RuntimeException.class);
       resolvedTargets = ResolvedTargets.<Target>builder().addAll(results).build();
     } catch (TargetParsingException e) {
+      env.getListener().post(new ParsingFailedEvent(patternKey.getPattern(),  e.getMessage()));
       throw new TargetPatternFunctionException(e);
     } catch (MissingDepException e) {
       // The EnvironmentBackedRecursivePackageProvider constructed above might throw

@@ -1,5 +1,9 @@
-package(
-    default_visibility = ["//src:__subpackages__"],
+package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -11,28 +15,26 @@ java_library(
         "//third_party:netty_tcnative",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:auth_and_tls_options",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/exec/apple",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
-        "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/build/lib/exec/local:options",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:apache_httpclient",
         "//third_party:apache_httpcore",
         "//third_party:auth",
         "//third_party:gson",
         "//third_party:guava",
-        "//third_party:hazelcast",
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",
@@ -48,9 +50,4 @@ java_library(
         "@googleapis//:google_watch_v1_java_grpc",
         "@googleapis//:google_watch_v1_java_proto",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
 )

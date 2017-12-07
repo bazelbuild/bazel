@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.truth.Truth;
 import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** A test for {@link LValue#boundNames()}. */
+/** A test for {@link LValue#boundIdentifiers}()}. */
 @RunWith(JUnit4.class)
 public class LValueBoundNamesTest {
 
@@ -48,10 +50,11 @@ public class LValueBoundNamesTest {
     assertBoundNames("[[x], y], [z, w[1]] = 1", "x", "y", "z");
   }
 
-  private static void assertBoundNames(String assignment, String... boundNames) {
-    BuildFileAST buildFileAST = BuildFileAST
-        .parseSkylarkString(Environment.FAIL_FAST_HANDLER, assignment);
+  private static void assertBoundNames(String assignment, String... expectedBoundNames) {
+    BuildFileAST buildFileAST = BuildFileAST.parseString(Environment.FAIL_FAST_HANDLER, assignment);
     LValue lValue = ((AssignmentStatement) buildFileAST.getStatements().get(0)).getLValue();
-    Truth.assertThat(lValue.boundNames()).containsExactlyElementsIn(Arrays.asList(boundNames));
+    Set<String> boundNames =
+        lValue.boundIdentifiers().stream().map(Identifier::getName).collect(Collectors.toSet());
+    Truth.assertThat(boundNames).containsExactlyElementsIn(Arrays.asList(expectedBoundNames));
   }
 }

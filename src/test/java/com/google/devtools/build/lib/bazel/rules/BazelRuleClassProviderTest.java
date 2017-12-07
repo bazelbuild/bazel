@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.config.ConfigRules;
+import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -81,12 +84,12 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void coreConsistency() {
-    checkModule(BazelRuleClassProvider.CORE_RULES);
+    checkModule(CoreRules.INSTANCE);
   }
 
   @Test
   public void coreWorkspaceConsistency() {
-    checkModule(BazelRuleClassProvider.CORE_WORKSPACE_RULES);
+    checkModule(CoreWorkspaceRules.INSTANCE);
   }
 
   @Test
@@ -96,7 +99,7 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void configConsistency() {
-    checkModule(BazelRuleClassProvider.CONFIG_RULES);
+    checkModule(ConfigRules.INSTANCE);
   }
 
   @Test
@@ -137,11 +140,6 @@ public class BazelRuleClassProviderTest {
   @Test
   public void j2objcConsistency() {
     checkModule(BazelRuleClassProvider.J2OBJC_RULES);
-  }
-
-  @Test
-  public void androidStudioConsistency() {
-    checkModule(BazelRuleClassProvider.ANDROID_STUDIO_ASPECT);
   }
 
   @Test

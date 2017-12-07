@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -30,13 +31,13 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -51,9 +52,11 @@ import java.util.Map;
 public final class EnvironmentBackedRecursivePackageProvider implements RecursivePackageProvider {
 
   private final Environment env;
+  private final PathPackageLocator pkgPath;
 
-  public EnvironmentBackedRecursivePackageProvider(Environment env) {
+  public EnvironmentBackedRecursivePackageProvider(Environment env, PathPackageLocator pkgPath) {
     this.env = env;
+    this.pkgPath = pkgPath;
   }
 
   @Override
@@ -93,6 +96,15 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
+  public Path getBuildFileForPackage(PackageIdentifier packageName) {
+    try {
+      return pkgPath.getPackageBuildFile(packageName);
+    } catch (NoSuchPackageException e) {
+      return null;
+    }
+  }
+
+  @Override
   public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageId)
       throws MissingDepException, InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
@@ -115,6 +127,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws MissingDepException, InterruptedException {
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
@@ -140,11 +153,15 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
       roots.add(repositoryValue.getPath());
     }
 
-    NestedSetBuilder<String> packageNames = NestedSetBuilder.stableOrder();
+    if (blacklistedSubdirectories.contains(directory)) {
+      return ImmutableList.of();
+    }
+    PathFragment.checkAllPathsAreUnder(blacklistedSubdirectories, directory);
+
+    LinkedHashSet<PathFragment> packageNames = new LinkedHashSet<>();
     for (Path root : roots) {
-      PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory);
       RecursivePkgValue lookup = (RecursivePkgValue) env.getValue(RecursivePkgValue.key(
-          repository, RootedPath.toRootedPath(root, directory), excludedSubdirectories));
+          repository, RootedPath.toRootedPath(root, directory), blacklistedSubdirectories));
       if (lookup == null) {
         // Typically a null value from Environment.getValue(k) means that either the key k is
         // missing a dependency or an exception was thrown during evaluation of k. Here, if this
@@ -156,11 +173,19 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
         throw new MissingDepException();
       }
 
-      packageNames.addTransitive(lookup.getPackages());
+      for (String packageName : lookup.getPackages()) {
+        // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform
+        // is unnecessary.
+        PathFragment packageNamePathFragment = PathFragment.create(packageName);
+        if (!Iterables.any(
+            excludedSubdirectories,
+            excludedSubdirectory -> packageNamePathFragment.startsWith(excludedSubdirectory))) {
+          packageNames.add(packageNamePathFragment);
+        }
+      }
     }
-    // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform is
-    // unnecessary.
-    return Iterables.transform(packageNames.build(), PathFragment::create);
+
+    return packageNames;
   }
 
   @Override

@@ -1,5 +1,11 @@
+package(
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
     visibility = ["//src:__pkg__"],
 )
@@ -21,10 +27,10 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:collect",
-        "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib:testutil",
@@ -44,10 +50,11 @@ java_test(
     test_class = "com.google.devtools.build.skyframe.AllTests",
     deps = [
         ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:collect",
-        "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib:testutil",
@@ -57,4 +64,21 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
     ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src:__pkg__"],
 )

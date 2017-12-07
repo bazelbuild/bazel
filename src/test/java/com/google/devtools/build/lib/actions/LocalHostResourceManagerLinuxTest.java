@@ -93,7 +93,7 @@ public class LocalHostResourceManagerLinuxTest {
     // +/- 0.1MB
     assertThat(LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile))
         .isWithin(0.1)
-        .of(3091.732);
+        .of(3091732 >> 10); // kibis to meibis
   }
 
   @Test
@@ -189,7 +189,7 @@ public class LocalHostResourceManagerLinuxTest {
     // +/- 0.1MB
     assertThat(LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile))
         .isWithin(0.1)
-        .of(3092.004);
+        .of(3092004 >> 10); // kibis to meibis
   }
 
   @Test
@@ -343,6 +343,6 @@ public class LocalHostResourceManagerLinuxTest {
     // +/- 0.1MB
     assertThat(LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile))
         .isWithin(0.1)
-        .of(8223.956);
+        .of(8223956 >> 10); // kibis to meibis
   }
 }

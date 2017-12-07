@@ -30,6 +30,7 @@ class JavacTurbineCompileRequest {
   private final ImmutableList<Path> processorClassPath;
   private final ImmutableList<String> javacOptions;
   @Nullable private final StrictJavaDepsPlugin strictJavaDepsPlugin;
+  private final JavacTransitive transitivePlugin;
 
   JavacTurbineCompileRequest(
       ImmutableList<Path> sources,
@@ -37,13 +38,15 @@ class JavacTurbineCompileRequest {
       ImmutableList<Path> bootClassPath,
       ImmutableList<Path> processorClassPath,
       ImmutableList<String> javacOptions,
-      @Nullable StrictJavaDepsPlugin strictJavaDepsPlugin) {
+      @Nullable StrictJavaDepsPlugin strictJavaDepsPlugin,
+      JavacTransitive transitivePlugin) {
     this.sources = checkNotNull(sources);
     this.classPath = checkNotNull(classPath);
     this.bootClassPath = checkNotNull(bootClassPath);
     this.processorClassPath = checkNotNull(processorClassPath);
     this.javacOptions = checkNotNull(javacOptions);
     this.strictJavaDepsPlugin = strictJavaDepsPlugin;
+    this.transitivePlugin = checkNotNull(transitivePlugin);
   }
 
   /** The sources to compile. */
@@ -79,6 +82,10 @@ class JavacTurbineCompileRequest {
     return strictJavaDepsPlugin;
   }
 
+  JavacTransitive transitivePlugin() {
+    return transitivePlugin;
+  }
+
   static JavacTurbineCompileRequest.Builder builder() {
     return new Builder();
   }
@@ -90,12 +97,19 @@ class JavacTurbineCompileRequest {
     private ImmutableList<Path> processorClassPath;
     private ImmutableList<String> javacOptions;
     @Nullable private StrictJavaDepsPlugin strictDepsPlugin;
+    private JavacTransitive transitivePlugin;
 
     private Builder() {}
 
     JavacTurbineCompileRequest build() {
       return new JavacTurbineCompileRequest(
-          sources, classPath, bootClassPath, processorClassPath, javacOptions, strictDepsPlugin);
+          sources,
+          classPath,
+          bootClassPath,
+          processorClassPath,
+          javacOptions,
+          strictDepsPlugin,
+          transitivePlugin);
     }
 
     Builder setSources(ImmutableList<Path> sources) {
@@ -125,6 +139,11 @@ class JavacTurbineCompileRequest {
 
     Builder setStrictDepsPlugin(@Nullable StrictJavaDepsPlugin strictDepsPlugin) {
       this.strictDepsPlugin = strictDepsPlugin;
+      return this;
+    }
+
+    Builder setTransitivePlugin(JavacTransitive transitivePlugin) {
+      this.transitivePlugin = transitivePlugin;
       return this;
     }
   }

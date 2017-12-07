@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -35,12 +35,10 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
-import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
+import com.google.devtools.build.lib.pkgcache.TargetParsingPhaseTimeEvent;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.List;
@@ -71,28 +69,7 @@ import javax.annotation.Nullable;
  * <p>The Skyframe-based re-implementation of this class is in TargetPatternPhaseFunction.
  */
 public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
-
-  private static final class ParseFailureListenerImpl extends DelegatingEventHandler
-      implements ParseFailureListener, ExtendedEventHandler {
-    private final ExtendedEventHandler eventHandler;
-
-    private ParseFailureListenerImpl(ExtendedEventHandler delegate) {
-      super(delegate);
-      this.eventHandler = delegate;
-    }
-
-    @Override
-    public void parsingError(String targetPattern, String message) {
-      eventHandler.post(new ParsingFailedEvent(targetPattern, message));
-    }
-
-    @Override
-    public void post(ExtendedEventHandler.Postable obj) {
-      eventHandler.post(obj);
-    }
-  }
-
-  private static final Logger LOG = Logger.getLogger(LoadingPhaseRunner.class.getName());
+  private static final Logger logger = Logger.getLogger(LoadingPhaseRunner.class.getName());
 
   private final PackageManager packageManager;
   private final TargetPatternEvaluator targetPatternEvaluator;
@@ -119,7 +96,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
       boolean determineTests,
       @Nullable LoadingCallback callback)
       throws TargetParsingException, LoadingFailedException, InterruptedException {
-    LOG.info("Starting pattern evaluation");
+    logger.info("Starting pattern evaluation");
     Stopwatch timer = Stopwatch.createStarted();
     if (options.buildTestsOnly && options.compileOneDependency) {
       throw new LoadingFailedException(
@@ -128,12 +105,10 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     }
 
     targetPatternEvaluator.updateOffset(relativeWorkingDirectory);
-    ExtendedEventHandler parseFailureListener =
-        new ParseFailureListenerImpl(eventHandler);
     // Determine targets to build:
     ResolvedTargets<Target> targets =
         getTargetsToBuild(
-            parseFailureListener, targetPatterns, options.compileOneDependency,
+            eventHandler, targetPatterns, options.compileOneDependency,
             options.buildTagFilterList, options.buildManualTests, keepGoing);
 
     ImmutableSet<Target> filteredTargets = targets.getFilteredTargets();
@@ -149,7 +124,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     if (determineTests || buildTestsOnly) {
       // Parse the targets to get the tests.
       ResolvedTargets<Target> testTargets =
-          determineTests(parseFailureListener, targetPatterns, options, keepGoing);
+          determineTests(eventHandler, targetPatterns, options, keepGoing);
       if (testTargets.getTargets().isEmpty() && !testTargets.getFilteredTargets().isEmpty()) {
         eventHandler.handle(Event.warn("All specified test targets were excluded by filters"));
       }
@@ -200,7 +175,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     LoadingPhaseRunner.maybeReportDeprecation(eventHandler, targets.getTargets());
     long targetPatternEvalTime = timer.stop().elapsed(TimeUnit.MILLISECONDS);
 
-    LOG.info("Starting test suite expansion");
+    logger.info("Starting test suite expansion");
     timer = Stopwatch.createStarted();
 
     ImmutableSet<Target> targetsToLoad = targets.getTargets();
@@ -223,19 +198,18 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
             expandedResult.hasError(),
             filteredTargets,
             testFilteredTargets,
-            /*originalTargets=*/targets.getTargets(),
             testSuiteTargets,
             getWorkspaceName(eventHandler));
 
     // This is the same code as SkyframeLoadingPhaseRunner.
     eventHandler.post(
         new TargetParsingCompleteEvent(
-            patternParsingValue.getOriginalTargets(),
+            targets.getTargets(),
             patternParsingValue.getFilteredTargets(),
             patternParsingValue.getTestFilteredTargets(),
-            targetPatternEvalTime,
             targetPatterns,
             patternParsingValue.getTargets()));
+    eventHandler.post(new TargetParsingPhaseTimeEvent(targetPatternEvalTime));
     if (callback != null) {
       callback.notifyTargets(patternParsingValue.getTargets());
     }
@@ -243,9 +217,9 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
         new LoadingPhaseCompleteEvent(
             patternParsingValue.getTargets(),
             patternParsingValue.getTestSuiteTargets(),
-            packageManager.getStatistics(),
+            packageManager.getAndClearStatistics(),
             testSuiteTime));
-    LOG.info("Target pattern evaluation finished");
+    logger.info("Target pattern evaluation finished");
     return patternParsingValue.toLoadingResult();
   }
 

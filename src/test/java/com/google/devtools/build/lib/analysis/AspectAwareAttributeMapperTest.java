@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -49,7 +50,7 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
         .allowedFileTypes(FileTypeSet.ANY_FILE)
         .build();
     aspectAttributes = ImmutableMap.<String, Attribute>of(aspectAttr.getName(), aspectAttr);
-    mapper = new AspectAwareAttributeMapper(ConfiguredAttributeMapper.of(ct), aspectAttributes);
+    mapper = new AspectAwareAttributeMapper(ct.getAttributeMapper(), aspectAttributes);
   }
 
   @Test

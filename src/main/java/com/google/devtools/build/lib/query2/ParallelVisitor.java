@@ -40,12 +40,16 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>The visitor uses an AbstractQueueVisitor backed by a ThreadPoolExecutor with a thread pool NOT
  * part of the global query evaluation pool to avoid starvation.
+ *
+ * @param <T> the type of objects to visit
+ * @param <V> the type of visitation results to process
  */
 @ThreadSafe
-public abstract class ParallelVisitor<T> {
+public abstract class ParallelVisitor<T, V> {
   private final Uniquifier<T> uniquifier;
-  private final Callback<Target> callback;
+  private final Callback<V> callback;
   private final int visitBatchSize;
+  private final int processResultsBatchSize;
 
   private final VisitingTaskExecutor executor;
 
@@ -80,19 +84,27 @@ public abstract class ParallelVisitor<T> {
    *
    * <p>TODO(shazh): Revisit the choice of task target based on real-prod performance.
    */
-  private static final long MIN_PENDING_TASKS = 3 * SkyQueryEnvironment.DEFAULT_THREAD_COUNT;
+  private static final long MIN_PENDING_TASKS = 3L * SkyQueryEnvironment.DEFAULT_THREAD_COUNT;
 
   /**
-   * Fail fast on RuntimeExceptions, including {code RuntimeInterruptedException} and {@code
-   * RuntimeQueryException}, which are resulted from InterruptedException and QueryException.
+   * Fail fast on RuntimeExceptions, including {@code RuntimeInterruptedException} and {@code
+   * RuntimeQueryException}, which result from InterruptedException and QueryException.
+   *
+   * <p>Doesn't log for {@code RuntimeInterruptedException}, which is expected when evaluations are
+   * interrupted, or {@code RuntimeQueryException}, which happens when expected query failures
+   * occur.
    */
   static final ErrorClassifier PARALLEL_VISITOR_ERROR_CLASSIFIER =
       new ErrorClassifier() {
         @Override
         protected ErrorClassification classifyException(Exception e) {
-          return (e instanceof RuntimeException)
-              ? ErrorClassification.CRITICAL_AND_LOG
-              : ErrorClassification.NOT_CRITICAL;
+          if (e instanceof RuntimeInterruptedException || e instanceof RuntimeQueryException) {
+            return ErrorClassification.CRITICAL;
+          } else if (e instanceof RuntimeException) {
+            return ErrorClassification.CRITICAL_AND_LOG;
+          } else {
+            return ErrorClassification.NOT_CRITICAL;
+          }
         }
       };
 
@@ -107,17 +119,21 @@ public abstract class ParallelVisitor<T> {
           new ThreadFactoryBuilder().setNameFormat("parallel-visitor %d").build());
 
   protected ParallelVisitor(
-      Uniquifier<T> uniquifier, Callback<Target> callback, int visitBatchSize) {
+      Uniquifier<T> uniquifier,
+      Callback<V> callback,
+      int visitBatchSize,
+      int processResultsBatchSize) {
     this.uniquifier = uniquifier;
     this.callback = callback;
     this.visitBatchSize = visitBatchSize;
+    this.processResultsBatchSize = processResultsBatchSize;
     this.executor =
         new VisitingTaskExecutor(FIXED_THREAD_POOL_EXECUTOR, PARALLEL_VISITOR_ERROR_CLASSIFIER);
   }
 
   /** Factory for {@link ParallelVisitor} instances. */
   public interface Factory {
-    ParallelVisitor<?> create();
+    ParallelVisitor<?, ?> create();
   }
 
   /**
@@ -146,11 +162,11 @@ public abstract class ParallelVisitor<T> {
   }
 
   /**
-   * Forwards the given {@code keysToUseForResult}'s contribution to the set of {@link Target}s in
-   * the full visitation to the given {@link Callback}.
+   * Forwards the given {@code keysToUseForResult}'s contribution to the set of results in the full
+   * visitation to the given {@link Callback}.
    */
-  protected abstract void processResultantTargets(
-      Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
+  protected abstract void processPartialResults(
+      Iterable<SkyKey> keysToUseForResult, Callback<V> callback)
       throws QueryException, InterruptedException;
 
   /** Gets the {@link Visit} representing the local visitation of the given {@code values}. */
@@ -202,7 +218,7 @@ public abstract class ParallelVisitor<T> {
 
       Visit visit = getVisitResult(uniqueKeys);
       for (Iterable<SkyKey> keysToUseForResultBatch :
-          Iterables.partition(visit.keysToUseForResult, SkyQueryEnvironment.BATCH_CALLBACK_SIZE)) {
+          Iterables.partition(visit.keysToUseForResult, processResultsBatchSize)) {
         executor.execute(new GetAndProcessResultsTask(keysToUseForResultBatch));
       }
 
@@ -219,7 +235,7 @@ public abstract class ParallelVisitor<T> {
 
     @Override
     protected void process() throws QueryException, InterruptedException {
-      processResultantTargets(keysToUseForResult, callback);
+      processPartialResults(keysToUseForResult, callback);
     }
   }
 
@@ -304,7 +320,7 @@ public abstract class ParallelVisitor<T> {
     @Override
     public void process(Iterable<Target> partialResult)
         throws QueryException, InterruptedException {
-      ParallelVisitor<?> visitor = visitorFactory.create();
+      ParallelVisitor<?, ?> visitor = visitorFactory.create();
       // TODO(nharmata): It's not ideal to have an operation like this in #process that blocks on
       // another, potentially expensive computation. Refactor to something like "processAsync".
       visitor.visitAndWaitForCompletion(

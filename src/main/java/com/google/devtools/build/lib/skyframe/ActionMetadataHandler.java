@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -494,17 +494,6 @@ public class ActionMetadataHandler implements MetadataHandler {
     outputDirectoryListings.clear();
     outputTreeArtifactData.clear();
     additionalOutputData.clear();
-  }
-
-  @Override
-  public boolean isRegularFile(Artifact artifact) {
-    // Currently this method is used only for genrule input directory checks. If we need to call
-    // this on output artifacts too, this could be more efficient.
-    FileArtifactValue value = getInputFileArtifactValue(artifact);
-    if (value != null && value.isFile()) {
-      return true;
-    }
-    return artifact.getPath().isFile();
   }
 
   /** @return data for output files that was computed during execution. */

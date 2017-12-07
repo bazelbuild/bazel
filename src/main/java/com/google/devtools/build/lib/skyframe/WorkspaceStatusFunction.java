@@ -13,32 +13,48 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Supplier;
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.function.Supplier;
 
 /** Creates the workspace status artifacts and action. */
 public class WorkspaceStatusFunction implements SkyFunction {
-  private final Supplier<Boolean> removeActionAfterEvaluation;
+  interface WorkspaceStatusActionFactory {
+    WorkspaceStatusAction create(String workspaceName);
+  }
 
-  WorkspaceStatusFunction(Supplier<Boolean> removeActionAfterEvaluation) {
+  private final ActionKeyContext actionKeyContext;
+  private final Supplier<Boolean> removeActionAfterEvaluation;
+  private final WorkspaceStatusActionFactory workspaceStatusActionFactory;
+
+  WorkspaceStatusFunction(
+      ActionKeyContext actionKeyContext,
+      Supplier<Boolean> removeActionAfterEvaluation,
+      WorkspaceStatusActionFactory workspaceStatusActionFactory) {
+    this.actionKeyContext = actionKeyContext;
     this.removeActionAfterEvaluation = Preconditions.checkNotNull(removeActionAfterEvaluation);
+    this.workspaceStatusActionFactory = workspaceStatusActionFactory;
   }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     Preconditions.checkState(
         WorkspaceStatusValue.SKY_KEY.equals(skyKey), WorkspaceStatusValue.SKY_KEY);
-
-    WorkspaceStatusAction action = PrecomputedValue.WORKSPACE_STATUS_KEY.get(env);
-    if (action == null) {
+    WorkspaceNameValue workspaceNameValue =
+        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    if (env.valuesMissing()) {
       return null;
     }
 
+    WorkspaceStatusAction action =
+        workspaceStatusActionFactory.create(workspaceNameValue.getName());
+
     return new WorkspaceStatusValue(
+        actionKeyContext,
         action.getStableStatus(),
         action.getVolatileStatus(),
         action,

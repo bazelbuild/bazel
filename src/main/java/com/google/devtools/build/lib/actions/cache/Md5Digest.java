@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
+import com.google.common.base.Preconditions;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
 
 /** A value class for capturing and comparing MD5-based digests. */

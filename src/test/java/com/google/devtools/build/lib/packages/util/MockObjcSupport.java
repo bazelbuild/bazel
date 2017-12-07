@@ -37,6 +37,11 @@ public final class MockObjcSupport {
   private static final String DEFAULT_OSX_CROSSTOOL_DIR = "tools/osx/crosstool";
   private static final String MOCK_OSX_CROSSTOOL_FILE =
       "com/google/devtools/build/lib/packages/util/MOCK_OSX_CROSSTOOL";
+
+  /** The label of the {@code xcode_config} target used in test to enumerate available xcodes. */
+  public static final String XCODE_VERSION_CONFIG =
+      TestConstants.TOOLS_REPOSITORY + "//tools/objc:host_xcodes";
+
   /**
    * The build label for the mock OSX crosstool configuration.
    */
@@ -59,6 +64,7 @@ public final class MockObjcSupport {
             "bundlemerge",
             "objc_dummy.mm",
             "environment_plist.sh",
+            "device_debug_entitlements.plist",
             "gcov",
             "ibtoolwrapper",
             "momcwrapper",
@@ -69,10 +75,36 @@ public final class MockObjcSupport {
             "xcrunwrapper",
             "mcov",
             "libtool")) {
-      config.create("tools/objc/" + tool);
+      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/" + tool);
     }
+    // Since we deleted ios_application, we have to create a custom rule that mocks out a
+    // close-enough test host app for ios_test to use until those rules are also deleted.
     config.create(
-        "tools/objc/BUILD",
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/fake_test_app.bzl",
+        "def _fake_test_app_impl(ctx):",
+        "  return struct(",
+        "      instrumented_files=struct(dependency_attributes=['bundle_loader', 'ipa']),",
+        "      providers=[",
+        "          DefaultInfo(files=depset([ctx.file.ipa])),",
+        "          apple_common.new_xctest_app_provider(",
+        "              bundle_loader=ctx.file.bundle_loader,",
+        "              ipa=ctx.file.ipa,",
+        "              objc_provider=apple_common.new_objc_provider(),",
+        "          ),",
+        "      ],",
+        "  )",
+        "fake_test_app = rule(",
+        "    implementation=_fake_test_app_impl,",
+        "    attrs={",
+        "        'bundle_loader': attr.label(",
+        "            single_file=True, default='//tools/objc:xctest_appbin'),",
+        "        'ipa': attr.label(",
+        "            allow_files=True, single_file=True, default='//tools/objc:xctest_app.ipa'),",
+        "    },",
+        ")");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/BUILD",
+        "load(':fake_test_app.bzl', 'fake_test_app')",
         "package(default_visibility=['//visibility:public'])",
         "exports_files(glob(['**']))",
         "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
@@ -83,39 +115,78 @@ public final class MockObjcSupport {
         "  name = 'protobuf_compiler_support',",
         "  srcs = ['proto_support', 'protobuf_compiler_helper.py'],",
         ")",
+        "sh_binary(name = 'environment_plist', srcs = ['environment_plist.sh'])",
+        "fake_test_app(name = 'xctest_app')",
+        "apple_binary(name = 'xctest_appbin', platform_type = 'ios', deps = [':dummy_lib'])",
         "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])",
         "filegroup(name = 'j2objc_dead_code_pruner', srcs = ['j2objc_dead_code_pruner.py'])",
-        "ios_application(name = 'xctest_app', binary = ':xctest_appbin')",
-        "objc_binary(name = 'xctest_appbin', srcs = ['objc_dummy.mm'])",
         "filegroup(",
         "  name = 'protobuf_well_known_types',",
-        "  srcs = ['//objcproto:well_known_type.proto'],",
+        String.format(
+            "  srcs = ['%s//objcproto:well_known_type.proto'],", TestConstants.TOOLS_REPOSITORY),
         ")",
-        "xcode_config(name = 'host_xcodes', default = ':version7_3_1')",
+        "xcode_config(name = 'host_xcodes',",
+        "  default = ':version7_3_1',",
+        "  versions = [':version7_3_1', 'version5_0', 'version7_3', 'version5_8'])",
         "xcode_version(",
         "  name = 'version7_3_1',",
         "  version = '" + DEFAULT_XCODE_VERSION + "',",
         "  default_ios_sdk_version = \"" + DEFAULT_IOS_SDK_VERSION + "\",",
         ")",
-        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])");
-    config.create("tools/objc/foo.mobileprovision", "No such luck");
-    config.create("tools/objc/compile_protos.py");
-    config.create("tools/objc/xctest.plist");
-    config.create("tools/objc/proto_support");
-    config.create("tools/objc/ios_runner.sh.mac_template");
-    config.create("tools/objc/j2objc_dead_code_pruner.py");
-    config.create("tools/objc/header_scanner");
+        "xcode_version(",
+        "  name = 'version7_3',",
+        "  version = '7.3',",
+        ")",
+        "xcode_version(",
+        "  name = 'version5_0',",
+        "  version = '5.0',",
+        ")",
+        "xcode_version(",
+        "  name = 'version5_8',",
+        "  version = '5.8',",
+        ")",
+        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])",
+        "alias(name = 'protobuf_lib', actual = '//objcproto:protobuf_lib')");
+    // If the bazel tools repository is not in the workspace, also create a workspace tools/objc
+    // package with a few lingering dependencies.
+    // TODO(b/64537078): Move these dependencies underneath the tools workspace.
+    if (TestConstants.TOOLS_REPOSITORY_SCRATCH.length() > 0) {
+      config.create(
+          "tools/objc/BUILD",
+          "load('@"
+              + TestConstants.TOOLS_REPOSITORY_SCRATCH
+              + "//tools/objc:fake_test_app.bzl', 'fake_test_app')",
+          "package(default_visibility=['//visibility:public'])",
+          "exports_files(glob(['**']))",
+          "fake_test_app(name = 'xctest_app')",
+          "apple_binary(name = 'xctest_appbin', platform_type = 'ios', deps = [':dummy_lib'])",
+          "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
+          "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])");
+    }
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/xctest_app.ipa");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/foo.mobileprovision", "No such luck");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/compile_protos.py");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/xctest.plist");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/proto_support");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/ios_runner.sh.mac_template");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/j2objc_dead_code_pruner.py");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/header_scanner");
     createCrosstoolPackage(config, partialToolchainLines);
+    setupIosSimDevice(config);
+    setupIosTest(config);
+    setupObjcProto(config);
   }
 
   /**
    * Sets up mock IOS test support.
    */
   public static void setupIosTest(MockToolsConfig config) throws IOException {
-    config.create("tools/objc/precomp_testrunner_deploy.jar");
-    config.create("tools/objc/StdRedirect.dylib");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/precomp_testrunner_deploy.jar");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/StdRedirect.dylib");
     createMemleaksSim(config);
-    config.create("tools/objc/ios_test.sh.bazel_template");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/ios_test.sh.bazel_template");
   }
 
   /**
@@ -123,7 +194,7 @@ public final class MockObjcSupport {
    */
   public static void setupIosSimDevice(MockToolsConfig config) throws IOException {
     config.create(
-        "tools/objc/sim_devices/BUILD",
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/sim_devices/BUILD",
         "ios_device(",
         "  name = 'default',",
         "  ios_version = '9.8',",
@@ -132,39 +203,23 @@ public final class MockObjcSupport {
   }
 
   private static void createMemleaksSim(MockToolsConfig config) throws IOException {
-    config.create("tools/objc/memleaks/BUILD",
-       "package(default_visibility=['//visibility:public'])",
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/memleaks/BUILD",
+        "package(default_visibility=['//visibility:public'])",
         "objc_library(",
         "  name = 'memleaks',",
         "  srcs = ['memleaks.m'],",
         ")");
 
-    config.create("tools/objc/memleaks/libmemleaks.a");
-    config.create("tools/objc/memleaks_plugin");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/memleaks/libmemleaks.a");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/memleaks_plugin");
   }
 
-  /**
-   * Sets up the support for building protocol buffers for ObjC.
-   */
-  public static void setupObjcProto(MockToolsConfig config) throws IOException {
-    config.overwrite(
-        "WORKSPACE",
-        TestConstants.WORKSPACE_CONTENT + "bind(",
-        "  name = 'objc_proto_lib',",
-        "  actual = '//objcproto:ProtocolBuffers_lib',",
-        ")",
-        "bind(",
-        "  name = 'objc_protobuf_lib',",
-        "  actual = '//objcproto:protobuf_lib',",
-        ")");
-
+  /** Sets up the support for building protocol buffers for ObjC. */
+  private static void setupObjcProto(MockToolsConfig config) throws IOException {
     config.create(
-        "objcproto/BUILD",
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "objc_library(",
-        "  name = 'ProtocolBuffers_lib',",
-        "  srcs = ['empty.m'],",
-        ")",
         "objc_library(",
         "  name = 'protobuf_lib',",
         "  srcs = ['empty.m'],",
@@ -176,9 +231,9 @@ public final class MockObjcSupport {
         "  name = 'well_known_type_proto',",
         "  srcs = ['well_known_type.proto'],",
         ")");
-    config.create("objcproto/empty.m");
-    config.create("objcproto/empty.cc");
-    config.create("objcproto/well_known_type.proto");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/empty.m");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/empty.cc");
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/well_known_type.proto");
   }
 
   /**
@@ -250,12 +305,18 @@ public final class MockObjcSupport {
                   "    srcs = [",
                   "        'ar',",
                   "        'libempty.a',",
-                  "        '//tools/objc:libtool'",
+                  String.format("        '%s//tools/objc:libtool'", TestConstants.TOOLS_REPOSITORY),
                   "    ],",
                   ")");
 
       for (String arch :
           ImmutableList.of(
+              // TODO(b/64492583): Remove 'darwin', as this is legacy and redundant with
+              // darwin_x86_64.
+              "darwin",
+              // TODO(b/36471772): Remove 'k8' once unit tests do not require a host configuration
+              // transition from the apple crosstool configuration.
+              "x64_windows",
               "ios_x86_64",
               "ios_i386",
               "ios_armv7",

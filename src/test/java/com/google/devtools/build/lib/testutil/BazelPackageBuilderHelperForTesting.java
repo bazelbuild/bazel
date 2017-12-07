@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -46,8 +47,8 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
   }
 
   @Override
-  public void onLoadingComplete(Package pkg) {
-    sanityCheckBazelPackageLoader(pkg, ruleClassProvider);
+  public void onLoadingComplete(Package pkg, SkylarkSemantics skylarkSemantics) {
+    sanityCheckBazelPackageLoader(pkg, ruleClassProvider, skylarkSemantics);
   }
 
   private static final Function<Target, Label> TARGET_TO_LABEL =
@@ -61,7 +62,8 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
   // This is synchronized because some Skylark internals aren't thread safe.
   private synchronized void sanityCheckBazelPackageLoader(
       Package pkg,
-      RuleClassProvider ruleClassProvider) {
+      RuleClassProvider ruleClassProvider,
+      SkylarkSemantics skylarkSemantics) {
     PackageIdentifier pkgId = pkg.getPackageIdentifier();
     if (pkgId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)
         || !pkg.getPackageIdentifier().getRepository().isMain()
@@ -77,6 +79,7 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
             0,
             numFullFilenameFragmentSegments - (numNameSegments + 1)));
     PackageLoader packageLoader = BazelPackageLoader.builder(workspaceRoot)
+        .setSkylarkSemantics(skylarkSemantics)
         .setRuleClassProvider(ruleClassProvider)
         .build();
     Package newlyLoadedPkg;

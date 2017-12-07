@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStartingEvent;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
@@ -44,8 +44,8 @@ public class WorkerModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.<Class<? extends OptionsBase>>of(WorkerOptions.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
+        ? ImmutableList.of(WorkerOptions.class)
+        : ImmutableList.of();
   }
 
   @Override
@@ -143,8 +143,7 @@ public class WorkerModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     Preconditions.checkNotNull(workerPool);
-    builder.addActionContextProvider(
-        new WorkerActionContextProvider(env, request, workerPool));
+    builder.addActionContextProvider(new WorkerActionContextProvider(env, workerPool));
     builder.addActionContextConsumer(new WorkerActionContextConsumer());
   }
 

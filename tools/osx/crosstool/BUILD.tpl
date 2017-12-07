@@ -38,6 +38,7 @@ cc_toolchain_suite(
           ":libtool",
           ":make_hashed_objlist.py",
           ":wrapped_clang",
+          ":wrapped_clang_pp",
           ":wrapped_ar",
           ":xcrunwrapper.sh",
         ],

@@ -1,0 +1,561 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>Gradle Task</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/gradle.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/gradle.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Gradle Task</h2>
+
+<b>ProGuard</b> can be run as a task in the Java-based build tool Gradle
+(version 2.1 or higher).
+<p>
+
+Before you can use the <code>proguard</code> task, you have to make sure
+Gradle can find it in its class path at build time. One way is to add the
+following line to your <code>build.gradle</code> file:
+<p>
+
+<pre>
+buildscript {
+    repositories {
+        flatDir dirs: '/usr/local/java/proguard/lib'
+    }
+    dependencies {
+        classpath ':proguard:'
+    }
+}
+</pre>
+<p>
+
+Please make sure the class path is set correctly for your system.
+<p>
+
+You can then define a task:
+<p>
+<pre>
+task myProguardTask(type: proguard.gradle.ProGuardTask) {
+    .....
+}
+</pre>
+<p>
+
+The embedded configuration is much like a standard ProGuard configuration.
+Notable similarities and differences:
+<ul>
+<li>Like in ProGuard-style configurations, we're using all lower-case names
+    for the settings.</li>
+<li>The options don't have a dash as prefix.</li>
+<li>Arguments typically have quotes.</li>
+<li>Some settings are specified as named arguments.</li>
+</ul>
+<p>
+You can find some sample build files in the <code>examples/gradle</code>
+directory of the ProGuard distribution.
+<p>
+If you prefer a more verbose configuration derived from the Ant task, you can
+import the Ant task as a <a href="#anttask">Gradle task</a>.
+
+<h2><a name="proguard">Settings</a></h2>
+
+The ProGuard task supports the following settings in its closure:
+
+<dl>
+
+<dt><a name="configuration_attribute"><code><b>configuration</b></code></a>
+    <a href="#file"><i>files</i></a></dt>
+<dd>Read and merge options from the given ProGuard-style configuration
+    files. The files are resolved and parsed lazily, during the execution
+    phase.</dd>
+
+<dt><a href="usage.html#injars"><code><b>injars</b></code></a>
+    <a href="#classpath"><i>class_path</i></a></dt>
+<dd>Specifies the program jars (or aars, wars, ears, zips, apks, or
+    directories). The files are resolved and read lazily, during the execution
+    phase.</dd>
+
+<dt><a href="usage.html#outjars"><code><b>outjars</b></code></a>
+    <a href="#classpath"><i>class_path</i></a></dt>
+<dd>Specifies the names of the output jars (or aars, wars, ears, zips, apks, or
+    directories). The files are resolved and written lazily, during the
+    execution phase.</dd>
+
+<dt><a href="usage.html#libraryjars"><code><b>libraryjars</b></code></a>
+    <a href="#classpath"><i>class_path</i></a></dt>
+<dd>Specifies the library jars (or aars, wars, ears, zips, apks, or
+    directories). The files are resolved and read lazily, during the execution
+    phase.</dd>
+
+<dt><a href="usage.html#skipnonpubliclibraryclasses"><code><b>skipnonpubliclibraryclasses</b></code></a></dt>
+<dd>Ignore non-public library classes.</dd>
+
+<dt><a href="usage.html#dontskipnonpubliclibraryclassmembers"><code><b>dontskipnonpubliclibraryclassmembers</b></code></a></dt>
+<dd>Don't ignore package visible library class members.</dd>
+
+<dt><a href="usage.html#keepdirectories"><code><b>keepdirectories</b></code></a>
+    ['<a href="usage.html#filefilters"><i>directory_filter</i></a>']</dt>
+<dd>Keep the specified directories in the output jars (or aars, wars, ears,
+    zips, apks, or directories).</dd>
+
+<dt><a href="usage.html#target"><code><b>target</b></code></a>
+    '<i>version</i>'</dt>
+<dd>Set the given version number in the processed classes.</dd>
+
+<dt><a href="usage.html#forceprocessing"><code><b>forceprocessing</b></code></a></dt>
+<dd>Process the input, even if the output seems up to date.</dd>
+
+<dt><a href="usage.html#keep"><code><b>keep</b></code></a>
+    [<a href="#keepmodifier"><i>modifier</i>,...</a>]
+    <a href="#classspecification"><i>class_specification</i></a></dt>
+<dd>Preserve the specified classes <i>and</i> class members.</dd>
+
+<dt><a href="usage.html#keepclassmembers"><code><b>keepclassmembers</b></code></a>
+    [<a href="#keepmodifier"><i>modifier</i>,...</a>]
+    <a href="#classspecification"><i>class_specification</i></a></dt>
+<dd>Preserve the specified class members, if their classes are preserved as
+    well.</dd>
+
+<dt><a href="usage.html#keepclasseswithmembers"><code><b>keepclasseswithmembers</b></code></a>
+    [<a href="#keepmodifier"><i>modifier</i>,...</a>]
+    <a href="#classspecification"><i>class_specification</i></a></dt>
+<dd>Preserve the specified classes <i>and</i> class members, if all of the
+    specified class members are present.</dd>
+
+<dt><a href="usage.html#keepnames"><code><b>keepnames</b></code></a>
+    <a href="#classspecification"><i>class_specification</i></a></dt>
+<dd>Preserve the names of the specified classes <i>and</i> class members (if
+    they aren't removed in the shrinking step).</dd>
+
+<dt><a href="usage.html#keepclassmembernames"><code><b>keepclassmembernames</b></code></a>
+    <a href="#classspecification"><i>class_specification</i></a></dt>
+<dd>Preserve the names of the specified class members (if they aren't removed
+    in the shrinking step).</dd>
+
+<dt><a href="usage.html#keepclasseswithmembernames"><code><b>keepclasseswithmembernames</b></code></a>
+    <a href="#classspecification"><i>class_specification</i></a></dt>
+<dd>Preserve the names of the specified classes <i>and</i> class members, if
+    all of the specified class members are present (after the shrinking
+    step).</dd>
+
+<dt><a href="usage.html#printseeds"><code><b>printseeds</b></code></a>
+    [<a href="#file"><i>file</i></a>]</dt>
+<dd>List classes and class members matched by the various <code>keep</code>
+    commands, to the standard output or to the given file.</dd>
+
+<dt><a href="usage.html#dontshrink"><code><b>dontshrink</b></code></a></dt>
+<dd>Don't shrink the input class files.</dd>
+
+<dt><a href="usage.html#printusage"><code><b>printusage</b></code></a>
+    [<a href="#file"><i>file</i></a>]</dt>
+<dd>List dead code of the input class files, to the standard output or to the
+    given file.</dd>
+
+<dt><a href="usage.html#whyareyoukeeping"><code><b>whyareyoukeeping</b></code></a>
+    <a href="#classspecification"><i>class_specification</i></a></dt>
+<dd>Print details on why the given classes and class members are being kept in
+    the shrinking step.</dd>
+
+<dt><a href="usage.html#dontoptimize"><code><b>dontoptimize</b></code></a></dt>
+<dd>Don't optimize the input class files.</dd>
+
+<dt><a href="usage.html#optimizations"><code><b>optimizations</b></code></a> '<a href="optimizations.html"><i>optimization_filter</i></a>'</dt>
+<dd>Perform only the specified optimizations.</dd>
+
+<dt><a href="usage.html#optimizationpasses"><code><b>optimizationpasses</b></code></a>
+    <i>n</i></dt>
+<dd>The number of optimization passes to be performed.</dd>
+
+<dt><a href="usage.html#assumenosideeffects"><code><b>assumenosideeffects</b></code></a>
+    <a href="#classspecification"><i>class_specification</i></a></dt>
+<dd>Assume that the specified methods don't have any side effects, while
+    optimizing. <i>Only use this option if you know what you're
+    doing!</i></dd>
+
+<dt><a href="usage.html#allowaccessmodification"><code><b>allowaccessmodification</b></code></a></dt>
+<dd>Allow the access modifiers of classes and class members to be modified,
+    while optimizing.</dd>
+
+<dt><a href="usage.html#mergeinterfacesaggressively"><code><b>mergeinterfacesaggressively</b></code></a></dt>
+<dd>Allow any interfaces to be merged, while optimizing.</dd>
+
+<dt><a href="usage.html#dontobfuscate"><code><b>dontobfuscate</b></code></a></dt>
+<dd>Don't obfuscate the input class files.</dd>
+
+<dt><a href="usage.html#printmapping"><code><b>printmapping</b></code></a>
+    [<a href="#file"><i>file</i></a>]</dt>
+<dd>Print the mapping from old names to new names for classes and class members
+    that have been renamed, to the standard output or to the given file.</dd>
+
+<dt><a href="usage.html#applymapping"><code><b>applymapping</b></code></a>
+    <a href="#file"><i>file</i></a></dt>
+<dd>Reuse the given mapping, for incremental obfuscation.</dd>
+
+<dt><a href="usage.html#obfuscationdictionary"><code><b>obfuscationdictionary</b></code></a>
+    <a href="#file"><i>file</i></a></dt>
+<dd>Use the words in the given text file as obfuscated field names and method
+    names.</dd>
+
+<dt><a href="usage.html#classobfuscationdictionary"><code><b>classobfuscationdictionary</b></code></a>
+    <a href="#file"><i>file</i></a></dt>
+<dd>Use the words in the given text file as obfuscated class names.</dd>
+
+<dt><a href="usage.html#packageobfuscationdictionary"><code><b>packageobfuscationdictionary</b></code></a>
+    <a href="#file"><i>file</i></a></dt>
+<dd>Use the words in the given text file as obfuscated package names.</dd>
+
+<dt><a href="usage.html#overloadaggressively"><code><b>overloadaggressively</b></code></a></dt>
+<dd>Apply aggressive overloading while obfuscating.</dd>
+
+<dt><a href="usage.html#useuniqueclassmembernames"><code><b>useuniqueclassmembernames</b></code></a></dt>
+<dd>Ensure uniform obfuscated class member names for subsequent incremental
+    obfuscation.</dd>
+
+<dt><a href="usage.html#dontusemixedcaseclassnames"><code><b>dontusemixedcaseclassnames</b></code></a></dt>
+<dd>Don't generate mixed-case class names while obfuscating.</dd>
+
+<dt><a href="usage.html#keeppackagenames"><code><b>keeppackagenames</b></code></a> ['<a href="usage.html#filters"><i>package_filter</i></a>']</dt>
+<dd>Keep the specified package names from being obfuscated. If no name is
+    given, all package names are preserved.</dd>
+
+<dt><a href="usage.html#flattenpackagehierarchy"><code><b>flattenpackagehierarchy</b></code></a>
+    '<i>package_name</i>'</dt>
+<dd>Repackage all packages that are renamed into the single given parent
+    package.</dd>
+
+<dt><a href="usage.html#repackageclasses"><code><b>repackageclasses</b></code></a>
+    ['<i>package_name</i>']</dt>
+<dd>Repackage all class files that are renamed into the single given
+    package.</dd>
+
+<dt><a href="usage.html#keepattributes"><code><b>keepattributes</b></code></a> ['<a href="usage.html#filters"><i>attribute_filter</i></a>']</dt>
+<dd>Preserve the specified optional Java bytecode attributes, with optional
+    wildcards. If no name is given, all attributes are preserved.</dd>
+
+<dt><a href="usage.html#keepparameternames"><code><b>keepparameternames</b></code></a></dt>
+<dd>Keep the parameter names and types of methods that are kept.</dd>
+
+<dt><a href="usage.html#renamesourcefileattribute"><code><b>renamesourcefileattribute</b></code></a>
+    ['<i>string</i>']</dt>
+<dd>Put the given constant string in the <code>SourceFile</code>
+    attributes.</dd>
+
+<dt><a href="usage.html#adaptclassstrings"><code><b>adaptclassstrings</b></code></a>
+    ['<a href="usage.html#filters"><i>class_filter</i></a>']</dt>
+<dd>Adapt string constants in the specified classes, based on the obfuscated
+    names of any corresponding classes.</dd>
+
+<dt><a href="usage.html#adaptresourcefilenames"><code><b>adaptresourcefilenames</b></code></a>
+    ['<a href="usage.html#filefilters"><i>file_filter</i></a>']</dt>
+<dd>Rename the specified resource files, based on the obfuscated names of the
+    corresponding class files.</dd>
+
+<dt><a href="usage.html#adaptresourcefilecontents"><code><b>adaptresourcefilecontents</b></code></a>
+    ['<a href="usage.html#filefilters"><i>file_filter</i></a>']</dt>
+<dd>Update the contents of the specified resource files, based on the
+    obfuscated names of the processed classes.</dd>
+
+<dt><a href="usage.html#dontpreverify"><code><b>dontpreverify</b></code></a></dt>
+<dd>Don't preverify the processed class files if they are targeted at Java Micro
+    Edition or at Java 6 or higher.</dd>
+
+<dt><a href="usage.html#microedition"><code><b>microedition</b></code></a></dt>
+<dd>Target the processed class files at Java Micro Edition.</dd>
+
+<dt><a href="usage.html#verbose"><code><b>verbose</b></code></a></dt>
+<dd>Write out some more information during processing.</dd>
+
+<dt><a href="usage.html#dontnote"><code><b>dontnote</b></code></a> '<a href="usage.html#filters"><i>class_filter</i></a>'</dt>
+<dd>Don't print notes about classes matching the specified class name
+    filter.</dd>
+
+<dt><a href="usage.html#dontwarn"><code><b>dontwarn</b></code></a> '<a href="usage.html#filters"><i>class_filter</i></a>'</dt>
+<dd>Don't print warnings about classes matching the specified class name
+    filter. <i>Only use this option if you know what you're doing!</i></dd>
+
+<dt><a href="usage.html#ignorewarnings"><code><b>ignorewarnings</b></code></a></dt>
+<dd>Print warnings about unresolved references, but continue processing
+    anyhow. <i>Only use this option if you know what you're doing!</i></dd>
+
+<dt><a href="usage.html#printconfiguration"><code><b>printconfiguration</b></code></a>
+    [<a href="#file"><i>file</i></a>]</dt>
+<dd>Write out the entire configuration in traditional ProGuard style, to the
+    standard output or to the given file. Useful to replace unreadable
+    XML configurations.</dd>
+
+<dt><a href="usage.html#dump"><code><b>dump</b></code></a>
+    [<a href="#file"><i>file</i></a>]</dt>
+<dd>Write out the internal structure of the processed class files, to the
+    standard output or to the given file.</dd>
+
+</dl>
+
+<h2><a name="classpath">Class Paths</a></h2>
+
+Class paths are specified as Gradle file collections, which means they can be
+specified as simple strings, with <code>files(Object)</code>, etc.
+<p>
+In addition, they can have ProGuard-style filters, specified as
+comma-separated named arguments after the file:
+
+<dl>
+
+<dt><code><b>filter:</b></code>
+    '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
+<dd>An optional filter for all class file names and resource file names that
+    are encountered.</dd>
+
+<dt><code><b>apkfilter:</b></code>
+    '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
+<dd>An optional filter for all apk names that are encountered.</dd>
+
+<dt><code><b>jarfilter:</b></code>
+    '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
+<dd>An optional filter for all jar names that are encountered.</dd>
+
+<dt><code><b>aarfilter:</b></code>
+    '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
+<dd>An optional filter for all aar names that are encountered.</dd>
+
+<dt><code><b>warfilter:</b></code>
+    '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
+<dd>An optional filter for all war names that are encountered.</dd>
+
+<dt><code><b>earfilter:</b></code>
+    '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
+<dd>An optional filter for all ear names that are encountered.</dd>
+
+<dt><code><b>zipfilter:</b></code>
+    '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
+<dd>An optional filter for all zip names that are encountered.</dd>
+
+</dl>
+
+<h2><a name="file">Files</a></h2>
+
+Files are specified as Gradle files, which means they can be specified
+as simple strings, as File instances, with <code>file(Object)</code>, etc.
+<p>
+In Gradle, file names (any strings really) in double quotes can contain
+properties or code inside <code>${...}</code>. These are automatically
+expanded.
+<p>
+For example, <code>"${System.getProperty('java.home')}/lib/rt.jar"</code> is
+expanded to something like <code>'/usr/local/java/jdk/jre/lib/rt.jar'</code>.
+Similarly, <code>System.getProperty('user.home')</code> is expanded to the
+user's home directory, and <code>System.getProperty('user.dir')</code> is
+expanded to the current working directory.
+
+<h2><a name="keepmodifier">Keep Modifiers</a></h2>
+
+The keep settings can have the following named arguments that modify their
+behaviors:
+
+<dl>
+
+<dt><a href="usage.html#includedescriptorclasses"><code><b>includedescriptorclasses:</b></code></a>
+    <i>boolean</i>
+    (default = false)</dt>
+<dd>Specifies whether the classes of the fields and methods specified in the
+    keep tag must be kept as well.</dd>
+
+<dt><a href="usage.html#allowshrinking"><code><b>allowshrinking:</b></code></a>
+    <i>boolean</i>
+    (default = false)</dt>
+<dd>Specifies whether the entry points specified in the keep tag may be
+    shrunk.</dd>
+
+<dt><a href="usage.html#allowoptimization"><code><b>allowoptimization:</b></code></a>
+    <i>boolean</i>
+    (default = false)</dt>
+<dd>Specifies whether the entry points specified in the keep tag may be
+    optimized.</dd>
+
+<dt><a href="usage.html#allowobfuscation"><code><b>allowobfuscation:</b></code></a>
+    <i>boolean</i>
+    (default = false)</dt>
+<dd>Specifies whether the entry points specified in the keep tag may be
+    obfuscated.</dd>
+
+</dl>
+
+Names arguments are comma-separated, as usual.
+
+<h2><a name="classspecification">Class Specifications</a></h2>
+
+A class specification is a template of classes and class members (fields and methods). There are two alternative ways to specify such a template:
+
+<ol>
+<li>As a string containing a ProGuard-style class specification. This is the
+    most compact and most readable way. The specification looks like a Java
+    declaration of a class with fields and methods. For example:
+<pre>
+keep 'public class mypackage.MyMainClass {  \
+    public static void main(java.lang.String[]);  \
+}'
+</pre></li>
+<li>As a Gradle-style setting: a method calls with named arguments and a
+    closure. This is more verbose, but it might be useful for programmatic
+    specifications. For example:
+<pre>
+keep access: 'public',
+     name:   'mypackage.MyMainClass', {
+    method access:     'public static',
+           type:       'void',
+           name:       'main',
+           parameters: 'java.lang.String[]'
+}
+</pre></li>
+</ol>
+<p>
+
+The <a href="usage.html#classspecification">ProGuard-style class
+specification</a> is described on the traditional Usage page.
+<p>
+A Gradle-style class specification can have the following named arguments:
+
+<dl>
+
+<dt><code><b>access:</b></code> '<i>access_modifiers</i>'</dt>
+<dd>The optional access modifiers of the class. Any space-separated list of
+    "public", "final", and "abstract", with optional negators "!".</dd>
+
+<dt><code><b>annotation:</b></code> '<i>annotation_name</i>'</dt>
+<dd>The optional fully qualified name of an annotation of the class, with
+    optional wildcards.</dd>
+
+<dt><code><b>type:</b></code> '<i>type</i>'</dt>
+<dd>The optional type of the class: one of "class", "interface", or
+    "!interface".</dd>
+
+<dt><code><b>name:</b></code> '<i>class_name</i>'</dt>
+<dd>The optional fully qualified name of the class, with optional
+    wildcards.</dd>
+
+<dt><code><b>extendsannotation:</b></code> '<i>annotation_name</i>'</dt>
+<dd>The optional fully qualified name of an annotation of the the class that
+    the specified classes must extend, with optional wildcards.</dd>
+
+<dt><code><b>'extends':</b></code> '<i>class_name</i>'</dt>
+<dd>The optional fully qualified name of the class the specified classes
+    must extend, with optional wildcards.</dd>
+
+<dt><code><b>'implements':</b></code> '<i>class_name</i>'</dt>
+<dd>The optional fully qualified name of the class the specified classes
+    must implement, with optional wildcards.</dd>
+
+</dl>
+
+The named arguments are optional. Without any arguments, there are no
+constraints, so the settings match all classes.
+<p>
+
+<h3><a name="classmemberspecification">Gradle-style Class Member Specifications</a></h3>
+
+The closure of a Gradle-style class specification can specify class members
+with these settings:
+
+<dl>
+
+<dt><code><b>field</b></code> <i>field_constraints</i></dt>
+<dd>Specifies a field.</dd>
+
+<dt><code><b>method</b></code> <i>method_constraints</i></dt>
+<dd>Specifies a method.</dd>
+
+<dt><code><b>constructor</b></code> <i>constructor_constraints</i></dt>
+<dd>Specifies a constructor.</dd>
+
+</dl>
+
+A class member setting can have the following named arguments to express
+constraints:
+
+<dl>
+
+<dt><code><b>access:</b></code> '<i>access_modifiers</i>'</dt>
+<dd>The optional access modifiers of the class. Any space-separated list of
+    "public", "protected", "private", "static", etc., with optional negators
+    "!".</dd>
+
+<dt><code><b>'annotation':</b></code> '<i>annotation_name</i>'</dt>
+<dd>The optional fully qualified name of an annotation of the class member,
+    with optional wildcards.</dd>
+
+<dt><code><b>type:</b></code> '<i>type</i>'</dt>
+<dd>The optional fully qualified type of the class member, with optional
+    wildcards. Not applicable for constructors, but required for methods for
+    which the <code>parameters</code> argument is specified.</dd>
+
+<dt><code><b>name:</b></code> '<i>name</i>'</dt>
+<dd>The optional name of the class member, with optional wildcards. Not
+    applicable for constructors.</dd>
+
+<dt><code><b>parameters:</b></code> '<i>parameters</i>'</dt>
+<dd>The optional comma-separated list of fully qualified method parameters,
+    with optional wildcards. Not applicable for fields, but required for
+    constructors, and for methods for which the <code>type</code> argument is
+    specified.</dd>
+
+</dl>
+
+The named arguments are optional. Without any arguments, there are no
+constraints, so the settings match all constructors, fields, or methods.
+<p>
+A class member setting doesn't have a closure.
+
+<h2><a name="anttask">Alternative: imported Ant task</a></h2>
+
+Instead of using the Gradle task, you could also integrate the Ant task in
+your Gradle build file:
+<p>
+<pre>
+ant.project.basedir = '../..'
+
+ant.taskdef(resource: 'proguard/ant/task.properties',
+            classpath: '/usr/local/java/proguard/lib/proguard.jar')
+</pre>
+<p>
+
+Gradle automatically converts the elements and attributes to Groovy methods,
+so converting the configuration is essentially mechanical. The one-on-one
+mapping can be useful, but the resulting configuration is more verbose. For
+instance:
+<pre>
+task proguard << {
+  ant.proguard(printmapping: 'proguard.map',
+               overloadaggressively: 'on',
+               repackageclasses: '',
+               renamesourcefileattribute: 'SourceFile') {
+
+    injar(file: 'application.jar')
+    injar(file: 'gui.jar', filter: '!META-INF/**')
+
+    .....
+  }
+}
+</pre>
+<p>
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</html>

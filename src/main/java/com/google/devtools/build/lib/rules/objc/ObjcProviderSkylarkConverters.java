@@ -24,8 +24,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -63,6 +63,18 @@ public class ObjcProviderSkylarkConverters {
    */
   public static Iterable<?> convertToJava(Key<?> javaKey, Object skylarkValue) {
     return CONVERTERS.get(javaKey.getType()).valueForJava(javaKey, skylarkValue);
+  }
+
+  /**
+   * Converts {@link PathFragment}s into a skylark-compatible nested set of path strings.
+   */
+  public static SkylarkNestedSet convertPathFragmentsToSkylark(
+      Iterable<PathFragment> pathFragments) {
+    NestedSetBuilder<String> result = NestedSetBuilder.stableOrder();
+    for (PathFragment path : pathFragments) {
+      result.add(path.getSafePathString());
+    }
+    return SkylarkNestedSet.of(String.class, result.build());
   }
 
   /**
@@ -106,11 +118,7 @@ public class ObjcProviderSkylarkConverters {
     @SuppressWarnings("unchecked")
     @Override
     public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
-      NestedSetBuilder<String> result = NestedSetBuilder.stableOrder();
-      for (PathFragment path : (Iterable<PathFragment>) javaValue) {
-        result.add(path.getSafePathString());
-      }
-      return SkylarkNestedSet.of(String.class, result.build());
+      return convertPathFragmentsToSkylark((NestedSet<PathFragment>) javaValue);
     }
 
     @SuppressWarnings("unchecked")
@@ -160,26 +168,24 @@ public class ObjcProviderSkylarkConverters {
     @SuppressWarnings("unchecked")
     @Override
     public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
-      NestedSetBuilder<SkylarkClassObject> result = NestedSetBuilder.stableOrder();
+      NestedSetBuilder<Info> result = NestedSetBuilder.stableOrder();
       for (BundleableFile bundleableFile : (Iterable<BundleableFile>) javaValue) {
-        result.add(NativeClassObjectConstructor.STRUCT.create(
-            ImmutableMap.<String, Object>of(
-                BUNDLED_FIELD, bundleableFile.getBundled(),
-                BUNDLE_PATH_FIELD, bundleableFile.getBundlePath()
-            ),
-            "No such attribute '%s'"
-        ));
+        result.add(
+            NativeProvider.STRUCT.create(
+                ImmutableMap.<String, Object>of(
+                    BUNDLED_FIELD, bundleableFile.getBundled(),
+                    BUNDLE_PATH_FIELD, bundleableFile.getBundlePath()),
+                "No such attribute '%s'"));
       }
-      return SkylarkNestedSet.of(SkylarkClassObject.class, result.build());
+      return SkylarkNestedSet.of(Info.class, result.build());
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
-      validateTypes(skylarkValue, SkylarkClassObject.class, javaKey.getSkylarkKeyName());
+      validateTypes(skylarkValue, Info.class, javaKey.getSkylarkKeyName());
       NestedSetBuilder<BundleableFile> result = NestedSetBuilder.stableOrder();
-      for (SkylarkClassObject struct :
-          ((SkylarkNestedSet) skylarkValue).toCollection(SkylarkClassObject.class)) {
+      for (Info struct : ((SkylarkNestedSet) skylarkValue).toCollection(Info.class)) {
         Artifact artifact;
         String path;
         try {

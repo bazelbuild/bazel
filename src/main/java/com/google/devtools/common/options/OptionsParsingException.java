@@ -17,7 +17,7 @@ package com.google.devtools.common.options;
 /**
  * An exception that's thrown when the {@link OptionsParser} fails.
  *
- * @see OptionsParser#parse(OptionPriority,String,java.util.List)
+ * @see OptionsParser#parse(OptionPriority.PriorityCategory,String,java.util.List)
  */
 public class OptionsParsingException extends Exception {
   private final String invalidArgument;

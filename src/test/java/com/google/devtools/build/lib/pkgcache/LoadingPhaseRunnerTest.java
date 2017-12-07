@@ -18,37 +18,37 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -551,6 +551,17 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.hasLoadingError()).isFalse();
   }
 
+  @Test
+  public void testParsingFailureReported() throws Exception {
+    LoadingResult loadingResult = tester.loadKeepGoing("//does_not_exist");
+    assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    ParsingFailedEvent event = tester.findPost(ParsingFailedEvent.class);
+    assertThat(event).isNotNull();
+    assertThat(event.getPattern()).isEqualTo("//does_not_exist");
+    assertThat(event.getMessage()).contains("BUILD file not found on package path");
+    assertThat(Iterables.filter(tester.getPosts(), ParsingFailedEvent.class)).hasSize(1);
+  }
+
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
     try {
       tester.load(targetPattern);
@@ -577,6 +588,8 @@ public class LoadingPhaseRunnerTest {
 
     private final List<Path> changes = new ArrayList<>();
     private final LoadingPhaseRunner loadingPhaseRunner;
+    private final BlazeDirectories directories;
+    private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
     private LoadingOptions options;
     private final StoredEventHandler storedErrors;
@@ -594,34 +607,43 @@ public class LoadingPhaseRunnerTest {
       mockToolsConfig = new MockToolsConfig(workspace);
       analysisMock = AnalysisMock.get();
       analysisMock.setupMockClient(mockToolsConfig);
+      directories =
+          new BlazeDirectories(
+              new ServerDirectories(fs.getPath("/install"), fs.getPath("/output")),
+              workspace,
+              analysisMock.getProductName());
       FileSystemUtils.deleteTree(workspace.getRelative("base"));
 
       ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
       PackageFactory pkgFactory =
-          analysisMock.getPackageFactoryBuilderForTesting().build(ruleClassProvider, fs);
+          analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
       PackageCacheOptions options = Options.getDefaults(PackageCacheOptions.class);
       storedErrors = new StoredEventHandler();
-      BlazeDirectories directories =
-          new BlazeDirectories(
-              fs.getPath("/install"),
-              fs.getPath("/output"),
-              workspace,
-              analysisMock.getProductName());
       skyframeExecutor =
-          SequencedSkyframeExecutor.createForTesting(
+          SequencedSkyframeExecutor.create(
               pkgFactory,
+              fs,
               directories,
-              null, /* binTools -- not used */
+              actionKeyContext,
               null, /* workspaceStatusActionFactory -- not used */
               ruleClassProvider.getBuildInfoFactories(),
               ImmutableList.<DiffAwareness.Factory>of(),
-              Predicates.<PathFragment>alwaysFalse(),
-              analysisMock.getSkyFunctions(),
-              ImmutableList.<PrecomputedValue.Injected>of(),
+              analysisMock.getSkyFunctions(directories),
               ImmutableList.<SkyValueDirtinessChecker>of(),
-              analysisMock.getProductName());
-      PathPackageLocator pkgLocator = PathPackageLocator.create(
-          null, options.packagePath, storedErrors, workspace, workspace);
+              BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
+              BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
+              BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+              BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+      TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
+      PathPackageLocator pkgLocator =
+          PathPackageLocator.create(
+              null,
+              options.packagePath,
+              storedErrors,
+              workspace,
+              workspace,
+              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
       PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
       packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
       packageCacheOptions.showLoadingProgress = true;
@@ -672,20 +694,17 @@ public class LoadingPhaseRunnerTest {
       storedErrors.clear();
       LoadingResult result;
       try {
-        EventBus eventBus = new EventBus();
-        FilteredTargetListener listener = new FilteredTargetListener();
-        eventBus.register(listener);
         result =
             loadingPhaseRunner.execute(
-                new Reporter(eventBus, storedErrors),
+                storedErrors,
                 ImmutableList.copyOf(patterns),
                 PathFragment.EMPTY_FRAGMENT,
                 options,
                 keepGoing,
                 determineTests,
                 loadingCallback);
-        this.targetParsingCompleteEvent = listener.targetParsingCompleteEvent;
-        this.loadingPhaseCompleteEvent = listener.loadingPhaseCompleteEvent;
+        this.targetParsingCompleteEvent = findPost(TargetParsingCompleteEvent.class);
+        this.loadingPhaseCompleteEvent = findPost(LoadingPhaseCompleteEvent.class);
       } catch (LoadingFailedException e) {
         System.err.println(storedErrors.getEvents());
         throw e;
@@ -796,20 +815,18 @@ public class LoadingPhaseRunnerTest {
       MoreAsserts.assertContainsEventWithFrequency(
           filteredEvents(), expectedMessage, expectedFrequency);
     }
-  }
 
-  public static class FilteredTargetListener {
-    private TargetParsingCompleteEvent targetParsingCompleteEvent;
-    private LoadingPhaseCompleteEvent loadingPhaseCompleteEvent;
-
-    @Subscribe
-    public void targetParsingComplete(TargetParsingCompleteEvent event) {
-      this.targetParsingCompleteEvent = event;
+    public Iterable<Postable> getPosts() {
+      return storedErrors.getPosts();
     }
 
-    @Subscribe
-    public void loadingPhaseComplete(LoadingPhaseCompleteEvent event) {
-      this.loadingPhaseCompleteEvent = event;
+    public <T extends Postable> T findPost(Class<T> clazz) {
+      for (Postable p : storedErrors.getPosts()) {
+        if (clazz.isInstance(p)) {
+          return clazz.cast(p);
+        }
+      }
+      return null;
     }
   }
 }

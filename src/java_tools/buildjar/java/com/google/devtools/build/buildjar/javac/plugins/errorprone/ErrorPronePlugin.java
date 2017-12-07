@@ -69,11 +69,23 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
     JavacMessages.instance(context).add("com.google.errorprone.errors");
   }
 
+  private static final String COMPILING_TEST_ONLY_CODE_ARG = "-XepCompilingTestOnlyCode";
+
   @Override
   public List<String> processArgs(List<String> args) throws InvalidCommandLineException {
+    ImmutableList.Builder<String> epArgs = ImmutableList.<String>builder().addAll(args);
     // allow javacopts that reference unknown error-prone checks
-    return processEpOptions(
-        ImmutableList.<String>builder().addAll(args).add("-XepIgnoreUnknownCheckNames").build());
+    epArgs.add("-XepIgnoreUnknownCheckNames");
+    if (testOnly()) {
+      epArgs.add(COMPILING_TEST_ONLY_CODE_ARG);
+    }
+    return processEpOptions(epArgs.build())
+        // TODO(glorioso): This post-filtering shouldn't be needed except that the bazel dependency
+        // on error prone doesn't yet know about -XepCompilingTestOnlyCode.
+        // Remove this once the 3p version is recent enough.
+        .stream()
+        .filter(arg -> !arg.equals(COMPILING_TEST_ONLY_CODE_ARG))
+        .collect(ImmutableList.toImmutableList());
   }
 
   private List<String> processEpOptions(List<String> args) throws InvalidCommandLineException {

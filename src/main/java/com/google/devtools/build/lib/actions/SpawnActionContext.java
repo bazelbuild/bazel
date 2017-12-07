@@ -13,20 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import java.util.List;
+
 /**
  * A context that allows execution of {@link Spawn} instances.
  */
 @ActionContextMarker(name = "spawn")
 public interface SpawnActionContext extends ActionContext {
 
-  /** Executes the given spawn. */
-  void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+  /** Executes the given spawn and returns metadata about the execution. */
+  List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
-
-  /**
-   * If an ExecException should be rethrown by the strategy that executed this.
-   * Currently only works for LinuxSandboxedStrategy:
-   * If true, will throw ExecException and give reproduction instruction for sandbox.
-   */
-  boolean shouldPropagateExecException();
 }

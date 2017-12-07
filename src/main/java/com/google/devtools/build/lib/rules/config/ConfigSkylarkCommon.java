@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.config;
 
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
@@ -31,7 +31,7 @@ public class ConfigSkylarkCommon {
     doc = "The key used to retrieve the provider containing config_feature_flag's value.",
     structField = true
   )
-  public ClassObjectConstructor getConfigFeatureFlagProviderConstructor() {
+  public Provider getConfigFeatureFlagProviderConstructor() {
     return ConfigFeatureFlagProvider.SKYLARK_CONSTRUCTOR;
   }
 }

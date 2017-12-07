@@ -92,7 +92,7 @@ public interface ActionAnalysisMetadata {
    * correctly when run remotely. This is at least the normal inputs of the action, but may include
    * other files as well. For example C(++) compilation may perform include file header scanning.
    * This needs to be mirrored by the extra_action rule. Called by
-   * {@link com.google.devtools.build.lib.rules.extra.ExtraAction} at execution time for actions
+   * {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions
    * that return true for {link #discoversInputs()}.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.

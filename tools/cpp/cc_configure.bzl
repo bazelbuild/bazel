@@ -20,6 +20,8 @@ load("@bazel_tools//tools/cpp:unix_cc_configure.bzl", "configure_unix_toolchain"
 load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 
 def _impl(repository_ctx):
+  repository_ctx.symlink(
+      Label("@bazel_tools//tools/cpp:dummy_toolchain.bzl"), "dummy_toolchain.bzl")
   cpu_value = get_cpu_value(repository_ctx)
   if cpu_value == "freebsd":
     # This is defaulting to the static crosstool, we should eventually
@@ -59,7 +61,7 @@ cc_autoconf = repository_rule(
         "HOMEBREW_RUBY_PATH",
         "NO_WHOLE_ARCHIVE_OPTION",
         "USE_DYNAMIC_CRT",
-        "NO_MSVC_WRAPPER",
+        "USE_MSVC_WRAPPER",
         "SYSTEMROOT",
         "VS90COMNTOOLS",
         "VS100COMNTOOLS",

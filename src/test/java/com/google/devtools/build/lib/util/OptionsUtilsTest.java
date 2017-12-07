@@ -21,11 +21,11 @@ import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentListConverter
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
@@ -59,8 +59,7 @@ public class OptionsUtilsTest {
 
     @Option(
       name = "gamma",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "gamma"
     )
@@ -68,8 +67,7 @@ public class OptionsUtilsTest {
 
     @Option(
       name = "delta",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "delta"
     )
@@ -77,8 +75,8 @@ public class OptionsUtilsTest {
 
     @Option(
       name = "echo",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "echo"
     )
@@ -98,8 +96,8 @@ public class OptionsUtilsTest {
   @Test
   public void asStringOfExplicitOptionsCorrectSortingByPriority() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
-    parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--alpha=no"));
-    parser.parse(OptionPriority.COMPUTED_DEFAULT, null, Arrays.asList("--beta=no"));
+    parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--alpha=no"));
+    parser.parse(PriorityCategory.COMPUTED_DEFAULT, null, Arrays.asList("--beta=no"));
     assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--beta=no --alpha=no");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--beta=no", "--alpha=no")
@@ -129,14 +127,14 @@ public class OptionsUtilsTest {
   @Test
   public void asStringOfExplicitOptionsWithBooleans() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(BooleanOpts.class);
-    parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--b_one", "--nob_two"));
+    parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--b_one", "--nob_two"));
     assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--b_one --nob_two");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--b_one", "--nob_two")
         .inOrder();
 
     parser = OptionsParser.newOptionsParser(BooleanOpts.class);
-    parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--b_one=true", "--b_two=0"));
+    parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--b_one=true", "--b_two=0"));
     assertThat(parser.getOptions(BooleanOpts.class).bOne).isTrue();
     assertThat(parser.getOptions(BooleanOpts.class).bTwo).isFalse();
     assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--b_one --nob_two");
@@ -148,8 +146,8 @@ public class OptionsUtilsTest {
   @Test
   public void asStringOfExplicitOptionsMultipleOptionsAreMultipleTimes() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
-    parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--alpha=one"));
-    parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--alpha=two"));
+    parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--alpha=one"));
+    parser.parse(PriorityCategory.COMMAND_LINE, null, Arrays.asList("--alpha=two"));
     assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--alpha=one --alpha=two");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--alpha=one", "--alpha=two")

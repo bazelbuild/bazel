@@ -15,6 +15,7 @@
 syntax = "proto2";
 package blaze.invocation_policy;
 
+// option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.runtime.proto";
 
 // The --invocation_policy flag takes a base64-encoded binary-serialized or text
@@ -35,7 +36,7 @@ message FlagPolicy {
   // name of the flag. If the user specifies the abbreviated name of a flag,
   // that flag will be matched using its full name.
   //
-  // The "no" and "no_" prefixes will not be parsed, so for boolean flags, use
+  // The "no" prefix will not be parsed, so for boolean flags, use
   // the flag's full name and explicitly set it to true or false.
   optional string flag_name = 1;
 

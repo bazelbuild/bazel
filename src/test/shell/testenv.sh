@@ -19,16 +19,32 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
-# Windows
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
+
 function is_windows() {
   # On windows, the shell test is actually running on msys
-  if [[ "${PLATFORM}" =~ msys_nt* ]]; then
-    true
-  else
-    false
-  fi
+  [[ "${PLATFORM}" =~ msys_nt* ]]
 }
+
+function is_darwin() {
+  [[ "${PLATFORM}" =~ darwin ]]
+}
+
+function _log_base() {
+  prefix=$1
+  shift
+  echo >&2 "${prefix}[$(basename "$0") $(date "+%H:%M:%S.%N (%z)")] $@"
+}
+
+function log_info() {
+  _log_base "INFO" "$@"
+}
+
+function log_fatal() {
+  _log_base "ERROR" "$@"
+  exit 1
+}
+
 
 # Set some environment variables needed on Windows.
 if is_windows; then
@@ -46,6 +62,10 @@ if is_windows; then
   export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
   export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
   export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC"
+  if [ ! -d "$BAZEL_VC" ]; then
+    # Maybe Visual C++ Build Tools 2017 then?
+    export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC"
+  fi
   if [ ! -d "$BAZEL_VC" ]; then
     # OK, well, maybe Visual C++ 2015 then?
     export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
@@ -68,17 +88,14 @@ PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation io_bazel/src/test/shell/bin/bazel))
 if is_windows; then
   PATH_TO_BAZEL_WRAPPER="$(cygpath -u "$PATH_TO_BAZEL_WRAPPER")"
 fi
-if [ ! -f "${PATH_TO_BAZEL_WRAPPER}/bazel" ];
-then
-  echo "Unable to find the Bazel binary at $PATH_TO_BAZEL_WRAPPER/bazel" >&2
-  exit 1;
-fi
+[ ! -f "${PATH_TO_BAZEL_WRAPPER}/bazel" ] \
+  && log_fatal "Unable to find the Bazel binary at $PATH_TO_BAZEL_WRAPPER/bazel"
 export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
 
 ################### shell/bazel/testenv ##################################
 # Setting up the environment for Bazel integration tests.
 #
-[ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
+[ -z "$TEST_SRCDIR" ] && log_fatal "TEST_SRCDIR not set!"
 BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
 
 if ! type rlocation &> /dev/null; then
@@ -131,26 +148,8 @@ if [ "${MACHINE_TYPE}" = 's390x' ]; then
   MACHINE_IS_Z='yes'
 fi
 
-case "${PLATFORM}" in
-  darwin)
-    if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
-      protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-osx-x86_64.exe"
-    else
-      protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-osx-x86_32.exe"
-    fi
-    ;;
-  *)
-    if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
-      if [ "${MACHINE_IS_Z}" = 'yes' ]; then
-        protoc_compiler="${BAZEL_RUNFILES}//third_party/protobuf/protoc-linux-s390x_64.exe"
-      else
-        protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_64.exe"
-      fi
-    else
-        protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_32.exe"
-    fi
-    ;;
-esac
+# Requires //third_party/protobuf:protoc
+protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/3.4.0/protoc"
 
 if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
   junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
@@ -162,12 +161,21 @@ fi
 
 
 function use_bazel_workspace_file() {
-  mkdir -p src/test/docker
+  mkdir -p src/test/{shell/bazel,docker}
   cat >src/test/docker/docker_repository.bzl <<EOF
 def docker_repository():
   pass
 EOF
+  cat >src/test/docker/flavours.bzl <<EOF
+def pull_images_for_docker_tests():
+  pass
+EOF
   touch src/test/docker/BUILD
+  cat >src/test/shell/bazel/list_source_repository.bzl <<EOF
+def list_source_repository(name):
+  pass
+EOF
+  touch src/test/shell/bazel/BUILD
   rm -f WORKSPACE
   ln -sf ${workspace_file} WORKSPACE
 }
@@ -260,7 +268,7 @@ exit 1;
 # A uniform SHA-256 commands that works accross platform
 #
 case "${PLATFORM}" in
-  darwin)
+  darwin|freebsd)
     function sha256sum() {
       cat "$1" | shasum -a 256 | cut -f 1 -d " "
     }
@@ -276,11 +284,17 @@ esac
 
 # OS X has a limit in the pipe length, so force the root to a shorter one
 bazel_root="${TEST_TMPDIR}/root"
+
+# Delete stale installation directory from previously failed tests. On Windows
+# we regularly get the same TEST_TMPDIR but a failed test may only partially
+# clean it up, and the next time the test runs, Bazel reports a corrupt
+# installation error. See https://github.com/bazelbuild/bazel/issues/3618
+rm -rf "${bazel_root}"
 mkdir -p "${bazel_root}"
 
 bazel_javabase="${jdk_dir}"
 
-echo "bazel binary is at $PATH_TO_BAZEL_WRAPPER"
+log_info "bazel binary is at $PATH_TO_BAZEL_WRAPPER"
 
 # Here we unset variable that were set by the invoking Blaze instance
 unset JAVA_RUNFILES
@@ -395,8 +409,8 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  [ -e third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar ] \
-    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar
+  [ -e third_party/java/jdk/langtools/javac-9-dev-r4023-3.jar ] \
+    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r4023-3.jar
 
   touch WORKSPACE
 }
@@ -404,14 +418,29 @@ function create_new_workspace() {
 # Set-up a clean default workspace.
 function setup_clean_workspace() {
   export WORKSPACE_DIR=${TEST_TMPDIR}/workspace
-  echo "setting up client in ${WORKSPACE_DIR}" > $TEST_log
+  log_info "setting up client in ${WORKSPACE_DIR}" >> $TEST_log
   rm -fr ${WORKSPACE_DIR}
   create_new_workspace ${WORKSPACE_DIR}
-  [ "${new_workspace_dir}" = "${WORKSPACE_DIR}" ] || \
-    { echo "Failed to create workspace" >&2; exit 1; }
-  export BAZEL_INSTALL_BASE=$(bazel info install_base)
-  export BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles)
-  export BAZEL_BIN_DIR=$(bazel info bazel-bin)
+  [ "${new_workspace_dir}" = "${WORKSPACE_DIR}" ] \
+    || log_fatal "Failed to create workspace"
+
+  # On macOS, mktemp expects the template to have the Xs at the end.
+  # On Linux, the Xs may be anywhere.
+  local -r bazel_stdout="$(mktemp "${TEST_TMPDIR}/XXXXXXXX")"
+  local -r bazel_stderr="${bazel_stdout}.err"
+  # On Windows, we mustn't run Bazel in a subshell because of
+  # https://github.com/bazelbuild/bazel/issues/3148.
+  bazel info install_base >"$bazel_stdout" 2>"$bazel_stderr" \
+    && export BAZEL_INSTALL_BASE=$(cat "$bazel_stdout") \
+    || log_fatal "'bazel info install_base' failed, stderr: $(cat "$bazel_stderr")"
+  bazel info bazel-genfiles >"$bazel_stdout" 2>"$bazel_stderr" \
+    && export BAZEL_GENFILES_DIR=$(cat "$bazel_stdout") \
+    || log_fatal "'bazel info bazel-genfiles' failed, stderr: $(cat "$bazel_stderr")"
+  bazel info bazel-bin >"$bazel_stdout" 2>"$bazel_stderr" \
+    && export BAZEL_BIN_DIR=$(cat "$bazel_stdout") \
+    || log_fatal "'bazel info bazel-bin' failed, stderr: $(cat "$bazel_stderr")"
+  rm -f "$bazel_stdout" "$bazel_stderr"
+
   if is_windows; then
     export BAZEL_SH="$(cygpath --windows /bin/bash)"
   fi
@@ -421,11 +450,11 @@ function setup_clean_workspace() {
 # from a clean workspace
 function cleanup_workspace() {
   if [ -d "${WORKSPACE_DIR:-}" ]; then
-    echo "Cleaning up workspace" > $TEST_log
+    log_info "Cleaning up workspace" >> $TEST_log
     cd ${WORKSPACE_DIR}
-    bazel clean >& $TEST_log # Clean up the output base
+    bazel clean >> $TEST_log 2>&1 # Clean up the output base
 
-    for i in $(ls); do
+    for i in *; do
       if ! is_tools_directory "$i"; then
         rm -fr "$i"
       fi
@@ -450,10 +479,10 @@ function cleanup() {
         break
       fi
       if (( i == 10 )) || (( i == 30 )) || (( i == 60 )) ; then
-        echo "Test cleanup: couldn't delete ${BAZEL_INSTALL_BASE} \ after $i seconds"
-        echo "(Timeout in $((120-i)) seconds.)"
-        sleep 1
+        log_info "Test cleanup: couldn't delete ${BAZEL_INSTALL_BASE} after $i seconds" \
+                 "(Timeout in $((120-i)) seconds.)"
       fi
+      sleep 1
     done
   fi
 }
@@ -477,7 +506,7 @@ function assert_build_output() {
 }
 
 function assert_build_fails() {
-  bazel build -s $1 >& $TEST_log \
+  bazel build -s $1 >> $TEST_log 2>&1 \
     && fail "Test $1 succeed while expecting failure" \
     || true
   if [ -n "${2:-}" ]; then
@@ -486,24 +515,24 @@ function assert_build_fails() {
 }
 
 function assert_test_ok() {
-  bazel test --test_output=errors $* >& $TEST_log \
+  bazel test --test_output=errors $* >> $TEST_log 2>&1 \
     || fail "Test $1 failed while expecting success"
 }
 
 function assert_test_fails() {
-  bazel test --test_output=errors $* >& $TEST_log \
+  bazel test --test_output=errors $* >> $TEST_log 2>&1 \
     && fail "Test $* succeed while expecting failure" \
     || true
   expect_log "$1.*FAILED"
 }
 
 function assert_binary_run() {
-  $1 >& $TEST_log || fail "Failed to run $1"
+  $1 >> $TEST_log 2>&1 || fail "Failed to run $1"
   [ -z "${2:-}" ] || expect_log "$2"
 }
 
 function assert_bazel_run() {
-  bazel run $1 >& $TEST_log || fail "Failed to run $1"
+  bazel run $1 >> $TEST_log 2>&1 || fail "Failed to run $1"
     [ -z "${2:-}" ] || expect_log "$2"
 
   assert_binary_run "./bazel-bin/$(echo "$1" | sed 's|^//||' | sed 's|:|/|')" "${2:-}"
@@ -516,6 +545,7 @@ setup_clean_workspace
 # Setting up the environment for our legacy integration tests.
 #
 PRODUCT_NAME=bazel
+TOOLS_REPOSITORY="@bazel_tools"
 WORKSPACE_NAME=main
 bazelrc=$TEST_TMPDIR/bazelrc
 

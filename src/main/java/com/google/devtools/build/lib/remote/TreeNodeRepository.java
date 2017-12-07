@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.remoteexecution.v1test.Digest;
@@ -189,10 +189,13 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
   private final Map<TreeNode, Directory> directoryCache = new HashMap<>();
   private final Map<VirtualActionInput, Digest> virtualInputDigestCache = new HashMap<>();
   private final Map<Digest, VirtualActionInput> digestVirtualInputCache = new HashMap<>();
+  private final DigestUtil digestUtil;
 
-  public TreeNodeRepository(Path execRoot, ActionInputFileCache inputFileCache) {
+  public TreeNodeRepository(
+      Path execRoot, ActionInputFileCache inputFileCache, DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.inputFileCache = inputFileCache;
+    this.digestUtil = digestUtil;
   }
 
   public ActionInputFileCache getInputFileCache() {
@@ -302,7 +305,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
           ActionInput input = child.getActionInput();
           if (input instanceof VirtualActionInput) {
             VirtualActionInput virtualInput = (VirtualActionInput) input;
-            Digest digest = Digests.computeDigest(virtualInput);
+            Digest digest = digestUtil.compute(virtualInput);
             virtualInputDigestCache.put(virtualInput, digest);
             // There may be multiple inputs with the same digest. In that case, we don't care which
             // one we get back from the digestVirtualInputCache later.
@@ -314,7 +317,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
           } else {
             b.addFilesBuilder()
                 .setName(entry.getSegment())
-                .setDigest(Digests.getDigestFromInputCache(input, inputFileCache))
+                .setDigest(DigestUtil.getFromInputCache(input, inputFileCache))
                 .setIsExecutable(execRoot.getRelative(input.getExecPathString()).isExecutable());
           }
         } else {
@@ -324,7 +327,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
       }
       directory = b.build();
       directoryCache.put(node, directory);
-      Digest digest = Digests.computeDigest(directory);
+      Digest digest = digestUtil.compute(directory);
       treeNodeDigestCache.put(node, digest);
       digestTreeNodeCache.put(digest, node);
     }
@@ -377,7 +380,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     if (input instanceof VirtualActionInput) {
       return Preconditions.checkNotNull(virtualInputDigestCache.get(input));
     }
-    return Digests.getDigestFromInputCache(input, inputFileCache);
+    return DigestUtil.getFromInputCache(input, inputFileCache);
   }
 
   /**

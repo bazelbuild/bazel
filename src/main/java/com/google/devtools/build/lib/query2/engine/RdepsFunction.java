@@ -51,10 +51,6 @@ public final class RdepsFunction extends AllRdepsFunction {
         .add(ArgumentType.EXPRESSION).addAll(super.getArgumentTypes()).build();
   }
 
-  /**
-   * Compute the transitive closure of the universe, then breadth-first search from the argument
-   * towards the universe while staying within the transitive closure.
-   */
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
@@ -62,6 +58,23 @@ public final class RdepsFunction extends AllRdepsFunction {
       final QueryExpression expression,
       final List<Argument> args,
       final Callback<T> callback) {
+    boolean isDepthUnbounded = args.size() == 2;
+    return (isDepthUnbounded && env instanceof StreamableQueryEnvironment)
+        ? ((StreamableQueryEnvironment<T>) env)
+            .getRdepsUnboundedInUniverseParallel(expression, context, args, callback)
+        : evalWithBoundedDepth(env, context, expression, args, callback);
+  }
+
+  /**
+   * Compute the transitive closure of the universe, then breadth-first search from the argument
+   * towards the universe while staying within the transitive closure.
+   */
+  public static <T> QueryTaskFuture<Void> evalWithBoundedDepth(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      final List<Argument> args,
+      Callback<T> callback) {
     QueryTaskFuture<ThreadSafeMutableSet<T>> universeValueFuture =
         QueryUtil.evalAll(env, context, args.get(0).getExpression());
     Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> evalInUniverseAsyncFunction =
@@ -75,9 +88,11 @@ public final class RdepsFunction extends AllRdepsFunction {
           } catch (QueryException e) {
             return env.immediateFailedFuture(e);
           }
-          return RdepsFunction.this.eval(
+
+          return AllRdepsFunction.evalRdeps(
               env, context, args.subList(1, args.size()), callback, Optional.of(universe));
         };
+
     return env.transformAsync(universeValueFuture, evalInUniverseAsyncFunction);
   }
 }

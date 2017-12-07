@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 
 /**
  * This event is fired during the build, when a middleman action is executed. Middleman actions

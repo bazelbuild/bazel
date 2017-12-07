@@ -17,7 +17,9 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -68,7 +70,14 @@ void LegacyProcessWrapper::WaitForChild() {
     SetTimeout(opt.timeout_secs);
   }
 
-  int status = WaitChild(child_pid);
+  int status;
+  if (!opt.stats_path.empty()) {
+    struct rusage child_rusage;
+    status = WaitChildWithRusage(child_pid, &child_rusage);
+    WriteStatsToFile(&child_rusage, opt.stats_path);
+  } else {
+    status = WaitChild(child_pid);
+  }
 
   // The child is done for, but may have grandchildren that we still have to
   // kill.

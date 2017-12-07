@@ -16,14 +16,14 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 
 /** An implementation of the {@code android_host_service_fixture} rule. */
@@ -52,7 +52,7 @@ public class AndroidHostServiceFixture implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             new AndroidHostServiceFixtureInfoProvider(
                 executable.getExecutable(),
-                ruleContext.getTokenizedStringListAttr("service_names"),
+                ruleContext.getExpander().withDataLocations().tokenized("service_names"),
                 AndroidCommon.getSupportApks(ruleContext),
                 ruleContext.attributes().get("provides_test_args", Type.BOOLEAN),
                 ruleContext.attributes().get("daemon", Type.BOOLEAN)))

@@ -20,10 +20,11 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
+import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedList;
 import java.util.List;
 import org.junit.Test;
@@ -48,7 +49,7 @@ public class ParserTest extends EvaluationTestCase {
 
   /** Parses Skylark code */
   private List<Statement> parseFileForSkylark(String... input) {
-    BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
+    BuildFileAST ast = BuildFileAST.parseString(getEventHandler(), input);
     ast = ast.validate(env, getEventHandler());
     return ast.getStatements();
   }
@@ -174,10 +175,13 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testFuncallExpr() throws Exception {
-    FuncallExpression e = (FuncallExpression) parseExpression("foo(1, 2, bar=wiz)");
+    FuncallExpression e = (FuncallExpression) parseExpression("foo[0](1, 2, bar=wiz)");
 
-    Identifier ident = e.getFunction();
-    assertThat(ident.getName()).isEqualTo("foo");
+    IndexExpression function = (IndexExpression) e.getFunction();
+    Identifier functionList = (Identifier) function.getObject();
+    assertThat(functionList.getName()).isEqualTo("foo");
+    IntegerLiteral listIndex = (IntegerLiteral) function.getKey();
+    assertThat(listIndex.getValue()).isEqualTo(0);
 
     assertThat(e.getArguments()).hasSize(3);
     assertThat(e.getNumPositionalArguments()).isEqualTo(2);
@@ -199,8 +203,8 @@ public class ParserTest extends EvaluationTestCase {
     FuncallExpression e =
       (FuncallExpression) parseExpression("foo.foo(1, 2, bar=wiz)");
 
-    Identifier ident = e.getFunction();
-    assertThat(ident.getName()).isEqualTo("foo");
+    DotExpression dotExpression = (DotExpression) e.getFunction();
+    assertThat(dotExpression.getField().getName()).isEqualTo("foo");
 
     assertThat(e.getArguments()).hasSize(3);
     assertThat(e.getNumPositionalArguments()).isEqualTo(2);
@@ -222,8 +226,8 @@ public class ParserTest extends EvaluationTestCase {
     FuncallExpression e =
       (FuncallExpression) parseExpression("foo.replace().split(1)");
 
-    Identifier ident = e.getFunction();
-    assertThat(ident.getName()).isEqualTo("split");
+    DotExpression dotExpr = (DotExpression) e.getFunction();
+    assertThat(dotExpr.getField().getName()).isEqualTo("split");
 
     assertThat(e.getArguments()).hasSize(1);
     assertThat(e.getNumPositionalArguments()).isEqualTo(1);
@@ -244,8 +248,8 @@ public class ParserTest extends EvaluationTestCase {
   public void testStringMethExpr() throws Exception {
     FuncallExpression e = (FuncallExpression) parseExpression("'foo'.foo()");
 
-    Identifier ident = e.getFunction();
-    assertThat(ident.getName()).isEqualTo("foo");
+    DotExpression dotExpression = (DotExpression) e.getFunction();
+    assertThat(dotExpression.getField().getName()).isEqualTo("foo");
 
     assertThat(e.getArguments()).isEmpty();
   }
@@ -287,15 +291,16 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testSubstring() throws Exception {
     SliceExpression s = (SliceExpression) parseExpression("'FOO.CC'[:].lower()[1:]");
-    assertThat(((IntegerLiteral) s.getStart()).value).isEqualTo(1);
+    assertThat(((IntegerLiteral) s.getStart()).getValue()).isEqualTo(1);
 
     FuncallExpression e = (FuncallExpression) parseExpression(
         "'FOO.CC'.lower()[1:].startswith('oo')");
-    assertThat(e.getFunction().getName()).isEqualTo("startswith");
+    DotExpression dotExpression = (DotExpression) e.getFunction();
+    assertThat(dotExpression.getField().getName()).isEqualTo("startswith");
     assertThat(e.getArguments()).hasSize(1);
 
     s = (SliceExpression) parseExpression("'FOO.CC'[1:][:2]");
-    assertThat(((IntegerLiteral) s.getEnd()).value).isEqualTo(2);
+    assertThat(((IntegerLiteral) s.getEnd()).getValue()).isEqualTo(2);
   }
 
   @Test
@@ -336,7 +341,7 @@ public class ParserTest extends EvaluationTestCase {
 
     // Test that the actual parameters are: (1, $error$, 3):
 
-    Identifier ident = e.getFunction();
+    Identifier ident = (Identifier) e.getFunction();
     assertThat(ident.getName()).isEqualTo("f");
 
     assertThat(e.getArguments()).hasSize(3);
@@ -351,7 +356,7 @@ public class ParserTest extends EvaluationTestCase {
 
     assertLocation(5, 29, arg1val.getLocation());
     assertThat(expr.substring(5, 28)).isEqualTo("[x for foo foo foo foo]");
-    assertThat(arg1val.getLocation().getEndLineAndColumn().getColumn()).isEqualTo(30);
+    assertThat(arg1val.getLocation().getEndLineAndColumn().getColumn()).isEqualTo(29);
 
     IntegerLiteral arg2 = (IntegerLiteral) e.getArguments().get(2).getValue();
     assertThat((int) arg2.getValue()).isEqualTo(3);
@@ -475,6 +480,14 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testEndLineAndColumnIsInclusive() {
+    AssignmentStatement stmt =
+        (AssignmentStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, "a = b");
+    assertThat(stmt.getLValue().getLocation().getEndLineAndColumn())
+        .isEqualTo(new LineAndColumn(1, 1));
+  }
+
+  @Test
   public void testFuncallLocation() {
     List<Statement> statements = parseFile("a(b);c = d\n");
     Statement statement = statements.get(0);
@@ -484,8 +497,8 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testListPositions() throws Exception {
     String expr = "[0,f(1),2]";
+    assertExpressionLocationCorrect(expr);
     ListLiteral list = (ListLiteral) parseExpression(expr);
-    assertThat(getText(expr, list)).isEqualTo("[0,f(1),2]");
     assertThat(getText(expr, getElem(list, 0))).isEqualTo("0");
     assertThat(getText(expr, getElem(list, 1))).isEqualTo("f(1)");
     assertThat(getText(expr, getElem(list, 2))).isEqualTo("2");
@@ -494,8 +507,8 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testDictPositions() throws Exception {
     String expr = "{1:2,2:f(1),3:4}";
+    assertExpressionLocationCorrect(expr);
     DictionaryLiteral list = (DictionaryLiteral) parseExpression(expr);
-    assertThat(getText(expr, list)).isEqualTo("{1:2,2:f(1),3:4}");
     assertThat(getText(expr, getElem(list, 0))).isEqualTo("1:2");
     assertThat(getText(expr, getElem(list, 1))).isEqualTo("2:f(1)");
     assertThat(getText(expr, getElem(list, 2))).isEqualTo("3:4");
@@ -503,12 +516,86 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testArgumentPositions() throws Exception {
-    String stmt = "f(0,g(1,2),2)";
-    FuncallExpression f = (FuncallExpression) parseExpression(stmt);
-    assertThat(getText(stmt, f)).isEqualTo(stmt);
-    assertThat(getText(stmt, getArg(f, 0))).isEqualTo("0");
-    assertThat(getText(stmt, getArg(f, 1))).isEqualTo("g(1,2)");
-    assertThat(getText(stmt, getArg(f, 2))).isEqualTo("2");
+    String expr = "f(0,g(1,2),2)";
+    assertExpressionLocationCorrect(expr);
+    FuncallExpression f = (FuncallExpression) parseExpression(expr);
+    assertThat(getText(expr, getArg(f, 0))).isEqualTo("0");
+    assertThat(getText(expr, getArg(f, 1))).isEqualTo("g(1,2)");
+    assertThat(getText(expr, getArg(f, 2))).isEqualTo("2");
+  }
+
+  @Test
+  public void testSuffixPosition() throws Exception {
+    assertExpressionLocationCorrect("'a'.len");
+    assertExpressionLocationCorrect("'a'[0]");
+    assertExpressionLocationCorrect("'a'[0:1]");
+  }
+
+  @Test
+  public void testTuplePosition() throws Exception {
+    String input = "for a,b in []: pass";
+    ForStatement stmt = (ForStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, input);
+    assertThat(getText(input, stmt.getVariable())).isEqualTo("a,b");
+    input = "for (a,b) in []: pass";
+    stmt = (ForStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, input);
+    assertThat(getText(input, stmt.getVariable())).isEqualTo("(a,b)");
+    assertExpressionLocationCorrect("a, b");
+    assertExpressionLocationCorrect("(a, b)");
+  }
+
+  @Test
+  public void testComprehensionPosition() throws Exception {
+    assertExpressionLocationCorrect("[[] for x in []]");
+    assertExpressionLocationCorrect("{1: [] for x in []}");
+  }
+
+  @Test
+  public void testUnaryOperationPosition() throws Exception {
+    assertExpressionLocationCorrect("not True");
+  }
+
+  @Test
+  public void testLoadStatementPosition() throws Exception {
+    String input = "load(':foo.bzl', 'bar')";
+    LoadStatement stmt = (LoadStatement) parseFile(input).get(0);
+    assertThat(getText(input, stmt)).isEqualTo(input);
+    // Also try it with another token at the end (newline), which broke the location in the past.
+    stmt = (LoadStatement) parseFile(input + "\n").get(0);
+    assertThat(getText(input, stmt)).isEqualTo(input);
+  }
+
+  @Test
+  public void testIfStatementPosition() throws Exception {
+    assertStatementLocationCorrect(ParsingLevel.LOCAL_LEVEL, "if True:\n  pass");
+    assertStatementLocationCorrect(
+        ParsingLevel.LOCAL_LEVEL, "if True:\n  pass\nelif True:\n  pass");
+    assertStatementLocationCorrect(ParsingLevel.LOCAL_LEVEL, "if True:\n  pass\nelse:\n  pass");
+  }
+
+  @Test
+  public void testForStatementPosition() throws Exception {
+    assertStatementLocationCorrect(ParsingLevel.LOCAL_LEVEL, "for x in []:\n  pass");
+  }
+
+  @Test
+  public void testDefStatementPosition() throws Exception {
+    assertStatementLocationCorrect(ParsingLevel.TOP_LEVEL, "def foo():\n  pass");
+  }
+
+  private void assertStatementLocationCorrect(ParsingLevel level, String stmtStr) {
+    Statement stmt = parseStatement(level, stmtStr);
+    assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
+    // Also try it with another token at the end (newline), which broke the location in the past.
+    stmt = parseStatement(level, stmtStr + "\n");
+    assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
+  }
+
+  private void assertExpressionLocationCorrect(String exprStr) {
+    Expression expr = parseExpression(exprStr);
+    assertThat(getText(exprStr, expr)).isEqualTo(exprStr);
+    // Also try it with another token at the end (newline), which broke the location in the past.
+    expr = parseExpression(exprStr + "\n");
+    assertThat(getText(exprStr, expr)).isEqualTo(exprStr);
   }
 
   @Test
@@ -523,7 +610,7 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> body = ((FunctionDefStatement) file.get(0)).getStatements();
     assertThat(body).hasSize(1);
 
-    List<Statement> loop = ((ForStatement) body.get(0)).block();
+    List<Statement> loop = ((ForStatement) body.get(0)).getBlock();
     assertThat(loop).hasSize(3);
 
     assertThat(((FlowStatement) loop.get(0)).getKind()).isEqualTo(FlowStatement.Kind.BREAK);
@@ -910,22 +997,6 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testFunctionDefinitionErrorRecovery() throws Exception {
-    // Parser skips over entire function definitions, and reports a meaningful
-    // error.
-    setFailFast(false);
-    List<Statement> stmts = parseFile(
-        "x = 1;\n"
-        + "def foo(x, y, **z):\n"
-        + "  # a comment\n"
-        + "  x = 2\n"
-        + "  foo(bar)\n"
-        + "  return z\n"
-        + "x = 3");
-    assertThat(stmts).hasSize(2);
-  }
-
-  @Test
   public void testDefSingleLine() throws Exception {
     List<Statement> statements = parseFileForSkylark(
         "def foo(): x = 1; y = 2\n");
@@ -936,7 +1007,8 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testPass() throws Exception {
     List<Statement> statements = parseFileForSkylark("pass\n");
-    assertThat(statements).isEmpty();
+    assertThat(statements).hasSize(1);
+    assertThat(statements.get(0)).isInstanceOf(PassStatement.class);
   }
 
   @Test
@@ -947,20 +1019,7 @@ public class ParserTest extends EvaluationTestCase {
 
     assertThat(statements).hasSize(1);
     FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
-    assertThat(stmt.getStatements()).isEmpty();
-  }
-
-  @Test
-  public void testSkipIfBlockFail() throws Exception {
-    // Do not parse 'if' blocks, when parsePython is not set
-    setFailFast(false);
-    List<Statement> stmts = parseFile(
-        "x = 1;",
-        "if x == 1:",
-        "  x = 2",
-        "x = 3;\n");
-    assertThat(stmts).hasSize(2);
-    assertContainsError("This is not supported in BUILD files");
+    assertThat(stmt.getStatements().get(0)).isInstanceOf(PassStatement.class);
   }
 
   @Test
@@ -996,12 +1055,7 @@ public class ParserTest extends EvaluationTestCase {
       assertThat(bodyNoExpr).hasSize(1);
 
       ReturnStatement returnNoExpr = (ReturnStatement) bodyNoExpr.get(0);
-      Identifier none = (Identifier) returnNoExpr.getReturnExpression();
-      assertThat(none.getName()).isEqualTo("None");
-      assertLocation(
-          returnNoExpr.getLocation().getStartOffset(),
-          returnNoExpr.getLocation().getEndOffset(),
-          none.getLocation());
+      assertThat(returnNoExpr.getReturnExpression()).isNull();
     }
   }
 
@@ -1031,26 +1085,6 @@ public class ParserTest extends EvaluationTestCase {
     setFailFast(false);
     parseFile("f(1, 5, ,)\n");
     assertContainsError("syntax error");
-  }
-
-  @Test
-  public void testValidAbsoluteImportPath() throws SkylarkImportSyntaxException {
-    String importString = "/some/skylark/file";
-    List<Statement> statements =
-        parseFileForSkylark("load('" + importString + "', 'fun_test')\n");
-    LoadStatement stmt = (LoadStatement) statements.get(0);
-    SkylarkImport imp = SkylarkImports.create(stmt.getImport().getValue());
-
-    assertThat(imp.getImportString()).named("getImportString()").isEqualTo("/some/skylark/file");
-    assertThat(imp.hasAbsolutePath()).named("hasAbsolutePath()").isTrue();
-    assertThat(imp.getAbsolutePath()).named("getAbsolutePath()")
-        .isEqualTo(PathFragment.create("/some/skylark/file.bzl"));
-
-    int startOffset = stmt.getImport().getLocation().getStartOffset();
-    int endOffset = stmt.getImport().getLocation().getEndOffset();
-    assertThat(startOffset).named("getStartOffset()").isEqualTo(5);
-    assertThat(endOffset).named("getEndOffset()")
-        .isEqualTo(startOffset + importString.length() + 2);
   }
 
   private void validNonAbsoluteImportTest(String importString, String containingFileLabelString,
@@ -1398,7 +1432,7 @@ public class ParserTest extends EvaluationTestCase {
         "def func(a):",
         // no if
         "  else: return a");
-    assertContainsError("syntax error at 'else': not allowed here.");
+    assertContainsError("syntax error at 'else': expected expression");
   }
 
   @Test
@@ -1409,42 +1443,36 @@ public class ParserTest extends EvaluationTestCase {
         "  for i in range(a):",
         "    print(i)",
         "  else: return a");
-    assertContainsError("syntax error at 'else': not allowed here.");
+    assertContainsError("syntax error at 'else': expected expression");
   }
 
   @Test
   public void testTryStatementInBuild() throws Exception {
     setFailFast(false);
     parseFile("try: pass");
-    assertContainsError("syntax error at 'try': Try statements are not supported.");
-  }
-
-  @Test
-  public void testTryStatementInSkylark() throws Exception {
-    setFailFast(false);
-    parseFileForSkylark("try: pass");
-    assertContainsError("syntax error at 'try': Try statements are not supported.");
+    assertContainsError("'try' not supported, all exceptions are fatal");
   }
 
   @Test
   public void testClassDefinitionInBuild() throws Exception {
     setFailFast(false);
-    parseFile("class test(object): pass");
-    assertContainsError("syntax error at 'class': Class definitions are not supported.");
+    parseFileWithComments("class test(object): pass");
+    assertContainsError("keyword 'class' not supported");
   }
 
   @Test
   public void testClassDefinitionInSkylark() throws Exception {
     setFailFast(false);
     parseFileForSkylark("class test(object): pass");
-    assertContainsError("syntax error at 'class': Class definitions are not supported.");
+    assertContainsError("keyword 'class' not supported");
   }
 
   @Test
   public void testDefInBuild() throws Exception {
     setFailFast(false);
-    parseFile("def func(): pass");
+    BuildFileAST result = parseFileWithComments("def func(): pass");
     assertContainsError("syntax error at 'def': This is not supported in BUILD files. "
         + "Move the block to a .bzl file and load it");
+    assertThat(result.containsErrors()).isTrue();
   }
 }

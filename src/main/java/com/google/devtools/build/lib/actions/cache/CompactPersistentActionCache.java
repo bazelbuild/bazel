@@ -15,15 +15,15 @@ package com.google.devtools.build.lib.actions.cache;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.CompactStringIndexer;
 import com.google.devtools.build.lib.util.PersistentMap;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,9 +36,11 @@ import java.io.PrintStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 /**
@@ -66,7 +68,8 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static final int VERSION = 12;
 
-  private static final Logger LOG = Logger.getLogger(CompactPersistentActionCache.class.getName());
+  private static final Logger logger =
+      Logger.getLogger(CompactPersistentActionCache.class.getName());
 
   private final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
@@ -99,7 +102,7 @@ public class CompactPersistentActionCache implements ActionCache {
     @Override
     protected void markAsDirty() {
       try (AutoProfiler p =
-          AutoProfiler.logged("slow write to journal", LOG, MIN_TIME_FOR_LOGGING_MILLIS)) {
+          AutoProfiler.logged("slow write to journal", logger, MIN_TIME_FOR_LOGGING_MILLIS)) {
         super.markAsDirty();
       }
     }
@@ -154,8 +157,9 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private final PersistentMap<Integer, byte[]> map;
   private final PersistentStringIndexer indexer;
-  static final ActionCache.Entry CORRUPTED =
-      new ActionCache.Entry(null, ImmutableMap.<String, String>of(), false);
+
+  private final AtomicInteger hits = new AtomicInteger();
+  private final Map<MissReason, AtomicInteger> misses = new EnumMap<>(MissReason.class);
 
   public CompactPersistentActionCache(Path cacheRoot, Clock clock) throws IOException {
     Path cacheFile = cacheFile(cacheRoot);
@@ -186,6 +190,15 @@ public class CompactPersistentActionCache implements ActionCache {
         renameCorruptedFiles(cacheRoot);
         throw new IOException("Failed action cache referential integrity check: " + integrityError);
       }
+    }
+
+    for (MissReason reason : MissReason.values()) {
+      if (reason == MissReason.UNRECOGNIZED) {
+        // The presence of this enum value is a protobuf artifact and confuses our metrics
+        // externalization code below. Just skip it.
+        continue;
+      }
+      misses.put(reason, new AtomicInteger(0));
     }
   }
 
@@ -254,7 +267,7 @@ public class CompactPersistentActionCache implements ActionCache {
       return data != null ? CompactPersistentActionCache.decode(indexer, data) : null;
     } catch (IOException e) {
       // return entry marked as corrupted.
-      return CORRUPTED;
+      return ActionCache.Entry.CORRUPTED;
     }
   }
 
@@ -420,13 +433,47 @@ public class CompactPersistentActionCache implements ActionCache {
       if (source.remaining() > 0) {
         throw new IOException("serialized entry data has not been fully decoded");
       }
-      return new Entry(
+      return new ActionCache.Entry(
           actionKey,
           usedClientEnvDigest,
           count == NO_INPUT_DISCOVERY_COUNT ? null : builder.build(),
           md5Digest);
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
+    }
+  }
+
+  @Override
+  public void accountHit() {
+    hits.incrementAndGet();
+  }
+
+  @Override
+  public void accountMiss(MissReason reason) {
+    AtomicInteger counter = misses.get(reason);
+    Preconditions.checkNotNull(counter, "Miss reason %s was not registered in the misses map "
+        + "during cache construction", reason);
+    counter.incrementAndGet();
+  }
+
+  @Override
+  public void mergeIntoActionCacheStatistics(ActionCacheStatistics.Builder builder) {
+    builder.setHits(hits.get());
+
+    int totalMisses = 0;
+    for (Map.Entry<MissReason, AtomicInteger> entry : misses.entrySet()) {
+      int count = entry.getValue().get();
+      builder.addMissDetailsBuilder().setReason(entry.getKey()).setCount(count);
+      totalMisses += count;
+    }
+    builder.setMisses(totalMisses);
+  }
+
+  @Override
+  public void resetStatistics() {
+    hits.set(0);
+    for (Map.Entry<MissReason, AtomicInteger> entry : misses.entrySet()) {
+      entry.getValue().set(0);
     }
   }
 }

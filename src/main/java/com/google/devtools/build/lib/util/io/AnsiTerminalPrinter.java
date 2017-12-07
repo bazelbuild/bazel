@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.util.io;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -64,7 +63,7 @@ public class AnsiTerminalPrinter {
     }
   }
 
-  private static final Logger LOG = Logger.getLogger(AnsiTerminalPrinter.class.getName());
+  private static final Logger logger = Logger.getLogger(AnsiTerminalPrinter.class.getName());
   private static final EnumSet<Mode> MODES = EnumSet.allOf(Mode.class);
   private static final Pattern PATTERN = Pattern.compile(MODE_PATTERN);
 
@@ -149,7 +148,7 @@ public class AnsiTerminalPrinter {
     } catch (IOException e) {
       // AnsiTerminal state is now considered to be inconsistent - coloring
       // should be disabled to prevent future use of AnsiTerminal instance.
-      LOG.warning("Disabling coloring due to " + e.getMessage());
+      logger.warning("Disabling coloring due to " + e.getMessage());
       useColor = false;
     }
   }

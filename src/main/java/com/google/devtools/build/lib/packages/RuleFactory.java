@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -37,6 +37,8 @@ import javax.annotation.Nullable;
  * Given a {@link RuleClass} and a set of attribute values, returns a {@link Rule} instance. Also
  * performs a number of checks and associates the {@link Rule} and the owning {@link Package}
  * with each other.
+ *
+ * <p>This class is immutable, once created the set of managed {@link RuleClass}es will not change.
  *
  * <p>Note: the code that actually populates the RuleClass map has been moved to {@link
  * RuleClassProvider}.
@@ -249,7 +251,7 @@ public class RuleFactory {
    * A wrapper around an map of named attribute values that specifies whether the map's values
    * are of "build-language" or of "native" types.
    */
-  public interface AttributeValuesMap {
+  public interface AttributeValues<T> {
     /**
      * Returns {@code true} if all the map's values are "build-language typed", i.e., resulting
      * from the evaluation of an expression in the build language. Returns {@code false} if all
@@ -258,16 +260,16 @@ public class RuleFactory {
      */
     boolean valuesAreBuildLanguageTyped();
 
-    Iterable<String> getAttributeNames();
+    Iterable<T> getAttributeAccessors();
 
-    Object getAttributeValue(String attributeName);
-
-    boolean isAttributeExplicitlySpecified(String attributeName);
+    String getName(T attributeAccessor);
+    Object getValue(T attributeAccessor);
+    boolean isExplicitlySpecified(T attributeAccessor);
   }
 
-  /** A {@link AttributeValuesMap} of explicit "build-language" values. */
-  public static final class BuildLangTypedAttributeValuesMap implements AttributeValuesMap {
-
+  /** A {@link AttributeValues} of explicit "build-language" values. */
+  public static final class BuildLangTypedAttributeValuesMap
+      implements AttributeValues<Map.Entry<String, Object>> {
     private final Map<String, Object> attributeValues;
 
     public BuildLangTypedAttributeValuesMap(Map<String, Object> attributeValues) {
@@ -278,23 +280,32 @@ public class RuleFactory {
       return attributeValues.containsKey(attributeName);
     }
 
+    private Object getAttributeValue(String attributeName) {
+      return attributeValues.get(attributeName);
+    }
+
     @Override
     public boolean valuesAreBuildLanguageTyped() {
       return true;
     }
 
     @Override
-    public Iterable<String> getAttributeNames() {
-      return attributeValues.keySet();
+    public Iterable<Map.Entry<String, Object>> getAttributeAccessors() {
+      return attributeValues.entrySet();
     }
 
     @Override
-    public Object getAttributeValue(String attributeName) {
-      return attributeValues.get(attributeName);
+    public String getName(Map.Entry<String, Object> attributeAccessor) {
+      return attributeAccessor.getKey();
     }
 
     @Override
-    public boolean isAttributeExplicitlySpecified(String attributeName) {
+    public Object getValue(Map.Entry<String, Object> attributeAccessor) {
+      return attributeAccessor.getValue();
+    }
+
+    @Override
+    public boolean isExplicitlySpecified(Map.Entry<String, Object> attributeAccessor) {
       return true;
     }
   }
@@ -329,10 +340,11 @@ public class RuleFactory {
     FuncallExpression generator = topCall.first;
     BaseFunction function = topCall.second;
     String name = generator.getNameArg();
-    
+
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-    for (String attributeName : args.getAttributeNames()) {
-      builder.put(attributeName, args.getAttributeValue(attributeName));
+    for (Map.Entry<String, Object> attributeAccessor : args.getAttributeAccessors()) {
+      String attributeName = args.getName(attributeAccessor);
+      builder.put(attributeName, args.getValue(attributeAccessor));
     }
     builder.put("generator_name", (name == null) ? args.getAttributeValue("name") : name);
     builder.put("generator_function", function.getName());
@@ -374,7 +386,7 @@ public class RuleFactory {
     // rules created from function calls in a subincluded file, even if both files share a path
     // prefix (for example, when //a/package:BUILD subincludes //a/package/with/a/subpackage:BUILD).
     // We can revert to that approach once subincludes aren't supported anymore.
-    String absolutePath = Location.printPathAndLine(location);
+    String absolutePath = Location.printLocation(location);
     int pos = absolutePath.indexOf(label.getPackageName());
     return (pos < 0) ? null : absolutePath.substring(pos);
   }

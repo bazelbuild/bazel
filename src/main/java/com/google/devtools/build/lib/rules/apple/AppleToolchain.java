@@ -14,20 +14,17 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -106,6 +103,14 @@ public class AppleToolchain {
   }
 
   /**
+   * Returns the platform frameworks directory inside of Xcode for a given {@link ApplePlatform}.
+   */
+  public static String platformDeveloperFrameworkDir(ApplePlatform platform) {
+    String platformDir = platformDir(platform.getNameInPlist());
+    return platformDir + "/Developer/Library/Frameworks";
+  }
+
+  /**
    * Returns the platform frameworks directory inside of Xcode for a given configuration.
    */
   @SkylarkCallable(
@@ -113,18 +118,17 @@ public class AppleToolchain {
     doc = "Returns the platform frameworks directory inside of Xcode for a given configuration."
   )
   public static String platformDeveloperFrameworkDir(AppleConfiguration configuration) {
-    String platformDir = platformDir(configuration.getSingleArchPlatform().getNameInPlist());
-    return platformDir + "/Developer/Library/Frameworks";
+    return platformDeveloperFrameworkDir(configuration.getSingleArchPlatform());
   }
 
   /** Returns the SDK frameworks directory inside of Xcode for a given configuration. */
   public static String sdkFrameworkDir(
-      ApplePlatform targetPlatform, AppleConfiguration configuration) {
+      ApplePlatform targetPlatform, RuleContext ruleContext) {
     String relativePath;
     switch (targetPlatform) {
       case IOS_DEVICE:
       case IOS_SIMULATOR:
-        if (configuration.getSdkVersionForPlatform(targetPlatform)
+        if (XcodeConfig.getSdkVersionForPlatform(ruleContext, targetPlatform)
             .compareTo(DottedVersion.fromString("9.0")) >= 0) {
           relativePath = SYSTEM_FRAMEWORK_PATH;
         } else {
@@ -132,8 +136,6 @@ public class AppleToolchain {
         }
         break;
       case MACOS:
-        relativePath = DEVELOPER_FRAMEWORK_PATH;
-        break;
       case WATCHOS_DEVICE:
       case WATCHOS_SIMULATOR:
       case TVOS_DEVICE:
@@ -146,20 +148,13 @@ public class AppleToolchain {
     return sdkDir() + relativePath;
   }
 
-  /**
-   * The default label of the build-wide {@code xcode_config} configuration rule.
-   */
-  @Immutable
-  public static final class XcodeConfigLabel extends LateBoundLabel<BuildConfiguration> {
-    public XcodeConfigLabel(String toolsRepository) {
-      super(toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL,
-          AppleConfiguration.class);
-    }
-
-    @Override
-    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-      return configuration.getFragment(AppleConfiguration.class).getXcodeConfigLabel();
-    }
+  /** The default label of the build-wide {@code xcode_config} configuration rule. */
+  public static LateBoundDefault<?, Label> getXcodeConfigLabel(String toolsRepository) {
+    return LateBoundDefault.fromTargetConfiguration(
+        AppleConfiguration.class,
+        Label.parseAbsoluteUnchecked(
+            toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL),
+        (rule, attributes, appleConfig) -> appleConfig.getXcodeConfigLabel());
   }
 
   /**
@@ -175,12 +170,12 @@ public class AppleToolchain {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":xcode_config", LABEL)
-              .allowedRuleClasses("xcode_config")
-              .checkConstraints()
-              .direct_compile_time_input()
-              .cfg(HOST)
-              .value(new XcodeConfigLabel(toolsRepository)))
+          .add(
+              attr(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)
+                  .allowedRuleClasses("xcode_config")
+                  .checkConstraints()
+                  .direct_compile_time_input()
+                  .value(getXcodeConfigLabel(toolsRepository)))
           .build();
     }
     @Override

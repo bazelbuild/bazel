@@ -270,47 +270,76 @@ public class SplitZipTest {
   }
 
   @Test
-  public void testSplitInTwo() {
-    try {
-      new ZipFileBuilder()
-          .add("pkg1/test1.class", "hello world")
-          .add("pkg2/test1.class", "hello world")
-          .add("pkg1/test2.class", "how are you")
-          .add("pkg2/test2.class", "how are you")
-          .add("pkg1/test3.class", "bye bye")
-          .add("pkg2/test3.class", "bye bye")
-          .create("input.jar");
+  public void testSplitOnPackageBoundary() throws IOException {
+    new ZipFileBuilder()
+        .add("pkg1/test1.class", "hello world")
+        .add("pkg2/test1.class", "hello world")
+        .add("pkg1/test2.class", "how are you")
+        .add("pkg2/test2.class", "how are you")
+        // no third file in pkg1 to test splitting early on package boundary
+        .add("pkg2/test3.class", "bye bye")
+        .create("input.jar");
 
-      new SplitZip()
-          .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard1.jar", false),
-              "out/shard1.jar"))
-          .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard2.jar", false),
-              "out/shard2.jar"))
-          .setVerbose(true)
-          .addInput(new ZipIn(fileSystem.getInputChannel("input.jar"), "input.jar"))
-          .run()
-          .close();
+    new SplitZip()
+        .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard1.jar", false),
+            "out/shard1.jar"))
+        .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard2.jar", false),
+            "out/shard2.jar"))
+        .setVerbose(true)
+        .addInput(new ZipIn(fileSystem.getInputChannel("input.jar"), "input.jar"))
+        .run()
+        .close();
 
-      new ZipFileBuilder()
-          .add("pkg1/test1.class", "hello world")
-          .add("pkg1/test2.class", "how are you")
-          .add("pkg1/test3.class", "bye bye")
-          .create("expected/shard1.jar");
-      new ZipFileBuilder()
-          .add("pkg2/test1.class", "hello world")
-          .add("pkg2/test2.class", "how are you")
-          .add("pkg2/test3.class", "bye bye")
-          .create("expected/shard2.jar");
+    new ZipFileBuilder()
+        .add("pkg1/test1.class", "hello world")
+        .add("pkg1/test2.class", "how are you")
+        .create("expected/shard1.jar");
+    new ZipFileBuilder()
+        .add("pkg2/test1.class", "hello world")
+        .add("pkg2/test2.class", "how are you")
+        .add("pkg2/test3.class", "bye bye")
+        .create("expected/shard2.jar");
 
-      assertThat(fileSystem.toByteArray("out/shard1.jar"))
-          .isEqualTo(fileSystem.toByteArray("expected/shard1.jar"));
+    assertThat(fileSystem.toByteArray("out/shard1.jar")).named("shard1")
+        .isEqualTo(fileSystem.toByteArray("expected/shard1.jar"));
 
-      assertThat(fileSystem.toByteArray("out/shard2.jar"))
-          .isEqualTo(fileSystem.toByteArray("expected/shard2.jar"));
+    assertThat(fileSystem.toByteArray("out/shard2.jar")).named("shard2")
+        .isEqualTo(fileSystem.toByteArray("expected/shard2.jar"));
+  }
 
-    } catch (IOException e) {
-      fail("Exception: " + e);
-    }
+  @Test
+  public void testSplitSinglePackageInTwo() throws IOException {
+    new ZipFileBuilder()
+        .add("a.class", "hello world")
+        .add("b.class", "how are you")
+        .add("c.class", "bye bye")
+        .add("d.class", "good night")
+        .create("input.jar");
+
+    new SplitZip()
+        .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard1.jar", false),
+            "out/shard1.jar"))
+        .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard2.jar", false),
+            "out/shard2.jar"))
+        .setVerbose(true)
+        .addInput(new ZipIn(fileSystem.getInputChannel("input.jar"), "input.jar"))
+        .run()
+        .close();
+
+    new ZipFileBuilder()
+        .add("a.class", "hello world")
+        .add("b.class", "how are you")
+        .create("expected/shard1.jar");
+    new ZipFileBuilder()
+        .add("c.class", "bye bye")
+        .add("d.class", "good night")
+        .create("expected/shard2.jar");
+
+    assertThat(fileSystem.toByteArray("out/shard1.jar")).named("shard1")
+        .isEqualTo(fileSystem.toByteArray("expected/shard1.jar"));
+
+    assertThat(fileSystem.toByteArray("out/shard2.jar")).named("shard2")
+        .isEqualTo(fileSystem.toByteArray("expected/shard2.jar"));
   }
 
   @Test

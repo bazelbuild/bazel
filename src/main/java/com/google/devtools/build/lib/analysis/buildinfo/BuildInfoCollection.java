@@ -29,8 +29,7 @@ public final class BuildInfoCollection {
 
   public BuildInfoCollection(List<? extends ActionAnalysisMetadata> actions,
       List<Artifact> stampedBuildInfo, List<Artifact> redactedBuildInfo) {
-    // Do not remove <Action>: workaround for Java 7 type inference.
-    this.actions = ImmutableList.<ActionAnalysisMetadata>copyOf(actions);
+    this.actions = ImmutableList.copyOf(actions);
     this.stampedBuildInfo = ImmutableList.copyOf(stampedBuildInfo);
     this.redactedBuildInfo = ImmutableList.copyOf(redactedBuildInfo);
   }

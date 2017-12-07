@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -37,6 +38,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CreateIncSymlinkActionTest extends FoundationTestCase {
 
+  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
+
   @Test
   public void testDifferentOrderSameActionKey() throws Exception {
     Root root = Root.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out"));
@@ -53,7 +56,8 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     d = new Artifact(PathFragment.create("d"), root);
     CreateIncSymlinkAction action2 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
         ImmutableMap.of(c, d, a, b), root.getPath());
-    assertThat(action2.computeKey()).isEqualTo(action1.computeKey());
+    assertThat(action2.computeKey(actionKeyContext))
+        .isEqualTo(action1.computeKey(actionKeyContext));
   }
 
   @Test
@@ -68,7 +72,8 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     b = new Artifact(PathFragment.create("c"), root);
     CreateIncSymlinkAction action2 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
         ImmutableMap.of(a, b), root.getPath());
-    assertThat(action2.computeKey()).isNotEqualTo(action1.computeKey());
+    assertThat(action2.computeKey(actionKeyContext))
+        .isNotEqualTo(action1.computeKey(actionKeyContext));
   }
 
   @Test
@@ -83,7 +88,8 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     b = new Artifact(PathFragment.create("b"), root);
     CreateIncSymlinkAction action2 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
         ImmutableMap.of(a, b), root.getPath());
-    assertThat(action2.computeKey()).isNotEqualTo(action1.computeKey());
+    assertThat(action2.computeKey(actionKeyContext))
+        .isNotEqualTo(action1.computeKey(actionKeyContext));
   }
 
   @Test
@@ -116,7 +122,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Path extra = rootDirectory.getRelative("out/extra");
     extra.getOutputStream().close();
     assertThat(extra.exists()).isTrue();
-    action.prepare(rootDirectory);
+    action.prepare(fileSystem, rootDirectory);
     assertThat(extra.exists()).isFalse();
   }
 }

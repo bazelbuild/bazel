@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
@@ -186,7 +186,7 @@ public final class EvalUtils {
       return parent;
     }
     Preconditions.checkArgument(SkylarkValue.class.isAssignableFrom(c),
-        "%s is not allowed as a Skylark value", c);
+        "%s is not allowed as a Skylark value (getSkylarkType() failed)", c);
     return c;
   }
 
@@ -251,7 +251,7 @@ public final class EvalUtils {
       return "select";
     } else if (NestedSet.class.isAssignableFrom(c)) {
       // TODO(bazel-team): no one should be seeing naked NestedSet at all.
-      return "set";
+      return "depset";
     } else {
       if (c.getSimpleName().isEmpty()) {
         return c.getName();
@@ -274,7 +274,7 @@ public final class EvalUtils {
   }
 
   /**
-   * @return the truth value of an object, according to Python rules.
+   * Returns the truth value of an object, according to Python rules.
    * http://docs.python.org/2/library/stdtypes.html#truth-value-testing
    */
   public static boolean toBoolean(Object o) {
@@ -334,7 +334,7 @@ public final class EvalUtils {
 
   private static Collection<?> nestedSetToCollection(
       SkylarkNestedSet set, Location loc, @Nullable Environment env) throws EvalException {
-    if (env != null && env.getSemantics().incompatibleDepsetIsNotIterable) {
+    if (env != null && env.getSemantics().incompatibleDepsetIsNotIterable()) {
       throw new EvalException(
           loc,
           "type 'depset' is not iterable. Use the `to_list()` method to get a list. Use "
@@ -348,7 +348,7 @@ public final class EvalUtils {
     if (o instanceof String) {
       // This is not as efficient as special casing String in for and dict and list comprehension
       // statements. However this is a more unified way.
-      return split((String) o);
+      return split((String) o, loc, env);
     } else if (o instanceof SkylarkNestedSet) {
       return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
     } else if (o instanceof Iterable) {
@@ -401,7 +401,15 @@ public final class EvalUtils {
     }
   }
 
-  private static ImmutableList<String> split(String value) {
+  private static ImmutableList<String> split(String value, Location loc, @Nullable Environment env)
+      throws EvalException {
+    if (env != null && env.getSemantics().incompatibleStringIsNotIterable()) {
+      throw new EvalException(
+          loc,
+          "type 'string' is not iterable. You may still use `len` and string indexing. Use "
+              + "--incompatible_string_is_not_iterable=false to temporarily disable this check.");
+    }
+
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
     for (char c : value.toCharArray()) {
       builder.add(String.valueOf(c));
@@ -583,6 +591,6 @@ public final class EvalUtils {
         b.put(key, value);
       }
     }
-    return SkylarkDict.<K, V>copyOf(env, b.build());
+    return SkylarkDict.copyOf(env, b.build());
   }
 }

@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -93,10 +93,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
     @Option(
       name = "internal_option",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "super secret",
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+      metadataTags = {OptionMetadataTag.INTERNAL}
     )
     public String optwithDefault;
   }
@@ -239,9 +239,11 @@ public class ConfigSettingTest extends BuildViewTestCase {
    */
   @Test
   public void emptySettings() throws Exception {
-    checkError("foo", "empty",
+    checkError(
+        "foo",
+        "empty",
         "in config_setting rule //foo:empty: "
-        + "Either values or flag_values must be specified and non-empty",
+            + "Either values, flag_values or constraint_values must be specified and non-empty",
         "config_setting(",
         "    name = 'empty',",
         "    values = {})");
@@ -285,6 +287,48 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--define", "foo=bar", "--define", "bar=baz", "--define", "foo=nope");
     assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
     useConfiguration("--define", "foo=nope", "--define", "bar=baz", "--define", "foo=bar");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void multipleDefines() throws Exception {
+    scratch.file("test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    define_values = {",
+        "        'foo1': 'bar',",
+        "        'foo2': 'baz',",
+        "    })");
+
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo1=bar");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo2=baz");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo1=bar", "--define", "foo2=baz");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void definesCrossAttributes() throws Exception {
+    scratch.file("test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'define': 'a=c'",
+        "    },",
+        "    define_values = {",
+        "        'b': 'd',",
+        "    })");
+
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "a=c");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "b=d");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "a=c", "--define", "b=d");
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
   }
 
@@ -1028,7 +1072,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void forbidsNonConfigFeatureFlagRulesForFlagValues() throws Exception {
     checkError("test", "invalid_flag",
         "in flag_values attribute of config_setting rule //test:invalid_flag: "
-        + "'//test:genrule' does not have mandatory provider 'FeatureFlagInfo'",
+        + "'//test:genrule' does not have mandatory providers: 'FeatureFlagInfo'",
         "config_setting(",
         "    name = 'invalid_flag',",
         "    flag_values = {",
@@ -1082,89 +1126,142 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void policyMustContainRuleToUseFlagValues() throws Exception {
-    reporter.removeHandler(failFastHandler); // expecting an error
-    scratch.file(
-        "policy/BUILD",
-        "package_group(",
-        "    name = 'feature_flag_users',",
-        "    packages = ['//flag'])");
-    scratch.file(
-        "flag/BUILD",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        "    visibility = ['//test:__pkg__'],",
-        ")");
+  public void constraintValue() throws Exception {
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'notable_building')",
+        "constraint_value(name = 'empire_state', constraint_setting = 'notable_building')",
+        "constraint_value(name = 'space_needle', constraint_setting = 'notable_building')",
+        "platform(",
+        "    name = 'new_york_platform',",
+        "    constraint_values = [':empire_state'],",
+        ")",
+        "platform(",
+        "    name = 'seattle_platform',",
+        "    constraint_values = [':space_needle'],",
+        ")",
         "config_setting(",
-        "    name = 'flag_values_user',",
-        "    flag_values = {",
-        "        '//flag:flag': 'right',",
-        "    },",
-        ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
-    assertThat(getConfiguredTarget("//test:flag_values_user")).isNull();
-    assertContainsEvent(
-        "in config_setting rule //test:flag_values_user: the flag_values attribute is not "
-            + "available in package 'test' according to policy "
-            + "'//policy:feature_flag_users'");
+        "    name = 'match',",
+        "    constraint_values = [':empire_state'],",
+        ");");
+
+    useConfiguration("--experimental_platforms=//test:new_york_platform");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--experimental_platforms=//test:seattle_platform");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
   }
 
   @Test
-  public void policyDoesNotBlockRuleIfInPolicy() throws Exception {
-    scratch.file(
-        "policy/BUILD",
-        "package_group(",
-        "    name = 'feature_flag_users',",
-        "    packages = ['//flag', '//test'])");
-    scratch.file(
-        "flag/BUILD",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        "    visibility = ['//test:__pkg__'],",
-        ")");
+  public void multipleConstraintValues() throws Exception {
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'notable_building')",
+        "constraint_value(name = 'empire_state', constraint_setting = 'notable_building')",
+        "constraint_setting(name = 'museum')",
+        "constraint_value(name = 'cloisters', constraint_setting = 'museum')",
+        "constraint_setting(name = 'theme_park')",
+        "constraint_value(name = 'coney_island', constraint_setting = 'theme_park')",
+        "platform(",
+        "    name = 'manhattan_platform',",
+        "    constraint_values = [",
+        "        ':empire_state',",
+        "        ':cloisters',",
+        "    ],",
+        ")",
+        "platform(",
+        "    name = 'museum_platform',",
+        "    constraint_values = [':cloisters'],",
+        ")",
+        "platform(",
+        "    name = 'new_york_platform',",
+        "    constraint_values = [",
+        "        ':empire_state',",
+        "        ':cloisters',",
+        "        ':coney_island',",
+        "    ],",
+        ")",
         "config_setting(",
-        "    name = 'flag_values_user',",
-        "    flag_values = {",
-        "        '//flag:flag': 'right',",
-        "    },",
-        ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
-    assertThat(getConfiguredTarget("//test:flag_values_user")).isNotNull();
-    assertNoEvents();
+        "    name = 'match',",
+        "    constraint_values = [':empire_state', ':cloisters'],",
+        ");");
+    useConfiguration("--experimental_platforms=//test:manhattan_platform");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--experimental_platforms=//test:museum_platform");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--experimental_platforms=//test:new_york_platform");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
   }
 
   @Test
-  public void policyDoesNotBlockRuleIfFlagValuesNotUsed() throws Exception {
-    scratch.file(
-        "policy/BUILD",
-        "package_group(",
-        "    name = 'feature_flag_users',",
-        "    packages = ['//flag'])");
-    scratch.file("flag/BUILD");
+  public void definesAndConstraints() throws Exception {
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'notable_building')",
+        "constraint_value(name = 'empire_state', constraint_setting = 'notable_building')",
+        "constraint_value(name = 'space_needle', constraint_setting = 'notable_building')",
+        "platform(",
+        "    name = 'new_york_platform',",
+        "    constraint_values = [':empire_state'],",
+        ")",
+        "platform(",
+        "    name = 'seattle_platform',",
+        "    constraint_values = [':space_needle'],",
+        ")",
         "config_setting(",
-        "    name = 'flag_values_user',",
+        "    name = 'match',",
+        "    constraint_values = [':empire_state'],",
         "    values = {",
-        "        'cpu': 'k8',",
+        "        'define': 'a=c',",
         "    },",
-        ")");
+        "    define_values = {",
+        "        'b': 'd',",
+        "    },",
+        ");");
+
     useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
-    assertThat(getConfiguredTarget("//test:flag_values_user")).isNotNull();
-    assertNoEvents();
+        "--experimental_platforms=//test:new_york_platform", "--define", "a=c", "--define", "b=d");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--experimental_platforms=//test:new_york_platform");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "a=c");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "a=c", "--experimental_platforms=//test:new_york_platform");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  /**
+   * Tests that a config_setting doesn't allow a constraint_values list with more than one
+   * constraint value per constraint setting.
+   */
+  @Test
+  public void multipleValuesPerSetting() throws Exception {
+    checkError(
+        "foo",
+        "bad",
+        "in config_setting rule //foo:bad: "
+            + "Duplicate constraint_values detected: "
+            + "constraint_setting //foo:notable_building has "
+            + "[//foo:empire_state, //foo:space_needle], "
+            + "constraint_setting //foo:museum has "
+            + "[//foo:moma, //foo:sam]",
+        "constraint_setting(name = 'notable_building')",
+        "constraint_value(name = 'empire_state', constraint_setting = 'notable_building')",
+        "constraint_value(name = 'space_needle', constraint_setting = 'notable_building')",
+        "constraint_value(name = 'peace_arch', constraint_setting = 'notable_building')",
+        "constraint_setting(name = 'museum')",
+        "constraint_value(name = 'moma', constraint_setting = 'museum')",
+        "constraint_value(name = 'sam', constraint_setting = 'museum')",
+        "config_setting(",
+        "    name = 'bad',",
+        "    constraint_values = [",
+        "        ':empire_state',",
+        "        ':space_needle',",
+        "        ':moma',",
+        "        ':sam',",
+        "    ],",
+        ");");
   }
 }
+

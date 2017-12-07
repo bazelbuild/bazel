@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.GlobCache;
 import com.google.devtools.build.lib.packages.MakeEnvironment;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -33,12 +34,12 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.Options;
 import java.io.IOException;
 
 /**
@@ -109,15 +110,15 @@ public class PackageFactoryApparatus {
    * Parses the {@code buildFile} into a {@link BuildFileAST}.
    */
   public BuildFileAST ast(Path buildFile) throws IOException {
-    ParserInputSource inputSource = ParserInputSource.create(buildFile);
+    byte[] bytes = FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
+    ParserInputSource inputSource = ParserInputSource.create(bytes, buildFile.asFragment());
     return BuildFileAST.parseBuildFile(inputSource, eventHandler);
   }
 
-  /**
-   * Evaluates the {@code buildFileAST} into a {@link Package}.
-   */
-  public Pair<Package, GlobCache> evalAndReturnGlobCache(String packageName, Path buildFile,
-      BuildFileAST buildFileAST) throws InterruptedException {
+  /** Evaluates the {@code buildFileAST} into a {@link Package}. */
+  public Pair<Package, GlobCache> evalAndReturnGlobCache(
+      String packageName, Path buildFile, BuildFileAST buildFileAST)
+      throws InterruptedException, NoSuchPackageException {
     PackageIdentifier packageId = PackageIdentifier.createInMainRepo(packageName);
     GlobCache globCache =
         new GlobCache(
@@ -142,26 +143,31 @@ public class PackageFactoryApparatus {
             ImmutableList.<Event>of(),
             ImmutableList.<Postable>of(),
             ConstantRuleVisibility.PUBLIC,
-            Options.getDefaults(SkylarkSemanticsOptions.class),
+            SkylarkSemantics.DEFAULT_SEMANTICS,
             false,
             new MakeEnvironment.Builder(),
             ImmutableMap.<String, Extension>of(),
             ImmutableList.<Label>of());
-    Package result = resultBuilder.build();
+    Package result;
+    try {
+      result = resultBuilder.build();
+    } catch (NoSuchPackageException e) {
+      // Make sure not to lose events if we fail to construct the package.
+      Event.replayEventsOn(eventHandler, resultBuilder.getEvents());
+      throw e;
+    }
     Event.replayEventsOn(eventHandler, result.getEvents());
     return Pair.of(result, globCache);
   }
 
   public Package eval(String packageName, Path buildFile, BuildFileAST buildFileAST)
-      throws InterruptedException {
+      throws InterruptedException, NoSuchPackageException {
     return evalAndReturnGlobCache(packageName, buildFile, buildFileAST).first;
   }
 
-  /**
-   * Evaluates the {@code buildFileAST} into a {@link Package}.
-   */
+  /** Evaluates the {@code buildFileAST} into a {@link Package}. */
   public Package eval(String packageName, Path buildFile)
-      throws InterruptedException, IOException {
+      throws InterruptedException, IOException, NoSuchPackageException {
     return eval(packageName, buildFile, ast(buildFile));
   }
 

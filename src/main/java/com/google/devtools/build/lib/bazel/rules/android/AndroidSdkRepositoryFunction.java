@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.Dirents;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -51,14 +49,12 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Properties;
 
-/**
- * Implementation of the {@code android_sdk_repository} rule.
- */
-public class AndroidSdkRepositoryFunction extends RepositoryFunction {
+/** Implementation of the {@code android_sdk_repository} rule. */
+public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
   private static final PathFragment BUILD_TOOLS_DIR = PathFragment.create("build-tools");
   private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
   private static final PathFragment SYSTEM_IMAGES_DIR = PathFragment.create("system-images");
-  private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(24, 0, 3);
+  private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(26, 0, 1);
   private static final String PATH_ENV_VAR = "ANDROID_HOME";
   private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
   private static final ImmutableList<String> LOCAL_MAVEN_REPOSITORIES =
@@ -83,9 +79,13 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public RepositoryDirectoryValue.Builder fetch(Rule rule, final Path outputDirectory,
-      BlazeDirectories directories, Environment env, Map<String, String> markerData)
-      throws SkyFunctionException, InterruptedException {
+  public RepositoryDirectoryValue.Builder fetch(
+      Rule rule,
+      final Path outputDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      Map<String, String> markerData)
+      throws RepositoryFunctionException, InterruptedException {
     Map<String, String> environ =
         declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
     if (environ == null) {
@@ -114,13 +114,12 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     }
 
     DirectoryListingValue platformsDirectoryValue =
-        AndroidRepositoryUtils.getDirectoryListing(androidSdkPath, PLATFORMS_DIR, env);
+        getDirectoryListing(androidSdkPath, PLATFORMS_DIR, env);
     if (platformsDirectoryValue == null) {
       return null;
     }
 
-    ImmutableSortedSet<Integer> apiLevels =
-        AndroidRepositoryUtils.getApiLevels(platformsDirectoryValue.getDirents());
+    ImmutableSortedSet<Integer> apiLevels = getApiLevels(platformsDirectoryValue.getDirents());
     if (apiLevels.isEmpty()) {
       throw new RepositoryFunctionException(
           new EvalException(
@@ -169,7 +168,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
       // If the build_tools_version attribute is not explicitly set, we select the highest version
       // installed in the SDK.
       DirectoryListingValue directoryValue =
-          AndroidRepositoryUtils.getDirectoryListing(androidSdkPath, BUILD_TOOLS_DIR, env);
+          getDirectoryListing(androidSdkPath, BUILD_TOOLS_DIR, env);
       if (directoryValue == null) {
         return null;
       }
@@ -348,19 +347,19 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   }
 
   /**
-   * Gets PathFragments for /sdk/system-images/*&#47;*&#47;*, which are the directories in the
-   * SDK that contain system images needed for android_device.
+   * Gets PathFragments for /sdk/system-images/*&#47;*&#47;*, which are the directories in the SDK
+   * that contain system images needed for android_device.
    *
-   * If the sdk/system-images directory does not exist, an empty set is returned.
+   * <p>If the sdk/system-images directory does not exist, an empty set is returned.
    */
-  private static ImmutableSortedSet<PathFragment> getAndroidDeviceSystemImageDirs(
+  private ImmutableSortedSet<PathFragment> getAndroidDeviceSystemImageDirs(
       Path androidSdkPath, Environment env)
       throws RepositoryFunctionException, InterruptedException {
     if (!androidSdkPath.getRelative(SYSTEM_IMAGES_DIR).exists()) {
       return ImmutableSortedSet.of();
     }
     DirectoryListingValue systemImagesDirectoryValue =
-        AndroidRepositoryUtils.getDirectoryListing(androidSdkPath, SYSTEM_IMAGES_DIR, env);
+        getDirectoryListing(androidSdkPath, SYSTEM_IMAGES_DIR, env);
     if (systemImagesDirectoryValue == null) {
       return null;
     }
@@ -426,5 +425,19 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
       }
     }
     return directoryListingValues.build();
+  }
+
+  @Override
+  protected void throwInvalidPathException(Path path, Exception e)
+      throws RepositoryFunctionException {
+    throw new RepositoryFunctionException(
+        new IOException(
+            String.format(
+                "%s Unable to read the Android SDK at %s, the path may be invalid. Is "
+                    + "the path in android_sdk_repository() or %s set correctly? If the path is "
+                    + "correct, the contents in the Android SDK directory may have been modified.",
+                e.getMessage(), path, PATH_ENV_VAR),
+            e),
+        Transience.PERSISTENT);
   }
 }

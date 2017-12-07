@@ -59,18 +59,12 @@ public final class AugmentedAssignmentStatement extends Statement {
   }
 
   @Override
-  void doExec(Environment env) throws EvalException, InterruptedException {
-    lvalue.assign(env, getLocation(), expression, operator);
-  }
-
-  @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    lvalue.validate(env, getLocation());
-    expression.validate(env);
+  public Kind kind() {
+    return Kind.AUGMENTED_ASSIGNMENT;
   }
 }

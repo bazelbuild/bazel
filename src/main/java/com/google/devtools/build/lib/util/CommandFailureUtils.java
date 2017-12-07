@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.util;
 
 import static java.util.Map.Entry.comparingByKey;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import java.io.File;
 import java.util.Collection;

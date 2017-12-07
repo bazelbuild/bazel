@@ -14,22 +14,27 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -47,16 +52,16 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.AliasProvider;
+import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredTargetFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.DependencyEvaluationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
+import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -70,7 +75,7 @@ import javax.annotation.Nullable;
  * The Skyframe function that generates aspects.
  *
  * This class, together with {@link ConfiguredTargetFunction} drives the analysis phase. For more
- * information, see {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ * information, see {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  *
  * {@link AspectFunction} takes a SkyKey containing an {@link AspectKey} [a tuple of
  * (target label, configurations, aspect class and aspect parameters)],
@@ -81,7 +86,7 @@ import javax.annotation.Nullable;
  * See {@link com.google.devtools.build.lib.packages.AspectClass} documentation
  * for an overview of aspect-related classes
  *
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see com.google.devtools.build.lib.packages.AspectClass
  */
 public final class AspectFunction implements SkyFunction {
@@ -118,9 +123,15 @@ public final class AspectFunction implements SkyFunction {
 
       Object skylarkValue = skylarkImportLookupValue.getEnvironmentExtension().getBindings()
           .get(skylarkValueName);
+      if (skylarkValue == null) {
+        throw new ConversionException(
+            String.format(
+                "%s is not exported from %s", skylarkValueName, extensionLabel.toString()));
+      }
       if (!(skylarkValue instanceof SkylarkAspect)) {
         throw new ConversionException(
-            skylarkValueName + " from " + extensionLabel.toString() + " is not an aspect");
+            String.format(
+                "%s from %s is not an aspect", skylarkValueName, extensionLabel.toString()));
       }
       return (SkylarkAspect) skylarkValue;
     } catch (SkylarkImportFailedException | ConversionException e) {
@@ -206,7 +217,12 @@ public final class AspectFunction implements SkyFunction {
     Target target = associatedTarget.getTarget();
 
     if (configuredTargetValue.getConfiguredTarget().getProvider(AliasProvider.class) != null) {
-      return createAliasAspect(env, target, aspect, key,
+      return createAliasAspect(
+          env,
+          view.getActionKeyContext(),
+          target,
+          aspect,
+          key,
           configuredTargetValue.getConfiguredTarget());
     }
 
@@ -246,8 +262,8 @@ public final class AspectFunction implements SkyFunction {
 
     // When getting the dependencies of this hybrid aspect+base target, use the aspect's
     // configuration. The configuration of the aspect will always be a superset of the target's
-    // (dynamic configuration mode: target is part of the aspect's config fragment requirements;
-    // static configuration mode: target is the same configuration as the aspect), so the fragments
+    // (trimmed configuration mode: target is part of the aspect's config fragment requirements;
+    // untrimmed mode: target is the same configuration as the aspect), so the fragments
     // required by all dependencies (both those of the aspect and those of the base target)
     // will be present this way.
     TargetAndConfiguration originalTargetAndAspectConfiguration =
@@ -264,18 +280,40 @@ public final class AspectFunction implements SkyFunction {
         return null;
       }
 
+      // Determine what toolchains are needed by this target.
+      ToolchainContext toolchainContext;
+      try {
+        ImmutableSet<Label> requiredToolchains = aspect.getDefinition().getRequiredToolchains();
+        toolchainContext =
+            ToolchainUtil.createToolchainContext(
+                env,
+                String.format(
+                    "aspect %s applied to %s",
+                    aspect.getDescriptor().getDescription(), target.toString()),
+                requiredToolchains,
+                key.getAspectConfiguration());
+      } catch (ToolchainContextException e) {
+        // TODO(katre): better error handling
+        throw new AspectCreationException(e.getMessage());
+      }
+      if (env.valuesMissing()) {
+        return null;
+      }
+
       OrderedSetMultimap<Attribute, ConfiguredTarget> depValueMap;
       try {
-        depValueMap = ConfiguredTargetFunction.computeDependencies(
-            env,
-            resolver,
-            originalTargetAndAspectConfiguration,
-            aspectPath,
-            configConditions,
-            ruleClassProvider,
-            view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
-            transitivePackages,
-            transitiveRootCauses);
+        depValueMap =
+            ConfiguredTargetFunction.computeDependencies(
+                env,
+                resolver,
+                originalTargetAndAspectConfiguration,
+                aspectPath,
+                configConditions,
+                toolchainContext,
+                ruleClassProvider,
+                view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
+                transitivePackages,
+                transitiveRootCauses);
       } catch (ConfiguredTargetFunctionException e) {
         throw new AspectCreationException(e.getMessage());
       }
@@ -289,6 +327,7 @@ public final class AspectFunction implements SkyFunction {
 
       return createAspect(
           env,
+          view.getActionKeyContext(),
           key,
           aspectPath,
           aspect,
@@ -296,6 +335,7 @@ public final class AspectFunction implements SkyFunction {
           associatedTarget,
           key.getAspectConfiguration(),
           configConditions,
+          toolchainContext,
           depValueMap,
           transitivePackages);
     } catch (DependencyEvaluationException e) {
@@ -373,6 +413,7 @@ public final class AspectFunction implements SkyFunction {
 
   private SkyValue createAliasAspect(
       Environment env,
+      ActionKeyContext actionKeyContext,
       Target originalTarget,
       Aspect aspect,
       AspectKey originalKey,
@@ -404,7 +445,8 @@ public final class AspectFunction implements SkyFunction {
         originalTarget.getLabel(),
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
-        ImmutableList.<ActionAnalysisMetadata>of(),
+        actionKeyContext,
+        ImmutableList.of(),
         transitivePackages,
         removeActionsAfterEvaluation.get());
   }
@@ -412,6 +454,7 @@ public final class AspectFunction implements SkyFunction {
   @Nullable
   private AspectValue createAspect(
       Environment env,
+      ActionKeyContext actionKeyContext,
       AspectKey key,
       ImmutableList<Aspect> aspectPath,
       Aspect aspect,
@@ -419,6 +462,7 @@ public final class AspectFunction implements SkyFunction {
       ConfiguredTarget associatedTarget,
       BuildConfiguration aspectConfiguration,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ToolchainContext toolchainContext,
       OrderedSetMultimap<Attribute, ConfiguredTarget> directDeps,
       NestedSetBuilder<Package> transitivePackages)
       throws AspectFunctionException, InterruptedException {
@@ -433,17 +477,25 @@ public final class AspectFunction implements SkyFunction {
     }
 
     ConfiguredAspect configuredAspect;
-    if (ConfiguredTargetFunction.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
-      configuredAspect = view.getConfiguredTargetFactory().createAspect(
-          analysisEnvironment,
-          associatedTarget,
-          aspectPath,
-          aspectFactory,
-          aspect,
-          directDeps,
-          configConditions,
-          aspectConfiguration,
-          view.getHostConfiguration(aspectConfiguration));
+    if (AspectResolver.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
+      try {
+        CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
+        configuredAspect =
+            view.getConfiguredTargetFactory()
+                .createAspect(
+                    analysisEnvironment,
+                    associatedTarget,
+                    aspectPath,
+                    aspectFactory,
+                    aspect,
+                    directDeps,
+                    configConditions,
+                    toolchainContext,
+                    aspectConfiguration,
+                    view.getHostConfiguration(aspectConfiguration));
+      } finally {
+        CurrentRuleTracker.endConfiguredAspect();
+      }
     } else {
       configuredAspect = ConfiguredAspect.forNonapplicableTarget(aspect.getDescriptor());
     }
@@ -470,6 +522,7 @@ public final class AspectFunction implements SkyFunction {
         associatedTarget.getLabel(),
         associatedTarget.getTarget().getLocation(),
         configuredAspect,
+        actionKeyContext,
         ImmutableList.copyOf(analysisEnvironment.getRegisteredActions()),
         transitivePackages.build(),
         removeActionsAfterEvaluation.get());

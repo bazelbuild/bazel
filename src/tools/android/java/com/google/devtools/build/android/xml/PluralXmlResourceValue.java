@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.android.aapt.Resources.Plural;
+import com.android.aapt.Resources.Value;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
@@ -27,6 +29,8 @@ import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlT
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -129,6 +133,29 @@ public class PluralXmlResourceValue implements XmlResourceValue {
     return createWithAttributesAndValues(
         ImmutableMap.copyOf(proto.getAttribute()),
         ImmutableMap.copyOf(proto.getMappedStringValue()));
+  }
+
+  public static XmlResourceValue from(Value proto) {
+    Plural plural = proto.getCompoundValue().getPlural();
+
+    Map<String, String> items = new HashMap<>();
+
+    for (Plural.Entry entry : plural.getEntryList()) {
+      String name = entry.getArity().toString().toLowerCase();
+      String value =
+          entry
+              .getItem()
+              .getStr()
+              .toString()
+              .replace("value: \"", "")
+              .replace("\"", "")
+              .replace('\n', ' ');
+      items.put(name, value);
+    }
+
+    return createWithAttributesAndValues(
+        ImmutableMap.of(),
+        ImmutableMap.copyOf(items));
   }
 
   @Override

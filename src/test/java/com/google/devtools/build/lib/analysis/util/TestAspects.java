@@ -13,39 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Function;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -54,20 +43,12 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
-import com.google.devtools.build.lib.packages.Attribute.Transition;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -79,13 +60,6 @@ import java.util.List;
  * and {@link com.google.devtools.build.lib.analysis.AspectTest}.
  */
 public class TestAspects {
-
-  public static final LateBoundLabel EMPTY_LATE_BOUND_LABEL = new LateBoundLabel<Object>() {
-    @Override
-    public Label resolve(Rule rule, AttributeMap attributes, Object configuration) {
-      return null;
-    }
-  };
 
   /**
    * A transitive info provider for collecting aspects in the transitive closure. Created by
@@ -565,683 +539,214 @@ public class TestAspects {
             ImmutableList.of(SkylarkProviderIdentifier.forLegacy("advertised_provider")))
         .build();
 
-
   /**
    * A common base rule for mock rules in this class to reduce boilerplate.
    *
    * <p>It has a few common attributes because internal Blaze machinery assumes the presence of
    * these.
    */
-  public static class BaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("testonly", BOOLEAN).nonconfigurable("test").value(false))
-          .add(attr("deprecation", STRING).nonconfigurable("test").value((String) null))
-          .add(attr("tags", STRING_LIST))
-          .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().cfg(HOST)
-              .nonconfigurable("test"))
-          .add(attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
-              .allowedFileTypes(FileTypeSet.NO_FILE))
-          .add(attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
-              .allowedFileTypes(FileTypeSet.NO_FILE))
-          .build();
-
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("base")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRuleClasses.RootRule.class)
-          .build();
-    }
-  }
+  public static final MockRule BASE_RULE = () ->
+      MockRule.factory(DummyRuleFactory.class).define("base");
 
   /**
    * A rule that defines an aspect on one of its attributes.
    */
-  public static class AspectRequiringRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(SIMPLE_ASPECT))
-          .add(attr("bar", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(SIMPLE_ASPECT))
-          .build();
-
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("aspect")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule ASPECT_REQUIRING_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "aspect",
+          attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(SIMPLE_ASPECT),
+          attr("bar", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(SIMPLE_ASPECT));
 
   /**
    * A rule that defines different aspects on different attributes.
    */
-  public static class MultiAspectRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE)
+  public static final MockRule MULTI_ASPECT_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(MultiAspectRuleFactory.class).define(
+          "multi_aspect",
+          attr("foo", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE)
               .mandatory()
-              .aspect(FOO_PROVIDER_ASPECT))
-          .add(attr("bar", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(FOO_PROVIDER_ASPECT),
+          attr("bar", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE)
               .mandatory()
-              .aspect(BAR_PROVIDER_ASPECT))
-          .build();
+              .aspect(BAR_PROVIDER_ASPECT));
 
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("multi_aspect")
-          .factoryClass(MultiAspectRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  private static final Function<Rule, AspectParameters> TEST_ASPECT_PARAMETERS_EXTRACTOR =
+      (rule) -> {
+        if (rule.isAttrDefined("baz", STRING)) {
+          String value = rule.getAttributeContainer().getAttr("baz").toString();
+          if (!value.equals("")) {
+            return new AspectParameters.Builder().addAttribute("baz", value).build();
+          }
+        }
+        return AspectParameters.EMPTY;
+      };
 
   /**
    * A rule that defines an {@link AspectRequiringProvider} on one of its attributes.
    */
-  public static class AspectRequiringProviderRule implements RuleDefinition {
-
-    private static final class TestAspectParametersExtractor implements
-        Function<Rule, AspectParameters> {
-      @Override
-      public AspectParameters apply(Rule rule) {
-        if (rule.isAttrDefined("baz", STRING)) {
-          String value = rule.getAttributeContainer().getAttr("baz").toString();
-          if (!value.equals("")) {
-            return new AspectParameters.Builder().addAttribute("baz", value).build();
-          }
-        }
-        return AspectParameters.EMPTY;
-      }
-    }
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(ASPECT_REQUIRING_PROVIDER, new TestAspectParametersExtractor()))
-          .add(attr("baz", STRING))
-          .build();
-
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("aspect_requiring_provider")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule ASPECT_REQUIRING_PROVIDER_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "aspect_requiring_provider",
+          (builder, env) ->
+              builder
+                  .add(
+                      attr("foo", LABEL_LIST)
+                          .allowedFileTypes(FileTypeSet.ANY_FILE)
+                          .aspect(ASPECT_REQUIRING_PROVIDER, TEST_ASPECT_PARAMETERS_EXTRACTOR))
+                  .add(attr("baz", STRING)));
 
   /**
    * A rule that defines an {@link AspectRequiringProviderSets} on one of its attributes.
    */
-  public static class AspectRequiringProviderSetsRule implements RuleDefinition {
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(ASPECT_REQUIRING_PROVIDER_SETS))
-          .add(attr("baz", STRING))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("aspect_requiring_provider_sets")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule ASPECT_REQUIRING_PROVIDER_SETS_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "aspect_requiring_provider_sets",
+          attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(ASPECT_REQUIRING_PROVIDER_SETS),
+          attr("baz", STRING));
 
   /**
    * A rule that defines an {@link ExtraAttributeAspect} on one of its attributes.
    */
-  public static class ExtraAttributeAspectRule implements RuleDefinition {
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(EXTRA_ATTRIBUTE_ASPECT))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("rule_with_extra_deps_aspect")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule EXTRA_ATTRIBUTE_ASPECT_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "rule_with_extra_deps_aspect",
+          attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(EXTRA_ATTRIBUTE_ASPECT));
 
   /**
    * A rule that defines an {@link ParametrizedDefinitionAspect} on one of its attributes.
    */
-  public static class ParametrizedDefinitionAspectRule implements RuleDefinition {
+  public static final MockRule PARAMETERIZED_DEFINITION_ASPECT_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "parametrized_definition_aspect",
+          (builder, env) ->
+              builder
+                  .add(
+                      attr("foo", LABEL_LIST)
+                          .allowedFileTypes(FileTypeSet.ANY_FILE)
+                          .aspect(PARAMETRIZED_DEFINITION_ASPECT, TEST_ASPECT_PARAMETERS_EXTRACTOR))
+                  .add(attr("baz", STRING)));
 
-    private static final class TestAspectParametersExtractor
-        implements Function<Rule, AspectParameters> {
-      @Override
-      public AspectParameters apply(Rule rule) {
-        if (rule.isAttrDefined("baz", STRING)) {
-          String value = rule.getAttributeContainer().getAttr("baz").toString();
-          if (!value.equals("")) {
-            return new AspectParameters.Builder().addAttribute("baz", value).build();
-          }
-        }
-        return AspectParameters.EMPTY;
-      }
-    }
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(
-              attr("foo", LABEL_LIST)
-                  .allowedFileTypes(FileTypeSet.ANY_FILE)
-                  .aspect(PARAMETRIZED_DEFINITION_ASPECT, new TestAspectParametersExtractor()))
-          .add(attr("baz", STRING))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("parametrized_definition_aspect")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
 
   /**
    * A rule that defines an {@link ExtraAttributeAspectRequiringProvider} on one of its attributes.
    */
-  public static class ExtraAttributeAspectRequiringProviderRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER))
-          .build();
-
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("extra_attribute_aspect_requiring_provider")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "extra_attribute_aspect_requiring_provider",
+          attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER));
 
   /**
    * A rule that defines an {@link AllAttributesAspect} on one of its attributes.
    */
-  public static class AllAttributesAspectRule implements RuleDefinition {
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(ALL_ATTRIBUTES_ASPECT))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("all_attributes_aspect")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule ALL_ATTRIBUTES_ASPECT_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "all_attributes_aspect",
+          attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(ALL_ATTRIBUTES_ASPECT));
 
   /** A rule that defines an {@link AllAttributesWithToolAspect} on one of its attributes. */
-  public static class AllAttributesWithToolAspectRule implements RuleDefinition {
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(
-              attr("foo", LABEL_LIST)
-                  .allowedFileTypes(FileTypeSet.ANY_FILE)
-                  .aspect(ALL_ATTRIBUTES_WITH_TOOL_ASPECT))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("all_attributes_with_tool_aspect")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule ALL_ATTRIBUTES_WITH_TOOL_ASPECT_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "all_attributes_with_tool_aspect",
+           attr("foo", LABEL_LIST)
+               .allowedFileTypes(FileTypeSet.ANY_FILE)
+               .aspect(ALL_ATTRIBUTES_WITH_TOOL_ASPECT));
 
   /**
    * A rule that defines a {@link WarningAspect} on one of its attributes.
    */
-  public static class WarningAspectRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(WARNING_ASPECT))
-          .add(attr("bar", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("warning_aspect")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule WARNING_ASPECT_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "warning_aspect",
+          attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(WARNING_ASPECT),
+          attr("bar", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE));
 
   /**
    * A rule that defines an {@link ErrorAspect} on one of its attributes.
    */
-  public static class ErrorAspectRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(ERROR_ASPECT))
-          .add(attr("bar", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("error_aspect")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule ERROR_ASPECT_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "error_aspect",
+          attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(ERROR_ASPECT),
+          attr("bar", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE));
 
   /**
    * A simple rule that has an attribute.
    */
-  public static class SimpleRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-          .add(attr("foo1", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
-          .add(attr("txt", STRING))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("simple")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule SIMPLE_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "simple",
+          attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE),
+          attr("foo1", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
+          attr("txt", STRING));
 
   /**
    * A rule that advertises a provider but doesn't implement it.
    */
-  public static class LiarRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-          .advertiseProvider(RequiredProvider.class)
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("liar")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule LIAR_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "liar",
+          (builder, env) ->
+              builder
+                  .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+                  .advertiseProvider(RequiredProvider.class));
 
   /**
    * A rule that advertises a provider and implements it.
    */
-  public static class HonestRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-          .advertiseProvider(RequiredProvider.class)
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("honest")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule HONEST_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "honest",
+          (builder, env) ->
+              builder
+              .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+              .advertiseProvider(RequiredProvider.class));
 
   /**
    * A rule that advertises another, different provider and implements it.
    */
-  public static class HonestRule2 implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-          .advertiseProvider(RequiredProvider2.class)
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("honest2")
-          .factoryClass(DummyRuleFactory2.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
-
+  public static final MockRule HONEST_RULE_2 = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory2.class).define(
+          "honest2",
+          (builder, env) ->
+              builder
+                  .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+                  .advertiseProvider(RequiredProvider2.class));
 
   /**
    * Rule with an implcit dependency.
    */
-  public static class ImplicitDepRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
-          .build();
-    }
+  public static final MockRule IMPLICIT_DEP_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "implicit_dep",
+          attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")));
 
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("implicit_dep")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  // TODO(b/65746853): provide a way to do this without passing the entire configuration
+  private static final LateBoundDefault<?, List<Label>> PLUGINS_LABEL_LIST =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          ImmutableList.of(),
+          (rule, attributes, javaConfig) -> javaConfig.getPlugins());
 
-  /**
-   * Rule with a late-bound dependency.
-   */
-  public static class LateBoundDepRule implements RuleDefinition {
-    private static final LateBoundLabelList<BuildConfiguration> PLUGINS_LABEL_LIST =
-        new LateBoundLabelList<BuildConfiguration>() {
-          @Override
-          public List<Label> resolve(Rule rule, AttributeMap attributes,
-              BuildConfiguration configuration) {
-            return configuration.getPlugins();
-          }
-        };
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr(":plugins", LABEL_LIST).value(PLUGINS_LABEL_LIST))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("late_bound_dep")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
-
-  private static class SetsCpuPatchTransition implements PatchTransition {
-
-    @Override
-    public BuildOptions apply(BuildOptions options) {
-      BuildOptions result = options.clone();
-      result.get(Options.class).cpu = "SET BY PATCH";
-      return result;
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-  }
-
-  private static class SetsCpuSplitTransition implements SplitTransition<BuildOptions> {
-
-    @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      BuildOptions result = buildOptions.clone();
-      result.get(Options.class).cpu = "SET BY SPLIT";
-      return ImmutableList.of(result);
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-  }
-
-  private static class SetsHostCpuSplitTransition implements SplitTransition<BuildOptions> {
-
-    @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      BuildOptions result = buildOptions.clone();
-      result.get(Options.class).hostCpu = "SET BY SPLIT";
-      return ImmutableList.of(result);
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-  }
-
-  private static class EmptySplitTransition implements SplitTransition<BuildOptions> {
-
-    @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      return ImmutableList.of();
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-  }
-
-  /**
-   * Rule with a split transition on an attribute.
-   */
-  public static class AttributeTransitionRule implements RuleDefinition {
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("without_transition", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
-          .add(attr("with_cpu_transition", LABEL)
-              .allowedFileTypes(FileTypeSet.ANY_FILE)
-              .cfg(new SetsCpuSplitTransition()))
-          .add(attr("with_host_cpu_transition", LABEL)
-              .allowedFileTypes(FileTypeSet.ANY_FILE)
-              .cfg(new SetsHostCpuSplitTransition()))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("attribute_transition")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule LATE_BOUND_DEP_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "late_bound_dep",
+          attr(":plugins", LABEL_LIST).value(PLUGINS_LABEL_LIST));
 
   /**
    * Rule with {@link FalseAdvertisementAspect}
    */
-  public static final class FalseAdvertisementAspectRule implements RuleDefinition {
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(attr("deps", LABEL_LIST).allowedFileTypes().aspect(FALSE_ADVERTISEMENT_ASPECT))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return  RuleDefinition.Metadata.builder()
-          .name("false_advertisement_aspect")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
-
-  /**
-   * Rule with rule class configuration transition.
-   */
-  public static class RuleClassTransitionRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .cfg(new SetsCpuPatchTransition())
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("rule_class_transition")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
-
-  private static class SetsTestFilterFromAttributePatchTransition implements PatchTransition {
-    private final String value;
-
-    public SetsTestFilterFromAttributePatchTransition(String value) {
-      this.value = value;
-    }
-
-    @Override
-    public BuildOptions apply(BuildOptions options) {
-      BuildOptions result = options.clone();
-      result.get(Options.class).testFilter = "SET BY PATCH FACTORY: " + value;
-      return result;
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-  }
-
-  private static class SetsTestFilterFromAttributeTransitionFactory
-      implements RuleTransitionFactory {
-    @Override
-    public Transition buildTransitionFor(Rule rule) {
-      NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
-      String value = attributes.get("sets_test_filter_to", STRING);
-      if (Strings.isNullOrEmpty(value)) {
-        return null;
-      } else {
-        return new SetsTestFilterFromAttributePatchTransition(value);
-      }
-    }
-  }
-
-  /**
-   * Rule with a RuleTransitionFactory which sets the --test_filter flag according to its attribute.
-   */
-  public static class UsesRuleTransitionFactoryRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .cfg(new SetsTestFilterFromAttributeTransitionFactory())
-          .add(
-              attr("sets_test_filter_to", STRING)
-                  .nonconfigurable("used in RuleTransitionFactory")
-                  .value(""))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("uses_rule_transition_factory")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
-
-  /** A rule with an empty split transition on an attribute. */
-  public static class EmptySplitRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          .add(
-              attr("with_empty_transition", LABEL)
-                  .allowedFileTypes(FileTypeSet.ANY_FILE)
-                  .cfg(new EmptySplitTransition()))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("empty_split")
-          .factoryClass(DummyRuleFactory.class)
-          .ancestors(BaseRule.class)
-          .build();
-    }
-  }
+  public static final MockRule FALSE_ADVERTISEMENT_ASPECT_RULE = () ->
+      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
+          "false_advertisement_aspect",
+          attr("deps", LABEL_LIST).allowedFileTypes().aspect(FALSE_ADVERTISEMENT_ASPECT));
 
   /** Aspect that propagates over rule outputs. */
   public static class AspectApplyingToFiles extends NativeAspectClass

@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  */
 public abstract class Parameter<V, T> extends Argument {
 
-  @Nullable protected String name;
+  @Nullable protected final String name;
   @Nullable protected final T type;
 
   private Parameter(@Nullable String name, @Nullable T type) {
@@ -199,6 +199,6 @@ public abstract class Parameter<V, T> extends Argument {
 
   @Override
   public void accept(SyntaxTreeVisitor visitor) {
-    visitor.visit(this);
+    visitor.visit((Parameter<Expression, Expression>) this);
   }
 }

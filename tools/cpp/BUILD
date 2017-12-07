@@ -1,5 +1,10 @@
 package(default_visibility = ["//visibility:public"])
 
+# TODO(lberki): Remove this once cc_toolchain_alias is in a Bazel release
+load("//tools/cpp:alias_rules.bzl", "cc_toolchain_alias")
+
+cc_toolchain_alias(name = "current_cc_toolchain")
+
 cc_library(
     name = "malloc",
 )
@@ -199,3 +204,26 @@ filegroup(
     name = "link_dynamic_library",
     srcs = ["link_dynamic_library.sh"],
 )
+
+filegroup(name = "toolchain_type")
+
+# A dummy toolchain is necessary to satisfy toolchain resolution until platforms
+# are used in c++ by default.
+# TODO(b/64754003): Remove once platforms are used in c++ by default.
+toolchain(
+    name = "dummy_cc_toolchain_type",
+    toolchain = "dummy_cc_toolchain_impl",
+    toolchain_type = ":toolchain_type",
+)
+
+filegroup(name = "toolchain_category")
+
+toolchain(
+    name = "dummy_cc_toolchain",
+    toolchain = "dummy_cc_toolchain_impl",
+    toolchain_type = ":toolchain_category",
+)
+
+load(":dummy_toolchain.bzl", "dummy_toolchain")
+
+dummy_toolchain(name = "dummy_cc_toolchain_impl")

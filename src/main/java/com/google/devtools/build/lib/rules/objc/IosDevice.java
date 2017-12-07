@@ -18,14 +18,14 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 
 /**
@@ -39,21 +39,19 @@ public final class IosDevice implements RuleConfiguredTargetFactory {
         "This rule is deprecated. Please use the new Apple build rules "
             + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");
 
-    AppleConfiguration appleConfiguration = context.getFragment(AppleConfiguration.class);
     String iosVersionAttribute =
         context.attributes().get(IosDeviceRule.IOS_VERSION_ATTR_NAME, STRING);
     XcodeVersionProperties xcodeVersionProperties =
-        (XcodeVersionProperties)
             context.getPrerequisite(
                 IosDeviceRule.XCODE_ATTR_NAME,
                 Mode.TARGET,
-                XcodeVersionProperties.SKYLARK_CONSTRUCTOR.getKey());
+                XcodeVersionProperties.SKYLARK_CONSTRUCTOR);
 
     DottedVersion xcodeVersion = null;
     if (xcodeVersionProperties != null && xcodeVersionProperties.getXcodeVersion().isPresent()) {
       xcodeVersion = xcodeVersionProperties.getXcodeVersion().get();
-    } else if (appleConfiguration.getXcodeVersion() != null) {
-      xcodeVersion = appleConfiguration.getXcodeVersion();
+    } else if (XcodeConfig.getXcodeVersion(context) != null) {
+      xcodeVersion = XcodeConfig.getXcodeVersion(context);
     }
 
     DottedVersion iosVersion;
@@ -62,7 +60,7 @@ public final class IosDevice implements RuleConfiguredTargetFactory {
     } else if (xcodeVersionProperties != null) {
       iosVersion = xcodeVersionProperties.getDefaultIosSdkVersion();
     } else {
-      iosVersion = appleConfiguration.getSdkVersionForPlatform(ApplePlatform.IOS_SIMULATOR);
+      iosVersion = XcodeConfig.getSdkVersionForPlatform(context, ApplePlatform.IOS_SIMULATOR);
     }
 
     IosDeviceProvider provider =

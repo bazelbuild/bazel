@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  */
 public final class DiffAwarenessManager {
 
-  private static final Logger LOG = Logger.getLogger(DiffAwarenessManager.class.getName());
+  private static final Logger logger = Logger.getLogger(DiffAwarenessManager.class.getName());
 
   // The manager attempts to instantiate these in the order in which they are passed to the
   // constructor; this is critical in the case where a factory always succeeds.
@@ -97,14 +97,14 @@ public final class DiffAwarenessManager {
 
     View baselineView = diffAwarenessState.baselineView;
     if (baselineView == null) {
-      LOG.info("Initial baseline view for " + pathEntry + " is " + newView);
+      logger.info("Initial baseline view for " + pathEntry + " is " + newView);
       diffAwarenessState.baselineView = newView;
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
 
     ModifiedFileSet diff;
-    LOG.info("About to compute diff between " + baselineView + " and " + newView + " for "
-        + pathEntry);
+    logger.info(
+        "About to compute diff between " + baselineView + " and " + newView + " for " + pathEntry);
     try {
       diff = diffAwareness.getDiff(baselineView, newView);
     } catch (BrokenDiffAwarenessException e) {
@@ -122,7 +122,7 @@ public final class DiffAwarenessManager {
   private void handleBrokenDiffAwareness(
       EventHandler eventHandler, Path pathEntry, BrokenDiffAwarenessException e) {
     currentDiffAwarenessStates.remove(pathEntry);
-    LOG.info("Broken diff awareness for " + pathEntry + ": " + e);
+    logger.info("Broken diff awareness for " + pathEntry + ": " + e);
     eventHandler.handle(Event.warn(e.getMessage() + "... temporarily falling back to manually "
         + "checking files for changes"));
   }
@@ -140,8 +140,9 @@ public final class DiffAwarenessManager {
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
       DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry);
       if (newDiffAwareness != null) {
-        LOG.info("Using " + newDiffAwareness.name() + " DiffAwareness strategy for " + pathEntry);
-        diffAwarenessState = new DiffAwarenessState(newDiffAwareness, /*previousView=*/null);
+        logger.info(
+            "Using " + newDiffAwareness.name() + " DiffAwareness strategy for " + pathEntry);
+        diffAwarenessState = new DiffAwarenessState(newDiffAwareness, /*baselineView=*/null);
         currentDiffAwarenessStates.put(pathEntry, diffAwarenessState);
         return diffAwarenessState;
       }

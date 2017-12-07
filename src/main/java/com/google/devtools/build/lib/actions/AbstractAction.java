@@ -14,11 +14,12 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -36,7 +37,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -45,6 +46,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -294,16 +296,21 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   public abstract String getMnemonic();
 
   /**
-   * See the javadoc for {@link com.google.devtools.build.lib.actions.Action} and
-   * {@link com.google.devtools.build.lib.actions.ActionExecutionMetadata#getKey()} for the contract
-   * for {@link #computeKey()}.
+   * See the javadoc for {@link com.google.devtools.build.lib.actions.Action} and {@link
+   * ActionExecutionMetadata#getKey(ActionKeyContext)} for the contract for {@link
+   * #computeKey(ActionKeyContext)}.
    */
-  protected abstract String computeKey();
+  protected abstract String computeKey(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException;
 
   @Override
-  public final synchronized String getKey() {
+  public final synchronized String getKey(ActionKeyContext actionKeyContext) {
     if (cachedKey == null) {
-      cachedKey = computeKey();
+      try {
+        cachedKey = computeKey(actionKeyContext);
+      } catch (CommandLineExpansionException e) {
+        cachedKey = KEY_ERROR;
+      }
     }
     return cachedKey;
   }
@@ -361,33 +368,27 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public boolean isImmutable() {
-    return false;
-  }
-
-  @Override
   public void repr(SkylarkPrinter printer) {
     printer.append(prettyPrint()); // TODO(bazel-team): implement a readable representation
   }
 
   /**
-   * Deletes all of the action's output files, if they exist. If any of the
-   * Artifacts refers to a directory recursively removes the contents of the
-   * directory.
+   * Deletes all of the action's output files, if they exist. If any of the Artifacts refers to a
+   * directory recursively removes the contents of the directory.
    *
    * @param execRoot the exec root in which this action is executed
    */
-  protected void deleteOutputs(Path execRoot) throws IOException {
+  protected void deleteOutputs(FileSystem fileSystem, Path execRoot) throws IOException {
     for (Artifact output : getOutputs()) {
-      deleteOutput(output);
+      deleteOutput(fileSystem, output);
     }
   }
 
   /**
-   * Helper method to remove an Artifact. If the Artifact refers to a directory
-   * recursively removes the contents of the directory.
+   * Helper method to remove an Artifact. If the Artifact refers to a directory recursively removes
+   * the contents of the directory.
    */
-  protected void deleteOutput(Artifact output) throws IOException {
+  protected void deleteOutput(FileSystem fileSystem, Artifact output) throws IOException {
     Path path = output.getPath();
     try {
       // Optimize for the common case: output artifacts are files.
@@ -407,7 +408,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       if (!parentDir.isWritable() && parentDir.getPathString().startsWith(outputRootDir)) {
         // Retry deleting after making the parent writable.
         parentDir.setWritable(true);
-        deleteOutput(output);
+        deleteOutput(fileSystem, output);
       } else if (path.isDirectory(Symlinks.NOFOLLOW)) {
         FileSystemUtils.deleteTree(path);
       } else {
@@ -420,16 +421,20 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    * If the action might read directories as inputs in a way that is unsound wrt dependency
    * checking, this method must be called.
    */
-  protected void checkInputsForDirectories(EventHandler eventHandler,
-                                           MetadataHandler metadataHandler) {
+  protected void checkInputsForDirectories(
+      EventHandler eventHandler, MetadataProvider metadataProvider) throws ExecException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
     for (Artifact input : getMandatoryInputs()) {
       // Assume that if the file did not exist, we would not have gotten here.
-      if (input.isSourceArtifact() && !metadataHandler.isRegularFile(input)) {
-        eventHandler.handle(Event.warn(getOwner().getLocation(), "input '"
-            + input.prettyPrint() + "' to " + getOwner().getLabel()
-            + " is a directory; dependency checking of directories is unsound"));
+      try {
+        if (input.isSourceArtifact() && !metadataProvider.getMetadata(input).isFile()) {
+          eventHandler.handle(Event.warn(getOwner().getLocation(), "input '"
+              + input.prettyPrint() + "' to " + getOwner().getLabel()
+              + " is a directory; dependency checking of directories is unsound"));
+        }
+      } catch (IOException e) {
+        throw new UserExecException(e);
       }
     }
   }
@@ -463,8 +468,8 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public void prepare(Path execRoot) throws IOException {
-    deleteOutputs(execRoot);
+  public void prepare(FileSystem fileSystem, Path execRoot) throws IOException {
+    deleteOutputs(fileSystem, execRoot);
   }
 
   @Override
@@ -479,17 +484,13 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public boolean extraActionCanAttach() {
-    return true;
-  }
-
-  @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() {
+  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException {
     ActionOwner owner = getOwner();
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
             .setOwner(owner.getLabel().toString())
-            .setId(getKey())
+            .setId(getKey(actionKeyContext))
             .setMnemonic(getMnemonic());
     Iterable<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
     AspectDescriptor lastAspect = null;
@@ -532,7 +533,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    * correctly when run remotely. This is at least the normal inputs of the action, but may include
    * other files as well. For example C(++) compilation may perform include file header scanning.
    * This needs to be mirrored by the extra_action rule. Called by
-   * {@link com.google.devtools.build.lib.rules.extra.ExtraAction} at execution time for actions
+   * {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions
    * that return true for {link #discoversInputs()}.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
@@ -566,15 +567,17 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @SkylarkCallable(
-      name = "argv",
-      doc = "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
-          + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
-          + "list of the arguments for the command line to be executed. Note that "
-          + "for shell actions the first two arguments will be the shell path "
-          + "and <code>\"-c\"</code>.",
-      structField = true,
-      allowReturnNones = true)
-  public SkylarkList<String> getSkylarkArgv() {
+    name = "argv",
+    doc =
+        "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
+            + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
+            + "list of the arguments for the command line to be executed. Note that "
+            + "for shell actions the first two arguments will be the shell path "
+            + "and <code>\"-c\"</code>.",
+    structField = true,
+    allowReturnNones = true
+  )
+  public SkylarkList<String> getSkylarkArgv() throws CommandLineExpansionException {
     return null;
   }
 
@@ -597,6 +600,12 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       structField = true,
       allowReturnNones = true)
   public SkylarkDict<String, String> getSkylarkSubstitutions() {
+    return null;
+  }
+
+  @Nullable
+  @Override
+  public PlatformInfo getExecutionPlatform() {
     return null;
   }
 }

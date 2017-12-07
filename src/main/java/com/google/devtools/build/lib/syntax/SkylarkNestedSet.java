@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -23,8 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.util.Preconditions;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -93,20 +92,6 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   @Nullable
   private final List<NestedSet> transitiveItems;
 
-  // Dummy class used to create a documentation for the deprecated `set` type
-  // TODO(bazel-team): remove before the end of 2017
-  @SkylarkModule(
-      name = "set",
-      category = SkylarkModuleCategory.BUILTIN,
-      doc = "A deprecated alias for <a href=\"depset.html\">depset</a>. "
-          + "Please use <a href=\"depset.html\">depset</a> instead. "
-          + "If you need a hash set that supports O(1) membership testing "
-          + "consider using a <a href=\"dict.html\">dict</a>."
-  )
-  static final class LegacySet {
-    private LegacySet() {}
-  }
-
   public SkylarkNestedSet(Order order, Object item, Location loc) throws EvalException {
     this(order, SkylarkType.TOP, item, loc, null);
   }
@@ -120,14 +105,14 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   private SkylarkNestedSet(Order order, SkylarkType contentType, Object item, Location loc,
       @Nullable SkylarkNestedSet left) throws EvalException {
 
-    ArrayList<Object> items = new ArrayList<>();
-    ArrayList<NestedSet> transitiveItems = new ArrayList<>();
+    ImmutableList.Builder<Object> itemsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<NestedSet> transitiveItemsBuilder = ImmutableList.builder();
     if (left != null) {
       if (left.items == null) { // SkylarkSet created from native NestedSet
-        transitiveItems.add(left.set);
+        transitiveItemsBuilder.add(left.set);
       } else { // Preserving the left-to-right addition order.
-        items.addAll(left.items);
-        transitiveItems.addAll(left.transitiveItems);
+        itemsBuilder.addAll(left.items);
+        transitiveItemsBuilder.addAll(left.transitiveItems);
       }
     }
     // Adding the item
@@ -135,14 +120,14 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       SkylarkNestedSet nestedSet = (SkylarkNestedSet) item;
       if (!nestedSet.isEmpty()) {
         contentType = getTypeAfterInsert(contentType, nestedSet.contentType, loc);
-        transitiveItems.add(nestedSet.set);
+        transitiveItemsBuilder.add(nestedSet.set);
       }
     } else if (item instanceof SkylarkList) {
       // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
       for (Object object : (SkylarkList) item) {
         contentType = getTypeAfterInsert(contentType, SkylarkType.of(object.getClass()), loc);
         checkImmutable(object, loc);
-        items.add(object);
+        itemsBuilder.add(object);
       }
     } else {
       throw new EvalException(
@@ -151,20 +136,21 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
               "cannot union value of type '%s' to a depset", EvalUtils.getDataTypeName(item)));
     }
     this.contentType = Preconditions.checkNotNull(contentType, "type cannot be null");
+    this.items = itemsBuilder.build();
+    this.transitiveItems = transitiveItemsBuilder.build();
 
     // Initializing the real nested set
     NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
-    builder.addAll(items);
+    builder.addAll(this.items);
     try {
-      for (NestedSet<?> nestedSet : transitiveItems) {
+      for (NestedSet<?> nestedSet : this.transitiveItems) {
         builder.addTransitive(nestedSet);
       }
-    } catch (IllegalStateException e) {
+    } catch (IllegalArgumentException e) {
+      // Order mismatch between item and builder.
       throw new EvalException(loc, e.getMessage());
     }
     this.set = builder.build();
-    this.items = ImmutableList.copyOf(items);
-    this.transitiveItems = ImmutableList.copyOf(transitiveItems);
   }
 
   /**
@@ -281,8 +267,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
    * Returns the contents of the set as a {@link Collection}.
    */
   public Collection<Object> toCollection() {
-    // Do not remove <Object>: workaround for Java 7 type inference.
-    return ImmutableList.<Object>copyOf(set.toCollection());
+    return ImmutableList.copyOf(set.toCollection());
   }
 
   /**
@@ -335,6 +320,69 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
 
   @Override
   public final boolean containsKey(Object key, Location loc) throws EvalException {
-    return (set.toSet().contains(key));
+    return (set.toList().contains(key));
+  }
+
+  /**
+   * Create a {@link Builder} with specified order.
+   *
+   * <p>The {@code Builder} will use {@code location} to report errors.
+   */
+  public static Builder builder(Order order, Location location) {
+    return new Builder(order, location);
+  }
+
+  /**
+   * Builder for {@link SkylarkNestedSet}.
+   *
+   * <p>Use this to construct typesafe Skylark nested sets (depsets).
+   * Encapsulates content type checking logic.
+   */
+  public static final class Builder {
+
+    private final Order order;
+    private final NestedSetBuilder<Object> builder;
+    /** Location for error messages */
+    private final Location location;
+    private SkylarkType contentType = SkylarkType.TOP;
+
+    private Builder(Order order, Location location) {
+      this.order = order;
+      this.location = location;
+      this.builder = new NestedSetBuilder<>(order);
+    }
+
+    /**
+     * Add a direct element, checking its type to be compatible to already added
+     * elements and transitive sets.
+     */
+    public Builder addDirect(Object direct) throws EvalException {
+      contentType = getTypeAfterInsert(contentType, SkylarkType.of(direct.getClass()), location);
+      builder.add(direct);
+      return this;
+    }
+
+    /**
+     * Add a transitive set, checking its content type to be compatible to already added
+     * elements and transitive sets.
+     */
+    public Builder addTransitive(SkylarkNestedSet transitive) throws EvalException {
+      if (transitive.isEmpty()) {
+        return this;
+      }
+
+      contentType = getTypeAfterInsert(contentType, transitive.getContentType(), this.location);
+      if (!order.isCompatible(transitive.getOrder())) {
+        throw new EvalException(location,
+            String.format("Order '%s' is incompatible with order '%s'",
+                          order.getSkylarkName(), transitive.getOrder().getSkylarkName()));
+      }
+      builder.addTransitive(transitive.getSet(Object.class));
+      return this;
+    }
+
+    public SkylarkNestedSet build() {
+      return new SkylarkNestedSet(contentType, builder.build());
+    }
   }
 }

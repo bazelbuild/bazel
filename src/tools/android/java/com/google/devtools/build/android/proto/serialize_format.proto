@@ -13,6 +13,7 @@
 // limitations under the License.
 syntax = "proto2";
 
+// option java_api_version = 2;
 
 package xml;
 

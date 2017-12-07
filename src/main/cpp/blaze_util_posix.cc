@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define _WITH_DPRINTF
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -23,11 +24,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
+
+#include <cassert>
+#include <cinttypes>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -68,7 +74,9 @@ static void handler(int signum) {
             "\n%s caught third interrupt signal; killed.\n\n",
             SignalHandler::Get().GetGlobals()->options->product_name.c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
-          KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
+          KillServerProcess(
+              SignalHandler::Get().GetGlobals()->server_pid,
+              SignalHandler::Get().GetGlobals()->options->output_base);
         }
         _exit(1);
       }
@@ -330,10 +338,10 @@ void WriteSystemSpecificProcessIdentifier(
 // daemonizes then exec()s the actual JVM, which is also non-trivial. So I hope
 // this will be good enough because for all its flaws, this solution is at least
 // localized here.
-void ExecuteDaemon(const string& exe,
-                   const std::vector<string>& args_vector,
-                   const string& daemon_output, const string& server_dir,
-                   BlazeServerStartup** server_startup) {
+int ExecuteDaemon(const string& exe,
+                  const std::vector<string>& args_vector,
+                  const string& daemon_output, const string& server_dir,
+                  BlazeServerStartup** server_startup) {
   int fds[2];
 
   if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds)) {
@@ -347,6 +355,7 @@ void ExecuteDaemon(const string& exe,
   int child = fork();
   if (child == -1) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
+    return -1;
   } else if (child > 0) {
     // Parent process (i.e. the client)
     close(fds[1]);  // parent keeps one side...
@@ -358,6 +367,7 @@ void ExecuteDaemon(const string& exe,
     string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
     if (!blaze_util::WriteFile(ToString(server_pid), pid_file)) {
       pdie(blaze_exit_code::INTERNAL_ERROR, "cannot write PID file");
+      return -1;
     }
 
     WriteSystemSpecificProcessIdentifier(server_dir, server_pid);
@@ -365,7 +375,7 @@ void ExecuteDaemon(const string& exe,
     WriteToFdWithRetryEintr(fds[0], &dummy, 1,
                        "cannot notify server about having written PID file");
     *server_startup = new SocketBlazeServerStartup(fds[0]);
-    return;
+    return server_pid;
   } else {
     // Child process (i.e. the server)
     // NB: There should only be system calls in this branch. See the comment
@@ -389,6 +399,7 @@ void ExecuteDaemon(const string& exe,
 
     execv(exe_chars, const_cast<char**>(argv));
     DieAfterFork("Cannot execute daemon");
+    return -1;
   }
 }
 
@@ -506,6 +517,8 @@ void UnsetEnv(const string& name) {
   unsetenv(name.c_str());
 }
 
+bool WarnIfStartedFromDesktop() { return false; }
+
 void SetupStdStreams() {
   // Set non-buffered output mode for stderr/stdout. The server already
   // line-buffers messages where it makes sense, so there's no need to do set
@@ -544,6 +557,38 @@ void SigPrintf(const char *format, ...) {
   }
 }
 
+static int setlk(int fd, struct flock *lock) {
+#ifdef __linux__
+// If we're building with glibc <2.20, or another libc which predates
+// OFD locks, define the constant ourselves.  This assumes that the libc
+// and kernel definitions for struct flock are identical.
+#ifndef F_OFD_SETLK
+#define F_OFD_SETLK 37
+#endif
+#endif
+#ifdef F_OFD_SETLK
+  // Prefer OFD locks if available.  POSIX locks can be lost "accidentally"
+  // due to any close() on the lock file, and are not reliably preserved
+  // across execve() on Linux, which we need for --batch mode.
+  if (fcntl(fd, F_OFD_SETLK, lock) == 0) return 0;
+  if (errno != EINVAL) {
+    if (errno != EACCES && errno != EAGAIN) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "unexpected result from F_OFD_SETLK");
+    }
+    return -1;
+  }
+  // F_OFD_SETLK was added in Linux 3.15.  Older kernels return EINVAL.
+  // Fall back to F_SETLK in that case.
+#endif
+  if (fcntl(fd, F_SETLK, lock) == 0) return 0;
+  if (errno != EACCES && errno != EAGAIN) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "unexpected result from F_SETLK");
+  }
+  return -1;
+}
+
 uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
                      BlazeLock* blaze_lock) {
   string lockfile = blaze_util::JoinPath(output_base, "lock");
@@ -562,7 +607,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
     }
   }
 
-  struct flock lock;
+  struct flock lock = {};
   lock.l_type = F_WRLCK;
   lock.l_whence = SEEK_SET;
   lock.l_start = 0;
@@ -570,60 +615,94 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
   // later if that becomes meaningful.  (Ranges beyond EOF can be locked.)
   lock.l_len = 4096;
 
-  uint64_t wait_time = 0;
-  // Try to take the lock, without blocking.
-  if (fcntl(lockfd, F_SETLK, &lock) == -1) {
-    if (errno != EACCES && errno != EAGAIN) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_SETLK");
+  // Take the exclusive server lock.  If we fail, we busy-wait until the lock
+  // becomes available.
+  //
+  // We used to rely on fcntl(F_SETLKW) to lazy-wait for the lock to become
+  // available, which is theoretically fine, but doing so prevents us from
+  // determining if the PID of the server holding the lock has changed under the
+  // hood.  There have been multiple bug reports where users (especially macOS
+  // ones) mention that the Blaze invocation hangs on a non-existent PID.  This
+  // should help troubleshoot those scenarios in case there really is a bug
+  // somewhere.
+  bool multiple_attempts = false;
+  string owner;
+  const uint64_t start_time = GetMillisecondsMonotonic();
+  while (setlk(lockfd, &lock) == -1) {
+    string buffer(4096, 0);
+    ssize_t r = pread(lockfd, &buffer[0], buffer.size(), 0);
+    if (r < 0) {
+      fprintf(stderr, "warning: pread() lock file: %s\n", strerror(errno));
+      r = 0;
+    }
+    buffer.resize(r);
+    if (owner != buffer) {
+      // Each time we learn a new lock owner, print it out.
+      owner = buffer;
+      fprintf(stderr, "Another command holds the client lock: \n%s\n",
+              owner.c_str());
+      if (block) {
+        fprintf(stderr, "Waiting for it to complete...\n");
+        fflush(stderr);
+      }
     }
 
-    // We didn't get the lock.  Find out who has it.
-    struct flock probe = lock;
-    probe.l_pid = 0;
-    if (fcntl(lockfd, F_GETLK, &probe) == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_GETLK");
-    }
     if (!block) {
       die(blaze_exit_code::BAD_ARGV,
-          "Another command is running (pid=%d). Exiting immediately.",
-          probe.l_pid);
+          "Exiting because the lock is held and --noblock_for_lock was given.");
     }
-    fprintf(stderr, "Another command is running (pid = %d).  "
-            "Waiting for it to complete...", probe.l_pid);
-    fflush(stderr);
 
-    // Take a clock sample for that start of the waiting time
-    uint64_t st = GetMillisecondsMonotonic();
-    // Try to take the lock again (blocking).
-    int r;
-    do {
-      r = fcntl(lockfd, F_SETLKW, &lock);
-    } while (r == -1 && errno == EINTR);
-    fprintf(stderr, "\n");
-    if (r == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "couldn't acquire file lock");
-    }
-    // Take another clock sample, calculate elapsed
-    uint64_t et = GetMillisecondsMonotonic();
-    wait_time = et - st;
+    TrySleep(500);
+    multiple_attempts = true;
   }
+  const uint64_t end_time = GetMillisecondsMonotonic();
+
+  // If we took the lock on the first try, force the reported wait time to 0 to
+  // avoid unnecessary noise in the logs.  In this metric, we are only
+  // interested in knowing how long it took for other commands to complete, not
+  // how fast acquiring a lock is.
+  const uint64_t wait_time = !multiple_attempts ? 0 : end_time - start_time;
 
   // Identify ourselves in the lockfile.
+  // The contents are printed for human consumption when another client
+  // fails to take the lock, but not parsed otherwise.
   (void) ftruncate(lockfd, 0);
-  const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
-  string msg = "owner=launcher\npid="
-      + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
-  // The contents are currently meant only for debugging.
-  (void) write(lockfd, msg.data(), msg.size());
+  lseek(lockfd, 0, SEEK_SET);
+  // Arguably we should ensure this fits in the 4KB we lock.  In practice no one
+  // will have a cwd long enough to overflow that, and nothing currently uses
+  // the rest of the lock file anyway.
+  dprintf(lockfd, "pid=%d\nowner=client\n", getpid());
+  string cwd = blaze_util::GetCwd();
+  dprintf(lockfd, "cwd=%s\n", cwd.c_str());
+  if (const char *tty = ttyname(STDIN_FILENO)) {  // NOLINT (single-threaded)
+    dprintf(lockfd, "tty=%s\n", tty);
+  }
   blaze_lock->lockfd = lockfd;
   return wait_time;
 }
 
 void ReleaseLock(BlazeLock* blaze_lock) {
   close(blaze_lock->lockfd);
+}
+
+bool KillServerProcess(int pid, const string& output_base) {
+  // Kill the process and make sure it's dead before proceeding.
+  killpg(pid, SIGKILL);
+  if (!AwaitServerProcessTermination(pid, output_base,
+                                     kPostKillGracePeriodSeconds)) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Attempted to kill stale server process (pid=%d) using "
+        "SIGKILL, but it did not die in a timely fashion.",
+        pid);
+  }
+  return true;
+}
+
+void TrySleep(unsigned int milliseconds) {
+  time_t seconds_part = (time_t)(milliseconds / 1000);
+  long nanoseconds_part = ((long)(milliseconds % 1000)) * 1000 * 1000;
+  struct timespec sleeptime = {seconds_part, nanoseconds_part};
+  nanosleep(&sleeptime, NULL);
 }
 
 string GetUserName() {
@@ -650,27 +729,25 @@ bool IsEmacsTerminal() {
   return emacs == "t" || !inside_emacs.empty();
 }
 
-// Returns true if stderr is connected to a terminal, and it can support color
-// and cursor movement (this is computed heuristically based on the values of
-// environment variables).  The only file handle into which Blaze outputs
-// control characters is stderr, so we only care for the stderr descriptor type.
-bool IsStderrStandardTerminal() {
+// Returns true iff both stdout and stderr are connected to a
+// terminal, and it can support color and cursor movement
+// (this is computed heuristically based on the values of
+// environment variables).
+bool IsStandardTerminal() {
   string term = GetEnv("TERM");
   if (term.empty() || term == "dumb" || term == "emacs" ||
       term == "xterm-mono" || term == "symbolics" || term == "9term" ||
       IsEmacsTerminal()) {
     return false;
   }
-  return isatty(STDERR_FILENO);
+  return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
 }
 
-// Returns the number of columns of the terminal to which stderr is connected,
-// or $COLUMNS (default 80) if there is no such terminal.  The only file handle
-// into which Blaze outputs formatted messages is stderr, so we only care for
-// width of a terminal connected to the stderr descriptor.
-int GetStderrTerminalColumns() {
+// Returns the number of columns of the terminal to which stdout is
+// connected, or $COLUMNS (default 80) if there is no such terminal.
+int GetTerminalColumns() {
   struct winsize ws;
-  if (ioctl(STDERR_FILENO, TIOCGWINSZ, &ws) != -1) {
+  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
     return ws.ws_col;
   }
   string columns_env = GetEnv("COLUMNS");
@@ -682,6 +759,68 @@ int GetStderrTerminalColumns() {
     }
   }
   return 80;  // default if not a terminal.
+}
+
+// Raises a resource limit to the maximum allowed value.
+//
+// This function raises the limit of the resource given in "resource" from its
+// soft limit to its hard limit. If the hard limit is unlimited, uses the
+// kernel-level limit fetched from the sysctl property given in "sysctl_name"
+// because setting the soft limit to unlimited may not work.
+//
+// Note that this is a best-effort operation. Any failure during this process
+// will result in a warning but execution will continue.
+static bool UnlimitResource(const int resource) {
+  struct rlimit rl;
+  if (getrlimit(resource, &rl) == -1) {
+    fprintf(stderr, "Warning: failed to get resource limit %d: %s\n", resource,
+            strerror(errno));
+    return false;
+  }
+
+  if (rl.rlim_cur == rl.rlim_max) {
+    // Nothing to do. Return early to prevent triggering any warnings caused by
+    // the code below. This way, we will only show warnings the first time the
+    // Blaze server is started and not on each command invocation.
+    return true;
+  }
+
+  rl.rlim_cur = rl.rlim_max;
+  if (rl.rlim_cur == RLIM_INFINITY) {
+    const rlim_t explicit_limit = GetExplicitSystemLimit(resource);
+    if (explicit_limit <= 0) {
+      // If not implemented (-1) or on an error (0), do nothing and try to
+      // increase the soft limit to the hard one. This might fail, but it's good
+      // to try anyway.
+      assert(rl.rlim_cur == rl.rlim_max);
+    } else {
+      rl.rlim_cur = explicit_limit;
+    }
+  }
+
+  if (setrlimit(resource, &rl) == -1) {
+    fprintf(stderr, "Warning: failed to raise resource limit %d to %" PRIdMAX
+            ": %s\n", resource, static_cast<intmax_t>(rl.rlim_cur),
+            strerror(errno));
+    return false;
+  }
+
+  return true;
+}
+
+bool UnlimitResources() {
+  bool success = true;
+  success &= UnlimitResource(RLIMIT_NOFILE);
+  success &= UnlimitResource(RLIMIT_NPROC);
+  return success;
+}
+
+void DetectBashOrDie() {
+  // do nothing.
+}
+
+void EnsurePythonPathOption(vector<string>* options) {
+  // do nothing.
 }
 
 }   // namespace blaze.

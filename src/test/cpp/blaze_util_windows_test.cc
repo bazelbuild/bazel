@@ -20,6 +20,7 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/strings.h"
 #include "gtest/gtest.h"
 
@@ -152,6 +153,32 @@ TEST(BlazeUtilWindowsTest, TestUnsetEnv) {
   ASSERT_ENVVAR(long_key.c_str(), long_value.c_str());
   UnsetEnv(long_key);
   ASSERT_ENVVAR_UNSET(long_key.c_str());
+}
+
+TEST(BlazeUtilWindowsTest, ConvertPathTest) {
+  EXPECT_EQ("c:\\foo", ConvertPath("C:\\FOO"));
+  EXPECT_EQ("c:\\blah", ConvertPath("/c/Blah"));
+  EXPECT_EQ("c:\\", ConvertPath("/c"));
+  EXPECT_EQ("c:\\", ConvertPath("/c/"));
+  EXPECT_EQ("c:\\", ConvertPath("c:/"));
+  EXPECT_EQ("c:\\foo\\bar", ConvertPath("c:/../foo\\BAR\\.\\"));
+  EXPECT_EQ("nul", MakeAbsolute("NUL"));
+  EXPECT_EQ("nul", MakeAbsolute("nul"));
+  EXPECT_EQ("nul", MakeAbsolute("/dev/null"));
+}
+
+TEST(BlazeUtilWindowsTest, TestMakeAbsolute) {
+  EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:\\foo\\BAR"));
+  EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:/foo/bar"));
+  EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:\\foo\\bar\\"));
+  EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:/foo/bar/"));
+  EXPECT_EQ(blaze_util::AsLower(blaze_util::GetCwd()) + "\\foo",
+            MakeAbsolute("foo"));
+  EXPECT_EQ("nul", MakeAbsolute("NUL"));
+  EXPECT_EQ("nul", MakeAbsolute("Nul"));
+  EXPECT_EQ("nul", MakeAbsolute("nul"));
+  EXPECT_EQ(blaze_util::AsLower(blaze_util::GetCwd()), MakeAbsolute(""));
+  EXPECT_EQ("nul", MakeAbsolute("/dev/null"));
 }
 
 }  // namespace blaze

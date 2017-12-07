@@ -15,74 +15,21 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.RuleClass;
-import java.util.List;
 
 /** Helper class to manage rules' use of platforms. */
 public class PlatformSemantics {
 
-  public static final String TARGET_PLATFORMS_ATTR = ":target_platforms";
-  public static final String EXECUTION_PLATFORM_ATTR = ":execution_platform";
-
-  public Iterable<PlatformInfo> getTargetPlatforms(RuleContext ruleContext) {
-    Iterable<PlatformInfo> platform =
-        PlatformProviderUtils.platforms(
-            ruleContext.getPrerequisites(
-                TARGET_PLATFORMS_ATTR, RuleConfiguredTarget.Mode.DONT_CHECK));
-    return platform;
-  }
-
-  public PlatformInfo getExecutionPlatform(RuleContext ruleContext) {
-    PlatformInfo platform =
-        PlatformProviderUtils.platform(
-            ruleContext.getPrerequisite(
-                EXECUTION_PLATFORM_ATTR, RuleConfiguredTarget.Mode.DONT_CHECK));
-    return platform;
-  }
-
-  /** Implementation for the :target_platform attribute. */
-  public static final Attribute.LateBoundLabelList<BuildConfiguration> TARGET_PLATFORM =
-      new Attribute.LateBoundLabelList<BuildConfiguration>(PlatformConfiguration.class) {
-        @Override
-        public List<Label> resolve(
-            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          if (rule.getRuleClassObject().getRequiredToolchains().isEmpty()) {
-            return null;
-          }
-          return configuration.getFragment(PlatformConfiguration.class).getTargetPlatforms();
-        }
-      };
-  /** Implementation for the :execution_platform attribute. */
-  public static final Attribute.LateBoundLabel<BuildConfiguration> EXECUTION_PLATFORM =
-      new Attribute.LateBoundLabel<BuildConfiguration>(PlatformConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          if (rule.getRuleClassObject().getRequiredToolchains().isEmpty()) {
-            return null;
-          }
-          return configuration.getFragment(PlatformConfiguration.class).getExecutionPlatform();
-        }
-      };
+  public static final String TOOLCHAINS_ATTR = "$toolchains";
 
   public static RuleClass.Builder platformAttributes(RuleClass.Builder builder) {
     return builder
         .add(
-            attr(TARGET_PLATFORMS_ATTR, LABEL_LIST)
-                .value(TARGET_PLATFORM)
-                .nonconfigurable("Used in toolchain resolution"))
-        .add(
-            attr(EXECUTION_PLATFORM_ATTR, LABEL)
-                .value(EXECUTION_PLATFORM)
-                .nonconfigurable("Used in toolchain resolution"));
+            attr(TOOLCHAINS_ATTR, LABEL_LIST)
+                .nonconfigurable("Used in toolchain resolution")
+                .value(ImmutableList.of()));
   }
 }

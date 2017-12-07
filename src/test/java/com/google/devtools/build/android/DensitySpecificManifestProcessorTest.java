@@ -155,7 +155,7 @@ public class DensitySpecificManifestProcessorTest {
       new DensitySpecificManifestProcessor(ImmutableList.of("xhdpi"),
           tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
       fail();
-    } catch (ManifestProcessingException e) {
+    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
       assertThat(e).hasMessageThat().contains("must be well-formed");
     }
   }
@@ -166,7 +166,7 @@ public class DensitySpecificManifestProcessorTest {
       new DensitySpecificManifestProcessor(ImmutableList.of("xhdpi"),
           tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
       fail();
-    } catch (ManifestProcessingException e) {
+    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
       assertThat(e).hasMessageThat().contains("Premature end of file.");
     }
   }
@@ -183,7 +183,7 @@ public class DensitySpecificManifestProcessorTest {
       new DensitySpecificManifestProcessor(ImmutableList.of("xhdpi"),
           tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
       fail();
-    } catch (ManifestProcessingException e) {
+    } catch (AndroidManifestProcessor.ManifestProcessingException e) {
       assertThat(e).hasMessageThat().contains("does not contain exactly one <manifest>");
     }
   }

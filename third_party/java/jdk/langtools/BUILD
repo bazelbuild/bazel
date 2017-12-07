@@ -9,41 +9,20 @@ filegroup(
 
 filegroup(
     name = "test-srcs",
-    srcs = select({
-        "//tools/jdk:jdk7": [
-            "BUILD",
-            "LICENSE",
-            "javac7.jar",
-            "javac7.srcjar",
-        ],
-        "//conditions:default": [
-            "BUILD",
-            "LICENSE",
-            "javac-9-dev-r4023-2.jar",
-            "javac-9-dev-r4023-2.srcjar",
-        ],
-    }),
+    srcs = [
+        "BUILD",
+        "LICENSE",
+        "javac-9-dev-r4023-3.jar",
+        "javac-9-dev-r4023-3.srcjar",
+    ],
 )
 
 java_import(
     name = "javac",
-    jars = ["javac-9-dev-r4023-2.jar"],
+    jars = ["javac-9-dev-r4023-3.jar"],
 )
 
 filegroup(
     name = "javac_jar",
-    srcs = select({
-        "//tools/jdk:jdk7": ["javac7.jar"],
-        "//conditions:default": ["javac-9-dev-r4023-2.jar"],
-    }),
-)
-
-java_import(
-    name = "javac7",
-    jars = ["javac7.jar"],
-)
-
-filegroup(
-    name = "javac7_jar",
-    srcs = ["javac7.jar"],
+    srcs = ["javac-9-dev-r4023-3.jar"],
 )

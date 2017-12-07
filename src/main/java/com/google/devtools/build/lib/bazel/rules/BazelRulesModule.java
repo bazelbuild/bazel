@@ -19,11 +19,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
-import com.google.devtools.build.lib.rules.genquery.GenQuery;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 
@@ -50,9 +48,6 @@ public class BazelRulesModule extends BlazeModule {
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    builder.addSkyFunction(FdoSupportValue.SKYFUNCTION, new FdoSupportFunction());
-    builder.addPrecomputedValue(PrecomputedValue.injected(
-        GenQuery.QUERY_OUTPUT_FORMATTERS,
-        runtime.getQueryOutputFormatters()));
+    builder.addSkyFunction(FdoSupportValue.SKYFUNCTION, new FdoSupportFunction(directories));
   }
 }

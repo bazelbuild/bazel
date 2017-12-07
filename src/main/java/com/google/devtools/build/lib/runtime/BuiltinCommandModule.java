@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.runtime.commands.DumpCommand;
 import com.google.devtools.build.lib.runtime.commands.HelpCommand;
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.commands.LicenseCommand;
+import com.google.devtools.build.lib.runtime.commands.PrintActionCommand;
 import com.google.devtools.build.lib.runtime.commands.ProfileCommand;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.runtime.commands.RunCommand;
@@ -43,6 +44,7 @@ public final class BuiltinCommandModule extends BlazeModule {
         new DumpCommand(),
         new HelpCommand(),
         new InfoCommand(),
+        new PrintActionCommand(),
         new ProfileCommand(),
         new QueryCommand(),
         new RunCommand(),

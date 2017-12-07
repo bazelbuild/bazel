@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -33,7 +35,7 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
 
   private final Label label;
   private final boolean matches;
-  private final Map<String, String> settingsMap;
+  private final Multimap<String, String> settingsMap;
   private final Map<Label, String> flagSettingsMap;
 
   /**
@@ -45,7 +47,7 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
    */
   public ConfigMatchingProvider(
       Label label,
-      Map<String, String> settingsMap,
+      Multimap<String, String> settingsMap,
       Map<Label, String> flagSettingsMap,
       boolean matches) {
     this.label = label;
@@ -74,8 +76,8 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
    * conditions, i.e. if this matcher is a specialization of the other one.
    */
   public boolean refines(ConfigMatchingProvider other) {
-    Set<Map.Entry<String, String>> settings = settingsMap.entrySet();
-    Set<Map.Entry<String, String>> otherSettings = other.settingsMap.entrySet();
+    Set<Map.Entry<String, String>> settings = ImmutableSet.copyOf(settingsMap.entries());
+    Set<Map.Entry<String, String>> otherSettings = ImmutableSet.copyOf(other.settingsMap.entries());
     Set<Map.Entry<Label, String>> flagSettings = flagSettingsMap.entrySet();
     Set<Map.Entry<Label, String>> otherFlagSettings = other.flagSettingsMap.entrySet();
 

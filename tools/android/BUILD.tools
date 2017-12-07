@@ -7,12 +7,12 @@ alias(
 
 android_library(
     name = "incremental_stub_application",
-    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
+    exports = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
 )
 
 android_library(
     name = "incremental_split_stub_application",
-    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_split_stub_application"],
+    exports = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_split_stub_application"],
 )
 
 alias(
@@ -41,8 +41,18 @@ alias(
 )
 
 alias(
+    name = "dexsharder",
+    actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileSplitter",
+)
+
+alias(
     name = "desugar_java8",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar_embedded",
+    actual = "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
+)
+
+alias(
+    name = "zip_filter",
+    actual = "//src/tools/android/java/com/google/devtools/build/android:ZipFilterAction",
 )
 
 # Bazel puts this on the bootclasspath of android_* targets to support Java 8
@@ -53,6 +63,42 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+java_import(
+    name = "singlejar_deploy",
+    jars = select({
+        "//src/conditions:windows": ["@bazel_tools//tools/jdk:singlejar"],
+        "//src/conditions:windows_msvc": ["@bazel_tools//tools/jdk:singlejar"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:private"],
+)
+
+java_binary(
+    name = "singlejar_javabin",
+    main_class = "com.google.devtools.build.singlejar.SingleJar",
+    runtime_deps = select({
+        "//src/conditions:windows": [":singlejar_deploy"],
+        "//src/conditions:windows_msvc": [":singlejar_deploy"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:private"],
+)
+
+gen_java_lang_extras_jar_cmd = """
+    for jar in $(locations @local_jdk//:bootclasspath); do
+      if [[ "$${jar}" == *"/rt.jar" ]]; then
+        $(location %s) \
+            --exclude_build_data \
+            --dont_change_compression \
+            --sources $${jar} \
+            --include_prefixes "java/lang/invoke/" \
+            --include_prefixes "java/lang/annotation/" \
+            --output $@
+        break
+      fi
+    done
+    """
+
 # javac needs this Jar to compile lambdas, method references, and type annotations.
 # These classes are not part of the android.jar.
 genrule(
@@ -60,40 +106,23 @@ genrule(
     srcs = [
         "@local_jdk//:bootclasspath"
     ],
-    tools = [
-        "@bazel_tools//tools/jdk:singlejar",
-    ],
+    tools = select({
+        "//src/conditions:windows": [":singlejar_javabin"],
+        "//src/conditions:windows_msvc": [":singlejar_javabin"],
+        "//conditions:default": ["@bazel_tools//tools/jdk:singlejar"],
+    }),
     outs = ["java_lang_extras.jar"],
-    cmd = """
-          for jar in $(locations @local_jdk//:bootclasspath); do
-            if [[ "$${jar}" == *"/rt.jar" ]]; then
-              $(location @bazel_tools//tools/jdk:singlejar) \
-                  --exclude_build_data \
-                  --dont_change_compression \
-                  --sources $${jar} \
-                  --include_prefixes "java/lang/invoke/" \
-                  --include_prefixes "java/lang/annotation/" \
-                  --output $@
-              break
-            fi
-          done
-          """,
+    cmd = select({
+        "//src/conditions:windows": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
+        "//src/conditions:windows_msvc": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
+        "//conditions:default": gen_java_lang_extras_jar_cmd % "@bazel_tools//tools/jdk:singlejar",
+    }),
     visibility = ["//visibility:private"],
 )
 
 alias(
     name = "IdlClass",
     actual = "//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass",
-)
-
-alias(
-    name = "JarFilter",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/ideinfo:JarFilter",
-)
-
-alias(
-    name = "PackageParser",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
 )
 
 py_binary(
@@ -144,6 +173,7 @@ py_binary(
         "aar_native_libs_zip_creator.py",
     ],
     deps = [
+        ":junction_lib",
         "//third_party/py/gflags",
     ],
 )
@@ -161,21 +191,33 @@ sh_binary(
     srcs = ["fail.sh"],
 )
 
-sh_binary(
-    name = "zip_manifest_creator",
-    srcs = ["zip_manifest_creator.sh"],
-    data = ["//tools/zip:zipper"],
-)
-
 py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
-    deps = ["//third_party/py/gflags"],
+    deps = [
+        ":junction_lib",
+        "//third_party/py/gflags",
+    ],
+)
+
+py_binary(
+    name = "aar_resources_extractor",
+    srcs = ["aar_resources_extractor.py"],
+    deps = [
+        ":junction_lib",
+        "//third_party/py/gflags",
+    ],
 )
 
 py_binary(
     name = "resource_extractor",
     srcs = ["resource_extractor.py"],
+)
+
+py_library(
+    name = "junction_lib",
+    srcs = ["junction.py"],
+    visibility = ["//visibility:private"],
 )
 
 alias(
@@ -207,7 +249,16 @@ filegroup(
 
 alias(
     name = "databinding_annotation_processor",
-    actual = "@android_databinding//:annotation_processor",
+    actual = "//external:databinding_annotation_processor",
+)
+
+# This is the default value of databinding_annotation_processor if the user does
+# not provide one.
+filegroup(name = "empty")
+
+alias(
+    name = "jarjar_bin",
+    actual = "//third_party/java/jarjar:jarjar_bin",
 )
 
 # This is the default binding of //external:android/sdk. If someone attempts to
@@ -229,7 +280,6 @@ android_sdk(
     main_dex_classes = ":error_message",
     apksigner = ":error_message",
     zipalign = ":error_message",
-    resource_extractor = "error_message",
 )
 
 genrule(
@@ -265,4 +315,9 @@ config_setting(
     flag_values = {
         ":true": "false",
     },
+)
+
+package_group(
+    name = "android_device_whitelist",
+    packages = ["//..."],
 )

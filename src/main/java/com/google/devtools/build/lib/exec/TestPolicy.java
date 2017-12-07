@@ -14,9 +14,10 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.rules.test.TestRunnerAction;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.util.UserUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -58,7 +59,7 @@ public class TestPolicy {
   public Map<String, String> computeTestEnvironment(
       TestRunnerAction testAction,
       Map<String, String> clientEnv,
-      int timeoutInSeconds,
+      Duration timeout,
       PathFragment relativeRunfilesDir,
       PathFragment tmpDir) {
     Map<String, String> env = new HashMap<>();
@@ -95,7 +96,7 @@ public class TestPolicy {
 
     // Setup any test-specific env variables; note that this does not overwrite existing values for
     // TEST_RANDOM_SEED or TEST_SIZE if they're already set.
-    testAction.setupEnvVariables(env, timeoutInSeconds);
+    testAction.setupEnvVariables(env, timeout);
     return env;
   }
 }

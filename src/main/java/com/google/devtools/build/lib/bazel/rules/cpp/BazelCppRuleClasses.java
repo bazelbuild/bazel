@@ -37,20 +37,17 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -59,7 +56,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -72,59 +69,30 @@ public class BazelCppRuleClasses {
   static final SafeImplicitOutputsFunction CC_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(CppRuleClasses.CC_BINARY_STRIPPED, CppRuleClasses.CC_BINARY_DEBUG_PACKAGE);
 
-  static final RuleClass.Configurator<BuildConfiguration, Rule> LIPO_ON_DEMAND =
-      new RuleClass.Configurator<BuildConfiguration, Rule>() {
-        @Override
-        public BuildConfiguration apply(Rule rule, BuildConfiguration configuration) {
-          Preconditions.checkState(!configuration.useDynamicConfigurations(),
-              "Dynamic configurations don't use rule class configurators for LIPO");
-          BuildConfiguration toplevelConfig =
-              configuration.getConfiguration(LipoTransition.TARGET_CONFIG_FOR_LIPO);
-          CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);
-          if (toplevelConfig != null
-              && cppConfig.isDataConfigurationForLipoOptimization()
-              && rule.getLabel().equals(cppConfig.getLipoContextForBuild())) {
-            return toplevelConfig;
-          }
-          return configuration;
-        }
-
-        @Override
-        public String getCategory() {
-          return "lipo";
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> STL =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return getStl(rule, configuration);
-        }
-      };
-
   /**
    * Returns the STL prerequisite of the rule.
    *
-   * <p>If rule has an implicit $stl_default attribute returns STL version set on the
-   * command line or if not set, the value of the $stl_default attribute. Returns
-   * {@code null} otherwise.
+   * <p>If rule has an implicit $stl_default attribute returns STL version set on the command line
+   * or if not set, the value of the $stl_default attribute. Returns {@code null} otherwise.
    */
-  private static Label getStl(Rule rule, BuildConfiguration original) {
-    Label stl = null;
-    if (rule.getRuleClassObject().hasAttr("$stl_default", BuildType.LABEL)) {
-      Label stlConfigLabel = original.getFragment(CppConfiguration.class).getStl();
-      Label stlRuleLabel = RawAttributeMapper.of(rule).get("$stl_default", BuildType.LABEL);
-      if (stlConfigLabel == null) {
-        stl = stlRuleLabel;
-      } else if (!stlConfigLabel.equals(rule.getLabel()) && stlRuleLabel != null) {
-        // prevents self-reference and a cycle through standard STL in the dependency graph
-        stl = stlConfigLabel;
-      }
-    }
-    return stl;
-  }
+  public static final LateBoundDefault<?, Label> STL =
+      LateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> {
+            Label stl = null;
+            if (attributes.has("$stl_default", BuildType.LABEL)) {
+              Label stlConfigLabel = cppConfig.getStl();
+              Label stlRuleLabel = attributes.get("$stl_default", BuildType.LABEL);
+              if (stlConfigLabel == null) {
+                stl = stlRuleLabel;
+              } else if (!stlConfigLabel.equals(rule.getLabel()) && stlRuleLabel != null) {
+                // prevents self-reference and a cycle through standard STL in the dependency graph
+                stl = stlConfigLabel;
+              }
+            }
+            return stl;
+          });
 
   static final FileTypeSet ALLOWED_SRC_FILES =
       FileTypeSet.of(
@@ -144,10 +112,7 @@ public class BazelCppRuleClasses {
 
   static final String[] DEPS_ALLOWED_RULES =
       new String[] {
-        "cc_inc_library",
-        "cc_library",
-        "objc_library",
-        "cc_proto_library",
+        "cc_inc_library", "cc_library", "objc_library", "cc_proto_library", "cc_import",
       };
 
   /**
@@ -162,7 +127,12 @@ public class BazelCppRuleClasses {
           .add(
               attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
                   .value(CppRuleClasses.ccToolchainAttribute(env)))
+          .add(
+              attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
+                  .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
+          .requiresConfigurationFragments(PlatformConfiguration.class)
+          .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
           .build();
     }
 
@@ -189,7 +159,8 @@ public class BazelCppRuleClasses {
           <p>
             Each string in this attribute is added in the given order to <code>COPTS</code> before
             compiling the binary target. The flags take effect only for compiling this target, not
-            its dependencies, so be careful about header files included elsewhere.
+            its dependencies, so be careful about header files included elsewhere.  All paths should
+            be relative to the workspace, not to the current package.
           </p>
           <p>
             If the package declares the <a href="${link package.features}">feature</a>
@@ -225,11 +196,11 @@ public class BazelCppRuleClasses {
           Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
           <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
           Each string, which must consist of a single Bourne shell token,
-          is prepended with <code>-D</code> and added to
+          is prepended with <code>-D</code> (or <code>/D</code> on Windows) and added to
           <code>COPTS</code>.
           Unlike <a href="#cc_binary.copts"><code>copts</code></a>, these flags are added for the
           target and every rule that depends on it!  Be very careful, since this may have
-          far-reaching effects.  When in doubt, add "-D" flags to
+          far-reaching effects.  When in doubt, add "-D" (or <code>/D</code> on Windows) flags to
           <a href="#cc_binary.copts"><code>copts</code></a> instead.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("defines", STRING_LIST))
@@ -251,7 +222,7 @@ public class BazelCppRuleClasses {
           .add(attr("includes", STRING_LIST))
           .add(
               attr(":lipo_context_collector", LABEL)
-                  .cfg(LipoTransition.LIPO_COLLECTOR)
+                  .cfg(LipoContextCollectorTransition.INSTANCE)
                   .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
                   .skipPrereqValidatorCheck())
           .build();
@@ -339,6 +310,17 @@ public class BazelCppRuleClasses {
                   .allowedRuleClasses(DEPS_ALLOWED_RULES)
                   .allowedFileTypes(CppFileTypes.LINKER_SCRIPT)
                   .skipAnalysisTimeFileTypeCheck())
+          /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(win_def_file) -->
+          The Windows DEF file to be passed to linker.
+          <p>This attribute should only be used when Windows is the target platform.
+          It can be used to <a href="https://msdn.microsoft.com/en-us/library/d91k01sh.aspx">
+          export symbols</a> during linking a shared library.</p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("win_def_file", LABEL).allowedFileTypes(CppFileTypes.WINDOWS_DEF_FILE))
+          .add(
+              attr("reexport_deps", LABEL_LIST)
+                  .allowedRuleClasses(DEPS_ALLOWED_RULES)
+                  .allowedFileTypes())
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(linkopts) -->
           Add these flags to the C++ linker command.
           Subject to <a href="make-variables.html">"Make" variable</a> substitution,
@@ -361,7 +343,7 @@ public class BazelCppRuleClasses {
           Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
           The value of this attribute is interpreted as a regular expression.
           Any preexisting <code>COPTS</code> that match this regular expression
-          (not including values explicitly specified in the rule's <a
+          (including values explicitly specified in the rule's <a
           href="#cc_binary.copts">copts</a> attribute) will be removed from
           <code>COPTS</code> for purposes of compiling this rule.
           This attribute should rarely be needed.
@@ -434,14 +416,14 @@ public class BazelCppRuleClasses {
   }
 
   /** Implementation for the :lipo_context attribute. */
-  static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          Label result = configuration.getFragment(CppConfiguration.class).getLipoContextLabel();
-          return (rule == null || rule.getLabel().equals(result)) ? null : result;
-        }
-      };
+  static final LateBoundDefault<?, Label> LIPO_CONTEXT =
+      LateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> {
+            Label result = cppConfig.getLipoContextLabel();
+            return (rule == null || rule.getLabel().equals(result)) ? null : result;
+          });
 
   /**
    * Helper rule class.
@@ -461,8 +443,11 @@ public class BazelCppRuleClasses {
              included by a published header. See <a href="#hdrs">"Header inclusion
              checking"</a> for a more detailed description. </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("hdrs", LABEL_LIST).orderIndependent().direct_compile_time_input()
-              .allowedFileTypes(FileTypeSet.ANY_FILE))
+          .add(
+              attr("hdrs", LABEL_LIST)
+                  .orderIndependent()
+                  .direct_compile_time_input()
+                  .allowedFileTypes(FileTypeSet.ANY_FILE))
           /* <!-- #BLAZE_RULE($cc_library).ATTRIBUTE(strip_include_prefix) -->
           The prefix to strip from the paths of the headers of this rule.
 
@@ -482,7 +467,7 @@ public class BazelCppRuleClasses {
           <p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
           at is the value of this attribute prepended to their repository-relative path.
 
-          <p>The prefix in the <code>strip_include_prefix</code> attribute is removed beforethis
+          <p>The prefix in the <code>strip_include_prefix</code> attribute is removed before this
           prefix is added.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("include_prefix", STRING))
@@ -493,8 +478,11 @@ public class BazelCppRuleClasses {
              that is, they always need to be textually included by other source files to build valid
              code.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("textual_hdrs", LABEL_LIST).orderIndependent().direct_compile_time_input()
-              .legacyAllowAnyFileType())
+          .add(
+              attr("textual_hdrs", LABEL_LIST)
+                  .orderIndependent()
+                  .direct_compile_time_input()
+                  .legacyAllowAnyFileType())
           // TODO(bazel-team): document or remove.
           .add(attr("linkstamp", LABEL).allowedFileTypes(CPP_SOURCE, C_SOURCE))
           .build();
@@ -542,7 +530,7 @@ public class BazelCppRuleClasses {
             <li><code>stamp = 0</code>: Always replace build information by constant
               values. This gives good build result caching.</li>
             <li><code>stamp = -1</code>: Embedding of build information is controlled
-              by the <a href="../blaze-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+              by the <a href="../user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))

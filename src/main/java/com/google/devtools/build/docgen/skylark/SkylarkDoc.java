@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.skylark;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -56,12 +58,14 @@ abstract class SkylarkDoc {
       return "<a class=\"anchor\" href=\"dict.html\">dict</a>";
     } else if (type.equals(Tuple.class)) {
       return "<a class=\"anchor\" href=\"list.html\">tuple</a>";
-    } else if (type.equals(MutableList.class)) {
+    } else if (type.equals(MutableList.class) || type.equals(ImmutableList.class)) {
       return "<a class=\"anchor\" href=\"list.html\">list</a>";
     } else if (type.equals(SkylarkList.class)) {
       return "<a class=\"anchor\" href=\"list.html\">sequence</a>";
     } else if (type.equals(Void.TYPE) || type.equals(NoneType.class)) {
       return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#None\">None</a>";
+    } else if (type.equals(NestedSet.class)) {
+      return "<a class=\"anchor\" href=\"depset.html\">depset</a>";
     } else if (type.isAnnotationPresent(SkylarkModule.class)) {
       SkylarkModule module = type.getAnnotation(SkylarkModule.class);
       if (module.documented()) {

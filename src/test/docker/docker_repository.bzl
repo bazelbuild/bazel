@@ -20,11 +20,17 @@ def _impl(ctx):
     # on it, silently ignoring.
     ctx.file("BUILD",
              "\n".join([
-                 "filegroup(",
+                 "sh_binary(",
                  "    name = 'docker',",
+                 "    srcs = ['docker.sh'],",
                  "    visibility = ['//visibility:public'],",
                  ")"
                  ]))
+    ctx.file("docker.sh", "\n".join([
+        "#!/bin/bash",
+        "echo 'ERROR: docker is not installed' >&2",
+        "exit 1"
+        ]))
   else:
     exports = []
     for k in ctx.os.environ:
@@ -55,3 +61,4 @@ docker_repository_ = repository_rule(_impl)
 def docker_repository():
   """Declare a @docker repository that provide a docker binary."""
   docker_repository_(name = "docker")
+

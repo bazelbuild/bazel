@@ -26,16 +26,13 @@ import com.google.devtools.build.lib.runtime.BuiltinCommandModule;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Utility functions for validating correctness of Bazel documentation.
- */
+/** Utility functions for validating correctness of Bazel documentation. */
 public abstract class DocumentationTestUtil {
 
   private DocumentationTestUtil() {}
@@ -52,19 +49,23 @@ public abstract class DocumentationTestUtil {
   public static void validateUserManual(
       List<Class<? extends BlazeModule>> modules,
       ConfiguredRuleClassProvider ruleClassProvider,
-      String documentationSource) throws Exception {
+      String documentationSource)
+      throws Exception {
     // if there is a class missing, one can find it using
     //   find . -name "*.java" -exec grep -Hn "@Option(name = " {} \; | grep "xxx"
     // where 'xxx' is a flag name.
     List<BlazeModule> blazeModules = BlazeRuntime.createModules(modules);
 
-    Map<String, Object> optionsMap = new HashMap<>();
+    Set<String> validOptions = new HashSet<>();
 
     // collect all startup options
     for (Class<? extends OptionsBase> optionsClass :
         BlazeCommandUtils.getStartupOptions(blazeModules)) {
-      optionsMap.putAll(Options.getDefaults(optionsClass).asMap());
+      validOptions.addAll(Options.getDefaults(optionsClass).asMap().keySet());
     }
+    // --bazelrc and --master_bazelrc are aliases for blaze equivalents. Add these explicitly.
+    validOptions.add("bazelrc");
+    validOptions.add("master_bazelrc");
 
     // collect all command options
     ServerBuilder serverBuilder = new ServerBuilder();
@@ -77,7 +78,7 @@ public abstract class DocumentationTestUtil {
     for (BlazeCommand command : blazeCommands) {
       for (Class<? extends OptionsBase> optionClass :
           BlazeCommandUtils.getOptions(command.getClass(), blazeModules, ruleClassProvider)) {
-        optionsMap.putAll(Options.getDefaults(optionClass).asMap());
+        validOptions.addAll(Options.getDefaults(optionClass).asMap().keySet());
       }
     }
 
@@ -88,12 +89,12 @@ public abstract class DocumentationTestUtil {
 
     while (anchorMatcher.find()) {
       flag = anchorMatcher.group(1);
-      found = optionsMap.containsKey(flag);
+      found = validOptions.contains(flag);
       if (!found && flag.startsWith("no")) {
-        found = optionsMap.containsKey(flag.substring(2));
+        found = validOptions.contains(flag.substring(2));
       }
       if (!found && flag.startsWith("[no]")) {
-        found = optionsMap.containsKey(flag.substring(4));
+        found = validOptions.contains(flag.substring(4));
       }
 
       assertWithMessage("flag '" + flag + "' is not a blaze option (anymore)").that(found).isTrue();

@@ -623,7 +623,6 @@ toolchain {
   compiler_flag: "-m64"
   compiler_flag: "/D__inline__=__inline"
   # TODO(pcloudy): Review those flags below, they should be defined by cl.exe
-  compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
 
   # Don't pollute with GDI macros in windows.h.
@@ -669,6 +668,110 @@ toolchain {
   compiler_flag: "/wd4996"
 
   linker_flag: "-m64"
+  # Stop passing -frandom-seed option
+  feature {
+    name: 'random_seed'
+  }
+
+  # This feature is just for enabling flag_set in action_config for -c and -o options during the transitional period
+  feature {
+    name: 'compile_action_flags_in_flag_set'
+  }
+
+  action_config {
+    config_name: 'c-compile'
+    action_name: 'c-compile'
+    tool {
+      tool_path: 'wrapper/bin/msvc_cl.bat'
+    }
+    flag_set {
+      flag_group {
+        flag: '/c'
+        flag: '%{source_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_object_file'
+      flag_group {
+        flag: '/Fo%{output_object_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_assembly_file'
+      flag_group {
+        flag: '/Fa%{output_assembly_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_preprocess_file'
+      flag_group {
+        flag: '/P'
+        flag: '/Fi%{output_preprocess_file}'
+      }
+    }
+    implies: 'legacy_compile_flags'
+    implies: 'user_compile_flags'
+    implies: 'sysroot'
+    implies: 'unfiltered_compile_flags'
+  }
+
+  action_config {
+    config_name: 'c++-compile'
+    action_name: 'c++-compile'
+    tool {
+      tool_path: 'wrapper/bin/msvc_cl.bat'
+    }
+    flag_set {
+      flag_group {
+        flag: '/c'
+        flag: '%{source_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_object_file'
+      flag_group {
+        flag: '/Fo%{output_object_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_assembly_file'
+      flag_group {
+        flag: '/Fa%{output_assembly_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'output_preprocess_file'
+      flag_group {
+        flag: '/P'
+        flag: '/Fi%{output_preprocess_file}'
+      }
+    }
+    implies: 'legacy_compile_flags'
+    implies: 'user_compile_flags'
+    implies: 'sysroot'
+    implies: 'unfiltered_compile_flags'
+  }
+
+  # TODO(b/65151735): Remove legacy_compile_flags feature when legacy fields are
+  # not used in this crosstool
+  feature {
+    name: 'legacy_compile_flags'
+    flag_set {
+      expand_if_all_available: 'legacy_compile_flags'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      flag_group {
+        iterate_over: 'legacy_compile_flags'
+        flag: '%{legacy_compile_flags}'
+      }
+    }
+  }
 
   feature {
     name: 'include_paths'
@@ -712,78 +815,61 @@ toolchain {
     }
   }
 
-  # Stop passing -frandom-seed option
   feature {
-    name: 'random_seed'
+    name: 'user_compile_flags'
+    flag_set {
+      expand_if_all_available: 'user_compile_flags'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      flag_group {
+        iterate_over: 'user_compile_flags'
+        flag: '%{user_compile_flags}'
+      }
+    }
   }
 
-  # This feature is just for enabling flag_set in action_config for -c and -o options during the transitional period
   feature {
-    name: 'compile_action_flags_in_flag_set'
-  }
-
-  action_config {
-    config_name: 'c-compile'
-    action_name: 'c-compile'
-    tool {
-      tool_path: 'wrapper/bin/msvc_cl.bat'
-    }
+    name: 'sysroot'
     flag_set {
+      expand_if_all_available: 'sysroot'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
       flag_group {
-        flag: '/c'
-        flag: '%{source_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_object_file'
-      flag_group {
-        flag: '/Fo%{output_object_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_assembly_file'
-      flag_group {
-        flag: '/Fa%{output_assembly_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_preprocess_file'
-      flag_group {
-        flag: '/P'
-        flag: '/Fi%{output_preprocess_file}'
+        iterate_over: 'sysroot'
+        flag: '--sysroot=%{sysroot}'
       }
     }
   }
 
-  action_config {
-    config_name: 'c++-compile'
-    action_name: 'c++-compile'
-    tool {
-      tool_path: 'wrapper/bin/msvc_cl.bat'
-    }
+  feature {
+    name: 'unfiltered_compile_flags'
     flag_set {
+      expand_if_all_available: 'unfiltered_compile_flags'
+      action: 'assemble'
+      action: 'preprocess-assemble'
+      action: 'c-compile'
+      action: 'c++-compile'
+      action: 'c++-header-parsing'
+      action: 'c++-header-preprocessing'
+      action: 'c++-module-compile'
+      action: 'c++-module-codegen'
       flag_group {
-        flag: '/c'
-        flag: '%{source_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_object_file'
-      flag_group {
-        flag: '/Fo%{output_object_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_assembly_file'
-      flag_group {
-        flag: '/Fa%{output_assembly_file}'
-      }
-    }
-    flag_set {
-      expand_if_all_available: 'output_preprocess_file'
-      flag_group {
-        flag: '/P'
-        flag: '/Fi%{output_preprocess_file}'
+        iterate_over: 'unfiltered_compile_flags'
+        flag: '%{unfiltered_compile_flags}'
       }
     }
   }

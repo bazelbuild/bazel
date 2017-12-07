@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,10 +25,10 @@ import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -73,6 +74,7 @@ public class ActionCacheChecker {
   };
 
   private final ActionCache actionCache;
+  private final ActionKeyContext actionKeyContext;
   private final Predicate<? super Action> executionFilter;
   private final ArtifactResolver artifactResolver;
   private final CacheConfig cacheConfig;
@@ -102,10 +104,12 @@ public class ActionCacheChecker {
   public ActionCacheChecker(
       ActionCache actionCache,
       ArtifactResolver artifactResolver,
+      ActionKeyContext actionKeyContext,
       Predicate<? super Action> executionFilter,
       @Nullable CacheConfig cacheConfig) {
     this.actionCache = actionCache;
     this.executionFilter = executionFilter;
+    this.actionKeyContext = actionKeyContext;
     this.artifactResolver = artifactResolver;
     this.cacheConfig =
         cacheConfig != null
@@ -285,32 +289,38 @@ public class ActionCacheChecker {
     if (unconditionalExecution(action)) {
       Preconditions.checkState(action.isVolatile());
       reportUnconditionalExecution(handler, action);
-      return true; // must execute - unconditional execution is requested.
+      actionCache.accountMiss(MissReason.UNCONDITIONAL_EXECUTION);
+      return true;
     }
     if (entry == null) {
       reportNewAction(handler, action);
-      return true; // must execute -- no cache entry (e.g. first build)
+      actionCache.accountMiss(MissReason.NOT_CACHED);
+      return true;
     }
 
     if (entry.isCorrupted()) {
       reportCorruptedCacheEntry(handler, action);
-      return true; // cache entry is corrupted - must execute
+      actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
+      return true;
     } else if (validateArtifacts(entry, action, actionInputs, metadataHandler, true)) {
       reportChanged(handler, action);
-      return true; // files have changed
-    } else if (!entry.getActionKey().equals(action.getKey())) {
+      actionCache.accountMiss(MissReason.DIFFERENT_FILES);
+      return true;
+    } else if (!entry.getActionKey().equals(action.getKey(actionKeyContext))) {
       reportCommand(handler, action);
-      return true; // must execute -- action key is different
+      actionCache.accountMiss(MissReason.DIFFERENT_ACTION_KEY);
+      return true;
     }
     Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
     if (!entry.getUsedClientEnvDigest().equals(DigestUtils.fromEnv(usedClientEnv))) {
       reportClientEnv(handler, action, usedClientEnv);
-      return true; // different values taken from the environment -- must execute
+      actionCache.accountMiss(MissReason.DIFFERENT_ENVIRONMENT);
+      return true;
     }
 
-
     entry.getFileDigest();
-    return false; // cache hit
+    actionCache.accountHit();
+    return false;
   }
 
   private static Metadata getMetadataOrConstant(MetadataHandler metadataHandler, Artifact artifact)
@@ -349,7 +359,8 @@ public class ActionCacheChecker {
     }
     Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
     ActionCache.Entry entry =
-        new ActionCache.Entry(action.getKey(), usedClientEnv, action.discoversInputs());
+        new ActionCache.Entry(
+            action.getKey(actionKeyContext), usedClientEnv, action.discoversInputs());
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();
@@ -460,13 +471,16 @@ public class ActionCacheChecker {
     if (entry != null) {
       if (entry.isCorrupted()) {
         reportCorruptedCacheEntry(handler, action);
+        actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
         changed = true;
       } else if (validateArtifacts(entry, action, action.getInputs(), metadataHandler, false)) {
         reportChanged(handler, action);
+        actionCache.accountMiss(MissReason.DIFFERENT_FILES);
         changed = true;
       }
     } else {
       reportChangedDeps(handler, action);
+      actionCache.accountMiss(MissReason.DIFFERENT_DEPS);
       changed = true;
     }
     if (changed) {
@@ -482,6 +496,8 @@ public class ActionCacheChecker {
     metadataHandler.setDigestForVirtualArtifact(middleman, entry.getFileDigest());
     if (changed) {
       actionCache.put(cacheKey, entry);
+    } else {
+      actionCache.accountHit();
     }
   }
 

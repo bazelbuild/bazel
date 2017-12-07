@@ -1,17 +1,25 @@
 package(default_visibility = ["//visibility:private"])
 
+exports_files(
+    ["resources.o"],
+    visibility = ["//src/main/cpp:__pkg__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = ["//src/main/native:__pkg__"],
 )
 
-# TODO(xingao): verify that this filegroup contains exactly what it has to, with
-# regard to where it is used (//src/main/native:embedded_tools).
-# Context: https://github.com/bazelbuild/bazel/commit/33d05f6b551cf2fdb257cb536a5e864d095144a1
 filegroup(
     name = "embedded_tools",
-    srcs = [":srcs"],
+    srcs = [
+        "BUILD",
+        "file.cc",
+        "file.h",
+        "util.cc",
+        "util.h",
+    ],
     visibility = ["//src/main/native:__pkg__"],
 )
 
@@ -33,15 +41,16 @@ cc_library(
     hdrs = ["util.h"],
 )
 
-genrule(
-    name = "windows_jni",
+cc_binary(
+    name = "windows_jni.dll",
     srcs = glob([
         "*.cc",
         "*.h",
-    ]),
-    outs = ["windows_jni.dll"],
-    cmd = "$(location build_windows_jni.sh) $@ $(SRCS)",
-    tools = ["build_windows_jni.sh"],
+    ]) + [
+        "//src/main/native:jni.h",
+        "//src/main/native:jni_md.h",
+    ],
+    linkshared = 1,
     visibility = [
         "//src:__pkg__",
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",

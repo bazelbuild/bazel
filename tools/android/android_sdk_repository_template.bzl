@@ -47,25 +47,44 @@ def create_android_sdk_rules(
 
   create_config_setting_rules()
 
-  # This filegroup is used to pass the contents of the SDK to the Android
-  # integration tests. We need to glob because not all of these folders ship
-  # with the Android SDK, some need to be installed through the SDK Manager.
-  # Since android_sdk_repository function generates BUILD files, we do not want
-  # to include those because the integration test would fail when it tries to
-  # regenerate those BUILD files because the Bazel Sandbox does not allow
-  # overwriting existing files.
+  windows_only_files = [
+      "build-tools/%s/aapt.exe" % build_tools_directory,
+      "build-tools/%s/aidl.exe" % build_tools_directory,
+      "build-tools/%s/zipalign.exe" % build_tools_directory,
+      "platform-tools/adb.exe",
+  ] + native.glob(["build-tools/%s/aapt2.exe" % build_tools_directory])
+
+  linux_only_files = [
+      "build-tools/%s/aapt" % build_tools_directory,
+      "build-tools/%s/aidl" % build_tools_directory,
+      "build-tools/%s/zipalign" % build_tools_directory,
+      "platform-tools/adb",
+  ] + native.glob(
+      ["extras", "build-tools/%s/aapt2" % build_tools_directory],
+      exclude_directories = 0,
+  )
+
+  # This filegroup is used to pass the minimal contents of the SDK to the
+  # Android integration tests. Note that in order to work on Windows, we cannot
+  # include directories and must keep the size small.
   native.filegroup(
       name = "files",
-      srcs = native.glob([
-          "add-ons",
-          "build-tools",
-          "extras",
-          "platforms",
-          "platform-tools",
-          "sources",
-          "system-images",
-          "tools",
-      ], exclude_directories = 0),
+      srcs = [
+          "build-tools/%s/lib/apksigner.jar" % build_tools_directory,
+          "build-tools/%s/lib/dx.jar" % build_tools_directory,
+          "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
+          "tools/proguard/lib/proguard.jar",
+          "tools/support/annotations.jar",
+      ] + [
+          "platforms/android-%d/%s" % (api_level, filename)
+          for api_level in api_levels
+          for filename in ["android.jar", "framework.aidl"]
+      ] + select({
+          ":windows": windows_only_files,
+          ":windows_msvc": windows_only_files,
+          ":windows_msys": windows_only_files,
+          "//conditions:default": linux_only_files,
+      }),
   )
 
   for api_level in api_levels:
@@ -80,12 +99,18 @@ def create_android_sdk_rules(
     native.android_sdk(
         name = "sdk-%d" % api_level,
         build_tools_version = build_tools_version,
-        proguard = ":proguard_binary",
+        proguard = "@bazel_tools//third_party/java/proguard",
         aapt = select({
             ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
             ":windows_msvc": "build-tools/%s/aapt.exe" % build_tools_directory,
             ":windows_msys": "build-tools/%s/aapt.exe" % build_tools_directory,
             "//conditions:default": ":aapt_binary",
+        }),
+        aapt2 = select({
+            ":windows": "build-tools/%s/aapt2.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/aapt2.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/aapt2.exe" % build_tools_directory,
+            "//conditions:default": ":aapt2_binary",
         }),
         dx = ":dx_binary",
         main_dex_list_creator = ":main_dex_list_creator",
@@ -113,7 +138,6 @@ def create_android_sdk_rules(
             ":windows_msys": "build-tools/%s/zipalign.exe" % build_tools_directory,
             "//conditions:default": ":zipalign_binary",
         }),
-        resource_extractor = "@bazel_tools//tools/android:resource_extractor",
     )
 
   native.alias(
@@ -124,17 +148,6 @@ def create_android_sdk_rules(
   native.alias(
       name = "sdk",
       actual = ":sdk-%d" % default_api_level,
-  )
-
-  native.java_import(
-      name = "proguard_import",
-      jars = ["tools/proguard/lib/proguard.jar"]
-  )
-
-  native.java_binary(
-      name = "proguard_binary",
-      main_class = "proguard.ProGuard",
-      runtime_deps = [":proguard_import"]
   )
 
   native.java_binary(
@@ -152,7 +165,7 @@ def create_android_sdk_rules(
       ])
   )
 
-  for tool in ["aapt", "aidl", "zipalign"]:
+  for tool in ["aapt", "aapt2", "aidl", "zipalign"]:
     native.genrule(
         name = tool + "_runner",
         outs = [tool + "_runner.sh"],
@@ -281,21 +294,23 @@ def create_system_images_filegroups(system_image_dirs):
   # guarantee that they will work out of the box. Supported system images should
   # be added here once they have been confirmed to work with the Bazel Android
   # testing infrastructure.
-  system_images = [(tag, api, arch)
+  system_images = [(tag, str(api), arch)
                    for tag in ["android", "google"]
                    for api in [10] + range(15, 20) + range(21, 27)
                    for arch in ("x86", "arm")]
-  tv_images = [("tv", api, arch)
+  tv_images = [("tv", str(api), arch)
                for api in range(21, 25) for arch in ("x86", "arm")]
-  wear_images = [("wear", api, "x86")
-                 for api in range(20, 26)] + [("wear", api, "arm")
+  wear_images = [("wear", str(api), "x86")
+                 for api in range(20, 26)] + [("wear", str(api), "arm")
                                               for api in range(24, 26)]
   supported_system_images = system_images + tv_images + wear_images
 
   installed_system_images_dirs = {}
   for system_image_dir in system_image_dirs:
     apidir, tagdir, archdir = system_image_dir.split("/")[1:]
-    api = int(apidir.split("-")[1])  # "android-24" --> 24
+    if "-" not in apidir:
+      continue
+    api = apidir.split("-")[1]  # "android-24" --> "24", "android-O" --> "O"
     if tagdir not in TAGDIR_TO_TAG_MAP:
       continue
     tag = TAGDIR_TO_TAG_MAP[tagdir]

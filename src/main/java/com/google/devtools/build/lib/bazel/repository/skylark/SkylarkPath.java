@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
@@ -34,7 +36,7 @@ import java.io.IOException;
   category = SkylarkModuleCategory.NONE,
   doc = "A structure representing a file to be used inside a repository."
 )
-final class SkylarkPath {
+final class SkylarkPath implements SkylarkValue {
   private final Path path;
 
   SkylarkPath(Path path) {
@@ -117,5 +119,10 @@ final class SkylarkPath {
   @Override
   public String toString() {
     return path.toString();
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append(toString());
   }
 }

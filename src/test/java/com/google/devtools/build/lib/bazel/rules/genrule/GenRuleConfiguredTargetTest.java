@@ -25,13 +25,17 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -90,6 +94,33 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "    outs = ['a/b', 'c/d'],",
         "    cmd = 'echo hi | tee $(@D)/a/b $(@D)/c/d',",
         ")");
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    return builder.addRuleDefinition(new TestRuleClassProvider.MakeVariableTesterRule()).build();
+  }
+
+  @Test
+  public void testToolchainMakeVariableExpansion() throws Exception {
+    scratch.file("a/BUILD",
+        "genrule(name='gr', srcs=[], outs=['out'], cmd='$(FOO)', toolchains=[':v'])",
+        "make_variable_tester(name='v', variables={'FOO': 'FOOBAR'})");
+
+    String cmd = getCommand("//a:gr");
+    assertThat(cmd).endsWith("FOOBAR");
+  }
+
+  @Test
+  public void testToolchainOverridesConfiguration() throws Exception {
+    scratch.file("a/BUILD",
+        "genrule(name='gr', srcs=[], outs=['out'], cmd='JAVABASE=$(JAVABASE)', toolchains=[':v'])",
+        "make_variable_tester(name='v', variables={'JAVABASE': 'REPLACED'})");
+
+    String cmd = getCommand("//a:gr");
+    assertThat(cmd).endsWith("JAVABASE=REPLACED");
   }
 
   @Test
@@ -288,7 +319,10 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
 
     SpawnAction barAction = (SpawnAction) getGeneratingAction(barOutTarget.getArtifact());
 
-    String cc = "" + targetConfig.getFragment(CppConfiguration.class).getCppExecutable();
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(
+            getRuleContext(getConfiguredTarget("//foo:bar")));
+    String cc = toolchain.getToolPathFragment(Tool.GCC).getPathString();
     String expected =
         cc
             + " -o "
@@ -314,32 +348,6 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     String ccToolchainAttr = ":cc_toolchain";
     assertThat(getPrerequisites(getConfiguredTarget("//foo:no_cc"), ccToolchainAttr)).isEmpty();
     assertThat(getPrerequisites(getConfiguredTarget("//foo:cc"), ccToolchainAttr)).isNotEmpty();
-  }
-
-  /** Ensure that Java make variables get expanded under the *host* configuration. */
-  @Test
-  public void testJavaMakeVarExpansion() throws Exception {
-    String ruleTemplate =
-        "genrule(name = '%s',"
-            + "  srcs = [],"
-            + "  cmd = 'echo $(%s) > $@',"
-            + "  outs = ['%s'])";
-
-    scratch.file(
-        "foo/BUILD",
-        String.format(ruleTemplate, "java_rule", "JAVA", "java.txt"),
-        String.format(ruleTemplate, "javabase_rule", "JAVABASE", "javabase.txt"));
-
-    Artifact javaOutput = getFileConfiguredTarget("//foo:java.txt").getArtifact();
-    Artifact javabaseOutput = getFileConfiguredTarget("//foo:javabase.txt").getArtifact();
-
-    String javaCommand =
-        ((SpawnAction) getGeneratingAction(javaOutput)).getArguments().get(2);
-    assertThat(javaCommand).containsMatch("jdk/bin/java(.exe)? >");
-
-    String javabaseCommand =
-        ((SpawnAction) getGeneratingAction(javabaseOutput)).getArguments().get(2);
-    assertThat(javabaseCommand).contains("jdk >");
   }
 
   // Returns the expansion of 'cmd' for the specified genrule.
@@ -438,8 +446,8 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "        outs=['file1.out', 'file2.out'],",
         "        cmd='touch $(OUTS)')");
     String regex =
-        "touch b.{4}-out/.*/genfiles/multiple/outs/file1.out "
-            + "b.{4}-out/.*/genfiles/multiple/outs/file2.out";
+        "touch b.{4}-out/.*/multiple/outs/file1.out "
+            + "b.{4}-out/.*/multiple/outs/file2.out";
     assertThat(getCommand("//multiple/outs:test")).containsMatch(regex);
   }
 
@@ -497,13 +505,13 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testLabelsContainingAtDAreExpanded() throws Exception {
     scratch.file(
-        "p/BUILD",
+        "puck/BUILD",
         "genrule(name='gen', ",
-        "        tools=['p'],",
+        "        tools=['puck'],",
         "        outs=['out'],",
         "        cmd='echo $(@D)')");
-    String regex = "echo b.{4}-out/.*/genfiles/p";
-    assertThat(getCommand("//p:gen")).containsMatch(regex);
+    String regex = "echo b.{4}-out/.*/puck";
+    assertThat(getCommand("//puck:gen")).containsMatch(regex);
   }
 
   @Test

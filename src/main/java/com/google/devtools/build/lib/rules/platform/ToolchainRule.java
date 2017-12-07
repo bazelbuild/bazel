@@ -50,7 +50,6 @@ public class ToolchainRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(TOOLCHAIN_TYPE_ATTR, BuildType.NODEP_LABEL)
-                //                .allowedFileTypes()
                 .mandatory()
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(exec_compatible_with) -->

@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversa
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactoryForTesting.symlinkToDirectoryForTesting;
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactoryForTesting.symlinkToFileForTesting;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -31,17 +32,17 @@ import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBound
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileOperationException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -52,6 +53,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -83,13 +85,19 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   @Before
   public final void setUp() throws Exception  {
     AnalysisMock analysisMock = AnalysisMock.get();
-    pkgLocator = new AtomicReference<>(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
+    pkgLocator =
+        new AtomicReference<>(
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.of(rootDirectory),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     BlazeDirectories directories =
         new BlazeDirectories(
-            rootDirectory, outputBase, rootDirectory, analysisMock.getProductName());
+            new ServerDirectories(rootDirectory, outputBase),
+            rootDirectory,
+            analysisMock.getProductName());
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
         pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
 
@@ -109,9 +117,11 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new PackageLookupFunction(
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
-            ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD)));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        new BlacklistedPackagePrefixesFunction());
+        new BlacklistedPackagePrefixesFunction(
+            /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
+            /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
     skyFunctions.put(SkyFunctions.PACKAGE,
         new PackageFunction(null, null, null, null, null, null, null));
     skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
@@ -120,20 +130,23 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new WorkspaceFileFunction(
             ruleClassProvider,
             analysisMock
-                .getPackageFactoryBuilderForTesting()
+                .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, scratch.getFileSystem()),
             directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+    skyFunctions.put(
+        SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
+        new FileSymlinkInfiniteExpansionUniquenessFunction());
+    skyFunctions.put(
+        SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
 
     progressReceiver = new RecordingEvaluationProgressReceiver();
-    differencer = new RecordingDifferencer();
+    differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer, progressReceiver);
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.set(
-        differencer, PathFragment.EMPTY_FRAGMENT);
   }
 
   private Artifact sourceArtifact(String path) {
@@ -685,8 +698,11 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     // to the definition of //a/b/ under pp1, not under pp2.
 
     // Set the package paths.
-    pkgLocator.set(new PathPackageLocator(outputBase,
-        ImmutableList.of(rootDirectory.getRelative("pp1"), rootDirectory.getRelative("pp2"))));
+    pkgLocator.set(
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(rootDirectory.getRelative("pp1"), rootDirectory.getRelative("pp2")),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
 
     Artifact aBuildArtifact = sourceArtifactUnderPackagePath("a/BUILD", "pp1");
@@ -815,5 +831,36 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertThat(error.getException())
         .hasMessageThat()
         .contains("Generated directory a/b/c conflicts with package under the same path.");
+  }
+
+  @Test
+  public void unboundedSymlinkExpansionError() throws Exception {
+    Artifact bazLink = sourceArtifact("foo/baz.sym");
+    Path parentDir = scratch.dir("foo");
+    bazLink.getPath().createSymbolicLink(parentDir);
+    SkyKey key = rftvSkyKey(pkgRoot(parentOf(rootedPath(bazLink)), DONT_CROSS));
+    EvaluationResult<SkyValue> result = eval(key);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfo error = result.getError(key);
+    assertThat(error.getException()).isInstanceOf(FileOperationException.class);
+    assertThat(error.getException()).hasMessageThat().contains("Infinite symlink expansion");
+  }
+
+  @Test
+  public void symlinkChainError() throws Exception {
+    scratch.dir("a");
+    Artifact fooLink = sourceArtifact("a/foo.sym");
+    Artifact barLink = sourceArtifact("a/bar.sym");
+    Artifact bazLink = sourceArtifact("a/baz.sym");
+    fooLink.getPath().createSymbolicLink(barLink.getPath());
+    barLink.getPath().createSymbolicLink(bazLink.getPath());
+    bazLink.getPath().createSymbolicLink(fooLink.getPath());
+
+    SkyKey key = rftvSkyKey(pkgRoot(parentOf(rootedPath(bazLink)), DONT_CROSS));
+    EvaluationResult<SkyValue> result = eval(key);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfo error = result.getError(key);
+    assertThat(error.getException()).isInstanceOf(FileOperationException.class);
+    assertThat(error.getException()).hasMessageThat().contains("Symlink cycle");
   }
 }

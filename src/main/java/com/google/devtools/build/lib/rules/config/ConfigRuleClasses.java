@@ -16,19 +16,24 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.List;
 
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.
@@ -102,12 +107,34 @@ public class ConfigRuleClasses {
      */
     public static final String RULE_NAME = "config_setting";
 
-    /**
-     * The name of the attribute that declares flag bindings.
-     */
+    /** The name of the attribute that declares flag bindings. */
     public static final String SETTINGS_ATTRIBUTE = "values";
+    /** The name of the attribute that declares "--define foo=bar" flag bindings.*/
+    public static final String DEFINE_SETTINGS_ATTRIBUTE = "define_values";
     /** The name of the attribute that declares user-defined flag bindings. */
     public static final String FLAG_SETTINGS_ATTRIBUTE = "flag_values";
+    /** The name of the attribute that declares constraint_values. */
+    public static final String CONSTRAINT_VALUES_ATTRIBUTE = "constraint_values";
+    /** The name of the late bound attribute that declares the target platforms list. */
+    public static final String TARGET_PLATFORMS_ATTRIBUTE = ":target_platforms";
+
+    /** Implementation for the :target_platform attribute. */
+    public static final LateBoundDefault<?, List<Label>> TARGET_PLATFORMS =
+        LateBoundDefault.fromTargetConfiguration(
+            PlatformConfiguration.class,
+            ImmutableList.of(),
+            (rule, attributes, platformConfig) ->
+                ConfigSettingRule.getTargetPlatformsIfRelevant(attributes, platformConfig));
+
+    private static ImmutableList<Label> getTargetPlatformsIfRelevant(
+        AttributeMap attributes, PlatformConfiguration platformConfig) {
+      List<Label> constraintValues = attributes.get(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST);
+      if (constraintValues == null || constraintValues.isEmpty()) {
+        return ImmutableList.of();
+      } else {
+        return platformConfig.getTargetPlatforms();
+      }
+    }
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -143,20 +170,120 @@ public class ConfigRuleClasses {
              <i>any</i> of those settings match.
           <p>
 
-          <p>This attribute cannot be empty.
+          <p>This and <a href="${link config_setting.define_values}"><code>define_values</code></a>
+             cannot both be empty.
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(SETTINGS_ATTRIBUTE, STRING_DICT)
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(define_values) -->
+          The same as <a href="${link config_setting.values}"><code>values</code></a> but
+          specifically for the <code>--define</code> flag.
+
+          <p><code>--define</code> is special for two reasons:
+
+          <ol>
+            <li>It's the primary interface Blaze has today for declaring user-definable settings.
+            </li>
+            <li>Its syntax (<code>--define KEY=VAL</code>) means <code>KEY=VAL</code> is
+            a <i>value</i> from a Blaze flag perspective.</li>
+          </ol>
+
+          <p>That means:
+
+          <pre class="code">
+            config_setting(
+                name = "a_and_b",
+                values = {
+                    "define": "a=1",
+                    "define": "b=2",
+                })
+          </pre>
+
+          <p>doesn't work because the same key (<code>define</code>) appears twice in the
+          dictionary. This attribute solves that problem:
+
+          <pre class="code">
+            config_setting(
+                name = "a_and_b",
+                define_values = {
+                    "a": "1",
+                    "b": "2",
+                })
+          </pre>
+
+          <p>corrrectly matches <code>blaze build //foo --define a=1 --define b=2</code>.
+
+          <p><code>--define</code> can still appear in
+          <a href="${link config_setting.values}"><code>values</code></a> with normal flag syntax,
+          and can be mixed freely with this attribute as long as dictionary keys remain distinct.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr(DEFINE_SETTINGS_ATTRIBUTE, STRING_DICT)
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(
               attr(FLAG_SETTINGS_ATTRIBUTE, LABEL_KEYED_STRING_DICT)
                   .undocumented("the feature flag feature has not yet been launched")
                   .allowedFileTypes()
-                  .mandatoryProviders(
-                      ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_CONSTRUCTOR.id()))
+                  .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id()))
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
-          .requiresConfigurationFragments(FeaturePolicyConfiguration.class)
+          /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(constraint_values) -->
+          The set of <code>constraint_values</code> that match this rule.
+
+          <p>A <a href="platform.html#constraint_value">constraint_value</a> is composed of a name
+          and a corresponding <a href="platform.html#constraint_setting">constraint_setting</a>
+          which classifies the value. A <a href=""platform.html#platform>platform</a> consists of a
+          collection of <code>constraint_value</code> labels which describes target itself and/or
+          how its environment.
+          </p>
+
+          <pre class="code">
+            constraint_setting(name = "rock_type")
+            constraint_value(name = metamorphic, constraint_setting = "rock_type")
+            platform(
+              name = "my_platform_rocks",
+              constraint_values = [":metamorphic"]
+            )
+          </pre>
+
+          <p>As mentioned above, this rule inherits the configuration of the configured target that
+            references it in a <code>select</code> statement. This <code>constraint_values</code>
+            attribute is considered to "match" a Blaze invocation if it includes each
+            <code>constraint_value</code> specified in the configuration's target platform which is
+            set with the command line flag <code>--experimental_platforms</code>. If it contains
+            extra <code>constraint_values</code> not included in the target platform, it is still
+            considered a match. In this example, both <code>slate</code> and
+            <code>marble</code> would be considered matches for a blaze invocation which
+            uses <code>--experimental_platforms=my_platform_rocks</code>. Multiple matches like this
+            may lead to ambiguous select resolves and are not allowed.
+          </p>
+          <pre class = "code">
+            constraint_setting(name = "color")
+            constraint_value(name = "white", constraint_setting = "color")
+
+            config_setting(
+              name = "slate",
+              constraint_values = [":metamorphic"]
+            )
+
+            config_setting(
+              name = "marble",
+              constraint_values = [
+                ":metamorphic",
+                ":white"
+              ]
+            )
+          </pre>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST)
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON)
+                  .allowedFileTypes())
+          .add(
+              attr(TARGET_PLATFORMS_ATTRIBUTE, LABEL_LIST)
+                  .value(TARGET_PLATFORMS)
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .setIsConfigMatcherForConfigSettingOnly()
           .setOptionReferenceFunctionForConfigSettingOnly(
               rule ->
@@ -213,6 +340,28 @@ config_setting(
 )
 </pre>
 
+<p>The following config_setting matches any Blaze invocation that builds a platform which contains
+  exactly the same or a subset of its constraint_values (like the example below).
+</p>
+
+<pre class=""code">
+config_setting(
+    name = "marble",
+    constraint_values = [
+        "white",
+        "metamorphic",
+    ]
+)
+
+platform(
+    name = "marble_platform",
+    constraint_values = [
+        "white",
+        "metamorphic"
+    ]
+)
+</pre>
+
 <h4 id="config_setting_notes">Notes</h4>
 
 <p>See <a href="${link select}">select</a> for policies on what happens depending on how
@@ -237,6 +386,13 @@ config_setting(
   same thing.
 </p>
 
+<p><a href="general.html#config_setting.values"><code>values</code></a>,
+   <a href="general.html#config_setting.define_values"><code>define_values</code></a>, and
+   <a href=general.html#config_setting.constraint_values"><code>constraint_values</code></a>
+   can be used in any combination in the same config_setting but at least one must be set for any
+   given config_setting.
+</p>
+
 <!-- #END_BLAZE_RULE -->*/
 
   /** Rule definition for Android's config_feature_flag rule. */
@@ -245,10 +401,8 @@ config_setting(
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .setUndocumented(/* It's unusable as yet, as there are no ways to interact with it. */)
-          .requiresConfigurationFragments(
-              ConfigFeatureFlagConfiguration.class,
-              FeaturePolicyConfiguration.class)
+          .setUndocumented(/* the feature flag feature has not yet been launched */)
+          .requiresConfigurationFragments(ConfigFeatureFlagConfiguration.class)
           .add(
               attr("allowed_values", STRING_LIST)
                   .mandatory()
@@ -259,6 +413,7 @@ config_setting(
               attr("default_value", STRING)
                   .mandatory()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(ConfigFeatureFlag.getWhitelistAttribute(env))
           .build();
     }
 

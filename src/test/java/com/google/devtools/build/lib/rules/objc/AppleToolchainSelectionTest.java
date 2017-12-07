@@ -21,14 +21,10 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,42 +33,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
 
-  @Override
-  protected void useConfiguration(String... args) throws Exception {
-   useConfiguration(ObjcCrosstoolMode.LIBRARY, args);
-  }
-
-  /**
-   * Returns the given target in the configuration that it would be given by this
-   * {@code BuildViewTestCase}'s {@code Transitions}, were the target a top-level target.
-   */
-  private ConfiguredTarget getTopLevelConfiguredTarget(ConfiguredTarget target)
-      throws InterruptedException {
-    BuildConfiguration topLevelConfig = getAppleCrosstoolConfiguration();
-    return getConfiguredTarget(target.getLabel(), topLevelConfig);
-  }
-
-  /**
-   * Returns the action that produces the artifact with the given label and suffix, in a output
-   * directory consistent with that action being registered by a top-level target.
-   */
-  private CommandAction actionProducingArtifactForTopLevelTarget(String targetLabel,
-      String artifactSuffix) throws Exception {
-    ConfiguredTarget libraryTarget = getConfiguredTarget(targetLabel);
-    ConfiguredTarget topLevelLibraryTarget = getTopLevelConfiguredTarget(libraryTarget);
-    Label parsedLabel = Label.parseAbsolute(targetLabel);
-    Artifact linkedLibrary = getBinArtifact(
-        parsedLabel.getName() + artifactSuffix,
-        topLevelLibraryTarget);
-    return (CommandAction) getGeneratingAction(linkedLibrary);
-  }
-  
   @Test
   public void testToolchainSelectionDefault() throws Exception {
     createLibraryTargetWriter("//a:lib").write();
     CppConfiguration cppConfig =
         getAppleCrosstoolConfiguration().getFragment(CppConfiguration.class);
-    
+
     assertThat(cppConfig.getCrosstoolTopPathFragment().toString())
         .isEqualTo("tools/osx/crosstool");
     assertThat(cppConfig.getToolchainIdentifier())
@@ -85,35 +51,37 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     createLibraryTargetWriter("//a:lib").write();
     CppConfiguration cppConfig =
         getAppleCrosstoolConfiguration().getFragment(CppConfiguration.class);
-    
+
     assertThat(cppConfig.getCrosstoolTopPathFragment().toString())
         .isEqualTo("tools/osx/crosstool");
     assertThat(cppConfig.getToolchainIdentifier())
         .isEqualTo("ios_armv7");
   }
-  
+
   @Test
   public void testToolchainSelectionCcDepDefault() throws Exception {
-    useConfiguration(
-        "--experimental_disable_jvm",
-        "--experimental_disable_go");
+    useConfiguration("--experimental_disable_jvm");
     ScratchAttributeWriter
         .fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "b.cc")
         .write();
     createBinaryTargetWriter("//a:bin")
-        .setList("srcs", "a.m")
         .setList("deps", "//b:lib")
         .write();
 
-    CommandAction linkAction = actionProducingArtifactForTopLevelTarget("//a:bin", "_bin");
-    Artifact ccArchive = getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a");
-    CommandAction ccArchiveAction = (CommandAction) getGeneratingAction(ccArchive);
+    Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
+    String x8664Bin =
+        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null) + "a/bin_bin";
+    Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), x8664Bin);
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    CppLinkAction ccArchiveAction =
+        (CppLinkAction)
+            getGeneratingAction(getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
     Artifact ccObjectFile = getFirstArtifactEndingWith(ccArchiveAction.getInputs(), ".o");
     CommandAction ccCompileAction = (CommandAction) getGeneratingAction(ccObjectFile);
     assertThat(ccCompileAction.getArguments()).contains("tools/osx/crosstool/iossim/wrapped_clang");
   }
-  
+
   @Test
   public void testToolchainSelectionCcDepDevice() throws Exception {
     useConfiguration("--cpu=ios_armv7");
@@ -122,12 +90,16 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         .setList("srcs", "b.cc")
         .write();
     createBinaryTargetWriter("//a:bin")
-        .setList("srcs", "a.m")
         .setList("deps", "//b:lib")
         .write();
-    CommandAction linkAction = actionProducingArtifactForTopLevelTarget("//a:bin", "_bin");
-    Artifact ccArchive = getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a");
-    CommandAction ccArchiveAction = (CommandAction) getGeneratingAction(ccArchive);
+    Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
+    String armv7Bin =
+        configurationBin("armv7", ConfigurationDistinguisher.APPLEBIN_IOS, null) + "a/bin_bin";
+    Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv7Bin);
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    CppLinkAction ccArchiveAction =
+        (CppLinkAction)
+            getGeneratingAction(getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
     Artifact ccObjectFile = getFirstArtifactEndingWith(ccArchiveAction.getInputs(), ".o");
     CommandAction ccCompileAction = (CommandAction) getGeneratingAction(ccObjectFile);
     assertThat(ccCompileAction.getArguments()).contains("tools/osx/crosstool/ios/wrapped_clang");
@@ -149,16 +121,15 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         .write();
     Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
     String armv64Bin =
-        configurationBin("arm64", ConfigurationDistinguisher.APPLEBIN_IOS,
-            DEFAULT_IOS_SDK_VERSION)
+        configurationBin("arm64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
         + "a/bin_bin";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv64Bin);
-    CommandAction linkAction = getGeneratingSpawnAction(binArtifact);
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
     CppLinkAction objcLibArchiveAction = (CppLinkAction) getGeneratingAction(
         getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
-    assertThat(Joiner.on(" ").join(objcLibArchiveAction.getArgv())).contains("ios_arm64");
+    assertThat(Joiner.on(" ").join(objcLibArchiveAction.getArguments())).contains("ios_arm64");
   }
-  
+
   @Test
   public void testToolchainSelectionMultiArchWatchos() throws Exception {
     useConfiguration(
@@ -178,6 +149,6 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     CommandAction linkAction = linkAction("//a:bin");
     CppLinkAction objcLibCompileAction = (CppLinkAction) getGeneratingAction(
         getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
-    assertThat(Joiner.on(" ").join(objcLibCompileAction.getArgv())).contains("watchos_armv7k");
-  }  
+    assertThat(Joiner.on(" ").join(objcLibCompileAction.getArguments())).contains("watchos_armv7k");
+  }
 }

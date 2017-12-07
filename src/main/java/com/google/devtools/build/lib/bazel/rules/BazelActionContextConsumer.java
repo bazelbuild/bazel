@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.BazelExecutionOptions;
 import com.google.devtools.build.lib.exec.ActionContextConsumer;
+import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
@@ -75,6 +76,7 @@ public class BazelActionContextConsumer implements ActionContextConsumer {
         .put(IncludeScanningContext.class, "")
         .put(FileWriteActionContext.class, "")
         .put(WriteAdbArgsActionContext.class, "")
+        .put(SpawnCache.class, "")
         .build();
   }
 }

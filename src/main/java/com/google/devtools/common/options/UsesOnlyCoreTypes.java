@@ -20,6 +20,7 @@ import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -52,6 +53,7 @@ public @interface UsesOnlyCoreTypes {
       double.class,
       boolean.class,
       TriState.class,
-      Void.class
+      Void.class,
+      Duration.class
   );
 }

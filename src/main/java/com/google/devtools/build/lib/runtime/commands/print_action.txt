@@ -1,0 +1,15 @@
+
+Usage: %{product} %{command} <options> <targets>
+
+Builds the specified targets and prints the extra actions for the given
+targets. Right now, the targets have to be relative paths to source files,
+and the --compile_one_dependency option has to be enabled.
+
+This command accepts all valid options to 'build', and inherits defaults for
+'build' from your .%{product}rc.  If you don't use .%{product}rc, don't forget to pass
+all your 'build' options to '%{command}' too.
+
+See '%{product} help target-syntax' for details and examples on how to
+specify targets.
+
+%{options}

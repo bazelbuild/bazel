@@ -86,16 +86,25 @@ StartupOptions::StartupOptions(const string &product_name,
       allow_configurable_attributes(false),
       fatal_event_bus_exceptions(false),
       command_port(0),
-      connect_timeout_secs(10),
+      connect_timeout_secs(30),
       invocation_policy(NULL),
       client_debug(false),
       java_logging_formatter(
-          "com.google.devtools.build.lib.util.SingleLineFormatter") {
+          "com.google.devtools.build.lib.util.SingleLineFormatter"),
+      expand_configs_in_place(false),
+      original_startup_options_(std::vector<RcStartupFlag>()) {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
+    max_idle_secs = 15;
+    fprintf(stderr,
+            "INFO: $TEST_TMPDIR defined: output root default is '%s' and "
+            "max_idle_secs default is '%d'.\n",
+            output_root.c_str(),
+            max_idle_secs);
   } else {
     output_root = workspace_layout->GetOutputRoot();
+    max_idle_secs = 3 * 3600;
   }
 
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
@@ -109,8 +118,6 @@ StartupOptions::StartupOptions(const string &product_name,
   const string product_name_lower = GetLowercaseProductName();
   output_user_root = blaze_util::JoinPath(
       output_root, "_" + product_name_lower + "_" + GetUserName());
-  // 3 hours (but only 15 seconds if used within a test)
-  max_idle_secs = testing ? 15 : (3 * 3600);
 
   // IMPORTANT: Before modifying the statements below please contact a Bazel
   // core team member that knows the internal procedure for adding/deprecating
@@ -128,6 +135,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("master_blazerc");
   RegisterNullaryStartupFlag("watchfs");
   RegisterNullaryStartupFlag("write_command_log");
+  RegisterNullaryStartupFlag("expand_configs_in_place");
   RegisterUnaryStartupFlag("bazelrc");
   RegisterUnaryStartupFlag("blazerc");
   RegisterUnaryStartupFlag("command_port");
@@ -323,6 +331,12 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--noclient_debug")) {
     client_debug = false;
     option_sources["client_debug"] = rcfile;
+  } else if (GetNullaryOption(arg, "--expand_configs_in_place")) {
+    expand_configs_in_place = true;
+    option_sources["expand_configs_in_place"] = rcfile;
+  } else if (GetNullaryOption(arg, "--noexpand_configs_in_place")) {
+    expand_configs_in_place = false;
+    option_sources["expand_configs_in_place"] = rcfile;
   } else if ((value = GetUnaryOption(
       arg, next_arg, "--connect_timeout_secs")) != NULL) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||
@@ -373,6 +387,40 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   }
 
   *is_space_separated = ((value == next_arg) && (value != NULL));
+  return blaze_exit_code::SUCCESS;
+}
+
+blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
+    const std::vector<RcStartupFlag>& rcstartup_flags,
+    std::string *error) {
+  std::vector<RcStartupFlag>::size_type i = 0;
+  while (i < rcstartup_flags.size()) {
+    bool is_space_separated = false;
+    const std::string next_value =
+        (i == rcstartup_flags.size() - 1) ? "" : rcstartup_flags[i + 1].value;
+    const blaze_exit_code::ExitCode process_arg_exit_code =
+        ProcessArg(rcstartup_flags[i].value, next_value,
+                   rcstartup_flags[i].source, &is_space_separated, error);
+    // Store the provided option in --flag(=value)? form. Store these before
+    // propagating any error code, since we want to have the correct
+    // information for the output. The fact that the options aren't parseable
+    // doesn't matter for this step.
+    if (is_space_separated) {
+      const std::string combined_value =
+          rcstartup_flags[i].value + "=" + next_value;
+      original_startup_options_.push_back(
+          RcStartupFlag(rcstartup_flags[i].source, combined_value));
+      i += 2;
+    } else {
+      original_startup_options_.push_back(
+          RcStartupFlag(rcstartup_flags[i].source, rcstartup_flags[i].value));
+      i++;
+    }
+
+    if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
+      return process_arg_exit_code;
+    }
+  }
   return blaze_exit_code::SUCCESS;
 }
 
@@ -429,12 +477,19 @@ string StartupOptions::GetJvm() {
   string jdk_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "jre/lib/rt.jar");
   // If just the JRE is installed
   string jre_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "lib/rt.jar");
+  // rt.jar does not exist in java 9+ so check for java instead
+  string jre_java = blaze_util::JoinPath(GetHostJavabase(), "bin/java");
+  string jre_java_exe = blaze_util::JoinPath(GetHostJavabase(), "bin/java.exe");
   if (blaze_util::CanReadFile(jdk_rt_jar) ||
-      blaze_util::CanReadFile(jre_rt_jar)) {
+      blaze_util::CanReadFile(jre_rt_jar) ||
+      blaze_util::CanReadFile(jre_java) ||
+      blaze_util::CanReadFile(jre_java_exe)) {
     return java_program;
   }
-  fprintf(stderr, "Problem with java installation: "
-      "couldn't find/access rt.jar in %s\n", GetHostJavabase().c_str());
+  fprintf(stderr,
+          "Problem with java installation: "
+          "couldn't find/access rt.jar or java in %s\n",
+          GetHostJavabase().c_str());
   exit(1);
 }
 

@@ -23,15 +23,18 @@ import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
+import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestResult;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.rules.test.TestActionContext;
-import com.google.devtools.build.lib.rules.test.TestResult;
-import com.google.devtools.build.lib.rules.test.TestRunnerAction;
-import com.google.devtools.build.lib.rules.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileWatcher;
@@ -48,6 +51,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -99,6 +103,7 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
+  /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
     SUMMARY, // Provide summary output only.
     ERRORS, // Print output from failed tests to the stderr after the test failure.
@@ -113,9 +118,10 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
+  /** An enum for specifying different formatting styles of test summaries. */
   public enum TestSummaryFormat {
     SHORT, // Print information only about tests.
-    TERSE, // Like "SHORT", but even shorter: Do not print PASSED tests.
+    TERSE, // Like "SHORT", but even shorter: Do not print PASSED and NO STATUS tests.
     DETAILED, // Print information only about failed test cases.
     NONE; // Do not print summary.
 
@@ -141,7 +147,8 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   @Override
-  public abstract void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
+  public abstract List<SpawnResult> exec(
+      TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 
   /**
@@ -182,7 +189,11 @@ public abstract class TestStrategy implements TestActionContext {
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
     args.add(execSettings.getExecutable().getRootRelativePath().getCallablePathString());
-    Iterables.addAll(args, execSettings.getArgs().arguments());
+    try {
+      Iterables.addAll(args, execSettings.getArgs().arguments());
+    } catch (CommandLineExpansionException e) {
+      throw new UserExecException(e);
+    }
     return ImmutableList.copyOf(args);
   }
 
@@ -215,11 +226,19 @@ public abstract class TestStrategy implements TestActionContext {
    */
   @VisibleForTesting /* protected */
   public int getTestAttempts(TestRunnerAction action) {
-    if (executionOptions.testAttempts == -1) {
-      return action.getTestProperties().isFlaky() ? 3 : 1;
-    } else {
-      return executionOptions.testAttempts;
-    }
+    return action.getTestProperties().isFlaky()
+        ? getTestAttemptsForFlakyTest()
+        : getTestAttempts(/*defaultTestAttempts=*/ 1);
+  }
+
+  public int getTestAttemptsForFlakyTest() {
+    return getTestAttempts(/*defaultTestAttempts=*/ 3);
+  }
+
+  private int getTestAttempts(int defaultTestAttempts) {
+    return executionOptions.testAttempts == -1
+        ? defaultTestAttempts
+        : executionOptions.testAttempts;
   }
 
   /**
@@ -227,7 +246,7 @@ public abstract class TestStrategy implements TestActionContext {
    * the "categorical timeouts" which are based on the --test_timeout flag. A rule picks its timeout
    * but ends up with the same effective value as all other rules in that bucket.
    */
-  protected final int getTimeout(TestRunnerAction testAction) {
+  protected final Duration getTimeout(TestRunnerAction testAction) {
     return executionOptions.testTimeout.get(testAction.getTestProperties().getTimeout());
   }
 
@@ -391,7 +410,12 @@ public abstract class TestStrategy implements TestActionContext {
 
     new SymlinkTreeHelper(execSettings.getInputManifest().getPath(), runfilesDir, false)
         .createSymlinks(
-            testAction, actionExecutionContext, binTools, shellEnvironment, enableRunfiles);
+            testAction,
+            actionExecutionContext,
+            binTools,
+            shellEnvironment,
+            execSettings.getInputManifest(),
+            enableRunfiles);
 
     actionExecutionContext.getEventHandler()
         .handle(Event.progress(testAction.getProgressMessage()));

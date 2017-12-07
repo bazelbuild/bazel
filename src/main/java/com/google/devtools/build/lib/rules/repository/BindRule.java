@@ -61,6 +61,10 @@ public final class BindRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = bind, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
+<em><p>Warning: use of <code>bind()</code> is not recommended. See "<a
+href="https://github.com/bazelbuild/bazel/issues/1952">Consider removing bind</a>" for a long
+discussion of its issues and alternatives.</p></em>
+
 <p>Gives a target an alias in the <code>//external</code> package.</p>
 
 <p>The <code>//external</code> package is not a "normal" package: there is no external/ directory,

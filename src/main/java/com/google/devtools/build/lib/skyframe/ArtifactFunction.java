@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,9 +35,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -51,12 +50,6 @@ import javax.annotation.Nullable;
 
 /** A builder of values for {@link ArtifactSkyKey} keys. */
 class ArtifactFunction implements SkyFunction {
-
-  private final Predicate<PathFragment> allowedMissingInputs;
-
-  ArtifactFunction(Predicate<PathFragment> allowedMissingInputs) {
-    this.allowedMissingInputs = allowedMissingInputs;
-  }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -110,7 +103,7 @@ class ArtifactFunction implements SkyFunction {
         }
 
         return createTreeArtifactValueFromActionTemplate(
-            (ActionTemplate) actionMetadata, artifact, env);
+            (ActionTemplate<?>) actionMetadata, artifact, env);
       }
     }
     ActionExecutionValue actionValue =
@@ -142,8 +135,8 @@ class ArtifactFunction implements SkyFunction {
   }
 
   private static TreeArtifactValue createTreeArtifactValueFromActionTemplate(
-      final ActionTemplate actionTemplate, final Artifact treeArtifact, Environment env)
-      throws ArtifactFunctionException, InterruptedException {
+      final ActionTemplate<?> actionTemplate, final Artifact treeArtifact, Environment env)
+          throws InterruptedException {
     // Request the list of expanded actions from the ActionTemplate.
     SkyKey templateKey = ActionTemplateExpansionValue.key(actionTemplate);
     ActionTemplateExpansionValue expansionValue =
@@ -173,12 +166,11 @@ class ArtifactFunction implements SkyFunction {
           (ActionExecutionValue)
               Preconditions.checkNotNull(
                   expandedActionValueMap.get(expandedActionExecutionKeys.get(i)),
-                  "Missing tree value: %s %s %s %s %s",
+                  "Missing tree value: %s %s %s %s",
                   treeArtifact,
                   actionTemplate,
                   expansionValue,
-                  expandedActionValueMap,
-                  expandedActionExecutionKeys);
+                  expandedActionValueMap);
       Iterable<TreeFileArtifact> treeFileArtifacts =
           Iterables.transform(
               Iterables.filter(
@@ -229,43 +221,27 @@ class ArtifactFunction implements SkyFunction {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
           InconsistentFilesystemException.class, FileSymlinkException.class);
     } catch (IOException | InconsistentFilesystemException | FileSymlinkException e) {
-      throw makeMissingInputFileExn(artifact, mandatory, e, env.getListener());
+      throw makeMissingInputFileException(artifact, mandatory, e, env.getListener());
     }
     if (fileValue == null) {
       return null;
     }
     if (!fileValue.exists()) {
-      if (isAllowedMissingInput(fileSkyKey)) {
+      if (!mandatory) {
         return FileArtifactValue.MISSING_FILE_MARKER;
       } else {
-        return missingInputFile(artifact, mandatory, null, env.getListener());
+        throw makeMissingInputFileException(artifact, mandatory, null, env.getListener());
       }
     }
     try {
       return FileArtifactValue.create(artifact, fileValue);
     } catch (IOException e) {
-      if (isAllowedMissingInput(fileSkyKey)) {
-        return FileArtifactValue.MISSING_FILE_MARKER;
-      }
-      throw makeMissingInputFileExn(artifact, mandatory, e, env.getListener());
+      throw makeMissingInputFileException(artifact, mandatory, e, env.getListener());
     }
   }
 
-  private boolean isAllowedMissingInput(SkyKey fileSkyKey) {
-    return allowedMissingInputs.apply(((RootedPath) fileSkyKey.argument()).getRelativePath());
-  }
-
-  private static FileArtifactValue missingInputFile(
-      Artifact artifact, boolean mandatory, Exception failure, EventHandler reporter)
-      throws MissingInputFileException {
-    if (!mandatory) {
-      return FileArtifactValue.MISSING_FILE_MARKER;
-    }
-    throw makeMissingInputFileExn(artifact, mandatory, failure, reporter);
-  }
-
-  private static MissingInputFileException makeMissingInputFileExn(Artifact artifact,
-      boolean mandatory, Exception failure, EventHandler reporter) {
+  private static MissingInputFileException makeMissingInputFileException(
+      Artifact artifact, boolean mandatory, Exception failure, EventHandler reporter) {
     String extraMsg = (failure == null) ? "" : (":" + failure.getMessage());
     MissingInputFileException ex = new MissingInputFileException(
         constructErrorMessage(artifact) + extraMsg, null);
@@ -278,7 +254,7 @@ class ArtifactFunction implements SkyFunction {
   // Non-aggregating artifact -- should contain at most one piece of artifact data.
   // data may be null if and only if artifact is a middleman artifact.
   private static FileArtifactValue createSimpleFileArtifactValue(
-      Artifact artifact, ActionExecutionValue actionValue) throws ArtifactFunctionException {
+      Artifact artifact, ActionExecutionValue actionValue) {
     FileArtifactValue value = actionValue.getArtifactValue(artifact);
     if (value != null) {
       return value;

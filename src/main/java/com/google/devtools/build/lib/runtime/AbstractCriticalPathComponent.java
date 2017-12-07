@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.util.Clock;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -31,7 +31,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
   private long startNanos;
   private long finishNanos = 0;
-  volatile boolean isRunning = true;
+  protected volatile boolean isRunning = true;
 
   /** We keep here the critical path time for the most expensive child. */
   private long childAggregatedElapsedTime = 0;

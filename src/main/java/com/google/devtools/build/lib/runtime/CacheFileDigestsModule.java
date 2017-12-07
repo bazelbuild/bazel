@@ -14,18 +14,18 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheStats;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.logging.Logger;
 
 /** Enables the caching of file digests in {@link DigestUtils}. */
 public class CacheFileDigestsModule extends BlazeModule {
 
-  private static final Logger log = Logger.getLogger(CacheFileDigestsModule.class.getName());
+  private static final Logger logger = Logger.getLogger(CacheFileDigestsModule.class.getName());
 
   /** Stats gathered at the beginning of a command, to compute deltas on completion. */
   private CacheStats stats;
@@ -45,7 +45,7 @@ public class CacheFileDigestsModule extends BlazeModule {
    * @param stats the cache statistics to be logged
    */
   private static void logStats(String message, CacheStats stats) {
-    log.info(
+    logger.info(
         message
             + ": hit count="
             + stats.hitCount()
@@ -64,14 +64,14 @@ public class CacheFileDigestsModule extends BlazeModule {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     if (lastKnownCacheSize == null
         || options.cacheSizeForComputedFileDigests != lastKnownCacheSize) {
-      log.info("Reconfiguring cache with size=" + options.cacheSizeForComputedFileDigests);
+      logger.info("Reconfiguring cache with size=" + options.cacheSizeForComputedFileDigests);
       DigestUtils.configureCache(options.cacheSizeForComputedFileDigests);
       lastKnownCacheSize = options.cacheSizeForComputedFileDigests;
     }
 
     if (options.cacheSizeForComputedFileDigests == 0) {
       stats = null;
-      log.info("Disabled cache");
+      logger.info("Disabled cache");
     } else {
       stats = DigestUtils.getCacheStats();
       logStats("Accumulated cache stats before command", stats);

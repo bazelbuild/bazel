@@ -28,14 +28,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -44,8 +46,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsProvider.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -121,7 +122,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     ApplePlatform platform = appleConfiguration.getMultiArchPlatform(platformType);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap =
         ruleContext.getPrerequisitesByConfiguration(
-            "non_propagated_deps", Mode.SPLIT, ObjcProvider.class);
+            "non_propagated_deps", Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
     ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
 
@@ -137,8 +138,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             childConfigurations,
             configToDepsCollectionMap,
             configurationToNonPropagatedObjcMap,
-            getDylibProviders(ruleContext),
-            getDylibProtoProviders(ruleContext));
+            getDylibProviderTargets(ruleContext));
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     multiArchBinarySupport.registerActions(
@@ -164,8 +164,10 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     objcProviderBuilder.add(MULTI_ARCH_LINKED_BINARIES, outputArtifact);
 
     ObjcProvider objcProvider = objcProviderBuilder.build();
-    // TODO(cparsons): Stop propagating ObjcProvider directly from this rule.
-    targetBuilder.addProvider(ObjcProvider.class, objcProvider);
+
+    if (appleConfiguration.shouldLinkingRulesPropagateObjc()) {
+      targetBuilder.addNativeDeclaredProvider(objcProvider);
+    }
 
     switch (getBinaryType(ruleContext)) {
       case EXECUTABLE:
@@ -239,9 +241,9 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         extraLinkArgs.add("-Xlinker", "-rpath", "-Xlinker", "@loader_path/Frameworks");
         if (didProvideBundleLoader) {
           AppleExecutableBinaryProvider executableProvider =
-              (AppleExecutableBinaryProvider) ruleContext.getPrerequisite(
+              ruleContext.getPrerequisite(
                   BUNDLE_LOADER_ATTR_NAME, Mode.TARGET,
-                  AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey());
+                  AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
           extraLinkArgs.add(
               "-bundle_loader", executableProvider.getAppleExecutableBinary().getExecPathString());
         }
@@ -256,43 +258,19 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     return new ExtraLinkArgs(extraLinkArgs.build());
   }
 
-  private static Iterable<ObjcProvider> getDylibProviders(RuleContext ruleContext) {
-    ImmutableList.Builder<ObjcProvider> dylibProviders = ImmutableList.builder();
-    Iterable<AppleDynamicFrameworkProvider> frameworkProviders =
-        ruleContext.getPrerequisites(
-            DYLIBS_ATTR_NAME, Mode.TARGET, AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR);
-    for (AppleDynamicFrameworkProvider frameworkProvider : frameworkProviders) {
-      dylibProviders.add(frameworkProvider.getDepsObjcProvider());
-    }
-
-    ObjcProvider bundleLoaderObjcProvider =
-        ruleContext.getPrerequisite(BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, ObjcProvider.class);
-
-    if (bundleLoaderObjcProvider != null) {
-      dylibProviders.add(bundleLoaderObjcProvider);
-    }
-    return dylibProviders.build();
-  }
-
-  private static Iterable<ObjcProtoProvider> getDylibProtoProviders(RuleContext ruleContext) {
-    Iterable<ObjcProtoProvider> dylibProtoProviders =
-        ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET, ObjcProtoProvider.class);
-
-    ObjcProtoProvider bundleLoaderObjcProtoProvider =
-        ruleContext.getPrerequisite(BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, ObjcProtoProvider.class);
-
-    if (bundleLoaderObjcProtoProvider != null) {
-      dylibProtoProviders =
-          Iterables.concat(dylibProtoProviders, ImmutableList.of(bundleLoaderObjcProtoProvider));
-    }
-    return dylibProtoProviders;
+  private static Iterable<TransitiveInfoCollection> getDylibProviderTargets(
+      RuleContext ruleContext) {
+    return ImmutableList.<TransitiveInfoCollection>builder()
+        .addAll(ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET))
+        .addAll(ruleContext.getPrerequisites(BUNDLE_LOADER_ATTR_NAME, Mode.TARGET))
+        .build();
   }
 
   private static Iterable<Artifact> getExtraLinkInputs(RuleContext ruleContext) {
     AppleExecutableBinaryProvider executableProvider =
-        (AppleExecutableBinaryProvider) ruleContext.getPrerequisite(
+        ruleContext.getPrerequisite(
             BUNDLE_LOADER_ATTR_NAME, Mode.TARGET,
-            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey());
+            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
     if (executableProvider != null) {
       return ImmutableSet.<Artifact>of(executableProvider.getAppleExecutableBinary());
     }

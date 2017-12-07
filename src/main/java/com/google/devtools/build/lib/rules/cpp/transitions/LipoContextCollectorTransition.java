@@ -47,9 +47,4 @@ public class LipoContextCollectorTransition implements PatchTransition {
         CppOptions.LipoConfigurationState.LIPO_CONTEXT_COLLECTOR;
     return collectorOptions;
   }
-
-  @Override
-  public boolean defaultsToSelf() {
-    return false;
-  }
 }

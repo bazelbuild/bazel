@@ -307,8 +307,8 @@ final class LabelVisitor {
 
       // Avoid thread-related overhead when not crossing packages.
       // Can start a new thread when count reaches 100, to prevent infinite recursion.
-      if (from != null && from.getLabel().getPackageFragment() == label.getPackageFragment() &&
-          !blockNewActions() && count < RECURSION_LIMIT) {
+      if (from != null && from.getLabel().getPackageFragment().equals(label.getPackageFragment())
+          && !blockNewActions() && count < RECURSION_LIMIT) {
         newVisitRunnable(from, attr, label, depth, count + 1).run();
       } else {
         execute(newVisitRunnable(from, attr, label, depth, 0));

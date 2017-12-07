@@ -14,9 +14,6 @@
 
 package com.google.devtools.common.options;
 
-import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
-import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
-
 import java.util.List;
 
 /**
@@ -37,33 +34,43 @@ public interface OptionsProvider extends OptionsClassProvider {
   boolean containsExplicitOption(String string);
 
   /**
-   * Returns a mutable copy of the list of all options that were specified
-   * either explicitly or implicitly. These options are sorted by priority, and
-   * by the order in which they were specified. If an option was specified
-   * multiple times, it is included in the result multiple times. Does not
-   * include the residue.
+   * Returns a mutable copy of the list of all options that were specified either explicitly or
+   * implicitly. These options are sorted by priority, and by the order in which they were
+   * specified. If an option was specified multiple times, it is included in the result multiple
+   * times. Does not include the residue.
    *
-   * <p>The returned list can be filtered if undocumented, hidden or implicit
-   * options should not be displayed.
+   * <p>The returned list includes undocumented, hidden or implicit options, and should be filtered
+   * as needed. Since it includes all options parsed, it will also include both an expansion option
+   * and the options it expanded to, and so blindly using this list for a new invocation will cause
+   * double-application of these options.
    */
-  List<UnparsedOptionValueDescription> asListOfUnparsedOptions();
+  List<ParsedOptionDescription> asCompleteListOfParsedOptions();
 
   /**
-   * Returns a list of all explicitly specified options, suitable for logging
-   * or for displaying back to the user. These options are sorted by priority,
-   * and by the order in which they were specified. If an option was
-   * explicitly specified multiple times, it is included in the result
+   * Returns a list of all explicitly specified options, suitable for logging or for displaying back
+   * to the user. These options are sorted by priority, and by the order in which they were
+   * specified. If an option was explicitly specified multiple times, it is included in the result
    * multiple times. Does not include the residue.
    *
    * <p>The list includes undocumented options.
    */
-  List<UnparsedOptionValueDescription> asListOfExplicitOptions();
+  List<ParsedOptionDescription> asListOfExplicitOptions();
 
   /**
-   * Returns a list of all options, including undocumented ones, and their
-   * effective values. There is no guaranteed ordering for the result.
+   * Returns a list of the parsed options whose values are in the final value of the option, i.e.
+   * the options that were added explicitly, expanded if necessary to the valued options they
+   * affect. This will not include values that were set and then overridden by a later value of the
+   * same option.
+   *
+   * <p>The list includes undocumented options.
    */
-  List<OptionValueDescription> asListOfEffectiveOptions();
+  List<ParsedOptionDescription> asListOfCanonicalOptions();
+
+  /**
+   * Returns a list of all options, including undocumented ones, and their effective values. There
+   * is no guaranteed ordering for the result.
+   */
+  List<OptionValueDescription> asListOfOptionValues();
 
   /**
    * Canonicalizes the list of options that this OptionsParser has parsed. The

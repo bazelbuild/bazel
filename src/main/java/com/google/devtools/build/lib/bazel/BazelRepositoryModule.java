@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -78,6 +79,8 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
+import java.lang.reflect.InvocationTargetException;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -91,10 +94,11 @@ public class BazelRepositoryModule extends BlazeModule {
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final SkylarkRepositoryFunction skylarkRepositoryFunction;
-  private final RepositoryDelegatorFunction delegator;
   private final RepositoryCache repositoryCache = new RepositoryCache();
   private final HttpDownloader httpDownloader = new HttpDownloader(repositoryCache);
   private final MavenDownloader mavenDownloader = new MavenDownloader(repositoryCache);
+  private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
+      new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
   private FileSystem filesystem;
 
@@ -115,8 +119,6 @@ public class BazelRepositoryModule extends BlazeModule {
             .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
             .put(MavenServerRule.NAME, new MavenServerRepositoryFunction())
             .build();
-    this.delegator = new RepositoryDelegatorFunction(
-        repositoryHandlers, skylarkRepositoryFunction, isFetch);
   }
 
   /**
@@ -159,19 +161,27 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.addCustomDirtinessChecker(REPOSITORY_VALUE_CHECKER);
     // Create the repository function everything flows through.
     builder.addSkyFunction(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
-    builder.addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, delegator);
-    builder.addSkyFunction(MavenServerFunction.NAME, new MavenServerFunction());
-    filesystem = directories.getFileSystem();
+    builder.addSkyFunction(
+        SkyFunctions.REPOSITORY_DIRECTORY,
+        new RepositoryDelegatorFunction(
+            repositoryHandlers,
+            skylarkRepositoryFunction,
+            isFetch,
+            clientEnvironmentSupplier,
+            directories));
+    builder.addSkyFunction(MavenServerFunction.NAME, new MavenServerFunction(directories));
+    filesystem = runtime.getFileSystem();
   }
 
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
     for (Entry<String, RepositoryFunction> handler : repositoryHandlers.entrySet()) {
-      // TODO(bazel-team): Migrate away from Class<?>
       RuleDefinition ruleDefinition;
       try {
-        ruleDefinition = handler.getValue().getRuleDefinition().newInstance();
-      } catch (IllegalAccessException | InstantiationException e) {
+        ruleDefinition = handler.getValue().getRuleDefinition().getDeclaredConstructor()
+            .newInstance();
+      } catch (IllegalAccessException | InstantiationException | NoSuchMethodException
+          | InvocationTargetException e) {
         throw new IllegalStateException(e);
       }
       builder.addRuleDefinition(ruleDefinition);
@@ -180,11 +190,12 @@ public class BazelRepositoryModule extends BlazeModule {
   }
 
   @Override
-  public void handleOptions(OptionsProvider optionsProvider) {
-    PackageCacheOptions pkgOptions = optionsProvider.getOptions(PackageCacheOptions.class);
+  public void beforeCommand(CommandEnvironment env) {
+    clientEnvironmentSupplier.set(env.getActionClientEnv());
+    PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
 
-    RepositoryOptions repoOptions = optionsProvider.getOptions(RepositoryOptions.class);
+    RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
       if (repoOptions.experimentalRepositoryCache != null) {
         Path repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
@@ -213,11 +224,6 @@ public class BazelRepositoryModule extends BlazeModule {
     return ImmutableList.of(
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides));
-  }
-
-  @Override
-  public void beforeCommand(CommandEnvironment env) {
-    delegator.setClientEnvironment(env.getActionClientEnv());
   }
 
   @Override

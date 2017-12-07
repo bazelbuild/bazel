@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 
 /**
@@ -38,20 +35,9 @@ public abstract class ParserInputSource {
    */
   public abstract PathFragment getPath();
 
-  /**
-   * Create an input source instance by (eagerly) reading from the file at
-   * path. The file is assumed to be ISO-8859-1 encoded and smaller than
-   * 2 Gigs - these assumptions are reasonable for BUILD files, which is
-   * all we care about here.
-   */
-  public static ParserInputSource create(Path path) throws IOException {
-    return create(path, path.getFileSize());
-  }
-
-  public static ParserInputSource create(Path path, long fileSize) throws IOException {
-    byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, fileSize);
-    char[] content = FileSystemUtils.convertFromLatin1(bytes);
-    return create(content, path.asFragment());
+  public static ParserInputSource create(byte[] bytes, PathFragment path) throws IOException {
+    char[] content = convertFromLatin1(bytes);
+    return create(content, path);
   }
 
   /**
@@ -81,5 +67,13 @@ public abstract class ParserInputSource {
         return path;
       }
     };
+  }
+
+  private static char[] convertFromLatin1(byte[] content) {
+    char[] latin1 = new char[content.length];
+    for (int i = 0; i < latin1.length; i++) { // yeah, latin1 is this easy! :-)
+      latin1[i] = (char) (0xff & content[i]);
+    }
+    return latin1;
   }
 }

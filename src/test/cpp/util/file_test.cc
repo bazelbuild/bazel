@@ -206,7 +206,7 @@ class CollectingDirectoryEntryConsumer : public DirectoryEntryConsumer {
   void Consume(const string& name, bool is_directory) override {
     // Strip the path prefix up to the `rootname` to ease testing on all
     // platforms.
-    int index = name.rfind(rootname);
+    size_t index = name.rfind(rootname);
     string key = (index == string::npos) ? name : name.substr(index);
     // Replace backslashes with forward slashes (necessary on Windows only).
     std::replace(key.begin(), key.end(), '\\', '/');
@@ -246,6 +246,15 @@ TEST(FileTest, ForEachDirectoryEntryTest) {
   CollectingDirectoryEntryConsumer consumer("foo");
   ForEachDirectoryEntry(rootdir, &consumer);
   ASSERT_EQ(consumer.entries, expected);
+}
+
+TEST(FileTest, IsDevNullTest) {
+  ASSERT_TRUE(IsDevNull("/dev/null"));
+  ASSERT_FALSE(IsDevNull("dev/null"));
+  ASSERT_FALSE(IsDevNull("/dev/nul"));
+  ASSERT_FALSE(IsDevNull("/dev/nulll"));
+  ASSERT_FALSE(IsDevNull(NULL));
+  ASSERT_FALSE(IsDevNull(""));
 }
 
 }  // namespace blaze_util

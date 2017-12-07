@@ -59,8 +59,11 @@ public final class PatternExpandingError implements BuildEvent {
 
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
-    BuildEventStreamProtos.LoadingFailure failure =
-        BuildEventStreamProtos.LoadingFailure.newBuilder().setDetails(message).build();
-    return GenericBuildEvent.protoChaining(this).setLoadingFailed(failure).build();
+    BuildEventStreamProtos.Aborted failure =
+        BuildEventStreamProtos.Aborted.newBuilder()
+            .setReason(BuildEventStreamProtos.Aborted.AbortReason.LOADING_FAILURE)
+            .setDescription(message)
+            .build();
+    return GenericBuildEvent.protoChaining(this).setAborted(failure).build();
   }
 }

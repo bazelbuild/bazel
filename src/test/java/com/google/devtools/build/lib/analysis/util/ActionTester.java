@@ -16,11 +16,12 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.BitSet;
 import java.util.EnumSet;
 
@@ -63,7 +64,10 @@ public class ActionTester {
    * different permutations the {@link ActionCombinationFactory} should generate.
    */
   public static <E extends Enum<E>> void runTest(
-      Class<E> attributeClass, ActionCombinationFactory<E> factory) throws Exception {
+      Class<E> attributeClass,
+      ActionCombinationFactory<E> factory,
+      ActionKeyContext actionKeyContext)
+      throws Exception {
     int attributesCount = attributeClass.getEnumConstants().length;
     Preconditions.checkArgument(
         attributesCount <= 30,
@@ -76,16 +80,21 @@ public class ActionTester {
     // Sanity check that the count is correct.
     assertThat(
             Actions.canBeShared(
-                actions[0], factory.generate(makeEnumSetInitializedTo(attributeClass, count))))
+                actionKeyContext,
+                actions[0],
+                factory.generate(makeEnumSetInitializedTo(attributeClass, count))))
         .isTrue();
 
     for (int i = 0; i < actions.length; i++) {
       assertThat(
               Actions.canBeShared(
-                  actions[i], factory.generate(makeEnumSetInitializedTo(attributeClass, i))))
+                  actionKeyContext,
+                  actions[i],
+                  factory.generate(makeEnumSetInitializedTo(attributeClass, i))))
           .isTrue();
       for (int j = i + 1; j < actions.length; j++) {
-        assertWithMessage(i + " and " + j).that(Actions.canBeShared(actions[i], actions[j]))
+        assertWithMessage(i + " and " + j)
+            .that(Actions.canBeShared(actionKeyContext, actions[i], actions[j]))
             .isFalse();
       }
     }

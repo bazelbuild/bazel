@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
@@ -50,14 +49,13 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Implementation of the {@code android_ndk_repository} rule.
- */
-public class AndroidNdkRepositoryFunction extends RepositoryFunction {
+/** Implementation of the {@code android_ndk_repository} rule. */
+public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
 
   private static final String TOOLCHAIN_NAME_PREFIX = "toolchain-";
   private static final String PATH_ENV_VAR = "ANDROID_NDK_HOME";
@@ -81,7 +79,6 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     return true;
   }
 
-
   @Override
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
       throws InterruptedException {
@@ -93,8 +90,12 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
-      BlazeDirectories directories, Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(
+      Rule rule,
+      Path outputDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     Map<String, String> environ =
         declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
@@ -148,24 +149,22 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
       }
     } else {
       DirectoryListingValue platformsDirectoryValue =
-          AndroidRepositoryUtils.getDirectoryListing(ndkHome, PLATFORMS_DIR, env);
+          getDirectoryListing(ndkHome, PLATFORMS_DIR, env);
       if (platformsDirectoryValue == null) {
         return null;
       }
 
-      ImmutableSortedSet<Integer> apiLevels =
-          AndroidRepositoryUtils.getApiLevels(platformsDirectoryValue.getDirents());
+      ImmutableSortedSet<Integer> apiLevels = getApiLevels(platformsDirectoryValue.getDirents());
       if (apiLevels.isEmpty()) {
         // Every Android NDK to date ships with multiple api levels, so the only reason that this
         // would be empty is if the user is not pointing to a standard NDK or has tinkered with it
         // themselves.
-        throw new RepositoryFunctionException(
+        throwInvalidPathException(
+            ndkHome,
             new EvalException(
                 rule.getLocation(),
                 "android_ndk_repository requires that at least one Android platform is present in "
-                    + "the Android NDK platforms directory. Please ensure that the path attribute "
-                    + "or the ANDROID_NDK_HOME environment variable points to a valid NDK."),
-            Transience.PERSISTENT);
+                    + "the Android NDK platforms directory."));
       }
       apiLevelString = apiLevels.first().toString();
     }
@@ -250,18 +249,21 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
       StringBuilder toolchainMap = new StringBuilder();
       for (CToolchain toolchain : crosstool.getToolchainList()) {
-        toolchainMap.append(String.format("      \"%s|%s\": \":%s\",\n",
-            toolchain.getTargetCpu(),
-            toolchain.getCompiler(),
-            toolchain.getToolchainIdentifier()));
+        toolchainMap.append(
+            String.format(
+                "      \"%s|%s\": \":%s\",\n",
+                toolchain.getTargetCpu(),
+                toolchain.getCompiler(),
+                toolchain.getToolchainIdentifier()));
       }
 
       String toolchainName = createToolchainName(crosstoolStlPair.stlImpl.getName());
 
-      ccToolchainSuites.append(ccToolchainSuiteTemplate
-          .replace("%toolchainName%", toolchainName)
-          .replace("%toolchainMap%", toolchainMap.toString().trim())
-          .replace("%crosstoolReleaseProto%", crosstool.toString()));
+      ccToolchainSuites.append(
+          ccToolchainSuiteTemplate
+              .replace("%toolchainName%", toolchainName)
+              .replace("%toolchainMap%", toolchainMap.toString().trim())
+              .replace("%crosstoolReleaseProto%", crosstool.toString()));
 
       // Create the cc_toolchain rules
       for (CToolchain toolchain : crosstool.getToolchainList()) {
@@ -270,11 +272,12 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
       // Create the STL file group rules
       for (Map.Entry<String, String> entry :
-        crosstoolStlPair.stlImpl.getFilegroupNamesAndFilegroupFileGlobPatterns().entrySet()) {
+          crosstoolStlPair.stlImpl.getFilegroupNamesAndFilegroupFileGlobPatterns().entrySet()) {
 
-        stlFilegroups.append(stlFilegroupTemplate
-            .replace("%name%", entry.getKey())
-            .replace("%fileGlobPattern%", entry.getValue()));
+        stlFilegroups.append(
+            stlFilegroupTemplate
+                .replace("%name%", entry.getKey())
+                .replace("%fileGlobPattern%", entry.getValue()));
       }
     }
 
@@ -335,8 +338,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
     StringBuilder toolchainFileGlobs = new StringBuilder();
     for (String toolchainFileGlobPattern : toolchainFileGlobPatterns) {
-      toolchainFileGlobs.append(String.format(
-          "        \"%s\",\n", toolchainFileGlobPattern));
+      toolchainFileGlobs.append(String.format("        \"%s\",\n", toolchainFileGlobPattern));
     }
 
     return ccToolchainTemplate
@@ -348,7 +350,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
         .replace("%toolchainFileGlobs%", toolchainFileGlobs.toString().trim());
   }
 
-  private static NdkRelease getNdkRelease(Path directory, Environment env)
+  private NdkRelease getNdkRelease(Path directory, Environment env)
       throws RepositoryFunctionException, InterruptedException {
 
     // For NDK r11+
@@ -360,16 +362,24 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
     SkyKey releaseFileKey = FileValue.key(RootedPath.toRootedPath(directory, releaseFilePath));
 
-    String releaseFileContent;
+    String releaseFileContent = "";
     try {
-      env.getValueOrThrow(releaseFileKey, IOException.class, FileSymlinkException.class,
+      env.getValueOrThrow(
+          releaseFileKey,
+          IOException.class,
+          FileSymlinkException.class,
           InconsistentFilesystemException.class);
 
-      releaseFileContent = new String(FileSystemUtils.readContent(releaseFilePath));
+      releaseFileContent =
+          new String(FileSystemUtils.readContent(releaseFilePath), StandardCharsets.UTF_8);
     } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
-      throw new RepositoryFunctionException(
-          new IOException("Could not read " + releaseFilePath.getBaseName() + " in Android NDK: "
-              + e.getMessage()), Transience.PERSISTENT);
+      throwInvalidPathException(
+          directory,
+          new IOException(
+              "Could not read "
+                  + releaseFilePath.getBaseName()
+                  + " in Android NDK: "
+                  + e.getMessage()));
     }
 
     return NdkRelease.create(releaseFileContent.trim());
@@ -381,5 +391,19 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  @Override
+  protected void throwInvalidPathException(Path path, Exception e)
+      throws RepositoryFunctionException {
+    throw new RepositoryFunctionException(
+        new IOException(
+            String.format(
+                "%s Unable to read the Android NDK at %s, the path may be invalid. Is "
+                    + "the path in android_ndk_repository() or %s set correctly? If the path is "
+                    + "correct, the contents in the Android NDK directory may have been modified.",
+                e.getMessage(), path, PATH_ENV_VAR),
+            e),
+        Transience.PERSISTENT);
   }
 }

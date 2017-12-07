@@ -21,8 +21,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.rules.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +37,7 @@ import org.junit.runners.JUnit4;
 public final class ConfigFeatureFlagTest extends SkylarkTestCase {
 
   @Before
-  public void useDynamicConfigurations() throws Exception {
+  public void useTrimmedConfigurations() throws Exception {
     useConfiguration("--experimental_dynamic_configs=on");
   }
 
@@ -77,6 +80,43 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         ")");
     assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getValue())
         .isEqualTo("configured");
+  }
+
+  @Test
+  public void configFeatureFlagProvider_skylarkConstructor() throws Exception {
+    scratch.file(
+        "test/wrapper.bzl",
+        "def _flag_reading_wrapper_impl(ctx):",
+        "  pass",
+        "flag_reading_wrapper = rule(",
+        "  implementation = _flag_reading_wrapper_impl,",
+        "  attrs = {'flag': attr.label()},",
+        ")",
+        "def _flag_propagating_wrapper_impl(ctx):",
+        "  return struct(providers = [config_common.FeatureFlagInfo(value='hello')])",
+        "flag_propagating_wrapper = rule(",
+        "  implementation = _flag_propagating_wrapper_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':wrapper.bzl', 'flag_propagating_wrapper')",
+        "flag_propagating_wrapper(",
+        "    name = 'propagator',",
+        ")",
+        "config_setting(name = 'hello_setting',",
+        "    flag_values = {':propagator': 'hello'})",
+        "genrule(",
+        "    name = 'gen',",
+        "    srcs = [],",
+        "    outs = ['out'],",
+        "    cmd = select({",
+        "       ':hello_setting': 'hello',",
+        "       '//conditions:default': 'error'",
+        "    }))");
+
+    ConfiguredAttributeMapper attributeMapper =
+        ((RuleConfiguredTarget) getConfiguredTarget("//test:gen")).getAttributeMapper();
+    assertThat(attributeMapper.get("cmd", Type.STRING)).isEqualTo("hello");
   }
 
   @Test
@@ -291,9 +331,9 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   @Test
   public void policy_mustContainRulesPackage() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
-    scratch.file(
-        "policy/BUILD",
-        "package_group(name = 'feature_flag_users', packages = ['//some/other'])");
+    scratch.overwriteFile(
+        "tools/whitelists/config_feature_flag/BUILD",
+        "package_group(name = 'config_feature_flag', packages = ['//some/other'])");
     scratch.file(
         "test/BUILD",
         "config_feature_flag(",
@@ -301,20 +341,17 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
     assertThat(getConfiguredTarget("//test:flag")).isNull();
     assertContainsEvent(
         "in config_feature_flag rule //test:flag: the config_feature_flag rule is not available in "
-        + "package 'test' according to policy '//policy:feature_flag_users'");
+        + "package 'test'");
   }
 
   @Test
   public void policy_doesNotBlockRuleIfInPackageGroup() throws Exception {
-    scratch.file(
-        "policy/BUILD",
-        "package_group(name = 'feature_flag_users', packages = ['//test'])");
+    scratch.overwriteFile(
+        "tools/whitelists/config_feature_flag/BUILD",
+        "package_group(name = 'config_feature_flag', packages = ['//test'])");
     scratch.file(
         "test/BUILD",
         "config_feature_flag(",
@@ -322,9 +359,6 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
     assertThat(getConfiguredTarget("//test:flag")).isNotNull();
     assertNoEvents();
   }

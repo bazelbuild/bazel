@@ -21,10 +21,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -56,6 +59,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   private List<Substitution> substitutions;
   private BlazeDirectories directories;
   private BinTools binTools;
+  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
   public final void createDirectoriesAndTools() throws Exception {
@@ -66,8 +70,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     substitutions.add(Substitution.of("%value%", "bar"));
     directories =
         new BlazeDirectories(
-            scratch.resolve("/install"),
-            scratch.resolve("/base"),
+            new ServerDirectories(scratch.resolve("/install"), scratch.resolve("/base")),
             scratch.resolve("/workspace"),
             "mock-product-name");
     binTools = BinTools.empty(directories);
@@ -100,7 +103,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testExpansion() throws Exception {
-    Executor executor = new TestExecutorBuilder(directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     create().execute(createContext(executor));
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
     String expected = Joiner.on('\n').join("key=foo", "value=bar");
@@ -117,7 +120,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE),
          ImmutableList.of(Substitution.of("%key%", "foo")), false);
-    assertThat(b.computeKey()).isEqualTo(a.computeKey());
+    assertThat(b.computeKey(actionKeyContext)).isEqualTo(a.computeKey(actionKeyContext));
   }
 
   @Test
@@ -130,7 +133,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE),
          ImmutableList.of(Substitution.of("%key%", "foo2")), false);
-    assertThat(a.computeKey().equals(b.computeKey())).isFalse();
+    assertThat(a.computeKey(actionKeyContext).equals(b.computeKey(actionKeyContext))).isFalse();
   }
 
   @Test
@@ -143,7 +146,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE),
          ImmutableList.of(Substitution.of("%key%", "foo")), true);
-    assertThat(a.computeKey().equals(b.computeKey())).isFalse();
+    assertThat(a.computeKey(actionKeyContext).equals(b.computeKey(actionKeyContext))).isFalse();
   }
 
   @Test
@@ -156,7 +159,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE + " "),
          ImmutableList.of(Substitution.of("%key%", "foo")), false);
-    assertThat(a.computeKey().equals(b.computeKey())).isFalse();
+    assertThat(a.computeKey(actionKeyContext).equals(b.computeKey(actionKeyContext))).isFalse();
   }
 
   private TemplateExpansionAction createWithArtifact() {
@@ -170,8 +173,15 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   }
 
   private ActionExecutionContext createContext(Executor executor) {
-    return new ActionExecutionContext(executor, null, null, new FileOutErr(),
-        ImmutableMap.<String, String>of(), null);
+    return new ActionExecutionContext(
+        executor,
+        null,
+        ActionInputPrefetcher.NONE,
+        actionKeyContext,
+        null,
+        new FileOutErr(),
+        ImmutableMap.<String, String>of(),
+        null);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {
@@ -180,7 +190,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   private void executeTemplateExpansion(String expected, List<Substitution> substitutions)
       throws Exception {
-    Executor executor = new TestExecutorBuilder(directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     createWithArtifact(substitutions).execute(createContext(executor));
     String actual = FileSystemUtils.readContent(output, StandardCharsets.UTF_8);
     assertThat(actual).isEqualTo(expected);

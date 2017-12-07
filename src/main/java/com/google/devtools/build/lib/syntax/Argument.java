@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;

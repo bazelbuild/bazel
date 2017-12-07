@@ -33,12 +33,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BazelDocumentationTest {
   /**
-   * Checks that the blaze-user-manual is in sync with the {@link
+   * Checks that the user-manual is in sync with the {@link
    * com.google.devtools.build.lib.analysis.config.BuildConfiguration}.
    */
   @Test
   public void testBazelUserManual() throws Exception {
-    String documentationFilePath = "site/docs/bazel-user-manual.html";
+    String documentationFilePath = "site/docs/user-manual.html";
     if (OS.getCurrent() == OS.WINDOWS) {
       documentationFilePath = WindowsTestUtil.getRunfile("io_bazel/" + documentationFilePath);
     }

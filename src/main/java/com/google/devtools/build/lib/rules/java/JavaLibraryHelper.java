@@ -18,19 +18,23 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.OFF;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * A class to create Java compile actions in a way that is consistent with java_library. Rules that
@@ -154,13 +158,30 @@ public final class JavaLibraryHelper {
     return this;
   }
 
-  /** Creates the compile actions. */
+  /**
+   * Creates the compile actions (including the ones for ijar and source jar). Also fills in the
+   * {@link JavaRuleOutputJarsProvider.Builder} with the corresponding compilation outputs.
+   *
+   * @param semantics implementation specific java rules semantics
+   * @param javaToolchainProvider used for retrieving misc java tools
+   * @param hostJavabase the target of the host javabase used to retrieve the java executable and
+   *        its necessary inputs
+   * @param jacocoInstrumental jacoco jars needed when running coverage
+   * @param outputJarsBuilder populated with the outputs of the created actions
+   * @param outputSourceJar if not-null, the output of an source jar action that will be created
+   */
   public JavaCompilationArtifacts build(
       JavaSemantics semantics,
       JavaToolchainProvider javaToolchainProvider,
-      NestedSet<Artifact> hostJavabase,
-      Iterable<Artifact> jacocoInstrumental) {
+      TransitiveInfoCollection hostJavabase,
+      Iterable<Artifact> jacocoInstrumental,
+      JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
+      boolean createOutputSourceJar,
+      @Nullable Artifact outputSourceJar) {
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
+    Preconditions.checkState(
+        !createOutputSourceJar || outputSourceJar != null,
+        "outputSourceJar cannot be null when createOutputSourceJar is true");
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
     attributes.addSourceJars(sourceJars);
     attributes.addSourceFiles(sourceFiles);
@@ -180,11 +201,12 @@ public final class JavaLibraryHelper {
           attributes, deps);
     }
 
+    NestedSet<Artifact> hostJavabaseArtifacts = getJavaBaseMiddleman(hostJavabase);
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     JavaCompilationHelper helper =
         new JavaCompilationHelper(ruleContext, semantics, javacOpts, attributes,
             javaToolchainProvider,
-            hostJavabase,
+            hostJavabaseArtifacts,
             jacocoInstrumental);
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
     helper.createCompileAction(
@@ -193,10 +215,44 @@ public final class JavaLibraryHelper {
         null /* gensrcOutputJar */,
         outputDepsProto,
         null /* outputMetadata */);
-    helper.createCompileTimeJarAction(output, artifactsBuilder);
+
     artifactsBuilder.addRuntimeJar(output);
+    Artifact iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
+
+    if (createOutputSourceJar) {
+      helper.createSourceJarAction(outputSourceJar, null,
+          javaToolchainProvider, hostJavabaseArtifacts,
+          JavaCommon.getHostJavaExecutable(ruleContext, hostJavabase));
+    }
+    ImmutableList<Artifact> outputSourceJars =
+        outputSourceJar == null ? ImmutableList.of() : ImmutableList.of(outputSourceJar);
+    outputJarsBuilder
+        .addOutputJar(new OutputJar(output, iJar, outputSourceJars))
+        .setJdeps(outputDepsProto);
 
     return artifactsBuilder.build();
+  }
+
+  static NestedSet<Artifact> getJavaBaseMiddleman(TransitiveInfoCollection prereq) {
+    if (prereq == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+
+    JavaRuntimeInfo javaRuntimeInfo = prereq.get(JavaRuntimeInfo.PROVIDER);
+    if (javaRuntimeInfo != null) {
+      return javaRuntimeInfo.javaBaseInputsMiddleman();
+    }
+
+    MiddlemanProvider middlemanProvider = prereq.getProvider(MiddlemanProvider.class);
+    if (middlemanProvider != null) {
+      // This branch is necessary so that we support the legacy case when the javabase is set to
+      // a filegroup (e.g. //tools/defaults:jdk).
+      // TODO(lberki): Remove when we have migrated everyone from //tools/defaults:jdk to
+      // //tools/jdk:current_{host_,}java_runtime.
+      return middlemanProvider.getMiddlemanArtifact();
+    }
+
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   /**
@@ -221,11 +277,14 @@ public final class JavaLibraryHelper {
             .addTransitiveArgs(directArgs, BOTH)
             .addTransitiveDependencies(deps, true /* recursive */)
             .build();
-
+    Artifact compileTimeDepArtifact = artifacts.getCompileTimeDependencyArtifact();
+    NestedSet<Artifact> compileTimeJavaDepArtifacts = compileTimeDepArtifact != null 
+        ? NestedSetBuilder.create(Order.STABLE_ORDER, compileTimeDepArtifact)
+        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
     return JavaCompilationArgsProvider.create(
         isReportedAsStrict ? directArgs : transitiveArgs,
         transitiveArgs,
-        NestedSetBuilder.create(Order.STABLE_ORDER, artifacts.getCompileTimeDependencyArtifact()),
+        compileTimeJavaDepArtifacts,
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
   }
 

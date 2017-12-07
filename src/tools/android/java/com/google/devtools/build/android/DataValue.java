@@ -38,4 +38,10 @@ public interface DataValue {
 
   /** Provides a representation of the value suitable for a conflict message. */
   String asConflictString();
+
+  /**
+   * Ignores metadata in the DataValue object and returns true if the value properties are
+   * equivalent to another given DataValue object
+   */
+  boolean valueEquals(DataValue value);
 }

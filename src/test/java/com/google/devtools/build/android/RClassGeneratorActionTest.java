@@ -19,12 +19,10 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.util.Collections;
 import java.util.List;
@@ -112,20 +110,16 @@ public class RClassGeneratorActionTest {
 
     RClassGeneratorAction.main(
         ImmutableList.<String>of(
-            "--primaryRTxt",
-            binarySymbols.toString(),
-            "--primaryManifest",
-            binaryManifest.toString(),
-            "--libraries",
-            libFooSymbols
-                + File.pathSeparator
-                + libFooManifest
-                + ","
-                + libBarSymbols
-                + File.pathSeparator
-                + libBarManifest,
-            "--classJarOutput",
-            jarPath.toString())
+                "--primaryRTxt",
+                binarySymbols.toString(),
+                "--primaryManifest",
+                binaryManifest.toString(),
+                "--library",
+                libFooSymbols + "," + libFooManifest,
+                "--library",
+                libBarSymbols + "," + libBarManifest,
+                "--classJarOutput",
+                jarPath.toString())
             .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
@@ -136,23 +130,23 @@ public class RClassGeneratorActionTest {
       Iterable<String> entries = getZipFilenames(zipEntries);
       assertThat(entries)
           .containsExactly(
-              Paths.get("com/google/foo/R$attr.class").toString(),
-              Paths.get("com/google/foo/R$id.class").toString(),
-              Paths.get("com/google/foo/R$string.class").toString(),
-              Paths.get("com/google/foo/R.class").toString(),
-              Paths.get("com/google/bar/R$attr.class").toString(),
-              Paths.get("com/google/bar/R$drawable.class").toString(),
-              Paths.get("com/google/bar/R.class").toString(),
-              Paths.get("com/google/app/R$attr.class").toString(),
-              Paths.get("com/google/app/R$drawable.class").toString(),
-              Paths.get("com/google/app/R$id.class").toString(),
-              Paths.get("com/google/app/R$integer.class").toString(),
-              Paths.get("com/google/app/R$string.class").toString(),
-              Paths.get("com/google/app/R.class").toString(),
-              Paths.get("META-INF/MANIFEST.MF").toString());
+              "com/google/foo/R$attr.class",
+              "com/google/foo/R$id.class",
+              "com/google/foo/R$string.class",
+              "com/google/foo/R.class",
+              "com/google/bar/R$attr.class",
+              "com/google/bar/R$drawable.class",
+              "com/google/bar/R.class",
+              "com/google/app/R$attr.class",
+              "com/google/app/R$drawable.class",
+              "com/google/app/R$id.class",
+              "com/google/app/R$integer.class",
+              "com/google/app/R$string.class",
+              "com/google/app/R.class",
+              "META-INF/MANIFEST.MF");
     }
   }
-  
+
   @Test
   public void withNoBinaryAndLibraries() throws Exception {
     Path libFooManifest =
@@ -172,14 +166,10 @@ public class RClassGeneratorActionTest {
 
     RClassGeneratorAction.main(
         ImmutableList.<String>of(
-                "--libraries",
-                libFooSymbols
-                    + File.pathSeparator
-                    + libFooManifest
-                    + ","
-                    + libBarSymbols
-                    + File.pathSeparator
-                    + libBarManifest,
+                "--library",
+                libFooSymbols + "," + libFooManifest,
+                "--library",
+                libBarSymbols + "," + libBarManifest,
                 "--classJarOutput",
                 jarPath.toString())
             .toArray(new String[0]));
@@ -192,14 +182,14 @@ public class RClassGeneratorActionTest {
       Iterable<String> entries = getZipFilenames(zipEntries);
       assertThat(entries)
           .containsExactly(
-              Paths.get("com/google/foo/R$attr.class").toString(),
-              Paths.get("com/google/foo/R$id.class").toString(),
-              Paths.get("com/google/foo/R$string.class").toString(),
-              Paths.get("com/google/foo/R.class").toString(),
-              Paths.get("com/google/bar/R$attr.class").toString(),
-              Paths.get("com/google/bar/R$drawable.class").toString(),
-              Paths.get("com/google/bar/R.class").toString(),
-              Paths.get("META-INF/MANIFEST.MF").toString());
+              "com/google/foo/R$attr.class",
+              "com/google/foo/R$id.class",
+              "com/google/foo/R$string.class",
+              "com/google/foo/R.class",
+              "com/google/bar/R$attr.class",
+              "com/google/bar/R$drawable.class",
+              "com/google/bar/R.class",
+              "META-INF/MANIFEST.MF");
     }
   }
 
@@ -236,13 +226,13 @@ public class RClassGeneratorActionTest {
       Iterable<String> entries = getZipFilenames(zipEntries);
       assertThat(entries)
           .containsExactly(
-              Paths.get("com/google/app/R$attr.class").toString(),
-              Paths.get("com/google/app/R$drawable.class").toString(),
-              Paths.get("com/google/app/R$id.class").toString(),
-              Paths.get("com/google/app/R$integer.class").toString(),
-              Paths.get("com/google/app/R$string.class").toString(),
-              Paths.get("com/google/app/R.class").toString(),
-              Paths.get("META-INF/MANIFEST.MF").toString());
+              "com/google/app/R$attr.class",
+              "com/google/app/R$drawable.class",
+              "com/google/app/R$id.class",
+              "com/google/app/R$integer.class",
+              "com/google/app/R$string.class",
+              "com/google/app/R.class",
+              "META-INF/MANIFEST.MF");
     }
   }
 
@@ -259,7 +249,7 @@ public class RClassGeneratorActionTest {
     try (ZipFile zip = new ZipFile(jarPath.toFile())) {
       List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
       Iterable<String> entries = getZipFilenames(zipEntries);
-      assertThat(entries).containsExactly(Paths.get("META-INF/MANIFEST.MF").toString());
+      assertThat(entries).containsExactly("META-INF/MANIFEST.MF");
     }
   }
 
@@ -282,15 +272,16 @@ public class RClassGeneratorActionTest {
     Path jarPath = tempDir.resolve("app_resources.jar");
     RClassGeneratorAction.main(
         ImmutableList.<String>of(
-            "--primaryRTxt",
-            binarySymbols.toString(),
-            "--primaryManifest",
-            binaryManifest.toString(),
-            "--packageForR", "com.custom.er",
-            "--libraries",
-            libFooSymbols + File.pathSeparator + libFooManifest,
-            "--classJarOutput",
-            jarPath.toString())
+                "--primaryRTxt",
+                binarySymbols.toString(),
+                "--primaryManifest",
+                binaryManifest.toString(),
+                "--packageForR",
+                "com.custom.er",
+                "--library",
+                libFooSymbols + "," + libFooManifest,
+                "--classJarOutput",
+                jarPath.toString())
             .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
@@ -301,13 +292,13 @@ public class RClassGeneratorActionTest {
       Iterable<String> entries = getZipFilenames(zipEntries);
       assertThat(entries)
           .containsExactly(
-              Paths.get("com/google/foo/R$string.class").toString(),
-              Paths.get("com/google/foo/R.class").toString(),
-              Paths.get("com/custom/er/R$attr.class").toString(),
-              Paths.get("com/custom/er/R$integer.class").toString(),
-              Paths.get("com/custom/er/R$string.class").toString(),
-              Paths.get("com/custom/er/R.class").toString(),
-              Paths.get("META-INF/MANIFEST.MF").toString());
+              "com/google/foo/R$string.class",
+              "com/google/foo/R.class",
+              "com/custom/er/R$attr.class",
+              "com/custom/er/R$integer.class",
+              "com/custom/er/R$string.class",
+              "com/custom/er/R.class",
+              "META-INF/MANIFEST.MF");
     }
   }
 
@@ -337,9 +328,7 @@ public class RClassGeneratorActionTest {
     try (ZipFile zip = new ZipFile(jarPath.toFile())) {
       List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
       Iterable<String> entries = getZipFilenames(zipEntries);
-      assertThat(entries)
-          .containsExactly(
-              Paths.get("META-INF/MANIFEST.MF").toString());
+      assertThat(entries).containsExactly("META-INF/MANIFEST.MF");
     }
   }
 

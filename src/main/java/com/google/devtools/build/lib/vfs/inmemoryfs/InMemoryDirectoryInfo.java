@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import com.google.common.collect.Collections2;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.OS;
 import java.util.Collection;
 import java.util.Objects;

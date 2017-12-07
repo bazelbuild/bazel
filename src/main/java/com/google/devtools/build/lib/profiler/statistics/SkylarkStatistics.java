@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.profiler.statistics;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.profiler.ProfileInfo;
-import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
+import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
+import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.Task;
 import com.google.devtools.build.lib.util.LongArrayList;
 import java.util.Collection;
 import java.util.HashMap;

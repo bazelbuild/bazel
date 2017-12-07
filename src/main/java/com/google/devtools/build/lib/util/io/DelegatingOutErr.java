@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util.io;
 
+import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -68,7 +69,7 @@ public final class DelegatingOutErr extends OutErr {
     private final List<OutputStream> sinks = new ArrayList<>();
 
     public void addSink(OutputStream sink) {
-      sinks.add(sink);
+      sinks.add(Preconditions.checkNotNull(sink));
     }
 
     public void removeSink(OutputStream sink) {

@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.common.options.CommandNameCache;
 import java.util.ArrayDeque;
 import java.util.HashMap;

@@ -14,8 +14,9 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.remote.Digests.ActionKey;
+import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -55,10 +56,15 @@ interface RemoteActionCache {
   /**
    * Download the output files and directory trees of a remotely executed action to the local
    * machine, as well stdin / stdout to the given files.
+   *
+   * <p>In case of failure, this method must delete any output files it might have already created.
+   *
+   * @throws CacheNotFoundException in case of a cache miss.
+   * @throws ExecException in case clean up after a failed download failed.
    */
   // TODO(olaola): will need to amend to include the TreeNodeRepository for updating.
   void download(ActionResult result, Path execRoot, FileOutErr outErr)
-      throws IOException, InterruptedException, CacheNotFoundException;
+      throws ExecException, IOException, InterruptedException;
   /**
    * Attempts to look up the given action in the remote cache and return its result, if present.
    * Returns {@code null} if there is no such entry. Note that a successful result from this method
@@ -69,9 +75,15 @@ interface RemoteActionCache {
 
   /**
    * Upload the result of a locally executed action to the cache by uploading any necessary files,
-   * stdin / stdout, as well as adding an entry for the given action key to the cache.
+   * stdin / stdout, as well as adding an entry for the given action key to the cache if
+   * uploadAction is true.
    */
-  void upload(ActionKey actionKey, Path execRoot, Collection<Path> files, FileOutErr outErr)
+  void upload(
+      ActionKey actionKey,
+      Path execRoot,
+      Collection<Path> files,
+      FileOutErr outErr,
+      boolean uploadAction)
       throws IOException, InterruptedException;
 
   /** Release resources associated with the cache. The cache may not be used after calling this. */

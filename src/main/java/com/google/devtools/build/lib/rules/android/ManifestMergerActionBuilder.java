@@ -18,13 +18,16 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.util.OS;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -88,7 +91,7 @@ public class ManifestMergerActionBuilder {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
     ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
-    
+
     // Set the busybox tool.
     builder.add("--tool").add("MERGE_MANIFEST").add("--");
 
@@ -102,11 +105,10 @@ public class ManifestMergerActionBuilder {
     inputs.add(manifest);
 
     if (mergeeManifests != null && !mergeeManifests.isEmpty()) {
-      builder
-          .add("--mergeeManifests")
-          .add(
-              mapToDictionaryString(
-                  mergeeManifests, Artifact::getExecPathString, null /* valueConverter */));
+      builder.add(
+          "--mergeeManifests",
+          mapToDictionaryString(
+              mergeeManifests, Artifact::getExecPathString, null /* valueConverter */));
       inputs.addAll(mergeeManifests.keySet());
     }
 
@@ -115,11 +117,11 @@ public class ManifestMergerActionBuilder {
     }
 
     if (manifestValues != null && !manifestValues.isEmpty()) {
-      builder.add("--manifestValues").add(mapToDictionaryString(manifestValues));
+      builder.add("--manifestValues", mapToDictionaryString(manifestValues));
     }
 
     if (customPackage != null && !customPackage.isEmpty()) {
-      builder.add("--customPackage").add(customPackage);
+      builder.add("--customPackage", customPackage);
     }
 
     builder.addExecPath("--manifestOutput", manifestOutput);
@@ -130,14 +132,26 @@ public class ManifestMergerActionBuilder {
       outputs.add(logOut);
     }
 
+    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED);
+    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+    // file.
+    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+    // list-type and list-of-list-type flags that use such problematic separators in favor of
+    // multi-value flags (to remove one level of listing) and by changing all list separators to a
+    // platform-safe character (= comma).
+    paramFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
+
     ruleContext.registerAction(
         this.spawnActionBuilder
+            .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(outputs.build())
-            .setCommandLine(builder.build())
+            .addCommandLine(builder.build(), paramFileInfo.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Merging manifest for " + ruleContext.getLabel())
+            .setProgressMessage("Merging manifest for %s", ruleContext.getLabel())
             .setMnemonic("ManifestMerger")
             .build(context));
   }

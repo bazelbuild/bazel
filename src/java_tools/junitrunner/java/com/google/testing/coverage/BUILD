@@ -1,18 +1,6 @@
-package(
-    default_visibility = ["//visibility:legacy_public"],
-)
+package(default_visibility = ["//src:__subpackages__"])
 
 licenses(["notice"])
-
-filegroup(
-    name = "bazel-srcs",
-    testonly = 0,
-    srcs = glob(
-        ["**"],
-        exclude = ["BUILD"],
-    ),
-    visibility = ["//third_party/bazel:__subpackages__"],
-)
 
 filegroup(
     name = "srcs",
@@ -24,6 +12,7 @@ filegroup(
     srcs = [
         "JacocoCoverage_jarjar_deploy.jar",
     ],
+    tags = ["manual"],
 )
 
 filegroup(
@@ -52,6 +41,7 @@ java_binary(
     ],
     deps = [
         ":bitfield",
+        "//third_party:guava",
         "//third_party/java/jacoco:blaze-agent",
         "//third_party/java/jacoco:core",
         "//third_party/java/jacoco:report",
@@ -64,9 +54,6 @@ java_library(
         "BitField.java",
         "IllegalStringException.java",
     ],
-    deps = [
-        "//third_party:apache_commons_lang",
-    ],
 )
 
 genrule(
@@ -77,11 +64,13 @@ genrule(
     ],
     outs = ["JacocoCoverage_jarjar_deploy.jar"],
     cmd = "\n".join([
-        "JARJAR=\"$$(mktemp)\"",
+        "JARJAR=\"$$(mktemp -t bazel.XXXXXXXX)\"",
         "\"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" --rules \"$(location :JacocoCoverage.jarjar)\" --output \"$${JARJAR}\" \"$(location :JacocoCoverage_deploy.jar)\"",
         "\"$(JAVA)\" -jar \"$(location //src/java_tools/singlejar:SingleJar_deploy.jar)\" --normalize --sources \"$${JARJAR}\" --output \"$@\"",
         "rm -fr \"$${JARJAR}\"",
     ]),
+    tags = ["manual"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//third_party/java/jarjar:jarjar_bin_deploy.jar",

@@ -21,6 +21,11 @@
 # more details.
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "${CURRENT_DIR}/android_helper.sh" \
+  || { echo "android_helper.sh not found!" >&2; exit 1; }
+fail_if_no_android_sdk
+
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
@@ -80,10 +85,5 @@ function test_java_8_android_binary() {
   bazel build -s --experimental_desugar_for_android //java/bazel:bin \
       || fail "build failed"
 }
-
-if [[ ! -d "${TEST_SRCDIR}/androidsdk" ]]; then
-  echo "Not running Android desugarer tests due to lack of an Android SDK."
-  exit 0
-fi
 
 run_suite "Android desugarer integration tests"

@@ -15,8 +15,9 @@
 package com.google.devtools.build.lib.graph;
 
 import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toCollection;
 
-import com.google.common.collect.Ordering;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -68,11 +69,7 @@ public class DFS<T> {
     this.order = order;
     this.transpose = transpose;
 
-    if (edgeOrder == null) {
-      this.edgeOrder = null;
-    } else {
-      this.edgeOrder = comparing(Node::getLabel, edgeOrder::compare);
-    }
+    this.edgeOrder = (edgeOrder == null) ? null : comparing(Node::getLabel, edgeOrder::compare);
   }
 
   public DFS(Order order, boolean transpose) {
@@ -98,7 +95,8 @@ public class DFS<T> {
     Collection<Node<T>> edgeTargets = transpose
         ? node.getPredecessors() : node.getSuccessors();
     if (edgeOrder != null) {
-      List<Node<T>> mutableNodeList = Ordering.from(edgeOrder).sortedCopy(edgeTargets);
+      List<Node<T>> mutableNodeList =
+          edgeTargets.stream().sorted(edgeOrder).collect(toCollection(ArrayList::new));
       edgeTargets = mutableNodeList;
     }
 

@@ -45,14 +45,19 @@ public abstract class BuildEncyclopediaProcessor {
     }
   };
 
-  protected ConfiguredRuleClassProvider ruleClassProvider;
+  /** Name of the product to insert into the documentation. */
+  protected final String productName;
+
+  /** Rule class provider from which to extract the rule class hierarchy and attributes. */
+  protected final ConfiguredRuleClassProvider ruleClassProvider;
 
   /**
-   * Creates the BuildEncyclopediaProcessor instance. The ruleClassProvider parameter
-   * is used for rule class hierarchy and attribute checking.
-   *
+   * Creates the BuildEncyclopediaProcessor instance. The ruleClassProvider parameter is used for
+   * rule class hierarchy and attribute checking.
    */
-  public BuildEncyclopediaProcessor(ConfiguredRuleClassProvider ruleClassProvider) {
+  public BuildEncyclopediaProcessor(
+      String productName, ConfiguredRuleClassProvider ruleClassProvider) {
+    this.productName = productName;
     this.ruleClassProvider = Preconditions.checkNotNull(ruleClassProvider);
   }
 

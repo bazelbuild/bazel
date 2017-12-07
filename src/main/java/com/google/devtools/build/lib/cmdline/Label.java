@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.cmdline;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -54,7 +54,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public final class Label implements Comparable<Label>, Serializable, SkylarkValue, SkyKey {
   public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
-  public static final PathFragment EXTERNAL_PACKAGE_FILE_NAME = PathFragment.create("WORKSPACE");
+  public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 
   /**
@@ -123,7 +123,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
     try {
       LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
       PackageIdentifier pkgIdWithoutRepo =
-          validate(labelParts.getPackageName(), labelParts.getTargetName());
+          validatePackageName(labelParts.getPackageName(), labelParts.getTargetName());
       PathFragment packageFragment = pkgIdWithoutRepo.getPackageFragment();
       if (repo.isEmpty() && ABSOLUTE_PACKAGE_NAMES.contains(packageFragment)) {
         repo = "@";
@@ -164,7 +164,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
    * @throws LabelSyntaxException if either of the arguments was invalid.
    */
   public static Label create(String packageName, String targetName) throws LabelSyntaxException {
-    return LABEL_INTERNER.intern(new Label(packageName, targetName));
+    return create(validatePackageName(packageName, targetName), targetName);
   }
 
   /**
@@ -173,7 +173,18 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
    */
   public static Label create(PackageIdentifier packageId, String targetName)
       throws LabelSyntaxException {
-    return LABEL_INTERNER.intern(new Label(packageId, targetName));
+    return createUnvalidated(packageId, validateTargetName(packageId, targetName));
+  }
+
+  /**
+   * Similar factory to above, but does not perform target name validation.
+   *
+   * <p>Only call this method if you know what you're doing; in particular, don't call it on
+   * arbitrary {@code targetName} inputs
+   */
+
+  public static Label createUnvalidated(PackageIdentifier packageId, String targetName) {
+    return LABEL_INTERNER.intern(new Label(packageId, StringCanonicalizer.intern(targetName)));
   }
 
   /**
@@ -213,13 +224,17 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   }
 
   /**
-   * Validates the given target name and returns a canonical String instance if it is valid.
-   * Otherwise it throws a SyntaxException.
+   * Validates the given target name and returns a normalized name if it is valid. Otherwise it
+   * throws a SyntaxException.
    */
-  private static String canonicalizeTargetName(String name) throws LabelSyntaxException {
+  private static String validateTargetName(PackageIdentifier packageIdentifier, String name)
+      throws LabelSyntaxException {
     String error = LabelValidator.validateTargetName(name);
     if (error != null) {
       error = "invalid target name '" + StringUtilities.sanitizeControlChars(name) + "': " + error;
+      if (packageIdentifier.getPackageFragment().getPathString().endsWith("/" + name)) {
+        error += " (perhaps you meant \":" + name + "\"?)";
+      }
       throw new LabelSyntaxException(error);
     }
 
@@ -227,15 +242,14 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
     if (name.endsWith("/.")) {
       name = name.substring(0, name.length() - 2);
     }
-
-    return StringCanonicalizer.intern(name);
+    return name;
   }
 
   /**
    * Validates the given package name and returns a canonical {@link PackageIdentifier} instance
    * if it is valid. Otherwise it throws a SyntaxException.
    */
-  private static PackageIdentifier validate(String packageIdentifier, String name)
+  private static PackageIdentifier validatePackageName(String packageIdentifier, String name)
       throws LabelSyntaxException {
     String error = null;
     try {
@@ -262,34 +276,12 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   /** Precomputed hash code. */
   private final int hashCode;
 
-  /**
-   * Constructor from a package name, target name. Both are checked for validity
-   * and a SyntaxException is thrown if either is invalid.
-   * TODO(bazel-team): move the validation to {@link PackageIdentifier}. Unfortunately, there are a
-   * bazillion tests that use invalid package names (taking advantage of the fact that calling
-   * Label(PathFragment, String) doesn't validate the package name).
-   */
-  private Label(String packageIdentifier, String name) throws LabelSyntaxException {
-    this(validate(packageIdentifier, name), name);
-  }
-
-  private Label(PackageIdentifier packageIdentifier, String name)
-      throws LabelSyntaxException {
+  private Label(PackageIdentifier packageIdentifier, String name) {
     Preconditions.checkNotNull(packageIdentifier);
     Preconditions.checkNotNull(name);
 
     this.packageIdentifier = packageIdentifier;
-    try {
-      this.name = canonicalizeTargetName(name);
-    } catch (LabelSyntaxException e) {
-      // This check is just for a more helpful error message
-      // i.e. valid target name, invalid package name, colon-free label form
-      // used => probably they meant "//foo:bar.c" not "//foo/bar.c".
-      if (packageIdentifier.getPackageFragment().getPathString().endsWith("/" + name)) {
-        throw new LabelSyntaxException(e.getMessage() + " (perhaps you meant \":" + name + "\"?)");
-      }
-      throw e;
-    }
+    this.name = name;
     this.hashCode = hashCode(this.name, this.packageIdentifier);
   }
 
@@ -521,11 +513,6 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   }
 
   @Override
-  public Label argument() {
-    return this;
-  }
-
-  @Override
   public int hashCode() {
     return hashCode;
   }
@@ -573,20 +560,10 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   }
 
   @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    printer.repr(getCanonicalForm());
-  }
-
-  @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("Label(");
     printer.repr(getCanonicalForm());
     printer.append(")");
-  }
-
-  @Override
-  public void strLegacy(SkylarkPrinter printer) {
-    printer.append(getCanonicalForm());
   }
 
   @Override

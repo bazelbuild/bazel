@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
-import com.google.devtools.build.lib.rules.java.JavaProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -361,7 +361,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "proto/extensions.bzl",
         "def _impl(ctx):",
-        "  print (ctx.attr.dep[java_common.provider])",
+        "  print (ctx.attr.dep[JavaInfo])",
         "custom_rule = rule(",
         "  implementation=_impl,",
         "  attrs={",
@@ -370,7 +370,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "proto/BUILD",
-        "load('/proto/extensions', 'custom_rule')",
+        "load('//proto:extensions.bzl', 'custom_rule')",
         "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
         "      'java_lite_proto_library')",
         "proto_library(",
@@ -586,7 +586,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   private static <P extends TransitiveInfoProvider> P getProvider(
       Class<P> providerClass, ConfiguredTarget target) {
-    JavaProvider javaProvider = target.get(JavaProvider.JAVA_PROVIDER);
-    return javaProvider.getProvider(providerClass);
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
+    return javaInfo.getProvider(providerClass);
   }
 }

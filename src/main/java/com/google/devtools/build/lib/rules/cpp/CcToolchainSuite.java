@@ -16,11 +16,12 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
 /**
  * Implementation of the {@code cc_toolchain_suite} rule.
@@ -36,7 +37,8 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisiteMap("toolchains").values()) {
-      CcToolchainProvider provider = dep.getProvider(CcToolchainProvider.class);
+      CcToolchainProvider provider =
+          (CcToolchainProvider) dep.get(ToolchainInfo.PROVIDER);
       if (provider != null) {
         filesToBuild.addTransitive(provider.getCrosstool());
       }

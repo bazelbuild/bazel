@@ -30,13 +30,31 @@ public class WindowsJniLoader {
       System.loadLibrary("windows_jni");
     } catch (UnsatisfiedLinkError ex) {
       // Try to find the library in the runfiles.
-      try {
-        System.load(WindowsRunfiles.getRunfile("io_bazel/src/main/native/windows/windows_jni.dll"));
-      } catch (IOException e) {
-        // We throw the UnsatisfiedLinkError if we cannot find the runfiles
-        throw ex;
+      if (!loadFromRunfileOrThrow("io_bazel/src/main/native/windows/windows_jni.dll", ex)) {
+        if (!loadFromRunfileOrThrow(
+            "io_bazel/external/bazel_tools/src/main/native/windows/windows_jni.dll", ex)) {
+          // We throw the UnsatisfiedLinkError if we cannot find the DLL under any known location.
+          throw ex;
+        }
       }
     }
     jniLoaded = true;
+  }
+
+  private static boolean loadFromRunfileOrThrow(String runfile, UnsatisfiedLinkError ex) {
+    // Try to find the library in the runfiles.
+    String path;
+    try {
+      path = WindowsRunfiles.getRunfile(runfile);
+      if (path == null) {
+        // Just return false if the runfile path was not found. Maybe it's under a different path.
+        return false;
+      }
+      System.load(path);
+      return true;
+    } catch (IOException e) {
+      // We throw the UnsatisfiedLinkError if we cannot find the runfiles
+      throw ex;
+    }
   }
 }

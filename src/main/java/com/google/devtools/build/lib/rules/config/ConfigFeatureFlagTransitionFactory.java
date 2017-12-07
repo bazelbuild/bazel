@@ -54,11 +54,6 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
     }
 
     @Override
-    public boolean defaultsToSelf() {
-      throw new UnsupportedOperationException("supported in dynamic mode only");
-    }
-
-    @Override
     public boolean equals(Object other) {
       return other instanceof ConfigFeatureFlagValuesTransition
           && this.flagValues.equals(((ConfigFeatureFlagValuesTransition) other).flagValues);
@@ -90,8 +85,13 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
 
   @Override
   public PatchTransition buildTransitionFor(Rule rule) {
-    return new ConfigFeatureFlagValuesTransition(
-        NonconfigurableAttributeMapper.of(rule).get(attributeName, LABEL_KEYED_STRING_DICT));
+    NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(rule);
+    if (attrs.isAttributeValueExplicitlySpecified(attributeName)) {
+      return new ConfigFeatureFlagValuesTransition(
+          attrs.get(attributeName, LABEL_KEYED_STRING_DICT));
+    } else {
+      return null;
+    }
   }
 
   @Override

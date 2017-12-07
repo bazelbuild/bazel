@@ -146,6 +146,9 @@ _maven_jar_build_file_template = """
 java_import(
     name = 'jar',
     jars = ['{artifact_filename}'],
+    deps = [
+{deps_string}
+    ],
     visibility = ['//visibility:public']
 )
 
@@ -161,6 +164,9 @@ _maven_aar_build_file_template = """
 aar_import(
     name = 'aar',
     aar = '{artifact_filename}',
+    deps = [
+{deps_string}
+    ],
     visibility = ['//visibility:public'],
 )
 
@@ -172,8 +178,11 @@ filegroup(
 
 # Provides the syntax "@jar_name//jar" for dependencies
 def _generate_build_file(ctx, template, paths):
+  deps_string = "\n".join(["'%s'," % dep for dep in ctx.attr.deps])
   contents = template.format(
-      rule_name = ctx.name, artifact_filename = paths.artifact_filename)
+      rule_name = ctx.name,
+      artifact_filename = paths.artifact_filename,
+      deps_string = deps_string)
   ctx.file('%s/BUILD' % paths.symlink_dir, contents, False)
 
 
@@ -268,7 +277,11 @@ _common_maven_rule_attrs = {
         mandatory = True,
     ),
     "sha1": attr.string(default = ""),
-    "settings": attr.label(default = None)
+    "settings": attr.label(default = None),
+    # Allow the user to specify deps for the generated java_import or aar_import
+    # since maven_jar and maven_aar do not automatically pull in transitive
+    # dependencies.
+    "deps": attr.label_list(),
 }
 
 def _maven_jar_impl(ctx):

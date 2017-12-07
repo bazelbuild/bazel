@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Utility code for interspersing items into sequences.

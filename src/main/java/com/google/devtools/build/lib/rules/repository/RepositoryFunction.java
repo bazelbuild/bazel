@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -26,15 +27,18 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalPackageException;
+import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.FileStateValue.RegularFileStateValue;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -222,11 +226,11 @@ public abstract class RepositoryFunction {
                   FileSymlinkException.class,
                   InconsistentFilesystemException.class);
 
-      if (fileValue == null || !fileValue.isFile()) {
+      if (fileValue == null || !fileValue.isFile() || fileValue.isSpecialFile()) {
         return false;
       }
 
-      return Objects.equals(value, Integer.toString(fileValue.realFileStateValue().hashCode()));
+      return Objects.equals(value, fileValueToMarkerValue(fileValue));
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(
           "Key " + key + " is not a correct file key (should be in form FILE:label)", e);
@@ -237,6 +241,22 @@ public abstract class RepositoryFunction {
       // Consider those exception to be a cause for invalidation
       return false;
     }
+  }
+
+  /**
+   * Convert to a @{link com.google.devtools.build.lib.skyframe.FileValue} to a String appropriate
+   * for placing in a repository marker file.
+   *
+   * @param fileValue The value to convert. It must correspond to a regular file.
+   */
+  public static String fileValueToMarkerValue(FileValue fileValue) throws IOException {
+    Preconditions.checkArgument(fileValue.isFile() && !fileValue.isSpecialFile());
+    // Return the file content digest in hex. fileValue may or may not have the digest available.
+    byte[] digest = ((RegularFileStateValue) fileValue.realFileStateValue()).getDigest();
+    if (digest == null) {
+      digest = fileValue.realRootedPath().asPath().getDigest();
+    }
+    return BaseEncoding.base16().lowerCase().encode(digest);
   }
 
   static boolean verifyMarkerDataForFiles(
@@ -533,14 +553,14 @@ public abstract class RepositoryFunction {
         // Invalidate external/<repo> if the repository overrides change.
         RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
       }
-    } catch (ExternalPackageUtil.ExternalRuleNotFoundException ex) {
+    } catch (ExternalRuleNotFoundException ex) {
       // The repository we are looking for does not exist so we should depend on the whole
       // WORKSPACE file. In that case, the call to RepositoryFunction#getRuleByName(String,
       // Environment)
       // already requested all repository functions from the WORKSPACE file from Skyframe as part
       // of the resolution. Therefore we are safe to ignore that Exception.
       return;
-    } catch (ExternalPackageUtil.ExternalPackageException ex) {
+    } catch (ExternalPackageException ex) {
       // This should never happen.
       throw new IllegalStateException(
           "Repository " + repositoryName + " cannot be resolved for path " + rootedPath, ex);

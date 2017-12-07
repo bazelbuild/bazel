@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ForwardingList;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +24,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -81,7 +81,7 @@ public final class GlobList<E> extends ForwardingList<E> implements SkylarkValue
   public static <T> GlobList<T> concat(
       List<? extends T> list1, List<? extends T> list2) {
     // we add the list to both includes and matches, preserving order
-    Builder<GlobCriteria> criteriaBuilder = ImmutableList.<GlobCriteria>builder();
+    Builder<GlobCriteria> criteriaBuilder = ImmutableList.builder();
     if (list1 instanceof GlobList<?>) {
       criteriaBuilder.addAll(((GlobList<?>) list1).criteria);
     } else {
@@ -124,11 +124,6 @@ public final class GlobList<E> extends ForwardingList<E> implements SkylarkValue
   @Override
   protected ImmutableList<E> delegate() {
     return matches;
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return false;
   }
 
   @Override

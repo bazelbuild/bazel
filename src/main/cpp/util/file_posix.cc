@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <errno.h>
 #include <dirent.h>  // DIR, dirent, opendir, closedir
+#include <errno.h>
 #include <fcntl.h>   // O_RDONLY
 #include <limits.h>  // PATH_MAX
 #include <stdlib.h>  // getenv
+#include <string.h>  // strncmp
 #include <sys/stat.h>
 #include <unistd.h>  // access, open, close, fsync
 #include <utime.h>   // utime
@@ -294,6 +295,10 @@ static bool CanAccess(const string &path, bool read, bool write, bool exec) {
     mode |= X_OK;
   }
   return access(path.c_str(), mode) == 0;
+}
+
+bool IsDevNull(const char *path) {
+  return path != NULL && *path != 0 && strncmp("/dev/null\0", path, 10) == 0;
 }
 
 bool CanReadFile(const std::string &path) {

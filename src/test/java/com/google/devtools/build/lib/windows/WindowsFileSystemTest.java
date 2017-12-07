@@ -56,7 +56,7 @@ public class WindowsFileSystemTest {
 
   @Before
   public void loadJni() throws Exception {
-    scratchRoot = new File(System.getenv("TEST_TMPDIR")).getAbsolutePath() + "/x";
+    scratchRoot = new File(System.getenv("TEST_TMPDIR"), "x").getAbsolutePath();
     testUtil = new WindowsTestUtil(scratchRoot);
     fs = new WindowsFileSystem();
     cleanupScratchDir();

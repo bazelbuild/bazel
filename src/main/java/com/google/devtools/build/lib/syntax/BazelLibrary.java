@@ -57,23 +57,34 @@ public class BazelLibrary {
     name = "depset",
     returnType = SkylarkNestedSet.class,
     doc =
-        "Creates a <a href=\"depset.html\">depset</a>. In the case that <code>items</code> is an "
-            + "iterable, its contents become the direct elements of the depset, with their left-to-"
-            + "right order preserved, and the depset has no transitive elements. In the case that "
-            + "<code>items</code> is a depset, it is made the sole transitive element of the new "
-            + "depset, and no direct elements are added. In the second case the given depset's "
-            + "order must match the <code>order</code> param or else one of the two must be <code>"
-            + "\"default\"</code>. See the <a href=\"../depsets.md\">Depsets overview</a> for more "
-            + "information.",
+        "Creates a <a href=\"depset.html\">depset</a>. The <code>direct</code> parameter is a list "
+            + "of direct elements of the depset, and <code>transitive</code> parameter is "
+            + "a list of depsets whose elements become indirect elements of the created depset. "
+            + "The order in which elements are returned when the depset is converted to a list "
+            + "is specified by the <code>order</code> parameter. "
+            + "See the <a href=\"../depsets.md\">Depsets overview</a> for more information. "
+            + "<p> All elements (direct and indirect) of a depset must be of the same type. "
+            + "<p> The order of the created depset should be <i>compatible</i> with the order of "
+            + "its <code>transitive</code> depsets. <code>\"default\"</code> order is compatible "
+            + "with any other order, all other orders are only compatible with themselves."
+            + "<p> Note on backward/forward compatibility. This function currently accepts a "
+            + "positional <code>items</code> parameter. It is deprecated and will be removed "
+            + "in the future, and after its removal <code>direct</code> will become a sole "
+            + "positional parameter of the <code>depset</code> function. Thus, both of the "
+            + "following calls are equivalent and future-proof:<br>"
+            + "<pre class=language-python>"
+            + "depset(['a', 'b'], transitive = [...])\n"
+            + "depset(direct = ['a', 'b'], transitive = [...])\n"
+            + "</pre>",
     parameters = {
       @Param(
         name = "items",
         type = Object.class,
         defaultValue = "[]",
-        doc =
-            "An iterable whose items become the direct elements of the new depset, in left-to-"
-                + "right order; or alternatively, a depset that becomes the transitive element of "
-                + "the new depset."
+        doc = "Deprecated: Either an iterable whose items become the direct elements of "
+            + "the new depset, in left-to-right order, or else a depset that becomes "
+            + "a transitive element of the new depset. In the latter case, <code>transitive</code> "
+            + "cannot be specified."
       ),
       @Param(
         name = "order",
@@ -82,65 +93,86 @@ public class BazelLibrary {
         doc =
             "The traversal strategy for the new depset. See <a href=\"depset.html\">here</a> for "
                 + "the possible values."
+      ),
+      @Param(
+          name = "direct",
+          type = SkylarkList.class,
+          defaultValue = "None",
+          positional = false,
+          named = true,
+          noneable = true,
+          doc =  "A list of <i>direct</i> elements of a depset."
+      ),
+      @Param(
+        name = "transitive",
+        named = true,
+        positional = false,
+        type = SkylarkList.class,
+        generic1 = SkylarkNestedSet.class,
+        noneable = true,
+        doc = "A list of depsets whose elements will become indirect elements of the depset.",
+        defaultValue = "None"
       )
     },
     useLocation = true
   )
   private static final BuiltinFunction depset =
       new BuiltinFunction("depset") {
-        public SkylarkNestedSet invoke(Object items, String order, Location loc)
+        public SkylarkNestedSet invoke(
+            Object items,
+            String orderString,
+            Object direct,
+            Object transitive,
+            Location loc)
             throws EvalException {
+          Order order;
           try {
-            return new SkylarkNestedSet(Order.parse(order), items, loc);
+            order = Order.parse(orderString);
           } catch (IllegalArgumentException ex) {
             throw new EvalException(loc, ex);
           }
+
+          if (transitive == Runtime.NONE && direct == Runtime.NONE) {
+            // Legacy behavior.
+            return new SkylarkNestedSet(order, items, loc);
+          }
+
+          if (direct != Runtime.NONE && !isEmptySkylarkList(items)) {
+            throw new EvalException(
+                loc, "Do not pass both 'direct' and 'items' argument to depset constructor.");
+          }
+
+          // Non-legacy behavior: either 'transitive' or 'direct' were specified.
+          Iterable<Object> directElements;
+          if (direct != Runtime.NONE) {
+            directElements = ((SkylarkList<?>) direct).getContents(Object.class, "direct");
+          } else {
+            SkylarkType.checkType(items, SkylarkList.class, "items");
+            directElements = ((SkylarkList<?>) items).getContents(Object.class, "items");
+          }
+
+          Iterable<SkylarkNestedSet> transitiveList;
+          if (transitive != Runtime.NONE) {
+            SkylarkType.checkType(transitive, SkylarkList.class, "transitive");
+            transitiveList = ((SkylarkList<?>) transitive).getContents(
+                SkylarkNestedSet.class, "transitive");
+          } else {
+            transitiveList = ImmutableList.of();
+          }
+          SkylarkNestedSet.Builder builder = SkylarkNestedSet.builder(order, loc);
+          for (Object directElement : directElements) {
+            builder.addDirect(directElement);
+          }
+          for (SkylarkNestedSet transitiveSet : transitiveList) {
+            builder.addTransitive(transitiveSet);
+          }
+          return builder.build();
         }
       };
 
-  @SkylarkSignature(
-    name = "set",
-    returnType = SkylarkNestedSet.class,
-    documentationReturnType = SkylarkNestedSet.LegacySet.class,
-    doc =
-        "A temporary alias for <a href=\"#depset\">depset</a>. "
-            + "Deprecated in favor of <code>depset</code>.",
-    parameters = {
-      @Param(
-        name = "items",
-        type = Object.class,
-        defaultValue = "[]",
-        doc = "Same as for <a href=\"#depset\">depset</a>."
-      ),
-      @Param(
-        name = "order",
-        type = String.class,
-        defaultValue = "\"default\"",
-        doc = "Same as for <a href=\"#depset\">depset</a>."
-      )
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
-  private static final BuiltinFunction set =
-      new BuiltinFunction("set") {
-        public SkylarkNestedSet invoke(Object items, String order, Location loc, Environment env)
-            throws EvalException {
-          if (env.getSemantics().incompatibleDisallowSetConstructor) {
-            throw new EvalException(
-                loc,
-                "The `set` constructor for depsets is deprecated and will be removed. Please use "
-                    + "the `depset` constructor instead. You can temporarily enable the "
-                    + "deprecated `set` constructor by passing the flag "
-                    + "--incompatible_disallow_set_constructor=false");
-          }
-          try {
-            return new SkylarkNestedSet(Order.parse(order), items, loc);
-          } catch (IllegalArgumentException ex) {
-            throw new EvalException(loc, ex);
-          }
-        }
-      };
+  private static boolean isEmptySkylarkList(Object o) {
+    return o instanceof SkylarkList && ((SkylarkList) o).isEmpty();
+  }
 
   @SkylarkSignature(
     name = "union",
@@ -154,13 +186,23 @@ public class BazelLibrary {
       @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset."),
       @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
     },
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction union =
       new BuiltinFunction("union") {
         @SuppressWarnings("unused")
-        public SkylarkNestedSet invoke(SkylarkNestedSet input, Object newElements, Location loc)
+        public SkylarkNestedSet invoke(
+            SkylarkNestedSet input, Object newElements, Location loc, Environment env)
             throws EvalException {
+          if (env.getSemantics().incompatibleDepsetUnion()) {
+            throw new EvalException(
+                location,
+                "depset method `.union` has been removed. See "
+                    + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
+                    + "recommendations. Use --incompatible_depset_union=false "
+                    + "to temporarily disable this check.");
+          }
           // newElements' type is Object because of the polymorphism on unioning two
           // SkylarkNestedSets versus a set and another kind of iterable.
           // Can't use EvalUtils#toIterable since that would discard this information.
@@ -186,7 +228,7 @@ public class BazelLibrary {
       new BuiltinFunction("to_list") {
         @SuppressWarnings("unused")
         public MutableList<Object> invoke(SkylarkNestedSet input, Environment env) {
-          return new MutableList<>(input.toCollection(), env);
+          return MutableList.copyOf(env, input.toCollection());
         }
       };
 
@@ -223,11 +265,12 @@ public class BazelLibrary {
       };
 
   private static Environment.Frame createGlobals() {
-    List<BaseFunction> bazelGlobalFunctions =
-        ImmutableList.<BaseFunction>of(select, depset, set, type);
+    List<BaseFunction> bazelGlobalFunctions = ImmutableList.of(select, depset, type);
 
     try (Mutability mutability = Mutability.create("BUILD")) {
-      Environment env = Environment.builder(mutability).build();
+      Environment env = Environment.builder(mutability)
+          .useDefaultSemantics()
+          .build();
       Runtime.setupConstants(env);
       Runtime.setupMethodEnvironment(env, MethodLibrary.defaultGlobalFunctions);
       Runtime.setupMethodEnvironment(env, bazelGlobalFunctions);

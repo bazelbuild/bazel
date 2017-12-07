@@ -14,15 +14,17 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.syntax.Type;
 
 /** Ensures that a target's prerequisites are visible to it and match its testonly status. */
@@ -72,19 +74,26 @@ public class BazelPrerequisiteValidator
           new VisibilityErrorEvent(context.getConfiguration(), rule.getLabel(), errorMessage));
     }
 
-    if (prerequisiteTarget instanceof PackageGroup && !attrName.equals("visibility")) {
-      context.reportError(
-          rule.getAttributeLocation(attrName),
-          "in "
-              + attrName
-              + " attribute of "
-              + rule.getRuleClass()
-              + " rule "
-              + rule.getLabel()
-              + ": package group "
-              + AliasProvider.printLabelWithAliasChain(prerequisite)
-              + " is misplaced here "
-              + "(they are only allowed in the visibility attribute)");
+    if (prerequisiteTarget instanceof PackageGroup) {
+      RequiredProviders requiredProviders =
+          RawAttributeMapper.of(rule).getAttributeDefinition(attrName).getRequiredProviders();
+      boolean containsPackageSpecificationProvider =
+          requiredProviders.getDescription().contains("PackageSpecificationProvider");
+      // TODO(plf): Add the PackageSpecificationProvider to the 'visibility' attribute.
+      if (!attrName.equals("visibility") && !containsPackageSpecificationProvider) {
+        context.reportError(
+            rule.getAttributeLocation(attrName),
+            "in "
+                + attrName
+                + " attribute of "
+                + rule.getRuleClass()
+                + " rule "
+                + rule.getLabel()
+                + ": package group "
+                + AliasProvider.printLabelWithAliasChain(prerequisite)
+                + " is misplaced here "
+                + "(they are only allowed in the visibility attribute)");
+      }
     }
   }
 

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /** Options used to configure BuildEventStreamer and its BuildEventTransports. */
 public class BuildEventStreamOptions extends OptionsBase {

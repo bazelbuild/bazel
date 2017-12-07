@@ -14,30 +14,65 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 
 /** Utility for generating a call to the one-version binary. */
-public class OneVersionCheckActionBuilder {
+public final class OneVersionCheckActionBuilder {
 
-  public static void build(
-      RuleContext ruleContext,
-      NestedSet<Artifact> jarsToCheck,
-      Artifact oneVersionOutput,
+  private OneVersionCheckActionBuilder() {}
+
+  private OneVersionEnforcementLevel enforcementLevel;
+  private Artifact outputArtifact;
+  private JavaToolchainProvider javaToolchain;
+  private NestedSet<Artifact> jarsToCheck;
+
+  public static OneVersionCheckActionBuilder newBuilder() {
+    return new OneVersionCheckActionBuilder();
+  }
+
+  public OneVersionCheckActionBuilder useToolchain(JavaToolchainProvider toolchain) {
+    javaToolchain = toolchain;
+    return this;
+  }
+
+  public OneVersionCheckActionBuilder checkJars(NestedSet<Artifact> jarsToCheck) {
+    this.jarsToCheck = jarsToCheck;
+    return this;
+  }
+
+  public OneVersionCheckActionBuilder outputArtifact(Artifact outputArtifact) {
+    this.outputArtifact = outputArtifact;
+    return this;
+  }
+
+  public OneVersionCheckActionBuilder withEnforcementLevel(
       OneVersionEnforcementLevel enforcementLevel) {
-    JavaToolchainProvider javaToolchain = JavaToolchainProvider.fromRuleContext(ruleContext);
+    Preconditions.checkArgument(
+        enforcementLevel != OneVersionEnforcementLevel.OFF,
+        "one version enforcement actions shouldn't be built if the enforcement "
+            + "level is set to off");
+    this.enforcementLevel = enforcementLevel;
+    return this;
+  }
+
+  public Artifact build(RuleContext ruleContext) {
+    Preconditions.checkNotNull(enforcementLevel);
+    Preconditions.checkNotNull(outputArtifact);
+    Preconditions.checkNotNull(javaToolchain);
+    Preconditions.checkNotNull(jarsToCheck);
+
     Artifact oneVersionTool = javaToolchain.getOneVersionBinary();
     Artifact oneVersionWhitelist = javaToolchain.getOneVersionWhitelist();
     if (oneVersionTool == null || oneVersionWhitelist == null) {
@@ -45,62 +80,51 @@ public class OneVersionCheckActionBuilder {
           String.format(
               "one version enforcement was requested but it is not supported by the current "
                   + "Java toolchain '%s'; see the "
-                  + "java_toolchain.oneversion and java_toolchain.oneversion_whitelist attributes",
+                  + "java_toolchain.oneversion and java_toolchain.oneversion_whitelist "
+                  + "attributes",
               javaToolchain.getToolchainLabel()));
-      return;
+      return outputArtifact;
     }
 
-    Builder oneVersionArgsBuilder =
+    CustomCommandLine.Builder oneVersionArgsBuilder =
         CustomCommandLine.builder()
-            .addExecPath("--output", oneVersionOutput)
+            .addExecPath("--output", outputArtifact)
             .addExecPath("--whitelist", oneVersionWhitelist);
     if (enforcementLevel == OneVersionEnforcementLevel.WARNING) {
       oneVersionArgsBuilder.add("--succeed_on_found_violations");
     }
-    oneVersionArgsBuilder.add(new OneVersionJarMapArgv(jarsToCheck));
+    oneVersionArgsBuilder.addAll("--inputs", jarAndTargetVectorArg(jarsToCheck));
     CustomCommandLine oneVersionArgs = oneVersionArgsBuilder.build();
     ruleContext.registerAction(
         new SpawnAction.Builder()
-            .addOutput(oneVersionOutput)
+            .addOutput(outputArtifact)
             .addInput(oneVersionWhitelist)
             .addTransitiveInputs(jarsToCheck)
             .setExecutable(oneVersionTool)
-            .setCommandLine(oneVersionArgs)
-            .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
+            .addCommandLine(
+                oneVersionArgs,
+                ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
             .setMnemonic("JavaOneVersion")
-            .setProgressMessage("Checking for one-version violations in " + ruleContext.getLabel())
+            .setProgressMessage("Checking for one-version violations in %s", ruleContext.getLabel())
             .build(ruleContext));
+    return outputArtifact;
   }
 
-  private static class OneVersionJarMapArgv extends CustomMultiArgv {
+  public static VectorArg<String> jarAndTargetVectorArg(NestedSet<Artifact> jarsToCheck) {
+    return VectorArg.of(jarsToCheck).mapped(OneVersionCheckActionBuilder::jarAndTargetArg);
+  }
 
-    private static final Joiner COMMA_JOINER = Joiner.on(',');
-    private final Iterable<Artifact> classPathJars;
+  private static String jarAndTargetArg(Artifact jar) {
+    return jar.getExecPathString() + "," + getArtifactOwnerGeneralizedLabel(jar);
+  }
 
-    private OneVersionJarMapArgv(Iterable<Artifact> classPathJars) {
-      this.classPathJars = classPathJars;
-    }
-
-    @Override
-    public Iterable<String> argv() {
-      ImmutableList.Builder<String> args = ImmutableList.builder();
-      args.add("--inputs");
-      for (Artifact classPathJar : classPathJars) {
-        args.add(
-            COMMA_JOINER.join(
-                classPathJar.getExecPathString(), getArtifactOwnerGeneralizedLabel(classPathJar)));
-      }
-      return args.build();
-    }
-
-    private static String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
-      Label label = checkNotNull(artifact.getArtifactOwner(), artifact).getLabel();
-      return
-          label.getPackageIdentifier().getRepository().isDefault()
-                  || label.getPackageIdentifier().getRepository().isMain()
-              ? label.toString()
-              // Escape '@' prefix for .params file.
-              : "@" + label;
-    }
+  private static String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
+    Label label = checkNotNull(artifact.getArtifactOwner(), artifact).getLabel();
+    return
+        label.getPackageIdentifier().getRepository().isDefault()
+            || label.getPackageIdentifier().getRepository().isMain()
+            ? label.toString()
+            // Escape '@' prefix for .params file.
+            : "@" + label;
   }
 }

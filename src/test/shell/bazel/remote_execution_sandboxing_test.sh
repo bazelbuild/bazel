@@ -30,7 +30,7 @@ function set_up() {
   readonly_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
   worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
-  "${bazel_data}/src/tools/remote_worker/remote_worker" \
+  "${bazel_data}/src/tools/remote/worker" \
       --work_path="${work_path}" \
       --listen_port=${worker_port} \
       --sandboxing \
@@ -83,7 +83,7 @@ function tear_down() {
 }
 
 function test_genrule() {
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -92,7 +92,7 @@ function test_genrule() {
 }
 
 function test_genrule_can_write_to_path() {
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
@@ -103,7 +103,7 @@ function test_genrule_can_write_to_path() {
 }
 
 function test_genrule_cannot_write_to_other_path() {
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+  bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \

@@ -19,14 +19,14 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
-
 import java.util.Collection;
 import java.util.Map.Entry;
 
@@ -130,14 +130,15 @@ public final class ProguardLibrary {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .addInput(specToValidate)
+            .addOutput(output)
             .setExecutable(proguardWhitelister)
             .setProgressMessage("Validating proguard configuration")
             .setMnemonic("ValidateProguard")
-            .addArgument("--path")
-            .addArgument(specToValidate.getExecPathString())
-            .addArgument("--output")
-            .addArgument(output.getExecPathString())
-            .addOutput(output)
+            .addCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath("--path", specToValidate)
+                    .addExecPath("--output", output)
+                    .build())
             .build(ruleContext));
     return output;
   }

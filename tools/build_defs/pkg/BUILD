@@ -32,6 +32,8 @@ py_test(
     ],
     data = [":archive_testdata"],
     srcs_version = "PY2AND3",
+    # archive.py requires xzcat, which is not available by default on Mac
+    tags = ["noci"],
     deps = [":archive"],
 )
 
@@ -96,12 +98,12 @@ genrule(
 
 [pkg_tar(
     name = "test-tar-%s" % ext[1:],
-    build_tar = ":build_tar",
-    extension = "tar%s" % ext,
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
         ":usr/titi",
     ],
+    build_tar = ":build_tar",
+    extension = "tar%s" % ext,
     mode = "0644",
     modes = {"usr/titi": "0755"},
     owner = "42.24",
@@ -131,37 +133,45 @@ genrule(
 
 pkg_tar(
     name = "test-tar-strip_prefix-empty",
-    build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
+    build_tar = ":build_tar",
     strip_prefix = "",
 )
 
 pkg_tar(
     name = "test-tar-strip_prefix-none",
-    build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
+    build_tar = ":build_tar",
 )
 
 pkg_tar(
     name = "test-tar-strip_prefix-etc",
-    build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
+    build_tar = ":build_tar",
     strip_prefix = "etc",
 )
 
 pkg_tar(
     name = "test-tar-strip_prefix-dot",
-    build_tar = ":build_tar",
-    files = [
+    srcs = [
         ":etc/nsswitch.conf",
     ],
+    build_tar = ":build_tar",
     strip_prefix = ".",
+)
+
+pkg_tar(
+    name = "test-tar-files_dict",
+    build_tar = ":build_tar",
+    files = {
+        ":etc/nsswitch.conf": "not-etc/mapped-filename.conf",
+    },
 )
 
 pkg_deb(
@@ -195,6 +205,7 @@ sh_test(
         ":test-deb.deb",
         ":test-tar-.tar",
         ":test-tar-bz2.tar.bz2",
+        ":test-tar-files_dict.tar",
         ":test-tar-gz.tar.gz",
         ":test-tar-inclusion-.tar",
         ":test-tar-inclusion-bz2.tar",
@@ -207,6 +218,8 @@ sh_test(
         ":test-tar-xz.tar.xz",
         ":titi_test_all.changes",
     ],
+    # archive.py requires xzcat, which is not available by default on Mac
+    tags = ["noci"],
     deps = [
         "//src/test/shell:bashunit",
     ],

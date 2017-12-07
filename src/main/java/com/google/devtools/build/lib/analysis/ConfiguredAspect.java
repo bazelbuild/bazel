@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtraActionProvider;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -28,14 +29,11 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor.Key;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -52,7 +50,7 @@ import javax.annotation.Nullable;
  * <p>For more information about aspects, see {@link
  * com.google.devtools.build.lib.packages.AspectClass}.
  *
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see com.google.devtools.build.lib.packages.AspectClass
  */
 @Immutable
@@ -99,16 +97,13 @@ public final class ConfiguredAspect {
     }
   }
 
-  public SkylarkClassObject get(ClassObjectConstructor.Key key) {
-    if (OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey().equals(key)) {
-      return getProvider(OutputGroupProvider.class);
-    }
+  public Info get(Provider.Key key) {
     return providers.getProvider(key);
   }
 
   public Object get(String legacyKey) {
     if (OutputGroupProvider.SKYLARK_NAME.equals(legacyKey)) {
-      return getProvider(OutputGroupProvider.class);
+      return get(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey());
     }
     return providers.getProvider(legacyKey);
   }
@@ -133,10 +128,6 @@ public final class ConfiguredAspect {
     private final TransitiveInfoProviderMapBuilder providers =
         new TransitiveInfoProviderMapBuilder();
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
-    private final ImmutableMap.Builder<String, Object> skylarkProviderBuilder =
-        ImmutableMap.builder();
-    private final LinkedHashMap<Key, SkylarkClassObject>
-        skylarkDeclaredProvidersBuilder = new LinkedHashMap<>();
     private final RuleContext ruleContext;
     private final AspectDescriptor descriptor;
 
@@ -214,30 +205,25 @@ public final class ConfiguredAspect {
       return this;
     }
 
-    public Builder addSkylarkDeclaredProvider(SkylarkClassObject declaredProvider, Location loc)
+    public Builder addSkylarkDeclaredProvider(Info declaredProvider, Location loc)
         throws EvalException {
-      ClassObjectConstructor constructor = declaredProvider.getConstructor();
+      Provider constructor = declaredProvider.getProvider();
       if (!constructor.isExported()) {
         throw new EvalException(
             constructor.getLocation(), "All providers must be top level values");
       }
-      ClassObjectConstructor.Key key = constructor.getKey();
-      addDeclaredProvider(key, declaredProvider);
+      addDeclaredProvider(declaredProvider);
       return this;
     }
 
-    private void addDeclaredProvider(Key key, SkylarkClassObject declaredProvider) {
-      if (OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey().equals(key)) {
-        addProvider(OutputGroupProvider.class, (OutputGroupProvider) declaredProvider);
-      } else {
-        providers.put(declaredProvider);
-      }
+    private void addDeclaredProvider(Info declaredProvider) {
+      providers.put(declaredProvider);
     }
 
-    public Builder addNativeDeclaredProvider(SkylarkClassObject declaredProvider) {
-      ClassObjectConstructor constructor = declaredProvider.getConstructor();
+    public Builder addNativeDeclaredProvider(Info declaredProvider) {
+      Provider constructor = declaredProvider.getProvider();
       Preconditions.checkState(constructor.isExported());
-      addDeclaredProvider(constructor.getKey(), declaredProvider);
+      addDeclaredProvider(declaredProvider);
       return this;
     }
 
@@ -253,8 +239,7 @@ public final class ConfiguredAspect {
           throw new IllegalStateException(
               "OutputGroupProvider was provided explicitly; do not use addOutputGroup");
         }
-        addDeclaredProvider(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey(),
-            new OutputGroupProvider(outputGroups.build()));
+        addDeclaredProvider(new OutputGroupProvider(outputGroups.build()));
       }
 
       addProvider(

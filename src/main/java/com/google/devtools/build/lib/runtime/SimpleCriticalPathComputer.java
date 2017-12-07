@@ -15,7 +15,8 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.clock.Clock;
 
 /**
  * Computes the critical path during a build.
@@ -24,8 +25,9 @@ public class SimpleCriticalPathComputer
     extends CriticalPathComputer<SimpleCriticalPathComponent,
         AggregatedCriticalPath<SimpleCriticalPathComponent>> {
 
-  SimpleCriticalPathComputer(Clock clock, boolean discardActions) {
-    super(clock, discardActions);
+  SimpleCriticalPathComputer(
+      ActionKeyContext actionKeyContext, Clock clock, boolean discardActions) {
+    super(actionKeyContext, clock, discardActions);
   }
 
   @Override

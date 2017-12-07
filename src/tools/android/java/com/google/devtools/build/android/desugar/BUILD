@@ -3,21 +3,38 @@
 
 filegroup(
     name = "embedded_tools",
-    srcs = [
-        "BUILD.tools",
-        "Desugar_deploy.jar",
+    srcs = ["BUILD.tools"],
+    visibility = [
+        "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
     ],
-    visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
+)
+
+java_library(
+    name = "deps_collector_api",
+    srcs = ["DependencyCollector.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/android/desugar:__subpackages__",
+        "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
+    ],
+    deps = [
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(
     name = "desugar",
     srcs = glob(["*.java"]),
-    runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/android/desugar:__pkg__",
+        "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
+    ],
+    runtime_deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
+    ],
     deps = [
+        ":deps_collector_api",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:option_filters_java_proto",
-        "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:asm",
         "//third_party:asm-commons",
@@ -31,12 +48,16 @@ java_library(
 java_binary(
     name = "Desugar",
     main_class = "com.google.devtools.build.android.desugar.Desugar",
+    visibility = [
+        "//src/test/java/com/google/devtools/build/android/desugar:__pkg__",
+    ],
     runtime_deps = [":desugar"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:srcs",
     ],
     visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],

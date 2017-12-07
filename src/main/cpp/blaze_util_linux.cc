@@ -234,8 +234,7 @@ void WriteSystemSpecificProcessIdentifier(
 // On Linux we use a combination of PID and start time to identify the server
 // process. That is supposed to be unique unless one can start more processes
 // than there are PIDs available within a single jiffy.
-bool VerifyServerProcess(
-    int pid, const string& output_base, const string& install_base) {
+bool VerifyServerProcess(int pid, const string& output_base) {
   string start_time;
   if (!GetStartTime(ToString(pid), &start_time)) {
     // Cannot read PID file from /proc . Process died meantime, all is good. No
@@ -253,24 +252,12 @@ bool VerifyServerProcess(
   return !file_present || recorded_start_time == start_time;
 }
 
-bool KillServerProcess(int pid) {
-  // Kill the process and make sure it's dead before proceeding.
-  killpg(pid, SIGKILL);
-  int check_killed_retries = 10;
-  while (killpg(pid, 0) == 0) {
-    if (check_killed_retries-- > 0) {
-      sleep(1);
-    } else {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "Attempted to kill stale blaze server process (pid=%d) using "
-          "SIGKILL, but it did not die in a timely fashion.", pid);
-    }
-  }
-  return true;
-}
-
 // Not supported.
 void ExcludePathFromBackup(const string &path) {
+}
+
+int32_t GetExplicitSystemLimit(const int resource) {
+  return -1;
 }
 
 }  // namespace blaze

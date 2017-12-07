@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /**
  * Options for the example worker itself.

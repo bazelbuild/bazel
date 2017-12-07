@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -26,13 +27,15 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
+import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
-import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternList;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -43,6 +46,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -51,9 +55,15 @@ import javax.annotation.Nullable;
  */
 final class TargetPatternPhaseFunction implements SkyFunction {
 
+  private final AtomicReference<PathPackageLocator> pkgPath;
+
+  public TargetPatternPhaseFunction(AtomicReference<PathPackageLocator> pkgPath) {
+    this.pkgPath = pkgPath;
+  }
+
   @Override
   public TargetPatternPhaseValue compute(SkyKey key, Environment env) throws InterruptedException {
-    TargetPatternList options = (TargetPatternList) key.argument();
+    TargetPatternPhaseKey options = (TargetPatternPhaseKey) key.argument();
     PackageValue packageValue = null;
     boolean workspaceError = false;
     try {
@@ -72,7 +82,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     // Determine targets to build:
-    ResolvedTargets<Target> targets = getTargetsToBuild(env, options);
+    ResolvedTargets<Target> targets = getTargetsToBuild(env, options, pkgPath.get());
 
     // If the --build_tests_only option was specified or we want to run tests, we need to determine
     // the list of targets to test. For that, we remove manual tests and apply the command-line
@@ -175,9 +185,18 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     ResolvedTargets<Target> expandedTargets = expandedTargetsBuilder.build();
     Set<Target> testSuiteTargets =
         Sets.difference(targets.getTargets(), expandedTargets.getTargets());
-    return new TargetPatternPhaseValue(expandedTargets.getTargets(), testsToRun, preExpansionError,
+    TargetPatternPhaseValue result = new TargetPatternPhaseValue(
+        expandedTargets.getTargets(), testsToRun, preExpansionError,
         expandedTargets.hasError() || workspaceError, filteredTargets, testFilteredTargets,
-        targets.getTargets(), ImmutableSet.copyOf(testSuiteTargets), workspaceName);
+        ImmutableSet.copyOf(testSuiteTargets), workspaceName);
+    env.getListener().post(
+        new TargetParsingCompleteEvent(
+            targets.getTargets(),
+            result.getFilteredTargets(),
+            result.getTestFilteredTargets(),
+            options.getTargetPatterns(),
+            result.getTargets()));
+    return result;
   }
 
   /**
@@ -186,8 +205,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * @param options the command-line arguments in structured form
    */
   private static ResolvedTargets<Target> getTargetsToBuild(
-      Environment env, TargetPatternList options) throws InterruptedException {
-    List<SkyKey> patternSkyKeys = new ArrayList<>();
+      Environment env, TargetPatternPhaseKey options, PathPackageLocator pkgPath)
+      throws InterruptedException {
+    List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(
             options.getTargetPatterns(),
@@ -198,7 +218,12 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       try {
         patternSkyKeys.add(keyOrException.getSkyKey());
       } catch (TargetParsingException e) {
-        // Skip.
+        // We generally skip patterns that don't parse. We report a parsing failed exception to the
+        // event bus here, but not in determineTests below, which goes through the same list. Note
+        // that the TargetPatternFunction otherwise reports these events (but only if the target
+        // pattern could be parsed successfully).
+        env.getListener().post(
+            new ParsingFailedEvent(keyOrException.getOriginalPattern(),  e.getMessage()));
       }
     }
     Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
@@ -208,13 +233,11 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
-    for (SkyKey key : patternSkyKeys) {
-      TargetPatternKey pattern = (TargetPatternKey) key.argument();
+    for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(key).get();
+        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
       } catch (TargetParsingException e) {
-        // TODO(ulfjack): Report to EventBus.
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
         env.getListener().handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
@@ -235,7 +258,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         .filter(TargetUtils.tagFilter(options.getBuildTargetFilter()))
         .build();
     if (options.getCompileOneDependency()) {
-      TargetProvider targetProvider = new EnvironmentBackedRecursivePackageProvider(env);
+      TargetProvider targetProvider = new EnvironmentBackedRecursivePackageProvider(env, pkgPath);
       try {
         return new CompileOneDependencyTransformer(targetProvider)
             .transformCompileOneDependency(env.getListener(), result);
@@ -259,7 +282,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   private static ResolvedTargets<Target> determineTests(
       Environment env, List<String> targetPatterns, String offset, TestFilter testFilter)
       throws InterruptedException {
-    List<SkyKey> patternSkyKeys = new ArrayList<>();
+    List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(targetPatterns, FilteringPolicies.FILTER_TESTS, offset)) {
       try {
@@ -275,7 +298,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     List<SkyKey> expandedSuiteKeys = new ArrayList<>();
-    for (SkyKey key : patternSkyKeys) {
+    for (TargetPatternKey key : patternSkyKeys) {
       TargetPatternValue value;
       try {
         value = (TargetPatternValue) resolvedPatterns.get(key).get();
@@ -291,11 +314,10 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     ResolvedTargets.Builder<Target> testTargetsBuilder = ResolvedTargets.builder();
-    for (SkyKey key : patternSkyKeys) {
-      TargetPatternKey pattern = (TargetPatternKey) key.argument();
+    for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(key).get();
+        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
       } catch (TargetParsingException e) {
         // This was already reported in getTargetsToBuild (maybe merge the two code paths?).
         continue;

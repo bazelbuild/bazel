@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.testutil;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.PackageFactory.BuilderFactoryForTesting;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 
 /**
  * Various constants required by the tests.
@@ -58,6 +59,14 @@ public class TestConstants {
    */
   public static final String JAVATESTS_ROOT = "io_bazel/src/test/java/";
 
+  /** Relative path to the process-wrapper tool. */
+  public static final String PROCESS_WRAPPER_PATH
+      = "io_bazel/src/main/tools/process-wrapper";
+
+  /** Relative path to the spend_cpu_time testing tool. */
+  public static final String CPU_TIME_SPENDER_PATH
+      = "io_bazel/src/test/shell/integration/spend_cpu_time";
+
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
   public static final String TEST_RULE_MODULE =
@@ -65,15 +74,23 @@ public class TestConstants {
   public static final String TEST_REAL_UNIX_FILE_SYSTEM =
       "com.google.devtools.build.lib.unix.UnixFileSystem";
 
+  public static void processSkyframeExecutorForTesting(SkyframeExecutor skyframeExecutor) {}
+
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 
   public static final String WORKSPACE_CONTENT = "";
 
   public static final String GCC_INCLUDE_PATH = "external/bazel_tools/tools/cpp/gcc3";
 
-  public static final String TOOLS_REPOSITORY = "@bazel_tools";
+  /** The path in which the mock cc crosstool resides. */
+  public static final String MOCK_CC_CROSSTOOL_PATH = "tools/cpp";
 
-  public static final String TOOLS_REPOSITORY_PATH = "tools/cpp";
+  /** The workspace repository label under which built-in tools reside. */
+  public static final String TOOLS_REPOSITORY = "@bazel_tools";
+  /** The file path in which to create files so that they end up under {@link #TOOLS_REPOSITORY}. */
+  public static final String TOOLS_REPOSITORY_SCRATCH = "/bazel_tools_workspace/";
+  /** The output file path prefix for tool file dependencies. */
+  public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
 
   public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
       "src/main/java/com/google/devtools/build/lib/rules");
@@ -82,9 +99,20 @@ public class TestConstants {
   public static final String GENRULE_SETUP = "@bazel_tools//tools/genrule:genrule-setup.sh";
   public static final String GENRULE_SETUP_PATH = "genrule-setup.sh";
 
+  /**
+   * A list of flags required to support use of the crosstool on OSX.
+   */
+  public static final ImmutableList<String> OSX_CROSSTOOL_FLAGS =
+      ImmutableList.of();
+
   public static final InvocationPolicy TEST_INVOCATION_POLICY =
       InvocationPolicy.getDefaultInstance();
 
   public static final BuilderFactoryForTesting PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING =
       PackageFactoryBuilderFactoryForBazelUnitTests.INSTANCE;
+
+  /** A choice of test execution mode, only varies internally. */
+  public enum InternalTestExecutionMode {
+    NORMAL
+  }
 }

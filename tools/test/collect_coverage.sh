@@ -90,7 +90,7 @@ if [[ "$COVERAGE_LEGACY_MODE" ]]; then
   export GCOV_PREFIX="${COVERAGE_DIR}"
 fi
 
-cd "$TEST_SRCDIR"
+cd "$TEST_SRCDIR/$TEST_WORKSPACE"
 "$@"
 TEST_STATUS=$?
 

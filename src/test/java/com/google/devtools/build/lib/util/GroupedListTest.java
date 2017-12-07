@@ -30,6 +30,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/** Unit tests for {@link GroupedList}. */
 @RunWith(JUnit4.class)
 public class GroupedListTest {
   @Test
@@ -149,6 +150,7 @@ public class GroupedListTest {
     assertThat(groupedList.numElements()).isEqualTo(allElts.size());
     assertThat(groupedList.isEmpty()).isFalse();
     Object compressed = groupedList.compress();
+    assertThat(GroupedList.numElements(compressed)).isEqualTo(groupedList.numElements());
     assertElementsEqual(compressed, allElts);
     assertElementsEqualInGroups(GroupedList.<String>create(compressed), elements);
     assertElementsEqualInGroups(groupedList, elements);
@@ -229,6 +231,7 @@ public class GroupedListTest {
     Set<String> removed = ImmutableSet.of("2a", "3", "removedGroup1", "removedGroup2");
     groupedList.remove(removed);
     Object compressed = groupedList.compress();
+    assertThat(GroupedList.numElements(compressed)).isEqualTo(groupedList.numElements());
     allElts.removeAll(removed);
     assertElementsEqual(compressed, allElts);
     elements.get(2).remove("2a");
@@ -258,6 +261,7 @@ public class GroupedListTest {
     Set<String> removed = ImmutableSet.of("1b", "1c");
     groupedList.remove(removed);
     Object compressed = groupedList.compress();
+    assertThat(GroupedList.numElements(compressed)).isEqualTo(groupedList.numElements());
     allElts.removeAll(removed);
     assertElementsEqual(compressed, allElts);
     elements.get(0).removeAll(removed);
@@ -274,7 +278,9 @@ public class GroupedListTest {
     }
     helper.endGroup();
     result.append(helper);
-    return result.compress();
+    Object compressed = result.compress();
+    assertThat(GroupedList.numElements(compressed)).isEqualTo(result.numElements());
+    return compressed;
   }
 
   private static Iterable<String> iterable(Object compressed) {

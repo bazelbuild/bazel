@@ -49,7 +49,7 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
 
   @Override
   public Map<SkyKey, ? extends NodeEntry> getBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     try {
       return super.getBatch(requestor, reason, keys);
     } catch (InterruptedException e) {

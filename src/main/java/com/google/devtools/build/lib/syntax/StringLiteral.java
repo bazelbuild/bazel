@@ -18,10 +18,20 @@ import java.io.IOException;
 /**
  * Syntax node for a string literal.
  */
-public final class StringLiteral extends Literal<String> {
+public final class StringLiteral extends Expression {
+  String value;
+
+  public String getValue() {
+    return value;
+  }
+
+  @Override
+  Object doEval(Environment env) {
+    return value;
+  }
 
   public StringLiteral(String value) {
-    super(value);
+    this.value = value;
   }
 
   @Override
@@ -35,6 +45,7 @@ public final class StringLiteral extends Literal<String> {
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
+  public Kind kind() {
+    return Kind.STRING_LITERAL;
   }
 }

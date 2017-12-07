@@ -17,9 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;

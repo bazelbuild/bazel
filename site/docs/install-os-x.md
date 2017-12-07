@@ -31,7 +31,7 @@ image with an install wizard.
 Installing Homebrew is a one-time setup:
 
 ```bash
-/usr/bin/ruby -e "$(curl -fsSL
+/usr/bin/ruby -e "$(curl -fsSL \
 https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
@@ -42,9 +42,16 @@ brew install bazel
 ```
 
 You are all set. You can confirm Bazel is installed successfully by running
-`bazel version`.
 
-You can later upgrade to newer version of Bazel with `brew upgrade bazel`.
+```bash
+bazel version
+```
+
+Once installed, you can upgrade to a newer version of Bazel with:
+
+```bash
+brew upgrade bazel
+```
 
 ## <a name="install-with-installer-mac-os-x"></a>Install using binary installer
 
@@ -71,14 +78,17 @@ sudo gcc --version
 
 ### 2. Download the Bazel installer
 
+**Note:** In the installer file names listed in this document, replace
+`<version>` with the appropriate Bazel version number.
+
 Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
-Download the binary installer `bazel-0.5.2-installer-darwin-x86_64.sh`. This
+Download the binary installer `bazel-<version>-installer-darwin-x86_64.sh`. This
 installer contains the Bazel binary and the required JDK, and can be used even
 if a JDK is already installed.
 
-Note that `bazel-0.5.2-without-jdk-installer-darwin-x86_64.sh` is a version of
-the installer without embedded JDK 8. Only use this installer if you already
+Note that `bazel-<version>-without-jdk-installer-darwin-x86_64.sh` is a version
+of the installer without embedded JDK 8. Only use this installer if you already
 have JDK 8 installed.
 
 ### 3. Run the installer
@@ -86,8 +96,8 @@ have JDK 8 installed.
 Run the installer:
 
 <pre>
-chmod +x bazel-0.5.2-installer-darwin-x86_64.sh
-./bazel-0.5.2-installer-darwin-x86_64.sh --user
+chmod +x bazel-<version>-installer-darwin-x86_64.sh
+./bazel-<version>-installer-darwin-x86_64.sh --user
 </pre>
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
@@ -104,15 +114,12 @@ this directory to your default paths, as follows:
 export PATH="$PATH:$HOME/bin"
 ```
 
-You can also add this command to your `~/.bashrc` file.
+You can also add this command to your `~/.bashrc` or `~/.profile` file.
 
 You are all set. You can confirm Bazel is installed successfully by running
 ```bash
 bazel version
 ```
 
-Once installed, you can upgrade to a newer version of Bazel with:
-
-```bash
-sudo apt-get upgrade bazel
-```
+When Bazel is installed using the binary installer, updating Bazel is only
+possible by downloading and installing a new release.

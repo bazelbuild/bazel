@@ -15,8 +15,11 @@
 #ifndef SRC_TOOLS_SINGLEJAR_COMBINERS_H_
 #define SRC_TOOLS_SINGLEJAR_COMBINERS_H_ 1
 
+#include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "src/tools/singlejar/transient_bytes.h"
 #include "src/tools/singlejar/zip_headers.h"

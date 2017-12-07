@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -56,6 +56,7 @@ class BuildResultPrinter {
       BuildRequest request,
       BuildResult result,
       Collection<ConfiguredTarget> configuredTargets,
+      Collection<ConfiguredTarget> configuredTargetsToSkip,
       Collection<AspectValue> aspects) {
     // NOTE: be careful what you print!  We don't want to create a consistency
     // problem where the summary message and the exit code disagree.  The logic
@@ -71,6 +72,9 @@ class BuildResultPrinter {
       Collection<ConfiguredTarget> successfulTargets = result.getSuccessfulTargets();
       (successfulTargets.contains(target) ? succeeded : failed).add(target);
     }
+
+    // TODO(bazel-team): convert these to a new "SKIPPED" status when ready: b/62191890.
+    failed.addAll(configuredTargetsToSkip);
 
     // Suppress summary if --show_result value is exceeded:
     if (succeeded.size() + failed.size() + aspectsToPrint.size()

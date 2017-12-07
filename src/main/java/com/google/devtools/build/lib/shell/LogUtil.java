@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  * Utilities for logging.
  */
@@ -38,7 +40,7 @@ class LogUtil {
      */
     try {
       if (bytes.length > TRUNCATE_STRINGS_AT) {
-        return new String(bytes, 0, TRUNCATE_STRINGS_AT)
+        return new String(bytes, 0, TRUNCATE_STRINGS_AT, StandardCharsets.UTF_8)
           + "[... truncated. original size was " + bytes.length + " bytes.]";
       }
       return new String(bytes);

@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX;
 import static com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.getAllArtifactsToBuild;
-import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
 
 import com.google.common.collect.ImmutableMap;

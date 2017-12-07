@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -158,7 +158,7 @@ public abstract class BaseFunction implements SkylarkValue {
    * @param signature the signature, without default values or types
    */
   public BaseFunction(String name, FunctionSignature signature) {
-    this(name, FunctionSignature.WithValues.<Object, SkylarkType>create(signature), null);
+    this(name, FunctionSignature.WithValues.create(signature), null);
   }
 
   /**
@@ -285,8 +285,7 @@ public abstract class BaseFunction implements SkylarkValue {
       arguments[kwParamIndex] = SkylarkDict.copyOf(env, kwargs);
     } else {
       // Hard general case (2c): some keyword arguments may correspond to named parameters
-      SkylarkDict<String, Object> kwArg = hasKwParam
-          ? SkylarkDict.<String, Object>of(env) : SkylarkDict.<String, Object>empty();
+      SkylarkDict<String, Object> kwArg = hasKwParam ? SkylarkDict.of(env) : SkylarkDict.empty();
 
       // For nicer stabler error messages, start by checking against
       // an argument being provided both as positional argument and as keyword argument.
@@ -426,7 +425,12 @@ public abstract class BaseFunction implements SkylarkValue {
     Object[] arguments = processArguments(args, kwargs, loc, env);
     canonicalizeArguments(arguments, loc);
 
-    return call(arguments, ast, env);
+    try {
+      Callstack.push(this);
+      return call(arguments, ast, env);
+    } finally {
+      Callstack.pop();
+    }
   }
 
   /**
@@ -568,11 +572,6 @@ public abstract class BaseFunction implements SkylarkValue {
 
   @Override
   public void repr(SkylarkPrinter printer) {
-    printer.append("<function " + getName() + ">");
-  }
-
-  @Override
-  public void reprLegacy(SkylarkPrinter printer) {
     printer.append("<function " + getName() + ">");
   }
 }

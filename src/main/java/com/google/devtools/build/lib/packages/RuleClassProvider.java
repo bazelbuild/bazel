@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -58,7 +58,7 @@ public interface RuleClassProvider {
   Environment createSkylarkRuleClassEnvironment(
       Label label,
       Mutability mutability,
-      SkylarkSemanticsOptions skylarkSemantics,
+      SkylarkSemantics skylarkSemantics,
       EventHandler eventHandler,
       @Nullable String astFileContentHashCode,
       @Nullable Map<String, Extension> importMap);
@@ -93,4 +93,10 @@ public interface RuleClassProvider {
    * Retrieves an aspect from the aspect factory map using the key provided
    */
   NativeAspectClass getNativeAspectClass(String key);
+
+  /**
+   * Retrieves a {@link Map} from skylark configuration fragment name to configuration fragment
+   * class.
+   */
+  Map<String, Class<?>> getConfigurationFragmentMap();
 }

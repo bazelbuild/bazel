@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,10 +29,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
-import com.google.devtools.build.lib.query2.output.OutputFormatter;
-import com.google.devtools.build.lib.rules.genquery.GenQuery;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -60,15 +55,6 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
       }
     }
     return frequency;
-  }
-
-  @Override
-  protected ImmutableList<Injected> getPrecomputedValues() {
-    ImmutableList.Builder<Injected> result = ImmutableList.builder();
-    result.addAll(super.getPrecomputedValues());
-    result.add(PrecomputedValue.injected(
-        GenQuery.QUERY_OUTPUT_FORMATTERS, OutputFormatter.getDefaultFormatters()));
-    return result.build();
   }
 
   protected final void setupDummyRule() throws Exception {

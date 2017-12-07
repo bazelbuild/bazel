@@ -38,11 +38,11 @@ import java.util.List;
  *
  * <pre>expr ::= SET '(' WORD * ')'</pre>
  */
-class SetExpression extends QueryExpression {
+public class SetExpression extends QueryExpression {
 
   private final List<TargetLiteral> words;
 
-  SetExpression(List<TargetLiteral> words) {
+  public SetExpression(List<TargetLiteral> words) {
     this.words = words;
   }
 
@@ -64,8 +64,13 @@ class SetExpression extends QueryExpression {
   }
 
   @Override
-  public QueryExpression getMapped(QueryExpressionMapper mapper) {
-    return mapper.map(this);
+  public <T> T accept(QueryExpressionVisitor<T> visitor) {
+    return visitor.visit(this);
+  }
+
+  /** Gets the list of {@link TargetLiteral}s contained in the expression. */
+  List<TargetLiteral> getWords() {
+    return words;
   }
 
   @Override

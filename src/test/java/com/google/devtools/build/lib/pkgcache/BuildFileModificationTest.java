@@ -15,30 +15,31 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
 import java.nio.charset.StandardCharsets;
@@ -60,6 +61,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
   private AnalysisMock analysisMock;
   private ConfiguredRuleClassProvider ruleClassProvider;
   private SkyframeExecutor skyframeExecutor;
+  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
   public final void disableLogging() throws Exception {
@@ -71,22 +73,29 @@ public class BuildFileModificationTest extends FoundationTestCase {
     analysisMock = AnalysisMock.get();
     ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
-        new BlazeDirectories(outputBase, outputBase, rootDirectory, analysisMock.getProductName());
+        new BlazeDirectories(
+            new ServerDirectories(outputBase, outputBase),
+            rootDirectory,
+            analysisMock.getProductName());
     skyframeExecutor =
-        SequencedSkyframeExecutor.createForTesting(
+        SequencedSkyframeExecutor.create(
             analysisMock
-                .getPackageFactoryBuilderForTesting()
+                .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, scratch.getFileSystem()),
+            fileSystem,
             directories,
-            null, /* BinTools */
+            actionKeyContext,
             null, /* workspaceStatusActionFactory */
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),
-            Predicates.<PathFragment>alwaysFalse(),
-            AnalysisMock.get().getSkyFunctions(),
-            ImmutableList.<PrecomputedValue.Injected>of(),
+            analysisMock.getSkyFunctions(directories),
             ImmutableList.<SkyValueDirtinessChecker>of(),
-            analysisMock.getProductName());
+            BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
+            BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
+            BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+            BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     OptionsParser parser = OptionsParser.newOptionsParser(
         PackageCacheOptions.class, SkylarkSemanticsOptions.class);
     analysisMock.getInvocationPolicyEnforcer().enforce(parser);
@@ -98,8 +107,14 @@ public class BuildFileModificationTest extends FoundationTestCase {
   private void setUpSkyframe(
       PackageCacheOptions packageCacheOptions,
       SkylarkSemanticsOptions skylarkSemanticsOptions) {
-    PathPackageLocator pkgLocator = PathPackageLocator.create(
-        null, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
+    PathPackageLocator pkgLocator =
+        PathPackageLocator.create(
+            null,
+            packageCacheOptions.packagePath,
+            reporter,
+            rootDirectory,
+            rootDirectory,
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(

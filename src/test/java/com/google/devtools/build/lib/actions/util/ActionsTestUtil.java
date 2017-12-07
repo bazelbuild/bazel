@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.util;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -29,30 +31,41 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionGraph;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.cache.Md5Digest;
+import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -64,9 +77,11 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrExceptionUtils;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -89,36 +104,59 @@ public final class ActionsTestUtil {
 
   private static final Label NULL_LABEL = Label.parseAbsoluteUnchecked("//null/action:owner");
 
-  public static ActionExecutionContext createContext(Executor executor, FileOutErr fileOutErr,
-      Path execRoot, MetadataHandler metadataHandler, @Nullable ActionGraph actionGraph) {
+  public static ActionExecutionContext createContext(
+      Executor executor,
+      ActionKeyContext actionKeyContext,
+      FileOutErr fileOutErr,
+      Path execRoot,
+      MetadataHandler metadataHandler,
+      @Nullable ActionGraph actionGraph) {
     return createContext(
-        executor, fileOutErr, execRoot, metadataHandler, ImmutableMap.<String, String>of(),
+        executor,
+        actionKeyContext,
+        fileOutErr,
+        execRoot,
+        metadataHandler,
+        ImmutableMap.of(),
         actionGraph);
   }
 
-  public static ActionExecutionContext createContext(Executor executor, FileOutErr fileOutErr,
-      Path execRoot, MetadataHandler metadataHandler, Map<String, String> clientEnv,
+  public static ActionExecutionContext createContext(
+      Executor executor,
+      ActionKeyContext actionKeyContext,
+      FileOutErr fileOutErr,
+      Path execRoot,
+      MetadataHandler metadataHandler,
+      Map<String, String> clientEnv,
       @Nullable ActionGraph actionGraph) {
     return new ActionExecutionContext(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        ActionInputPrefetcher.NONE,
+        actionKeyContext,
         metadataHandler,
         fileOutErr,
-        ImmutableMap.<String, String>copyOf(clientEnv),
+        ImmutableMap.copyOf(clientEnv),
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
   }
 
-  public static ActionExecutionContext createContextForInputDiscovery(Executor executor,
-      FileOutErr fileOutErr, Path execRoot, MetadataHandler metadataHandler,
+  public static ActionExecutionContext createContextForInputDiscovery(
+      Executor executor,
+      ActionKeyContext actionKeyContext,
+      FileOutErr fileOutErr,
+      Path execRoot,
+      MetadataHandler metadataHandler,
       BuildDriver buildDriver) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        ActionInputPrefetcher.NONE,
+        actionKeyContext,
         metadataHandler,
         fileOutErr,
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         new BlockingSkyFunctionEnvironment(
             buildDriver, executor == null ? null : executor.getEventHandler()));
   }
@@ -126,7 +164,13 @@ public final class ActionsTestUtil {
   public static ActionExecutionContext createContext(EventHandler eventHandler) {
     DummyExecutor dummyExecutor = new DummyExecutor(eventHandler);
     return new ActionExecutionContext(
-        dummyExecutor, null, null, null, ImmutableMap.<String, String>of(),
+        dummyExecutor,
+        null,
+        ActionInputPrefetcher.NONE,
+        new ActionKeyContext(),
+        null,
+        null,
+        ImmutableMap.of(),
         createDummyArtifactExpander());
   }
 
@@ -155,7 +199,7 @@ public final class ActionsTestUtil {
 
     @Override
     protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-        Iterable<SkyKey> depKeys) {
+        Iterable<? extends SkyKey> depKeys) {
       EvaluationResult<SkyValue> evaluationResult;
       Map<SkyKey, ValueOrUntypedException> result = new HashMap<>();
       try {
@@ -211,6 +255,7 @@ public final class ActionsTestUtil {
           "dummy-configuration-mnemonic",
           null,
           "dummy-configuration",
+          null,
           null);
 
   public static final ArtifactOwner NULL_ARTIFACT_OWNER =
@@ -219,8 +264,9 @@ public final class ActionsTestUtil {
         public Label getLabel() {
           return NULL_LABEL;
         }
-  };
+      };
 
+  /** An unchecked exception class for action conflicts. */
   public static class UncheckedActionConflictException extends RuntimeException {
     public UncheckedActionConflictException(ActionConflictException e) {
       super(e);
@@ -249,10 +295,14 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void execute(ActionExecutionContext actionExecutionContext) {
+    public ActionResult execute(ActionExecutionContext actionExecutionContext) {
+      return ActionResult.EMPTY;
     }
 
-    @Override protected String computeKey() { return "action"; }
+    @Override
+    protected String computeKey(ActionKeyContext actionKeyContext) {
+      return "action";
+    }
 
     @Override
     public String getMnemonic() {
@@ -565,5 +615,126 @@ public final class ActionsTestUtil {
           }
         })
         .build(NULL_ACTION_OWNER);
+  }
+
+  /** Builder for a list of {@link MissDetail}s with defaults set to zero for all possible items. */
+  public static class MissDetailsBuilder {
+    private final Map<MissReason, Integer> details = new EnumMap<>(MissReason.class);
+
+    /** Constructs a new builder with all possible cache miss reasons set to zero counts. */
+    public MissDetailsBuilder() {
+      for (MissReason reason : MissReason.values()) {
+        if (reason == MissReason.UNRECOGNIZED) {
+          // The presence of this enum value is a protobuf artifact and not part of our metrics
+          // collection. Just skip it.
+          continue;
+        }
+        details.put(reason, 0);
+      }
+    }
+
+    /** Sets the count of the given miss reason to the given value. */
+    public MissDetailsBuilder set(MissReason reason, int count) {
+      checkArgument(details.containsKey(reason));
+      details.put(reason, count);
+      return this;
+    }
+
+    /** Constructs the list of {@link MissDetail}s. */
+    public Iterable<MissDetail> build() {
+      List<MissDetail> result = new ArrayList<>(details.size());
+      for (Map.Entry<MissReason, Integer> entry : details.entrySet()) {
+        MissDetail detail = MissDetail.newBuilder()
+            .setReason(entry.getKey())
+            .setCount(entry.getValue())
+            .build();
+        result.add(detail);
+      }
+      return result;
+    }
+  }
+
+  /**
+   * An {@link ArtifactResolver} all of whose operations throw an exception.
+   *
+   * <p>This is to be used as a base class by other test programs that need to implement only a
+   * few of the hooks required by the scenario under test.
+   */
+  public static class FakeArtifactResolverBase implements ArtifactResolver {
+    @Override
+    public Artifact getSourceArtifact(
+        PathFragment execPath, Root root, ArtifactOwner owner) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Artifact getSourceArtifact(PathFragment execPath, Root root) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Artifact resolveSourceArtifact(
+        PathFragment execPath, RepositoryName repositoryName) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<PathFragment, Artifact> resolveSourceArtifacts(
+        Iterable<PathFragment> execPaths, PackageRootResolver resolver) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Path getPathFromSourceExecPath(PathFragment execPath) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  /**
+   * A {@link MetadataHandler} all of whose operations throw an exception.
+   *
+   * <p>This is to be used as a base class by other test programs that need to implement only a
+   * few of the hooks required by the scenario under test.
+   */
+  public static class FakeMetadataHandlerBase implements MetadataHandler {
+    @Override
+    public Metadata getMetadata(Artifact artifact) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setDigestForVirtualArtifact(Artifact artifact, Md5Digest md5Digest) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void addExpandedTreeOutput(TreeFileArtifact output) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Iterable<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void markOmitted(ActionInput output) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean artifactOmitted(Artifact artifact) {
+      return false;
+    }
+
+    @Override
+    public void discardOutputMetadata() {
+      throw new UnsupportedOperationException();
+    }
   }
 }

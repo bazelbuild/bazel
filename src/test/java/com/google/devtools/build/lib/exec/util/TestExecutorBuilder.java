@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BinTools;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
@@ -30,7 +31,7 @@ import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -45,6 +46,7 @@ import java.util.TreeMap;
 public class TestExecutorBuilder {
   public static final ImmutableList<Class<? extends OptionsBase>> DEFAULT_OPTIONS =
       ImmutableList.of(ExecutionOptions.class, CommonCommandOptions.class);
+  private final FileSystem fileSystem;
   private final BlazeDirectories directories;
   private EventBus bus = new EventBus();
   private Reporter reporter = new Reporter(bus);
@@ -53,7 +55,9 @@ public class TestExecutorBuilder {
   private Map<String, SpawnActionContext> spawnStrategyMap =
       new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
-  public TestExecutorBuilder(BlazeDirectories directories, BinTools binTools) {
+  public TestExecutorBuilder(
+      FileSystem fileSystem, BlazeDirectories directories, BinTools binTools) {
+    this.fileSystem = fileSystem;
     this.directories = directories;
     strategies.add(new FileWriteStrategy());
     strategies.add(new SymlinkTreeStrategy(null, binTools));
@@ -97,6 +101,7 @@ public class TestExecutorBuilder {
 
   public BlazeExecutor build() throws ExecutorInitException {
     return new BlazeExecutor(
+        fileSystem,
         directories.getExecRoot(TestConstants.WORKSPACE_NAME),
         reporter,
         bus,

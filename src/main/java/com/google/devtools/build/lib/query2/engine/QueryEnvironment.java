@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -141,6 +142,9 @@ public interface QueryEnvironment<T> {
       super(cause.getMessage(), cause);
     }
   }
+
+  /** Returns all of the targets in <code>target</code>'s package, in some stable order. */
+  Collection<T> getSiblingTargetsInPackage(T target);
 
   /**
    * Invokes {@code callback} with the set of target nodes in the graph for the specified target
@@ -545,16 +549,17 @@ public interface QueryEnvironment<T> {
   ImmutableList<QueryFunction> DEFAULT_QUERY_FUNCTIONS =
       ImmutableList.of(
           new AllPathsFunction(),
-          new BuildFilesFunction(),
-          new LoadFilesFunction(),
           new AttrFunction(),
+          new BuildFilesFunction(),
+          new DepsFunction(),
           new FilterFunction(),
-          new LabelsFunction(),
           new KindFunction(),
+          new LabelsFunction(),
+          new LoadFilesFunction(),
+          new RdepsFunction(),
+          new SiblingsFunction(),
           new SomeFunction(),
           new SomePathFunction(),
           new TestsFunction(),
-          new DepsFunction(),
-          new RdepsFunction(),
           new VisibleFunction());
 }

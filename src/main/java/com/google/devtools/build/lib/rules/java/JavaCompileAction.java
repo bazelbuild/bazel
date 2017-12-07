@@ -14,36 +14,41 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.lib.packages.Aspect.INJECTING_RULE_KIND_PARAMETER_KEY;
-import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -56,7 +61,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.skyframe.AspectValue;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -189,7 +194,8 @@ public final class JavaCompileAction extends SpawnAction {
       Map<String, String> executionInfo,
       StrictDepsMode strictJavaDeps,
       NestedSet<Artifact> compileTimeDependencyArtifacts,
-      String progressMessage) {
+      CharSequence progressMessage,
+      RunfilesSupplier runfiles) {
     super(
         owner,
         tools,
@@ -202,10 +208,11 @@ public final class JavaCompileAction extends SpawnAction {
         UTF8_ACTION_ENVIRONMENT,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        EmptyRunfilesSupplier.INSTANCE,
+        runfiles,
         "Javac",
         false /*executeUnconditionally*/,
-        null /*extraActionInfoSupplier*/);
+        null /*extraActionInfoSupplier*/,
+        null /*executionPlatform*/);
     this.javaCompileCommandLine = javaCompileCommandLine;
     this.commandLine = commandLine;
 
@@ -320,32 +327,42 @@ public final class JavaCompileAction extends SpawnAction {
   }
 
   /**
-   * Constructs a command line that can be used to invoke the
-   * JavaBuilder.
+   * Constructs a command line that can be used to invoke the JavaBuilder.
    *
-   * <p>Do not use this method, except for testing (and for the in-process
-   * strategy).
+   * <p>Do not use this method, except for testing (and for the in-process strategy).
    */
   @VisibleForTesting
   public Iterable<String> buildCommandLine() {
-    return javaCompileCommandLine.arguments();
+    try {
+      return javaCompileCommandLine.arguments();
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("JavaCompileAction command line expansion cannot fail");
+    }
   }
 
   /** Returns the command and arguments for a java compile action. */
   public List<String> getCommand() {
-    return ImmutableList.copyOf(commandLine.arguments());
+    try {
+      return ImmutableList.copyOf(commandLine.arguments());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("JavaCompileAction command line expansion cannot fail");
+    }
   }
 
   @Override
   public String toString() {
-    StringBuilder result = new StringBuilder();
-    result.append("JavaBuilder ");
-    Joiner.on(' ').appendTo(result, commandLine.arguments());
-    return result.toString();
+    try {
+      StringBuilder result = new StringBuilder();
+      result.append("JavaBuilder ");
+      Joiner.on(' ').appendTo(result, commandLine.arguments());
+      return result.toString();
+    } catch (CommandLineExpansionException e) {
+      return "Error expanding command line";
+    }
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() {
+  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext) {
     JavaCompileInfo.Builder info = JavaCompileInfo.newBuilder();
     info.addAllSourceFile(Artifact.toExecPaths(getSourceFiles()));
     info.addAllClasspath(Artifact.toExecPaths(getClasspath()));
@@ -356,8 +373,12 @@ public final class JavaCompileAction extends SpawnAction {
     info.addAllProcessorpath(Artifact.toExecPaths(getProcessorpath()));
     info.setOutputjar(getOutputJar().getExecPathString());
 
-    return super.getExtraActionInfo()
-        .setExtension(JavaCompileInfo.javaCompileInfo, info.build());
+    try {
+      return super.getExtraActionInfo(actionKeyContext)
+          .setExtension(JavaCompileInfo.javaCompileInfo, info.build());
+    } catch (CommandLineExpansionException e) {
+      throw new AssertionError("JavaCompileAction command line expansion cannot fail");
+    }
   }
 
   /**
@@ -414,7 +435,6 @@ public final class JavaCompileAction extends SpawnAction {
   private static CustomMultiArgv spawnCommandLineBase(
       final PathFragment javaExecutable,
       final Artifact javaBuilderJar,
-      final Artifact langtoolsJar,
       final ImmutableList<Artifact> instrumentationJars,
       final ImmutableList<String> javaBuilderJvmFlags,
       final String javaBuilderMainClass,
@@ -422,24 +442,26 @@ public final class JavaCompileAction extends SpawnAction {
     return new CustomMultiArgv() {
       @Override
       public Iterable<String> argv() {
-        checkNotNull(langtoolsJar);
         checkNotNull(javaBuilderJar);
 
-        CustomCommandLine.Builder builder =  CustomCommandLine.builder()
-            .addPath(javaExecutable)
-            // Langtools jar is placed on the boot classpath so that it can override classes
-            // in the JRE. Typically this has no effect since langtools.jar does not have
-            // classes in common with rt.jar. However, it is necessary when using a version
-            // of javac.jar generated via ant from the langtools build.xml that is of a
-            // different version than AND has an overlap in contents with the default
-            // run-time (eg while upgrading the Java version).
-            .addPaths("-Xbootclasspath/p:%s", langtoolsJar.getExecPath())
-            .add(javaBuilderJvmFlags);
+        if (!javaBuilderJar.getExtension().equals("jar")) {
+          // JavaBuilder is a non-deploy.jar executable.
+          return ImmutableList.of(javaBuilderJar.getExecPathString());
+        }
+
+        CustomCommandLine.Builder builder =
+            CustomCommandLine.builder().addPath(javaExecutable).addAll(javaBuilderJvmFlags);
         if (!instrumentationJars.isEmpty()) {
           builder
-              .addJoinExecPaths("-cp", pathDelimiter,
-                  Iterables.concat(instrumentationJars, ImmutableList.of(javaBuilderJar)))
-              .add(javaBuilderMainClass);
+              .addExecPaths(
+                  "-cp",
+                  VectorArg.join(pathDelimiter)
+                      .each(
+                          ImmutableList.<Artifact>builder()
+                              .addAll(instrumentationJars)
+                              .add(javaBuilderJar)
+                              .build()))
+              .addDynamicString(javaBuilderMainClass);
         } else {
           // If there are no instrumentation jars, use simpler '-jar' option to launch JavaBuilder.
           builder.addExecPath("-jar", javaBuilderJar);
@@ -490,6 +512,7 @@ public final class JavaCompileAction extends SpawnAction {
     private Collection<Artifact> additionalOutputs;
     private Artifact paramFile;
     private Artifact metadata;
+    private Artifact artifactForExperimentalCoverage;
     private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
     private final Collection<Artifact> sourceJars = new ArrayList<>();
     private BuildConfiguration.StrictDepsMode strictJavaDeps =
@@ -506,16 +529,15 @@ public final class JavaCompileAction extends SpawnAction {
     private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
     private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
     private ImmutableList<Artifact> extdirInputs = ImmutableList.of();
-    private Artifact javaBuilderJar;
+    private FilesToRunProvider javaBuilder;
     private Artifact langtoolsJar;
+    private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private ImmutableList<Artifact> instrumentationJars = ImmutableList.of();
     private PathFragment sourceGenDirectory;
     private PathFragment tempDirectory;
     private PathFragment classDirectory;
     private NestedSet<Artifact> processorPath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private final List<String> processorNames = new ArrayList<>();
-    /** The list of custom javac flags to pass to annotation processors. */
-    private final List<String> processorFlags = new ArrayList<>();
     private String ruleKind;
     private Label targetLabel;
     private boolean testOnly = false;
@@ -596,29 +618,36 @@ public final class JavaCompileAction extends SpawnAction {
           paramFileContents, ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1);
       analysisEnvironment.registerAction(parameterFileWriteAction);
 
-      CustomMultiArgv spawnCommandLineBase = spawnCommandLineBase(
-          javaExecutable,
-          javaBuilderJar,
-          langtoolsJar,
-          instrumentationJars,
-          javacJvmOpts,
-          semantics.getJavaBuilderMainClass(),
-          pathSeparator);
+      CustomMultiArgv spawnCommandLineBase =
+          spawnCommandLineBase(
+              javaExecutable,
+              javaBuilder.getExecutable(),
+              instrumentationJars,
+              javacJvmOpts,
+              semantics.getJavaBuilderMainClass(),
+              pathSeparator);
+
+      if (artifactForExperimentalCoverage != null) {
+        analysisEnvironment.registerAction(new LazyWritePathsFileAction(
+            owner, artifactForExperimentalCoverage, sourceFiles, false));
+      }
 
       // The actual params-file-based command line executed for a compile action.
-      CommandLine javaBuilderCommandLine = CustomCommandLine.builder()
-          .add(spawnCommandLineBase)
-          .addPaths("@%s", paramFile.getExecPath())
-          .build();
+      CommandLine javaBuilderCommandLine =
+          CustomCommandLine.builder()
+              .addCustomMultiArgv(spawnCommandLineBase)
+              .addFormatted("@%s", paramFile.getExecPath())
+              .build();
 
       NestedSet<Artifact> tools =
           NestedSetBuilder.<Artifact>stableOrder()
               .add(langtoolsJar)
-              .add(javaBuilderJar)
+              .addTransitive(toolsJars)
+              .addTransitive(javaBuilder.getFilesToRun())
               .addAll(instrumentationJars)
               .build();
 
-      NestedSet<Artifact> inputs =
+      NestedSetBuilder<Artifact> inputsBuilder =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(classpathEntries)
               .addTransitive(compileTimeDependencyArtifacts)
@@ -630,8 +659,11 @@ public final class JavaCompileAction extends SpawnAction {
               .addAll(sourcePathEntries)
               .addAll(extdirInputs)
               .add(paramFile)
-              .addTransitive(tools)
-              .build();
+              .addTransitive(tools);
+      if (artifactForExperimentalCoverage != null) {
+        inputsBuilder.add(artifactForExperimentalCoverage);
+      }
+      NestedSet<Artifact> inputs = inputsBuilder.build();
 
       return new JavaCompileAction(
           owner,
@@ -655,7 +687,8 @@ public final class JavaCompileAction extends SpawnAction {
           executionInfo,
           strictJavaDeps,
           compileTimeDependencyArtifacts,
-          buildProgressMessage());
+          getProgressMessage(),
+          javaBuilder.getRunfilesSupplier());
     }
 
     private CustomCommandLine buildParamFileContents(Collection<String> javacOpts) {
@@ -697,33 +730,29 @@ public final class JavaCompileAction extends SpawnAction {
         result.addExecPaths("--processorpath", processorPath);
       }
       if (!processorNames.isEmpty()) {
-        result.add("--processors", processorNames);
-      }
-      if (!processorFlags.isEmpty()) {
-        result.add("--javacopts", processorFlags);
+        result.addAll("--processors", ImmutableList.copyOf(processorNames));
       }
       if (!sourceJars.isEmpty()) {
-        result.addExecPaths("--source_jars", sourceJars);
+        result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
       }
       if (!sourceFiles.isEmpty()) {
         result.addExecPaths("--sources", sourceFiles);
       }
       if (!javacOpts.isEmpty()) {
-        result.add("--javacopts", javacOpts);
+        result.addAll("--javacopts", ImmutableList.copyOf(javacOpts));
       }
       if (ruleKind != null) {
-        result.add("--rule_kind");
-        result.add(ruleKind);
+        result.add("--rule_kind", ruleKind);
       }
       if (targetLabel != null) {
         result.add("--target_label");
         if (targetLabel.getPackageIdentifier().getRepository().isDefault()
             || targetLabel.getPackageIdentifier().getRepository().isMain()) {
-          result.add(targetLabel.toString());
+          result.addLabel(targetLabel);
         } else {
           // @-prefixed strings will be assumed to be filenames and expanded by
           // {@link JavaLibraryBuildRequest}, so add an extra &at; to escape it.
-          result.add("@" + targetLabel);
+          result.addPrefixedLabel("@", targetLabel);
         }
       }
       if (testOnly) {
@@ -737,9 +766,8 @@ public final class JavaCompileAction extends SpawnAction {
       // strict_java_deps controls whether the mapping from jars to targets is
       // written out and whether we try to minimize the compile-time classpath.
       if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
-        result.add("--strict_java_deps");
-        result.add(strictJavaDeps.toString());
-        result.add(new JarsToTargetsArgv(classpathEntries, directJars));
+        result.add("--strict_java_deps", strictJavaDeps.toString());
+        result.addCustomMultiArgv(new JarsToTargetsArgv(classpathEntries, directJars));
 
         if (configuration.getFragment(JavaConfiguration.class).getReduceJavaClasspath()
             == JavaClasspathMode.JAVABUILDER) {
@@ -750,9 +778,13 @@ public final class JavaCompileAction extends SpawnAction {
           }
         }
       }
-      if (metadata != null) {
+
+      // Chose what artifact to pass to JavaBuilder, as input to jacoco instrumentation processor.
+      // metadata should be null when --experimental_java_coverage is true.
+      Artifact coverageArtifact = metadata != null ? metadata : artifactForExperimentalCoverage;
+      if (coverageArtifact != null) {
         result.add("--post_processor");
-        result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, metadata);
+        result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, coverageArtifact);
         result.addPath(
             configuration
                 .getCoverageMetadataDirectory(targetLabel.getPackageIdentifier().getRepository())
@@ -763,13 +795,42 @@ public final class JavaCompileAction extends SpawnAction {
       return result.build();
     }
 
-    private String buildProgressMessage() {
-      StringBuilder sb = new StringBuilder("Building ");
-      sb.append(outputJar.prettyPrint());
-      sb.append(" (");
-      boolean first = true;
-      first = appendCount(sb, first, sourceFiles.size(), "source file");
-      first = appendCount(sb, first, sourceJars.size(), "source jar");
+    private LazyString getProgressMessage() {
+      Artifact outputJar = this.outputJar;
+      int sourceFileCount = sourceFiles.size();
+      int sourceJarCount = sourceJars.size();
+      String annotationProcessorNames = getProcessorNames();
+      return new LazyString() {
+        @Override
+        public String toString() {
+          StringBuilder sb = new StringBuilder("Building ");
+          sb.append(outputJar.prettyPrint());
+          sb.append(" (");
+          boolean first = true;
+          first = appendCount(sb, first, sourceFileCount, "source file");
+          first = appendCount(sb, first, sourceJarCount, "source jar");
+          sb.append(")");
+          sb.append(annotationProcessorNames);
+          return sb.toString();
+        }
+      };
+    }
+
+    private String getProcessorNames() {
+      if (processorNames.isEmpty()) {
+        return "";
+      }
+      StringBuilder sb = new StringBuilder();
+      List<String> shortNames = new ArrayList<>();
+      for (String name : processorNames) {
+        // Annotation processor names are qualified class names. Omit the package part for the
+        // progress message, e.g. `com.google.Foo` -> `Foo`.
+        int idx = name.lastIndexOf('.');
+        String shortName = idx != -1 ? name.substring(idx + 1) : name;
+        shortNames.add(shortName);
+      }
+      sb.append(" and running annotation processors (");
+      Joiner.on(", ").appendTo(sb, shortNames);
       sb.append(")");
       return sb.toString();
     }
@@ -937,23 +998,30 @@ public final class JavaCompileAction extends SpawnAction {
       return this;
     }
 
-    public Builder addProcessorFlags(Collection<String> processorFlags) {
-      this.processorFlags.addAll(processorFlags);
-      return this;
-    }
-
     public Builder setLangtoolsJar(Artifact langtoolsJar) {
       this.langtoolsJar = langtoolsJar;
       return this;
     }
 
-    public Builder setJavaBuilderJar(Artifact javaBuilderJar) {
-      this.javaBuilderJar = javaBuilderJar;
+    /** Sets the tools jars. */
+    public Builder setToolsJars(NestedSet<Artifact> toolsJars) {
+      checkNotNull(toolsJars, "toolsJars must not be null");
+      this.toolsJars = toolsJars;
+      return this;
+    }
+
+    public Builder setJavaBuilder(FilesToRunProvider javaBuilder) {
+      this.javaBuilder = javaBuilder;
       return this;
     }
 
     public Builder setInstrumentationJars(Iterable<Artifact> instrumentationJars) {
       this.instrumentationJars = ImmutableList.copyOf(instrumentationJars);
+      return this;
+    }
+
+    public Builder setArtifactForExperimentalCoverage(Artifact artifactForExperimentalCoverage) {
+      this.artifactForExperimentalCoverage = artifactForExperimentalCoverage;
       return this;
     }
 
@@ -966,7 +1034,7 @@ public final class JavaCompileAction extends SpawnAction {
       this.targetLabel = targetLabel;
       return this;
     }
-    
+
     public Builder setTestOnly(boolean testOnly) {
       this.testOnly = testOnly;
       return this;

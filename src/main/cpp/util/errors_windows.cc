@@ -25,7 +25,7 @@ using std::stringstream;
 string GetLastErrorString() {
   DWORD last_error = ::GetLastError();
   if (last_error == 0) {
-    return string();
+    return "success";
   }
 
   char* message_buffer;

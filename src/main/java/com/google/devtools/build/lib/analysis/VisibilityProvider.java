@@ -15,15 +15,13 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 
 /**
  * Provider class for configured targets that have a visibility.
  */
 public interface VisibilityProvider extends TransitiveInfoProvider {
 
-  /**
-   * Returns the visibility specification.
-   */
-  NestedSet<PackageSpecification> getVisibility();
+  /** Returns the visibility specification. */
+  NestedSet<PackageGroupContents> getVisibility();
 }

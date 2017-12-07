@@ -18,6 +18,7 @@ import static com.google.common.collect.Iterables.transform;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,6 +31,13 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.FilesetOutputConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
+import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -50,18 +58,17 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
+import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.ArrayList;
@@ -89,21 +96,23 @@ public final class ConfiguredTargetFactory {
    * Returns the visibility of the given target. Errors during package group resolution are reported
    * to the {@code AnalysisEnvironment}.
    */
-  private NestedSet<PackageSpecification> convertVisibility(
-      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap, EventHandler reporter,
-      Target target, BuildConfiguration packageGroupConfiguration) {
+  private NestedSet<PackageGroupContents> convertVisibility(
+      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      EventHandler reporter,
+      Target target,
+      BuildConfiguration packageGroupConfiguration) {
     RuleVisibility ruleVisibility = target.getVisibility();
     if (ruleVisibility instanceof ConstantRuleVisibility) {
       return ((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()
-          ? NestedSetBuilder.<PackageSpecification>create(
-              Order.STABLE_ORDER, PackageSpecification.everything())
-          : NestedSetBuilder.<PackageSpecification>emptySet(Order.STABLE_ORDER);
+          ? NestedSetBuilder.create(
+              Order.STABLE_ORDER,
+              PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())))
+          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
       PackageGroupsRuleVisibility packageGroupsVisibility =
           (PackageGroupsRuleVisibility) ruleVisibility;
 
-      NestedSetBuilder<PackageSpecification> packageSpecifications =
-          NestedSetBuilder.stableOrder();
+      NestedSetBuilder<PackageGroupContents> result = NestedSetBuilder.stableOrder();
       for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
         // PackageGroupsConfiguredTargets are always in the package-group configuration.
         ConfiguredTarget group =
@@ -121,15 +130,15 @@ public final class ConfiguredTargetFactory {
           provider = group.getProvider(PackageSpecificationProvider.class);
         }
         if (provider != null) {
-          packageSpecifications.addTransitive(provider.getPackageSpecifications());
+          result.addTransitive(provider.getPackageSpecifications());
         } else {
           reporter.handle(Event.error(target.getLocation(),
               String.format("Label '%s' does not refer to a package group", groupLabel)));
         }
       }
 
-      packageSpecifications.addAll(packageGroupsVisibility.getDirectPackages());
-      return packageSpecifications.build();
+      result.add(packageGroupsVisibility.getDirectPackages());
+      return result.build();
     } else {
       throw new IllegalStateException("unknown visibility");
     }
@@ -181,9 +190,6 @@ public final class ConfiguredTargetFactory {
     if (fromConfig == null) {
       return null;
     }
-    if (!fromConfig.useDynamicConfigurations()) {
-      return fromConfig.getArtifactOwnerConfiguration();
-    }
     PatchTransition ownerTransition = fromConfig.getArtifactOwnerTransition();
     if (ownerTransition == null) {
       return fromConfig;
@@ -205,25 +211,41 @@ public final class ConfiguredTargetFactory {
 
   /**
    * Invokes the appropriate constructor to create a {@link ConfiguredTarget} instance.
+   *
    * <p>For use in {@code ConfiguredTargetFunction}.
    *
    * <p>Returns null if Skyframe deps are missing or upon certain errors.
    */
   @Nullable
-  public final ConfiguredTarget createConfiguredTarget(AnalysisEnvironment analysisEnvironment,
-      ArtifactFactory artifactFactory, Target target, BuildConfiguration config,
+  public final ConfiguredTarget createConfiguredTarget(
+      AnalysisEnvironment analysisEnvironment,
+      ArtifactFactory artifactFactory,
+      Target target,
+      BuildConfiguration config,
       BuildConfiguration hostConfig,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions)
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext)
       throws InterruptedException {
     if (target instanceof Rule) {
-      return createRule(analysisEnvironment, (Rule) target, config, hostConfig,
-          prerequisiteMap, configConditions);
+      try {
+        CurrentRuleTracker.beginConfiguredTarget(((Rule) target).getRuleClassObject());
+        return createRule(
+            analysisEnvironment,
+            (Rule) target,
+            config,
+            hostConfig,
+            prerequisiteMap,
+            configConditions,
+            toolchainContext);
+      } finally {
+        CurrentRuleTracker.endConfiguredTarget();
+      }
     }
 
     // Visibility, like all package groups, doesn't have a configuration
-    NestedSet<PackageSpecification> visibility = convertVisibility(
-        prerequisiteMap, analysisEnvironment.getEventHandler(), target, null);
+    NestedSet<PackageGroupContents> visibility =
+        convertVisibility(prerequisiteMap, analysisEnvironment.getEventHandler(), target, null);
     TargetContext targetContext = new TargetContext(analysisEnvironment, target, config,
         prerequisiteMap.get(null), visibility);
     if (target instanceof OutputFile) {
@@ -271,10 +293,20 @@ public final class ConfiguredTargetFactory {
    */
   @Nullable
   private ConfiguredTarget createRule(
-      AnalysisEnvironment env, Rule rule, BuildConfiguration configuration,
+      AnalysisEnvironment env,
+      Rule rule,
+      BuildConfiguration configuration,
       BuildConfiguration hostConfiguration,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions) throws InterruptedException {
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext)
+      throws InterruptedException {
+
+    // Load the requested toolchains into the ToolchainContext.
+    if (toolchainContext != null) {
+      toolchainContext.resolveToolchains(prerequisiteMap);
+    }
+
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
         new RuleContext.Builder(
@@ -289,9 +321,7 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(prerequisiteMap)
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
-            // TODO(katre): Populate the actual selected toolchains.
-            .setToolchainContext(
-                new ToolchainContext(rule.getRuleClassObject().getRequiredToolchains(), null))
+            .setToolchainContext(toolchainContext)
             .build();
     if (ruleContext.hasErrors()) {
       return null;
@@ -314,11 +344,10 @@ public final class ConfiguredTargetFactory {
 
     if (rule.getRuleClassObject().isSkylark()) {
       // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-      return SkylarkRuleConfiguredTargetBuilder.buildRule(
+      return SkylarkRuleConfiguredTargetUtil.buildRule(
           ruleContext,
           rule.getRuleClassObject().getConfiguredTargetFunction(),
-          env.getSkylarkSemantics()
-      );
+          env.getSkylarkSemantics());
     } else {
       RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> factory =
           rule.getRuleClassObject().<ConfiguredTarget, RuleContext>getConfiguredTargetFactory();
@@ -366,9 +395,10 @@ public final class ConfiguredTargetFactory {
           return aspect.getDescriptor();
         }
       };
+
   /**
-   * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case,
-   * {@code aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
+   * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case, {@code
+   * aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
    */
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
@@ -378,9 +408,16 @@ public final class ConfiguredTargetFactory {
       Aspect aspect,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration)
       throws InterruptedException {
+
+    // Load the requested toolchains into the ToolchainContext.
+    if (toolchainContext != null) {
+      toolchainContext.resolveToolchains(prerequisiteMap);
+    }
+
     RuleContext.Builder builder = new RuleContext.Builder(
         env,
         associatedTarget.getTarget().getAssociatedRule(),
@@ -398,9 +435,7 @@ public final class ConfiguredTargetFactory {
             .setAspectAttributes(aspect.getDefinition().getAttributes())
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
-            // TODO(katre): Populate the actual selected toolchains.
-            .setToolchainContext(
-                new ToolchainContext(aspect.getDefinition().getRequiredToolchains(), null))
+            .setToolchainContext(toolchainContext)
             .build();
     if (ruleContext.hasErrors()) {
       return null;

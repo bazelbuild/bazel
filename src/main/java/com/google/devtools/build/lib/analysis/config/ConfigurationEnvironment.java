@@ -44,20 +44,54 @@ public interface ConfigurationEnvironment {
    * Returns a target for the given label, loading it if necessary, and throwing an exception if it
    * does not exist.
    *
-   * @see TargetProvider#getTarget
+   * @deprecated Do not use this method. Configuration fragments should be fairly dumb key-value
+   * maps so that they are cheap and easy to create.
+   *
+   * <p>If you feel the need to use contents of BUILD files in your
+   * {@link ConfigurationFragmentFactory}, add an implicit dependency to your rules that use your
+   * configuration fragment that point to a rule of a new rule class, and do the computation during
+   * the analysis of said rule. The only uses of this method are those we haven't gotten around
+   * migrating yet.
    */
+  @Deprecated
   Target getTarget(Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException;
 
-  /** Returns a path for the given file within the given package. */
+  /**
+   * Returns a path for the given file within the given package.
+   *
+   * @deprecated Do not use this method. Configuration fragments should be fairly dumb key-value
+   * maps so that they are cheap and easy to create. If you feel the need to read contents of files
+   * in your {@link ConfigurationFragmentFactory}, you have the following options:
+   * <ul>
+   *   <li>
+   *     Add an implicit dependency to the rules that need this configuration fragment, put the
+   *     information you need in BUILD files and use it during the analysis of the implicit
+   *     dependency
+   *   </li>
+   *   <li>
+   *     Read the file during the execution phase (then it won't be able to affect analysis)
+   *   </li>
+   *   <li>
+   *     Contact the developers of Bazel and we'll figure something out.
+   *   </li>
+   * </ul>
+   */
+  @Deprecated
   Path getPath(Package pkg, String fileName) throws InterruptedException;
 
   /** Returns fragment based on fragment class and build options. */
   <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
       throws InvalidConfigurationException, InterruptedException;
 
-  /** Returns global value of BlazeDirectories. */
+  /**
+   * Returns global value of BlazeDirectories.
+   *
+   * @deprecated Do not use this method. Configuration fragments should be fairly dumb key-value
+   * pairs so that they are cheap and easy to create.
+   */
   @Nullable
+  @Deprecated
   BlazeDirectories getBlazeDirectories() throws InterruptedException;
 
   /**

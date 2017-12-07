@@ -46,6 +46,9 @@ public class PrinterTest {
   public void testPrinter() throws Exception {
     // Note that prettyPrintValue and printValue only differ on behaviour of
     // labels and strings at toplevel.
+    assertThat(Printer.str(createObjWithStr())).isEqualTo("<str marker>");
+    assertThat(Printer.repr(createObjWithStr())).isEqualTo("<repr marker>");
+
     assertThat(Printer.str("foo\nbar")).isEqualTo("foo\nbar");
     assertThat(Printer.repr("foo\nbar")).isEqualTo("\"foo\\nbar\"");
     assertThat(Printer.str("'")).isEqualTo("'");
@@ -102,6 +105,8 @@ public class PrinterTest {
   public void testFormatPositional() throws Exception {
     assertThat(Printer.formatWithList("%s %d", Tuple.of("foo", 3))).isEqualTo("foo 3");
     assertThat(Printer.format("%s %d", "foo", 3)).isEqualTo("foo 3");
+
+    assertThat(Printer.format("%s %s %s", 1, null, 3)).isEqualTo("1 null 3");
 
     // Note: formatToString doesn't perform scalar x -> (x) conversion;
     // The %-operator is responsible for that.
@@ -217,14 +222,6 @@ public class PrinterTest {
     assertThat(Printer.str(list)).isEqualTo(String.format("[%s]", Joiner.on(", ").join(list)));
   }
 
-  @Test
-  public void testLegacyPrinter() throws Exception {
-    assertThat(new Printer.LegacyPrinter().str(createObjWithStr()).toString())
-        .isEqualTo("<str legacy marker>");
-    assertThat(new Printer.LegacyPrinter().repr(createObjWithStr()).toString())
-        .isEqualTo("<repr legacy marker>");
-  }
-
   private String printListWithLimit(List<?> list) {
     return printList(list, Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
@@ -243,23 +240,8 @@ public class PrinterTest {
       }
 
       @Override
-      public void reprLegacy(SkylarkPrinter printer) {
-        printer.append("<repr legacy marker>");
-      }
-
-      @Override
       public void str(SkylarkPrinter printer) {
         printer.append("<str marker>");
-      }
-
-      @Override
-      public void strLegacy(SkylarkPrinter printer) {
-        printer.append("<str legacy marker>");
-      }
-
-      @Override
-      public boolean isImmutable() {
-        return false;
       }
     };
   }

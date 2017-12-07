@@ -13,18 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -229,9 +229,19 @@ public class PackageLookupFunction implements SkyFunction {
       if (localRepository.exists()
           && !localRepository.getRepository().equals(packageIdentifier.getRepository())) {
         // There is a repository mismatch, this is an error.
-        // TODO(jcater): Work out the correct package name for this error message.
-        return PackageLookupValue.invalidPackageName(
-            "Package crosses into repository " + localRepository.getRepository().getName());
+        // The correct package path is the one originally given, minus the part that is the local
+        // repository.
+        PathFragment pathToRequestedPackage = packageIdentifier.getPathUnderExecRoot();
+        PathFragment localRepositoryPath = localRepository.getPath();
+        if (localRepositoryPath.isAbsolute()) {
+          // We need the package path to also be absolute.
+          pathToRequestedPackage =
+              packagePathEntry.asFragment().getRelative(pathToRequestedPackage);
+        }
+        PathFragment remainingPath = pathToRequestedPackage.relativeTo(localRepositoryPath);
+        PackageIdentifier correctPackage =
+            PackageIdentifier.create(localRepository.getRepository(), remainingPath);
+        return PackageLookupValue.incorrectRepositoryReference(packageIdentifier, correctPackage);
       }
 
       // There's no local repository, keep going.

@@ -14,15 +14,16 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.PackageBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
+import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -31,20 +32,20 @@ import java.util.Map;
  * target (not on behavior of the {@link ConfiguredTarget} implementation). Retrieved Make variable
  * value can be modified using {@link MakeVariableSupplier}
  */
-public class ConfigurationMakeVariableContext implements MakeVariableExpander.Context {
+public class ConfigurationMakeVariableContext implements TemplateContext {
 
   private final ImmutableList<? extends MakeVariableSupplier> allMakeVariableSuppliers;
 
   // TODO(b/37567440): Remove when Skylark callers can be updated to get this from
   // CcToolchainProvider. We should use CcCommon.CC_TOOLCHAIN_ATTRIBUTE_NAME, but we didn't want to
   // pollute core with C++ specific constant.
-  private static final ImmutableList<String> defaultMakeVariableAttributes =
-      ImmutableList.of(":cc_toolchain");
+  protected static final ImmutableList<String> DEFAULT_MAKE_VARIABLE_ATTRIBUTES =
+      ImmutableList.of(":cc_toolchain", "toolchains");
 
   public ConfigurationMakeVariableContext(
       RuleContext ruleContext, Package pkg, BuildConfiguration configuration) {
     this(
-        ruleContext.getMakeVariables(defaultMakeVariableAttributes),
+        ruleContext.getMakeVariables(DEFAULT_MAKE_VARIABLE_ATTRIBUTES),
         pkg,
         configuration,
         ImmutableList.<MakeVariableSupplier>of());
@@ -54,7 +55,7 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
       ImmutableMap<String, String> ruleMakeVariables,
       Package pkg,
       BuildConfiguration configuration) {
-    this(ruleMakeVariables, pkg, configuration, ImmutableList.<MakeVariableSupplier>of());
+    this(ruleMakeVariables, pkg, configuration, ImmutableList.of());
   }
 
   public ConfigurationMakeVariableContext(
@@ -63,7 +64,7 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
       BuildConfiguration configuration,
       Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
     this(
-        ruleContext.getMakeVariables(defaultMakeVariableAttributes),
+        ruleContext.getMakeVariables(DEFAULT_MAKE_VARIABLE_ATTRIBUTES),
         pkg,
         configuration,
         makeVariableSuppliers);
@@ -85,14 +86,14 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
   }
 
   @Override
-  public String lookupMakeVariable(String variableName) throws ExpansionException {
+  public String lookupVariable(String name) throws ExpansionException {
     for (MakeVariableSupplier supplier : allMakeVariableSuppliers) {
-      String variableValue = supplier.getMakeVariable(variableName);
+      String variableValue = supplier.getMakeVariable(name);
       if (variableValue != null) {
         return variableValue;
       }
     }
-    throw new MakeVariableExpander.ExpansionException("$(" + variableName + ") not defined");
+    throw new ExpansionException(String.format("$(%s) not defined", name));
   }
 
   public SkylarkDict<String, String> collectMakeVariables() {
@@ -103,5 +104,10 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
       map.putAll(supplier.getAllMakeVariables());
     }
     return SkylarkDict.<String, String>copyOf(null, map);
+  }
+
+  @Override
+  public String lookupFunction(String name, String param) throws ExpansionException {
+    throw new ExpansionException(String.format("$(%s) not defined", name));
   }
 }

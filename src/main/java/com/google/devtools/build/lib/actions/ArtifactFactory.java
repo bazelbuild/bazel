@@ -14,14 +14,13 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -36,6 +35,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, ArtifactDeserializer {
 
+  private final Path execRoot;
   private final Path execRootParent;
   private final PathFragment derivedPathPrefix;
 
@@ -45,10 +45,10 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   private final SourceArtifactCache sourceArtifactCache = new SourceArtifactCache();
 
   /**
-   * Map of package names to source root paths so that we can create source
-   * artifact paths given execPaths in the symlink forest.
+   * Map of package names to source root paths so that we can create source artifact paths given
+   * execPaths in the symlink forest.
    */
-  private ImmutableMap<PackageIdentifier, Root> packageRoots;
+  private PackageRoots.PackageRootLookup packageRoots;
 
   private ArtifactIdRegistry artifactIdRegistry = new ArtifactIdRegistry();
 
@@ -117,16 +117,16 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       pathToSourceArtifact.put(execPath, new Entry(artifact));
     }
   }
-  
+
   /**
-   * Constructs a new artifact factory that will use a given execution root when
-   * creating artifacts.
+   * Constructs a new artifact factory that will use a given execution root when creating artifacts.
    *
-   * @param execRootParent the execution root Path to use. This will be [output_base]/execroot if
-   * deep_execroot is set, [output_base] otherwise.
+   * @param execRoot the execution root Path to use. This will be
+   *     [output_base]/execroot/[workspace].
    */
-  public ArtifactFactory(Path execRootParent, String derivedPathPrefix) {
-    this.execRootParent = execRootParent;
+  public ArtifactFactory(Path execRoot, String derivedPathPrefix) {
+    this.execRoot = execRoot;
+    this.execRootParent = execRoot.getParentDirectory();
     this.derivedPathPrefix = PathFragment.create(derivedPathPrefix);
   }
 
@@ -140,14 +140,13 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   }
 
   /**
-   * Set the set of known packages and their corresponding source artifact
-   * roots. Must be called exactly once after construction or clear().
+   * Set the set of known packages and their corresponding source artifact roots. Must be called
+   * exactly once after construction or clear().
    *
-   * @param packageRoots the map of package names to source artifact roots to
-   *        use.
+   * @param packageRoots provider of a source root given a package identifier.
    */
-  public synchronized void setPackageRoots(Map<PackageIdentifier, Root> packageRoots) {
-    this.packageRoots = ImmutableMap.copyOf(packageRoots);
+  public synchronized void setPackageRoots(PackageRoots.PackageRootLookup packageRoots) {
+    this.packageRoots = packageRoots;
     sourceArtifactCache.newBuild();
   }
 
@@ -312,7 +311,13 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     Root sourceRoot = findSourceRoot(execPath, baseExecPath, baseRoot, repositoryName);
     Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
     if (artifact != null) {
-      Preconditions.checkState(sourceRoot == null || sourceRoot.equals(artifact.getRoot()));
+      Root artifactRoot = artifact.getRoot();
+      Preconditions.checkState(
+          sourceRoot == null || sourceRoot.equals(artifactRoot),
+          "roots mismatch: %s %s %s",
+          sourceRoot,
+          artifactRoot,
+          artifact);
       return artifact;
     }
     return createArtifactIfNotValid(sourceRoot, execPath);
@@ -338,7 +343,8 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     }
 
     while (dir != null && !dir.equals(baseExecPath)) {
-      Root sourceRoot = packageRoots.get(PackageIdentifier.create(repositoryName, dir));
+      Root sourceRoot =
+          packageRoots.getRootForPackage(PackageIdentifier.create(repositoryName, dir));
       if (sourceRoot != null) {
         return sourceRoot;
       }
@@ -388,6 +394,18 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       result.put(path, createArtifactIfNotValid(sourceRoots.get(path), path));
     }
     return result;
+  }
+
+  @Override
+  public Path getPathFromSourceExecPath(PathFragment execPath) {
+    Preconditions.checkState(
+        !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
+    Root sourceRoot =
+        packageRoots.getRootForPackage(PackageIdentifier.create(RepositoryName.MAIN, execPath));
+    if (sourceRoot != null) {
+      return sourceRoot.getPath().getRelative(execPath);
+    }
+    return execRoot.getRelative(execPath);
   }
 
   private Artifact createArtifactIfNotValid(Root sourceRoot, PathFragment execPath) {

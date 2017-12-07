@@ -1,3 +1,73 @@
+Mon Jan 30 00:00:01 2017  Google Inc. <google-gflags@googlegroups.com>
+  * python-gflags: version 3.1.1.
+  * Added PEP8 style method/function aliases.
+
+Tue Nov 01 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
+  * python-gflags: version 3.1.0.
+  * Python3 compatibility
+  * Removed UnrecognizedFlag exception.
+  * Replaced flags.DuplicateFlag with flags.DuplicateFlagError.
+  * Moved the validators.Error class to exceptions.ValidationError.
+  * Renamed IllegalFlagValue to IllegalFlagValueError.
+  * Removed MutualExclusionValidator class, in favor of flags.MarkFlagsAsMutualExclusive.
+  * Removed FlagValues.AddValidator method.
+  * Removed _helpers.GetMainModule.
+  * Use xml.dom.minidom to create XML strings, instead of manual crafting.
+  * Declared PEP8-style names.
+  * Added examples.
+
+
+
+  * python-gflags: version 3.0.7.
+  * Removed the unused method ShortestUniquePrefixes.
+  * Removed _GetCallingModule function alias.
+
+Fri Aug 05 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.6
+  * Declared pypi package classifiers.
+  * Added support for CLIF flag processing (not included in python-gflags repo
+    yet).
+
+Thu May 12 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.5
+  * Added a warning when FLAGS.SetDefault is used after flags were parsed.
+  * Added new function: MarkFlagsAsRequired.
+
+Fri Apr 15 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.4
+  * One more fix for setup.py - this time about third_party package.
+
+Mon Apr 11 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.3
+  * Fixed setup.py.
+  * --noflag if argument is given is no longer allowed.
+  * Python3 compatibility: removed need for cgi import.
+  * Disallowed unparsed flag usage after FLAGS.Reset()
+
+Thu Feb 09 11:55:00 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.2
+  * Fix MANIFEST.in to include all relevant files.
+
+Thu Feb 04 22:23:00 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.1
+  * Some changes for python3 compatibility.
+  * Automatically generate ordering operations for Flag.
+  * Add optional comma compatibility to whitespace-separated list flags.
+
+Tue Jan 12 16:39:00 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.0.
+  * A lot of potentially backwards incompatible changes since 2.0.
+  * This version is NOT recommended to use in production. Some of the files and
+    documentation has been lost during export; this will be fixed in next
+    versions.
+
 Wed Jan 18 13:57:39 2012  Google Inc. <google-gflags@googlegroups.com>
 
 	* python-gflags: version 2.0

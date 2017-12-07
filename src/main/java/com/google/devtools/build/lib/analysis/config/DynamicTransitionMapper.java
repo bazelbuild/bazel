@@ -47,10 +47,7 @@ public final class DynamicTransitionMapper {
   /**
    * Use this to declare a no-op transition that keeps the input configuration.
    */
-  public static final Transition SELF = () -> {
-      throw new UnsupportedOperationException("This is just an alias for \"keep the input "
-       + "configuration\". It shouldn't actually apply a real transition");
-  };
+  public static final Transition SELF = new Transition() {};
 
   private final ImmutableMap<Transition, Transition> map;
 
@@ -74,7 +71,9 @@ public final class DynamicTransitionMapper {
    * {@link IllegalArgumentException}.
    */
   public Transition map(Transition fromTransition) {
-    if (fromTransition instanceof PatchTransition || fromTransition == null) {
+    if (fromTransition instanceof PatchTransition
+        || fromTransition instanceof Attribute.SplitTransition<?>
+        || fromTransition == null) {
       return fromTransition;
     }
     Transition toTransition = map.get(fromTransition);

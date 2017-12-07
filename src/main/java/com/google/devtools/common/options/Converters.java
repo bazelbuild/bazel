@@ -15,11 +15,14 @@ package com.google.devtools.common.options;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -165,7 +168,7 @@ public final class Converters {
   public static class VoidConverter implements Converter<Void> {
     @Override
     public Void convert(String input) throws OptionsParsingException {
-      if (input == null) {
+      if (input == null || input.equals("null")) {
         return null; // expected input, return is unused so null is fine.
       }
       throw new OptionsParsingException("'" + input + "' unexpected");
@@ -178,21 +181,63 @@ public final class Converters {
   }
 
   /**
+   * Standard converter for the {@link java.time.Duration} type.
+   */
+  public static class DurationConverter implements Converter<Duration> {
+    private final Pattern durationRegex = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
+
+    @Override
+    public Duration convert(String input) throws OptionsParsingException {
+      // To be compatible with the previous parser, '0' doesn't need a unit.
+      if ("0".equals(input)) {
+        return Duration.ZERO;
+      }
+      Matcher m = durationRegex.matcher(input);
+      if (!m.matches()) {
+        throw new OptionsParsingException("Illegal duration '" + input + "'.");
+      }
+      long duration = Long.parseLong(m.group(1));
+      String unit = m.group(2);
+      switch(unit) {
+        case "d":
+          return Duration.ofDays(duration);
+        case "h":
+          return Duration.ofHours(duration);
+        case "m":
+          return Duration.ofMinutes(duration);
+        case "s":
+          return Duration.ofSeconds(duration);
+        case "ms":
+          return Duration.ofMillis(duration);
+        default:
+          throw new IllegalStateException("This must not happen. Did you update the regex without "
+              + "the switch case?");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "An immutable length of time.";
+    }
+  }
+
+  // 1:1 correspondence with UsesOnlyCoreTypes.CORE_TYPES.
+  /**
    * The converters that are available to the options parser by default. These are used if the
    * {@code @Option} annotation does not specify its own {@code converter}, and its type is one of
    * the following.
    */
-  static final Map<Class<?>, Converter<?>> DEFAULT_CONVERTERS = Maps.newHashMap();
-
-  static {
-    DEFAULT_CONVERTERS.put(String.class, new Converters.StringConverter());
-    DEFAULT_CONVERTERS.put(int.class, new Converters.IntegerConverter());
-    DEFAULT_CONVERTERS.put(long.class, new Converters.LongConverter());
-    DEFAULT_CONVERTERS.put(double.class, new Converters.DoubleConverter());
-    DEFAULT_CONVERTERS.put(boolean.class, new Converters.BooleanConverter());
-    DEFAULT_CONVERTERS.put(TriState.class, new Converters.TriStateConverter());
-    DEFAULT_CONVERTERS.put(Void.class, new Converters.VoidConverter());
-  }
+  public static final ImmutableMap<Class<?>, Converter<?>> DEFAULT_CONVERTERS =
+      new ImmutableMap.Builder<Class<?>, Converter<?>>()
+          .put(String.class, new Converters.StringConverter())
+          .put(int.class, new Converters.IntegerConverter())
+          .put(long.class, new Converters.LongConverter())
+          .put(double.class, new Converters.DoubleConverter())
+          .put(boolean.class, new Converters.BooleanConverter())
+          .put(TriState.class, new Converters.TriStateConverter())
+          .put(Duration.class, new Converters.DurationConverter())
+          .put(Void.class, new Converters.VoidConverter())
+          .build();
 
   /**
    * Join a list of words as in English.  Examples:
@@ -230,9 +275,7 @@ public final class Converters {
 
     @Override
     public List<String> convert(String input) {
-      return input.equals("")
-          ? ImmutableList.<String>of()
-          : ImmutableList.copyOf(splitter.split(input));
+      return input.isEmpty() ? ImmutableList.of() : ImmutableList.copyOf(splitter.split(input));
     }
 
     @Override
@@ -266,9 +309,7 @@ public final class Converters {
       try {
         int level = Integer.parseInt(input);
         return LEVELS[level];
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("Not a log level: " + input);
-      } catch (ArrayIndexOutOfBoundsException e) {
+      } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
         throw new OptionsParsingException("Not a log level: " + input);
       }
     }

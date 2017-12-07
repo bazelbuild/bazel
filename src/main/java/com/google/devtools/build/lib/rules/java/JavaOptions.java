@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelMapConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
@@ -29,11 +29,10 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnfo
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.TriState;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -71,14 +70,15 @@ public class JavaOptions extends FragmentOptions {
     name = "javabase",
     defaultValue = "@bazel_tools//tools/jdk:jdk",
     category = "version",
+    converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "JAVABASE used for the JDK invoked by Blaze. This is the "
-            + "JAVABASE which will be used to execute external Java "
-            + "commands."
+            + "java_runtime_suite which will be used to execute "
+            + "external Java commands."
   )
-  public String javaBase;
+  public Label javaBase;
 
   @Option(
     name = "java_toolchain",
@@ -104,15 +104,16 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
     name = "host_javabase",
-    defaultValue = "@bazel_tools//tools/jdk:jdk",
+    defaultValue = "@bazel_tools//tools/jdk:host_jdk",
+    converter = LabelConverter.class,
     category = "version",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "JAVABASE used for the host JDK. This is the JAVABASE which is used to execute "
-            + " tools during a build."
+        "JAVABASE used for the host JDK. This is the java_runtime_suite which is used to execute "
+            + "tools during a build."
   )
-  public String hostJavaBase;
+  public Label hostJavaBase;
 
   @Option(
     name = "javacopt",
@@ -155,8 +156,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "use_src_ijars",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "No-op. Kept here for backwards compatibility."
   )
@@ -178,8 +178,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "experimental_optimize_header_compilation_annotation_processing",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "This flag is a noop and scheduled for removal."
   )
@@ -234,8 +233,8 @@ public class JavaOptions extends FragmentOptions {
     defaultValue = "default",
     converter = StrictDepsConverter.class,
     category = "semantics",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "If true, checks that a Java target explicitly declares all directly used "
             + "targets as dependencies.",
@@ -261,8 +260,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "experimental_testrunner",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Use the experimental test runner in bazel which runs the tests under a separate "
@@ -274,8 +272,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "javabuilder_top",
     defaultValue = "null",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "No-op. Kept here for backwards compatibility."
   )
@@ -284,8 +281,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "singlejar_top",
     defaultValue = "null",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "No-op. Kept here for backwards compatibility."
   )
@@ -294,8 +290,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "genclass_top",
     defaultValue = "null",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "No-op. Kept here for backwards compatibility."
   )
@@ -304,8 +299,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "ijar_top",
     defaultValue = "null",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "No-op. Kept here for backwards compatibility."
   )
@@ -314,8 +308,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "java_langtools",
     defaultValue = "null",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "No-op. Kept here for backwards compatibility."
   )
@@ -324,8 +317,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "javac_bootclasspath",
     defaultValue = "null",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "No-op. Kept here for backwards compatibility."
   )
@@ -334,8 +326,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "javac_extdir",
     defaultValue = "null",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "No-op. Kept here for backwards compatibility."
   )
@@ -383,8 +374,7 @@ public class JavaOptions extends FragmentOptions {
     allowMultiple = true,
     defaultValue = "", // Ignored
     converter = LabelConverter.class,
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Additional Proguard specs that will be used for all Proguard invocations.  Note that "
@@ -401,8 +391,7 @@ public class JavaOptions extends FragmentOptions {
     name = "experimental_bytecode_optimizers",
     defaultValue = "Proguard",
     converter = LabelMapConverter.class,
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Do not use."
   )
@@ -444,8 +433,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "experimental_disable_jvm",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Disables the Jvm configuration entirely."
   )
@@ -455,8 +443,7 @@ public class JavaOptions extends FragmentOptions {
     name = "java_optimization_mode",
     defaultValue = "legacy",
     converter = JavaOptimizationModeConverter.class,
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Applies desired link-time optimizations to Java binaries and tests."
   )
@@ -465,8 +452,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "legacy_bazel_java_test",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Use the legacy mode of Bazel for java_test."
   )
@@ -475,9 +461,8 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "strict_deps_java_protos",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "When 'strict-deps' is on, .java files that depend on classes not declared in their rule's "
             + "'deps' fail to build. In other words, it's forbidden to depend on classes obtained "
@@ -489,8 +474,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "experimental_java_header_compilation_disable_javac_fallback",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If --java_header_compilation is set, report diagnostics from turbine instead of falling "
@@ -502,8 +486,7 @@ public class JavaOptions extends FragmentOptions {
     name = "experimental_one_version_enforcement",
     defaultValue = "OFF",
     converter = OneVersionEnforcementLevelConverter.class,
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "When enabled, enforce that a java_binary rule can't contain more than one version "
@@ -512,8 +495,60 @@ public class JavaOptions extends FragmentOptions {
   )
   public OneVersionEnforcementLevel enforceOneVersion;
 
+  @Option(
+    name = "one_version_enforcement_on_java_tests",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "When enabled, and with experimental_one_version_enforcement set to a non-NONE value,"
+            + " enforce one version on java_test targets. This flag can be disabled to improve"
+            + " incremental test performance at the expense of missing potential one version"
+            + " violations."
+  )
+  public boolean enforceOneVersionOnJavaTests;
+
+  @Option(
+    name = "experimental_allow_runtime_deps_on_neverlink",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = { OptionEffectTag.BUILD_FILE_SEMANTICS },
+    metadataTags = { OptionMetadataTag.EXPERIMENTAL },
+    help =
+        "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
+            + " Java archives. The depot needs to be cleaned up to roll this out by default."
+  )
+  public boolean allowRuntimeDepsOnNeverLink;
+
+  @Option(
+    name = "jplPropagateCcLinkParamsStore",
+    defaultValue = "false",
+    category = "rollout",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help = "Roll-out flag for making java_proto_library propagate CcLinkParamsStore. DO NOT USE."
+  )
+  public boolean jplPropagateCcLinkParamsStore;
+
+  // Plugins are built using the host config. To avoid cycles we just don't propagate
+  // this option to the host config. If one day we decide to use plugins when building
+  // host tools, we can improve this by (for example) creating a compiler configuration that is
+  // used only for building plugins.
+  @Option(
+    name = "plugin",
+    converter = LabelListConverter.class,
+    allowMultiple = true,
+    defaultValue = "",
+    category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Plugins to use in the build. Currently works with java_plugin."
+  )
+  public List<Label> pluginList;
+
   @Override
-  public FragmentOptions getHost(boolean fallback) {
+  public FragmentOptions getHost() {
     JavaOptions host = (JavaOptions) getDefault();
 
     host.javaBase = hostJavaBase;
@@ -536,17 +571,19 @@ public class JavaOptions extends FragmentOptions {
     host.strictJavaDeps = strictJavaDeps;
 
     host.enforceOneVersion = enforceOneVersion;
+    // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
+    host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
+    host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
+
+    host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
     return host;
   }
 
   @Override
   public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
-    Set<Label> jdkLabels = new LinkedHashSet<>();
-    DefaultsPackage.parseAndAdd(jdkLabels, javaBase);
-    DefaultsPackage.parseAndAdd(jdkLabels, hostJavaBase);
     Map<String, Set<Label>> result = new HashMap<>();
-    result.put("JDK", jdkLabels);
+    result.put("JDK", ImmutableSet.of(javaBase, hostJavaBase));
     result.put("JAVA_TOOLCHAIN", ImmutableSet.of(javaToolchain));
 
     return result;

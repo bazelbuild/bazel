@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -35,7 +36,6 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -48,7 +48,8 @@ import java.util.logging.Logger;
  * {@link QueryEnvironment} that can evaluate queries to produce a result, and implements as much of
  * QueryEnvironment as possible while remaining mostly agnostic as to the objects being stored.
  */
-public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvironment<T> {
+public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvironment<T>
+    implements AutoCloseable {
   protected ErrorSensingEventHandler eventHandler;
   protected final boolean keepGoing;
   protected final boolean strictScope;
@@ -77,6 +78,9 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     this.settings = Sets.immutableEnumSet(settings);
     this.extraFunctions = ImmutableList.copyOf(extraFunctions);
   }
+
+  @Override
+  public abstract void close();
 
   private static DependencyFilter constructDependencyFilter(
       Set<Setting> settings) {

@@ -22,15 +22,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
@@ -48,8 +48,8 @@ import javax.annotation.Nullable;
  * built when the target is mentioned on the command line (as opposed to being always built, like
  * {@link com.google.devtools.build.lib.analysis.FileProvider})
  *
- * <p>The artifacts are grouped into "output groups". Which output groups are built is controlled
- * by the {@code --output_groups} undocumented command line option, which in turn is added to the
+ * <p>The artifacts are grouped into "output groups". Which output groups are built is controlled by
+ * the {@code --output_groups} undocumented command line option, which in turn is added to the
  * command line at the discretion of the build command being run.
  *
  * <p>Output groups starting with an underscore are "not important". This means that artifacts built
@@ -57,12 +57,11 @@ import javax.annotation.Nullable;
  * not mentioned on the output.
  */
 @Immutable
-public final class OutputGroupProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider, SkylarkIndexable, Iterable<String> {
+public final class OutputGroupProvider extends NativeInfo
+    implements SkylarkIndexable, Iterable<String> {
   public static final String SKYLARK_NAME = "output_groups";
 
-  public static NativeClassObjectConstructor<OutputGroupProvider> SKYLARK_CONSTRUCTOR =
-      new Constructor();
+  public static NativeProvider<OutputGroupProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   /**
    * Prefix for output groups that are not reported to the user on the terminal output of Blaze when
@@ -128,7 +127,7 @@ public final class OutputGroupProvider extends SkylarkClassObject
 
   @Nullable
   public static OutputGroupProvider get(TransitiveInfoCollection collection) {
-    return collection.getProvider(OutputGroupProvider.class);
+    return collection.get(OutputGroupProvider.SKYLARK_CONSTRUCTOR);
   }
 
   @Nullable
@@ -258,7 +257,7 @@ public final class OutputGroupProvider extends SkylarkClassObject
   }
 
   /** A constructor callable from Skylark for OutputGroupProvider. */
-  private static class Constructor extends NativeClassObjectConstructor<OutputGroupProvider> {
+  private static class Constructor extends NativeProvider<OutputGroupProvider> {
 
     private Constructor() {
       super(OutputGroupProvider.class, "OutputGroupInfo");
@@ -273,11 +272,10 @@ public final class OutputGroupProvider extends SkylarkClassObject
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
       for (Entry<String, Object> entry : kwargs.entrySet()) {
-        builder.put(entry.getKey(),
-            SkylarkRuleConfiguredTargetBuilder.convertToOutputGroupValue(
+        builder.put(
+            entry.getKey(),
+            SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
                 loc, entry.getKey(), entry.getValue()));
-
-
       }
       return new OutputGroupProvider(builder.build());
     }

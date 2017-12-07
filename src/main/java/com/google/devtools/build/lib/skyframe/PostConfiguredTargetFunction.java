@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -34,7 +36,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -107,10 +108,14 @@ public class PostConfiguredTargetFunction implements SkyFunction {
       // can never fail.
       deps =
           resolver.dependentNodeMap(
-              ctgValue, hostConfiguration, /*aspect=*/ null, configConditions);
-      if (ct.getConfiguration() != null && ct.getConfiguration().useDynamicConfigurations()) {
-        deps = ConfiguredTargetFunction.getDynamicConfigurations(env, ctgValue, deps,
-            hostConfiguration, ruleClassProvider);
+              ctgValue,
+              hostConfiguration,
+              /*aspect=*/ null,
+              configConditions,
+              /*toolchainContext=*/ null);
+      if (ct.getConfiguration() != null) {
+        deps = ConfigurationResolver.resolveConfigurations(env, ctgValue, deps, hostConfiguration,
+            ruleClassProvider);
       }
     } catch (EvalException | ConfiguredTargetFunction.DependencyEvaluationException
         | InvalidConfigurationException | InconsistentAspectOrderException e) {

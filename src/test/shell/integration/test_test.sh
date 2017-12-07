@@ -68,4 +68,64 @@ EOF
   expect_log "^Executed 1 out of 1 test: 1 fails"
 }
 
+function test_build_fail_terse_summary() {
+    mkdir -p tests
+    cat > tests/BUILD <<'EOF'
+genrule(
+  name = "testsrc",
+  outs = ["test.sh"],
+  cmd = "false",
+)
+sh_test(
+  name = "failstobuild1",
+  srcs = ["test.sh"],
+)
+sh_test(
+  name = "failstobuild2",
+  srcs = ["test.sh"],
+)
+genrule(
+  name = "slowtestsrc",
+  outs = ["slowtest.sh"],
+  cmd = "sleep 20 && echo '#!/bin/sh' > $@ && echo 'true' >> $@ && chmod 755 $@",
+)
+sh_test(
+  name = "willbeskipped",
+  srcs = ["slowtest.sh"],
+)
+EOF
+    bazel test --test_summary=terse //tests/... &>$TEST_log \
+      && fail "expected failure" || :
+    expect_not_log 'NO STATUS'
+    expect_log 'testsrc'
+    expect_log 'were skipped'
+}
+
+# Regression test for b/67463263: Tests that spawn subprocesses must not block
+# if those subprocesses never finish. If this test fails, because the "my_test"
+# test is timing out, it means that Bazel is waiting for the "sleep" to finish,
+# which it shouldn't.
+function test_process_spawned_by_test_doesnt_block_test_from_completing() {
+  mkdir -p dir
+
+  cat > dir/BUILD <<'EOF'
+java_test(
+    name = "my_test",
+    main_class = "MyTest",
+    srcs = ["MyTest.java"],
+    timeout = "short",
+    use_testrunner = 0,
+)
+EOF
+  cat > dir/MyTest.java <<'EOF'
+public class MyTest {
+  public static void main(String[] args) throws Exception {
+    new ProcessBuilder("sleep", "300").inheritIO().start();
+  }
+}
+EOF
+
+  bazel test //dir:my_test &> $TEST_log || fail "expected test to pass"
+}
+
 run_suite "test tests"

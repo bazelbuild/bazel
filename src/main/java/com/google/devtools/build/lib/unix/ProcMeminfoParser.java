@@ -62,62 +62,50 @@ public class ProcMeminfoParser {
     memInfo = builder.build();
   }
 
-  /**
-   * Gets a named field in KB.
-   */
-  public long getRamKb(String keyword) {
+  /** Gets a named field in KB. */
+  long getRamKb(String keyword) throws KeywordNotFoundException {
     Long val = memInfo.get(keyword);
     if (val == null) {
-      throw new IllegalArgumentException("Can't locate " + keyword + " in the /proc/meminfo");
+      throw new KeywordNotFoundException(keyword);
     }
     return val;
   }
 
-  /**
-   * Return the total physical memory.
-   */
-  public long getTotalKb() {
+  /** Return the total physical memory. */
+  public long getTotalKb() throws KeywordNotFoundException {
     return getRamKb("MemTotal");
-  }
-
-  /**
-   * Return the inactive memory.
-   */
-  public long getInactiveKb() {
-    return getRamKb("Inactive");
-  }
-
-  /**
-   * Return the active memory.
-   */
-  public long getActiveKb() {
-    return getRamKb("Active");
-  }
-
-  /**
-   * Return the slab memory.
-   */
-  public long getSlabKb() {
-    return getRamKb("Slab");
   }
 
   /**
    * Convert KB to MB.
    */
   public static double kbToMb(long kb) {
-    return kb / 1E3;
+    return kb >> 10;
   }
 
   /**
-   * Calculates amount of free RAM from /proc/meminfo content by using
-   * MemTotal - (Active + 0.3*InActive + 0.8*Slab) formula.
-   * Assumption here is that we allow Blaze to use all memory except when
-   * used by active pages, 30% of the inactive pages (since they may become
-   * active at any time) and 80% of memory used by kernel slab heap (since we
-   * want to keep most of the slab heap in the memory but do not want it to
-   * consume all available free memory).
+   * Reads the amount of *available* memory as reported by the kernel. See https://goo.gl/ABn283 for
+   * why this is better than trying to figure it out ourselves. This corresponds to the MemAvailable
+   * line in /proc/meminfo.
    */
-  public long getFreeRamKb() {
-    return getTotalKb() - getActiveKb() - (long)(getInactiveKb() * 0.3) - (long)(getSlabKb() * 0.8);
+  public long getFreeRamKb() throws KeywordNotFoundException {
+    if (memInfo.containsKey("MemAvailable")) {
+      return getRamKb("MemAvailable");
+    }
+    // We have no MemAvailable in /proc/meminfo; fall back to the previous estimation.
+    return getRamKb("MemTotal")
+        - getRamKb("Active")
+        // Blaze doesn't want to use more than a third of inactive ram...
+        - (long) (getRamKb("Inactive") * 0.3)
+        // ...and doesn't want to assume more than 80% of the slab memory can be reallocated.
+        - (long) (getRamKb("Slab") * 0.8);
+    // That said, this estimate will be more inaccurate as it diverges from kernel internals.
+  }
+
+  /** Exception thrown when /proc/meminfo does not have a requested key. Should be tolerated. */
+  public static class KeywordNotFoundException extends Exception {
+    private KeywordNotFoundException(String keyword) {
+      super("Can't locate " + keyword + " in the /proc/meminfo");
+    }
   }
 }

@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -33,19 +36,20 @@ import java.util.logging.Logger;
  */
 @ExecutionStrategy(name = { "local" }, contextType = FileWriteActionContext.class)
 public final class FileWriteStrategy implements FileWriteActionContext {
-  private static final Logger LOG = Logger.getLogger(FileWriteStrategy.class.getName());
+  private static final Logger logger = Logger.getLogger(FileWriteStrategy.class.getName());
   public static final Class<FileWriteStrategy> TYPE = FileWriteStrategy.class;
 
   public FileWriteStrategy() {
   }
 
   @Override
-  public void exec(AbstractFileWriteAction action, ActionExecutionContext actionExecutionContext)
+  public List<SpawnResult> exec(
+      AbstractFileWriteAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
     try (AutoProfiler p =
-            AutoProfiler.logged(
-                "running " + action.prettyPrint(), LOG, /*minTimeForLoggingInMilliseconds=*/ 100)) {
+        AutoProfiler.logged(
+            "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {
       try {
         Path outputPath = Iterables.getOnlyElement(action.getOutputs()).getPath();
         try (OutputStream out = new BufferedOutputStream(outputPath.getOutputStream())) {
@@ -60,5 +64,6 @@ public final class FileWriteStrategy implements FileWriteActionContext {
             + "' due to I/O error: " + e.getMessage(), e);
       }
     }
+    return ImmutableList.of();
   }
 }

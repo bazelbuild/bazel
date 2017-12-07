@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/tools/singlejar/combiners.h"
+#include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/output_jar.h"
 
@@ -19,5 +21,12 @@ int main(int argc, char *argv[]) {
   Options options;
   options.ParseCommandLine(argc - 1, argv + 1);
   OutputJar output_jar;
+  // TODO(b/67733424): support desugar deps checking in Bazel
+  if (options.check_desugar_deps) {
+    diag_errx(1, "%s:%d: Desugar checking not currently supported in Bazel.",
+                 __FILE__, __LINE__);
+  } else {
+    output_jar.ExtraCombiner("META-INF/desugar_deps", new NullCombiner());
+  }
   return output_jar.Doit(&options);
 }

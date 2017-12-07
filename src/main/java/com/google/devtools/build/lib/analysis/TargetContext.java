@@ -17,14 +17,14 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Objects;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
-
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -47,16 +47,20 @@ public class TargetContext {
    * attribute in case of a rule). Rule attributes are handled by the {@link RuleContext} subclass.
    */
   private final List<ConfiguredTarget> directPrerequisites;
-  private final NestedSet<PackageSpecification> visibility;
+
+  private final NestedSet<PackageGroupContents> visibility;
 
   /**
    * The constructor is intentionally package private.
    *
    * <p>directPrerequisites is expected to be ordered.
    */
-  TargetContext(AnalysisEnvironment env, Target target, BuildConfiguration configuration,
+  TargetContext(
+      AnalysisEnvironment env,
+      Target target,
+      BuildConfiguration configuration,
       Iterable<ConfiguredTarget> directPrerequisites,
-      NestedSet<PackageSpecification> visibility) {
+      NestedSet<PackageGroupContents> visibility) {
     this.env = env;
     this.target = target;
     this.configuration = configuration;
@@ -66,6 +70,10 @@ public class TargetContext {
 
   public AnalysisEnvironment getAnalysisEnvironment() {
     return env;
+  }
+
+  public ActionKeyContext getActionKeyContext() {
+    return env.getActionKeyContext();
   }
 
   public Target getTarget() {
@@ -86,7 +94,7 @@ public class TargetContext {
     return configuration;
   }
 
-  public NestedSet<PackageSpecification> getVisibility() {
+  public NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
   }
 
@@ -103,7 +111,8 @@ public class TargetContext {
    * Returns the prerequisite with the given label and configuration, or null if no such
    * prerequisite exists.
    */
-  TransitiveInfoCollection maybeFindDirectPrerequisite(Label label, BuildConfiguration config) {
+  public TransitiveInfoCollection maybeFindDirectPrerequisite(Label label,
+      BuildConfiguration config) {
     for (ConfiguredTarget prerequisite : directPrerequisites) {
       if (prerequisite.getLabel().equals(label)
           && (Objects.equal(prerequisite.getConfiguration(), config))) {

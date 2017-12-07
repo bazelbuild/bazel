@@ -18,12 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -108,10 +109,10 @@ public final class AndroidAaptActionHelper {
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_aapt_java_generator", Mode.HOST))
             .addOutput(javaSourcesJar)
-            .setCommandLine(CommandLine.of(args))
-            .useParameterFile(ParameterFileType.UNQUOTED)
+            .addCommandLine(
+                CommandLine.of(args), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .setProgressMessage("Generating Java resources")
-            .setMnemonic("AndroidAapt");
+            .setMnemonic("AaptJavaGenerator");
     if (rTxt != null) {
       builder.addOutput(rTxt);
     }
@@ -149,10 +150,10 @@ public final class AndroidAaptActionHelper {
             .addOutput(apk)
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
-            .setCommandLine(CommandLine.of(args))
-            .useParameterFile(ParameterFileType.UNQUOTED)
+            .addCommandLine(
+                CommandLine.of(args), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .setProgressMessage("Generating apk resources")
-            .setMnemonic("AndroidAapt")
+            .setMnemonic("AaptResourceApk")
             .build(ruleContext));
   }
 
@@ -218,7 +219,7 @@ public final class AndroidAaptActionHelper {
     if (args.size() > 3) {
       return ImmutableList.copyOf(args);
     } else {
-      return ImmutableList.<String>of();
+      return ImmutableList.of();
     }
   }
 
@@ -277,10 +278,11 @@ public final class AndroidAaptActionHelper {
             .addOutputs(outputs.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
-            .setCommandLine(CommandLine.of(aaptCommand))
-            .useParameterFile(ParameterFileType.UNQUOTED)
+            .addCommandLine(
+                CommandLine.of(aaptCommand),
+                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .setProgressMessage("Generating Proguard configuration for resources")
-            .setMnemonic("AndroidAapt")
+            .setMnemonic("AaptProguardConfiguration")
             .build(ruleContext));
   }
 }

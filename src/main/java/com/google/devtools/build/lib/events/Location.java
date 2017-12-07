@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.events;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -117,11 +116,11 @@ public abstract class Location implements Serializable {
   }
 
   /**
-   * Returns the end offset relative to the beginning of the file the object
-   * resides in.
+   * Returns the end offset relative to the beginning of the file the object resides in.
    *
-   * <p>The end offset is one position past the actual end position, making this method
-   * behave in a compatible fashion with {@link String#substring(int, int)}.
+   * <p>The end offset is one position past the last character in range, making this method behave
+   * in a compatible fashion with {@link String#substring(int, int)}. (By contrast, {@link
+   * #getEndLineAndColumn} returns the actual end position.)
    *
    * <p>To compute the length of this location, use {@code getEndOffset() - getStartOffset()}.
    */
@@ -161,8 +160,14 @@ public abstract class Location implements Serializable {
   }
 
   /**
-   * Returns a (line, column) pair corresponding to the position denoted by
-   * getEndOffset.  Returns null if this information is not available.
+   * Returns a (line, column) pair corresponding to the end position or null if this information is
+   * unavailable.
+   *
+   * <p>The returned line and column are the position of the last character in the location range.
+   * (By contrast, {@link #getEndOffset} returns the position <strong>past</strong> the actual end
+   * position.) In particular, this means that the location spans {@code
+   * getEndLineAndColumn().getColumn() - getStartLineAndColumn().getColumn() + 1} columns but
+   * contains {@code getEndOffset() - getStartOffset()} characters.
    */
   public LineAndColumn getEndLineAndColumn() {
     return null;
@@ -309,14 +314,14 @@ public abstract class Location implements Serializable {
    *
    * <p>If such a location is not defined, this method returns an empty string.
    */
-  public static String printPathAndLine(Location location) {
-    return (location == null) ? "" : location.printPathAndLine();
+  public static String printLocation(Location location) {
+    return (location == null) ? "" : location.printLocation();
   }
 
   /**
    * Returns this location in the format "filename:line".
    */
-  public String printPathAndLine() {
+  public String printLocation() {
     StringBuilder builder = new StringBuilder();
     PathFragment path = getPath();
     if (path != null) {

@@ -14,16 +14,14 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableMap.Builder;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -63,8 +61,6 @@ public final class Jvm extends BuildConfiguration.Fragment {
    * Use {@link JavaCommon#getHostJavaExecutable(RuleContext)} and
    * {@link JavaCommon#getJavaExecutable(RuleContext)} instead.
    */
-  @SkylarkCallable(name = "java_executable", structField = true,
-      doc = "The java executable, i.e. bin/java relative to the Java home.")
   public PathFragment getJavaExecutable() {
     return java;
   }
@@ -80,9 +76,7 @@ public final class Jvm extends BuildConfiguration.Fragment {
     return jvmLabel;
   }
 
-  @Override
-  public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
-    globalMakeEnvBuilder.put("JAVABASE", javaHome.getPathString());
-    globalMakeEnvBuilder.put("JAVA", java.getPathString());
+  public PathFragment getJavaHome() {
+    return javaHome;
   }
 }

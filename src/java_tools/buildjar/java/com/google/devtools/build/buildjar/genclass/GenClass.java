@@ -64,6 +64,7 @@ public class GenClass {
     GenClassOptions options = GenClassOptionsParser.parse(Arrays.asList(args));
     Manifest manifest = readManifest(options.manifest());
     deleteTree(options.tempDir());
+    Files.createDirectories(options.tempDir());
     extractGeneratedClasses(options.classJar(), manifest, options.tempDir());
     writeOutputJar(options);
   }
@@ -122,6 +123,9 @@ public class GenClass {
         String className = name.substring(0, name.length() - ".class".length());
         if (prefixesContains(generatedPrefixes, className)) {
           Files.createDirectories(tempDir.resolve(name).getParent());
+          // InputStream closing: JarFile extends ZipFile, and ZipFile.close() will close all of the
+          // input streams previously returned by invocations of the getInputStream method.
+          // See https://docs.oracle.com/javase/8/docs/api/java/util/zip/ZipFile.html#close--
           Files.copy(jar.getInputStream(entry), tempDir.resolve(name));
         }
       }

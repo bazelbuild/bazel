@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.GlobCache;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -60,7 +61,7 @@ public abstract class PackageFactoryTestBase {
   protected PackageFactoryApparatus packages = createPackageFactoryApparatus();
 
   protected com.google.devtools.build.lib.packages.Package expectEvalSuccess(String... content)
-      throws InterruptedException, IOException {
+      throws InterruptedException, IOException, NoSuchPackageException {
     Path file = scratch.file("/pkg/BUILD", content);
     Package pkg = packages.eval("pkg", file);
     assertThat(pkg.containsErrors()).isFalse();

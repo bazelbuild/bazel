@@ -1,34 +1,15 @@
-package(default_visibility = [":packages"])
-
-package_group(
-    name = "packages",
-    packages = [
-        "//src/java_tools/buildjar/...",
-    ],
-)
-
-JARHELPER_SRCS = [
-    "JarHelper.java",
-    "JarCreator.java",
-]
+package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    # include this BUILD file for the default android tools repository
-    srcs = glob(["**"]),
-    visibility = [
-        "//src:__pkg__",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:__pkg__",
-    ],
+    srcs = glob(["*.java"]) + ["BUILD"],
 )
 
-# JarHelper library for GenClass so it can create the gen jar.
 java_library(
     name = "jarhelper",
-    srcs = JARHELPER_SRCS,
-    visibility = [
-        ":packages",
-        "//src/tools/android/java/com/google/devtools/build/android/idlclass:__pkg__",
+    srcs = [
+        "JarCreator.java",
+        "JarHelper.java",
     ],
 )
 
@@ -36,11 +17,15 @@ java_library(
 ## Bootstrapping using Skylark rules
 #
 
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 
 bootstrap_java_library(
     name = "bootstrap_jarhelper",
-    srcs = JARHELPER_SRCS,
+    srcs = [
+        "JarCreator.java",
+        "JarHelper.java",
+    ],
+    tags = ["manual"],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:skylark-deps",
     ],

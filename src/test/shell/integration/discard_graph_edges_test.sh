@@ -20,6 +20,8 @@
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/discard_graph_edges_lib.sh" \
+  || { echo "${CURRENT_DIR}/discard_graph_edges_lib.sh not found!" >&2; exit 1; }
 
 #### SETUP #############################################################
 
@@ -32,9 +34,6 @@ function set_up() {
   echo "int main() {return 0;}"         > testing/mytest.cc || fail
 }
 
-STARTUP_FLAGS="--batch"
-BUILD_FLAGS="--keep_going --discard_analysis_cache"
-
 #### TESTS #############################################################
 
 function test_build() {
@@ -45,6 +44,22 @@ function test_build() {
 function test_test() {
   bazel $STARTUP_FLAGS test $BUILD_FLAGS //testing:mytest >& $TEST_log \
     || fail "Expected success"
+}
+
+function test_failed_build() {
+  mkdir -p foo || fail "Couldn't make directory"
+  cat > foo/BUILD <<'EOF' || fail "Couldn't make BUILD file"
+cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])
+cc_library(name = 'bar', srcs = ['bar.cc'])
+EOF
+  touch foo/foo.cc || fail "Couldn't make foo.cc"
+  echo "#ERROR" > foo/bar.cc || fail "Couldn't make bar.cc"
+  bazel $STARTUP_FLAGS build $BUILD_FLAGS //foo:foo >& "$TEST_log" \
+      && fail "Expected failure"
+  exit_code=$?
+  [ $exit_code -eq 1 ] || fail "Wrong exit code: $exit_code"
+  expect_log "#ERROR"
+  expect_not_log "Graph edges not stored"
 }
 
 # bazel info inherits from bazel build, but it doesn't have much in common with it.
@@ -61,6 +76,14 @@ function test_query() {
     || fail "Expected success"
   expect_log "//testing:mytest"
   expect_log "//testing:system_malloc"
+}
+
+function test_configured_query() {
+  bazel $STARTUP_FLAGS build $BUILD_FLAGS --nobuild \
+      --experimental_post_build_query='deps(//testing:mytest, 1)' \
+      //testing:mytest >& "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  [[ "$exit_code" == 2 ]] || fail "Expected exit code 2 but was $exit_code"
 }
 
 function test_top_level_aspect() {
@@ -115,14 +138,6 @@ EOF
   [[ -e "bazel-bin/foo/dep.out.aspect" ]] || fail "Aspect bar not run"
 }
 
-function extract_histogram_count() {
-  local histofile="$1"
-  local item="$2"
-  # We can't use + here because Macs don't recognize it as a special character by default.
-  grep "$item" "$histofile" | sed -e 's/^ *[0-9][0-9]*: *\([0-9][0-9]*\) .*$/\1/' \
-      || fail "Couldn't get item from $histofile"
-}
-
 function prepare_histogram() {
   readonly local build_args="$1"
   rm -rf histodump
@@ -145,27 +160,43 @@ EOF
 load(":foo.bzl", "foo")
 load(":bar.bzl", "bar")
 load(":baz.bzl", "baz")
+cc_library(name = 'cclib', srcs = ['cclib.cc'])
 genrule(name = 'histodump',
         srcs = glob(["*.in"]),
         outs = ['histo.txt'],
         local = 1,
+        tools = [':cclib'],
         cmd = 'server_pid=\$\$(cat $server_pid_fifo) ; ' +
               '${bazel_javabase}/bin/jmap -histo:live \$\$server_pid > ' +
               '\$(location histo.txt) ' +
               '|| echo "server_pid in genrule: \$\$server_pid"'
        )
 EOF
+
+  touch histodump/cclib.cc
   rm -f "$server_pid_fifo"
   mkfifo "$server_pid_fifo"
   histo_file="$(bazel info "${PRODUCT_NAME}-genfiles" \
       2> /dev/null)/histodump/histo.txt"
   bazel clean >& "$TEST_log" || fail "Couldn't clean"
-  bazel $STARTUP_FLAGS build $build_args //histodump:histodump >& "$TEST_log" &
-  server_pid=$!
+  readonly local explicit_server_pid="$(bazel $STARTUP_FLAGS info server_pid)"
+  bazel $STARTUP_FLAGS build --show_timestamps $build_args \
+      //histodump:histodump >> "$TEST_log" 2>&1 &
+  readonly local subshell_pid=$!
+  # We plan to remove batch mode from the relevant flags for discarding
+  # incrementality state. In the interim, tests that are not in batch mode
+  # explicitly pass --nobatch, so we can use it as a signal.
+  if [[ "$STARTUP_FLAGS" =~ "--nobatch" ]]; then
+    server_pid="$explicit_server_pid"
+  else
+    server_pid="$subshell_pid"
+  fi
   echo "server_pid in main thread is ${server_pid}" >> "$TEST_log"
   echo "$server_pid" > "$server_pid_fifo"
+  echo "Finished writing pid to fifo at " >> "$TEST_log"
+  date >> "$TEST_log"
   # Wait for previous command to finish.
-  wait "$server_pid" || fail "Bazel command failed"
+  wait "$subshell_pid" || fail "Bazel command failed"
   cat "$histo_file" >> "$TEST_log"
   echo "$histo_file"
 }
@@ -177,79 +208,54 @@ function test_packages_cleared() {
       'devtools\.build\.lib\..*\.Package$')"
   [[ "$package_count" -ge 9 ]] \
       || fail "package count $package_count too low: did you move/rename the class?"
-  local glob_count="$(extract_histogram_count "$histo_file" "GlobValue")"
+  local glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -ge 8 ]] \
       || fail "glob count $glob_count too low: did you move/rename the class?"
   local env_count="$(extract_histogram_count "$histo_file" \
       'Environment\$Extension$')"
   [[ "$env_count" -ge 3 ]] \
       || fail "env extension count $env_count too low: did you move/rename the class?"
+  local ct_count="$(extract_histogram_count "$histo_file" \
+       'RuleConfiguredTarget$')"
+  [[ "$ct_count" -ge 18 ]] \
+      || fail "RuleConfiguredTarget count $ct_count too low: did you move/rename the class?"
+  local edgeless_entry_count="$(extract_histogram_count "$histo_file" \
+       'EdgelessInMemoryNodeEntry')"
+  [[ "$edgeless_entry_count" -eq 0 ]] \
+      || fail "$edgless_entry_count EdgelessInMemoryNodeEntry instances found in build keeping edges"
+  local node_entry_count="$(extract_histogram_count "$histo_file" \
+       '\.InMemoryNodeEntry')"
+  [[ "$node_entry_count" -ge 100 ]] \
+      || fail "Only $node_entry_count InMemoryNodeEntry instances found in build keeping edges"
   local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
   # A few packages aren't cleared.
   [[ "$package_count" -le 8 ]] \
       || fail "package count $package_count too high"
-  glob_count="$(extract_histogram_count "$histo_file" "GlobValue")"
+  glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -le 1 ]] \
       || fail "glob count $glob_count too high"
   env_count="$(extract_histogram_count "$histo_file" \
       'Environment\$  Extension$')"
-  # TODO(janakr): this is failing since the test was disabled and someone snuck
-  # a regression in. Fix.
   [[ "$env_count" -le 7 ]] \
       || fail "env extension count $env_count too high"
+  ct_count="$(extract_histogram_count "$histo_file" \
+       'RuleConfiguredTarget$')"
+  [[ "$ct_count" -le 1 ]] \
+      || fail "too many RuleConfiguredTarget: expected at most 1, got $ct_count"
+  edgeless_entry_count="$(extract_histogram_count "$histo_file" \
+       'EdgelessInMemoryNodeEntry')"
+  [[ "$edgeless_entry_count" -ge 100 ]] \
+      || fail "Not enough ($edgless_entry_count) EdgelessInMemoryNodeEntry instances found in build discarding edges"
+  node_entry_count="$(extract_histogram_count "$histo_file" \
+       '\.InMemoryNodeEntry')"
+  [[ "$node_entry_count" -le 10 ]] \
+      || fail "Too many ($node_entry_count) InMemoryNodeEntry instances found in build discarding edges"
 }
 
 function test_actions_deleted_after_execution() {
-  rm -rf histodump
-  mkdir -p histodump || fail "Couldn't create directory"
-  readonly local wait_fifo="$TEST_TMPDIR/wait_fifo"
-  readonly local server_pid_file="$TEST_TMPDIR/server_pid.txt"
-  cat > histodump/BUILD <<EOF || fail "Couldn't create BUILD file"
-genrule(name = 'action0',
-        outs = ['wait.out'],
-        local = 1,
-        cmd = 'cat $wait_fifo > /dev/null; touch \$@'
-        )
-EOF
-  for i in $(seq 1 3); do
-    iminus=$((i-1))
-    cat >> histodump/BUILD <<EOF || fail "Couldn't append"
-genrule(name = 'action${i}',
-        srcs = [':action${iminus}'],
-        outs = ['histo.${i}'],
-        local = 1,
-        cmd = '${bazel_javabase}/bin/jmap -histo:live '
-              + '\$\$(cat ${server_pid_file}) > \$(location histo.${i})'
-       )
-EOF
-  done
-  mkfifo "$wait_fifo"
-  local readonly histo_root="$(bazel info "${PRODUCT_NAME}-genfiles" \
-      2> /dev/null)/histodump/histo."
-  bazel clean >& "$TEST_log" || fail "Couldn't clean"
-  bazel $STARTUP_FLAGS build $BUILD_FLAGS //histodump:action3 >& "$TEST_log" &
-  server_pid=$!
-  echo "$server_pid" > "$server_pid_file"
-  echo "" > "$wait_fifo"
-  # Wait for previous command to finish.
-  wait "$server_pid" || fail "Bazel command failed"
-  local genrule_action_count=100
-  for i in $(seq 1 3); do
-    local histo_file="$histo_root$i"
-    local new_genrule_action_count="$(extract_histogram_count "$histo_file" \
-        "GenRuleAction$")"
-    if [[ "$new_genrule_action_count" -ge "$genrule_action_count" ]]; then
-      cat "$histo_file" >> "$TEST_log"
-      fail "Number of genrule actions did not decrease: $new_genrule_action_count vs. $genrule_action_count"
-    fi
-    if [[ -z "$new_genrule_action_count" ]]; then
-      cat "$histo_file" >> "$TEST_log"
-      fail "No genrule actions? Class may have been renamed"
-    fi
-    genrule_action_count="$new_genrule_action_count"
-  done
+  run_test_actions_deleted_after_execution bazel "$bazel_javabase" '' ''
 }
 
 # Action conflicts can cause deletion of nodes, and deletion is tricky with no edges.
@@ -258,7 +264,7 @@ function test_action_conflict() {
 
   cat > conflict/conflict_rule.bzl <<EOF || fail "Couldn't write bzl file"
 def _create(ctx):
-  files_to_build = set(ctx.outputs.outs)
+  files_to_build = depset(ctx.outputs.outs)
   intemediate_outputs = [ctx.actions.declare_file("bar")]
   intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intemediate_outputs[0].path)
   action_cmd = "touch " + list(files_to_build)[0].path
@@ -292,7 +298,7 @@ genrule(name='foo',
 EOF
 
   # --nocache_test_results to make log-grepping easier.
-  bazel $STARTUP_FLAGS test $BUILD_FLAGS \
+  bazel $STARTUP_FLAGS test --keep_going $BUILD_FLAGS \
       --nocache_test_results //conflict:foo //testing:mytest >& $TEST_log \
       && fail "Expected failure"
   exit_code=$?
@@ -322,25 +328,113 @@ EOF
 
   bazel "$STARTUP_FLAGS" build $BUILD_FLAGS \
       --noexperimental_enable_critical_path_profiling \
-      //foo:c --experimental_skip_unused_modules \
-    --experimental_prune_more_modules >& "$TEST_log" || fail "Build failed"
+      //foo:c >& "$TEST_log" || fail "Build failed"
 }
 
 # The following tests are not expected to exercise codepath -- make sure nothing bad happens.
 
 function test_no_batch() {
-  bazel $STARTUP_FLAGS --nobatch test $BUILD_FLAGS //testing:mytest >& $TEST_log \
-    || fail "Expected success"
-}
-
-function test_no_keep_going() {
-  bazel $STARTUP_FLAGS test $BUILD_FLAGS --nokeep_going //testing:mytest >& $TEST_log \
-    || fail "Expected success"
+  bazel $STARTUP_FLAGS --nobatch test $BUILD_FLAGS --keep_incrementality_data \
+      //testing:mytest >& "$TEST_log" || fail "Expected success"
 }
 
 function test_no_discard_analysis_cache() {
-  bazel $STARTUP_FLAGS test $BUILD_FLAGS --nodiscard_analysis_cache //testing:mytest >& $TEST_log \
-    || fail "Expected success"
+  bazel $STARTUP_FLAGS test $BUILD_FLAGS --nodiscard_analysis_cache \
+      --keep_incrementality_data //testing:mytest >& "$TEST_log" \
+      || fail "Expected success"
+}
+
+function test_packages_cleared_nobatch() {
+  readonly local old_startup_flags="$STARTUP_FLAGS"
+  STARTUP_FLAGS="--nobatch"
+  readonly local old_build_flags="$BUILD_FLAGS"
+  BUILD_FLAGS="--nokeep_incrementality_data --discard_analysis_cache"
+  test_packages_cleared
+  STARTUP_FLAGS="$old_startup_flags"
+  BUILD_FLAGS="$old_build_flags"
+}
+
+function test_packages_cleared_implicit_noincrementality_data() {
+  readonly local old_build_flags="$BUILD_FLAGS"
+  BUILD_FLAGS="$BUILD_FLAGS --keep_incrementality_data"
+  test_packages_cleared
+  BUILD_FLAGS="$old_build_flags"
+}
+
+function test_actions_deleted_after_execution_nobatch_keep_analysis () {
+  readonly local old_startup_flags="$STARTUP_FLAGS"
+  STARTUP_FLAGS="--nobatch"
+  readonly local old_build_flags="$BUILD_FLAGS"
+  BUILD_FLAGS="--nokeep_incrementality_data"
+  test_actions_deleted_after_execution
+  STARTUP_FLAGS="$old_startup_flags"
+  BUILD_FLAGS="$old_build_flags"
+}
+
+function test_dump_after_discard_incrementality_data() {
+  bazel build --nokeep_incrementality_data //testing:mytest >& "$TEST_log" \
+       || fail "Expected success"
+  bazel dump --skyframe=detailed >& "$TEST_log" || fail "Expected success"
+  expect_log "//testing:mytest"
+}
+
+function test_query_after_discard_incrementality_data() {
+  bazel build --nobuild --nokeep_incrementality_data //testing:mytest \
+       >& "$TEST_log" || fail "Expected success"
+  bazel query --noexperimental_ui --output=label_kind //testing:mytest \
+       >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: testing"
+  expect_log "cc_test rule //testing:mytest"
+}
+
+function test_shutdown_after_discard_incrementality_data() {
+  readonly local server_pid="$(bazel info server_pid 2> /dev/null)"
+  [[ -z "$server_pid" ]] && fail "Couldn't get server pid"
+  bazel build --nobuild --nokeep_incrementality_data //testing:mytest \
+       >& "$TEST_log" || fail "Expected success"
+  bazel shutdown || fail "Expected success"
+  readonly local new_server_pid="$(bazel info server_pid 2> /dev/null)"
+  [[ "$server_pid" != "$new_server_pid" ]] \
+      || fail "pids $server_pid and $new_server_pid equal"
+}
+
+function test_clean_after_discard_incrementality_data() {
+  bazel build --nobuild --nokeep_incrementality_data //testing:mytest \
+       >& "$TEST_log" || fail "Expected success"
+  bazel clean >& "$TEST_log" || fail "Expected success"
+}
+
+function test_switch_back_and_forth() {
+  readonly local server_pid="$(bazel info \
+      --nokeep_incrementality_data server_pid 2> /dev/null)"
+  [[ -z "$server_pid" ]] && fail "Couldn't get server pid"
+  bazel test --noexperimental_ui --nokeep_incrementality_data \
+      //testing:mytest >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: testing"
+  bazel test --noexperimental_ui --nokeep_incrementality_data \
+      //testing:mytest >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: testing"
+  bazel test --noexperimental_ui //testing:mytest >& "$TEST_log" \
+      || fail "Expected success"
+  expect_log "Loading package: testing"
+  bazel test --noexperimental_ui //testing:mytest >& "$TEST_log" \
+      || fail "Expected success"
+  expect_not_log "Loading package: testing"
+  bazel test --noexperimental_ui --nokeep_incrementality_data \
+      //testing:mytest >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: testing"
+  readonly local new_server_pid="$(bazel info server_pid 2> /dev/null)"
+  [[ "$server_pid" == "$new_server_pid" ]] \
+      || fail "pids $server_pid and $new_server_pid not equal"
+}
+
+function test_warns_on_unexpected_combos() {
+  bazel --batch build --nobuild --discard_analysis_cache >& "$TEST_log" \
+      || fail "Expected success"
+  expect_log "--batch and --discard_analysis_cache specified, but --nokeep_incrementality_data not specified"
+  bazel build --nobuild --discard_analysis_cache --nokeep_incrementality_data \
+      >& "$TEST_log" || fail "Expected success"
+  expect_log "--batch not specified with --nokeep_incrementality_data"
 }
 
 run_suite "test for --discard_graph_edges"

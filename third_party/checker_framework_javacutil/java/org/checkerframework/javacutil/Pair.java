@@ -8,7 +8,7 @@ import org.checkerframework.dataflow.qual.SideEffectFree;
 /**
  * Simple pair class for multiple returns.
  *
- * TODO: as class is immutable, use @Covariant annotation.
+ * <p>TODO: as class is immutable, use @Covariant annotation.
  */
 public class Pair<V1, V2> {
     public final V1 first;
@@ -36,18 +36,21 @@ public class Pair<V1, V2> {
     public int hashCode() {
         if (hashCode == -1) {
             hashCode = 31;
-            if (first != null)
+            if (first != null) {
                 hashCode += 17 * first.hashCode();
-            if (second != null)
+            }
+            if (second != null) {
                 hashCode += 17 * second.hashCode();
+            }
         }
         return hashCode;
     }
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof Pair))
+        if (!(o instanceof Pair)) {
             return false;
+        }
         @SuppressWarnings("unchecked")
         Pair<V1, V2> other = (Pair<V1, V2>) o;
         if (this.first == null) {

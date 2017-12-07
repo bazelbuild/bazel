@@ -17,11 +17,12 @@ import com.google.common.collect.ImmutableRangeMap;
 import com.google.common.collect.Range;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.logging.Formatter;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 /**
  * Formatter to write java.util.logging messages out in single-line format.
@@ -42,14 +43,15 @@ public class SingleLineFormatter extends Formatter {
 
   /** A thread safe, immutable formatter that can be used by all without contention. */
   private static final DateTimeFormatter DATE_TIME_FORMAT =
-      DateTimeFormat.forPattern("yyMMdd HH:mm:ss.SSS").withZoneUTC();
+      DateTimeFormatter.ofPattern("yyMMdd HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
 
   @Override
   public String format(LogRecord rec) {
     StringBuilder buf = new StringBuilder();
 
     // Timestamp
-    buf.append(DATE_TIME_FORMAT.print(rec.getMillis()))
+    buf.append(
+            DATE_TIME_FORMAT.format(Instant.ofEpochMilli(rec.getMillis()).atZone(ZoneOffset.UTC)))
         .append(':');
 
     // One character code for level

@@ -14,9 +14,8 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

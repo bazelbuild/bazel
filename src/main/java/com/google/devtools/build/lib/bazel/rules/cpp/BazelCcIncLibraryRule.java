@@ -36,6 +36,9 @@ public final class BazelCcIncLibraryRule implements RuleDefinition {
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
                 .value(CppRuleClasses.ccToolchainAttribute(env)))
+        .add(
+            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
+                .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .add(attr(":stl", LABEL).value(BazelCppRuleClasses.STL))
         .build();
   }

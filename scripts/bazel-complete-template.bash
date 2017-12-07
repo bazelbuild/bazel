@@ -56,8 +56,9 @@
 # Some commands might interfer with the important one, so don't complete them
 : ${BAZEL_IGNORED_COMMAND_REGEX:="__none__"}
 
-# Bazel command
+# bazel & ibazel commands
 : ${BAZEL:=bazel}
+: ${IBAZEL:=ibazel}
 
 # Pattern to match for looking for a target
 #  BAZEL_BUILD_MATCH_PATTERN__* give the pattern for label-*
@@ -229,7 +230,10 @@ _bazel__expand_rules_in_package() {
       cut -f2 -d: | "grep" "^$rule_prefix")
   else
     for root in $(_bazel__package_path "$workspace" "$displacement"); do
-      buildfile="$root/$package_name/BUILD"
+      buildfile="$root/$package_name/BUILD.bazel"
+      if [ ! -f "$buildfile" ]; then
+        buildfile="$root/$package_name/BUILD"
+      fi
       if [ -f "$buildfile" ]; then
         result=$(_bazel__matching_targets \
                    "$pattern" "$rule_prefix" <"$buildfile")
@@ -268,7 +272,7 @@ _bazel__expand_package_name() {
       [[ "$dir" =~ ^(.*/)?\.[^/]*$ ]] && continue  # skip dotted dir (e.g. .git)
       found=1
       echo "${dir#$root}/"
-      if [ -f $dir/BUILD ]; then
+      if [ -f $dir/BUILD.bazel -o -f $dir/BUILD ]; then
         if [ "${type}" = "label-package" ]; then
           echo "${dir#$root} "
         else
@@ -463,3 +467,4 @@ _bazel__complete_target_stdout() {
 
 # default completion for bazel
 complete -F _bazel__complete -o nospace "${BAZEL}"
+complete -F _bazel__complete -o nospace "${IBAZEL}"

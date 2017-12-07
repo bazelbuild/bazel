@@ -1,5 +1,11 @@
+package(
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
@@ -7,9 +13,9 @@ filegroup(
 java_test(
     name = "RepositoryTests",
     srcs = select({
-        "//src:windows": [":RepositoryTests_windows_srcs"],
-        "//src:windows_msys": [":RepositoryTests_windows_srcs"],
-        "//src:windows_msvc": [":RepositoryTests_windows_srcs"],
+        "//src/conditions:windows": [":RepositoryTests_windows_srcs"],
+        "//src/conditions:windows_msys": [":RepositoryTests_windows_srcs"],
+        "//src/conditions:windows_msvc": [":RepositoryTests_windows_srcs"],
         "//conditions:default": glob(["*.java"]),
     }),
     data = ["test_decompress_archive.tar.gz"],
@@ -25,10 +31,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
@@ -50,4 +56,21 @@ filegroup(
         ["*.java"],
         exclude = ["CompressedTarFunctionTest.java"],
     ),
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

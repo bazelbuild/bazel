@@ -18,18 +18,18 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.skyframe.OutputService;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -80,26 +80,30 @@ public abstract class BlazeModule {
    *
    * @param startupOptions the server's startup options
    */
-  public FileSystem getFileSystem(OptionsProvider startupOptions) {
+  public FileSystem getFileSystem(OptionsProvider startupOptions) throws AbruptExitException {
     return null;
   }
 
   /**
-   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit}, and
-   * {@link #getFileSystem}.
+   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit}, and {@link
+   * #getFileSystem}.
    *
    * @param startupOptions the server's startup options
    * @param versionInfo the Bazel version currently running
    * @param instanceId the id of the current Bazel server
+   * @param fileSystem
    * @param directories the install directory
    * @param clock the clock
-   *
    * @throws AbruptExitException to shut down the server immediately
    */
-  public void blazeStartup(OptionsProvider startupOptions,
-      BlazeVersionInfo versionInfo, UUID instanceId, ServerDirectories directories,
-      Clock clock) throws AbruptExitException {
-  }
+  public void blazeStartup(
+      OptionsProvider startupOptions,
+      BlazeVersionInfo versionInfo,
+      UUID instanceId,
+      FileSystem fileSystem,
+      ServerDirectories directories,
+      Clock clock)
+      throws AbruptExitException {}
 
   /**
    * Called to initialize a new server ({@link BlazeRuntime}). Modules can override this method to
@@ -117,16 +121,15 @@ public abstract class BlazeModule {
 
   /**
    * Sets up the configured rule class provider, which contains the built-in rule classes, aspects,
-   * configuration fragments, and other things; called during Blaze startup (after
-   * {@link #blazeStartup}).
-   * 
+   * configuration fragments, and other things; called during Blaze startup (after {@link
+   * #blazeStartup}).
+   *
    * <p>Bazel only creates one provider per server, so it is not possible to have different contents
    * for different workspaces.
    *
    * @param builder the configured rule class provider builder
    */
-  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-  }
+  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {}
 
   /**
    * Called when Bazel initializes a new workspace; this is only called after {@link #serverInit},
@@ -171,14 +174,6 @@ public abstract class BlazeModule {
   public OutputService getOutputService() throws AbruptExitException {
     return null;
   }
-
-  /**
-   * Does any handling of options needed by the command.
-   *
-   * <p>This method will be called at the beginning of each command (after #beforeCommand).
-   */
-  @SuppressWarnings("unused")
-  public void handleOptions(OptionsProvider optionsProvider) {}
 
   /**
    * Returns extra options this module contributes to a specific command. Note that option
@@ -238,7 +233,7 @@ public abstract class BlazeModule {
   /**
    * Called when Blaze shuts down.
    *
-   * <p>If you are also implementing {@link #shutdownOnCrash()}, consider putting the common
+   * <p>If you are also implementing {@link #blazeShutdownOnCrash()}, consider putting the common
    * shutdown code in the latter and calling that other hook from here.
    */
   public void blazeShutdown() {
@@ -280,7 +275,7 @@ public abstract class BlazeModule {
 
   /**
    * Optionally returns a factory to create coverage report actions; this is called once per build,
-   * such that it can be affected by command options. 
+   * such that it can be affected by command options.
    *
    * <p>It is an error if multiple modules return non-null values.
    *

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
@@ -23,12 +24,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /**
@@ -77,8 +81,6 @@ public class AppleBinaryRule implements RuleDefinition {
    */
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-    MultiArchSplitTransitionProvider splitTransitionProvider =
-        new MultiArchSplitTransitionProvider();
     return builder
         .requiresConfigurationFragments(
             ObjcConfiguration.class,
@@ -131,8 +133,13 @@ public class AppleBinaryRule implements RuleDefinition {
                 .allowedFileTypes()
                 .singleArtifact()
                 .aspect(objcProtoAspect))
-        .override(builder.copy("deps").cfg(splitTransitionProvider))
-        .override(builder.copy("non_propagated_deps").cfg(splitTransitionProvider))
+        .add(
+            attr("feature_flags", LABEL_KEYED_STRING_DICT)
+                .undocumented("the feature flag feature has not yet been launched")
+                .allowedRuleClasses("config_feature_flag")
+                .allowedFileTypes()
+                .nonconfigurable("defines an aspect of configuration")
+                .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
         /*<!-- #BLAZE_RULE(apple_binary).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>_lipobin</code>: the 'lipo'ed potentially multi-architecture
@@ -141,7 +148,10 @@ public class AppleBinaryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(ObjcRuleClasses.LIPOBIN_OUTPUT))
-        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
+        .cfg(
+            new ComposingRuleTransitionFactory(
+                (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
+                new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .build();
   }
 
@@ -150,8 +160,7 @@ public class AppleBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("apple_binary")
         .factoryClass(AppleBinary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.MultiArchPlatformRule.class, ObjcRuleClasses.SimulatorRule.class,
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.MultiArchPlatformRule.class,
             ObjcRuleClasses.DylibDependingRule.class)
         .build();
   }

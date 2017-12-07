@@ -98,7 +98,7 @@ public final class DictComprehension extends AbstractComprehension {
 
     DictOutputCollector(Environment env) {
       // We want to keep the iteration order
-      result = SkylarkDict.<Object, Object>of(env);
+      result = SkylarkDict.of(env);
     }
 
     @Override

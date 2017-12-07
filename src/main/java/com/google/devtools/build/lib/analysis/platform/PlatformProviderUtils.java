@@ -33,7 +33,7 @@ public class PlatformProviderUtils {
 
   /** Retrieves and casts the {@link ConstraintSettingInfo} provider from the given target. */
   public static ConstraintSettingInfo constraintSetting(SkylarkProviderCollection target) {
-    return target.get(ConstraintSettingInfo.SKYLARK_CONSTRUCTOR);
+    return target.get(ConstraintSettingInfo.PROVIDER);
   }
 
   /** Retrieves and casts {@link ConstraintSettingInfo} providers from the given targets. */
@@ -55,6 +55,6 @@ public class PlatformProviderUtils {
 
   /** Retrieves and casts the {@link ToolchainInfo} provider from the given target. */
   public static ToolchainInfo toolchain(SkylarkProviderCollection target) {
-    return target.get(ToolchainInfo.SKYLARK_CONSTRUCTOR);
+    return target.get(ToolchainInfo.PROVIDER);
   }
 }

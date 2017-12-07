@@ -26,13 +26,13 @@ import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -195,22 +195,23 @@ public final class ExecutionProgressReceiver
 
       @Override
       public int waitForNextCompletion(int timeoutMilliseconds) throws InterruptedException {
+        long rest = timeoutMilliseconds;
         synchronized (activityIndicator) {
           int before = completedActions.size();
           long startTime = BlazeClock.instance().currentTimeMillis();
           while (true) {
-            activityIndicator.wait(timeoutMilliseconds);
+            activityIndicator.wait(rest);
 
             int completed = completedActions.size() - before;
             long now = 0;
             if (completed > 0
-                || (startTime + timeoutMilliseconds)
+                || (startTime + rest)
                     <= (now = BlazeClock.instance().currentTimeMillis())) {
               // Some actions completed, or timeout fully elapsed.
               return completed;
             } else {
               // Spurious Wakeup -- no actions completed and there's still time to wait.
-              timeoutMilliseconds -= now - startTime; // account for elapsed wait time
+              rest -= now - startTime; // account for elapsed wait time
               startTime = now;
             }
           }

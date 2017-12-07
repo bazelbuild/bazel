@@ -20,8 +20,7 @@ import com.android.ide.common.internal.PngCruncher;
 import com.android.ide.common.internal.PngException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Jimfs;
-import com.google.common.truth.FailureStrategy;
-import com.google.common.truth.SubjectFactory;
+import com.google.common.truth.Subject;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.File;
 import java.io.IOException;
@@ -391,11 +390,5 @@ public class AndroidDataWriterTest {
     assertAbout(paths).that(actual.getAssetDir().resolve(asset)).exists();
   }
 
-  private static final SubjectFactory<PathsSubject, Path> paths =
-      new SubjectFactory<PathsSubject, Path>() {
-        @Override
-        public PathsSubject getSubject(FailureStrategy failureStrategy, Path path) {
-          return new PathsSubject(failureStrategy, path);
-        }
-      };
+  private static final Subject.Factory<PathsSubject, Path> paths = PathsSubject::new;
 }

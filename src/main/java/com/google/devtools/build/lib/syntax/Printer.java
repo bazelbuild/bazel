@@ -13,15 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Formattable;
 import java.util.Formatter;
 import java.util.List;
@@ -66,35 +66,6 @@ public class Printer {
    */
   public static BasePrinter getPrinter() {
     return getPrinter(new StringBuilder());
-  }
-
-  /**
-   * Creates an instance of BasePrinter with a given buffer.
-   *
-   * @param env {@link Environment}
-   * @param buffer an {@link Appendable}
-   * @return new BasePrinter
-   */
-  static BasePrinter getPrinter(Environment env, Appendable buffer) {
-    if (env.getSemantics().incompatibleDescriptiveStringRepresentations) {
-      return new BasePrinter(buffer);
-    } else {
-      return new LegacyPrinter(buffer);
-    }
-  }
-
-  /**
-   * Creates an instance of BasePrinter with an empty buffer.
-   *
-   * @param env {@link Environment}
-   * @return new BasePrinter
-   */
-  static BasePrinter getPrinter(Environment env) {
-    if (env.getSemantics().incompatibleDescriptiveStringRepresentations) {
-      return new BasePrinter();
-    } else {
-      return new LegacyPrinter();
-    }
   }
 
   private Printer() {}
@@ -231,7 +202,7 @@ public class Printer {
    * @return the formatted string.
    */
   public static Formattable formattable(final String pattern, Object... arguments) {
-    final ImmutableList<Object> args = ImmutableList.copyOf(arguments);
+    final List<Object> args = Arrays.asList(arguments);
     return new Formattable() {
       @Override
       public String toString() {
@@ -340,10 +311,12 @@ public class Printer {
     @Override
     public BasePrinter repr(Object o) {
       if (o == null) {
-        throw new NullPointerException(); // Java null is not a valid Skylark value.
+        // Java null is not a valid Skylark value, but sometimes printers are used on non-Skylark
+        // values such as Locations or ASTs.
+        this.append("null");
 
-      } else if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).repr(this);
+      } else if (o instanceof SkylarkPrintable) {
+        ((SkylarkPrintable) o).repr(this);
 
       } else if (o instanceof String) {
         writeString((String) o);
@@ -351,10 +324,10 @@ public class Printer {
       } else if (o instanceof Integer || o instanceof Double) {
         this.append(o.toString());
 
-      } else if (o == Boolean.TRUE) {
+      } else if (Boolean.TRUE.equals(o)) {
         this.append("True");
 
-      } else if (o == Boolean.FALSE) {
+      } else if (Boolean.FALSE.equals(o)) {
         this.append("False");
 
       } else if (o instanceof Map<?, ?>) {
@@ -370,10 +343,6 @@ public class Printer {
         this.repr(entry.getKey());
         this.append(": ");
         this.repr(entry.getValue());
-
-      } else if (o instanceof PathFragment) {
-        this.append(((PathFragment) o).getPathString());
-
       } else if (o instanceof Class<?>) {
         this.append(EvalUtils.getDataTypeNameFromClass((Class<?>) o));
 
@@ -383,8 +352,10 @@ public class Printer {
         this.append(o.toString());
 
       } else {
-        // TODO(bazel-team): change to a special representation for unknown objects
-        this.append(o.toString());
+        // Other types of objects shouldn't be leaked to Skylark, but if happens, their
+        // .toString method shouldn't be used because their return values are likely to contain
+        // memory addresses or other nondeterministic information.
+        this.append("<unknown object " + o.getClass().getName() + ">");
       }
 
       return this;
@@ -506,7 +477,7 @@ public class Printer {
      */
     @Override
     public BasePrinter format(String pattern, Object... arguments) {
-      return this.formatWithList(pattern, ImmutableList.copyOf(arguments));
+      return this.formatWithList(pattern, Arrays.asList(arguments));
     }
 
     /**
@@ -604,37 +575,6 @@ public class Printer {
 
     BasePrinter append(CharSequence sequence, int start, int end) {
       return this.append(sequence.subSequence(start, end));
-    }
-  }
-
-  /** A version of BasePrinter that renders object in old style for compatibility reasons. */
-  static final class LegacyPrinter extends BasePrinter {
-    protected LegacyPrinter() {
-      super();
-    }
-
-    protected LegacyPrinter(Appendable buffer) {
-      super(buffer);
-    }
-
-    @Override
-    public LegacyPrinter repr(Object o) {
-      if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).reprLegacy(this);
-      } else {
-        super.repr(o);
-      }
-      return this;
-    }
-
-    @Override
-    public LegacyPrinter str(Object o) {
-      if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).strLegacy(this);
-      } else {
-        super.str(o);
-      }
-      return this;
     }
   }
 

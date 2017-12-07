@@ -16,10 +16,9 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -137,6 +136,20 @@ public abstract class JavaHelper {
     return rootRelativePath.relativeTo(prefix);
   }
 
+  /** Returns the configured target found under the {@code :host_jdk} attribute of a given rule. */
+  public static TransitiveInfoCollection getHostJavabaseTarget(RuleContext ruleContext) {
+    return getHostJavabaseTarget(ruleContext, "");
+  }
+
+  /**
+   * Returns the configured target found under the {@code :host_jdk + implicitAttributesSuffix}
+   * attribute of a given rule.
+   * */
+  public static TransitiveInfoCollection getHostJavabaseTarget(
+      RuleContext ruleContext, String implicitAttributesSuffix) {
+    return ruleContext.getPrerequisite(":host_jdk" + implicitAttributesSuffix, Mode.HOST);
+  }
+
   /** Returns the artifacts required to invoke {@code javahome} relative binary in the action. */
   public static NestedSet<Artifact> getHostJavabaseInputs(RuleContext ruleContext) {
     return getHostJavabaseInputs(ruleContext, "");
@@ -145,26 +158,26 @@ public abstract class JavaHelper {
   /** Returns the artifacts required to invoke {@code javahome} relative binary in the action. */
   public static NestedSet<Artifact> getHostJavabaseInputs(
       RuleContext ruleContext, String implicitAttributesSuffix) {
-    return AnalysisUtils.getMiddlemanFor(
-        ruleContext, ":host_jdk" + implicitAttributesSuffix, Mode.HOST);
+    return JavaLibraryHelper.getJavaBaseMiddleman(ruleContext.getPrerequisite(
+        ":host_jdk" + implicitAttributesSuffix, Mode.HOST));
   }
 
-  public static JavaRuntimeProvider getJavaRuntime(RuleContext ruleContext) {
+  public static JavaRuntimeInfo getJavaRuntime(RuleContext ruleContext) {
     if (!ruleContext.attributes().has(":jvm", BuildType.LABEL)) {
       return null;
     }
 
     TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
-    return jvm == null ? null :  jvm.getProvider(JavaRuntimeProvider.class);
+    return jvm == null ? null :  jvm.get(JavaRuntimeInfo.PROVIDER);
   }
 
-  public static JavaRuntimeProvider getHostJavaRuntime(RuleContext ruleContext) {
+  public static JavaRuntimeInfo getHostJavaRuntime(RuleContext ruleContext) {
     if (!ruleContext.attributes().has(":host_jdk", BuildType.LABEL)) {
       return null;
     }
 
     TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":host_jdk", Mode.HOST);
-    return jvm == null ? null :  jvm.getProvider(JavaRuntimeProvider.class);
+    return jvm == null ? null :  jvm.get(JavaRuntimeInfo.PROVIDER);
   }
 
   /**

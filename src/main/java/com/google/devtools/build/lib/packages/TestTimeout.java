@@ -23,6 +23,7 @@ import com.google.common.collect.RangeMap;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -140,8 +141,13 @@ public enum TestTimeout {
     return super.toString().toUpperCase();
   }
 
-  public int getTimeout() {
+  @Deprecated // use getTimeout instead
+  public int getTimeoutSeconds() {
     return timeout;
+  }
+
+  public Duration getTimeout() {
+    return Duration.ofSeconds(timeout);
   }
 
   /**
@@ -184,25 +190,25 @@ public enum TestTimeout {
   /**
    * Converter for the --test_timeout option.
    */
-  public static class TestTimeoutConverter implements Converter<Map<TestTimeout, Integer>> {
+  public static class TestTimeoutConverter implements Converter<Map<TestTimeout, Duration>> {
     public TestTimeoutConverter() {}
 
     @Override
-    public Map<TestTimeout, Integer> convert(String input) throws OptionsParsingException {
-      List<Integer> values = new ArrayList<>();
+    public Map<TestTimeout, Duration> convert(String input) throws OptionsParsingException {
+      List<Duration> values = new ArrayList<>();
       for (String token : Splitter.on(',').limit(6).split(input)) {
         // Handle the case of "2," which is accepted as legal... Because Splitter.split is lazy,
         // there's no way of knowing if an empty string is a trailing or an intermediate one,
         // so we can't fully emulate String.split(String, 0).
         if (!token.isEmpty() || values.size() > 1) {
           try {
-            values.add(Integer.valueOf(token));
+            values.add(Duration.ofSeconds(Integer.valueOf(token)));
           } catch (NumberFormatException e) {
             throw new OptionsParsingException("'" + input + "' is not an int");
           }
         }
       }
-      EnumMap<TestTimeout, Integer> timeouts = Maps.newEnumMap(TestTimeout.class);
+      EnumMap<TestTimeout, Duration> timeouts = Maps.newEnumMap(TestTimeout.class);
       if (values.size() == 1) {
         timeouts.put(SHORT, values.get(0));
         timeouts.put(MODERATE, values.get(0));
@@ -217,7 +223,7 @@ public enum TestTimeout {
         throw new OptionsParsingException("Invalid number of comma-separated entries");
       }
       for (TestTimeout label : values()) {
-        if (!timeouts.containsKey(label) || timeouts.get(label) <= 0) {
+        if (!timeouts.containsKey(label) || timeouts.get(label).compareTo(Duration.ZERO) <= 0) {
           timeouts.put(label, label.getTimeout());
         }
       }

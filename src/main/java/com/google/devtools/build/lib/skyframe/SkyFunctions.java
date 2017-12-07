@@ -83,8 +83,6 @@ public final class SkyFunctions {
       SkyFunctionName.create("BUILD_CONFIGURATION");
   public static final SkyFunctionName CONFIGURATION_FRAGMENT =
       SkyFunctionName.create("CONFIGURATION_FRAGMENT");
-  public static final SkyFunctionName CONFIGURATION_COLLECTION =
-      SkyFunctionName.create("CONFIGURATION_COLLECTION");
   public static final SkyFunctionName ARTIFACT = SkyFunctionName.create("ARTIFACT");
   public static final SkyFunctionName ACTION_EXECUTION =
       SkyFunctionName.create("ACTION_EXECUTION");
@@ -107,6 +105,10 @@ public final class SkyFunctions {
       SkyFunctionName.create("ACTION_TEMPLATE_EXPANSION");
   public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
       SkyFunctionName.create("LOCAL_REPOSITORY_LOOKUP");
+  public static final SkyFunctionName REGISTERED_TOOLCHAINS =
+      SkyFunctionName.create("REGISTERED_TOOLCHAINS");
+  public static final SkyFunctionName TOOLCHAIN_RESOLUTION =
+      SkyFunctionName.create("TOOLCHAIN_RESOLUTION");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

@@ -15,33 +15,35 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtraActionProvider;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
+import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.rules.test.TestActionBuilder;
-import com.google.devtools.build.lib.rules.test.TestEnvironmentProvider;
-import com.google.devtools.build.lib.rules.test.TestProvider;
-import com.google.devtools.build.lib.rules.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -51,9 +53,9 @@ import java.util.TreeMap;
  *
  * <p>This is used to tell Bazel which {@link TransitiveInfoProvider}s are produced by the analysis
  * of a configured target. For more information about analysis, see
- * {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ * {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  *
- * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  */
 public final class RuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;
@@ -63,6 +65,8 @@ public final class RuleConfiguredTargetBuilder {
 
   /** These are supported by all configured targets and need to be specially handled. */
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
+  private NestedSetBuilder<Artifact> filesToRunBuilder = NestedSetBuilder.stableOrder();
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
   private ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
@@ -84,15 +88,21 @@ public final class RuleConfiguredTargetBuilder {
       return null;
     }
 
-    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(
-        getFilesToRun(runfilesSupport, filesToBuild), runfilesSupport, executable);
+    NestedSetBuilder<Artifact> runfilesMiddlemenBuilder = NestedSetBuilder.stableOrder();
+    if (runfilesSupport != null) {
+      runfilesMiddlemenBuilder.add(runfilesSupport.getRunfilesMiddleman());
+      runfilesMiddlemenBuilder.addTransitive(runfilesSupport.getRunfiles().getExtraMiddlemen());
+    }
+    NestedSet<Artifact> runfilesMiddlemen = runfilesMiddlemenBuilder.build();
+    FilesToRunProvider filesToRunProvider =
+        new FilesToRunProvider(
+            buildFilesToRun(runfilesMiddlemen, filesToBuild), runfilesSupport, executable);
     addProvider(new FileProvider(filesToBuild));
     addProvider(filesToRunProvider);
 
     if (runfilesSupport != null) {
       // If a binary is built, build its runfiles, too
-      addOutputGroup(
-          OutputGroupProvider.HIDDEN_TOP_LEVEL, runfilesSupport.getRunfilesMiddleman());
+      addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, runfilesMiddlemen);
     } else if (providersBuilder.contains(RunfilesProvider.class)) {
       // If we don't have a RunfilesSupport (probably because this is not a binary rule), we still
       // want to build the files this rule contributes to runfiles of dependent rules so that we
@@ -127,7 +137,7 @@ public final class RuleConfiguredTargetBuilder {
       }
 
       OutputGroupProvider outputGroupProvider = new OutputGroupProvider(outputGroups.build());
-      addProvider(OutputGroupProvider.class, outputGroupProvider);
+      addNativeDeclaredProvider(outputGroupProvider);
     }
 
     TransitiveInfoProviderMap providers = providersBuilder.build();
@@ -135,21 +145,16 @@ public final class RuleConfiguredTargetBuilder {
     return new RuleConfiguredTarget(ruleContext, providers);
   }
 
-
   /**
-   * Like getFilesToBuild(), except that it also includes the runfiles middleman, if any. Middlemen
-   * are expanded in the SpawnStrategy or by the Distributor.
+   * Compute the artifacts to put into the {@link FilesToRunProvider} for this target. These are the
+   * filesToBuild, any artifacts added by the rule with {@link #addFilesToRun}, and the runfiles'
+   * middlemen if they exists.
    */
-  private NestedSet<Artifact> getFilesToRun(
-      RunfilesSupport runfilesSupport, NestedSet<Artifact> filesToBuild) {
-    if (runfilesSupport == null) {
-      return filesToBuild;
-    } else {
-      NestedSetBuilder<Artifact> allFilesToBuild = NestedSetBuilder.stableOrder();
-      allFilesToBuild.addTransitive(filesToBuild);
-      allFilesToBuild.add(runfilesSupport.getRunfilesMiddleman());
-      return allFilesToBuild.build();
-    }
+  private NestedSet<Artifact> buildFilesToRun(
+      NestedSet<Artifact> runfilesMiddlemen, NestedSet<Artifact> filesToBuild) {
+    filesToRunBuilder.addTransitive(filesToBuild);
+    filesToRunBuilder.addTransitive(runfilesMiddlemen);
+    return filesToRunBuilder.build();
   }
 
   /**
@@ -189,9 +194,9 @@ public final class RuleConfiguredTargetBuilder {
         new TestActionBuilder(ruleContext)
             .setInstrumentedFiles(providersBuilder.getProvider(InstrumentedFilesProvider.class));
 
-    TestEnvironmentProvider environmentProvider =
-        (TestEnvironmentProvider)
-            providersBuilder.getProvider(TestEnvironmentProvider.SKYLARK_CONSTRUCTOR.getKey());
+    TestEnvironmentInfo environmentProvider =
+        (TestEnvironmentInfo)
+            providersBuilder.getProvider(TestEnvironmentInfo.PROVIDER.getKey());
     if (environmentProvider != null) {
       testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
     }
@@ -200,19 +205,27 @@ public final class RuleConfiguredTargetBuilder {
         testActionBuilder
             .setFilesToRunProvider(filesToRunProvider)
             .setExecutionRequirements(
-                (ExecutionInfoProvider) providersBuilder
-                    .getProvider(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey()))
+                (ExecutionInfo) providersBuilder
+                    .getProvider(ExecutionInfo.PROVIDER.getKey()))
             .setShardCount(explicitShardCount)
             .build();
     ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
     return new TestProvider(testParams, testTags);
   }
 
+  /**
+   * Add files required to run the target. Artifacts from {@link #setFilesToBuild} and the runfiles
+   * middleman, if any, are added automatically.
+   */
+  public RuleConfiguredTargetBuilder addFilesToRun(NestedSet<Artifact> files) {
+    filesToRunBuilder.addTransitive(files);
+    return this;
+  }
+
   /** Add a specific provider. */
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProvider(
       TransitiveInfoProvider provider) {
     providersBuilder.add(provider);
-    maybeAddSkylarkProvider(provider);
     return this;
   }
 
@@ -220,9 +233,6 @@ public final class RuleConfiguredTargetBuilder {
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProviders(
       Iterable<TransitiveInfoProvider> providers) {
     providersBuilder.addAll(providers);
-    for (TransitiveInfoProvider provider : providers) {
-      maybeAddSkylarkProvider(provider);
-    }
     return this;
   }
 
@@ -250,15 +260,13 @@ public final class RuleConfiguredTargetBuilder {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(value);
     providersBuilder.put(key, value);
-    maybeAddSkylarkProvider(value);
     return this;
   }
 
-  protected <T extends TransitiveInfoProvider> void maybeAddSkylarkProvider(T value) {
-    if (value instanceof TransitiveInfoProvider.WithLegacySkylarkName) {
+  private <T extends TransitiveInfoProvider> void maybeAddSkylarkLegacyProvider(Info value) {
+    if (value.getProvider() instanceof NativeProvider.WithLegacySkylarkName) {
       addSkylarkTransitiveInfo(
-          ((TransitiveInfoProvider.WithLegacySkylarkName) value).getSkylarkName(),
-          value);
+          ((NativeProvider.WithLegacySkylarkName) value.getProvider()).getSkylarkName(), value);
     }
   }
 
@@ -275,18 +283,17 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Adds a "declared provider" defined in Skylark to the rule.
-   * Use this method for declared providers defined in Skyark.
+   * Adds a "declared provider" defined in Skylark to the rule. Use this method for declared
+   * providers defined in Skyark.
    *
-   * Has special handling for {@link OutputGroupProvider}: that provider is not added
-   * from Skylark directly, instead its outpuyt groups are added.
+   * <p>Has special handling for {@link OutputGroupProvider}: that provider is not added from
+   * Skylark directly, instead its outpuyt groups are added.
    *
-   * Use {@link #addNativeDeclaredProvider(SkylarkClassObject)} in definitions of
-   * native rules.
+   * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
-  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(
-      SkylarkClassObject provider, Location loc) throws EvalException {
-    ClassObjectConstructor constructor = provider.getConstructor();
+  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(Info provider, Location loc)
+      throws EvalException {
+    Provider constructor = provider.getProvider();
     if (!constructor.isExported()) {
       throw new EvalException(constructor.getLocation(),
           "All providers must be top level values");
@@ -306,28 +313,26 @@ public final class RuleConfiguredTargetBuilder {
    * Adds "declared providers" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(SkylarkClassObject, Location)} for Skylark rule
-   * implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(Info, Location)} for Skylark rule implementations.
    */
-  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(
-      Iterable<SkylarkClassObject> providers) {
-    for (SkylarkClassObject provider : providers) {
+  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
+    for (Info provider : providers) {
       addNativeDeclaredProvider(provider);
     }
     return this;
   }
 
   /**
-   * Adds a "declared provider" defined in native code to the rule.
-   * Use this method for declared providers in definitions of native rules.
+   * Adds a "declared provider" defined in native code to the rule. Use this method for declared
+   * providers in definitions of native rules.
    *
-   * Use {@link #addSkylarkDeclaredProvider(SkylarkClassObject, Location)}
-   * for Skylark rule implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(Info, Location)} for Skylark rule implementations.
    */
-  public RuleConfiguredTargetBuilder addNativeDeclaredProvider(SkylarkClassObject provider) {
-    ClassObjectConstructor constructor = provider.getConstructor();
+  public RuleConfiguredTargetBuilder addNativeDeclaredProvider(Info provider) {
+    Provider constructor = provider.getProvider();
     Preconditions.checkState(constructor.isExported());
     providersBuilder.put(provider);
+    maybeAddSkylarkLegacyProvider(provider);
     return this;
   }
 

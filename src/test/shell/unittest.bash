@@ -284,7 +284,11 @@ TEST_verbose="true"             # Whether or not to be verbose.  A
                                 # command; "true" or "false" are
                                 # acceptable.  The default is: true.
 
-TEST_script="$(pwd)/$0"         # Full path to test script
+TEST_script="$0"                # Full path to test script
+# Check if the script path is absolute, if not prefix the PWD.
+if [[ ! "$TEST_script" = /* ]]; then
+  TEST_script="$(pwd)/$0"
+fi
 
 #### Internal functions
 
@@ -517,6 +521,24 @@ function assert_one_of() {
     return 1
 }
 
+# Usage: assert_not_one_of <expected_list>... <actual>
+# Asserts that actual is not one of the items in expected_list
+# Example: assert_not_one_of ( "foo", "bar", "baz" ) actualval
+function assert_not_one_of() {
+    local args=("$@")
+    local last_arg_index=$((${#args[@]} - 1))
+    local actual=${args[last_arg_index]}
+    unset args[last_arg_index]
+    for expected_item in "${args[@]}"; do
+      if [ "$expected_item" = "$actual" ]; then
+        fail "'${args[@]}' contains '$actual'"
+        return 1
+      fi
+    done;
+
+    return 0
+}
+
 # Usage: assert_equals <expected> <actual>
 # Asserts [ expected = actual ].
 function assert_equals() {
@@ -560,7 +582,13 @@ function assert_not_contains() {
     local pattern=$1
     local file=$2
     local message=${3:-Expected regexp "$pattern" found in "$file"}
-    grep -sq -- "$pattern" "$file" || return 0
+
+    if [[ -f "$file" ]]; then
+      grep -sq -- "$pattern" "$file" || return 0
+    else
+      fail "$file is not a file: $message"
+      return 1
+    fi
 
     cat "$file" >&2
     fail "$message"
@@ -660,16 +688,19 @@ close FILE" "$block"
 # Usage: <total> <passed>
 # Adds the test summaries to the xml nodes.
 function __finish_test_report() {
-    local total=$1
-    local passed=$2
+    local suite_name="$1"
+    local total="$2"
+    local passed="$3"
     local failed=$((total - passed))
 
+    # Update the xml output with the suite name and total number of
+    # passed/failed tests.
     cat $XML_OUTPUT_FILE | \
       sed \
         "s/<testsuites>/<testsuites tests=\"$total\" failures=\"0\" errors=\"$failed\">/" | \
       sed \
-        "s/<testsuite>/<testsuite tests=\"$total\" failures=\"0\" errors=\"$failed\">/" \
-         > $XML_OUTPUT_FILE.bak
+        "s/<testsuite>/<testsuite name=\"${suite_name}\" tests=\"$total\" failures=\"0\" errors=\"$failed\">/" \
+        > $XML_OUTPUT_FILE.bak
 
     rm -f $XML_OUTPUT_FILE
     mv $XML_OUTPUT_FILE.bak $XML_OUTPUT_FILE
@@ -699,8 +730,13 @@ function get_run_time() {
 # Must be called from the end of the user's test suite.
 # Calls exit with zero on success, non-zero otherwise.
 function run_suite() {
+    local message="$1"
+    # The name of the suite should be the script being run, under Bazel that
+    # will be the filename with the ".sh" extension removed.
+    local suite_name="$(basename $0)"
+
     echo >&2
-    echo "$1" >&2
+    echo "$message" >&2
     echo >&2
 
     __log_to_test_report "<\/testsuites>" "<testsuite></testsuite>"
@@ -801,7 +837,7 @@ function run_suite() {
       __log_to_test_report "<\/testsuite>" "$testcase_tag"
     done
 
-    __finish_test_report $total $passed
+    __finish_test_report "$suite_name" $total $passed
     __pad "$passed / $total tests passed." '*' >&2
     [ $total = $passed ] || {
       __pad "There were errors." '*'

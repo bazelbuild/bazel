@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.IOException;
 import java.nio.file.ClosedWatchServiceException;

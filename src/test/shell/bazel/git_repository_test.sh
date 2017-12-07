@@ -85,7 +85,7 @@ sh_binary(
 EOF
 
   cat > planets/planet_info.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../pluto/info
 EOF
   chmod +x planets/planet_info.sh
@@ -134,10 +134,13 @@ new_git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
     tag = "0-initial",
-    build_file = "pluto.BUILD",
+    build_file = "//:pluto.BUILD",
 )
 EOF
 
+  cat > BUILD <<EOF
+exports_files(['pluto.BUILD'])
+EOF
     cat > pluto.BUILD <<EOF
 filegroup(
     name = "pluto",
@@ -171,7 +174,7 @@ sh_binary(
 EOF
 
   cat > planets/planet_info.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../pluto/info
 EOF
   chmod +x planets/planet_info.sh
@@ -215,10 +218,13 @@ new_git_repository(
     remote = "$outer_planets_repo_dir",
     tag = "1-submodule",
     init_submodules = 1,
-    build_file = "outer_planets.BUILD",
+    build_file = "//:outer_planets.BUILD",
 )
 EOF
 
+  cat > BUILD <<EOF
+exports_files(['outer_planets.BUILD'])
+EOF
   cat > outer_planets.BUILD <<EOF
 filegroup(
     name = "neptune",
@@ -246,7 +252,7 @@ sh_binary(
 EOF
 
   cat > planets/planet_info.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat ../outer_planets/neptune/info
 cat ../outer_planets/pluto/info
 EOF
@@ -266,30 +272,35 @@ function test_git_repository_not_refetched_on_server_restart() {
 git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
 EOF
 
-  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
+  # Use batch to force server restarts.
+  bazel --batch build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
-  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
+
+  # Without changing anything, restart the server, which should not cause the checkout to be re-cloned.
+  bazel --batch build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
+
+  # Change the commit id, which should cause the checkout to be re-cloned.
   cat > WORKSPACE <<EOF
 git_repository(name='g', remote='$repo_dir', commit='62777acc')
 EOF
 
-  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
+  bazel --batch build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 
+  # Change the WORKSPACE but not the commit id, which should not cause the checkout to be re-cloned.
   cat > WORKSPACE <<EOF
 # This comment line is to change the line numbers, which should not cause Bazel
 # to refetch the repository
 git_repository(name='g', remote='$repo_dir', commit='62777acc')
 EOF
 
-  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
+  bazel --batch build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
-
 }
 
 
@@ -301,16 +312,17 @@ function test_git_repository_refetched_when_commit_changes() {
 git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
 EOF
 
-  bazel build @g//:g >& $TEST_log || fail "Build failed"
+  bazel build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
+  # Change the commit id, which should cause the checkout to be re-cloned.
   cat > WORKSPACE <<EOF
 git_repository(name='g', remote='$repo_dir', commit='62777acc')
 EOF
 
 
-  bazel build @g//:g >& $TEST_log || fail "Build failed"
+  bazel build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 }
@@ -351,7 +363,7 @@ function setup_error_test() {
   cd $WORKSPACE_DIR
   mkdir -p planets
   cat > planets/planet_info.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 cat external/pluto/info
 EOF
 

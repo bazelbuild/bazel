@@ -1,13 +1,16 @@
 genrule(
     name = "copy_link_jni_md_header",
     srcs = select({
-        "//src:darwin": ["//tools/jdk:jni_md_header-darwin"],
-        "//src:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
-        "//src:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
+        "//src/conditions:darwin": ["//tools/jdk:jni_md_header-darwin"],
+        "//src/conditions:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
+        "//src/conditions:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
+        "//src/conditions:windows": ["//tools/jdk:jni_md_header-windows"],
+        "//src/conditions:windows_msvc": ["//tools/jdk:jni_md_header-windows"],
         "//conditions:default": ["//tools/jdk:jni_md_header-linux"],
     }),
     outs = ["jni_md.h"],
     cmd = "cp -f $< $@",
+    visibility = ["//src/main/native:__subpackages__"],
 )
 
 genrule(
@@ -15,20 +18,21 @@ genrule(
     srcs = ["//tools/jdk:jni_header"],
     outs = ["jni.h"],
     cmd = "cp -f $< $@",
+    visibility = ["//src/main/native:__subpackages__"],
 )
 
 filegroup(
     name = "jni_os",
     srcs = select({
-        "//src:darwin": [
+        "//src/conditions:darwin": [
             "unix_jni_darwin.cc",
             "fsevents.cc",
         ],
-        "//src:darwin_x86_64": [
+        "//src/conditions:darwin_x86_64": [
             "unix_jni_darwin.cc",
             "fsevents.cc",
         ],
-        "//src:freebsd": ["unix_jni_freebsd.cc"],
+        "//src/conditions:freebsd": ["unix_jni_freebsd.cc"],
         "//conditions:default": ["unix_jni_linux.cc"],
     }),
 )
@@ -50,8 +54,8 @@ cc_binary(
     ],
     includes = ["."],  # For jni headers.
     linkopts = select({
-        "//src:darwin": ["-framework CoreServices"],
-        "//src:darwin_x86_64": ["-framework CoreServices"],
+        "//src/conditions:darwin": ["-framework CoreServices"],
+        "//src/conditions:darwin_x86_64": ["-framework CoreServices"],
         "//conditions:default": [],
     }),
     linkshared = 1,
@@ -81,12 +85,9 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-# TODO(laszlocsomor): move the common parts needed both by the Windows JNI lib
-# and the Bazel client into a separate library, and only copy those to the
-# embedded tools folder.
 filegroup(
     name = "embedded_tools",
-    srcs = glob(["*.cc"]) + glob(["*.h"]) + [
+    srcs = [
         "BUILD",
         "//src/main/native/windows:embedded_tools",
     ],

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -74,5 +75,25 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     assertThat(tagFilter.apply(tag1)).isFalse();
     assertThat(tagFilter.apply(tag2)).isTrue();
     assertThat(tagFilter.apply(tag1b)).isFalse();
+  }
+
+  @Test
+  public void testExecutionInfo() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])",
+        "sh_binary(name = 'tag2', srcs=['sh.sh'], tags=['disable-local-prefetch'])",
+        "sh_binary(name = 'tag1b', srcs=['sh.sh'], tags=['local', 'cpu:4'])");
+
+    Rule tag1 = (Rule) getTarget("//tests:tag1");
+    Rule tag2 = (Rule) getTarget("//tests:tag2");
+    Rule tag1b = (Rule) getTarget("//tests:tag1b");
+
+    Map<String, String> execInfo = TargetUtils.getExecutionInfo(tag1);
+    assertThat(execInfo).containsExactly("supports-workers", "", "no-cache", "");
+    execInfo = TargetUtils.getExecutionInfo(tag2);
+    assertThat(execInfo).containsExactly("disable-local-prefetch", "");
+    execInfo = TargetUtils.getExecutionInfo(tag1b);
+    assertThat(execInfo).containsExactly("local", "", "cpu:4", "");
   }
 }

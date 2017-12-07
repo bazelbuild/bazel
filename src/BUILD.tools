@@ -1,23 +1,14 @@
-config_setting(
-    name = "freebsd",
-    values = {"cpu": "freebsd"},
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
+# config_setting alias left here because bazel-only third_party code is pointing to it
+alias(
     name = "windows",
-    values = {"cpu": "x64_windows"},
+    actual = "//src/conditions:windows",
     visibility = ["//visibility:public"],
 )
 
-config_setting(
+# config_setting alias left here because bazel-only third_party code is pointing to it
+alias(
     name = "windows_msvc",
-    values = {"cpu": "x64_windows_msvc"},
+    actual = "//src/conditions:windows_msvc",
     visibility = ["//visibility:public"],
 )
 
-config_setting(
-    name = "windows_msys",
-    values = {"cpu": "x64_windows_msys"},
-    visibility = ["//visibility:public"],
-)

@@ -1,0 +1,1170 @@
+Class: testsubjects/TestSubject.class
+Method <init>
+   L0
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject;]
+    INVOKESPECIAL java/lang/Object.<init> ()V
+        |__STACK: []
+    RETURN
+        |__STACK: []
+Method catchTest
+   L0
+    ALOAD 0
+        |__STACK: [Ljava/lang/Object;]
+    INSTANCEOF java/lang/String
+        |__STACK: [I]
+    IFNE L1
+        |__STACK: []
+   L2
+    GETSTATIC testsubjects/TestSubject.VALUE_ONE : I
+        |__STACK: [I]
+    IRETURN
+        |__STACK: []
+   L1
+   FRAME SAME
+    ALOAD 0
+        |__STACK: [Ljava/lang/Object;]
+    CHECKCAST java/lang/String
+        |__STACK: [Ljava/lang/String;]
+    INVOKESTATIC java/util/regex/Pattern.compile (Ljava/lang/String;)Ljava/util/regex/Pattern;
+        |__STACK: [Ljava/util/regex/Pattern;]
+    POP
+        |__STACK: []
+   L3
+    GOTO L4
+        |__STACK: []
+   L5
+   FRAME SAME1 java/util/regex/PatternSyntaxException
+    ASTORE 2
+        |__STACK: []
+   L6
+    GETSTATIC testsubjects/TestSubject.VALUE_TWO : I
+        |__STACK: [I]
+    IRETURN
+        |__STACK: []
+   L4
+   FRAME SAME
+    GETSTATIC testsubjects/TestSubject.VALUE_ONE : I
+        |__STACK: [I]
+    IRETURN
+        |__STACK: []
+Method assertEquals
+   L0
+    DLOAD 1
+        |__STACK: [D, TOP]
+    DLOAD 3
+        |__STACK: [D, TOP, D, TOP]
+    INVOKESTATIC java/lang/Double.compare (DD)I
+        |__STACK: [I]
+    IFNE L1
+        |__STACK: []
+   L2
+    RETURN
+        |__STACK: []
+   L1
+   FRAME SAME
+    DLOAD 1
+        |__STACK: [D, TOP]
+    DLOAD 3
+        |__STACK: [D, TOP, D, TOP]
+    DSUB
+        |__STACK: [D, TOP]
+    INVOKESTATIC java/lang/Math.abs (D)D
+        |__STACK: [D, TOP]
+    DLOAD 5
+        |__STACK: [D, TOP, D, TOP]
+    DCMPG
+        |__STACK: [I]
+    IFLE L3
+        |__STACK: []
+   L4
+    NEW java/lang/RuntimeException
+        |__STACK: [Ljava/lang/RuntimeException;]
+    DUP
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;]
+    NEW java/lang/StringBuilder
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;]
+    DUP
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;, Ljava/lang/StringBuilder;]
+    INVOKESPECIAL java/lang/StringBuilder.<init> ()V
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;]
+    ALOAD 0
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;, Ljava/lang/String;]
+    INVOKEVIRTUAL java/lang/StringBuilder.append (Ljava/lang/String;)Ljava/lang/StringBuilder;
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;]
+    NEW java/lang/Double
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;, Ljava/lang/Double;]
+    DUP
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;, Ljava/lang/Double;, Ljava/lang/Double;]
+    DLOAD 1
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;, Ljava/lang/Double;, Ljava/lang/Double;, D, TOP]
+    INVOKESPECIAL java/lang/Double.<init> (D)V
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;, Ljava/lang/Double;]
+    INVOKEVIRTUAL java/lang/StringBuilder.append (Ljava/lang/Object;)Ljava/lang/StringBuilder;
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;]
+    NEW java/lang/Double
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;, Ljava/lang/Double;]
+    DUP
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;, Ljava/lang/Double;, Ljava/lang/Double;]
+    DLOAD 3
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;, Ljava/lang/Double;, Ljava/lang/Double;, D, TOP]
+    INVOKESPECIAL java/lang/Double.<init> (D)V
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;, Ljava/lang/Double;]
+    INVOKEVIRTUAL java/lang/StringBuilder.append (Ljava/lang/Object;)Ljava/lang/StringBuilder;
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/StringBuilder;]
+    INVOKEVIRTUAL java/lang/StringBuilder.toString ()Ljava/lang/String;
+        |__STACK: [Ljava/lang/RuntimeException;, Ljava/lang/RuntimeException;, Ljava/lang/String;]
+    INVOKESPECIAL java/lang/RuntimeException.<init> (Ljava/lang/String;)V
+        |__STACK: [Ljava/lang/RuntimeException;]
+    ATHROW
+        |__STACK: []
+   L3
+   FRAME SAME
+    RETURN
+        |__STACK: []
+Method simpleTryWithResources
+   L0
+    NEW testsubjects/TestSubject$SimpleResource
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;]
+    DUP
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;, Ltestsubjects/TestSubject$SimpleResource;]
+    INVOKESPECIAL testsubjects/TestSubject$SimpleResource.<init> ()V
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;]
+    ASTORE 0
+        |__STACK: []
+    ACONST_NULL
+        |__STACK: [NULL]
+    ASTORE 1
+        |__STACK: []
+   L1
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;]
+    ICONST_1
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;, I]
+    INVOKEVIRTUAL testsubjects/TestSubject$SimpleResource.call (Z)V
+        |__STACK: []
+   L2
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;]
+    IFNULL L3
+        |__STACK: []
+    ALOAD 1
+        |__STACK: [NULL]
+    IFNULL L4
+        |__STACK: []
+   L5
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;]
+    INVOKEVIRTUAL testsubjects/TestSubject$SimpleResource.close ()V
+        |__STACK: []
+   L6
+    GOTO L3
+        |__STACK: []
+   L7
+   FRAME FULL [testsubjects/TestSubject$SimpleResource java/lang/Throwable] [java/lang/Throwable]
+    ASTORE 2
+        |__STACK: []
+    ALOAD 1
+        |__STACK: [Ljava/lang/Throwable;]
+    ALOAD 2
+        |__STACK: [Ljava/lang/Throwable;, Ljava/lang/Throwable;]
+    INVOKEVIRTUAL java/lang/Throwable.addSuppressed (Ljava/lang/Throwable;)V
+        |__STACK: []
+    GOTO L3
+        |__STACK: []
+   L4
+   FRAME SAME
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;]
+    INVOKEVIRTUAL testsubjects/TestSubject$SimpleResource.close ()V
+        |__STACK: []
+    GOTO L3
+        |__STACK: []
+   L8
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 2
+        |__STACK: []
+    ALOAD 2
+        |__STACK: [Ljava/lang/Throwable;]
+    ASTORE 1
+        |__STACK: []
+    ALOAD 2
+        |__STACK: [Ljava/lang/Throwable;]
+    ATHROW
+        |__STACK: []
+   L9
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 3
+        |__STACK: []
+   L10
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;]
+    IFNULL L11
+        |__STACK: []
+    ALOAD 1
+        |__STACK: [Ljava/lang/Throwable;]
+    IFNULL L12
+        |__STACK: []
+   L13
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;]
+    INVOKEVIRTUAL testsubjects/TestSubject$SimpleResource.close ()V
+        |__STACK: []
+   L14
+    GOTO L11
+        |__STACK: []
+   L15
+   FRAME FULL [testsubjects/TestSubject$SimpleResource java/lang/Throwable T java/lang/Throwable] [java/lang/Throwable]
+    ASTORE 4
+        |__STACK: []
+    ALOAD 1
+        |__STACK: [Ljava/lang/Throwable;]
+    ALOAD 4
+        |__STACK: [Ljava/lang/Throwable;, Ljava/lang/Throwable;]
+    INVOKEVIRTUAL java/lang/Throwable.addSuppressed (Ljava/lang/Throwable;)V
+        |__STACK: []
+    GOTO L11
+        |__STACK: []
+   L12
+   FRAME SAME
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject$SimpleResource;]
+    INVOKEVIRTUAL testsubjects/TestSubject$SimpleResource.close ()V
+        |__STACK: []
+   L11
+   FRAME SAME
+    ALOAD 3
+        |__STACK: [Ljava/lang/Throwable;]
+    ATHROW
+        |__STACK: []
+   L3
+   FRAME FULL [] []
+    RETURN
+        |__STACK: []
+Method internalCompare
+   L0
+    ALOAD 4
+        |__STACK: [Ljava/util/function/BinaryOperator;]
+    LLOAD 0
+        |__STACK: [Ljava/util/function/BinaryOperator;, J, TOP]
+    INVOKESTATIC java/lang/Long.valueOf (J)Ljava/lang/Long;
+        |__STACK: [Ljava/util/function/BinaryOperator;, Ljava/lang/Long;]
+    LLOAD 2
+        |__STACK: [Ljava/util/function/BinaryOperator;, Ljava/lang/Long;, J, TOP]
+    INVOKESTATIC java/lang/Long.valueOf (J)Ljava/lang/Long;
+        |__STACK: [Ljava/util/function/BinaryOperator;, Ljava/lang/Long;, Ljava/lang/Long;]
+    INVOKEINTERFACE java/util/function/BinaryOperator.apply (Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+        |__STACK: [Ljava/lang/Object;]
+    CHECKCAST java/lang/Long
+        |__STACK: [Ljava/lang/Long;]
+    INVOKEVIRTUAL java/lang/Long.longValue ()J
+        |__STACK: [J, TOP]
+    LRETURN
+        |__STACK: []
+Method closeResourceArray
+   L0
+    ALOAD 1
+        |__STACK: [[Ljava/sql/Statement;]
+    ASTORE 2
+        |__STACK: []
+    ALOAD 2
+        |__STACK: [[Ljava/sql/Statement;]
+    ARRAYLENGTH
+        |__STACK: [I]
+    ISTORE 3
+        |__STACK: []
+    ICONST_0
+        |__STACK: [I]
+    ISTORE 4
+        |__STACK: []
+   L1
+   FRAME APPEND [[Ljava/sql/Statement; I I]
+    ILOAD 4
+        |__STACK: [I]
+    ILOAD 3
+        |__STACK: [I, I]
+    IF_ICMPGE L2
+        |__STACK: []
+    ALOAD 2
+        |__STACK: [[Ljava/sql/Statement;]
+    ILOAD 4
+        |__STACK: [[Ljava/sql/Statement;, I]
+    AALOAD
+        |__STACK: [Ljava/sql/Statement;]
+    ASTORE 5
+        |__STACK: []
+   L3
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject;]
+    ALOAD 5
+        |__STACK: [Ltestsubjects/TestSubject;, Ljava/sql/Statement;]
+    ACONST_NULL
+        |__STACK: [Ltestsubjects/TestSubject;, Ljava/sql/Statement;, NULL]
+    INVOKEVIRTUAL testsubjects/TestSubject.closeResource (Ljava/lang/AutoCloseable;Ljava/lang/Throwable;)V
+        |__STACK: []
+   L4
+    IINC 4 1
+        |__STACK: []
+    GOTO L1
+        |__STACK: []
+   L2
+   FRAME CHOP 3
+    RETURN
+        |__STACK: []
+Method closeResourceMultiArray
+   L0
+    ALOAD 1
+        |__STACK: [[[Ljava/sql/Statement;]
+    ASTORE 2
+        |__STACK: []
+    ALOAD 2
+        |__STACK: [[[Ljava/sql/Statement;]
+    ARRAYLENGTH
+        |__STACK: [I]
+    ISTORE 3
+        |__STACK: []
+    ICONST_0
+        |__STACK: [I]
+    ISTORE 4
+        |__STACK: []
+   L1
+   FRAME APPEND [[[Ljava/sql/Statement; I I]
+    ILOAD 4
+        |__STACK: [I]
+    ILOAD 3
+        |__STACK: [I, I]
+    IF_ICMPGE L2
+        |__STACK: []
+    ALOAD 2
+        |__STACK: [[[Ljava/sql/Statement;]
+    ILOAD 4
+        |__STACK: [[[Ljava/sql/Statement;, I]
+    AALOAD
+        |__STACK: [[Ljava/sql/Statement;]
+    ASTORE 5
+        |__STACK: []
+   L3
+    ALOAD 5
+        |__STACK: [[Ljava/sql/Statement;]
+    ASTORE 6
+        |__STACK: []
+    ALOAD 6
+        |__STACK: [[Ljava/sql/Statement;]
+    ARRAYLENGTH
+        |__STACK: [I]
+    ISTORE 7
+        |__STACK: []
+    ICONST_0
+        |__STACK: [I]
+    ISTORE 8
+        |__STACK: []
+   L4
+   FRAME FULL [testsubjects/TestSubject [[Ljava/sql/Statement; [[Ljava/sql/Statement; I I [Ljava/sql/Statement; [Ljava/sql/Statement; I I] []
+    ILOAD 8
+        |__STACK: [I]
+    ILOAD 7
+        |__STACK: [I, I]
+    IF_ICMPGE L5
+        |__STACK: []
+    ALOAD 6
+        |__STACK: [[Ljava/sql/Statement;]
+    ILOAD 8
+        |__STACK: [[Ljava/sql/Statement;, I]
+    AALOAD
+        |__STACK: [Ljava/sql/Statement;]
+    ASTORE 9
+        |__STACK: []
+   L6
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject;]
+    ALOAD 9
+        |__STACK: [Ltestsubjects/TestSubject;, Ljava/sql/Statement;]
+    ACONST_NULL
+        |__STACK: [Ltestsubjects/TestSubject;, Ljava/sql/Statement;, NULL]
+    INVOKEVIRTUAL testsubjects/TestSubject.closeResource (Ljava/lang/AutoCloseable;Ljava/lang/Throwable;)V
+        |__STACK: []
+   L7
+    IINC 8 1
+        |__STACK: []
+    GOTO L4
+        |__STACK: []
+   L5
+   FRAME FULL [testsubjects/TestSubject [[Ljava/sql/Statement; [[Ljava/sql/Statement; I I] []
+    IINC 4 1
+        |__STACK: []
+    GOTO L1
+        |__STACK: []
+   L2
+   FRAME CHOP 3
+    RETURN
+        |__STACK: []
+Method closeResourceArrayList
+   L0
+    ALOAD 1
+        |__STACK: [Ljava/util/List;]
+    INVOKEINTERFACE java/util/List.iterator ()Ljava/util/Iterator;
+        |__STACK: [Ljava/util/Iterator;]
+    ASTORE 2
+        |__STACK: []
+   L1
+   FRAME APPEND [java/util/Iterator]
+    ALOAD 2
+        |__STACK: [Ljava/util/Iterator;]
+    INVOKEINTERFACE java/util/Iterator.hasNext ()Z
+        |__STACK: [I]
+    IFEQ L2
+        |__STACK: []
+    ALOAD 2
+        |__STACK: [Ljava/util/Iterator;]
+    INVOKEINTERFACE java/util/Iterator.next ()Ljava/lang/Object;
+        |__STACK: [Ljava/lang/Object;]
+    CHECKCAST java/sql/Statement
+        |__STACK: [Ljava/sql/Statement;]
+    ASTORE 3
+        |__STACK: []
+   L3
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject;]
+    ALOAD 3
+        |__STACK: [Ltestsubjects/TestSubject;, Ljava/sql/Statement;]
+    ACONST_NULL
+        |__STACK: [Ltestsubjects/TestSubject;, Ljava/sql/Statement;, NULL]
+    INVOKEVIRTUAL testsubjects/TestSubject.closeResource (Ljava/lang/AutoCloseable;Ljava/lang/Throwable;)V
+        |__STACK: []
+   L4
+    GOTO L1
+        |__STACK: []
+   L2
+   FRAME CHOP 1
+    RETURN
+        |__STACK: []
+Method closeSqlStmt
+   L0
+    ACONST_NULL
+        |__STACK: [NULL]
+    ASTORE 2
+        |__STACK: []
+   L1
+    ALOAD 1
+        |__STACK: [Ljava/sql/Connection;]
+    INVOKEINTERFACE java/sql/Connection.createStatement ()Ljava/sql/Statement;
+        |__STACK: [Ljava/sql/Statement;]
+    ASTORE 2
+        |__STACK: []
+   L2
+    GOTO L3
+        |__STACK: []
+   L4
+   FRAME FULL [testsubjects/TestSubject java/sql/Connection java/sql/Statement] [java/sql/SQLException]
+    ASTORE 3
+        |__STACK: []
+   L5
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject;]
+    ALOAD 2
+        |__STACK: [Ltestsubjects/TestSubject;, Ljava/sql/Statement;]
+    ALOAD 3
+        |__STACK: [Ltestsubjects/TestSubject;, Ljava/sql/Statement;, Ljava/sql/SQLException;]
+    INVOKEVIRTUAL testsubjects/TestSubject.closeResource (Ljava/lang/AutoCloseable;Ljava/lang/Throwable;)V
+        |__STACK: []
+   L3
+   FRAME SAME
+    ALOAD 0
+        |__STACK: [Ltestsubjects/TestSubject;]
+    ALOAD 2
+        |__STACK: [Ltestsubjects/TestSubject;, Ljava/sql/Statement;]
+    ACONST_NULL
+        |__STACK: [Ltestsubjects/TestSubject;, Ljava/sql/Statement;, NULL]
+    INVOKEVIRTUAL testsubjects/TestSubject.closeResource (Ljava/lang/AutoCloseable;Ljava/lang/Throwable;)V
+        |__STACK: []
+   L6
+    RETURN
+        |__STACK: []
+Method closeResource
+   L0
+    ALOAD 1
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    IFNONNULL L1
+        |__STACK: []
+   L2
+    RETURN
+        |__STACK: []
+   L1
+   FRAME SAME
+    ALOAD 1
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L3
+    GOTO L4
+        |__STACK: []
+   L5
+   FRAME SAME1 java/lang/Exception
+    ASTORE 3
+        |__STACK: []
+   L6
+    ALOAD 2
+        |__STACK: [Ljava/lang/Throwable;]
+    IFNULL L7
+        |__STACK: []
+   L8
+    ALOAD 2
+        |__STACK: [Ljava/lang/Throwable;]
+    ALOAD 3
+        |__STACK: [Ljava/lang/Throwable;, Ljava/lang/Exception;]
+    INVOKEVIRTUAL java/lang/Throwable.addSuppressed (Ljava/lang/Throwable;)V
+        |__STACK: []
+   L7
+   FRAME APPEND [java/lang/Exception]
+    ALOAD 3
+        |__STACK: [Ljava/lang/Exception;]
+    ATHROW
+        |__STACK: []
+   L4
+   FRAME CHOP 1
+    RETURN
+        |__STACK: []
+Method intAdd
+   L0
+    ILOAD 0
+        |__STACK: [I]
+    ISTORE 2
+        |__STACK: []
+   L1
+    IINC 2 1
+        |__STACK: []
+   L2
+    IINC 2 1
+        |__STACK: []
+   L3
+    ILOAD 2
+        |__STACK: [I]
+    ILOAD 1
+        |__STACK: [I, I]
+    IADD
+        |__STACK: [I]
+    ISTORE 2
+        |__STACK: []
+   L4
+    IINC 2 -1
+        |__STACK: []
+   L5
+    IINC 2 -1
+        |__STACK: []
+   L6
+    ILOAD 2
+        |__STACK: [I]
+    ILOAD 1
+        |__STACK: [I, I]
+    ISUB
+        |__STACK: [I]
+    ISTORE 2
+        |__STACK: []
+   L7
+    ILOAD 2
+        |__STACK: [I]
+    ILOAD 1
+        |__STACK: [I, I]
+    IMUL
+        |__STACK: [I]
+    ISTORE 2
+        |__STACK: []
+   L8
+    ILOAD 2
+        |__STACK: [I]
+    ILOAD 1
+        |__STACK: [I, I]
+    IDIV
+        |__STACK: [I]
+    ISTORE 2
+        |__STACK: []
+   L9
+    ILOAD 2
+        |__STACK: [I]
+    ILOAD 1
+        |__STACK: [I, I]
+    IREM
+        |__STACK: [I]
+    ISTORE 2
+        |__STACK: []
+   L10
+    ILOAD 2
+        |__STACK: [I]
+    ICONST_2
+        |__STACK: [I, I]
+    ISHL
+        |__STACK: [I]
+    ISTORE 2
+        |__STACK: []
+   L11
+    ILOAD 2
+        |__STACK: [I]
+    ILOAD 1
+        |__STACK: [I, I]
+    ISHR
+        |__STACK: [I]
+    ISTORE 2
+        |__STACK: []
+   L12
+    ILOAD 2
+        |__STACK: [I]
+    ICONST_3
+        |__STACK: [I, I]
+    IUSHR
+        |__STACK: [I]
+    ISTORE 2
+        |__STACK: []
+   L13
+    ILOAD 2
+        |__STACK: [I]
+    I2L
+        |__STACK: [J, TOP]
+    LSTORE 3
+        |__STACK: []
+   L14
+    LLOAD 3
+        |__STACK: [J, TOP]
+    ILOAD 1
+        |__STACK: [J, TOP, I]
+    LSHL
+        |__STACK: [J, TOP]
+    LSTORE 3
+        |__STACK: []
+   L15
+    LLOAD 3
+        |__STACK: [J, TOP]
+    L2I
+        |__STACK: [I]
+    IRETURN
+        |__STACK: []
+Method createNumberWithDiamond
+   L0
+    ACONST_NULL
+        |__STACK: [NULL]
+    ASTORE 1
+        |__STACK: []
+   L1
+    ILOAD 0
+        |__STACK: [I]
+    IFEQ L2
+        |__STACK: []
+   L3
+    NEW java/lang/Integer
+        |__STACK: [Ljava/lang/Integer;]
+    DUP
+        |__STACK: [Ljava/lang/Integer;, Ljava/lang/Integer;]
+    ICONST_1
+        |__STACK: [Ljava/lang/Integer;, Ljava/lang/Integer;, I]
+    INVOKESPECIAL java/lang/Integer.<init> (I)V
+        |__STACK: [Ljava/lang/Integer;]
+    ASTORE 1
+        |__STACK: []
+    GOTO L4
+        |__STACK: []
+   L2
+   FRAME APPEND [java/lang/Number]
+    NEW java/lang/Double
+        |__STACK: [Ljava/lang/Double;]
+    DUP
+        |__STACK: [Ljava/lang/Double;, Ljava/lang/Double;]
+    DCONST_1
+        |__STACK: [Ljava/lang/Double;, Ljava/lang/Double;, D, TOP]
+    INVOKESPECIAL java/lang/Double.<init> (D)V
+        |__STACK: [Ljava/lang/Double;]
+    ASTORE 1
+        |__STACK: []
+   L4
+   FRAME SAME
+    ALOAD 1
+        |__STACK: [Ljava/lang/Number;]
+    ARETURN
+        |__STACK: []
+Method createMultiObjectArray
+   L0
+    ICONST_0
+        |__STACK: [I]
+    ICONST_0
+        |__STACK: [I, I]
+    MULTIANEWARRAY [[Ljava/lang/Object; 2
+        |__STACK: [[[Ljava/lang/Object;]
+    ARETURN
+        |__STACK: []
+Method createObjectArray
+   L0
+    ICONST_0
+        |__STACK: [I]
+    ANEWARRAY java/lang/Object
+        |__STACK: [[Ljava/lang/Object;]
+    ARETURN
+        |__STACK: []
+Method createIntArray
+   L0
+    ICONST_0
+        |__STACK: [I]
+    NEWARRAY T_INT
+        |__STACK: [[I]
+    ARETURN
+        |__STACK: []
+Method staticEmpty1
+   L0
+    RETURN
+        |__STACK: []
+Method instanceEmpty1
+   L0
+    RETURN
+        |__STACK: []
+Method identity
+   L0
+    ILOAD 0
+        |__STACK: [I]
+    IRETURN
+        |__STACK: []
+Method identity2
+   L0
+    ILOAD 0
+        |__STACK: [I]
+    ISTORE 1
+        |__STACK: []
+   L1
+    ILOAD 1
+        |__STACK: [I]
+    IRETURN
+        |__STACK: []
+Method readFile
+   L0
+    NEW java/io/BufferedReader
+        |__STACK: [Ljava/io/BufferedReader;]
+    DUP
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;]
+    NEW java/io/FileReader
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;]
+    DUP
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;, Ljava/io/FileReader;]
+    ALOAD 1
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;, Ljava/io/FileReader;, Ljava/io/File;]
+    INVOKESPECIAL java/io/FileReader.<init> (Ljava/io/File;)V
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;]
+    INVOKESPECIAL java/io/BufferedReader.<init> (Ljava/io/Reader;)V
+        |__STACK: [Ljava/io/BufferedReader;]
+    ASTORE 2
+        |__STACK: []
+    ACONST_NULL
+        |__STACK: [NULL]
+    ASTORE 3
+        |__STACK: []
+   L1
+    NEW java/io/BufferedReader
+        |__STACK: [Ljava/io/BufferedReader;]
+    DUP
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;]
+    NEW java/io/FileReader
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;]
+    DUP
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;, Ljava/io/FileReader;]
+    ALOAD 1
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;, Ljava/io/FileReader;, Ljava/io/File;]
+    INVOKESPECIAL java/io/FileReader.<init> (Ljava/io/File;)V
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;]
+    INVOKESPECIAL java/io/BufferedReader.<init> (Ljava/io/Reader;)V
+        |__STACK: [Ljava/io/BufferedReader;]
+    ASTORE 4
+        |__STACK: []
+   L2
+    ACONST_NULL
+        |__STACK: [NULL]
+    ASTORE 5
+        |__STACK: []
+   L3
+    NEW java/io/BufferedReader
+        |__STACK: [Ljava/io/BufferedReader;]
+    DUP
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;]
+    NEW java/io/FileReader
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;]
+    DUP
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;, Ljava/io/FileReader;]
+    ALOAD 1
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;, Ljava/io/FileReader;, Ljava/io/File;]
+    INVOKESPECIAL java/io/FileReader.<init> (Ljava/io/File;)V
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;]
+    INVOKESPECIAL java/io/BufferedReader.<init> (Ljava/io/Reader;)V
+        |__STACK: [Ljava/io/BufferedReader;]
+    ASTORE 6
+        |__STACK: []
+   L4
+    ACONST_NULL
+        |__STACK: [NULL]
+    ASTORE 7
+        |__STACK: []
+   L5
+    NEW java/io/BufferedReader
+        |__STACK: [Ljava/io/BufferedReader;]
+    DUP
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;]
+    NEW java/io/FileReader
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;]
+    DUP
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;, Ljava/io/FileReader;]
+    ALOAD 1
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;, Ljava/io/FileReader;, Ljava/io/File;]
+    INVOKESPECIAL java/io/FileReader.<init> (Ljava/io/File;)V
+        |__STACK: [Ljava/io/BufferedReader;, Ljava/io/BufferedReader;, Ljava/io/FileReader;]
+    INVOKESPECIAL java/io/BufferedReader.<init> (Ljava/io/Reader;)V
+        |__STACK: [Ljava/io/BufferedReader;]
+    ASTORE 8
+        |__STACK: []
+   L6
+    ACONST_NULL
+        |__STACK: [NULL]
+    ASTORE 9
+        |__STACK: []
+   L7
+    ALOAD 8
+        |__STACK: [Ljava/io/BufferedReader;]
+    IFNULL L8
+        |__STACK: []
+    ALOAD 9
+        |__STACK: [NULL]
+    IFNULL L9
+        |__STACK: []
+   L10
+    ALOAD 8
+        |__STACK: [Ljava/io/BufferedReader;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L11
+    GOTO L8
+        |__STACK: []
+   L12
+   FRAME FULL [testsubjects/TestSubject java/io/File java/lang/AutoCloseable java/lang/Throwable java/lang/AutoCloseable java/lang/Throwable java/lang/AutoCloseable java/lang/Throwable java/lang/AutoCloseable java/lang/Throwable] [java/lang/Throwable]
+    ASTORE 10
+        |__STACK: []
+    ALOAD 9
+        |__STACK: [Ljava/lang/Throwable;]
+    ALOAD 10
+        |__STACK: [Ljava/lang/Throwable;, Ljava/lang/Throwable;]
+    INVOKEVIRTUAL java/lang/Throwable.addSuppressed (Ljava/lang/Throwable;)V
+        |__STACK: []
+    GOTO L8
+        |__STACK: []
+   L9
+   FRAME SAME
+    ALOAD 8
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L8
+   FRAME CHOP 2
+    ALOAD 6
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    IFNULL L13
+        |__STACK: []
+    ALOAD 7
+        |__STACK: [Ljava/lang/Throwable;]
+    IFNULL L14
+        |__STACK: []
+   L15
+    ALOAD 6
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L16
+    GOTO L13
+        |__STACK: []
+   L17
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 8
+        |__STACK: []
+    ALOAD 7
+        |__STACK: [Ljava/lang/Throwable;]
+    ALOAD 8
+        |__STACK: [Ljava/lang/Throwable;, Ljava/lang/Throwable;]
+    INVOKEVIRTUAL java/lang/Throwable.addSuppressed (Ljava/lang/Throwable;)V
+        |__STACK: []
+    GOTO L13
+        |__STACK: []
+   L14
+   FRAME SAME
+    ALOAD 6
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+    GOTO L13
+        |__STACK: []
+   L18
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 8
+        |__STACK: []
+    ALOAD 8
+        |__STACK: [Ljava/lang/Throwable;]
+    ASTORE 7
+        |__STACK: []
+    ALOAD 8
+        |__STACK: [Ljava/lang/Throwable;]
+    ATHROW
+        |__STACK: []
+   L19
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 11
+        |__STACK: []
+   L20
+    ALOAD 6
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    IFNULL L21
+        |__STACK: []
+    ALOAD 7
+        |__STACK: [Ljava/lang/Throwable;]
+    IFNULL L22
+        |__STACK: []
+   L23
+    ALOAD 6
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L24
+    GOTO L21
+        |__STACK: []
+   L25
+   FRAME FULL [testsubjects/TestSubject java/io/File java/lang/AutoCloseable java/lang/Throwable java/lang/AutoCloseable java/lang/Throwable java/lang/AutoCloseable java/lang/Throwable T T T java/lang/Throwable] [java/lang/Throwable]
+    ASTORE 12
+        |__STACK: []
+    ALOAD 7
+        |__STACK: [Ljava/lang/Throwable;]
+    ALOAD 12
+        |__STACK: [Ljava/lang/Throwable;, Ljava/lang/Throwable;]
+    INVOKEVIRTUAL java/lang/Throwable.addSuppressed (Ljava/lang/Throwable;)V
+        |__STACK: []
+    GOTO L21
+        |__STACK: []
+   L22
+   FRAME SAME
+    ALOAD 6
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L21
+   FRAME SAME
+    ALOAD 11
+        |__STACK: [Ljava/lang/Throwable;]
+    ATHROW
+        |__STACK: []
+   L13
+   FRAME FULL [testsubjects/TestSubject java/io/File java/lang/AutoCloseable java/lang/Throwable java/lang/AutoCloseable java/lang/Throwable] []
+    ALOAD 4
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    IFNULL L26
+        |__STACK: []
+    ALOAD 5
+        |__STACK: [Ljava/lang/Throwable;]
+    IFNULL L27
+        |__STACK: []
+   L28
+    ALOAD 4
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L29
+    GOTO L26
+        |__STACK: []
+   L30
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 6
+        |__STACK: []
+    ALOAD 5
+        |__STACK: [Ljava/lang/Throwable;]
+    ALOAD 6
+        |__STACK: [Ljava/lang/Throwable;, Ljava/lang/Throwable;]
+    INVOKEVIRTUAL java/lang/Throwable.addSuppressed (Ljava/lang/Throwable;)V
+        |__STACK: []
+    GOTO L26
+        |__STACK: []
+   L27
+   FRAME SAME
+    ALOAD 4
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+    GOTO L26
+        |__STACK: []
+   L31
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 6
+        |__STACK: []
+    ALOAD 6
+        |__STACK: [Ljava/lang/Throwable;]
+    ASTORE 5
+        |__STACK: []
+    ALOAD 6
+        |__STACK: [Ljava/lang/Throwable;]
+    ATHROW
+        |__STACK: []
+   L32
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 13
+        |__STACK: []
+   L33
+    ALOAD 4
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    IFNULL L34
+        |__STACK: []
+    ALOAD 5
+        |__STACK: [Ljava/lang/Throwable;]
+    IFNULL L35
+        |__STACK: []
+   L36
+    ALOAD 4
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L37
+    GOTO L34
+        |__STACK: []
+   L38
+   FRAME FULL [testsubjects/TestSubject java/io/File java/lang/AutoCloseable java/lang/Throwable java/lang/AutoCloseable java/lang/Throwable T T T T T T T java/lang/Throwable] [java/lang/Throwable]
+    ASTORE 14
+        |__STACK: []
+    ALOAD 5
+        |__STACK: [Ljava/lang/Throwable;]
+    ALOAD 14
+        |__STACK: [Ljava/lang/Throwable;, Ljava/lang/Throwable;]
+    INVOKEVIRTUAL java/lang/Throwable.addSuppressed (Ljava/lang/Throwable;)V
+        |__STACK: []
+    GOTO L34
+        |__STACK: []
+   L35
+   FRAME SAME
+    ALOAD 4
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L34
+   FRAME SAME
+    ALOAD 13
+        |__STACK: [Ljava/lang/Throwable;]
+    ATHROW
+        |__STACK: []
+   L26
+   FRAME FULL [testsubjects/TestSubject java/io/File java/lang/AutoCloseable java/lang/Throwable] []
+    ALOAD 2
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    IFNULL L39
+        |__STACK: []
+    ALOAD 3
+        |__STACK: [Ljava/lang/Throwable;]
+    IFNULL L40
+        |__STACK: []
+   L41
+    ALOAD 2
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L42
+    GOTO L39
+        |__STACK: []
+   L43
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 4
+        |__STACK: []
+    ALOAD 3
+        |__STACK: [Ljava/lang/Throwable;]
+    ALOAD 4
+        |__STACK: [Ljava/lang/Throwable;, Ljava/lang/Throwable;]
+    INVOKEVIRTUAL java/lang/Throwable.addSuppressed (Ljava/lang/Throwable;)V
+        |__STACK: []
+    GOTO L39
+        |__STACK: []
+   L40
+   FRAME SAME
+    ALOAD 2
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+    GOTO L39
+        |__STACK: []
+   L44
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 4
+        |__STACK: []
+    ALOAD 4
+        |__STACK: [Ljava/lang/Throwable;]
+    ASTORE 3
+        |__STACK: []
+    ALOAD 4
+        |__STACK: [Ljava/lang/Throwable;]
+    ATHROW
+        |__STACK: []
+   L45
+   FRAME SAME1 java/lang/Throwable
+    ASTORE 15
+        |__STACK: []
+   L46
+    ALOAD 2
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    IFNULL L47
+        |__STACK: []
+    ALOAD 3
+        |__STACK: [Ljava/lang/Throwable;]
+    IFNULL L48
+        |__STACK: []
+   L49
+    ALOAD 2
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L50
+    GOTO L47
+        |__STACK: []
+   L51
+   FRAME FULL [testsubjects/TestSubject java/io/File java/lang/AutoCloseable java/lang/Throwable T T T T T T T T T T T java/lang/Throwable] [java/lang/Throwable]
+    ASTORE 16
+        |__STACK: []
+    ALOAD 3
+        |__STACK: [Ljava/lang/Throwable;]
+    ALOAD 16
+        |__STACK: [Ljava/lang/Throwable;, Ljava/lang/Throwable;]
+    INVOKEVIRTUAL java/lang/Throwable.addSuppressed (Ljava/lang/Throwable;)V
+        |__STACK: []
+    GOTO L47
+        |__STACK: []
+   L48
+   FRAME SAME
+    ALOAD 2
+        |__STACK: [Ljava/lang/AutoCloseable;]
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+        |__STACK: []
+   L47
+   FRAME SAME
+    ALOAD 15
+        |__STACK: [Ljava/lang/Throwable;]
+    ATHROW
+        |__STACK: []
+   L39
+   FRAME FULL [testsubjects/TestSubject java/io/File] []
+    GOTO L52
+        |__STACK: []
+   L53
+   FRAME SAME1 java/io/IOException
+    ASTORE 2
+        |__STACK: []
+   L54
+    ALOAD 2
+        |__STACK: [Ljava/io/IOException;]
+    INVOKEVIRTUAL java/io/IOException.printStackTrace ()V
+        |__STACK: []
+   L52
+   FRAME SAME
+    RETURN
+        |__STACK: []
+Method <clinit>
+   L0
+    ICONST_1
+        |__STACK: [I]
+    PUTSTATIC testsubjects/TestSubject.VALUE_ONE : I
+        |__STACK: []
+   L1
+    ICONST_2
+        |__STACK: [I]
+    PUTSTATIC testsubjects/TestSubject.VALUE_TWO : I
+        |__STACK: []
+    RETURN
+        |__STACK: []

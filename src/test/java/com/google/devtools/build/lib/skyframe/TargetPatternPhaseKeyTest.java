@@ -24,16 +24,14 @@ import com.google.common.testing.NullPointerTester;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternList;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.common.options.Options;
-
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import javax.annotation.Nullable;
-
-/** Tests for {@link TargetPatternList}. */
+/** Tests for {@link TargetPatternPhaseKey}. */
 @RunWith(JUnit4.class)
 public class TargetPatternPhaseKeyTest {
   static enum Flag {
@@ -79,18 +77,18 @@ public class TargetPatternPhaseKeyTest {
        .testEquals();
   }
 
-  private TargetPatternList of(ImmutableList<String> targetPatterns, String offset,
+  private TargetPatternPhaseKey of(ImmutableList<String> targetPatterns, String offset,
       ImmutableList<String> buildTagFilter,
       boolean includeManualTests, @Nullable TestFilter testFilter, Flag... flags) {
     ImmutableSet<Flag> set = ImmutableSet.copyOf(flags);
     boolean compileOneDependency = set.contains(Flag.COMPILE_ONE_DEPENDENCY);
     boolean buildTestsOnly = set.contains(Flag.BUILD_TESTS_ONLY);
     boolean determineTests = set.contains(Flag.DETERMINE_TESTS);
-    return new TargetPatternList(targetPatterns, offset, compileOneDependency, buildTestsOnly,
+    return new TargetPatternPhaseKey(targetPatterns, offset, compileOneDependency, buildTestsOnly,
         determineTests, buildTagFilter, includeManualTests, testFilter);
   }
 
-  private TargetPatternList of(ImmutableList<String> targetPatterns, String offset) {
+  private TargetPatternPhaseKey of(ImmutableList<String> targetPatterns, String offset) {
     return of(targetPatterns, offset, ImmutableList.<String>of(), false, null);
   }
 
@@ -102,6 +100,6 @@ public class TargetPatternPhaseKeyTest {
   @Test
   public void testNull() throws Exception {
     new NullPointerTester()
-        .testAllPublicConstructors(TargetPatternList.class);
+        .testAllPublicConstructors(TargetPatternPhaseKey.class);
   }
 }

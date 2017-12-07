@@ -15,15 +15,18 @@ filegroup(
 filegroup(
     name = "packages",
     srcs = select({
-        "//src:windows": [],
-        "//src:windows_msvc": [],
-        "//src:freebsd": [],
-        "//src:darwin": [
+        "//src/conditions:windows": [
+            ":zip-bazel-exe",
+            ":zip-bazel-exe_with_jdk",
+        ],
+        "//src/conditions:windows_msvc": [],
+        "//src/conditions:freebsd": [],
+        "//src/conditions:darwin": [
             ":with-jdk/install.sh",
             ":without-jdk/install.sh",
             ":generate-package-info",
         ],
-        "//src:darwin_x86_64": [
+        "//src/conditions:darwin_x86_64": [
             ":with-jdk/install.sh",
             ":without-jdk/install.sh",
             ":generate-package-info",
@@ -51,6 +54,22 @@ genrule(
     stamp = 1,
     tools = [":package-info-generator"],
 )
+
+[genrule(
+    name = "zip-bazel-exe" + suffix,
+    srcs = ["//src:bazel%s.exe" % suffix],
+    outs = ["bazel%s.zip" % suffix],
+    cmd = "\n".join([
+        "tmpdir=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXX)",
+        "trap \"rm -fr $${tmpdir}\" EXIT",
+        "mv $(SRCS) $${tmpdir}/bazel.exe",
+        "touch -t 198001010000.00 $${tmpdir}/bazel.exe",
+        "zip -jq $@ $${tmpdir}/bazel.exe",
+    ]),
+) for suffix in [
+    "",
+    "_with_jdk",
+]]
 
 genrule(
     name = "generate-launcher",

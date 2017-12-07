@@ -32,7 +32,7 @@ public interface PackageProviderForConfigurations {
 
   /**
    * Adds dependency to fileName if needed. Used only in skyframe, for creating correct dependencies
-   * for {@link com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue}.
+   * for {@link com.google.devtools.build.lib.skyframe.ConfigurationFragmentValue}.
    */
   void addDependency(Package pkg, String fileName)
       throws LabelSyntaxException, IOException, InterruptedException;

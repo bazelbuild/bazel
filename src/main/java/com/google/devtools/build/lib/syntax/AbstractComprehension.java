@@ -48,7 +48,7 @@ public abstract class AbstractComprehension extends Expression {
   public interface Clause extends Serializable {
 
     /** Enum for distinguishing clause types. */
-    public enum Kind {
+    enum Kind {
       FOR,
       IF
     }
@@ -59,7 +59,7 @@ public abstract class AbstractComprehension extends Expression {
      * <p>This avoids having to rely on reflection, or on checking whether {@link #getLValue} is
      * null.
      */
-    public Kind getKind();
+    Kind getKind();
 
     /**
      * The evaluation of the comprehension is based on recursion. Each clause may
@@ -76,81 +76,73 @@ public abstract class AbstractComprehension extends Expression {
     void eval(Environment env, OutputCollector collector, int step)
         throws EvalException, InterruptedException;
 
-    void validate(ValidationEnvironment env, Location loc) throws EvalException;
-
     /**
      * The LValue defined in Clause, i.e. the loop variables for ForClause and null for
      * IfClause. This is needed for SyntaxTreeVisitor.
      */
     @Nullable  // for the IfClause
-    public LValue getLValue();
+    LValue getLValue();
 
     /**
      * The Expression defined in Clause, i.e. the collection for ForClause and the
      * condition for IfClause. This is needed for SyntaxTreeVisitor.
      */
-    public Expression getExpression();
+    Expression getExpression();
 
     /** Pretty print to a buffer. */
-    public void prettyPrint(Appendable buffer) throws IOException;
+    void prettyPrint(Appendable buffer) throws IOException;
   }
 
   /**
    * A for clause in a comprehension, e.g. "for a in b" in the example above.
    */
   public static final class ForClause implements Clause {
-    private final LValue variables;
-    private final Expression list;
+    private final LValue lvalue;
+    private final Expression iterable;
 
     @Override
     public Kind getKind() {
       return Kind.FOR;
     }
 
-    public ForClause(LValue variables, Expression list) {
-      this.variables = variables;
-      this.list = list;
+    public ForClause(LValue lvalue, Expression iterable) {
+      this.lvalue = lvalue;
+      this.iterable = iterable;
     }
 
     @Override
     public void eval(Environment env, OutputCollector collector, int step)
         throws EvalException, InterruptedException {
-      Object listValueObject = list.eval(env);
+      Object iterableObject = iterable.eval(env);
       Location loc = collector.getLocation();
-      Iterable<?> listValue = EvalUtils.toIterable(listValueObject, loc, env);
-      EvalUtils.lock(listValueObject, loc);
+      Iterable<?> listValue = EvalUtils.toIterable(iterableObject, loc, env);
+      EvalUtils.lock(iterableObject, loc);
       try {
         for (Object listElement : listValue) {
-          variables.assign(env, loc, listElement);
+          lvalue.assign(listElement, env, loc);
           evalStep(env, collector, step);
         }
       } finally {
-        EvalUtils.unlock(listValueObject, loc);
+        EvalUtils.unlock(iterableObject, loc);
       }
     }
 
     @Override
-    public void validate(ValidationEnvironment env, Location loc) throws EvalException {
-      variables.validate(env, loc);
-      list.validate(env);
-    }
-
-    @Override
     public LValue getLValue() {
-      return variables;
+      return lvalue;
     }
 
     @Override
     public Expression getExpression() {
-      return list;
+      return iterable;
     }
 
     @Override
     public void prettyPrint(Appendable buffer) throws IOException {
       buffer.append("for ");
-      variables.prettyPrint(buffer);
+      lvalue.prettyPrint(buffer);
       buffer.append(" in ");
-      list.prettyPrint(buffer);
+      iterable.prettyPrint(buffer);
     }
 
     @Override
@@ -187,11 +179,6 @@ public abstract class AbstractComprehension extends Expression {
       if (EvalUtils.toBoolean(condition.eval(env))) {
         evalStep(env, collector, step);
       }
-    }
-
-    @Override
-    public void validate(ValidationEnvironment env, Location loc) throws EvalException {
-      condition.validate(env);
     }
 
     @Override
@@ -258,10 +245,10 @@ public abstract class AbstractComprehension extends Expression {
   /** Base class for comprehension builders. */
   public abstract static class AbstractBuilder {
 
-    protected List<Clause> clauses = new ArrayList<>();
+    protected final List<Clause> clauses = new ArrayList<>();
 
-    public void addFor(Expression loopVar, Expression listExpression) {
-      Clause forClause = new ForClause(new LValue(loopVar), listExpression);
+    public void addFor(LValue lvalue, Expression iterable) {
+      Clause forClause = new ForClause(lvalue, iterable);
       clauses.add(forClause);
     }
 
@@ -282,12 +269,17 @@ public abstract class AbstractComprehension extends Expression {
   }
 
   @Override
+  public Kind kind() {
+    return Kind.COMPREHENSION;
+  }
+
+  @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
     OutputCollector collector = createCollector(env);
     evalStep(env, collector, 0);
     Object result = collector.getResult(env);
 
-    if (!env.getSemantics().incompatibleComprehensionVariablesDoNotLeak) {
+    if (!env.getSemantics().incompatibleComprehensionVariablesDoNotLeak()) {
       return result;
     }
 
@@ -299,30 +291,12 @@ public abstract class AbstractComprehension extends Expression {
       // Check if a loop variable conflicts with another local variable.
       LValue lvalue = clause.getLValue();
       if (lvalue != null) {
-        for (String name : lvalue.boundNames()) {
-          env.removeLocalBinding(name);
+        for (Identifier ident : lvalue.boundIdentifiers()) {
+          env.removeLocalBinding(ident.getName());
         }
       }
     }
     return result;
-  }
-
-  @Override
-  void validate(ValidationEnvironment parentEnv) throws EvalException {
-    // Create a new scope so that loop variables do not leak outside the comprehension.
-    ValidationEnvironment env =
-        parentEnv.getSemantics().incompatibleComprehensionVariablesDoNotLeak
-            ? new ValidationEnvironment(parentEnv)
-            : parentEnv;
-
-    for (Clause clause : clauses) {
-      clause.validate(env, getLocation());
-    }
-
-    // Clauses have to be validated before expressions in order to introduce the variable names.
-    for (Expression expr : outputExpressions) {
-      expr.validate(env);
-    }
   }
 
   /**

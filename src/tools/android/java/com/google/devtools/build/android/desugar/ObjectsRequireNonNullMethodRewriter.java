@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
-import static org.objectweb.asm.Opcodes.ASM5;
+import static org.objectweb.asm.Opcodes.ASM6;
 import static org.objectweb.asm.Opcodes.DUP;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
@@ -30,7 +30,7 @@ import org.objectweb.asm.MethodVisitor;
 public class ObjectsRequireNonNullMethodRewriter extends ClassVisitor {
 
   public ObjectsRequireNonNullMethodRewriter(ClassVisitor cv) {
-    super(ASM5, cv);
+    super(ASM6, cv);
   }
 
   @Override
@@ -43,7 +43,7 @@ public class ObjectsRequireNonNullMethodRewriter extends ClassVisitor {
   private static class ObjectsMethodInlinerMethodVisitor extends MethodVisitor {
 
     public ObjectsMethodInlinerMethodVisitor(MethodVisitor mv) {
-      super(ASM5, mv);
+      super(ASM6, mv);
     }
 
     @Override

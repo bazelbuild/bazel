@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.util.List;
 
@@ -25,22 +25,18 @@ public final class IfStatement extends Statement {
 
   /**
    * Syntax node for an [el]if statement.
+   *
+   * <p>This extends Statement, but it is not actually an independent statement in the grammar. We
+   * should probably eliminate it in favor of a recursive representation of if/else chains.
    */
   public static final class ConditionalStatements extends Statement {
 
     private final Expression condition;
-    private final ImmutableList<Statement> stmts;
+    private final ImmutableList<Statement> statements;
 
-    public ConditionalStatements(Expression condition, List<Statement> stmts) {
+    public ConditionalStatements(Expression condition, List<Statement> statements) {
       this.condition = Preconditions.checkNotNull(condition);
-      this.stmts = ImmutableList.copyOf(stmts);
-    }
-
-    @Override
-    void doExec(Environment env) throws EvalException, InterruptedException {
-      for (Statement stmt : stmts) {
-        stmt.exec(env);
-      }
+      this.statements = ImmutableList.copyOf(statements);
     }
 
     // No prettyPrint function; handled directly by IfStatement#prettyPrint.
@@ -51,7 +47,7 @@ public final class IfStatement extends Statement {
 
     @Override
     public String toString() {
-      return "[el]if " + condition + ": " + stmts + "\n";
+      return "[el]if " + condition + ": " + statements + "\n";
     }
 
     @Override
@@ -59,18 +55,17 @@ public final class IfStatement extends Statement {
       visitor.visit(this);
     }
 
+    @Override
+    public Kind kind() {
+      return Kind.CONDITIONAL;
+    }
+
     public Expression getCondition() {
       return condition;
     }
 
-    public ImmutableList<Statement> getStmts() {
-      return stmts;
-    }
-
-    @Override
-    void validate(ValidationEnvironment env) throws EvalException {
-      condition.validate(env);
-      validateStmts(env, stmts);
+    public ImmutableList<Statement> getStatements() {
+      return statements;
     }
   }
 
@@ -104,7 +99,7 @@ public final class IfStatement extends Statement {
       buffer.append(clauseWord);
       condStmt.getCondition().prettyPrint(buffer);
       buffer.append(":\n");
-      printSuite(buffer, condStmt.getStmts(), indentLevel);
+      printSuite(buffer, condStmt.getStatements(), indentLevel);
       clauseWord = "elif ";
     }
     if (!elseBlock.isEmpty()) {
@@ -120,38 +115,12 @@ public final class IfStatement extends Statement {
   }
 
   @Override
-  void doExec(Environment env) throws EvalException, InterruptedException {
-    for (ConditionalStatements stmt : thenBlocks) {
-      if (EvalUtils.toBoolean(stmt.getCondition().eval(env))) {
-        stmt.exec(env);
-        return;
-      }
-    }
-    for (Statement stmt : elseBlock) {
-      stmt.exec(env);
-    }
-  }
-
-  @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    env.startTemporarilyDisableReadonlyCheckSession();
-    for (ConditionalStatements stmts : thenBlocks) {
-      stmts.validate(env);
-    }
-    validateStmts(env, elseBlock);
-    env.finishTemporarilyDisableReadonlyCheckSession();
-  }
-
-  private static void validateStmts(ValidationEnvironment env, List<Statement> stmts)
-      throws EvalException {
-    for (Statement stmt : stmts) {
-      stmt.validate(env);
-    }
-    env.finishTemporarilyDisableReadonlyCheckBranch();
+  public Kind kind() {
+    return Kind.IF;
   }
 }

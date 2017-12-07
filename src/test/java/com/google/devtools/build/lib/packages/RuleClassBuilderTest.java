@@ -21,6 +21,10 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import org.junit.Test;
@@ -187,5 +191,70 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     } catch (IllegalStateException e) {
       // Expected exception.
     }
+  }
+
+  @Test
+  public void testRequiredToolchainsAreInherited() throws Exception {
+    Label mockToolchainType = Label.parseAbsoluteUnchecked("//mock_toolchain_type");
+    RuleClass parent =
+        new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
+            .add(attr("tags", STRING_LIST))
+            .addRequiredToolchains(ImmutableList.of(mockToolchainType))
+            .build();
+    RuleClass child =
+        new RuleClass.Builder("child", RuleClassType.NORMAL, false, parent)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("attr", STRING))
+            .build();
+    assertThat(child.getRequiredToolchains()).contains(mockToolchainType);
+  }
+
+  @Test
+  public void testBasicRuleNamePredicates() throws Exception {
+    Predicate<String> abcdef = nothingBut("abc", "def").asPredicateOfRuleClassName();
+    assertThat(abcdef.test("abc")).isTrue();
+    assertThat(abcdef.test("def")).isTrue();
+    assertThat(abcdef.test("ghi")).isFalse();
+  }
+
+  @Test
+  public void testTwoRuleNamePredicateFactoriesEquivalent() throws Exception {
+    RuleClassNamePredicate a = nothingBut("abc", "def");
+    RuleClassNamePredicate b = RuleClassNamePredicate.only(ImmutableList.of("abc", "def"));
+    assertThat(a.asPredicateOfRuleClassName()).isEqualTo(b.asPredicateOfRuleClassName());
+    assertThat(a.asPredicateOfRuleClass()).isEqualTo(b.asPredicateOfRuleClass());
+  }
+
+  @Test
+  public void testEverythingButRuleNamePredicates() throws Exception {
+    Predicate<String> abcdef = allBut("abc", "def").asPredicateOfRuleClassName();
+    assertThat(abcdef.test("abc")).isFalse();
+    assertThat(abcdef.test("def")).isFalse();
+    assertThat(abcdef.test("ghi")).isTrue();
+  }
+
+  @Test
+  public void testRuleClassNamePredicateIntersection() {
+    // two positives intersect iff they contain any of the same items
+    assertThat(nothingBut("abc", "def").consideredOverlapping(nothingBut("abc"))).isTrue();
+    assertThat(nothingBut("abc", "def").consideredOverlapping(nothingBut("ghi"))).isFalse();
+
+    // negatives are never considered to overlap...
+    assertThat(allBut("abc", "def").consideredOverlapping(allBut("abc", "def"))).isFalse();
+    assertThat(allBut("abc", "def").consideredOverlapping(allBut("ghi", "jkl"))).isFalse();
+
+    assertThat(allBut("abc", "def").consideredOverlapping(nothingBut("abc", "def"))).isFalse();
+    assertThat(nothingBut("abc", "def").consideredOverlapping(allBut("abc", "def"))).isFalse();
+
+    assertThat(allBut("abc", "def").consideredOverlapping(nothingBut("abc"))).isFalse();
+    assertThat(allBut("abc").consideredOverlapping(nothingBut("abc", "def"))).isFalse();
+  }
+
+  private RuleClassNamePredicate nothingBut(String... excludedRuleClasses) {
+    return RuleClassNamePredicate.only(excludedRuleClasses);
+  }
+
+  private RuleClassNamePredicate allBut(String... excludedRuleClasses) {
+    return RuleClassNamePredicate.allExcept(excludedRuleClasses);
   }
 }

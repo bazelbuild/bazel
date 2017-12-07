@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
@@ -122,12 +123,15 @@ public final class AndroidDeviceRule implements RuleDefinition {
             env.getToolsLabel("//tools/android/emulator:unified_launcher")))
         .add(attr("$android_runtest", LABEL).cfg(HOST).exec().value(
             env.getToolsLabel("//tools/android:android_runtest")))
-        .add(attr("$testing_shbase", LABEL).cfg(HOST).exec().value(
+        .add(attr("$testing_shbase", LABEL).cfg(HOST).value(
             env.getToolsLabel("//tools/android/emulator:shbase")))
         .add(attr("$sdk_path", LABEL).cfg(HOST).exec().value(
             env.getToolsLabel("//tools/android/emulator:sdk_path")))
         .add(attr("$is_executable", BOOLEAN).value(true)
             .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
+        .add(
+            Whitelist.getAttributeFromWhitelistName(AndroidDevice.WHITELIST_NAME)
+                .value(env.getToolsLabel("//tools/android:android_device_whitelist")))
         .removeAttribute("deps")
         .removeAttribute("data")
         .build();

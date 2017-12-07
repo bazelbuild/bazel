@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -24,14 +25,13 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.util.Preconditions;
 import javax.annotation.Nullable;
 
 /**
@@ -79,7 +79,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
 
   @Nullable
   @Override
-  public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
+  public Info get(Provider.Key providerKey) {
     return actual.get(providerKey);
   }
 
@@ -139,9 +139,8 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
     return actual;
   }
 
-  @Override
-  public boolean isImmutable() {
-    return false;
+  public Label getOriginalLabel() {
+    return label;
   }
 
   @Override

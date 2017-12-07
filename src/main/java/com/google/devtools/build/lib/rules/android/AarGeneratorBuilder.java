@@ -20,12 +20,15 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
+import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,6 +43,7 @@ public class AarGeneratorBuilder {
   private Artifact classes;
 
   private Artifact aarOut;
+  private boolean throwOnResourceConflict;
 
   private final RuleContext ruleContext;
   private final SpawnAction.Builder builder;
@@ -79,11 +83,16 @@ public class AarGeneratorBuilder {
     return this;
   }
 
+  public AarGeneratorBuilder setThrowOnResourceConflict(boolean throwOnResourceConflict) {
+    this.throwOnResourceConflict = throwOnResourceConflict;
+    return this;
+  }
+
   public void build(ActionConstructionContext context) {
     List<Artifact> outs = new ArrayList<>();
     List<Artifact> ins = new ArrayList<>();
     List<String> args = new ArrayList<>();
-    
+
     // Set the busybox tool
     args.add("--tool");
     args.add("GENERATE_AAR");
@@ -115,14 +124,30 @@ public class AarGeneratorBuilder {
     args.add(aarOut.getExecPathString());
     outs.add(aarOut);
 
+    if (throwOnResourceConflict) {
+      args.add("--throwOnResourceConflict");
+    }
+
+    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED);
+    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
+    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
+    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
+    // file.
+    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
+    // list-type and list-of-list-type flags that use such problematic separators in favor of
+    // multi-value flags (to remove one level of listing) and by changing all list separators to a
+    // platform-safe character (= comma).
+    paramFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
+
     ruleContext.registerAction(
         this.builder
+            .useDefaultShellEnvironment()
             .addInputs(ImmutableList.<Artifact>copyOf(ins))
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
-            .setCommandLine(CommandLine.of(args))
+            .addCommandLine(CommandLine.of(args), paramFileInfo.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Building AAR package for " + ruleContext.getLabel())
+            .setProgressMessage("Building AAR package for %s", ruleContext.getLabel())
             .setMnemonic("AARGenerator")
             .build(context));
   }

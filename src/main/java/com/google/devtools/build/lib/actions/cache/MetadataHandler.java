@@ -66,9 +66,6 @@ public interface MetadataHandler {
    */
   void markOmitted(ActionInput output);
 
-  /** Returns true iff artifact is a regular file. */
-  boolean isRegularFile(Artifact artifact);
-
   /**
    * Returns true iff artifact was intentionally omitted (not saved).
    */

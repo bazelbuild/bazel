@@ -17,17 +17,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -111,23 +109,24 @@ public final class PythonUtils {
     FilesToRunProvider py2to3converter =
         ruleContext.getExecutablePrerequisite("$python2to3", RuleConfiguredTarget.Mode.HOST);
     Artifact output = get2to3OutputArtifact(ruleContext, input);
-    List<String> argv = new ArrayList<>();
-    argv.add("--no-diffs");
-    argv.add("--nobackups");
-    argv.add("--write");
-    argv.add("--output-dir");
-    argv.add(output.getExecPath().getParentDirectory().toString());
-    argv.add("--write-unchanged-files");
-    argv.add(input.getExecPathString());
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .add("--no-diffs")
+            .add("--nobackups")
+            .add("--write")
+            .addPath("--output-dir", output.getExecPath().getParentDirectory())
+            .add("--write-unchanged-files")
+            .addExecPath(input);
 
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInput(input)
-        .addOutput(output)
-        .setExecutable(py2to3converter)
-        .addArguments(argv)
-        .setProgressMessage("Converting to Python 3: " + input.prettyPrint())
-        .setMnemonic("2to3")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(input)
+            .addOutput(output)
+            .setExecutable(py2to3converter)
+            .setProgressMessage("Converting to Python 3: %s", input.prettyPrint())
+            .setMnemonic("2to3")
+            .addCommandLine(commandLine.build())
+            .build(ruleContext));
     return output;
   }
 }

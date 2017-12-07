@@ -66,7 +66,7 @@ public class AndroidDataSerializerAndDeserializerTest {
     expected.serializeTo(serializer);
     serializer.flushTo(binaryPath);
 
-    AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+    AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     TestMapConsumer<DataAsset> assets = TestMapConsumer.ofAssets();
     deserializer.read(binaryPath, KeyValueConsumers.of(null, null, assets));
     Truth.assertThat(assets).isEqualTo(expected.getPrimary().getAssets());
@@ -87,7 +87,7 @@ public class AndroidDataSerializerAndDeserializerTest {
     expected.serializeTo(serializer);
     serializer.flushTo(binaryPath);
 
-    AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+    AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     TestMapConsumer<DataResource> resources = TestMapConsumer.ofResources();
     deserializer.read(
         binaryPath,
@@ -113,7 +113,7 @@ public class AndroidDataSerializerAndDeserializerTest {
     expected.serializeTo(serializer);
     serializer.flushTo(binaryPath);
 
-    AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+    AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     TestMapConsumer<DataResource> resources = TestMapConsumer.ofResources();
     deserializer.read(
         binaryPath,
@@ -166,7 +166,7 @@ public class AndroidDataSerializerAndDeserializerTest {
     expected.serializeTo(serializer);
     serializer.flushTo(binaryPath);
 
-    AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+    AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     TestMapConsumer<DataResource> overwriting = TestMapConsumer.ofResources();
     TestMapConsumer<DataResource> combining = TestMapConsumer.ofResources();
     deserializer.read(
@@ -213,7 +213,7 @@ public class AndroidDataSerializerAndDeserializerTest {
             TestMapConsumer.ofAssets() // assets
             );
 
-    AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+    AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     deserializer.read(binaryPath, primary);
     Truth.assertThat(primary.overwritingConsumer)
         .isEqualTo(expected.getPrimary().getOverwritingResources());
@@ -249,7 +249,7 @@ public class AndroidDataSerializerAndDeserializerTest {
     serializer.flushTo(binaryPath);
 
     AndroidDataDeserializer deserializer =
-        AndroidDataDeserializer.withFilteredResources(
+        AndroidParsedDataDeserializer.withFilteredResources(
             ImmutableList.of("the/boojum", "values/ids.xml", "layout/banker.xml"));
 
     KeyValueConsumers primary =
@@ -282,7 +282,7 @@ public class AndroidDataSerializerAndDeserializerTest {
     }
 
     @Override
-    public void consume(DataKey key, T value) {
+    public void accept(DataKey key, T value) {
       target.put(key, value);
     }
 

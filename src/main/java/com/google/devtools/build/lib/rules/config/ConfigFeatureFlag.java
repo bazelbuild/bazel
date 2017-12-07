@@ -27,11 +27,17 @@ import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.util.List;
 
@@ -39,12 +45,58 @@ import java.util.List;
  * The implementation of the config_feature_flag rule for defining custom flags for Android rules.
  */
 public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
+  /** The name of the policy that is used to restrict access to the config_feature_flag rule. */
+  private static final String WHITELIST_NAME = "config_feature_flag";
+
+  /** The label of the policy that is used to restrict access to the config_feature_flag rule. */
+  private static final String WHITELIST_LABEL =
+      "//tools/whitelists/config_feature_flag:config_feature_flag";
+
+  /** Constructs a definition for the attribute used to restrict access to config_feature_flag. */
+  public static Attribute.Builder<Label> getWhitelistAttribute(RuleDefinitionEnvironment env) {
+    return Whitelist.getAttributeFromWhitelistName(WHITELIST_NAME)
+        .value(env.getToolsLabel(WHITELIST_LABEL));
+  }
+
+  /**
+   * Constructs a definition for the attribute used to restrict access to config_feature_flag. The
+   * whitelist will only be reached if the given {@code attributeToInspect} has a value explicitly
+   * specified. It must be non-configurable.
+   */
+  public static Attribute.Builder<Label> getWhitelistAttribute(
+      RuleDefinitionEnvironment env, String attributeToInspect) {
+    final Label label = env.getToolsLabel(WHITELIST_LABEL);
+    return Whitelist.getAttributeFromWhitelistName(WHITELIST_NAME)
+        .value(
+            new ComputedDefault() {
+              @Override
+              public Label getDefault(AttributeMap rule) {
+                return rule.isAttributeValueExplicitlySpecified(attributeToInspect) ? label : null;
+              }
+            });
+  }
+
+  /**
+   * Returns whether config_feature_flag and related features are available to the current rule.
+   *
+   * <p>The current rule must have an attribute defined on it created with {@link
+   * #getWhitelistAttribute}.
+   */
+  public static boolean isAvailable(RuleContext ruleContext) {
+    return Whitelist.isAvailable(ruleContext, WHITELIST_NAME);
+  }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    ConfigFeatureFlagFeatureVisibility.checkAvailable(
-        ruleContext, "the " + ruleContext.getRuleClassNameForLogging() + " rule");
+    if (!ConfigFeatureFlag.isAvailable(ruleContext)) {
+      ruleContext.ruleError(
+          String.format(
+              "the %s rule is not available in package '%s'",
+              ruleContext.getRuleClassNameForLogging(),
+              ruleContext.getLabel().getPackageIdentifier()));
+      throw new RuleErrorException();
+    }
 
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);
     ImmutableSet<String> values = ImmutableSet.copyOf(specifiedValues);
@@ -100,7 +152,6 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addProvider(ConfigFeatureFlagProvider.class, provider)
         .addNativeDeclaredProvider(provider)
         .build();
   }

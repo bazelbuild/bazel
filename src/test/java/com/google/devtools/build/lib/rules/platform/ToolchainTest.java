@@ -48,15 +48,12 @@ public class ToolchainTest extends BuildViewTestCase {
     scratch.file(
         "toolchain/toolchain_def.bzl",
         "def _impl(ctx):",
-        "  toolchain_type = ctx.attr._toolchain_type[platform_common.ToolchainTypeInfo]",
         "  toolchain = platform_common.ToolchainInfo(",
-        "      type = toolchain_type,",
         "      data = ctx.attr.data)",
         "  return [toolchain]",
         "toolchain_def = rule(",
         "    implementation = _impl,",
         "    attrs = {",
-        "        '_toolchain_type': attr.label(default = Label('//toolchain:demo_toolchain')),",
         "       'data': attr.string()})");
     scratch.file(
         "toolchain/BUILD",

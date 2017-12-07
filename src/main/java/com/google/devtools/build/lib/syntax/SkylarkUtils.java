@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableMap;
+
 /** This class contains Bazel-specific functions to extend or interoperate with Skylark. */
 public final class SkylarkUtils {
 
   /** Bazel-specific information that we store in the Environment. */
   private static class BazelInfo {
     String toolsRepository;
+    ImmutableMap<String, Class<?>> fragmentNameToClass;
   }
 
   private static final String BAZEL_INFO_KEY = "$bazel";
@@ -45,5 +48,22 @@ public final class SkylarkUtils {
 
   public static String getToolsRepository(Environment env) {
     return getInfo(env).toolsRepository;
+  }
+
+  /**
+   * Sets, on an {@link Environment}, a {@link Map} from configuration fragment name to
+   * configuration fragment class.
+   */
+  public static void setFragmentMap(Environment env,
+      ImmutableMap<String, Class<?>> fragmentNameToClass) {
+    getInfo(env).fragmentNameToClass = fragmentNameToClass;
+  }
+
+  /*
+   * Returns the {@link Map} from configuration fragment name to configuration fragment class, as
+   * set by {@link #setFragmentMap}.
+   */
+  public static ImmutableMap<String, Class<?>> getFragmentMap(Environment env) {
+    return getInfo(env).fragmentNameToClass;
   }
 }

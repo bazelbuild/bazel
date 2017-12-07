@@ -13,20 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.TestLogHelper;
 import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
-import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -56,8 +56,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       name = "verbose_test_summary",
       defaultValue = "true",
       category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If true, print additional information (timing, number of failed runs, etc) in the"
               + " test summary."
@@ -68,8 +68,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       name = "test_verbose_timeout_warnings",
       defaultValue = "false",
       category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If true, print additional warnings when the actual test execution time does not "
               + "match the timeout defined by the test (whether implied or explicit)."
@@ -96,10 +96,10 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   private boolean duplicateLabels(Set<TestSummary> summaries) {
     Set<Label> labelsSeen = new HashSet<>();
     for (TestSummary summary : summaries) {
-      if (labelsSeen.contains(summary.getTarget().getLabel())) {
+      if (labelsSeen.contains(summary.getLabel())) {
         return true;
       }
-      labelsSeen.add(summary.getTarget().getLabel());
+      labelsSeen.add(summary.getLabel());
     }
     return false;
   }
@@ -122,7 +122,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   private void printShortSummary(Set<TestSummary> summaries, boolean showPassingTests) {
     boolean withConfig = duplicateLabels(summaries);
     for (TestSummary summary : summaries) {
-      if (summary.getStatus() != BlazeTestStatus.PASSED || showPassingTests) {
+      if ((summary.getStatus() != BlazeTestStatus.PASSED
+              && summary.getStatus() != BlazeTestStatus.NO_STATUS)
+          || showPassingTests) {
         TestSummaryPrinter.print(summary, printer, summaryOptions.verboseSummary, false,
             withConfig);
       }
@@ -186,11 +188,11 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
         break;
 
       case SHORT:
-        printShortSummary(summaries, /*printSuccess=*/true);
+        printShortSummary(summaries, /* showPassingTests= */ true);
         break;
 
       case TERSE:
-        printShortSummary(summaries, /*printSuccess=*/false);
+        printShortSummary(summaries, /* showPassingTests= */ false);
         break;
 
       case NONE:

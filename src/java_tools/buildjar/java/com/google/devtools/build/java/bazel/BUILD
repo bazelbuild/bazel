@@ -1,33 +1,29 @@
-package_group(
-    name = "packages",
-    packages = [
-        "//src/java_tools/buildjar/...",
-    ],
-)
+# Description:
+#   Tools for working with Java source code, using the Sun javac API.
+#
+# This is not the source code for javac itself.
 
-package(default_visibility = [":packages"])
+package(
+    default_visibility = ["//src:__subpackages__"],
+)
 
 # Exports the canonical javac bootclasspath artifact locations
 genrule(
     name = "javac-bootclasspath-locations",
     srcs = ["@bazel_tools//tools/jdk:bootclasspath"],
     outs = ["JavacBootclasspathLocations.java"],
-    cmd = "$(location javac-bootclasspath-locations.sh) $@ $(GENDIR) '' $(SRCS)",
+    cmd = "$(location javac-bootclasspath-locations.sh) $@ $(GENDIR) $(SRCS)",
     tools = ["javac-bootclasspath-locations.sh"],
 )
 
 # Provides java-level access to the canonical javac bootclasspath
 java_library(
-    name = "javac-bootclasspath-locations-lib",
-    srcs = [":javac-bootclasspath-locations"],
-)
-
-java_library(
     name = "JavacBootclasspath",
-    srcs = ["JavacBootclasspath.java"],
+    srcs = [
+        "JavacBootclasspath.java",
+        ":javac-bootclasspath-locations",
+    ],
     data = ["@bazel_tools//tools/jdk:bootclasspath"],
-    visibility = ["//visibility:public"],
-    deps = [":javac-bootclasspath-locations-lib"],
 )
 
 # Exports the canonical javac jar location
@@ -35,23 +31,18 @@ genrule(
     name = "java-langtools-location",
     srcs = ["//third_party/java/jdk/langtools:javac_jar"],
     outs = ["JavaLangtoolsLocation.java"],
-    cmd = "$(location java-langtools-location.sh) $@ $(GENDIR) io_bazel/ $(SRCS)",
+    cmd = "$(location java-langtools-location.sh) $@ $(BINDIR) $(SRCS)",
     tools = ["java-langtools-location.sh"],
 )
 
 # Provides java-level access to the canonical javac jar
 java_library(
-    name = "java-langtools-location-lib",
-    srcs = [":java-langtools-location"],
-    visibility = ["//visibility:private"],
-)
-
-java_library(
     name = "JavaLangtools",
-    srcs = ["JavaLangtools.java"],
+    srcs = [
+        "JavaLangtools.java",
+        ":java-langtools-location",
+    ],
     data = ["//third_party/java/jdk/langtools:javac_jar"],
-    visibility = ["//visibility:public"],
-    deps = [":java-langtools-location-lib"],
 )
 
 # Exports javacopts from the current java toolchain
@@ -83,15 +74,12 @@ genrule(
 
 # Provides java-level access to the javacopts in the current java toolchain
 java_library(
-    name = "javabuilder-javacopts-lib",
-    srcs = [":javabuilder-javacopts"],
-)
-
-java_library(
     name = "JavaBuilderConfig",
-    srcs = ["JavaBuilderConfig.java"],
+    srcs = [
+        "JavaBuilderConfig.java",
+        ":javabuilder-javacopts",
+    ],
     deps = [
-        ":javabuilder-javacopts-lib",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javac_options",
         "//third_party:guava",
     ],
@@ -103,10 +91,6 @@ java_library(
     name = "BazelJavaCompiler",
     srcs = ["BazelJavaCompiler.java"],
     data = ["//third_party/java/jdk/langtools:javac_jar"],
-    visibility = [
-        "//src:__subpackages__",
-        "//third_party/ijar:__subpackages__",
-    ],
     deps = [
         ":JavaBuilderConfig",
         ":JavaLangtools",
@@ -123,8 +107,18 @@ java_library(
     deps = [":BazelJavaCompiler"],
 )
 
+java_binary(
+    name = "bazeljavac",
+    # Use same stack size as javac and JavaBuilder.
+    jvm_flags = ["-Xss4m"],
+    main_class = "com.google.devtools.build.java.bazel.BazelJavac",
+    runtime_deps = [":BazelJavac"],
+)
+
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/java_tools/buildjar:__pkg__"],
+    srcs = glob([
+        "*.java",
+        "*.sh",
+    ]) + ["BUILD"],
 )

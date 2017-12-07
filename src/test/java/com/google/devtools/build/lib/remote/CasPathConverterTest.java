@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.remote.RemoteModule.CasPathConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -34,12 +35,20 @@ public class CasPathConverterTest {
 
   @Test
   public void noOptionsShouldntCrash() {
+    converter.digestUtil = new DigestUtil(HashFunction.SHA256);
+    assertThat(converter.apply(fs.getPath("/foo"))).isNull();
+  }
+
+  @Test
+  public void noDigestUtilShouldntCrash() {
+    converter.options = Options.getDefaults(RemoteOptions.class);
     assertThat(converter.apply(fs.getPath("/foo"))).isNull();
   }
 
   @Test
   public void disabledRemote() {
     converter.options = Options.getDefaults(RemoteOptions.class);
+    converter.digestUtil = new DigestUtil(HashFunction.SHA256);
     assertThat(converter.apply(fs.getPath("/foo"))).isNull();
   }
 
@@ -48,6 +57,7 @@ public class CasPathConverterTest {
     OptionsParser parser = OptionsParser.newOptionsParser(RemoteOptions.class);
     parser.parse("--remote_cache=machine");
     converter.options = parser.getOptions(RemoteOptions.class);
+    converter.digestUtil = new DigestUtil(HashFunction.SHA256);
     Path path = fs.getPath("/foo");
     FileSystemUtils.writeContentAsLatin1(path, "foobar");
     assertThat(converter.apply(fs.getPath("/foo")))
@@ -59,6 +69,7 @@ public class CasPathConverterTest {
     OptionsParser parser = OptionsParser.newOptionsParser(RemoteOptions.class);
     parser.parse("--remote_cache=machine", "--remote_instance_name=projects/bazel");
     converter.options = parser.getOptions(RemoteOptions.class);
+    converter.digestUtil = new DigestUtil(HashFunction.SHA256);
     Path path = fs.getPath("/foo");
     FileSystemUtils.writeContentAsLatin1(path, "foobar");
     assertThat(converter.apply(fs.getPath("/foo")))

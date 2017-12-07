@@ -20,6 +20,7 @@ option java_package = "com.google.devtools.build.lib.buildeventstream";
 option java_outer_classname = "BuildEventStreamProtos";
 
 import "src/main/protobuf/invocation_policy.proto";
+import "src/main/protobuf/command_line.proto";
 
 // Identifier for a build event. It is deliberately structured to also provide
 // information about which build target etc the event is related to.
@@ -53,7 +54,16 @@ message BuildEventId {
 
   // Identifier on an event indicating the original commandline received by
   // the bazel server.
-  message CommandLineId {
+  message UnstructuredCommandLineId {
+  }
+
+  // Identifier on an event describing the commandline received by Bazel.
+  message StructuredCommandLineId {
+    // A title for this command line value, as there may be multiple.
+    // For example, a single invocation may wish to report both the literal and
+    // canonical command lines, and this label would be used to differentiate
+    // between both versions.
+    string command_line_label = 1;
   }
 
   // Identifier of an event indicating the workspace status.
@@ -63,6 +73,13 @@ message BuildEventId {
   // Identifier on an event reporting on the options included in the command
   // line, both explicitly and implicitly.
   message OptionsParsedId {
+  }
+
+  // Identifier of an event reporting that an external resource was fetched
+  // from.
+  message FetchId {
+    // The external resource that was fetched from.
+    string url = 1;
   }
 
   // Identifier of an event indicating that a target pattern has been expanded
@@ -79,6 +96,10 @@ message BuildEventId {
   // identifying for which configurations it should be build.
   message TargetConfiguredId {
     string label = 1;
+
+    // If not empty, the id refers to the expansion of the target for a given
+    // aspect.
+    string aspect = 2;
   }
 
   // Identifier of an event introducing a named set of files (usually artifacts)
@@ -115,6 +136,19 @@ message BuildEventId {
   // this includes all failed actions).
   message ActionCompletedId {
     string primary_output = 1;
+    // Optional, the label of the owner of the action, for reference.
+    string label = 2;
+    // Optional, the id of the configuration of the action owner.
+    ConfigurationId configuration = 3;
+  }
+
+  // Identifier of an event reporting an event associated with an unconfigured
+  // label. Usually, this indicates a failure due to a missing input file. In
+  // any case, it will report some form of error (i.e., the payload will be an
+  // Aborted event); there are no regular events using this identifier. The
+  // purpose of those events is to serve as the root cause of a failed target.
+  message UnconfiguredLabelId {
+    string label = 1;
   }
 
   // Identifier of an event reporting on an individual test run. The label
@@ -140,13 +174,20 @@ message BuildEventId {
   message BuildFinishedId {
   }
 
+  // Identifier of an event providing additional logs/statistics after
+  // completion of the build.
+  message BuildToolLogsId {
+  }
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
     BuildStartedId started = 3;
-    CommandLineId command_line = 11;
+    UnstructuredCommandLineId unstructured_command_line = 11;
+    StructuredCommandLineId structured_command_line = 18;
     WorkspaceStatusId workspace_status = 14;
     OptionsParsedId options_parsed = 12;
+    FetchId fetch = 17;
     ConfigurationId configuration = 15;
     TargetConfiguredId target_configured = 16;
     PatternExpandedId pattern = 4;
@@ -154,9 +195,11 @@ message BuildEventId {
     NamedSetOfFilesId named_set = 13;
     TargetCompletedId target_completed = 5;
     ActionCompletedId action_completed = 6;
+    UnconfiguredLabelId unconfigured_label = 19;
     TestResultId test_result = 8;
     TestSummaryId test_summary = 7;
     BuildFinishedId build_finished = 9;
+    BuildToolLogsId build_tool_logs = 20;
   }
 }
 
@@ -182,6 +225,12 @@ message Aborted {
     // The user requested the build to be aborted (e.g., by hitting Ctl-C).
     USER_INTERRUPTED = 1;
 
+    // The user requested that no analysis be performed.
+    NO_ANALYZE = 8;
+
+    // The user requested that no build be carried out.
+    NO_BUILD = 9;
+
     // The build or target was aborted as a timeout was exceeded.
     TIME_OUT = 2;
 
@@ -192,25 +241,21 @@ message Aborted {
     // Failure due to reasons entirely internal to the build tool, e.g.,
     // running out of memory.
     INTERNAL = 4;
+
+    // A Failure occurred in the loading phase of a target.
+    LOADING_FAILURE = 5;
+
+    // A Failure occurred in the analysis phase of a target.
+    ANALYSIS_FAILURE = 6;
+
+    // Target build was skipped (e.g. due to incompatible CPU constraints).
+    SKIPPED = 7;
   }
   AbortReason reason = 1;
 
   // A human readable description with more details about there reason, where
   // available and useful.
   string description = 2;
-}
-
-// Payload of an event indicating that an expected event will not come, as
-// something went wrong when attempting to load the corresponding package.
-message LoadingFailure {
-  string details = 1;
-}
-
-// Payload of an event indicating that an expected event will not come, as
-// something went wrong during analysis. If the analysis of a target failed,
-// the id of the event will be the corresponding TargetCompletedId.
-message AnalysisFailure {
-  string details = 1;
 }
 
 // Payload of an event indicating the beginning of a new build. Usually, events
@@ -248,7 +293,7 @@ message BuildStarted {
 // like name and relevant entries of rc-files and client environment variables.
 // However, it does contain enough information to reproduce the build
 // invocation.
-message CommandLine {
+message UnstructuredCommandLine {
   repeated string args = 1;
 }
 
@@ -259,6 +304,14 @@ message OptionsParsed {
   repeated string cmd_line = 3;
   repeated string explicit_cmd_line = 4;
   blaze.invocation_policy.InvocationPolicy invocation_policy = 5;
+  string tool_tag = 6;
+}
+
+// Payload of an event indicating that an external resource was fetched. This
+// event will only occur in streams where an actual fetch happened, not in ones
+// where a cached copy of the entity to be fetched was used.
+message Fetch {
+  bool success = 1;
 }
 
 // Payload of an event reporting the workspace status. Key-value pairs can be
@@ -288,11 +341,31 @@ message Configuration {
 message PatternExpanded {
 }
 
+// Enumeration type characterizing the size of a test, as specified by the
+// test rule.
+enum TestSize {
+  UNKNOWN = 0;
+  SMALL = 1;
+  MEDIUM = 2;
+  LARGE = 3;
+  ENORMOUS = 4;
+}
+
 // Payload of the event indicating that the configurations for a target have
 // been identified. As with pattern expansion the main information is in the
 // chaining part: the id will contain the target that was configured and the
 // children id will ctontain the configured targets it was configured to.
 message TargetConfigured {
+  // The kind of target (e.g.,  e.g. "cc_library rule", "source file",
+  // "generated file") where the completion is reported.
+  string target_kind = 1;
+
+  // The size of the test, if the target is a test target. Unset otherwise.
+  TestSize test_size = 2;
+
+  // List of all tags associated with this target (for all possible
+  // configurations).
+  repeated string tag = 3;
 }
 
 message File {
@@ -300,9 +373,10 @@ message File {
   string name = 1;
 
   oneof file {
-    // A location where the contents of the file can be found.
+    // A location where the contents of the file can be found. The string is
+    // encoded according to RFC2396.
     string uri = 2;
-    // The conents of the file, if they are guaranteed to be short.
+    // The contents of the file, if they are guaranteed to be short.
     bytes contents = 3;
   }
 }
@@ -325,6 +399,9 @@ message NamedSetOfFiles {
 message ActionExecuted {
   bool success = 1;
 
+  // The mnemonic of the action that was executed
+  string type = 8;
+
   // The exit code of the action, if it is available.
   int32 exit_code = 2;
 
@@ -336,14 +413,17 @@ message ActionExecuted {
   // (e.g., a file path).
   File stderr = 4;
 
-  // Optionally, the label of the owner of the action, for reference.
-  string label = 5;
+  // Deprecated. This field is now present on ActionCompletedId.
+  string label = 5 [deprecated = true];
 
-  // Optinally, the id of the configuration of the action owner.
-  BuildEventId.ConfigurationId configuration = 7;
+  // Deprecated. This field is now present on ActionCompletedId.
+  BuildEventId.ConfigurationId configuration = 7 [deprecated = true];
 
   // Primary output; only provided for successful actions.
   File primary_output = 6;
+
+  // The command-line of the action, if the action is a command.
+  repeated string command_line = 9;
 }
 
 // Collection of all output files belonging to that output group.
@@ -358,16 +438,6 @@ message OutputGroup {
   repeated BuildEventId.NamedSetOfFilesId file_sets = 3;
 }
 
-// Enumeration type characterizing the size of a test, as specified by the
-// test rule.
-enum TestSize {
-  UNKNOWN = 0;
-  SMALL = 1;
-  MEDIUM = 2;
-  LARGE = 3;
-  ENORMOUS = 4;
-}
-
 // Payload of the event indicating the completion of a target. The target is
 // specified in the id. If the target failed the root causes are provided as
 // children events.
@@ -376,10 +446,12 @@ message TargetComplete {
 
   // The kind of target (e.g.,  e.g. "cc_library rule", "source file",
   // "generated file") where the completion is reported.
-  string target_kind = 5;
+  // Deprecated: use the target_kind field in TargetConfigured instead.
+  string target_kind = 5 [deprecated = true];
 
   // The size of the test, if the target is a test target. Unset otherwise.
-  TestSize test_size = 6;
+  // Deprecated: use the test_size field in TargetConfigured instead.
+  TestSize test_size = 6 [deprecated = true];
 
   // The output files are arranged by their output group. If an output file
   // is part of multiple output groups, it appears once in each output
@@ -391,7 +463,7 @@ message TargetComplete {
   // new clients should not use it.
   repeated File important_output = 4 [deprecated = true];
 
-  // List of tags associated with this target.
+  // List of tags associated with this configured target.
   repeated string tag = 3;
 }
 
@@ -404,7 +476,7 @@ enum TestStatus {
   INCOMPLETE = 5;
   REMOTE_FAILURE = 6;
   FAILED_TO_BUILD = 7;
-  BLAZE_HALTED_BEFORE_TESTING = 8;
+  TOOL_HALTED_BEFORE_TESTING = 8;
 };
 
 // Payload on events reporting about individual test action.
@@ -432,6 +504,43 @@ message TestResult {
 
   // Warnings generated by that test action.
   repeated string warning = 7;
+
+  // Message providing optional meta data on the execution of the test action,
+  // if available.
+  message ExecutionInfo {
+    int32 timeout_seconds = 1;
+
+    // Name of the strategy to execute this test action (e.g., "local",
+    // "remote")
+    string strategy = 2;
+
+    // True, if the reported attempt was a cache hit in a remote cache.
+    bool cached_remotely = 6;
+
+    // The exit code of the test action.
+    int32 exit_code = 7;
+
+    // The hostname of the machine where the test action was executed (in case
+    // of remote execution), if known.
+    string hostname = 3;
+
+    // Represents a hierarchical timing breakdown of an activity.
+    // The top level time should be the total time of the activity.
+    // Invariant: time_millis >= sum of time_millis of all direct children.
+    message TimingBreakdown {
+      repeated TimingBreakdown child = 1;
+      string name = 2;
+      int64 time_millis = 3;
+    }
+    TimingBreakdown timing_breakdown = 4;
+
+    message ResourceUsage {
+      string name = 1;
+      int64 value = 2;
+    }
+    repeated ResourceUsage resource_usage = 5;
+  }
+  ExecutionInfo execution_info = 8;
 }
 
 // Payload of the event summarizing a test.
@@ -450,6 +559,9 @@ message TestSummary {
 
   // Path to logs of failed runs;
   repeated File failed = 4;
+
+  // Total number of cached test actions
+  int32 total_num_cached = 6;
 }
 
 // Event indicating the end of a build.
@@ -481,24 +593,30 @@ message BuildFinished {
   int64 finish_time_millis = 2;
 }
 
+// Event providing additional statistics/logs after completion of the build.
+message BuildToolLogs {
+  repeated File log = 1;
+}
+
 // Message describing a build event. Events will have an identifier that
 // is unique within a given build invocation; they also announce follow-up
 // events as children. More details, which are specific to the kind of event
 // that is observed, is provided in the payload. More options for the payload
 // might be added in the future.
 message BuildEvent {
+  reserved 11, 19;
   BuildEventId id = 1;
   repeated BuildEventId children = 2;
   bool last_message = 20;
   oneof payload {
     Progress progress = 3;
     Aborted aborted = 4;
-    LoadingFailure loading_failed = 11;
-    AnalysisFailure analysis_failed = 19;
     BuildStarted started = 5;
-    CommandLine command_line = 12;
+    UnstructuredCommandLine unstructured_command_line = 12;
+    command_line.CommandLine structured_command_line = 22;
     OptionsParsed options_parsed = 13;
     WorkspaceStatus workspace_status = 16;
+    Fetch fetch = 21;
     Configuration configuration = 17;
     PatternExpanded expanded = 6;
     TargetConfigured configured = 18;
@@ -508,5 +626,6 @@ message BuildEvent {
     TestResult test_result = 10;
     TestSummary test_summary = 9;
     BuildFinished finished = 14;
+    BuildToolLogs build_tool_logs = 23;
   };
 }

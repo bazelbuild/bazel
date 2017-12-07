@@ -18,9 +18,8 @@ import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 import java.util.Set;
 
@@ -131,7 +130,7 @@ public class LoadingOptions extends OptionsBase {
             + "optionally preceded with '-' to specify excluded languages. Only those "
             + "test targets will be found that are written in the specified languages. "
             + "The name used for each language should be the same as the language prefix in the "
-            + "*_test rule, e.g. one of 'cc', 'java', 'py', etc."
+            + "*_test rule, e.g. one of 'cc', 'java', 'py', etc. "
             + "This option affects --build_tests_only behavior and the test command."
   )
   public List<String> testLangFilterList;
@@ -155,9 +154,8 @@ public class LoadingOptions extends OptionsBase {
   // implementation, making it a moot point.
   @Option(
     name = "experimental_skyframe_target_pattern_evaluator",
-    defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Use the Skyframe-based target pattern evaluator; implies "

@@ -26,7 +26,13 @@ package com.google.devtools.build.skyframe;
  */
 class EdgelessInMemoryNodeEntry extends InMemoryNodeEntry {
   @Override
-  public boolean keepEdges() {
-    return false;
+  public KeepEdgesPolicy keepEdges() {
+    return KeepEdgesPolicy.NONE;
+  }
+
+  @Override
+  protected void postProcessAfterDone() {
+    this.directDeps = null;
+    this.reverseDeps = null;
   }
 }

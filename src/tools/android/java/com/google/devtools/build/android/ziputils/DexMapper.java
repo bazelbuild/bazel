@@ -18,9 +18,9 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
 /**
@@ -36,18 +36,21 @@ public class DexMapper {
    * @param args the command line arguments
    */
   public static void main(String[] args) {
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
-    optionsParser.parseAndExitUponError(args);
-    Options options = optionsParser.getOptions(Options.class);
+    DexMapperOptions options =
+        Options.parseAndExitUponError(DexMapperOptions.class, /*allowResidue=*/ true, args)
+            .getOptions();
     List<String> inputs = options.inputJars;
     List<String> outputs = options.outputJars;
     String filterFile = options.mainDexFilter;
     String resourceFile = options.outputResources;
 
     try {
-      Predicate<String> inputFilter = Predicates.alwaysTrue();
+      // Always drop desugaring metadata, which we check elsewhere and don't want in final APKs
+      // (see b/65645388).
+      Predicate<String> inputFilter = Predicates.not(Predicates.equalTo("META-INF/desugar_deps"));
       if (options.inclusionFilterJar != null) {
-        inputFilter = SplitZipFilters.entriesIn(options.inclusionFilterJar);
+        inputFilter =
+            Predicates.and(inputFilter, SplitZipFilters.entriesIn(options.inclusionFilterJar));
       }
       new SplitZip()
           .setVerbose(false)
@@ -67,10 +70,8 @@ public class DexMapper {
     }
   }
 
-  /**
-   * Commandline options.
-   */
-  public static class Options extends OptionsBase {
+  /** Commandline options. */
+  public static class DexMapperOptions extends OptionsBase {
     @Option(
       name = "input_jar",
       defaultValue = "null",

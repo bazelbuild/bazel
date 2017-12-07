@@ -23,11 +23,33 @@ In this tutorial you'll learn how to:
 *  Reference targets through labels
 *  Deploy a target
 
+## Contents
+
+*  [Before you begin](#before-you-begin)
+   *  [Install Bazel](#install-bazel)
+   *  [Get the sample project](#get-the-sample-project)
+*  [Build with Bazel](#build-with-bazel)
+   *  [Set up the workspace](#set-up-the-workspace)
+   *  [Understand the BUILD file](#understand-the-build-file)
+   *  [Build the project](#build-the-project)
+   *  [Review the dependency graph](#review-the-dependency-graph)
+*  [Refine your Bazel build](#refine-your-bazel-build)
+   *  [Specify multiple build targets](#specify-multiple-build-targets)
+   *  [Use multiple packages](#use-multiple-packages)
+*  [Use labels to reference targets](#use-labels-to-reference-targets)
+*  [Package a Java target for deployment](#package-a-java-target-for-deployment)
+*  [Further reading](#further-reading)
+
 ## Before you begin
 
+### Install Bazel
+
 To prepare for the tutorial, first [Install Bazel](../install.md) if
-you don't have it installed already. Then, retrieve the sample project from
-Bazel's GitHub repository:
+you don't have it installed already.
+
+### Get the sample project
+
+Retrieve the sample project from Bazel's GitHub repository:
 
 ```sh
 git clone https://github.com/bazelbuild/examples/
@@ -257,8 +279,8 @@ Take a look at the dependency graph:
 
 ![Dependency graph of the target 'runner'](/assets/tutorial_java_03.svg)
 
-However, for the build to succeed, you must make the `runner` target in
-`//src/main/java/com/example/cmdline/BUILD` explicitly visible to targets in
+However, for the build to succeed, you must explicitly give the `runner` target in
+`//src/main/java/com/example/cmdline/BUILD` visibility to targets in
 `//BUILD` using the `visibility` attribute. This is because by default targets
 are only visible to other targets in the same `BUILD` file. (Bazel uses target
 visibility to prevent issues such as libraries containing implementation details

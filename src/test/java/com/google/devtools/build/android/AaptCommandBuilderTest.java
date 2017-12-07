@@ -14,15 +14,22 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.stream.Collectors.toList;
 
 import com.android.builder.core.VariantType;
 import com.android.repository.Revision;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.common.testing.NullPointerTester;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.IntStream;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,12 +40,15 @@ import org.junit.runners.JUnit4;
 public class AaptCommandBuilderTest {
   private Path aapt;
   private Path manifest;
+  private Path workingDirectory;
 
   @Before
-  public void createPaths() {
-    FileSystem fs = FileSystems.getDefault();
-    aapt = fs.getPath("aapt");
-    manifest = fs.getPath("AndroidManifest.xml");
+  public void createPaths() throws IOException {
+    final Path tempDirectory =
+        Files.createTempDirectory(AaptCommandBuilderTest.class.getCanonicalName());
+    aapt = tempDirectory.resolve("aapt");
+    manifest = tempDirectory.resolve("AndroidManifest.xml");
+    workingDirectory = tempDirectory.resolve("working");
   }
 
   @Test
@@ -46,6 +56,8 @@ public class AaptCommandBuilderTest {
     NullPointerTester tester = new NullPointerTester().setDefault(Path.class, aapt);
 
     tester.testConstructor(AaptCommandBuilder.class.getConstructor(Path.class));
+    tester.ignore(AaptCommandBuilder.class.getMethod("execute", String.class));
+    tester.setDefault(Optional.class, Optional.empty());
     tester.testAllPublicInstanceMethods(new AaptCommandBuilder(aapt));
     tester.testAllPublicInstanceMethods(new AaptCommandBuilder(aapt).when(true));
     tester.testAllPublicInstanceMethods(new AaptCommandBuilder(aapt).when(false));
@@ -124,139 +136,167 @@ public class AaptCommandBuilderTest {
     list.add("gif");
     list.add(null);
     list.add("png");
-    assertThat(
-            new AaptCommandBuilder(aapt).addRepeated("-0", list).build())
+    assertThat(new AaptCommandBuilder(aapt).addRepeated("-0", list).build())
         .containsExactly(aapt.toString(), "-0", "gif", "-0", "png")
         .inOrder();
   }
 
-
   @Test
   public void testThenAddFlagForwardsCallAfterWhenTrue() {
-    assertThat(
-        new AaptCommandBuilder(aapt).when(true).thenAdd("--addthisflag").build())
+    assertThat(new AaptCommandBuilder(aapt).when(true).thenAdd("--addthisflag").build())
         .contains("--addthisflag");
   }
 
   @Test
   public void testThenAddFlagWithValueForwardsCallAfterWhenTrue() {
     assertThat(
-        new AaptCommandBuilder(aapt)
-            .when(true).thenAdd("--addthisflag", "andthisvalue").build())
+            new AaptCommandBuilder(aapt)
+                .when(true)
+                .thenAdd("--addthisflag", "andthisvalue")
+                .build())
         .contains("--addthisflag");
   }
 
   @Test
   public void testThenAddFlagWithPathForwardsCallAfterWhenTrue() {
-    assertThat(
-        new AaptCommandBuilder(aapt)
-            .when(true).thenAdd("--addthisflag", manifest).build())
+    assertThat(new AaptCommandBuilder(aapt).when(true).thenAdd("--addthisflag", manifest).build())
         .contains("--addthisflag");
   }
 
   @Test
   public void testThenAddRepeatedForwardsCallAfterWhenTrue() {
     assertThat(
-        new AaptCommandBuilder(aapt)
-            .when(true).thenAddRepeated("--addthisflag", ImmutableList.of("andthesevalues"))
-            .build())
+            new AaptCommandBuilder(aapt)
+                .when(true)
+                .thenAddRepeated("--addthisflag", ImmutableList.of("andthesevalues"))
+                .build())
         .contains("--addthisflag");
   }
 
   @Test
   public void testThenAddFlagDoesNothingAfterWhenFalse() {
-    assertThat(
-        new AaptCommandBuilder(aapt).when(false).thenAdd("--dontaddthisflag").build())
+    assertThat(new AaptCommandBuilder(aapt).when(false).thenAdd("--dontaddthisflag").build())
         .doesNotContain("--dontaddthisflag");
   }
 
   @Test
   public void testThenAddFlagWithValueDoesNothingAfterWhenFalse() {
     assertThat(
-        new AaptCommandBuilder(aapt)
-            .when(false).thenAdd("--dontaddthisflag", "orthisvalue").build())
+            new AaptCommandBuilder(aapt)
+                .when(false)
+                .thenAdd("--dontaddthisflag", "orthisvalue")
+                .build())
         .doesNotContain("--dontaddthisflag");
   }
 
   @Test
   public void testThenAddFlagWithPathDoesNothingAfterWhenFalse() {
     assertThat(
-        new AaptCommandBuilder(aapt)
-            .when(false).thenAdd("--dontaddthisflag", manifest).build())
+            new AaptCommandBuilder(aapt).when(false).thenAdd("--dontaddthisflag", manifest).build())
         .doesNotContain("--dontaddthisflag");
   }
 
   @Test
   public void testThenAddRepeatedDoesNothingAfterWhenFalse() {
     assertThat(
-        new AaptCommandBuilder(aapt)
-            .when(false).thenAddRepeated("--dontaddthisflag", ImmutableList.of("orthesevalues"))
-            .build())
+            new AaptCommandBuilder(aapt)
+                .when(false)
+                .thenAddRepeated("--dontaddthisflag", ImmutableList.of("orthesevalues"))
+                .build())
         .doesNotContain("--dontaddthisflag");
   }
 
   @Test
   public void testWhenVersionIsAtLeastAddsFlagsForEqualVersion() {
     assertThat(
-        new AaptCommandBuilder(aapt).forBuildToolsVersion(new Revision(23))
-            .whenVersionIsAtLeast(new Revision(23)).thenAdd("--addthisflag")
-            .build())
+            new AaptCommandBuilder(aapt)
+                .forBuildToolsVersion(new Revision(23))
+                .whenVersionIsAtLeast(new Revision(23))
+                .thenAdd("--addthisflag")
+                .build())
         .contains("--addthisflag");
   }
 
   @Test
   public void testWhenVersionIsAtLeastAddsFlagsForGreaterVersion() {
     assertThat(
-        new AaptCommandBuilder(aapt).forBuildToolsVersion(new Revision(24))
-            .whenVersionIsAtLeast(new Revision(23)).thenAdd("--addthisflag")
-            .build())
-
+            new AaptCommandBuilder(aapt)
+                .forBuildToolsVersion(new Revision(24))
+                .whenVersionIsAtLeast(new Revision(23))
+                .thenAdd("--addthisflag")
+                .build())
         .contains("--addthisflag");
   }
 
   @Test
   public void testWhenVersionIsAtLeastAddsFlagsForUnspecifiedVersion() {
     assertThat(
-        new AaptCommandBuilder(aapt)
-            .whenVersionIsAtLeast(new Revision(23)).thenAdd("--addthisflag")
-            .build())
+            new AaptCommandBuilder(aapt)
+                .whenVersionIsAtLeast(new Revision(23))
+                .thenAdd("--addthisflag")
+                .build())
         .contains("--addthisflag");
   }
 
   @Test
   public void testWhenVersionIsAtLeastDoesNotAddFlagsForLesserVersion() {
     assertThat(
-        new AaptCommandBuilder(aapt).forBuildToolsVersion(new Revision(22))
-            .whenVersionIsAtLeast(new Revision(23)).thenAdd("--dontaddthisflag")
-            .build())
+            new AaptCommandBuilder(aapt)
+                .forBuildToolsVersion(new Revision(22))
+                .whenVersionIsAtLeast(new Revision(23))
+                .thenAdd("--dontaddthisflag")
+                .build())
         .doesNotContain("--dontaddthisflag");
   }
 
   @Test
   public void testWhenVariantIsAddsFlagsForEqualVariantType() {
     assertThat(
-        new AaptCommandBuilder(aapt).forVariantType(VariantType.LIBRARY)
-            .whenVariantIs(VariantType.LIBRARY).thenAdd("--addthisflag")
-            .build())
+            new AaptCommandBuilder(aapt)
+                .forVariantType(VariantType.LIBRARY)
+                .whenVariantIs(VariantType.LIBRARY)
+                .thenAdd("--addthisflag")
+                .build())
         .contains("--addthisflag");
   }
 
   @Test
   public void testWhenVariantIsDoesNotAddFlagsForUnequalVariantType() {
     assertThat(
-        new AaptCommandBuilder(aapt).forVariantType(VariantType.DEFAULT)
-            .whenVariantIs(VariantType.LIBRARY).thenAdd("--dontaddthisflag")
-            .build())
+            new AaptCommandBuilder(aapt)
+                .forVariantType(VariantType.DEFAULT)
+                .whenVariantIs(VariantType.LIBRARY)
+                .thenAdd("--dontaddthisflag")
+                .build())
         .doesNotContain("--dontaddthisflag");
   }
 
   @Test
   public void testWhenVariantIsDoesNotAddFlagsForUnspecifiedVariantType() {
     assertThat(
-        new AaptCommandBuilder(aapt)
-            .whenVariantIs(VariantType.LIBRARY).thenAdd("--dontaddthisflag")
-            .build())
+            new AaptCommandBuilder(aapt)
+                .whenVariantIs(VariantType.LIBRARY)
+                .thenAdd("--dontaddthisflag")
+                .build())
         .doesNotContain("--dontaddthisflag");
   }
 
+  @Test
+  public void testParamFile() throws IOException {
+
+    final List<String> resources =
+        IntStream.range(0, 201).mapToObj(i -> "res" + i).collect(toList());
+    assertThat(
+            new AaptCommandBuilder(aapt)
+                .addParameterableRepeated("-R", resources, workingDirectory)
+                .build())
+        .containsAllOf("-R", "@" + workingDirectory.resolve("params-R"));
+    assertThat(
+            Files.readAllLines(workingDirectory.resolve("params-R"), StandardCharsets.UTF_8)
+                .stream()
+                .map(Splitter.on(' ')::split)
+                .flatMap(Streams::stream)
+                .collect(toList()))
+        .containsAllIn(resources);
+  }
 }

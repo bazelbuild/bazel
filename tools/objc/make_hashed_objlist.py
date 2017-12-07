@@ -36,7 +36,7 @@ def main():
     obj_file_path = line.rstrip('\n')
     hashed_obj_file_path = '%s_%s.o' % (
         os.path.splitext(obj_file_path)[0],
-        hashlib.md5(obj_file_path).hexdigest())
+        hashlib.md5(obj_file_path.encode('utf-8')).hexdigest())
 
     hashed_obj_file_list.write(hashed_obj_file_path + '\n')
 

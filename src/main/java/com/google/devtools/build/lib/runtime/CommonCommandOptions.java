@@ -13,92 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.runtime.CommandLineEvent.ToolCommandLineEvent;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
-import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 
 /**
  * Options common to all commands.
  */
 public class CommonCommandOptions extends OptionsBase {
-  /**
-   * A class representing a blazerc option. blazeRc is serial number of the rc
-   * file this option came from, option is the name of the option and value is
-   * its value (or null if not specified).
-   */
-  public static class OptionOverride {
-    final int blazeRc;
-    final String command;
-    final String option;
-
-    public OptionOverride(int blazeRc, String command, String option) {
-      this.blazeRc = blazeRc;
-      this.command = command;
-      this.option = option;
-    }
-
-    @Override
-    public String toString() {
-      return String.format("%d:%s=%s", blazeRc, command, option);
-    }
-  }
-
-  /**
-   * Converter for --default_override. The format is:
-   * --default_override=blazerc:command=option.
-   */
-  public static class OptionOverrideConverter implements Converter<OptionOverride> {
-    static final String ERROR_MESSAGE = "option overrides must be in form "
-      + " rcfile:command=option, where rcfile is a nonzero integer";
-
-    public OptionOverrideConverter() {}
-
-    @Override
-    public OptionOverride convert(String input) throws OptionsParsingException {
-      int colonPos = input.indexOf(':');
-      int assignmentPos = input.indexOf('=');
-
-      if (colonPos < 0) {
-        throw new OptionsParsingException(ERROR_MESSAGE);
-      }
-
-      if (assignmentPos <= colonPos + 1) {
-        throw new OptionsParsingException(ERROR_MESSAGE);
-      }
-
-      int blazeRc;
-      try {
-        blazeRc = Integer.valueOf(input.substring(0, colonPos));
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException(ERROR_MESSAGE);
-      }
-
-      if (blazeRc < 0) {
-        throw new OptionsParsingException(ERROR_MESSAGE);
-      }
-
-      String command = input.substring(colonPos + 1, assignmentPos);
-      String option = input.substring(assignmentPos + 1);
-
-      return new OptionOverride(blazeRc, command, option);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "blazerc option override";
-    }
-  }
 
   // To create a new incompatible change, see the javadoc for AllIncompatibleChangesExpansion.
   @Option(
@@ -144,37 +74,10 @@ public class CommonCommandOptions extends OptionsBase {
   public Level verbosity;
 
   @Option(
-    name = "client_env",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    converter = Converters.AssignmentConverter.class,
-    allowMultiple = true,
-    help = "A system-generated parameter which specifies the client's environment"
-  )
-  public List<Map.Entry<String, String>> clientEnv;
-
-  @Deprecated
-  @Option(
-    name = "ignore_client_env",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = OptionMetadataTag.DEPRECATED,
-    deprecationWarning = "Deprecated, no-op.",
-    help = "Deprecated, no-op."
-  )
-  // TODO(laszlocsomor, dslomov) 2017-03-07: remove this flag after 2017-06-01 (~3 months from now)
-  // and all of its occurrences.
-  public boolean ignoreClientEnv;
-
-  @Option(
     name = "client_cwd",
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     converter = OptionsUtils.PathFragmentConverter.class,
     help = "A system-generated parameter which specifies the client's working directory"
@@ -191,41 +94,11 @@ public class CommonCommandOptions extends OptionsBase {
   )
   public boolean announceRcOptions;
 
-  /**
-   * These are the actual default overrides. Each value is a pair of (command name, value).
-   *
-   * <p>For example: "--default_override=build=--cpu=piii"
-   */
-  @Option(
-    name = "default_override",
-    defaultValue = "",
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-    converter = OptionOverrideConverter.class,
-    help = ""
-  )
-  public List<OptionOverride> optionsOverrides;
-
-  /** This is the filename that the Blaze client parsed. */
-  @Option(
-    name = "rc_source",
-    defaultValue = "",
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-    help = ""
-  )
-  public List<String> rcSource;
-
   @Option(
     name = "always_profile_slow_operations",
     defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "Whether profiling slow operations is always turned on"
   )
   public boolean alwaysProfileSlowOperations;
@@ -256,9 +129,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "record_full_profiler_data",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help =
         "By default, Blaze profiler will record only aggregated data for fast but numerous "
             + "events (such as statting the file). If this option is enabled, profiler will record "
@@ -270,33 +142,30 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "memory_profile",
     defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = OptionsUtils.PathFragmentConverter.class,
     help = "If set, write memory usage data to the specified file at phase ends."
   )
   public PathFragment memoryProfilePath;
 
-  @Deprecated
   @Option(
-    name = "gc_watchdog",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    deprecationWarning = "Ignoring: this option is no longer supported",
-    help = "Deprecated."
+    name = "experimental_oom_more_eagerly_threshold",
+    defaultValue = "100",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+    help =
+        "If this flag is set to a value less than 100, Blaze will OOM if, after two full GC's, more"
+            + "than this percentage of the (old gen) heap is still occupied."
   )
-  public boolean gcWatchdog;
+  public int oomMoreEagerlyThreshold;
 
   @Option(
     name = "startup_time",
     defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "The time in ms the launcher spends before sending the request to the blaze server."
   )
   public long startupTime;
@@ -304,9 +173,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "extract_data_time",
     defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "The time in ms spent on extracting the new blaze version."
   )
   public long extractDataTime;
@@ -314,9 +183,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "command_wait_time",
     defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "The time in ms a command had to wait on a busy Blaze server process."
   )
   public long waitTime;
@@ -334,9 +203,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "restart_reason",
     defaultValue = "no_restart",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "The reason for the server restart."
   )
   public String restartReason;
@@ -344,9 +213,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "binary_path",
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "The absolute path of the blaze binary."
   )
   public String binaryPath;
@@ -354,10 +223,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "experimental_allow_project_files",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
     help = "Enable processing of +<file> parameters."
   )
   public boolean allowProjectFiles;
@@ -365,12 +233,49 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "block_for_lock",
     defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help =
         "If set (the default), a command will block if there is another one running. If "
             + "unset, these commands will immediately return with an error."
   )
   public boolean blockForLock;
+
+  // We could accept multiple of these, in the event where there's a chain of tools that led to a
+  // Bazel invocation. We would not want to expect anything from the order of these, and would need
+  // to guarantee that the "label" for each command line is unique. Unless a need is demonstrated,
+  // though, logs are a better place to track this information than flags, so let's try to avoid it.
+  @Option(
+    // In May 2018, this feature will have been out for 6 months. If the format we accept has not
+    // changed in that time, we can remove the "experimental" prefix and tag.
+    name = "experimental_tool_command_line",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    // Keep this flag HIDDEN so that it is not listed with our reported command lines, it being
+    // reported separately.
+    metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
+    converter = ToolCommandLineEvent.Converter.class,
+    help =
+        "An extra command line to report with this invocation's command line. Useful for tools "
+            + "that invoke Bazel and want the original information that the tool received to be "
+            + "logged with the rest of the Bazel invocation."
+  )
+  public ToolCommandLineEvent toolCommandLine;
+
+  @Option(
+    name = "unconditional_warning",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+    allowMultiple = true,
+    help =
+        "A warning that will unconditionally get printed with build warnings and errors. This is "
+            + "useful to deprecate bazelrc files or --config definitions. If the intent is to "
+            + "effectively deprecate some flag or combination of flags, this is NOT sufficient. "
+            + "The flag or flags should use the deprecationWarning field in the option definition, "
+            + "or the bad combination should be checked for programmatically."
+  )
+  public List<String> deprecationWarnings;
 }

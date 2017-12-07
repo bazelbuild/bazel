@@ -1,20 +1,16 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import java.util.Collection;
-import java.util.LinkedList;
-
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.util.Types;
-
-import org.checkerframework.dataflow.util.HashCodeUtils;
-
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.Tree.Kind;
+import java.util.Collection;
+import java.util.LinkedList;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.util.Types;
+import org.checkerframework.dataflow.util.HashCodeUtils;
 
 /**
- * A node for a case in a switch statement.  Although
- * a case has no abstract value, it can imply facts about
- * the abstract values of its operands.
+ * A node for a case in a switch statement. Although a case has no abstract value, it can imply
+ * facts about the abstract values of its operands.
  *
  * <pre>
  *   case <em>constant</em>:
@@ -22,7 +18,6 @@ import com.sun.source.tree.Tree.Kind;
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
 public class CaseNode extends Node {
 

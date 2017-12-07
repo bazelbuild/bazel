@@ -43,6 +43,7 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
           .put(Type.INTEGER, "Integer")
           .put(Type.INTEGER_LIST, "List of integers")
           .put(Type.STRING, "String")
+          .put(Type.STRING_DICT, "Dictionary: String -> String")
           .put(Type.STRING_LIST, "List of strings")
           .put(BuildType.TRISTATE, "Integer")
           .put(BuildType.LABEL, "<a href=\"../build-ref.html#labels\">Label</a>")
@@ -50,6 +51,7 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
           .put(
               BuildType.LABEL_DICT_UNARY,
               "Dictionary mapping strings to <a href=\"../build-ref.html#labels\">labels</a>")
+          .put(BuildType.LICENSE, "Licence type")
           .put(BuildType.NODEP_LABEL, "<a href=\"../build-ref.html#name\">Name</a>")
           .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"../build-ref.html#name\">names</a>")
           .put(BuildType.OUTPUT, "<a href=\"../build-ref.html#filename\">Filename</a>")

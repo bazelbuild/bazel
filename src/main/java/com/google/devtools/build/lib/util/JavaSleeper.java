@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.base.Preconditions;
 import java.util.concurrent.TimeUnit;
 
 /** Production implementation of {@link Sleeper} */

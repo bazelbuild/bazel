@@ -13,14 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
-import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
@@ -29,67 +27,66 @@ import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
+import javax.annotation.Nullable;
 
 /**
  * Provide a remote execution context.
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
-  private RemoteSpawnRunner spawnRunner;
-  private RemoteSpawnStrategy spawnStrategy;
+  private final RemoteActionCache cache;
+  private final GrpcRemoteExecutor executor;
+  private final DigestUtil digestUtil;
 
-  RemoteActionContextProvider(CommandEnvironment env) {
+  RemoteActionContextProvider(
+      CommandEnvironment env,
+      @Nullable RemoteActionCache cache,
+      @Nullable GrpcRemoteExecutor executor,
+      DigestUtil digestUtil) {
     this.env = env;
+    this.executor = executor;
+    this.cache = cache;
+    this.digestUtil = digestUtil;
   }
 
   @Override
-  public void init(
-      ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
-    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
-    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
-    AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
-    ChannelOptions channelOptions = ChannelOptions.create(authAndTlsOptions);
+  public Iterable<? extends ActionContext> getActionContexts() {
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
+    RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
+    String buildRequestId = env.getBuildRequestId().toString();
+    String commandId = env.getCommandId().toString();
 
-    // Initialize remote cache and execution handlers. We use separate handlers for every
-    // action to enable server-side parallelism (need a different gRPC channel per action).
-    RemoteActionCache remoteCache;
-    if (SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)) {
-      remoteCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
-    } else if (GrpcRemoteCache.isRemoteCacheOptions(remoteOptions)) {
-      remoteCache =
-          new GrpcRemoteCache(
-              GrpcUtils.createChannel(remoteOptions.remoteCache, channelOptions),
-              channelOptions,
-              remoteOptions);
+    if (remoteOptions.experimentalRemoteSpawnCache || remoteOptions.experimentalLocalDiskCache) {
+      RemoteSpawnCache spawnCache =
+          new RemoteSpawnCache(
+              env.getExecRoot(),
+              remoteOptions,
+              cache,
+              buildRequestId,
+              commandId,
+              executionOptions.verboseFailures,
+              env.getReporter(),
+              digestUtil);
+      return ImmutableList.of(spawnCache);
     } else {
-      remoteCache = null;
+      RemoteSpawnRunner spawnRunner =
+          new RemoteSpawnRunner(
+              env.getExecRoot(),
+              remoteOptions,
+              createFallbackRunner(env),
+              executionOptions.verboseFailures,
+              env.getReporter(),
+              buildRequestId,
+              commandId,
+              cache,
+              executor,
+              digestUtil);
+      return ImmutableList.of(new RemoteSpawnStrategy(spawnRunner));
     }
-
-    // Otherwise remoteCache remains null and remote caching/execution are disabled.
-    GrpcRemoteExecutor remoteExecutor;
-    if (remoteCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(remoteOptions)) {
-      remoteExecutor =
-          new GrpcRemoteExecutor(
-              GrpcUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
-              channelOptions,
-              remoteOptions);
-    } else {
-      remoteExecutor = null;
-    }
-    spawnRunner = new RemoteSpawnRunner(
-        env.getExecRoot(),
-        remoteOptions,
-        createFallbackRunner(actionInputPrefetcher),
-        remoteCache,
-        remoteExecutor);
-    spawnStrategy =
-        new RemoteSpawnStrategy(
-            "remote",
-            spawnRunner,
-            executionOptions.verboseFailures);
   }
 
-  private SpawnRunner createFallbackRunner(ActionInputPrefetcher actionInputPrefetcher) {
+  private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
@@ -98,7 +95,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     return
         new LocalSpawnRunner(
             env.getExecRoot(),
-            actionInputPrefetcher,
             localExecutionOptions,
             ResourceManager.instance(),
             env.getRuntime().getProductName(),
@@ -106,16 +102,9 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   }
 
   @Override
-  public Iterable<? extends ActionContext> getActionContexts() {
-    return ImmutableList.of(Preconditions.checkNotNull(spawnStrategy));
-  }
-
-  @Override
   public void executionPhaseEnding() {
-    if (spawnRunner != null) {
-      spawnRunner.close();
+    if (cache != null) {
+      cache.close();
     }
-    spawnRunner = null;
-    spawnStrategy = null;
   }
 }

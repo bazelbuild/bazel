@@ -35,7 +35,6 @@ public class ToolchainInfoTest extends BuildViewTestCase {
         "test/toolchain/my_toolchain.bzl",
         "def _impl(ctx):",
         "  toolchain = platform_common.ToolchainInfo(",
-        "      type = Label('//test/toolchain:my_toolchain_type'),",
         "      extra_label = ctx.attr.extra_label,",
         "      extra_str = ctx.attr.extra_str)",
         "  return [toolchain]",
@@ -61,8 +60,6 @@ public class ToolchainInfoTest extends BuildViewTestCase {
     ToolchainInfo provider = PlatformProviderUtils.toolchain(toolchain);
     assertThat(provider).isNotNull();
 
-    assertThat(provider.type()).isEqualTo(makeLabel("//test/toolchain:my_toolchain_type"));
-
     ConfiguredTarget extraLabel = (ConfiguredTarget) provider.getValue("extra_label");
     assertThat(extraLabel).isNotNull();
     assertThat(extraLabel.getLabel()).isEqualTo(makeLabel("//test/toolchain:dep"));
@@ -75,23 +72,14 @@ public class ToolchainInfoTest extends BuildViewTestCase {
         .addEqualityGroup(
             // Base case.
             ToolchainInfo.create(
-                makeLabel("//toolchain:tc1"),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
                 Location.BUILTIN),
             ToolchainInfo.create(
-                makeLabel("//toolchain:tc1"),
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
-                Location.BUILTIN))
-        .addEqualityGroup(
-            // Different type.
-            ToolchainInfo.create(
-                makeLabel("//toolchain:tc2"),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
                 Location.BUILTIN))
         .addEqualityGroup(
             // Different data.
             ToolchainInfo.create(
-                makeLabel("//toolchain:tc1"),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val3"),
                 Location.BUILTIN))
         .testEquals();

@@ -100,7 +100,7 @@ public final class ListComprehension extends AbstractComprehension {
 
     @Override
     public Object getResult(Environment env) throws EvalException {
-      return new MutableList<>(result, env);
+      return MutableList.copyOf(env, result);
     }
   }
 }

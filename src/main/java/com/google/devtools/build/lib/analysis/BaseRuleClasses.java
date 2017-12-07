@@ -37,13 +37,12 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -72,35 +71,32 @@ public class BaseRuleClasses {
         }
       };
 
+  // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /**
    * Implementation for the :action_listener attribute.
+   *
+   * <p>action_listeners are special rules; they tell the build system to add extra_actions to
+   * existing rules. As such they need an edge to every ConfiguredTarget with the limitation that
+   * they only run on the target configuration and should not operate on action_listeners and
+   * extra_actions themselves (to avoid cycles).
    */
   @VisibleForTesting
-  static final LateBoundLabelList<BuildConfiguration> ACTION_LISTENER =
-      new LateBoundLabelList<BuildConfiguration>() {
-    @Override
-    public List<Label> resolve(Rule rule, AttributeMap attributes,
-        BuildConfiguration configuration) {
-      // action_listeners are special rules; they tell the build system to add extra_actions to
-      // existing rules. As such they need an edge to every ConfiguredTarget with the limitation
-      // that they only run on the target configuration and should not operate on action_listeners
-      // and extra_actions themselves (to avoid cycles).
-      return configuration.getActionListeners();
-    }
-  };
+  static final LateBoundDefault<?, List<Label>> ACTION_LISTENER =
+      LateBoundDefault.fromTargetConfiguration(
+          BuildConfiguration.class,
+          ImmutableList.of(),
+          (rule, attributes, configuration) -> configuration.getActionListeners());
 
-  /**
-   * Implementation for the :run_under attribute.
-   */
-  public static final LateBoundLabel<BuildConfiguration> RUN_UNDER =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          RunUnder runUnder = configuration.getRunUnder();
-          return runUnder == null ? null : runUnder.getLabel();
-        }
-      };
+  // TODO(b/65746853): provide a way to do this without passing the entire configuration
+  /** Implementation for the :run_under attribute. */
+  public static final LateBoundDefault<?, Label> RUN_UNDER =
+      LateBoundDefault.fromTargetConfiguration(
+          BuildConfiguration.class,
+          null,
+          (rule, attributes, configuration) -> {
+            RunUnder runUnder = configuration.getRunUnder();
+            return runUnder != null ? runUnder.getLabel() : null;
+          });
 
   /**
    * A base rule for all test rules.
@@ -109,45 +105,61 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("size", STRING).value("medium").taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("timeout", STRING).taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations")
-              .value(new Attribute.ComputedDefault() {
-                @Override
-                public Object getDefault(AttributeMap rule) {
-                  TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
-                  if (size != null) {
-                    String timeout = size.getDefaultTimeout().toString();
-                    if (timeout != null) {
-                      return timeout;
-                    }
-                  }
-                  return "illegal";
-                }
-              }))
-          .add(attr("flaky", BOOLEAN).value(false).taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations"))
+          .requiresConfigurationFragments(TestConfiguration.class)
+          .add(
+              attr("size", STRING)
+                  .value("medium")
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations"))
+          .add(
+              attr("timeout", STRING)
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations")
+                  .value(
+                      new Attribute.ComputedDefault() {
+                        @Override
+                        public Object getDefault(AttributeMap rule) {
+                          TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
+                          if (size != null) {
+                            String timeout = size.getDefaultTimeout().toString();
+                            if (timeout != null) {
+                              return timeout;
+                            }
+                          }
+                          return "illegal";
+                        }
+                      }))
+          .add(
+              attr("flaky", BOOLEAN)
+                  .value(false)
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations"))
           .add(attr("shard_count", INTEGER).value(-1))
-          .add(attr("local", BOOLEAN).value(false).taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations"))
+          .add(
+              attr("local", BOOLEAN)
+                  .value(false)
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations"))
           .add(attr("args", STRING_LIST))
           // Input files for every test action
-          .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-              env.getToolsLabel("//tools/test:runtime"))))
+          .add(
+              attr("$test_runtime", LABEL_LIST)
+                  .cfg(HOST)
+                  .value(ImmutableList.of(env.getToolsLabel("//tools/test:runtime"))))
           // Input files for test actions collecting code coverage
-          .add(attr("$coverage_support", LABEL)
-              .value(env.getLabel("//tools/defaults:coverage_support")))
+          .add(
+              attr("$coverage_support", LABEL)
+                  .value(env.getLabel("//tools/defaults:coverage_support")))
           // Used in the one-per-build coverage report generation action.
-          .add(attr("$coverage_report_generator", LABEL)
-              .cfg(HOST)
-              .value(env.getLabel("//tools/defaults:coverage_report_generator"))
-              .singleArtifact())
+          .add(
+              attr("$coverage_report_generator", LABEL)
+                  .cfg(HOST)
+                  .value(env.getLabel("//tools/defaults:coverage_report_generator"))
+                  .singleArtifact())
 
           // The target itself and run_under both run on the same machine. We use the DATA config
           // here because the run_under acts like a data dependency (e.g. no LIPO optimization).
-          .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER)
-              .skipPrereqValidatorCheck())
+          .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER).skipPrereqValidatorCheck())
           .build();
     }
 
@@ -156,7 +168,7 @@ public class BaseRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$test_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(RootRule.class)
+          .ancestors(RootRule.class, MakeVariableExpandingRule.class)
           .build();
     }
   }
@@ -165,41 +177,60 @@ public class BaseRuleClasses {
    * Share common attributes across both base and Skylark base rules.
    */
   public static RuleClass.Builder commonCoreAndSkylarkAttributes(RuleClass.Builder builder) {
-    return builder
+    return PlatformSemantics.platformAttributes(builder)
         // The visibility attribute is special: it is a nodep label, and loading the
         // necessary package groups is handled by {@link LabelVisitor#visitTargetVisibility}.
         // Package groups always have the null configuration so that they are not duplicated
         // needlessly.
-        .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().cfg(HOST)
-            .nonconfigurable("special attribute integrated more deeply into Bazel's core logic"))
-        .add(attr("deprecation", STRING).value(deprecationDefault)
-            .nonconfigurable("Used in core loading phase logic with no access to configs"))
-        .add(attr("tags", STRING_LIST).orderIndependent().taggable()
-            .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
-        .add(attr("generator_name", STRING).undocumented("internal")
-            .nonconfigurable("static structure of a rule"))
-        .add(attr("generator_function", STRING).undocumented("internal")
-            .nonconfigurable("static structure of a rule"))
-        .add(attr("generator_location", STRING).undocumented("internal")
-            .nonconfigurable("static structure of a rule"))
-        .add(attr("testonly", BOOLEAN).value(testonlyDefault)
-            .nonconfigurable("policy decision: rules testability should be consistent"))
+        .add(
+            attr("visibility", NODEP_LABEL_LIST)
+                .orderIndependent()
+                .cfg(HOST)
+                .nonconfigurable(
+                    "special attribute integrated more deeply into Bazel's core logic"))
+        .add(
+            attr("deprecation", STRING)
+                .value(deprecationDefault)
+                .nonconfigurable("Used in core loading phase logic with no access to configs"))
+        .add(
+            attr("tags", STRING_LIST)
+                .orderIndependent()
+                .taggable()
+                .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
+        .add(
+            attr("generator_name", STRING)
+                .undocumented("internal")
+                .nonconfigurable("static structure of a rule"))
+        .add(
+            attr("generator_function", STRING)
+                .undocumented("internal")
+                .nonconfigurable("static structure of a rule"))
+        .add(
+            attr("generator_location", STRING)
+                .undocumented("internal")
+                .nonconfigurable("static structure of a rule"))
+        .add(
+            attr("testonly", BOOLEAN)
+                .value(testonlyDefault)
+                .nonconfigurable("policy decision: rules testability should be consistent"))
         .add(attr("features", STRING_LIST).orderIndependent())
         .add(attr(":action_listener", LABEL_LIST).cfg(HOST).value(ACTION_LISTENER))
-        .add(attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
-            .allowedRuleClasses(EnvironmentRule.RULE_NAME)
-            .cfg(Attribute.ConfigurationTransition.HOST)
-            .allowedFileTypes(FileTypeSet.NO_FILE)
-            .dontCheckConstraints()
-            .nonconfigurable("special logic for constraints and select: see ConstraintSemantics")
-        )
-        .add(attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
-            .allowedRuleClasses(EnvironmentRule.RULE_NAME)
-            .cfg(Attribute.ConfigurationTransition.HOST)
-            .allowedFileTypes(FileTypeSet.NO_FILE)
-            .dontCheckConstraints()
-            .nonconfigurable("special logic for constraints and select: see ConstraintSemantics")
-        );
+        .add(
+            attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
+                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .cfg(Attribute.ConfigurationTransition.HOST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .dontCheckConstraints()
+                .nonconfigurable(
+                    "special logic for constraints and select: see ConstraintSemantics"))
+        .add(
+            attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
+                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .cfg(Attribute.ConfigurationTransition.HOST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .dontCheckConstraints()
+                .nonconfigurable(
+                    "special logic for constraints and select: see ConstraintSemantics"));
   }
 
   public static RuleClass.Builder nameAttribute(RuleClass.Builder builder) {
@@ -266,6 +297,33 @@ public class BaseRuleClasses {
   }
 
   /**
+   * A rule that contains a {@code variables=} attribute to allow referencing Make variables.
+   */
+  public static final class MakeVariableExpandingRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          /* <!-- #BLAZE_RULE($make_variable_expanding_rule).ATTRIBUTE(toolchains) -->
+          The set of toolchains that supply <a href="${link make-variables}">"Make variables"</a>
+          that this target can use in some of its attributes. Some rules have toolchains whose Make
+          variables they can use by default.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("toolchains", LABEL_LIST)
+              .allowedFileTypes(FileTypeSet.NO_FILE)
+              .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id())))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$make_variable_expanding_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
    * Common ancestor class for some rules.
    */
   public static final class RuleBase implements RuleDefinition {
@@ -311,7 +369,7 @@ public class BaseRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$binary_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(RootRule.class)
+          .ancestors(RootRule.class, MakeVariableExpandingRule.class)
           .build();
     }
   }

@@ -17,7 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.invoke.MethodHandles.publicLookup;
-import static org.objectweb.asm.Opcodes.ASM5;
+import static org.objectweb.asm.Opcodes.ASM6;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
@@ -49,6 +49,9 @@ import org.objectweb.asm.tree.TypeInsnNode;
  * Visitor that desugars classes with uses of lambdas into Java 7-looking code. This includes
  * rewriting lambda-related invokedynamic instructions as well as fixing accessibility of methods
  * that javac emits for lambda bodies.
+ *
+ * <p>Implementation note: {@link InvokeDynamicLambdaMethodCollector} needs to detect any class
+ * that this visitor may rewrite, as we conditionally apply this visitor based on it.
  */
 class LambdaDesugaring extends ClassVisitor {
 
@@ -70,7 +73,7 @@ class LambdaDesugaring extends ClassVisitor {
       ImmutableSet.Builder<String> aggregateInterfaceLambdaMethods,
       ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDyanmic,
       boolean allowDefaultMethods) {
-    super(Opcodes.ASM5, dest);
+    super(Opcodes.ASM6, dest);
     this.targetLoader = targetLoader;
     this.lambdas = lambdas;
     this.aggregateInterfaceLambdaMethods = aggregateInterfaceLambdaMethods;
@@ -150,6 +153,7 @@ class LambdaDesugaring extends ClassVisitor {
     super.visitEnd();
   }
 
+  // If this method changes then InvokeDynamicLambdaMethodCollector may need changes well
   @Override
   public MethodVisitor visitMethod(
       int access, String name, String desc, String signature, String[] exceptions) {
@@ -192,6 +196,7 @@ class LambdaDesugaring extends ClassVisitor {
         : null;
   }
 
+  // If this method changes then InvokeDynamicLambdaMethodCollector may need changes well
   @Override
   public void visitOuterClass(String owner, String name, String desc) {
     if (name != null && name.startsWith("lambda$")) {
@@ -200,6 +205,8 @@ class LambdaDesugaring extends ClassVisitor {
     }
     super.visitOuterClass(owner, name, desc);
   }
+
+  // When adding visitXxx methods here then InvokeDynamicLambdaMethodCollector may need changes well
 
   static String uniqueInPackage(String owner, String name) {
     String suffix = "$" + owner.substring(owner.lastIndexOf('/') + 1);
@@ -374,7 +381,7 @@ class LambdaDesugaring extends ClassVisitor {
         String desc,
         String signature,
         String[] exceptions) {
-      super(ASM5, access, name, desc, signature, exceptions);
+      super(ASM6, access, name, desc, signature, exceptions);
       this.dest = checkNotNull(dest, "Null destination for %s.%s : %s", internalName, name, desc);
     }
 
@@ -526,12 +533,13 @@ class LambdaDesugaring extends ClassVisitor {
               i,
               internalName,
               insn.getOpcode());
-        } else if (insn.getOpcode() != paramTypes[i].getOpcode(Opcodes.ILOAD)) {
-          // Otherwise expect load of a (effectively) final local variable.  Not seeing that means
-          // we're dealing with a method reference on some arbitrary expression, <expression>::m.
-          // In that case we give up and keep using the factory method for now, since inserting
-          // the NEW/DUP so the new object ends up in the right stack slot is hard in that case.
-          // Note this still covers simple cases such as this::m or x::m, where x is a local.
+        } else if (!isPushForType(insn, paramTypes[i])) {
+          // Otherwise expect load of a (effectively) final local variable or a constant. Not seeing
+          // that means we're dealing with a method reference on some arbitrary expression,
+          // <expression>::m. In that case we give up and keep using the factory method for now,
+          // since inserting the NEW/DUP so the new object ends up in the right stack slot is hard
+          // in that case. Note this still covers simple cases such as this::m or x::m, where x is a
+          // local.
           checkState(
               paramTypes.length == 1,
               "Expected a load for %s to set up parameter %s for %s but got %s",
@@ -553,6 +561,59 @@ class LambdaDesugaring extends ClassVisitor {
       }
       instructions.insert(newInsn, new InsnNode(Opcodes.DUP));
       return true;
+    }
+
+    /**
+     * Returns whether a given instruction can be used to push argument of {@code type} on stack.
+     */
+    private /* static */ boolean isPushForType(AbstractInsnNode insn, Type type) {
+      int opcode = insn.getOpcode();
+      if (opcode == type.getOpcode(Opcodes.ILOAD)) {
+        return true;
+      }
+      // b/62060793: AsyncAwait rewrites bytecode to convert java methods into state machine with
+      // support of lambdas. Constant zero values are pushed on stack for all yet uninitialized
+      // local variables. And SIPUSH instruction is used to advance an internal state of a state
+      // machine.
+      switch (type.getSort()) {
+        case Type.BOOLEAN:
+          return opcode == Opcodes.ICONST_0
+              || opcode == Opcodes.ICONST_1;
+
+        case Type.BYTE:
+        case Type.CHAR:
+        case Type.SHORT:
+        case Type.INT:
+          return opcode == Opcodes.SIPUSH
+              || opcode == Opcodes.ICONST_0
+              || opcode == Opcodes.ICONST_1
+              || opcode == Opcodes.ICONST_2
+              || opcode == Opcodes.ICONST_3
+              || opcode == Opcodes.ICONST_4
+              || opcode == Opcodes.ICONST_5
+              || opcode == Opcodes.ICONST_M1;
+
+        case Type.LONG:
+          return opcode == Opcodes.LCONST_0
+              || opcode == Opcodes.LCONST_1;
+
+        case Type.FLOAT:
+          return opcode == Opcodes.FCONST_0
+              || opcode == Opcodes.FCONST_1
+              || opcode == Opcodes.FCONST_2;
+
+        case Type.DOUBLE:
+          return opcode == Opcodes.DCONST_0
+              || opcode == Opcodes.DCONST_1;
+
+        case Type.OBJECT:
+        case Type.ARRAY:
+          return opcode == Opcodes.ACONST_NULL;
+
+        default:
+          // Support for BIPUSH and LDC* opcodes is not implemented as there is no known use case.
+          return false;
+      }
     }
 
     private Lookup createLookup(String lookupClass) throws ReflectiveOperationException {

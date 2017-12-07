@@ -8,10 +8,9 @@ filegroup(
 
 py_library(
     name = "gflags",
-    srcs = [
-        "__init__.py",
-        "gflags_validators.py",
-    ],
+    deps = ["//third_party/py/six"],
+    srcs = glob(["**/*.py"]),
     srcs_version = "PY2AND3",
+    imports = ["."],
     visibility = ["//visibility:public"],
 )

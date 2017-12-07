@@ -16,28 +16,22 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
-import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.FileType;
 import java.util.ArrayList;
 
 /** Common rule attributes used by an objc_proto_library. */
@@ -51,43 +45,12 @@ final class ProtoAttributes {
       ImmutableSet.of("url", "http", "https");
 
   @VisibleForTesting
-  static final String FILES_NOT_ALLOWED_ERROR =
-      "Using files and filegroups in objc_proto_library with portable_proto_filters is not "
-          + "allowed. Please wrap the files inside a proto_library target.";
-
-  @VisibleForTesting
-  static final String FILES_DEPRECATED_WARNING =
-      "Using files and filegroups in objc_proto_library is deprecated";
-
-  @VisibleForTesting
-  static final String NO_PROTOS_ERROR =
-      "no protos to compile - a non-empty deps attribute is required";
-
-  @VisibleForTesting
-  static final String PROTOBUF_ATTRIBUTES_NOT_EXCLUSIVE_ERROR =
-      "The portable_proto_filters and uses_protobuf attributes are incompatible with the "
-          + "options_file, output_cpp, per_proto_includes and use_objc_header_names attributes.";
-
-  @VisibleForTesting
   static final String PORTABLE_PROTO_FILTERS_EMPTY_ERROR =
       "The portable_proto_filters attribute can't be empty";
 
   @VisibleForTesting
-  static final String OBJC_PROTO_LIB_DEP_IN_PROTOCOL_BUFFERS2_DEPS_ERROR =
-      "Protocol Buffers 2 objc_proto_library targets can't depend on other objc_proto_library "
-          + "targets. Please migrate your Protocol Buffers 2 objc_proto_library targets to use the "
-          + "portable_proto_filters attribute.";
-
-  @VisibleForTesting
-  static final String PROTOCOL_BUFFERS2_IN_PROTOBUF_DEPS_ERROR =
-      "Protobuf objc_proto_library targets can't depend on Protocol Buffers 2 objc_proto_library "
-          + "targets. Please migrate your Protocol Buffers 2 objc_proto_library targets to use the "
-          + "portable_proto_filters attribute.";
-
-  @VisibleForTesting
-  static final String USES_PROTOBUF_CANT_BE_SPECIFIED_AS_FALSE =
-      "objc_proto_library targets can't specify the uses_protobuf attribute to false when also "
-          + "specifying portable_proto_filters.";
+  static final String NO_PROTOS_ERROR =
+      "no protos to compile - a non-empty deps attribute is required";
 
   private final RuleContext ruleContext;
 
@@ -112,80 +75,21 @@ final class ProtoAttributes {
    * </ul>
    */
   public void validate() throws RuleErrorException {
-    PrerequisiteArtifacts prerequisiteArtifacts =
-        ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET);
-    ImmutableList<Artifact> protoFiles = prerequisiteArtifacts.filter(FileType.of(".proto")).list();
-
-    if (hasPortableProtoFilters()
-        && ruleContext
-            .attributes()
-            .isAttributeValueExplicitlySpecified(ObjcProtoLibraryRule.USES_PROTOBUF_ATTR)
-        && !ruleContext.attributes().get(ObjcProtoLibraryRule.USES_PROTOBUF_ATTR, BOOLEAN)) {
+    if (getProtoFiles().isEmpty() && !hasObjcProtoLibraryDependencies()) {
+      ruleContext.throwWithAttributeError("deps", NO_PROTOS_ERROR);
+    }
+    if (hasPortableProtoFilters() && getPortableProtoFilters().isEmpty()) {
       ruleContext.throwWithAttributeError(
-          ObjcProtoLibraryRule.USES_PROTOBUF_ATTR, USES_PROTOBUF_CANT_BE_SPECIFIED_AS_FALSE);
-    }
-
-    if (requiresProtobuf()) {
-      if (!protoFiles.isEmpty()) {
-        ruleContext.throwWithAttributeError("deps", FILES_NOT_ALLOWED_ERROR);
-      }
-      if (getProtoFiles().isEmpty() && !hasObjcProtoLibraryDependencies()) {
-        ruleContext.throwWithAttributeError("deps", NO_PROTOS_ERROR);
-      }
-      if (getPortableProtoFilters().isEmpty() && !usesProtobuf()) {
-        ruleContext.throwWithAttributeError(
-            ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, PORTABLE_PROTO_FILTERS_EMPTY_ERROR);
-      }
-      if (usesObjcHeaderNames()
-          || needsPerProtoIncludes()
-          || getOptionsFile().isPresent()) {
-        ruleContext.throwWithRuleError(PROTOBUF_ATTRIBUTES_NOT_EXCLUSIVE_ERROR);
-      }
-      if (hasPB2Dependencies()) {
-        ruleContext.throwWithAttributeError("deps", PROTOCOL_BUFFERS2_IN_PROTOBUF_DEPS_ERROR);
-      }
-    } else {
-      if (!protoFiles.isEmpty()) {
-        ruleContext.attributeWarning("deps", FILES_DEPRECATED_WARNING);
-      }
-      if (getProtoFiles().isEmpty()) {
-        ruleContext.throwWithAttributeError("deps", NO_PROTOS_ERROR);
-      }
-      if (hasObjcProtoLibraryDependencies()) {
-        ruleContext.throwWithAttributeError(
-            "deps", OBJC_PROTO_LIB_DEP_IN_PROTOCOL_BUFFERS2_DEPS_ERROR);
-      }
+          ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, PORTABLE_PROTO_FILTERS_EMPTY_ERROR);
     }
   }
 
-  /** Returns whether the generated header files should have be of type pb.h or pbobjc.h. */
-  boolean usesObjcHeaderNames() {
-    if (ruleContext
-        .attributes()
-        .has(ObjcProtoLibraryRule.USE_OBJC_HEADER_NAMES_ATTR, Type.BOOLEAN)) {
-      return ruleContext
-          .attributes()
-          .get(ObjcProtoLibraryRule.USE_OBJC_HEADER_NAMES_ATTR, Type.BOOLEAN);
-    }
-    return false;
-  }
-
-  /** Returns whether the includes should include each of the proto generated headers. */
-  boolean needsPerProtoIncludes() {
-    if (ruleContext.attributes().has(ObjcProtoLibraryRule.PER_PROTO_INCLUDES_ATTR, Type.BOOLEAN)) {
-      return ruleContext
-          .attributes()
-          .get(ObjcProtoLibraryRule.PER_PROTO_INCLUDES_ATTR, Type.BOOLEAN);
-    }
-    return false;
-  }
-
-  /** Returns whether this target configures the uses_protobuf attribute. */
-  boolean usesProtobuf() {
-    if (ruleContext.attributes().has(ObjcProtoLibraryRule.USES_PROTOBUF_ATTR, Type.BOOLEAN)) {
-      return ruleContext.attributes().get(ObjcProtoLibraryRule.USES_PROTOBUF_ATTR, Type.BOOLEAN);
-    }
-    return false;
+  /**
+   * Returns whether the target is an objc_proto_library. It does so by making sure that the
+   * portable_proto_filters attribute exists in this target's attributes (even if it's empty).
+   */
+  boolean isObjcProtoLibrary() {
+    return ruleContext.attributes().has(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR);
   }
 
   /** Returns whether to use the protobuf library instead of the PB2 library. */
@@ -193,15 +97,6 @@ final class ProtoAttributes {
     return ruleContext
         .attributes()
         .isAttributeValueExplicitlySpecified(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR);
-  }
-
-  /**
-   * Returns whether the target requires the use of protobuf or not. This is a convenience method to
-   * check that either the {@code portable_proto_filters} or the {@code uses_protobuf} attributes
-   * were passed.
-   */
-  boolean requiresProtobuf() {
-    return hasPortableProtoFilters() || usesProtobuf();
   }
 
   /** Returns the list of portable proto filters. */
@@ -223,19 +118,9 @@ final class ProtoAttributes {
         .list();
   }
 
-  /** Returns the options file, or {@link Optional#absent} if it was not specified. */
-  Optional<Artifact> getOptionsFile() {
-    if (ruleContext.attributes().has(ObjcProtoLibraryRule.OPTIONS_FILE_ATTR, LABEL)) {
-      return Optional.fromNullable(
-          ruleContext.getPrerequisiteArtifact(ObjcProtoLibraryRule.OPTIONS_FILE_ATTR, Mode.HOST));
-    }
-    return Optional.absent();
-  }
-
   /** Returns the list of proto files to compile. */
   NestedSet<Artifact> getProtoFiles() {
     return NestedSetBuilder.<Artifact>stableOrder()
-        .addAll(getProtoDepsFiles())
         .addTransitive(getProtoDepsSources())
         .build();
   }
@@ -353,25 +238,6 @@ final class ProtoAttributes {
     return artifacts.build();
   }
 
-  /**
-   * Returns the list of proto files that were added directly into the deps attributes. This way of
-   * specifying the protos is deprecated, and displays a warning when the target does so.
-   */
-  private ImmutableList<Artifact> getProtoDepsFiles() {
-    PrerequisiteArtifacts prerequisiteArtifacts =
-        ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET);
-    return prerequisiteArtifacts.filter(FileType.of(".proto")).list();
-  }
-
-  private boolean hasPB2Dependencies() {
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
-      if (isObjcProtoLibrary(dep) && !hasProtobufProvider(dep)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   private boolean hasObjcProtoLibraryDependencies() {
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
       if (isObjcProtoLibrary(dep)) {
@@ -389,9 +255,5 @@ final class ProtoAttributes {
     } catch (Exception e) {
       return false;
     }
-  }
-
-  private boolean hasProtobufProvider(TransitiveInfoCollection dependency) {
-    return dependency.getProvider(ObjcProtoProvider.class) != null;
   }
 }

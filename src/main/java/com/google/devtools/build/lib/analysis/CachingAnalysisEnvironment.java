@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -33,8 +35,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.PrintWriter;
@@ -77,6 +78,8 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
    */
   private final boolean allowRegisteringActions;
 
+  private final ActionKeyContext actionKeyContext;
+
   private boolean enabled = true;
   private MiddlemanFactory middlemanFactory;
   private ExtendedEventHandler errorEventListener;
@@ -91,6 +94,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   public CachingAnalysisEnvironment(
       ArtifactFactory artifactFactory,
+      ActionKeyContext actionKeyContext,
       ArtifactOwner owner,
       boolean isSystemEnv,
       boolean extendedSanityChecks,
@@ -98,6 +102,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       SkyFunction.Environment env,
       boolean allowRegisteringActions) {
     this.artifactFactory = artifactFactory;
+    this.actionKeyContext = actionKeyContext;
     this.owner = Preconditions.checkNotNull(owner);
     this.isSystemEnv = isSystemEnv;
     this.extendedSanityChecks = extendedSanityChecks;
@@ -191,6 +196,11 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
+  public ActionKeyContext getActionKeyContext() {
+    return actionKeyContext;
+  }
+
+  @Override
   public boolean hasErrors() {
     // The system analysis environment never has errors.
     if (isSystemEnv) {
@@ -281,7 +291,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
+  public SkylarkSemantics getSkylarkSemantics() throws InterruptedException {
     return PrecomputedValue.SKYLARK_SEMANTICS.get(skyframeEnv);
   }
 

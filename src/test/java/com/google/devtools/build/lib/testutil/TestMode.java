@@ -14,10 +14,11 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.common.options.OptionsParser;
 
 /**
@@ -25,11 +26,11 @@ import com.google.devtools.common.options.OptionsParser;
  * appropriate {@code Environment} has to be created
  */
 public abstract class TestMode {
-  private static SkylarkSemanticsOptions parseSkylarkSemanticsOptions(String... skylarkOptions)
+  private static SkylarkSemantics parseSkylarkSemantics(String... skylarkOptions)
       throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class);
     parser.parse(skylarkOptions);
-    return parser.getOptions(SkylarkSemanticsOptions.class);
+    return parser.getOptions(SkylarkSemanticsOptions.class).toSkylarkSemantics();
   }
 
   public static final TestMode BUILD =
@@ -40,7 +41,7 @@ public abstract class TestMode {
           return Environment.builder(Mutability.create("build test"))
               .setGlobals(BazelLibrary.GLOBALS)
               .setEventHandler(eventHandler)
-              .setSemantics(TestMode.parseSkylarkSemanticsOptions(skylarkOptions))
+              .setSemantics(TestMode.parseSkylarkSemantics(skylarkOptions))
               .build();
         }
       };
@@ -53,7 +54,7 @@ public abstract class TestMode {
           return Environment.builder(Mutability.create("skylark test"))
               .setGlobals(BazelLibrary.GLOBALS)
               .setEventHandler(eventHandler)
-              .setSemantics(TestMode.parseSkylarkSemanticsOptions(skylarkOptions))
+              .setSemantics(TestMode.parseSkylarkSemantics(skylarkOptions))
               .build();
         }
       };

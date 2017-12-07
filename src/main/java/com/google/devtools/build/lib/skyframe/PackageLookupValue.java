@@ -14,8 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -35,55 +36,6 @@ import com.google.devtools.build.skyframe.SkyValue;
  * <p>Implementation detail: we use inheritance here to optimize for memory usage.
  */
 public abstract class PackageLookupValue implements SkyValue {
-
-  /**
-   * The file (BUILD, WORKSPACE, etc.) that defines this package, referred to as the "build file".
-   */
-  public enum BuildFileName {
-
-    WORKSPACE("WORKSPACE") {
-      @Override
-      public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return getFilenameFragment();
-      }
-    },
-    BUILD("BUILD") {
-      @Override
-      public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return packageIdentifier.getPackageFragment().getRelative(getFilenameFragment());
-      }
-    },
-    BUILD_DOT_BAZEL("BUILD.bazel") {
-      @Override
-      public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return packageIdentifier.getPackageFragment().getRelative(getFilenameFragment());
-      }
-    };
-
-    private static final BuildFileName[] VALUES = BuildFileName.values();
-
-    private final PathFragment filenameFragment;
-
-    private BuildFileName(String filename) {
-      this.filenameFragment = PathFragment.create(filename);
-    }
-
-    public PathFragment getFilenameFragment() {
-      return filenameFragment;
-    }
-
-    /**
-     * Returns a {@link PathFragment} to the build file that defines the package.
-     *
-     * @param packageIdentifier the identifier for this package, which the caller should already
-     *     know (since it was in the {@link SkyKey} used to get the {@link PackageLookupValue}.
-     */
-    public abstract PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier);
-
-    public static BuildFileName lookupByOrdinal(int ordinal) {
-      return VALUES[ordinal];
-    }
-  }
 
   public static final NoBuildFilePackageLookupValue NO_BUILD_FILE_VALUE =
       new NoBuildFilePackageLookupValue();
@@ -115,6 +67,11 @@ public abstract class PackageLookupValue implements SkyValue {
 
   public static PackageLookupValue invalidPackageName(String errorMsg) {
     return new InvalidNamePackageLookupValue(errorMsg);
+  }
+
+  public static PackageLookupValue incorrectRepositoryReference(
+      PackageIdentifier invalidPackage, PackageIdentifier correctPackage) {
+    return new IncorrectRepositoryReferencePackageLookupValue(invalidPackage, correctPackage);
   }
 
   /**
@@ -150,7 +107,7 @@ public abstract class PackageLookupValue implements SkyValue {
    */
   public abstract String getErrorMsg();
 
-  static SkyKey key(PathFragment directory) {
+  public static SkyKey key(PathFragment directory) {
     Preconditions.checkArgument(!directory.isAbsolute(), directory);
     return key(PackageIdentifier.createInMainRepo(directory));
   }
@@ -277,6 +234,73 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public int hashCode() {
       return errorMsg.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return String.format("%s: %s", this.getClass().getSimpleName(), this.errorMsg);
+    }
+  }
+
+  /** Value indicating the package name was in error. */
+  public static class IncorrectRepositoryReferencePackageLookupValue
+      extends UnsuccessfulPackageLookupValue {
+
+    private final PackageIdentifier invalidPackageIdentifier;
+    private final PackageIdentifier correctedPackageIdentifier;
+
+    private IncorrectRepositoryReferencePackageLookupValue(
+        PackageIdentifier invalidPackageIdentifier, PackageIdentifier correctedPackageIdentifier) {
+      this.invalidPackageIdentifier = invalidPackageIdentifier;
+      this.correctedPackageIdentifier = correctedPackageIdentifier;
+    }
+
+    public PackageIdentifier getInvalidPackageIdentifier() {
+      return invalidPackageIdentifier;
+    }
+
+    public PackageIdentifier getCorrectedPackageIdentifier() {
+      return correctedPackageIdentifier;
+    }
+
+    @Override
+    ErrorReason getErrorReason() {
+      return ErrorReason.INVALID_PACKAGE_NAME;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      return String.format(
+          "Invalid package reference %s crosses into repository %s:"
+              + " did you mean to use %s instead?",
+          invalidPackageIdentifier,
+          correctedPackageIdentifier.getRepository(),
+          correctedPackageIdentifier);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof IncorrectRepositoryReferencePackageLookupValue)) {
+        return false;
+      }
+      IncorrectRepositoryReferencePackageLookupValue other =
+          (IncorrectRepositoryReferencePackageLookupValue) obj;
+      return Objects.equal(invalidPackageIdentifier, other.invalidPackageIdentifier)
+          && Objects.equal(correctedPackageIdentifier, other.correctedPackageIdentifier);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(invalidPackageIdentifier, correctedPackageIdentifier);
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          "%s: invalidPackageIdenfitier: %s, corrected: %s",
+          this.getClass().getSimpleName(),
+          this.invalidPackageIdentifier,
+          this.correctedPackageIdentifier);
     }
   }
 

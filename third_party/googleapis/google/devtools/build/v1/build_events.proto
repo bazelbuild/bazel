@@ -43,14 +43,6 @@ message BuildEvent {
 
   // Notification that an invocation attempt has finished.
   message InvocationAttemptFinished {
-    // The status of the build request.
-    // If OK, the build request was run, though this does not mean the
-    // requested build tool succeeded. "exit_code" will be set to the
-    // exit code of the build tool.
-    // If not OK, the build request was not successfully executed.
-    // "exit_code" will not be set.
-    google.rpc.Status status = 1;
-
     // The exit code of the build tool.
     google.protobuf.Int32Value exit_code = 2;
 
@@ -168,11 +160,7 @@ message StreamId {
 
     // A component that builds something.
     TOOL = 3;
-
-    DEPRECATED = 4;
   }
-
-  int64 project_number = 5;
 
   // The id of a Build message.
   string build_id = 1;
@@ -183,10 +171,6 @@ message StreamId {
 
   // The component that emitted this event.
   BuildComponent component = 3;
-
-  // The unique invocation ID within this build.
-  // It should be the same as {invocation_id} below during the migration.
-  string invocation = 4;
 }
 
 // The type of console output stream.

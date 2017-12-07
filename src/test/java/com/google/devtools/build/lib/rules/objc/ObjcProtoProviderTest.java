@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -31,7 +30,7 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link ObjcProvider}. */
 @RunWith(JUnit4.class)
-public class ObjcProtoProviderTest extends BuildViewTestCase {
+public class ObjcProtoProviderTest extends ObjcRuleTestCase {
 
   @Before
   public final void setup() throws Exception {

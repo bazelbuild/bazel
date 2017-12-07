@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.FileSystems;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,7 +33,7 @@ import org.junit.runners.JUnit4;
 public class LcovMergerTest {
 
   private final Scratch scratch =
-      new Scratch(FileSystemUtils.getWorkingDirectory(FileSystems.initDefaultAsJavaIo()));
+      new Scratch(FileSystemUtils.getWorkingDirectory(FileSystems.getJavaIoFileSystem()));
 
   @Test
   public void testZeroDatFile() throws IOException {

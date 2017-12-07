@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -30,14 +31,17 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
-import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
+import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -155,17 +159,28 @@ public class SkylarkRepositoryModule {
     public Object call(
         Object[] args, FuncallExpression ast, com.google.devtools.build.lib.syntax.Environment env)
         throws EvalException, InterruptedException {
-      String ruleClassName = ast.getFunction().getName();
+      String ruleClassName = null;
+      Expression function = ast.getFunction();
+      if (function instanceof Identifier) {
+        ruleClassName = ((Identifier) function).getName();
+      } else if (function instanceof DotExpression) {
+        ruleClassName = ((DotExpression) function).getField().getName();
+      } else {
+        // TODO: Remove the wrong assumption that a  "function name" always exists and is relevant
+        throw new IllegalStateException("Function is not an identifier or method call");
+      }
       try {
-        RuleClass ruleClass = builder.build(ruleClassName);
+        RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
         PackageContext context = PackageFactory.getContext(env, ast);
         @SuppressWarnings("unchecked")
         Map<String, Object> attributeValues = (Map<String, Object>) args[0];
-        return context
-            .getBuilder()
-            .externalPackageData()
-            .createAndAddRepositoryRule(
-                context.getBuilder(), ruleClass, null, attributeValues, ast);
+        return WorkspaceFactoryHelper.createAndAddRepositoryRule(
+            context.getBuilder(),
+            ruleClass,
+            null,
+            attributeValues,
+            ast,
+            (Boolean) env.lookup("$allow_override"));
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }

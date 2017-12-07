@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -30,6 +30,11 @@ import javax.annotation.Nullable;
  * Wrapper for {@link FdoSupport} that turns it into a {@link SkyFunction}.
  */
 public class FdoSupportFunction implements SkyFunction {
+  private final BlazeDirectories directories;
+
+  public FdoSupportFunction(BlazeDirectories directories) {
+    this.directories = Preconditions.checkNotNull(directories);
+  }
 
   /**
    * Wrapper for FDO exceptions.
@@ -44,14 +49,13 @@ public class FdoSupportFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws FdoSkyException, InterruptedException {
-    BlazeDirectories blazeDirectories = PrecomputedValue.BLAZE_DIRECTORIES.get(env);
     WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue) env.getValue(
         WorkspaceNameValue.key());
     if (env.valuesMissing()) {
       return null;
     }
 
-    Path execRoot = blazeDirectories.getExecRoot(workspaceNameValue.getName());
+    Path execRoot = directories.getExecRoot(workspaceNameValue.getName());
     FdoSupportValue.Key key = (FdoSupportValue.Key) skyKey.argument();
     FdoSupport fdoSupport;
     try {
@@ -62,7 +66,8 @@ public class FdoSupportFunction implements SkyFunction {
               key.getFdoZip(),
               key.getLipoMode(),
               key.getLLVMFdo(),
-              execRoot);
+              execRoot,
+              directories.getProductName());
       if (env.valuesMissing()) {
         return null;
       }

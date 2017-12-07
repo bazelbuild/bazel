@@ -13,10 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.sh;
 
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 
@@ -26,6 +31,10 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 public final class BazelShBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+    Label launcher = environment.getLauncherLabel();
+    if (launcher != null) {
+      builder.add(attr("$launcher", LABEL).cfg(HOST).value(launcher));
+    }
     return builder.build();
   }
 
@@ -51,7 +60,7 @@ public final class BazelShBinaryRule implements RuleDefinition {
 
 <h4 id="sh_binary_examples">Example</h4>
 
-<p>For a simple shell script with no dependencies or data:
+<p>For a simple shell script with no dependencies and some data files:
 </p>
 
 <pre class="code">

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -26,38 +26,37 @@ import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.SpellChecker;
-import com.google.devtools.common.options.Options;
-import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
- * An Environment is the main entry point to evaluating code in the BUILD language or Skylark. It
- * embodies all the state that is required to evaluate such code, except for the current instruction
- * pointer, which is an {@link ASTNode} whose {@link Statement#exec exec} or {@link Expression#eval
- * eval} method is invoked with this Environment, in a straightforward direct-style AST-walking
- * interpreter. {@link Continuation}-s are explicitly represented, but only partly, with another
- * part being implicit in a series of try-catch statements, to maintain the direct style. One
- * notable trick is how a {@link UserDefinedFunction} implements returning values as the function
- * catching a {@link ReturnStatement.ReturnException} thrown by a {@link ReturnStatement} in the
- * body.
+ * An {@code Environment} is the main entry point to evaluating Skylark code. It embodies all the
+ * state that is required to evaluate such code, except for the current instruction pointer, which
+ * is an {@link ASTNode} that is evaluated (for expressions) or executed (for statements) with
+ * respect to this {@code Environment}.
  *
- * <p>Every Environment has a {@link Mutability} field, and must be used within a function that
- * creates and closes this {@link Mutability} with the try-with-resource pattern. This {@link
- * Mutability} is also used when initializing mutable objects within that Environment; when closed
- * at the end of the computation freezes the Environment and all those objects that then become
- * forever immutable. The pattern enforces the discipline that there should be no dangling mutable
- * Environment, or concurrency between interacting Environment-s. It is also an error to try to
- * mutate an Environment and its objects from another Environment, before the {@link Mutability} is
- * closed.
+ * <p>{@link Continuation}-s are explicitly represented, but only partly, with another part being
+ * implicit in a series of try-catch statements, to maintain the direct style. One notable trick is
+ * how a {@link UserDefinedFunction} implements returning values as the function catching a {@link
+ * ReturnStatement.ReturnException} thrown by a {@link ReturnStatement} in the body.
+ *
+ * <p>Every {@code Environment} has a {@link Mutability} field, and must be used within a function
+ * that creates and closes this {@link Mutability} with the try-with-resource pattern. This {@link
+ * Mutability} is also used when initializing mutable objects within that {@code Environment}. When
+ * the {@code Mutability} is closed at the end of the computation, it freezes the {@code
+ * Environment} along with all of those objects. This pattern enforces the discipline that there
+ * should be no dangling mutable {@code Environment}, or concurrency between interacting {@code
+ * Environment}s. It is a Skylark-level error to attempt to mutate a frozen {@code Environment} or
+ * its objects, but it is a Java-level error to attempt to mutate an unfrozen {@code Environment} or
+ * its objects from within a different {@code Environment}.
  *
  * <p>One creates an Environment using the {@link #builder} function, then populates it with {@link
  * #setup}, {@link #setupDynamic} and sometimes {@link #setupOverride}, before to evaluate code in
@@ -95,19 +94,50 @@ public final class Environment implements Freezable {
    * was defined. When the function is called from other {@code Environment}s (possibly
    * simultaneously), that global frame must already be frozen; a new local {@code Frame} is created
    * to represent the lexical scope of the function.
+   *
+   * A {@code Frame} can also be constructed in a two-phase process. To do this, call the nullary
+   * constructor to create an uninitialized {@code Frame}, then call {@link #initialize}. It is
+   * illegal to use any other method in-between these two calls, or to call {@link #initialize} on
+   * an already initialized {@code Frame}.
    */
   public static final class Frame implements Freezable {
 
-    private final Mutability mutability;
-
+    /**
+     * Final, except that it may be initialized after instantiation. Null mutability indicates that
+     * this Frame is uninitialized.
+     */
     @Nullable
-    private final Frame parent;
+    private Mutability mutability;
 
-    // If this frame is a global frame, the label for the corresponding target, e.g. //foo:bar.bzl.
+    /** Final, except that it may be initialized after instantiation. */
     @Nullable
-    private final Label label;
+    private Frame parent;
+
+    /**
+     * If this frame is a global frame, the label for the corresponding target, e.g. {@code
+     * //foo:bar.bzl}.
+     *
+     * <p>Final, except that it may be initialized after instantiation.
+     */
+    @Nullable
+    private Label label;
 
     private final Map<String, Object> bindings;
+
+    /** Constructs an uninitialized instance; caller must call {@link #initialize} before use. */
+    public Frame() {
+      this.mutability = null;
+      this.parent = null;
+      this.label = null;
+      this.bindings = new LinkedHashMap<>();
+    }
+
+    public Frame(Mutability mutability, @Nullable Frame parent, @Nullable Label label) {
+      this.mutability = Preconditions.checkNotNull(mutability);
+      this.parent = parent;
+      this.label = label;
+      this.bindings = new LinkedHashMap<>();
+    }
 
     public Frame(Mutability mutability) {
       this(mutability, null, null);
@@ -117,15 +147,18 @@ public final class Environment implements Freezable {
       this(mutability, parent, null);
     }
 
-    public Frame(Mutability mutability, Frame parent, Label label) {
-      this.mutability = mutability;
-      this.parent = parent;
-      this.label = label;
-      this.bindings = new LinkedHashMap<>();
+    private void checkInitialized() {
+      Preconditions.checkNotNull(mutability, "Attempted to use Frame before initializing it");
     }
 
-    public Frame(Mutability mutability, Frame parent, Label label, Map<String, Object> bindings) {
-      this(mutability, parent, label);
+    public void initialize(
+        Mutability mutability, @Nullable Frame parent,
+        @Nullable Label label, Map<String, Object> bindings) {
+      Preconditions.checkState(this.mutability == null,
+          "Attempted to initialize an already initialized Frame");
+      this.mutability = Preconditions.checkNotNull(mutability);
+      this.parent = parent;
+      this.label = label;
       this.bindings.putAll(bindings);
     }
 
@@ -134,6 +167,7 @@ public final class Environment implements Freezable {
      * given value.
      */
     public Frame withLabel(Label label) {
+      checkInitialized();
       return new Frame(mutability, this, label);
     }
 
@@ -143,12 +177,14 @@ public final class Environment implements Freezable {
      */
     @Override
     public Mutability mutability() {
+      checkInitialized();
       return mutability;
     }
 
     /** Returns the parent {@code Frame}, if it exists. */
     @Nullable
     public Frame getParent() {
+      checkInitialized();
       return parent;
     }
 
@@ -160,6 +196,7 @@ public final class Environment implements Freezable {
      */
     @Nullable
     public Label getLabel() {
+      checkInitialized();
       return label;
     }
 
@@ -169,6 +206,7 @@ public final class Environment implements Freezable {
      */
     @Nullable
     public Label getTransitiveLabel() {
+      checkInitialized();
       if (label != null) {
         return label;
       } else if (parent != null) {
@@ -185,6 +223,7 @@ public final class Environment implements Freezable {
      * invalidated by any subsequent modification to the {@code Frame}'s bindings.
      */
     public Map<String, Object> getBindings() {
+      checkInitialized();
       return Collections.unmodifiableMap(bindings);
     }
 
@@ -193,6 +232,7 @@ public final class Environment implements Freezable {
      * taking into account shadowing precedence.
      */
     public Map<String, Object> getTransitiveBindings() {
+      checkInitialized();
       // Can't use ImmutableMap.Builder because it doesn't allow duplicates.
       HashMap<String, Object> collectedBindings = new HashMap<>();
       accumulateTransitiveBindings(collectedBindings);
@@ -200,6 +240,7 @@ public final class Environment implements Freezable {
     }
 
     private void accumulateTransitiveBindings(Map<String, Object> accumulator) {
+      checkInitialized();
       // Put parents first, so child bindings take precedence.
       if (parent != null) {
         parent.accumulateTransitiveBindings(accumulator);
@@ -217,6 +258,7 @@ public final class Environment implements Freezable {
      * @return the value bound to the variable, or null if no binding is found
      */
     public Object get(String varname) {
+      checkInitialized();
       if (bindings.containsKey(varname)) {
         return bindings.get(varname);
       }
@@ -238,7 +280,8 @@ public final class Environment implements Freezable {
      */
     public void put(Environment env, String varname, Object value)
         throws MutabilityException {
-      Mutability.checkMutable(this, env);
+      checkInitialized();
+      Mutability.checkMutable(this, env.mutability());
       bindings.put(varname, value);
     }
 
@@ -247,13 +290,18 @@ public final class Environment implements Freezable {
      * be part of the public interface.
      */
     void remove(Environment env, String varname) throws MutabilityException {
-      Mutability.checkMutable(this, env);
+      checkInitialized();
+      Mutability.checkMutable(this, env.mutability());
       bindings.remove(varname);
     }
 
     @Override
     public String toString() {
-      return String.format("<Frame%s>", mutability());
+      if (mutability == null) {
+        return "<Uninitialized Frame>";
+      } else {
+        return String.format("<Frame%s>", mutability());
+      }
     }
   }
 
@@ -262,22 +310,22 @@ public final class Environment implements Freezable {
    */
   private static final class Continuation {
     /** The {@link BaseFunction} being evaluated that will return into this Continuation. */
-    BaseFunction function;
+    final BaseFunction function;
 
     /** The {@link FuncallExpression} to which this Continuation will return. */
-    FuncallExpression caller;
+    final FuncallExpression caller;
 
     /** The next Continuation after this Continuation. */
-    @Nullable Continuation continuation;
+    @Nullable final Continuation continuation;
 
     /** The lexical Frame of the caller. */
-    Frame lexicalFrame;
+    final Frame lexicalFrame;
 
     /** The global Frame of the caller. */
-    Frame globalFrame;
+    final Frame globalFrame;
 
     /** The set of known global variables of the caller. */
-    @Nullable Set<String> knownGlobalVariables;
+    @Nullable final Set<String> knownGlobalVariables;
 
     Continuation(
         Continuation continuation,
@@ -295,38 +343,20 @@ public final class Environment implements Freezable {
     }
   }
 
-  // TODO(bazel-team): Eliminate this hack around Java serialization. The bindings are currently
-  // factored out into BaseExtension, which is non-Serializable, and which has a default constructor
-  // that does not initialize any bindings. This means that when Extension is Java-serialized, all
-  // the bindings are simply lost.
-  private static class BaseExtension {
-
-    protected final ImmutableMap<String, Object> bindings;
-
-    BaseExtension(Map<String, Object> bindings) {
-      this.bindings = ImmutableMap.copyOf(bindings);
-    }
-
-    // Hack to "allow" java serialization.
-    BaseExtension() {
-      this.bindings = ImmutableMap.of();
-    }
-  }
-
   /** An Extension to be imported with load() into a BUILD or .bzl file. */
   @Immutable
-  public static final class Extension extends BaseExtension implements Serializable {
+  public static final class Extension {
+
+    private final ImmutableMap<String, Object> bindings;
 
     /**
      * Cached hash code for the transitive content of this {@code Extension} and its dependencies.
      */
     private final String transitiveContentHashCode;
 
-    /**
-     * Constructs with the given hash code and bindings.
-     */
-    public Extension(Map<String, Object> bindings, String transitiveContentHashCode) {
-      super(bindings);
+    /** Constructs with the given hash code and bindings. */
+    public Extension(ImmutableMap<String, Object> bindings, String transitiveContentHashCode) {
+      this.bindings = bindings;
       this.transitiveContentHashCode = transitiveContentHashCode;
     }
 
@@ -335,8 +365,7 @@ public final class Environment implements Freezable {
      * and that {@code Environment}'s transitive hash code.
      */
     public Extension(Environment env) {
-      super(env.globalFrame.bindings);
-      this.transitiveContentHashCode = env.getTransitiveContentHashCode();
+      this(ImmutableMap.copyOf(env.globalFrame.bindings), env.getTransitiveContentHashCode());
     }
 
     public String getTransitiveContentHashCode() {
@@ -345,6 +374,24 @@ public final class Environment implements Freezable {
 
     public ImmutableMap<String, Object> getBindings() {
       return bindings;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof Extension)) {
+        return false;
+      }
+      Extension other = (Extension) obj;
+      return transitiveContentHashCode.equals(other.getTransitiveContentHashCode())
+          && bindings.equals(other.getBindings());
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(bindings, transitiveContentHashCode);
     }
   }
 
@@ -372,7 +419,7 @@ public final class Environment implements Freezable {
   /**
    * The semantics options that affect how Skylark code is evaluated.
    */
-  private final SkylarkSemanticsOptions semantics;
+  private final SkylarkSemantics semantics;
 
   /**
    * An EventHandler for errors and warnings. This is not used in the BUILD language,
@@ -506,15 +553,24 @@ public final class Environment implements Freezable {
     return eventHandler;
   }
 
-  /** @return the current stack trace as a list of functions. */
-  ImmutableList<BaseFunction> getStackTrace() {
-    ImmutableList.Builder<BaseFunction> builder = new ImmutableList.Builder<>();
+  /**
+   * Returns if calling the supplied function would be a recursive call, or in other words if the
+   * supplied function is already on the stack.
+   */
+  boolean isRecursiveCall(UserDefinedFunction function) {
     for (Continuation k = continuation; k != null; k = k.continuation) {
-      builder.add(k.function);
+      if (k.function.equals(function)) {
+        return true;
+      }
     }
-    return builder.build().reverse();
+    return false;
   }
 
+  /** Returns the current function call, if it exists. */
+  @Nullable
+  BaseFunction getCurrentFunction() {
+    return continuation != null ? continuation.function : null;
+  }
 
   /**
    * Returns the FuncallExpression and the BaseFunction for the top-level call being evaluated.
@@ -544,7 +600,7 @@ public final class Environment implements Freezable {
   private Environment(
       Frame globalFrame,
       Frame dynamicFrame,
-      SkylarkSemanticsOptions semantics,
+      SkylarkSemantics semantics,
       EventHandler eventHandler,
       Map<String, Extension> importedExtensions,
       @Nullable String fileContentHashCode,
@@ -564,13 +620,16 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * A Builder class for Environment
+   * A Builder class for Environment.
+   *
+   * <p>The caller must explicitly set the semantics by calling either {@link #setSemantics} or
+   * {@link #useDefaultSemantics}.
    */
   public static class Builder {
     private final Mutability mutability;
     private Phase phase = Phase.ANALYSIS;
     @Nullable private Frame parent;
-    @Nullable private SkylarkSemanticsOptions semantics;
+    @Nullable private SkylarkSemantics semantics;
     @Nullable private EventHandler eventHandler;
     @Nullable private Map<String, Extension> importedExtensions;
     @Nullable private String fileContentHashCode;
@@ -602,8 +661,13 @@ public final class Environment implements Freezable {
       return this;
     }
 
-    public Builder setSemantics(SkylarkSemanticsOptions semantics) {
+    public Builder setSemantics(SkylarkSemantics semantics) {
       this.semantics = semantics;
+      return this;
+    }
+
+    public Builder useDefaultSemantics() {
+      this.semantics = SkylarkSemantics.DEFAULT_SEMANTICS;
       return this;
     }
 
@@ -636,7 +700,7 @@ public final class Environment implements Freezable {
       Frame globalFrame = new Frame(mutability, parent);
       Frame dynamicFrame = new Frame(mutability, null);
       if (semantics == null) {
-        semantics = Options.getDefaults(SkylarkSemanticsOptions.class);
+        throw new IllegalArgumentException("must call either setSemantics or useDefaultSemantics");
       }
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
@@ -815,7 +879,7 @@ public final class Environment implements Freezable {
     return knownGlobalVariables != null && knownGlobalVariables.contains(varname);
   }
 
-  public SkylarkSemanticsOptions getSemantics() {
+  public SkylarkSemantics getSemantics() {
     return semantics;
   }
 
@@ -925,7 +989,9 @@ public final class Environment implements Freezable {
 
   private static Environment.Frame createConstantsGlobals() {
     try (Mutability mutability = Mutability.create("CONSTANTS")) {
-      Environment env = Environment.builder(mutability).build();
+      Environment env = Environment.builder(mutability)
+          .useDefaultSemantics()
+          .build();
       Runtime.setupConstants(env);
       return env.getGlobals();
     }
@@ -933,23 +999,37 @@ public final class Environment implements Freezable {
 
   private static Environment.Frame createDefaultGlobals() {
     try (Mutability mutability = Mutability.create("BUILD")) {
-      Environment env = Environment.builder(mutability).build();
+      Environment env = Environment.builder(mutability)
+          .useDefaultSemantics()
+          .build();
       Runtime.setupConstants(env);
       Runtime.setupMethodEnvironment(env, MethodLibrary.defaultGlobalFunctions);
       return env.getGlobals();
     }
   }
 
+  /** An exception thrown by {@link #FAIL_FAST_HANDLER}. */
+  // TODO(bazel-team): Possibly extend RuntimeException instead of IllegalArgumentException.
+  public static class FailFastException extends IllegalArgumentException {
+    public FailFastException(String s) {
+      super(s);
+    }
+  }
 
   /**
-   * The fail fast handler, which throws an {@link IllegalArgumentException} whenever an error or
-   * warning occurs.
+   * A handler that immediately throws {@link FailFastException} whenever an error or warning
+   * occurs.
+   *
+   * We do not reuse an existing unchecked exception type, because callers (e.g., test assertions)
+   * need to be able to distinguish between organically occurring exceptions and exceptions thrown
+   * by this handler.
    */
   public static final EventHandler FAIL_FAST_HANDLER = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        Preconditions.checkArgument(
-            !EventKind.ERRORS_AND_WARNINGS.contains(event.getKind()), event);
+    @Override
+    public void handle(Event event) {
+      if (EventKind.ERRORS_AND_WARNINGS.contains(event.getKind())) {
+        throw new FailFastException(event.toString());
       }
-    };
+    }
+  };
 }

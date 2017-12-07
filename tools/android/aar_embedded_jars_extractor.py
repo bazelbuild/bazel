@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,10 +19,12 @@ An AAR may contain JARs at /classes.jar and /libs/*.jar. This tool extracts all
 of the jars and creates a param file for singlejar to merge them into one jar.
 """
 
+import os
 import re
 import sys
 import zipfile
 
+from tools.android import junction
 from third_party.py import gflags
 
 FLAGS = gflags.FLAGS
@@ -35,20 +38,54 @@ gflags.DEFINE_string("output_dir", None, "Output directory to extract jars in")
 gflags.MarkFlagAsRequired("output_dir")
 
 
-def ExtractEmbeddedJars(aar, singlejar_param_file, output_dir):
+def ExtractEmbeddedJars(aar,
+                        singlejar_param_file,
+                        output_dir,
+                        output_dir_orig=None):
+  if not output_dir_orig:
+    output_dir_orig = output_dir
   jar_pattern = re.compile("^(classes|libs/.+)\\.jar$")
   singlejar_param_file.write("--exclude_build_data\n")
   for name in aar.namelist():
     if jar_pattern.match(name):
       singlejar_param_file.write("--sources\n")
-      singlejar_param_file.write(output_dir + "/" + name + "\n")
+      # output_dir may be a temporary junction, so write the original
+      # (unshortened) path to the params file
+      singlejar_param_file.write(output_dir_orig + "/" + name + "\n")
       aar.extract(name, output_dir)
 
 
+def _Main(input_aar,
+          output_singlejar_param_file,
+          output_dir,
+          output_dir_orig=None):
+  if not output_dir_orig:
+    output_dir_orig = output_dir
+  with zipfile.ZipFile(input_aar, "r") as aar:
+    with open(output_singlejar_param_file, "wb") as singlejar_param_file:
+      ExtractEmbeddedJars(aar, singlejar_param_file, output_dir,
+                          output_dir_orig)
+
+
 def main():
-  with zipfile.ZipFile(FLAGS.input_aar, "r") as aar:
-    with open(FLAGS.output_singlejar_param_file, "w") as singlejar_param_file:
-      ExtractEmbeddedJars(aar, singlejar_param_file, FLAGS.output_dir)
+  if os.name == "nt":
+    # Shorten paths unconditionally, because the extracted paths in
+    # ExtractEmbeddedJars (which we cannot yet predict, because they depend on
+    # the names of the Zip entries) may be longer than MAX_PATH.
+    aar_long = os.path.abspath(FLAGS.input_aar)
+    params_long = os.path.abspath(FLAGS.output_singlejar_param_file)
+    out_long = os.path.abspath(FLAGS.output_dir)
+    with junction.TempJunction(os.path.dirname(aar_long)) as aar_junc:
+      with junction.TempJunction(os.path.dirname(params_long)) as params_junc:
+        with junction.TempJunction(os.path.dirname(out_long)) as out_junc:
+          _Main(
+              os.path.join(aar_junc, os.path.basename(aar_long)),
+              os.path.join(params_junc, os.path.basename(params_long)),
+              os.path.join(out_junc, os.path.basename(out_long)),
+              FLAGS.output_dir)
+  else:
+    _Main(FLAGS.input_aar, FLAGS.output_singlejar_param_file, FLAGS.output_dir)
+
 
 if __name__ == "__main__":
   FLAGS(sys.argv)

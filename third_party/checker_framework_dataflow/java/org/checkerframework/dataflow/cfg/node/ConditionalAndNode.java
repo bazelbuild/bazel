@@ -1,14 +1,8 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import java.util.Collection;
-import java.util.LinkedList;
-
-import org.checkerframework.dataflow.util.HashCodeUtils;
-
-import org.checkerframework.javacutil.InternalUtils;
-
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.Tree.Kind;
+import org.checkerframework.dataflow.util.HashCodeUtils;
 
 /**
  * A node for a conditional and expression:
@@ -19,33 +13,12 @@ import com.sun.source.tree.Tree.Kind;
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
-public class ConditionalAndNode extends Node {
+public class ConditionalAndNode extends BinaryOperationNode {
 
-    protected BinaryTree tree;
-    protected Node lhs;
-    protected Node rhs;
-
-    public ConditionalAndNode(BinaryTree tree, Node lhs, Node rhs) {
-        super(InternalUtils.typeOf(tree));
+    public ConditionalAndNode(BinaryTree tree, Node left, Node right) {
+        super(tree, left, right);
         assert tree.getKind().equals(Kind.CONDITIONAL_AND);
-        this.tree = tree;
-        this.lhs = lhs;
-        this.rhs = rhs;
-    }
-
-    public Node getLeftOperand() {
-        return lhs;
-    }
-
-    public Node getRightOperand() {
-        return rhs;
-    }
-
-    @Override
-    public BinaryTree getTree() {
-        return tree;
     }
 
     @Override
@@ -71,13 +44,5 @@ public class ConditionalAndNode extends Node {
     @Override
     public int hashCode() {
         return HashCodeUtils.hash(getLeftOperand(), getRightOperand());
-    }
-
-    @Override
-    public Collection<Node> getOperands() {
-        LinkedList<Node> list = new LinkedList<Node>();
-        list.add(getLeftOperand());
-        list.add(getRightOperand());
-        return list;
     }
 }

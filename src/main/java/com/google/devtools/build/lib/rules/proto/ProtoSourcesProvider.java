@@ -92,7 +92,7 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
     name = "check_deps_sources",
     doc =
         "Proto sources from the 'srcs' attribute. If the library is a proxy library "
-            + "that has no sources, it contains the check_deps_sources"
+            + "that has no sources, it contains the check_deps_sources "
             + "from this library's direct deps.",
     structField = true
   )

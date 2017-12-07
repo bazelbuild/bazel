@@ -45,12 +45,11 @@ public class SkyframeExecutorTestUtils {
   private SkyframeExecutorTestUtils() {
   }
 
-  /**
-   * Returns an existing value, or {@code null} if the given key is not currently in the graph.
-   */
+  /** Returns an existing value, or {@code null} if the given key is not currently in the graph. */
   @Nullable
-  public static SkyValue getExistingValue(SkyframeExecutor skyframeExecutor, SkyKey key) {
-    return skyframeExecutor.getEvaluatorForTesting().getExistingValueForTesting(key);
+  public static SkyValue getExistingValue(SkyframeExecutor skyframeExecutor, SkyKey key)
+      throws InterruptedException {
+    return skyframeExecutor.getEvaluatorForTesting().getExistingValue(key);
   }
 
   /**
@@ -77,11 +76,12 @@ public class SkyframeExecutorTestUtils {
    * Returns an existing configured target value, or {@code null} if there is not an appropriate
    * configured target value key in the graph.
    *
-   * This helper is provided so legacy tests don't need to know about details of skyframe keys.
+   * <p>This helper is provided so legacy tests don't need to know about details of skyframe keys.
    */
   @Nullable
   public static ConfiguredTargetValue getExistingConfiguredTargetValue(
-      SkyframeExecutor skyframeExecutor, Label label, BuildConfiguration config) {
+      SkyframeExecutor skyframeExecutor, Label label, BuildConfiguration config)
+      throws InterruptedException {
     SkyKey key = ConfiguredTargetValue.key(label, config);
     return (ConfiguredTargetValue) getExistingValue(skyframeExecutor, key);
   }
@@ -90,12 +90,12 @@ public class SkyframeExecutorTestUtils {
    * Returns the configured target for an existing configured target value, or {@code null} if there
    * is not an appropriate configured target value key in the graph.
    *
-   * This helper is provided so legacy tests don't need to know about details of skyframe keys.
+   * <p>This helper is provided so legacy tests don't need to know about details of skyframe keys.
    */
   @Nullable
   public static ConfiguredTarget getExistingConfiguredTarget(
-      SkyframeExecutor skyframeExecutor,
-      Label label, BuildConfiguration config) {
+      SkyframeExecutor skyframeExecutor, Label label, BuildConfiguration config)
+      throws InterruptedException {
     ConfiguredTargetValue value = getExistingConfiguredTargetValue(skyframeExecutor, label, config);
     if (value == null) {
       return null;
@@ -141,11 +141,11 @@ public class SkyframeExecutorTestUtils {
    * Returns the target for an existing target value, or {@code null} if there is not an appropriate
    * target value key in the graph.
    *
-   * This helper is provided so legacy tests don't need to know about details of skyframe keys.
+   * <p>This helper is provided so legacy tests don't need to know about details of skyframe keys.
    */
   @Nullable
-  public static Target getExistingTarget(SkyframeExecutor skyframeExecutor,
-      Label label) {
+  public static Target getExistingTarget(SkyframeExecutor skyframeExecutor, Label label)
+      throws InterruptedException {
     PackageValue value = (PackageValue) getExistingValue(skyframeExecutor,
         PackageValue.key(label.getPackageIdentifier()));
     if (value == null) {

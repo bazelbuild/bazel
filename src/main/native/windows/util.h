@@ -17,47 +17,75 @@
 
 #include <windows.h>
 
-#include <functional>
-#include <memory>
 #include <string>
 
 namespace bazel {
 namespace windows {
 
-using std::function;
-using std::string;
-using std::unique_ptr;
 using std::wstring;
 
 // A wrapper for the `HANDLE` type that calls CloseHandle in its d'tor.
 // WARNING: do not use for HANDLE returned by FindFirstFile; those must be
 // closed with FindClose (otherwise they aren't closed properly).
 struct AutoHandle {
-  AutoHandle(HANDLE _handle = INVALID_HANDLE_VALUE) : handle(_handle) {}
+  AutoHandle(HANDLE _handle = INVALID_HANDLE_VALUE) : handle_(_handle) {}
 
   ~AutoHandle() {
-    ::CloseHandle(handle);  // succeeds if handle == INVALID_HANDLE_VALUE
-    handle = INVALID_HANDLE_VALUE;
+    ::CloseHandle(handle_);  // succeeds if handle == INVALID_HANDLE_VALUE
+    handle_ = INVALID_HANDLE_VALUE;
   }
 
-  bool IsValid() { return handle != INVALID_HANDLE_VALUE && handle != NULL; }
+  bool IsValid() { return handle_ != INVALID_HANDLE_VALUE && handle_ != NULL; }
 
   AutoHandle& operator=(const HANDLE& rhs) {
-    ::CloseHandle(handle);
-    handle = rhs;
+    ::CloseHandle(handle_);
+    handle_ = rhs;
     return *this;
   }
 
-  operator HANDLE() const { return handle; }
+  operator HANDLE() const { return handle_; }
 
-  HANDLE handle;
+ private:
+  HANDLE handle_;
 };
 
-string GetLastErrorString(const string& cause);
+struct AutoAttributeList {
+  AutoAttributeList(DWORD dwAttributeCount) {
+    SIZE_T size = 0;
+    InitializeProcThreadAttributeList(NULL, dwAttributeCount, 0, &size);
+    lpAttributeList =
+        reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(malloc(size));
+    InitializeProcThreadAttributeList(lpAttributeList, dwAttributeCount, 0,
+                                      &size);
+  }
+
+  ~AutoAttributeList() {
+    if (lpAttributeList) {
+      DeleteProcThreadAttributeList(lpAttributeList);
+      free(lpAttributeList);
+    }
+    lpAttributeList = NULL;
+  }
+
+  operator LPPROC_THREAD_ATTRIBUTE_LIST() const { return lpAttributeList; }
+
+ private:
+  LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList;
+};
+
+#define WSTR1(x) L##x
+#define WSTR(x) WSTR1(x)
+
+wstring MakeErrorMessage(const wchar_t* file, int line,
+                         const wchar_t* failed_func, const wstring& func_arg,
+                         const wstring& message);
+wstring MakeErrorMessage(const wchar_t* file, int line,
+                         const wchar_t* failed_func, const wstring& func_arg,
+                         DWORD error_code);
+wstring GetLastErrorString(DWORD error_code);
 
 // Same as `AsExecutablePathForCreateProcess` except it won't quote the result.
-string AsShortPath(string path, function<wstring()> path_as_wstring,
-                   string* result);
+wstring AsShortPath(wstring path, wstring* result);
 
 // Computes a path suitable as the executable part in CreateProcessA's cmdline.
 //
@@ -71,9 +99,6 @@ string AsShortPath(string path, function<wstring()> path_as_wstring,
 // name (e.g. "cmd.exe") that's shorter than MAX_PATH (without null-terminator).
 // In both cases, `path` must be unquoted.
 //
-// `path_as_wstring` must be a function that retrieves `path` as (or converts it
-// to) a wstring, without performing any transformations on the path.
-//
 // If this function succeeds, it returns an empty string (indicating no error),
 // and sets `result` to the resulting path, which is always quoted, and is
 // always at most MAX_PATH + 1 long (MAX_PATH - 1 without null terminator, plus
@@ -85,9 +110,7 @@ string AsShortPath(string path, function<wstring()> path_as_wstring,
 // `path`, and if that succeeds and the result is at most MAX_PATH - 1 long (not
 // including null terminator), then that will be the result (plus quotes).
 // Otherwise this function fails and returns an error message.
-string AsExecutablePathForCreateProcess(const string& path,
-                                        function<wstring()> path_as_wstring,
-                                        string* result);
+wstring AsExecutablePathForCreateProcess(const wstring& path, wstring* result);
 
 }  // namespace windows
 }  // namespace bazel

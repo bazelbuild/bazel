@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 
@@ -24,7 +25,7 @@ import com.google.devtools.build.lib.packages.Package;
  *
  * <p><b>Concurrency</b>: Implementations should be thread safe for {@link #getPackage}.
  */
-public interface PackageProvider extends TargetProvider {
+public interface PackageProvider extends TargetProvider, CachingPackageLocator {
 
   /**
    * Returns the {@link Package} named "packageName". If there is no such package (e.g. {@code

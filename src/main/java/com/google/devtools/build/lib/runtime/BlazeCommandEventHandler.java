@@ -21,18 +21,18 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 /**
  * BlazeCommandEventHandler: an event handler established for the duration of a
@@ -40,7 +40,7 @@ import org.joda.time.format.DateTimeFormatter;
  */
 public class BlazeCommandEventHandler implements EventHandler {
 
-  private static final Logger LOG = Logger.getLogger(BlazeCommandEventHandler.class.getName());
+  private static final Logger logger = Logger.getLogger(BlazeCommandEventHandler.class.getName());
 
   public enum UseColor { YES, NO, AUTO }
   public enum UseCurses { YES, NO, AUTO }
@@ -81,7 +81,7 @@ public class BlazeCommandEventHandler implements EventHandler {
 
     @Option(
       name = "show_progress_rate_limit",
-      defaultValue = "0.03", // A nice middle ground; snappy but not too spammy in logs.
+      defaultValue = "0.2", // A nice middle ground; snappy but not too spammy in logs.
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -96,7 +96,7 @@ public class BlazeCommandEventHandler implements EventHandler {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Use terminal controls to colorize output going to stderr."
+      help = "Use terminal controls to colorize output."
     )
     public UseColor useColorEnum;
 
@@ -107,36 +107,33 @@ public class BlazeCommandEventHandler implements EventHandler {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Use terminal cursor controls to minimize scrolling output going to stderr."
+      help = "Use terminal cursor controls to minimize scrolling output"
     )
     public UseCurses useCursesEnum;
 
     @Option(
       name = "terminal_columns",
       defaultValue = "80",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "A system-generated parameter which specifies the terminal width in columns."
     )
     public int terminalColumns;
 
     @Option(
-      name = "is_stderr_atty",
-      // TODO(laszlocsomor): Old name should be removed after 2017-12-28.
-      oldName = "isatty",
+      name = "isatty",
       defaultValue = "false",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A system-generated parameter which is used to notify the server whether this client is"
-              + " running in a terminal.  If this is set to false, then '--color=auto' will be"
-              + " treated as '--color=no'.  If this is set to true, then '--color=auto' will be"
-              + " treated as '--color=yes'.  As we only treat the stderr as a terminal, we only"
-              + " care that file descriptor is connected to a TTY."
+          "A system-generated parameter which is used to notify the "
+              + "server whether this client is running in a terminal. "
+              + "If this is set to false, then '--color=auto' will be treated as '--color=no'. "
+              + "If this is set to true, then '--color=auto' will be treated as '--color=yes'."
     )
-    public boolean isStderrATty;
+    public boolean isATty;
 
     // This lives here (as opposed to the more logical BuildRequest.Options)
     // because the client passes it to the server *always*.  We don't want the
@@ -144,8 +141,7 @@ public class BlazeCommandEventHandler implements EventHandler {
     @Option(
       name = "emacs",
       defaultValue = "false",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A system-generated parameter which is true iff EMACS=t or INSIDE_EMACS is set "
@@ -198,7 +194,7 @@ public class BlazeCommandEventHandler implements EventHandler {
 
     @Option(
       name = "experimental_ui",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -211,8 +207,8 @@ public class BlazeCommandEventHandler implements EventHandler {
     @Option(
       name = "experimental_ui_debug_all_events",
       defaultValue = "false",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Report all events known to the experimental new Bazel UI."
     )
@@ -220,7 +216,7 @@ public class BlazeCommandEventHandler implements EventHandler {
 
     @Option(
       name = "experimental_ui_actions_shown",
-      defaultValue = "3",
+      defaultValue = "8",
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -241,22 +237,22 @@ public class BlazeCommandEventHandler implements EventHandler {
       help =
           "Number of bytes to which the experimental UI will limit its output (non-positive "
               + "values indicate unlimited). Once the limit is approaching, the experimental UI "
-              + "will try hard to limit in a meaningful way, but will ultimately just drop all  "
+              + "will try hard to limit in a meaningful way, but will ultimately just drop all "
               + "output."
     )
     public int experimentalUiLimitConsoleOutput;
 
     public boolean useColor() {
-      return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isStderrATty);
+      return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
     }
 
     public boolean useCursorControl() {
-      return useCursesEnum == UseCurses.YES || (useCursesEnum == UseCurses.AUTO && isStderrATty);
+      return useCursesEnum == UseCurses.YES || (useCursesEnum == UseCurses.AUTO && isATty);
     }
   }
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
-      DateTimeFormat.forPattern("(MM-dd HH:mm:ss.SSS) ");
+      DateTimeFormatter.ofPattern("(MM-dd HH:mm:ss.SSS) ");
 
   protected final OutErr outErr;
 
@@ -303,6 +299,7 @@ public class BlazeCommandEventHandler implements EventHandler {
       case TIMEOUT:
       case ERROR:
       case WARNING:
+      case DEBUG:
       case DEPCHECKER:
         prefix = event.getKind() + ": ";
         break;
@@ -354,7 +351,7 @@ public class BlazeCommandEventHandler implements EventHandler {
       // This can happen in server mode if the blaze client has exited, or if output is redirected
       // to a file and the disk is full, etc. May be moot in the case of full disk, or useful in
       // the case of real bug in our handling of streams.
-      LOG.log(Level.WARNING, "Failed to write event", e);
+      logger.log(Level.WARNING, "Failed to write event", e);
     }
   }
 
@@ -362,6 +359,6 @@ public class BlazeCommandEventHandler implements EventHandler {
    * @return a string representing the current time, eg "04-26 13:47:32.124".
    */
   protected String timestamp() {
-    return TIMESTAMP_FORMAT.print(System.currentTimeMillis());
+    return TIMESTAMP_FORMAT.format(ZonedDateTime.now());
   }
 }

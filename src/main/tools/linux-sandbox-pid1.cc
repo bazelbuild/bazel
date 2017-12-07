@@ -42,6 +42,12 @@
 #include <unistd.h>
 #include <string>
 
+#ifndef MS_REC
+// Some systems do not define MS_REC in sys/mount.h. We might be able to grab it
+// from linux/fs.h instead (cf. #2667).
+#include <linux/fs.h>
+#endif
+
 #include "src/main/tools/linux-sandbox-options.h"
 #include "src/main/tools/linux-sandbox.h"
 #include "src/main/tools/logging.h"

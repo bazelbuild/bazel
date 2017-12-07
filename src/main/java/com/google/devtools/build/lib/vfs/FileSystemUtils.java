@@ -15,13 +15,13 @@ package com.google.devtools.build.lib.vfs;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.io.ByteSink;
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -217,28 +217,6 @@ public class FileSystemUtils {
    */
   public static PathFragment appendExtension(PathFragment path, String newExtension) {
     return path.replaceName(path.getBaseName() + newExtension);
-  }
-
-  /**
-   * Returns a new {@code PathFragment} formed by replacing the first, or all if
-   * {@code replaceAll} is true, {@code oldSegment} of {@code path} with {@code
-   * newSegment}.
-   */
-  public static PathFragment replaceSegments(PathFragment path,
-      String oldSegment, String newSegment, boolean replaceAll) {
-    int count = path.segmentCount();
-    for (int i = 0; i < count; i++) {
-      if (path.getSegment(i).equals(oldSegment)) {
-        path = PathFragment.create(
-            path.subFragment(0, i),
-            PathFragment.create(newSegment),
-            path.subFragment(i+1, count));
-        if (!replaceAll) {
-          return path;
-        }
-      }
-    }
-    return path;
   }
 
   /**
@@ -574,32 +552,35 @@ public class FileSystemUtils {
   }
 
   /**
-   * Copies all dir trees under a given 'from' dir to location 'to', while overwriting
-   * all files in the potentially existing 'to'. Resolves symbolic links.
+   * Copies all dir trees under a given 'from' dir to location 'to', while overwriting all files in
+   * the potentially existing 'to'. Resolves symbolic links if {@code followSymlinks ==
+   * Symlinks#FOLLOW}. Otherwise copies symlinks as-is.
    *
    * <p>The source and the destination must be non-overlapping, otherwise an
-   * IllegalArgumentException will be thrown. This method cannot be used to copy
-   * a dir tree to a sub tree of itself.
+   * IllegalArgumentException will be thrown. This method cannot be used to copy a dir tree to a sub
+   * tree of itself.
    *
-   * <p>If no error occurs, the method returns normally. If the given 'from' does
-   * not exist, a FileNotFoundException is thrown. An IOException is thrown when
-   * other erroneous situations occur. (e.g. read errors)
+   * <p>If no error occurs, the method returns normally. If the given 'from' does not exist, a
+   * FileNotFoundException is thrown. An IOException is thrown when other erroneous situations
+   * occur. (e.g. read errors)
    */
   @ThreadSafe
-  public static void copyTreesBelow(Path from , Path to) throws IOException {
+  public static void copyTreesBelow(Path from, Path to, Symlinks followSymlinks)
+      throws IOException {
     if (to.startsWith(from)) {
       throw new IllegalArgumentException(to + " is a subdirectory of " + from);
     }
 
     Collection<Path> entries = from.getDirectoryEntries();
     for (Path entry : entries) {
-      if (entry.isFile()) {
-        Path newEntry = to.getChild(entry.getBaseName());
-        copyFile(entry, newEntry);
+      Path toPath = to.getChild(entry.getBaseName());
+      if (!followSymlinks.toBoolean() && entry.isSymbolicLink()) {
+        FileSystemUtils.ensureSymbolicLink(toPath, entry.readSymbolicLink());
+      } else if (entry.isFile()) {
+        copyFile(entry, toPath);
       } else {
-        Path subDir = to.getChild(entry.getBaseName());
-        subDir.createDirectory();
-        copyTreesBelow(entry, subDir);
+        toPath.createDirectory();
+        copyTreesBelow(entry, toPath, followSymlinks);
       }
     }
   }

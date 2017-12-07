@@ -19,7 +19,6 @@ import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -40,13 +39,11 @@ public class BuildConfigurationFunction implements SkyFunction {
 
   private final BlazeDirectories directories;
   private final ConfiguredRuleClassProvider ruleClassProvider;
-  private final ConfigurationCollectionFactory collectionFactory;
 
   public BuildConfigurationFunction(BlazeDirectories directories,
       RuleClassProvider ruleClassProvider) {
     this.directories = directories;
     this.ruleClassProvider = (ConfiguredRuleClassProvider) ruleClassProvider;
-    collectionFactory = this.ruleClassProvider.getConfigurationCollectionFactory();
   }
 
   @Override
@@ -79,14 +76,7 @@ public class BuildConfigurationFunction implements SkyFunction {
             directories,
             fragmentsMap,
             key.getBuildOptions(),
-            workspaceNameValue.getName(),
-            ruleClassProvider.getDynamicTransitionMapper());
-    // Unlike static configurations, dynamic configurations don't need to embed transition logic
-    // in the configuration itself. However we still use this interface to supply
-    // BuildConfigurationCollection.Transitions.configurationHook. Once we remove that dependency
-    // we can remove the below completely.
-    config.setConfigurationTransitions(collectionFactory.getDynamicTransitionLogic(config));
-
+            workspaceNameValue.getName());
     return new BuildConfigurationValue(config);
   }
 

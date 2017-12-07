@@ -24,7 +24,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -38,15 +38,12 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.BuildFilesFunction;
-import com.google.devtools.build.lib.query2.engine.FunctionExpression;
-import com.google.devtools.build.lib.query2.engine.LoadFilesFunction;
+import com.google.devtools.build.lib.query2.engine.AggregatingQueryExpressionVisitor.ContainsFunctionQueryExpressionVisitor;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.QueryExpressionMapper;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionVisitor;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
@@ -67,7 +64,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -155,6 +151,16 @@ public abstract class OutputFormatter implements Serializable {
         queryOptions.includeImplicitDeps
             ? DependencyFilter.ALL_DEPS
             : DependencyFilter.NO_IMPLICIT_DEPS);
+  }
+
+  /**
+   * Workaround for a bug in {@link java.nio.channels.Channels#newChannel(OutputStream)}, which
+   * attempts to close the output stream on interrupt, which can cause a deadlock if there is an
+   * ongoing write. If this formatter uses Channels.newChannel, then it must return false here, and
+   * perform its own buffering.
+   */
+  public boolean canBeBuffered() {
+    return true;
   }
 
   public void verifyCompatible(QueryEnvironment<?> env, QueryExpression expr)
@@ -380,20 +386,11 @@ public abstract class OutputFormatter implements Serializable {
       if (!(env instanceof AbstractBlazeQueryEnvironment)) {
         return;
       }
-      final AtomicBoolean found = new AtomicBoolean(false);
-      QueryExpressionMapper noteBuildFilesAndLoadLilesMapper = new QueryExpressionMapper() {
-        @Override
-        public QueryExpression map(FunctionExpression functionExpression) {
-          QueryFunction queryFunction = functionExpression.getFunction();
-          if (queryFunction instanceof LoadFilesFunction
-              || queryFunction instanceof BuildFilesFunction) {
-            found.set(true);
-          }
-          return super.map(functionExpression);
-        }
-      };
-      expr.getMapped(noteBuildFilesAndLoadLilesMapper);
-      if (found.get()) {
+
+      QueryExpressionVisitor<Boolean> noteBuildFilesAndLoadLilesVisitor =
+          new ContainsFunctionQueryExpressionVisitor(ImmutableList.of("loadfiles", "buildfiles"));
+
+      if (expr.accept(noteBuildFilesAndLoadLilesVisitor)) {
         throw new QueryException(
             "Query expressions involving 'buildfiles' or 'loadfiles' cannot be used with "
             + "--output=location");

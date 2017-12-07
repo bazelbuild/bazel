@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.Package;
@@ -95,7 +96,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
               directory.getRoot(),
               directory
                   .getRelativePath()
-                  .getRelative(PackageLookupValue.BuildFileName.WORKSPACE.getFilenameFragment()));
+                  .getRelative(BuildFileName.WORKSPACE.getFilenameFragment()));
       FileValue workspaceFileValue =
           (FileValue)
               env.getValueOrThrow(
@@ -218,8 +219,11 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
               null);
       if (rule != null) {
         try {
+          String path = (String) rule.getAttributeContainer().getAttr("path");
           return Optional.of(
-              LocalRepositoryLookupValue.success(RepositoryName.create("@" + rule.getName())));
+              LocalRepositoryLookupValue.success(
+                  RepositoryName.create("@" + rule.getName()),
+                  PathFragment.create(path).normalize()));
         } catch (LabelSyntaxException e) {
           // This shouldn't be possible if the rule name is valid, and it should already have been
           // validated.

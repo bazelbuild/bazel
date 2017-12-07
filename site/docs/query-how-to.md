@@ -83,9 +83,11 @@ To execute a query while ignoring errors such as missing targets, use the
             upon:](#Show_me_a_path_from_docker_updater)
         *   [Why does library `//photos/frontend:lib` depend on two variants of
             the same library `//third_party/jpeglib` and
-            `//third_party/jpeg`?](#Why_does_library_photos_fronten)
+            `//third_party/jpeg`?](#Why_does_library_photos_frontend)
     *   [What depends on ...](#What_depends_on_)
         *   [What rules under bar depend on Y?](#What_rules_under_bar_depend_o)
+        *   [What targets directly depend on T, in T's
+            package](#What_are_the_intra_package_direct_rdeps)
     *   [How do I break a dependency ...](#How_do_I_break_a_dependency_)
         *   [What dependency paths do I have to break to make `bar` no longer
             depend on X?](#What_dependency_paths_do_I_have_)
@@ -269,7 +271,7 @@ bazel query src/main/java/com/example/cache/LRUCache.java
 ```
 
 <a name="What_build_rule_contains_file_ja"></a>
-#### What build rule contains file `src/main/java/com/example/cache/LRUCache.java` as a source?
+#### What rule target(s) contain file `src/main/java/com/example/cache/LRUCache.java` as a source?
 
 ```sh
 fullname=$(bazel query src/main/java/com/example/cache/LRUCache.java)
@@ -394,7 +396,7 @@ bazel query 'let cc = kind(cc_library, deps(docker/updater:updater_systest)) in
   somepath(docker/updater:updater_systest, $cc)'
 ```
 
-<a name="Why_does_library_photos_fronten"></a>
+<a name="Why_does_library_photos_frontend"></a>
 #### Why does library `//photos/frontend:lib` depend on two variants of the same library `//third_party/jpeglib` and `//third_party/jpeg`?
 
 This query boils down to: "show me the subgraph of `//photos/frontend:lib` that
@@ -427,6 +429,13 @@ bazel query 'bar/... intersect allpaths(bar/..., Y)'
 Note: `X intersect allpaths(X, Y)` is the general idiom for the query "which X
 depend on Y?" If expression X is non-trivial, it may be convenient to bind a
 name to it using `let` to avoid duplication.
+
+<a name="What_are_the_intra_package_direct_rdeps"></a>
+#### What targets directly depend on T, in T's package?
+
+```sh
+bazel query 'let t = T in rdeps(siblings($t), $t, 1)'
+```
 
 <a name="How_do_I_break_a_dependency_"></a>
 ### How do I break a dependency ...

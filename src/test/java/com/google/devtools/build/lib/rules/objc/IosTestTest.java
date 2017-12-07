@@ -20,7 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -29,15 +28,12 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.rules.test.TestProvider;
-import com.google.devtools.build.lib.rules.test.TestRunnerAction;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +44,7 @@ import org.junit.runners.JUnit4;
 
 /** Test case for ios_test. */
 @RunWith(JUnit4.class)
+@LegacyTest
 public class IosTestTest extends ObjcRuleTestCase {
   protected static final RuleType RULE_TYPE = new BinaryRuleType("ios_test");
 
@@ -56,7 +53,7 @@ public class IosTestTest extends ObjcRuleTestCase {
     MockObjcSupport.setupIosTest(mockToolsConfig);
     MockObjcSupport.setupIosSimDevice(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
-    MockObjcSupport.setupObjcProto(mockToolsConfig);
+    MockObjcSupport.setup(mockToolsConfig);
 
     invalidatePackages();
   }
@@ -170,7 +167,7 @@ public class IosTestTest extends ObjcRuleTestCase {
             "lib1/_objs/lib1/lib1/b.gcno",
             "lib2/_objs/lib2/lib2/a.gcno",
             "lib2/_objs/lib2/lib2/b.gcno",
-            "tools/objc/_objs/xctest_appbin/tools/objc/objc_dummy.gcno");
+            "tools/objc/_objs/dummy_lib/tools/objc/objc_dummy.gcno");
   }
 
   @Test
@@ -203,26 +200,14 @@ public class IosTestTest extends ObjcRuleTestCase {
   @Test
   public void testXcTestAppIpaIsInFilesToBuild() throws Exception {
     scratch.file("x/BUILD",
-        "ios_application(",
-        "    name = 'xctest_app',",
-        "    binary = ':xctest_app_bin',",
-        "    infoplist = 'Info.plist',",
-        ")",
-        "",
-        "objc_binary(",
-        "    name = 'xctest_app_bin',",
-        "    srcs = ['a.m'],",
-        ")",
-        "",
         "ios_test(",
         "    name = 'x',",
         "    xctest = 1,",
-        "    xctest_app = ':xctest_app',",
         "    srcs = ['test.m'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//x:x");
     Iterable<Artifact> filesToBuild = target.getProvider(FileProvider.class).getFilesToBuild();
-    assertThat(filesToBuild).contains(getBinArtifact("xctest_app.ipa", target));
+    assertThat(Artifact.toRootRelativePaths(filesToBuild)).contains("tools/objc/xctest_app.ipa");
   }
 
   @Test
@@ -239,10 +224,10 @@ public class IosTestTest extends ObjcRuleTestCase {
     ImmutableList<String> expectedRunfiles =
         ImmutableList.of(
             "test/XcTest.ipa",
-            "test/testApp.ipa",
             "test/XcTest_test_script",
             "tools/objc/StdRedirect.dylib",
-            "tools/objc/testrunner");
+            "tools/objc/testrunner",
+            "tools/objc/xctest_app.ipa");
     RunfilesProvider runfiles = target.getProvider(RunfilesProvider.class);
     assertThat(Artifact.toRootRelativePaths(runfiles.getDefaultRunfiles().getArtifacts()))
         .containsExactlyElementsIn(expectedRunfiles);
@@ -259,12 +244,13 @@ public class IosTestTest extends ObjcRuleTestCase {
     InstrumentedFilesProvider instrumentedFilesProvider =
         target.getProvider(InstrumentedFilesProvider.class);
     assertThat(Artifact.toRootRelativePaths(instrumentedFilesProvider.getInstrumentedFiles()))
-        .containsExactly("test/src.m", "test/test-src.m");
+        .containsExactly("tools/objc/objc_dummy.mm", "test/test-src.m");
     assertThat(
             Artifact.toRootRelativePaths(
                 instrumentedFilesProvider.getInstrumentationMetadataFiles()))
         .containsExactly(
-            "test/_objs/XcTest/test/test-src.gcno", "test/_objs/testAppBin/test/src.gcno");
+            "test/_objs/XcTest/test/test-src.gcno",
+            "tools/objc/_objs/dummy_lib/tools/objc/objc_dummy.gcno");
   }
 
   @Test
@@ -279,7 +265,7 @@ public class IosTestTest extends ObjcRuleTestCase {
 
     // Missing "test/test-src.m" since the target including it has been excluded.
     assertThat(Artifact.toRootRelativePaths(instrumentedFilesProvider.getInstrumentedFiles()))
-        .containsExactly("test/src.m");
+        .containsExactly("tools/objc/objc_dummy.mm");
   }
 
   @Test
@@ -290,12 +276,6 @@ public class IosTestTest extends ObjcRuleTestCase {
     String commandLine = Joiner.on(" ").join(action.getArguments());
     assertThat(commandLine).contains("-bundle");
     assertThat(commandLine).contains("-Xlinker -rpath -Xlinker @loader_path/Frameworks");
-  }
-
-  @Test
-  public void testXcTest_linkAction_Crosstool() throws Exception {
-    useConfiguration(ObjcCrosstoolMode.ALL);
-    testXcTest_linkAction();
   }
 
   @Test
@@ -323,41 +303,24 @@ public class IosTestTest extends ObjcRuleTestCase {
   }
 
   protected void setUpXCTestClient() throws Exception {
-    scratch.file("/test/XcTest-Info.plist");
-    scratch.file("/test/App-Info.plist");
     scratch.file("/test/src.m");
     scratch.file("/test/test-src.m");
 
     scratch.file("test/BUILD",
-        "objc_binary(",
-        "    name = 'testAppBin',",
-        "    srcs = ['src.m'],",
-        ")",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = ':testAppBin',",
-        ")",
         "ios_test(",
         "    name = 'XcTest',",
         "    srcs = ['test-src.m'],",
         "    xctest = True,",
-        "    xctest_app = ':testApp',",
         ")");
   }
 
   @Test
   public void testCreate_recognizesDylibsAttribute() throws Exception {
-    createBinaryTargetWriter("//bin:bin").setAndCreateFiles("srcs", "a.m").write();
     scratch.file("test/BUILD",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = '//bin:bin',",
-        ")",
         "ios_test(",
         "    name = 'test',",
         "    srcs = ['test-src.m'],",
         "    xctest = 1,",
-        "    xctest_app = ':testApp',",
         "    sdk_dylibs = ['libdy'],",
         ")");
     CommandAction action = linkAction("//test:test");
@@ -429,17 +392,12 @@ public class IosTestTest extends ObjcRuleTestCase {
 
   @Test
   public void testHasDefaultInfoplistForXcTest() throws Exception {
-    createBinaryTargetWriter("//bin:bin").setAndCreateFiles("srcs", "a.m").write();
+    createBinaryTargetWriter("//bin:bin").write();
     scratch.file("x/BUILD",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = '//bin:bin',",
-        ")",
         "ios_test(",
         "    name = 'x',",
         "    srcs = ['x-src.m'],",
         "    xctest = 1,",
-        "    xctest_app = ':testApp',",
         ")");
     PlMergeProtos.Control control = plMergeControl("//x:x");
     assertThat(control.getSourceFileList())
@@ -463,38 +421,28 @@ public class IosTestTest extends ObjcRuleTestCase {
 
   @Test
   public void testErrorForNoSources() throws Exception {
-    createBinaryTargetWriter("//bin:bin").setAndCreateFiles("srcs", "a.m").write();
+    createBinaryTargetWriter("//bin:bin").write();
     createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "hdr.h")
         .write();
     checkError("x", "x",
         IosTest.REQUIRES_SOURCE_ERROR,
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = '//bin:bin',",
-        ")",
         "ios_test(",
         "    name = 'x',",
         "    xctest = 1,",
-        "    xctest_app = ':testApp',",
         "    deps = ['//lib:lib'],",
         ")");
   }
 
   private void checkTestScript(Map<String, String> templateArguments, String... extraAttrs)
       throws Exception {
-    createBinaryTargetWriter("//bin:bin").setAndCreateFiles("srcs", "a.m").write();
+    createBinaryTargetWriter("//bin:bin").write();
     scratch.file("x/BUILD",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = '//bin:bin',",
-        ")",
         "ios_test(",
         "    name = 'x',",
         "    srcs = ['a.m'],",
         "    xctest = 1,",
-        "    xctest_app = ':testApp',",
         Joiner.on(",").join(extraAttrs),
         ")");
     TemplateExpansionAction action =
@@ -539,105 +487,6 @@ public class IosTestTest extends ObjcRuleTestCase {
         "bin", "bin", ImmutableList.of("a.m"), ImmutableList.<String>of(), "copts=['-bar']");
     List<String> args = compileAction("//bin:bin", "a.o").getArguments();
     assertThat(args).containsAllOf("-fobjc-arc", "-foo", "-bar").inOrder();
-  }
-
-  @Test
-  public void testGetsDefinesFromTestRig() throws Exception {
-    scratch.file("x/BUILD",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['lib.m'],",
-        "    defines = ['LIB_DEFINE=1'],",
-        ")",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = ['bin.m'],",
-        "    defines = ['BIN_DEFINE=1'],",
-        "    deps = [':lib'],",
-        ")",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = ':bin',",
-        ")",
-        "ios_test(",
-        "    name = 'test',",
-        "    srcs = ['test.m'],",
-        "    defines = ['TEST_DEFINE=1'],",
-        "    xctest = 1,",
-        "    xctest_app = ':testApp',",
-        ")");
-    assertContainsSublist(compileAction("//x:test", "test.o").getArguments(),
-        ImmutableList.of("-DLIB_DEFINE=1", "-DBIN_DEFINE=1", "-DTEST_DEFINE=1"));
-  }
-
-  @Test
-  public void testGetsSdkDylibsFromTestRig() throws Exception {
-    scratch.file("x/BUILD",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['lib.m'],",
-        "    sdk_dylibs = ['lib_dylib'],",
-        ")",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = ['bin.m'],",
-        "    sdk_dylibs = ['bin_dylib'],",
-        "    deps = [':lib'],",
-        ")",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = ':bin',",
-        ")",
-        "ios_test(",
-        "    name = 'test',",
-        "    srcs = ['test.m'],",
-        "    sdk_dylibs = ['test_dylib'],",
-        "    xctest = 1,",
-        "    xctest_app = ':testApp',",
-        ")");
-
-    String linkArgs = Joiner.on(' ').join(linkAction("//x:test").getArguments());
-    assertThat(linkArgs).contains("-l_dylib");
-    assertThat(linkArgs).contains("-lbin_dylib");
-    assertThat(linkArgs).contains("-ltest_dylib");
-  }
-
-  @Test
-  public void testGetsSdkFrameworksFromTestRig() throws Exception {
-    scratch.file("x/BUILD",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['lib.m'],",
-        "    sdk_frameworks = ['lib_fx'],",
-        "    weak_sdk_frameworks = ['lib_wfx'],",
-        ")",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = ['bin.m'],",
-        "    sdk_frameworks = ['bin_fx'],",
-        "    weak_sdk_frameworks = ['bin_wfx'],",
-        "    deps = [':lib'],",
-        ")",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = ':bin',",
-        ")",
-        "ios_test(",
-        "    name = 'test',",
-        "    srcs = ['test.m'],",
-        "    sdk_frameworks = ['test_fx'],",
-        "    weak_sdk_frameworks = ['test_wfx'],",
-        "    xctest = 1,",
-        "    xctest_app = ':testApp',",
-        ")");
-
-    String linkArgs = Joiner.on(' ').join(linkAction("//x:test").getArguments());
-    assertThat(linkArgs).contains("-framework lib_fx");
-    assertThat(linkArgs).contains("-weak_framework lib_wfx");
-    assertThat(linkArgs).contains("-framework bin_fx");
-    assertThat(linkArgs).contains("-weak_framework bin_wfx");
-    assertThat(linkArgs).contains("-framework test_fx");
-    assertThat(linkArgs).contains("-weak_framework test_wfx");
   }
 
   @Test
@@ -722,7 +571,7 @@ public class IosTestTest extends ObjcRuleTestCase {
     scratch.file(
         "examples/ios_test/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('/examples/rule/apple_rules', 'skylark_xctest_app')",
+        "load('//examples/rule:apple_rules.bzl', 'skylark_xctest_app')",
         "skylark_xctest_app(",
         "    name = 'my_xctest_app',",
         ")",
@@ -882,7 +731,6 @@ public class IosTestTest extends ObjcRuleTestCase {
         "  name = 'some_test_with_device',",
         "  srcs = ['SomeOtherTest.m'],",
         "  xctest = 1,",
-        "  xctest_app = ':testApp',",
         "  target_device = ':device',",
         ")",
         "ios_device(",
@@ -890,13 +738,6 @@ public class IosTestTest extends ObjcRuleTestCase {
         "  ios_version = '1.2',",
         "  type = 'iMarmoset',",
         "  locale = 'en-gb'",
-        ")",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = ':bin',",
-        ")",
-        "objc_binary(name = 'bin',",
-        "  srcs = ['app.m'],",
         ")");
 
     scratch.file("test/SomeOtherTest.m");
@@ -904,26 +745,23 @@ public class IosTestTest extends ObjcRuleTestCase {
 
     TemplateExpansionAction action =
         getTestScriptGenerationAction(getConfiguredTarget("//test:some_test_with_device"));
-    assertThat(action.getSubstitutions()).containsExactly(
-        Substitution.of("%(memleaks)s", "false"),
-
-        Substitution.of("%(test_app_ipa)s", "test/some_test_with_device.ipa"),
-        Substitution.of("%(test_app_name)s", "some_test_with_device"),
-        Substitution.of("%(test_bundle_path)s", "test/some_test_with_device.ipa"),
-
-        Substitution.of("%(xctest_app_ipa)s", "test/testApp.ipa"),
-        Substitution.of("%(xctest_app_name)s", "testApp"),
-        Substitution.of("%(test_host_path)s", "test/testApp.ipa"),
-
-        Substitution.of("%(plugin_jars)s", ""),
-        Substitution.of("%(device_type)s", "iMarmoset"),
-        Substitution.of("%(locale)s", "en-gb"),
-        Substitution.of("%(simulator_sdk)s", "1.2"),
-        Substitution.of("%(testrunner_binary)s", "tools/objc/testrunner"),
-        Substitution.of("%(std_redirect_dylib_path)s", "tools/objc/StdRedirect.dylib"),
-        Substitution.of("%(test_env)s", ""),
-        Substitution.of("%(test_type)s", "XCTEST")
-    );
+    assertThat(action.getSubstitutions())
+        .containsExactly(
+            Substitution.of("%(memleaks)s", "false"),
+            Substitution.of("%(test_app_ipa)s", "test/some_test_with_device.ipa"),
+            Substitution.of("%(test_app_name)s", "some_test_with_device"),
+            Substitution.of("%(test_bundle_path)s", "test/some_test_with_device.ipa"),
+            Substitution.of("%(xctest_app_ipa)s", "tools/objc/xctest_app.ipa"),
+            Substitution.of("%(xctest_app_name)s", "xctest_app"),
+            Substitution.of("%(test_host_path)s", "tools/objc/xctest_app.ipa"),
+            Substitution.of("%(plugin_jars)s", ""),
+            Substitution.of("%(device_type)s", "iMarmoset"),
+            Substitution.of("%(locale)s", "en-gb"),
+            Substitution.of("%(simulator_sdk)s", "1.2"),
+            Substitution.of("%(testrunner_binary)s", "tools/objc/testrunner"),
+            Substitution.of("%(std_redirect_dylib_path)s", "tools/objc/StdRedirect.dylib"),
+            Substitution.of("%(test_env)s", ""),
+            Substitution.of("%(test_type)s", "XCTEST"));
   }
 
   @Test
@@ -933,14 +771,12 @@ public class IosTestTest extends ObjcRuleTestCase {
         "  name = 'one_plugin',",
         "  srcs = ['SomeTest.m'],",
         "  xctest = 1,",
-        "  xctest_app = ':testApp',",
         "  plugins = [':a_plugin_deploy.jar'],",
         ")",
         "ios_test(",
         "  name = 'two_plugins',",
         "  srcs = ['SomeOtherTest.m'],",
         "  xctest = 1,",
-        "  xctest_app = ':testApp',",
         "  plugins = [':a_plugin_deploy.jar', ':b_plugin_deploy.jar'],",
         ")",
         "java_binary(",
@@ -952,13 +788,6 @@ public class IosTestTest extends ObjcRuleTestCase {
         "  name = 'b_plugin',",
         "  srcs = ['B.java'],",
         "  main_class = 'B',",
-        ")",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = ':bin',",
-        ")",
-        "objc_binary(name = 'bin',",
-        "  srcs = ['app.m'],",
         ")");
 
     scratch.file("test/SomeTest.m");
@@ -1062,80 +891,8 @@ public class IosTestTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testProtobufPropagatedHeaderSearchPaths() throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "ios_test(",
-        "  name = 'protos_test',",
-        "  srcs = ['SomeTest.m'],",
-        "  xctest = 1,",
-        "  xctest_app = ':protos_app',",
-        ")",
-        "ios_application(",
-        "    name = 'protos_app',",
-        "    binary = ':protos_bin',",
-        ")",
-        "objc_binary(",
-        "  name = 'protos_bin',",
-        "  srcs = ['app.m'],",
-        "  deps = [':protos_objc'],",
-        ")",
-        "objc_proto_library(",
-        "  name = 'protos_objc',",
-        "  deps = [':protos_lib'],",
-        "  portable_proto_filters = ['filter.pbascii'],",
-        ")",
-        "proto_library(",
-        "  name = 'protos_lib',",
-        "  srcs = ['a.proto'],",
-        ")");
-
-    ObjcProvider appProvider =
-        getConfiguredTarget("//test:protos_app")
-            .getProvider(XcTestAppProvider.class)
-            .getObjcProvider();
-    ConfiguredTarget binTarget = getConfiguredTarget("//test:protos_bin");
-    Artifact protoHeader =
-        getBinArtifact("_generated_protos/protos_bin/test/A.pbobjc.h", binTarget);
-
-    assertThat(PathFragment.safePathStrings(appProvider.get(ObjcProvider.INCLUDE)))
-        .containsAllOf(
-            "objcproto/include",
-            protoHeader.getExecPath().getParentDirectory().getParentDirectory().toString());
-  }
-
-  @Test
   public void testCcDependency() throws Exception {
     checkCcDependency(RULE_TYPE, "xctest", "0");
-  }
-
-  @Test
-  public void testPassesTestRigAppAsBundleLoaderFlagToLinker() throws Exception {
-    useConfiguration("--cpu=ios_x86_64",
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_disable_go");
-    scratch.file("x/BUILD",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = ['bin.m'],",
-        ")",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = ':bin',",
-        ")",
-        "ios_test(",
-        "    name = 'test',",
-        "    srcs = ['test.m'],",
-        "    xctest = 1,",
-        "    xctest_app = ':testApp',",
-        ")");
-    CommandAction testLinkAction = linkAction("//x:test");
-    Action appLipoAction = lipoBinAction("//x:testApp");
-    Artifact rigBinary = Iterables.getOnlyElement(appLipoAction.getOutputs());
-
-    String linkArgs = Joiner.on(' ').join(testLinkAction.getArguments());
-    assertThat(linkArgs).contains("-bundle_loader " + rigBinary.getExecPath());
-    assertThat(testLinkAction.getInputs()).contains(rigBinary);
   }
 
   @Test
@@ -1163,46 +920,6 @@ public class IosTestTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testMultiArchUserHeaderSearchPathsUsed() throws Exception {
-     // Usually, an ios_test would depend on apple_binary through a skylark_ios_application in its
-     // 'binary' attribute.  Since we don't have skylark_ios_application here, we use the 'deps'
-     // attribute instead.
-     scratch.file("x/BUILD",
-        "genrule(",
-        "    name = 'gen_hdrs',",
-        "    outs = ['generated.h'],",
-        "    cmd = 'echo hello > \\$@',",
-        ")",
-        "apple_binary(",
-        "    name = 'apple_bin',",
-        "    srcs = ['apple_bin.m'],",
-        "    platform_type = 'ios',",
-        "    hdrs = ['generated.h'],",
-        ")",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = ['bin.m'],",
-        ")",
-        "ios_application(",
-        "    name = 'testApp',",
-        "    binary = ':bin',",
-        ")",
-        "ios_test(",
-        "    name = 'test',",
-        "    srcs = ['test.m'],",
-        "    xctest = 1,",
-        "    xctest_app = ':testApp',",
-        "    deps = [':apple_bin']",
-        ")");
-     CommandAction compileAction = compileAction("//x:test", "test.o");
-     // The genfiles root for child configurations must be present in the compile action so that
-     // generated headers can be resolved.
-     assertThat(Joiner.on(" ").join(compileAction.getArguments())).contains("-iquote "
-         + configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS,
-             defaultMinimumOs(ConfigurationDistinguisher.APPLEBIN_IOS)));
-  }
-
-  @Test
   public void testXcTest_linkAction_inCoverageMode() throws Exception {
     useConfiguration("--collect_code_coverage");
     setUpXCTestClient();
@@ -1222,5 +939,20 @@ public class IosTestTest extends ObjcRuleTestCase {
     for (String linkerCoverageFlag : CompilationSupport.LINKER_LLVM_COVERAGE_FLAGS) {
       assertThat(Joiner.on(" ").join(action.getArguments())).contains(linkerCoverageFlag);
     }
+  }
+
+  @Test
+  public void testCompilesWithHdrs() throws Exception {
+    checkCompilesWithHdrs(RULE_TYPE);
+  }
+
+  @Test
+  public void testReceivesTransitivelyPropagatedDefines() throws Exception {
+    checkReceivesTransitivelyPropagatedDefines(RULE_TYPE);
+  }
+
+  @Test
+  public void testSdkIncludesUsedInCompileAction() throws Exception {
+    checkSdkIncludesUsedInCompileAction(RULE_TYPE);
   }
 }

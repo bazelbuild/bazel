@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import java.io.IOException;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -26,26 +24,7 @@ import javax.annotation.concurrent.ThreadSafe;
  * NOTE: Implementations must be thread safe.
  */
 @ThreadSafe
-public interface ActionInputFileCache {
-  /**
-   * Returns digest for the given artifact. This digest is current as of some time t >= the start of
-   * the present build. If the artifact is an output of an action that already executed at time p,
-   * then t >= p. Aside from these properties, t can be any value and may vary arbitrarily across
-   * calls.
-   *
-   * The return value is owned by the cache and must not be modified.
-   *
-   * @param input the input to retrieve the digest for
-   * @return the artifact's digest or null if digest cannot be obtained (due to artifact
-   *         non-existence, lookup errors, or any other reason)
-   *
-   * @throws DigestOfDirectoryException in case {@code input} is a directory.
-   * @throws IOException If the file cannot be digested.
-   *
-   */
-  @Nullable
-  Metadata getMetadata(ActionInput input) throws IOException;
-
+public interface ActionInputFileCache extends MetadataProvider {
   /**
    * Checks if the file is available locally, based on the assumption that previous operations on
    * the ActionInputFileCache would have created a cache entry for it.

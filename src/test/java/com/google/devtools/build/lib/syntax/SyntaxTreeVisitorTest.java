@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -23,7 +24,6 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
 
 /** Tests for @{code SyntaxTreeVisitor} */
 @RunWith(JUnit4.class)
@@ -34,7 +34,9 @@ public class SyntaxTreeVisitorTest {
   /** Parses the contents of the specified string and returns the AST. */
   private BuildFileAST parse(String... lines) throws IOException {
     Path file = scratch.file("/a/build/file/BUILD", lines);
-    return BuildFileAST.parseSkylarkFile(file, null /* reporter */);
+    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
+    return BuildFileAST.parseSkylarkFile(
+        bytes, file.getDigest(), file.asFragment(), /* reporter */ null);
   }
 
   @Test
@@ -49,7 +51,7 @@ public class SyntaxTreeVisitorTest {
       }
 
       @Override
-      public void visit(Parameter<?, ?> node) {
+      public void visit(Parameter<Expression, Expression> node) {
         params.add(node.toString());
       }
     }
@@ -62,7 +64,7 @@ public class SyntaxTreeVisitorTest {
             "  return h + i.j()");
     IdentVisitor visitor = new IdentVisitor();
     ast.accept(visitor);
-    assertThat(idents).containsExactly("a", "b", "c", "d", "e", "f", "g", "h", "i", "j").inOrder();
+    assertThat(idents).containsExactly("b", "a", "c", "e", "d", "f", "g", "h", "i", "j").inOrder();
     assertThat(params).containsExactly("p1", "p2=4", "**p3").inOrder();
   }
 }

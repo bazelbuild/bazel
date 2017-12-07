@@ -15,8 +15,6 @@
 package com.google.testing.coverage;
 
 import java.util.Arrays;
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
 
 /**
  * Abstracts bit field operations.
@@ -158,7 +156,13 @@ public class BitField {
    */
   @Override
   public boolean equals(Object obj) {
-    return EqualsBuilder.reflectionEquals(this, obj);
+    if (obj == this) {
+      return true;
+    }
+    if (!(obj instanceof BitField)) {
+      return false;
+    }
+    return Arrays.equals(bytes, ((BitField) obj).bytes);
   }
 
   /**
@@ -173,7 +177,7 @@ public class BitField {
 
   @Override
   public int hashCode() {
-    return HashCodeBuilder.reflectionHashCode(this);
+    return Arrays.hashCode(bytes);
   }
 
   public int countBitsSet() {

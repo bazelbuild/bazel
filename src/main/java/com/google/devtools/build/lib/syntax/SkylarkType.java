@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -139,7 +139,7 @@ public abstract class SkylarkType implements Serializable {
     return TOP;
   }
 
-  private static final class Empty {}; // Empty type, used as basis for Bottom
+  private static final class Empty {} // Empty type, used as basis for Bottom
 
   // Notable types
 
@@ -333,7 +333,7 @@ public abstract class SkylarkType implements Serializable {
         if (generic == BOTTOM) {
           return BOTTOM;
         }
-        SkylarkType arg = intersection(argType, ((Combination) other).getArgType());
+        SkylarkType arg = intersection(argType, other.getArgType());
         if (arg == BOTTOM) {
           return BOTTOM;
         }
@@ -379,7 +379,7 @@ public abstract class SkylarkType implements Serializable {
     }
 
     private static final Interner<Combination> combinationInterner =
-        BlazeInterners.<Combination>newWeakInterner();
+        BlazeInterners.newWeakInterner();
 
     public static SkylarkType of(SkylarkType generic, SkylarkType argument) {
       // assume all combinations with TOP are the same as the simple type, and canonicalize.
@@ -441,7 +441,7 @@ public abstract class SkylarkType implements Serializable {
       return list;
     }
     @Override public SkylarkType intersectWith(SkylarkType other) {
-      List<SkylarkType> otherTypes = addElements(new ArrayList<SkylarkType>(), other);
+      List<SkylarkType> otherTypes = addElements(new ArrayList<>(), other);
       List<SkylarkType> results = new ArrayList<>();
       for (SkylarkType element : types) {
         for (SkylarkType otherElement : otherTypes) {
@@ -487,14 +487,14 @@ public abstract class SkylarkType implements Serializable {
       } else if (canonical.size() == 1) {
         return canonical.get(0);
       } else {
-        return new Union(ImmutableList.<SkylarkType>copyOf(canonical));
+        return new Union(ImmutableList.copyOf(canonical));
       }
     }
     public static SkylarkType of(SkylarkType... types) {
       return of(Arrays.asList(types));
     }
     public static SkylarkType of(SkylarkType t1, SkylarkType t2) {
-      return of(ImmutableList.<SkylarkType>of(t1, t2));
+      return of(ImmutableList.of(t1, t2));
     }
     public static SkylarkType of(Class<?> t1, Class<?> t2) {
       return of(Simple.forClass(t1), Simple.forClass(t2));
@@ -602,9 +602,14 @@ public abstract class SkylarkType implements Serializable {
    * Throws EvalException if the type of the object is not allowed to be present in Skylark.
    */
   static void checkTypeAllowedInSkylark(Object object, Location loc) throws EvalException {
+    // TODO(bazel-team): Unify this check with the logic in EvalUtils.getSkylarkType(). Might
+    // break some providers whose contents don't implement SkylarkValue, aren't wrapped in
+    // SkylarkList, etc.
     if (!isTypeAllowedInSkylark(object)) {
       throw new EvalException(
-          loc, "internal error: type '" + object.getClass().getSimpleName() + "' is not allowed");
+          loc,
+          "internal error: type '" + object.getClass().getSimpleName() + "' is not allowed as a "
+              + "Skylark value (checkTypeAllowedInSkylark() failed)");
     }
   }
 
@@ -722,7 +727,7 @@ public abstract class SkylarkType implements Serializable {
    */
   public static Object convertToSkylark(Object object, @Nullable Environment env) {
     if (object instanceof List && !(object instanceof SkylarkList)) {
-      return new MutableList<>((List<?>) object, env);
+      return MutableList.copyOf(env, (List<?>) object);
     }
     if (object instanceof SkylarkValue) {
       return object;

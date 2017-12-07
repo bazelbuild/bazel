@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.truth.Truth;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -23,16 +25,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import javax.annotation.Nullable;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** TargetPatternEvaluator tests that require a custom filesystem. */
 @RunWith(JUnit4.class)
@@ -89,9 +88,15 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
     this.transformer = createInconsistentFileStateTransformer("parent/badstat");
 
     // When we find all the targets beneath parent in keep_going mode, we get the valid target
-    // parent:parent, even though processing badstat threw an InconsistentFilesystemException.
+    // parent:parent, even though processing badstat threw an InconsistentFilesystemException,
     Truth.assertThat(parseListKeepGoing("//parent/...").getFirst())
         .containsExactlyElementsIn(labels("//parent:parent"));
+
+    // And the TargetPatternEvaluator reported the expected ERROR event to the handler.
+    assertContainsEvent(
+        "Failed to get information about path, for parent/badstat, skipping: Inconsistent "
+            + "filesystem operations",
+        ImmutableSet.of(EventKind.ERROR));
   }
 
   /**
@@ -112,9 +117,15 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
     this.transformer = createBadDirectoryListingTransformer("parent/badstat");
 
     // When we find all the targets beneath parent in keep_going mode, we get the valid target
-    // parent:parent, even though processing badstat threw an InconsistentFilesystemException.
+    // parent:parent, even though processing badstat threw an IOException,
     Truth.assertThat(parseListKeepGoing("//parent/...").getFirst())
         .containsExactlyElementsIn(labels("//parent:parent"));
+
+    // And the TargetPatternEvaluator reported the expected ERROR event to the handler.
+    assertContainsEvent(
+        "Failed to list directory contents, for parent/badstat, skipping: Path ended in "
+            + "parent/badstat, so readdir failed",
+        ImmutableSet.of(EventKind.ERROR));
   }
 
   private Transformer createInconsistentFileStateTransformer(final String badPathSuffix) {

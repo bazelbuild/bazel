@@ -59,6 +59,11 @@ is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
 is_absolute "$TEST_TMPDIR" || TEST_TMPDIR="$PWD/$TEST_TMPDIR"
 is_absolute "$XML_OUTPUT_FILE" || XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
 
+# Set USER to the current user, unless passed by Bazel via --test_env.
+if [[ -z "$USER" ]]; then
+  export USER=$(whoami)
+fi
+
 # The test shard status file is only set for sharded tests.
 if [[ -n "$TEST_SHARD_STATUS_FILE" ]]; then
   is_absolute "$TEST_SHARD_STATUS_FILE" || TEST_SHARD_STATUS_FILE="$PWD/$TEST_SHARD_STATUS_FILE"
@@ -112,7 +117,7 @@ else
     if is_absolute "$1" ; then
       echo "$1"
     else
-      echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
+      echo $(grep "^$1 " "${RUNFILES_MANIFEST_FILE}" | sed 's/[^ ]* //')
     fi
   }
 fi
@@ -140,6 +145,51 @@ if [[ -z "$no_echo" ]]; then
   echo "-----------------------------------------------------------------------------"
 fi
 
+function encode_output_file {
+  if [ -f "$1" ]; then
+    # Replace invalid XML characters and invalid sequence in CDATA
+    # cf. https://stackoverflow.com/a/7774512/4717701
+    perl -CSDA -pe's/[^\x9\xA\xD\x20-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]+/?/g;' "$1" \
+      | sed 's|]]>|]]>]]<![CDATA[>|g'
+  fi
+}
+
+function write_xml_output_file {
+  local duration=$(expr $(date +%s) - $start)
+  local errors=0
+  local error_msg=
+  local signal="${1-}"
+  if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
+    # Create a default XML output file if the test runner hasn't generated it
+    if [ -n "${signal}" ]; then
+      errors=1
+      if [ "${signal}" = "SIGTERM" ]; then
+        error_msg="<error message=\"Timed out\"></error>"
+      else
+        error_msg="<error message=\"Terminated by signal ${signal}\"></error>"
+      fi
+    elif (( $exitCode != 0 )); then
+      errors=1
+      error_msg="<error message=\"exited with error code $exitCode\"></error>"
+    fi
+    # Ensure that test shards have unique names in the xml output.
+    if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
+      ((shard_num=TEST_SHARD_INDEX+1))
+      TEST_NAME="$TEST_NAME"_shard_"$shard_num"/"$TEST_TOTAL_SHARDS"
+    fi
+    cat <<EOF >${XML_OUTPUT_FILE}
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="$TEST_NAME" tests="1" failures="0" errors="${errors}">
+    <testcase name="$TEST_NAME" status="run" duration="${duration}">${error_msg}</testcase>
+    <system-out><![CDATA[$(encode_output_file "${XML_OUTPUT_FILE}.log")]]></system-out>
+  </testsuite>
+</testsuites>
+EOF
+  fi
+  rm -f "${XML_OUTPUT_FILE}.log"
+}
+
 # The path of this command-line is usually relative to the exec-root,
 # but when using --run_under it can be a "/bin/bash -c" command-line.
 
@@ -161,37 +211,63 @@ fi
 [[ -n "$RUNTEST_PRESERVE_CWD" ]] && EXE="${TEST_NAME}"
 
 exitCode=0
+signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
+for signal in $signals; do
+  trap "write_xml_output_file ${signal}" ${signal}
+done
 start=$(date +%s)
+
 if [ -z "$COVERAGE_DIR" ]; then
-  "${TEST_PATH}" "$@" || exitCode=$?
+  "${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
 else
-  "$1" "$TEST_PATH" "${@:3}" || exitCode=$?
+  "$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
 fi
-duration=$(expr $(date +%s) - $start)
 
+for signal in $signals; do
+  trap - ${signal}
+done
+write_xml_output_file
 
-if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
-  # Create a default XML output file if the test runner hasn't generated it
-  if (( $exitCode != 0 )); then
-    errors=1
-    error_msg="<error message=\"exited with error code $exitCode\"></error>"
-  else
-    errors=0
-    error_msg=
+# Add all of the files from the undeclared outputs directory to the manifest.
+if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then
+  undeclared_outputs="$(find -L "$TEST_UNDECLARED_OUTPUTS_DIR" -type f | sort)"
+  # Only write the manifest if there are any undeclared outputs.
+  if [[ ! -z "$undeclared_outputs" ]]; then
+    # For each file, write a tab-separated line with name (relative to
+    # TEST_UNDECLARED_OUTPUTS_DIR), size, and mime type to the manifest. e.g.
+    # foo.txt	9	text/plain
+    while read -r undeclared_output; do
+      rel_path="${undeclared_output#$TEST_UNDECLARED_OUTPUTS_DIR/}"
+      # stat has different flags for different systems. -c is supported by GNU,
+      # and -f by BSD (and thus OSX). Try both.
+      file_size="$(stat -f%z "$undeclared_output" 2>/dev/null || stat -c%s "$undeclared_output" 2>/dev/null || echo "Could not stat $undeclared_output")"
+      file_type="$(file -L -b --mime-type "$undeclared_output")"
+
+      printf "$rel_path\t$file_size\t$file_type\n"
+    done <<< "$undeclared_outputs" \
+      > "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
+    if [[ ! -s "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then
+      rm "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
+    fi
   fi
-  # Ensure that test shards have unique names in the xml output.
-  if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
-    ((shard_num=TEST_SHARD_INDEX+1))
-    TEST_NAME="$TEST_NAME"_shard_"$shard_num"/"$TEST_TOTAL_SHARDS"
-  fi
-  cat <<EOF >${XML_OUTPUT_FILE}
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuites>
-  <testsuite name="$TEST_NAME" tests="1" failures="0" errors="$errors">
-    <testcase name="$TEST_NAME" status="run" duration="$duration">$error_msg</testcase>
-  </testsuite>
-</testsuites>
-EOF
+fi
+
+# Add all of the custom manifest entries to the annotation file.
+if [[ -n "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS" && \
+      -n "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" && \
+      -d "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ]]; then
+  (
+   shopt -s failglob
+   cat "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR"/*.part > "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS"
+  ) 2> /dev/null
+fi
+
+# Zip up undeclared outputs.
+if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR"; then
+  (
+   shopt -s dotglob failglob
+   zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- *
+  ) 2> /dev/null
 fi
 
 exit $exitCode

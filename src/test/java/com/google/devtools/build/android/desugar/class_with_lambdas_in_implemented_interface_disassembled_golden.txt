@@ -1,0 +1,9 @@
+Compiled from "InterfaceMethod.java"
+public class com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod$Concrete implements com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod {
+  public com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod$Concrete();
+  public java.util.List defaultMethodReference(java.util.List);
+  public java.lang.String defaultInvokingBootclasspathMethods(java.lang.String);
+  public java.util.List staticMethodReference(java.util.List);
+  public java.util.List lambdaCallsDefaultMethod(java.util.List);
+  public boolean startsWithS(java.lang.String);
+}

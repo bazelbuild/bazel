@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.skyframe.FileArtifactValue;
@@ -52,38 +53,42 @@ public class SingleBuildFileCache implements ActionInputFileCache {
   // first.  Further we won't need to unwrap the exception in getDigest().
   private final LoadingCache<ActionInput, ActionInputMetadata> pathToMetadata =
       CacheBuilder.newBuilder()
-      // We default to 10 disk read threads, but we don't expect them all to edit the map
-      // simultaneously.
-      .concurrencyLevel(8)
-      // Even small-ish builds, as of 11/21/2011 typically have over 10k artifacts, so it's
-      // unlikely that this default will adversely affect memory in most cases.
-      .initialCapacity(10000)
-      .build(new CacheLoader<ActionInput, ActionInputMetadata>() {
-        @Override
-        public ActionInputMetadata load(ActionInput input) {
-          Path path = null;
-          try {
-            path = execRoot.getRelative(input.getExecPath());
-            byte[] digest = path.getDigest();
-            BaseEncoding hex = BaseEncoding.base16().lowerCase();
-            ByteString hexDigest = ByteString.copyFrom(hex.encode(digest).getBytes(US_ASCII));
-            // Inject reverse mapping. Doing this unconditionally in getDigest() showed up
-            // as a hotspot in CPU profiling.
-            digestToPath.put(hexDigest, input);
-            return new ActionInputMetadata(digest, path.getFileSize());
-          } catch (IOException e) {
-            if (path != null && path.isDirectory()) {
-              // TODO(bazel-team): This is rather presumptuous- it could have been another type of
-              // IOException.
-              return new ActionInputMetadata(
-                  new DigestOfDirectoryException(
-                      "Input is a directory: " + input.getExecPathString()));
-            } else {
-              return new ActionInputMetadata(e);
-            }
-          }
-        }
-      });
+          // We default to 10 disk read threads, but we don't expect them all to edit the map
+          // simultaneously.
+          .concurrencyLevel(8)
+          // Even small-ish builds, as of 11/21/2011 typically have over 10k artifacts, so it's
+          // unlikely that this default will adversely affect memory in most cases.
+          .initialCapacity(10000)
+          .build(
+              new CacheLoader<ActionInput, ActionInputMetadata>() {
+                @Override
+                public ActionInputMetadata load(ActionInput input) {
+                  Path path =
+                      (input instanceof Artifact)
+                          ? ((Artifact) input).getPath()
+                          : execRoot.getRelative(input.getExecPath());
+                  try {
+                    byte[] digest = path.getDigest();
+                    BaseEncoding hex = BaseEncoding.base16().lowerCase();
+                    ByteString hexDigest =
+                        ByteString.copyFrom(hex.encode(digest).getBytes(US_ASCII));
+                    // Inject reverse mapping. Doing this unconditionally in getDigest() showed up
+                    // as a hotspot in CPU profiling.
+                    digestToPath.put(hexDigest, input);
+                    return new ActionInputMetadata(digest, path.getFileSize());
+                  } catch (IOException e) {
+                    if (path.isDirectory()) {
+                      // TODO(bazel-team): This is rather presumptuous- it could have been another
+                      // type of IOException.
+                      return new ActionInputMetadata(
+                          new DigestOfDirectoryException(
+                              "Input is a directory: " + input.getExecPathString()));
+                    } else {
+                      return new ActionInputMetadata(e);
+                    }
+                  }
+                }
+              });
 
   private final Map<ByteString, ActionInput> digestToPath = Maps.newConcurrentMap();
 

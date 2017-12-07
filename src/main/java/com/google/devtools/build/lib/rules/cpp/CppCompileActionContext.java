@@ -51,13 +51,10 @@ public interface CppCompileActionContext extends ActionContext {
 
   /**
    * Executes the given action and return the reply of the executor.
+   *
+   * @return a CppCompileActionResult with information resulting from the action's execution
    */
-  Reply execWithReply(CppCompileAction action,
-      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException;
-
-  /**
-   * Returns the executor reply from an exec exception, if available.
-   */
-  @Nullable Reply getReplyFromException(
-      ExecException e, CppCompileAction action);
+  CppCompileActionResult execWithReply(
+      CppCompileAction action, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException;
 }

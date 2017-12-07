@@ -349,49 +349,6 @@ toolchain {
   supports_interface_shared_objects: true
 }
 
-# Stub crosstool to allow construction of apple crosstool configuration in a
-# static configuration set.
-# TODO(b/33804121): Remove this once dynamic configurations are in place.
-toolchain {
-  toolchain_identifier: "local_ios"
-
-  host_system_name: "local"
-  target_system_name: "local"
-  target_cpu: "ios_x86_64"
-  target_libc: "ios"
-  compiler: "compiler"
-  linking_mode_flags { mode: DYNAMIC }
-
-  abi_version: "local"
-  abi_libc_version: "local"
-
-  tool_path { name: "ar" path: "/usr/bin/libtool" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-
-  needsPic: false
-
-  builtin_sysroot: ""
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-  cxx_builtin_include_directory: "/usr/include"
-  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"
-  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
-  cxx_builtin_include_directory: "/opt/local/include"
-  cxx_builtin_include_directory: "/Library/Developer/CommandLineTools"
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  supports_interface_shared_objects: true
-}
-
 toolchain {
   toolchain_identifier: "local_windows_mingw"
 

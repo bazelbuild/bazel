@@ -1,14 +1,11 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import java.util.Collection;
-import java.util.LinkedList;
-
-import org.checkerframework.dataflow.util.HashCodeUtils;
-
-import org.checkerframework.javacutil.InternalUtils;
-
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.Tree.Kind;
+import java.util.Collection;
+import java.util.LinkedList;
+import org.checkerframework.dataflow.util.HashCodeUtils;
+import org.checkerframework.javacutil.InternalUtils;
 
 /**
  * A node for a conditional expression:
@@ -19,7 +16,6 @@ import com.sun.source.tree.Tree.Kind;
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
 public class TernaryExpressionNode extends Node {
 
@@ -28,8 +24,8 @@ public class TernaryExpressionNode extends Node {
     protected Node thenOperand;
     protected Node elseOperand;
 
-    public TernaryExpressionNode(ConditionalExpressionTree tree, Node condition,
-            Node thenOperand, Node elseOperand) {
+    public TernaryExpressionNode(
+            ConditionalExpressionTree tree, Node condition, Node thenOperand, Node elseOperand) {
         super(InternalUtils.typeOf(tree));
         assert tree.getKind().equals(Kind.CONDITIONAL_EXPRESSION);
         this.tree = tree;
@@ -62,8 +58,13 @@ public class TernaryExpressionNode extends Node {
 
     @Override
     public String toString() {
-        return "(" + getConditionOperand() + " ? " + getThenOperand() + " : "
-                + getElseOperand() + ")";
+        return "("
+                + getConditionOperand()
+                + " ? "
+                + getThenOperand()
+                + " : "
+                + getElseOperand()
+                + ")";
     }
 
     @Override
@@ -79,8 +80,7 @@ public class TernaryExpressionNode extends Node {
 
     @Override
     public int hashCode() {
-        return HashCodeUtils.hash(getConditionOperand(), getThenOperand(),
-                getElseOperand());
+        return HashCodeUtils.hash(getConditionOperand(), getThenOperand(), getElseOperand());
     }
 
     @Override

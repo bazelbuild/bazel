@@ -111,6 +111,7 @@ class TarFile(object):
       ids = (0, 0)
     if names is None:
       names = ('', '')
+    dest = os.path.normpath(dest)
     self.tarfile.add_file(
         dest,
         file_content=f,
@@ -142,6 +143,7 @@ class TarFile(object):
       symlink: the name of the symbolic link to add.
       destination: where the symbolic link point to.
     """
+    symlink = os.path.normpath(symlink)
     self.tarfile.add_file(symlink, tarfile.SYMTYPE, link=destination)
 
   def add_deb(self, deb):

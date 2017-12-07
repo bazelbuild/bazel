@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -22,9 +23,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -32,20 +33,16 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.SpecialInputsHandler;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Builder class to construct C++ compile actions.
@@ -55,11 +52,9 @@ public class CppCompileActionBuilder {
 
   private final ActionOwner owner;
   private final BuildConfiguration configuration;
-  private final List<String> features = new ArrayList<>();
   private CcToolchainFeatures.FeatureConfiguration featureConfiguration;
   private CcToolchainFeatures.Variables variables = Variables.EMPTY;
   private Artifact sourceFile;
-  private final Label sourceLabel;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
   private Artifact optionalSourceFile;
   private Artifact outputFile;
@@ -69,13 +64,11 @@ public class CppCompileActionBuilder {
   private DotdFile dotdFile;
   private Artifact gcnoFile;
   private CppCompilationContext context = CppCompilationContext.EMPTY;
-  private final List<String> copts = new ArrayList<>();
   private final List<String> pluginOpts = new ArrayList<>();
-  private final List<Pattern> nocopts = new ArrayList<>();
+  private Predicate<String> coptsFilter = Predicates.alwaysTrue();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
   private boolean usePic;
   private boolean allowUsingHeaderModules;
-  private SpecialInputsHandler specialInputsHandler = CppCompileAction.VOID_SPECIAL_INPUTS_HANDLER;
   private UUID actionClassId = GUID;
   private Class<? extends CppCompileActionContext> actionContext;
   private CppConfiguration cppConfiguration;
@@ -89,52 +82,44 @@ public class CppCompileActionBuilder {
   private CcToolchainProvider ccToolchain;
   private final ImmutableMap<String, String> localShellEnvironment;
   private final boolean codeCoverageEnabled;
+  @Nullable private String actionName;
+  private ImmutableList<Artifact> builtinIncludeFiles;
   // New fields need to be added to the copy constructor.
 
   /**
    * Creates a builder from a rule. This also uses the configuration and artifact factory from the
    * rule.
    */
-  public CppCompileActionBuilder(
-      RuleContext ruleContext, Label sourceLabel, CcToolchainProvider ccToolchain) {
+  public CppCompileActionBuilder(RuleContext ruleContext, CcToolchainProvider ccToolchain) {
     this(
         ruleContext.getActionOwner(),
-        sourceLabel,
         ruleContext.getConfiguration(),
-        getLipoScannableMap(ruleContext),
-        ruleContext.getFeatures(),
+        getLipoScannableMap(ruleContext, ccToolchain),
         ccToolchain);
   }
 
   /** Creates a builder from a rule and configuration. */
   public CppCompileActionBuilder(
       RuleContext ruleContext,
-      Label sourceLabel,
       CcToolchainProvider ccToolchain,
       BuildConfiguration configuration) {
     this(
         ruleContext.getActionOwner(),
-        sourceLabel,
         configuration,
-        getLipoScannableMap(ruleContext),
-        ruleContext.getFeatures(),
+        getLipoScannableMap(ruleContext, ccToolchain),
         ccToolchain);
   }
 
   /** Creates a builder from a rule and configuration. */
   private CppCompileActionBuilder(
       ActionOwner actionOwner,
-      Label sourceLabel,
       BuildConfiguration configuration,
       Map<Artifact, IncludeScannable> lipoScannableMap,
-      Set<String> features,
       CcToolchainProvider ccToolchain) {
     this.owner = actionOwner;
-    this.sourceLabel = sourceLabel;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.lipoScannableMap = ImmutableMap.copyOf(lipoScannableMap);
-    this.features.addAll(features);
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.allowUsingHeaderModules = true;
     this.localShellEnvironment = configuration.getLocalShellEnvironment();
@@ -144,8 +129,8 @@ public class CppCompileActionBuilder {
   }
 
   private static ImmutableMap<Artifact, IncludeScannable> getLipoScannableMap(
-      RuleContext ruleContext) {
-    if (!ruleContext.getFragment(CppConfiguration.class).isLipoOptimization()
+      RuleContext ruleContext, CcToolchainProvider toolchain) {
+    if (!CppHelper.isLipoOptimization(ruleContext.getFragment(CppConfiguration.class), toolchain)
         // Rules that do not contain sources that are compiled into object files, but may
         // contain headers, will still create CppCompileActions without providing a
         // lipo_context_collector.
@@ -162,10 +147,8 @@ public class CppCompileActionBuilder {
    */
   public CppCompileActionBuilder(CppCompileActionBuilder other) {
     this.owner = other.owner;
-    this.features.addAll(other.features);
     this.featureConfiguration = other.featureConfiguration;
     this.sourceFile = other.sourceFile;
-    this.sourceLabel = other.sourceLabel;
     this.mandatoryInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(other.mandatoryInputsBuilder.build());
     this.optionalSourceFile = other.optionalSourceFile;
@@ -176,11 +159,9 @@ public class CppCompileActionBuilder {
     this.dotdFile = other.dotdFile;
     this.gcnoFile = other.gcnoFile;
     this.context = other.context;
-    this.copts.addAll(other.copts);
     this.pluginOpts.addAll(other.pluginOpts);
-    this.nocopts.addAll(other.nocopts);
+    this.coptsFilter = other.coptsFilter;
     this.extraSystemIncludePrefixes = ImmutableList.copyOf(other.extraSystemIncludePrefixes);
-    this.specialInputsHandler = other.specialInputsHandler;
     this.actionClassId = other.actionClassId;
     this.actionContext = other.actionContext;
     this.cppConfiguration = other.cppConfiguration;
@@ -195,6 +176,7 @@ public class CppCompileActionBuilder {
     this.codeCoverageEnabled = other.codeCoverageEnabled;
     this.cppSemantics = other.cppSemantics;
     this.ccToolchain = other.ccToolchain;
+    this.actionName = other.actionName;
   }
 
   public PathFragment getTempOutputFile() {
@@ -218,23 +200,6 @@ public class CppCompileActionBuilder {
     return mandatoryInputsBuilder.build();
   }
 
-  private static Predicate<String> getNocoptPredicate(Collection<Pattern> patterns) {
-    final ImmutableList<Pattern> finalPatterns = ImmutableList.copyOf(patterns);
-    if (finalPatterns.isEmpty()) {
-      return Predicates.alwaysTrue();
-    } else {
-      return option -> {
-        for (Pattern pattern : finalPatterns) {
-          if (pattern.matcher(option).matches()) {
-            return false;
-          }
-        }
-
-        return true;
-      };
-    }
-  }
-
   private Iterable<IncludeScannable> getLipoScannables(NestedSet<Artifact> realMandatoryInputs) {
     boolean fake = tempOutputFile != null;
 
@@ -254,6 +219,9 @@ public class CppCompileActionBuilder {
   }
 
   private String getActionName() {
+    if (actionName != null) {
+      return actionName;
+    }
     PathFragment sourcePath = sourceFile.getExecPath();
     if (CppFileTypes.CPP_MODULE_MAP.matches(sourcePath)) {
       return CppCompileAction.CPP_MODULE_COMPILE;
@@ -341,18 +309,19 @@ public class CppCompileActionBuilder {
     // This must be set either to false or true by CppSemantics, otherwise someone forgot to call
     // finalizeCompileActionBuilder on this builder.
     Preconditions.checkNotNull(shouldScanIncludes);
+    Preconditions.checkNotNull(featureConfiguration);
     boolean useHeaderModules =
         allowUsingHeaderModules
             && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES);
 
-    if (!featureConfiguration.actionIsConfigured(getActionName())) {
-      errorCollector.accept(
-          String.format("Expected action_config for '%s' to be configured", getActionName()));
-    } else {
+    if (featureConfiguration.actionIsConfigured(getActionName())) {
       for (String executionRequirement :
           featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements()) {
         executionInfo.put(executionRequirement, "");
       }
+    } else {
+      errorCollector.accept(
+          String.format("Expected action_config for '%s' to be configured", getActionName()));
     }
 
     NestedSet<Artifact> realMandatoryInputs = buildMandatoryInputs();
@@ -386,7 +355,6 @@ public class CppCompileActionBuilder {
           new FakeCppCompileAction(
               owner,
               allInputs,
-              ImmutableList.copyOf(features),
               featureConfiguration,
               variables,
               sourceFile,
@@ -394,8 +362,8 @@ public class CppCompileActionBuilder {
               shouldPruneModules(),
               usePic,
               useHeaderModules,
-              sourceLabel,
               realMandatoryInputs,
+              getBuiltinIncludeFiles(),
               prunableInputs,
               outputFile,
               tempOutputFile,
@@ -404,8 +372,7 @@ public class CppCompileActionBuilder {
               cppConfiguration,
               context,
               actionContext,
-              ImmutableList.copyOf(copts),
-              getNocoptPredicate(nocopts),
+              coptsFilter,
               getLipoScannables(realMandatoryInputs),
               cppSemantics,
               ccToolchain,
@@ -415,7 +382,6 @@ public class CppCompileActionBuilder {
           new CppCompileAction(
               owner,
               allInputs,
-              ImmutableList.copyOf(features),
               featureConfiguration,
               variables,
               sourceFile,
@@ -423,8 +389,8 @@ public class CppCompileActionBuilder {
               shouldPruneModules(),
               usePic,
               useHeaderModules,
-              sourceLabel,
               realMandatoryInputs,
+              getBuiltinIncludeFiles(),
               prunableInputs,
               outputFile,
               dotdFile,
@@ -436,9 +402,7 @@ public class CppCompileActionBuilder {
               cppConfiguration,
               context,
               actionContext,
-              ImmutableList.copyOf(copts),
-              getNocoptPredicate(nocopts),
-              specialInputsHandler,
+              coptsFilter,
               getLipoScannables(realMandatoryInputs),
               additionalIncludeFiles.build(),
               actionClassId,
@@ -455,13 +419,22 @@ public class CppCompileActionBuilder {
     return action;
   }
 
+  private ImmutableList<Artifact> getBuiltinIncludeFiles() {
+    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
+    result.addAll(ccToolchain.getBuiltinIncludeFiles());
+    if (builtinIncludeFiles != null) {
+      result.addAll(builtinIncludeFiles);
+    }
+    return result.build();
+  }
+
   /**
    * Returns the list of mandatory inputs for the {@link CppCompileAction} as configured.
    */
   NestedSet<Artifact> buildMandatoryInputs() {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
-    realMandatoryInputsBuilder.addAll(ccToolchain.getBuiltinIncludeFiles());
+    realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
     realMandatoryInputsBuilder.addAll(context.getTransitiveCompilationPrerequisites());
     if (useHeaderModules() && !shouldPruneModules()) {
       realMandatoryInputsBuilder.addTransitive(context.getTransitiveModules(usePic));
@@ -519,28 +492,36 @@ public class CppCompileActionBuilder {
       }
     }
   }
-  
+
   /**
-   * Sets the feature configuration to be used for the action. 
+   * Set action name that is used to pick the right action_config and features from {@link
+   * FeatureConfiguration}. By default the action name is decided from the source filetype.
+   */
+  public CppCompileActionBuilder setActionName(String actionName) {
+    this.actionName = actionName;
+    return this;
+  }
+
+  /**
+   * Sets the feature configuration to be used for the action.
    */
   public CppCompileActionBuilder setFeatureConfiguration(
       FeatureConfiguration featureConfiguration) {
+    Preconditions.checkNotNull(featureConfiguration);
     this.featureConfiguration = featureConfiguration;
     return this;
   }
-  
+
   /**
-   * Sets the feature build variables to be used for the action. 
+   * Sets the feature build variables to be used for the action.
    */
   public CppCompileActionBuilder setVariables(CcToolchainFeatures.Variables variables) {
     this.variables = variables;
     return this;
   }
 
-  /**
-   * Returns the build variables to be used for the action.
-   */
-  CcToolchainFeatures.Variables getVariables() {
+  /** Returns the build variables to be used for the action. */
+  public CcToolchainFeatures.Variables getVariables() {
     return variables;
   }
 
@@ -551,12 +532,6 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder addExecutionInfo(Map<String, String> executionInfo) {
     this.executionInfo.putAll(executionInfo);
-    return this;
-  }
-
-  public CppCompileActionBuilder setSpecialInputsHandler(
-      SpecialInputsHandler specialInputsHandler) {
-    this.specialInputsHandler = specialInputsHandler;
     return this;
   }
 
@@ -644,7 +619,7 @@ public class CppCompileActionBuilder {
    * Set the minimized bitcode file emitted by this (ThinLTO) compilation that can be used in place
    * of the full bitcode outputFile in the LTO indexing step.
    */
-  public CppCompileActionBuilder setLTOIndexingFile(Artifact ltoIndexingFile) {
+  public CppCompileActionBuilder setLtoIndexingFile(Artifact ltoIndexingFile) {
     this.ltoIndexingFile = ltoIndexingFile;
     return this;
   }
@@ -676,26 +651,6 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public CppCompileActionBuilder addCopt(String copt) {
-    copts.add(copt);
-    return this;
-  }
-
-  public CppCompileActionBuilder addCopts(Iterable<? extends String> copts) {
-    Iterables.addAll(this.copts, copts);
-    return this;
-  }
-
-  public CppCompileActionBuilder addCopts(int position, Iterable<? extends String> copts) {
-    this.copts.addAll(position, ImmutableList.copyOf(copts));
-    return this;
-  }
-
-  public CppCompileActionBuilder addNocopts(Pattern nocopts) {
-    this.nocopts.add(nocopts);
-    return this;
-  }
-
   public CppCompileActionBuilder setContext(CppCompilationContext context) {
     this.context = context;
     return this;
@@ -718,9 +673,10 @@ public class CppCompileActionBuilder {
     this.cppSemantics = semantics;
     return this;
   }
-  
-  public void setShouldScanIncludes(boolean shouldScanIncludes) {
+
+  public CppCompileActionBuilder setShouldScanIncludes(boolean shouldScanIncludes) {
     this.shouldScanIncludes = shouldScanIncludes;
+    return this;
   }
 
   public boolean getShouldScanIncludes() {
@@ -731,4 +687,14 @@ public class CppCompileActionBuilder {
     return ccToolchain;
   }
 
+  public CppCompileActionBuilder setCoptsFilter(Predicate<String> coptsFilter) {
+    this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
+    return this;
+  }
+
+  public CppCompileActionBuilder setBuiltinIncludeFiles(
+      ImmutableList<Artifact> builtinIncludeFiles) {
+    this.builtinIncludeFiles = builtinIncludeFiles;
+    return this;
+  }
 }

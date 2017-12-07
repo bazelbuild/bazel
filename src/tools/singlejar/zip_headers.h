@@ -20,9 +20,10 @@
  * http://www.pkware.com/documents/casestudies/APPNOTE.TXT
  */
 
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <cinttypes>
 
 #if defined(__linux__)
 #include <endian.h>

@@ -38,18 +38,29 @@ fi
 # as the temp directory for CL.EXE .
 VSTEMP=$(mktemp -d)
 trap "rm -fr \"$VSTEMP\"" EXIT
+VSVARS=""
 
-# Find Visual Studio. We don't have any regular environment variables available
-# so this is the best we can do.
-if [ -z "${BAZEL_VS+set}" ]; then
-  VSVERSION="$(ls "C:/Program Files (x86)" \
-      | grep -E "Microsoft Visual Studio [0-9]+" \
-      | sort --version-sort \
-      | tail -n 1)"
-  [[ -n "$VSVERSION" ]] || fail "Visual Studio not found"
-  BAZEL_VS="C:/Program Files (x86)/$VSVERSION"
+# Visual Studio or Visual C++ Build Tools might not be installed at default
+# location. Check BAZEL_VS and BAZEL_VC first.
+if [ -n "${BAZEL_VC+set}" ]; then
+  VSVARS="${BAZEL_VC}/VCVARSALL.BAT"
+  # Check if BAZEL_VC points to Visual C++ Build Tools 2017
+  if [ ! -f "${VSVARS}" ]; then
+    VSVARS="${BAZEL_VC}/Auxiliary/Build/VCVARSALL.BAT"
+  fi
+else
+  # Find Visual Studio. We don't have any regular environment variables
+  # available so this is the best we can do.
+  if [ -z "${BAZEL_VS+set}" ]; then
+    VSVERSION="$(ls "C:/Program Files (x86)" \
+        | grep -E "Microsoft Visual Studio [0-9]+" \
+        | sort --version-sort \
+        | tail -n 1)"
+    [[ -n "$VSVERSION" ]] || fail "Visual Studio not found"
+    BAZEL_VS="C:/Program Files (x86)/$VSVERSION"
+  fi
+  VSVARS="${BAZEL_VS}/VC/VCVARSALL.BAT"
 fi
-VSVARS="${BAZEL_VS}/VC/VCVARSALL.BAT"
 
 # Check if Visual Studio 2017 is installed. Look for it at the default
 # locations.
@@ -70,11 +81,16 @@ if [ ! -f "${VSVARS}" ]; then
   fail "VCVARSALL.bat not found, check your Visual Studio installation"
 fi
 
-# Find Java. $(JAVA) in the BUILD file points to external/local_jdk/..., which
-# is not very useful for anything not MSYS-based.
-JAVA=$(ls "C:/Program Files/java" | grep -E "^jdk" | sort | tail -n 1)
-[[ -n "$JAVA" ]] || fail "JDK not found"
-JAVAINCLUDES="C:/Program Files/java/$JAVA/include"
+JAVAINCLUDES=""
+if [ -n "${JAVA_HOME+set}" ]; then
+  JAVAINCLUDES="$JAVA_HOME/include"
+else
+  # Find Java. $(JAVA) in the BUILD file points to external/local_jdk/...,
+  # which is not very useful for anything not MSYS-based.
+  JAVA=$(ls "C:/Program Files/java" | grep -E "^jdk" | sort | tail -n 1)
+  [[ -n "$JAVA" ]] || fail "JDK not found"
+  JAVAINCLUDES="C:/Program Files/java/$JAVA/include"
+fi
 
 # Convert all compilation units to Windows paths.
 WINDOWS_SOURCES=()
@@ -84,15 +100,28 @@ for i in $*; do
   fi
 done
 
+# Copy jni headers to src/main/native folder
+# Mimic genrule //src/main/native:copy_link_jni_md_header and //src/main/native:copy_link_jni_header
+JNI_HEADERS_DIR="${VSTEMP}/src/main/native"
+mkdir -p "$JNI_HEADERS_DIR"
+cp -f "$JAVAINCLUDES/jni.h" "$JNI_HEADERS_DIR/"
+cp -f "$JAVAINCLUDES/win32/jni_md.h" "$JNI_HEADERS_DIR/"
+
 # CL.EXE needs a bunch of environment variables whose official location is a
 # batch file. We can't make that have an effect on a bash instance, so
 # generate a batch file that invokes it.
+# As for `abs_pwd` and `pwd_drive`: in cmd.exe, it's not enough to `cd` into a
+# directory. You must also change to its drive to truly set the cwd to that
+# directory. See https://github.com/bazelbuild/bazel/issues/3906
+abs_pwd="$(cygpath -a -w "${PWD}")"
+pwd_drive="$(echo "$abs_pwd" | head -c2)"
 cat > "${VSTEMP}/windows_jni.bat" <<EOF
 @echo OFF
 @call "${VSVARS}" amd64
-@cd $(cygpath -a -w "${PWD}")
+@$pwd_drive
+@cd "$abs_pwd"
 @set TMP=$(cygpath -a -w "${VSTEMP}")
-@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${JAVAINCLUDES}" /I "${JAVAINCLUDES}/win32" /I . ${WINDOWS_SOURCES[*]}
+@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . ${WINDOWS_SOURCES[*]}
 EOF
 
 # Invoke the file and hopefully generate the .DLL .

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -30,7 +30,7 @@ import java.util.Collection;
  * Allow tests to easily manage scratch files in a FileSystem.
  */
 public final class Scratch {
-  
+
   private static final Charset DEFAULT_CHARSET = StandardCharsets.ISO_8859_1;
 
   private final FileSystem fileSystem;
@@ -119,7 +119,7 @@ public final class Scratch {
   public Path file(String pathName, String... lines) throws IOException {
     return file(pathName, DEFAULT_CHARSET, lines);
   }
-  
+
   /**
    * Create a scratch file in the scratch filesystem, with the given pathName,
    * consisting of a set of lines. The method returns a Path instance for the

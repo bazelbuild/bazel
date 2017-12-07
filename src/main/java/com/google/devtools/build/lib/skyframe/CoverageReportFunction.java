@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -28,9 +29,12 @@ import com.google.devtools.build.skyframe.SkyValue;
  * A Skyframe function to calculate the coverage report Action and Artifacts.
  */
 public class CoverageReportFunction implements SkyFunction {
+  private final ActionKeyContext actionKeyContext;
   private final Supplier<Boolean> removeActionsAfterEvaluation;
 
-  CoverageReportFunction(Supplier<Boolean> removeActionsAfterEvaluation) {
+  CoverageReportFunction(
+      ActionKeyContext actionKeyContext, Supplier<Boolean> removeActionsAfterEvaluation) {
+    this.actionKeyContext = actionKeyContext;
     this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
   }
 
@@ -51,7 +55,7 @@ public class CoverageReportFunction implements SkyFunction {
       outputs.addAll(action.getOutputs());
     }
 
-    return new CoverageReportValue(actions, removeActionsAfterEvaluation.get());
+    return new CoverageReportValue(actionKeyContext, actions, removeActionsAfterEvaluation.get());
   }
 
   @Override

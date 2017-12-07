@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -106,8 +105,13 @@ public class TransitiveTargetFunction
   }
 
   @Override
+  Label argumentFromKey(SkyKey key) {
+    return ((TransitiveTargetKey) key).getLabel();
+  }
+
+  @Override
   SkyKey getKey(Label label) {
-    return TransitiveTargetValue.key(label);
+    return TransitiveTargetKey.of(label);
   }
 
   @Override
@@ -131,7 +135,7 @@ public class TransitiveTargetFunction
 
     for (Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
         depEntries) {
-      Label depLabel = (Label) entry.getKey().argument();
+      Label depLabel = ((TransitiveTargetKey) entry.getKey()).getLabel();
       TransitiveTargetValue transitiveTargetValue;
       try {
         transitiveTargetValue = (TransitiveTargetValue) entry.getValue().get();
@@ -144,10 +148,6 @@ public class TransitiveTargetFunction
         maybeReportErrorAboutMissingEdge(target, depLabel, e, eventHandler);
         continue;
       }
-      builder.getTransitiveSuccessfulPkgs().addTransitive(
-          transitiveTargetValue.getTransitiveSuccessfulPackages());
-      builder.getTransitiveUnsuccessfulPkgs().addTransitive(
-          transitiveTargetValue.getTransitiveUnsuccessfulPackages());
       builder.getTransitiveTargets().addTransitive(transitiveTargetValue.getTransitiveTargets());
       NestedSet<Label> rootCauses = transitiveTargetValue.getTransitiveRootCauses();
       if (rootCauses != null) {
@@ -202,9 +202,14 @@ public class TransitiveTargetFunction
 
       // Declared by late-bound attributes:
       for (Attribute attr : rule.getAttributes()) {
-        if (attr.isLateBound()) {
-          addFragmentsIfNew(builder,
-              attr.getLateBoundDefault().getRequiredConfigurationFragments());
+        if (attr.isLateBound()
+            && attr.getLateBoundDefault().getFragmentClass() != null
+            && BuildConfiguration.Fragment.class.isAssignableFrom(
+                attr.getLateBoundDefault().getFragmentClass())) {
+          addFragmentIfNew(
+              builder,
+              (Class<? extends BuildConfiguration.Fragment>)
+                  attr.getLateBoundDefault().getFragmentClass());
         }
       }
 
@@ -245,14 +250,15 @@ public class TransitiveTargetFunction
     }
   }
 
-  private void addFragmentsIfNew(TransitiveTargetValueBuilder builder, Iterable<?> fragments) {
+  private void addFragmentsIfNew(
+      TransitiveTargetValueBuilder builder, Iterable<? extends Class<?>> fragments) {
     // We take Iterable<?> instead of Iterable<Class<?>> or Iterable<Class<? extends Fragment>>
     // because both of the latter are passed as actual parameters and there's no way to consistently
     // cast to one of them. In actuality, all values are Class<? extends Fragment>, but the values
     // coming from Attribute.java don't have access to the Fragment symbol since Attribute is built
     // in a different library.
-    for (Object fragment : fragments) {
-      addFragmentIfNew(builder, (Class<? extends Fragment>) fragment);
+    for (Class<?> fragment : fragments) {
+      addFragmentIfNew(builder, fragment.asSubclass(Fragment.class));
     }
   }
 
@@ -327,8 +333,6 @@ public class TransitiveTargetFunction
    */
   static class TransitiveTargetValueBuilder {
     private boolean successfulTransitiveLoading;
-    private final NestedSetBuilder<PackageIdentifier> transitiveSuccessfulPkgs;
-    private final NestedSetBuilder<PackageIdentifier> transitiveUnsuccessfulPkgs;
     private final NestedSetBuilder<Label> transitiveTargets;
     private final NestedSetBuilder<Class<? extends Fragment>> transitiveConfigFragments;
     private final Set<Class<? extends Fragment>> configFragmentsFromDeps;
@@ -336,8 +340,6 @@ public class TransitiveTargetFunction
 
     public TransitiveTargetValueBuilder(Label label, Target target,
         boolean packageLoadedSuccessfully) {
-      this.transitiveSuccessfulPkgs = NestedSetBuilder.stableOrder();
-      this.transitiveUnsuccessfulPkgs = NestedSetBuilder.stableOrder();
       this.transitiveTargets = NestedSetBuilder.stableOrder();
       this.transitiveConfigFragments = NestedSetBuilder.stableOrder();
       // No need to store directly required fragments that are also required by deps.
@@ -345,22 +347,10 @@ public class TransitiveTargetFunction
       this.transitiveRootCauses = NestedSetBuilder.stableOrder();
 
       this.successfulTransitiveLoading = packageLoadedSuccessfully;
-      PackageIdentifier packageId = target.getPackage().getPackageIdentifier();
-      if (packageLoadedSuccessfully) {
-        transitiveSuccessfulPkgs.add(packageId);
-      } else {
+      if (!packageLoadedSuccessfully) {
         transitiveRootCauses.add(label);
-        transitiveUnsuccessfulPkgs.add(packageId);
       }
       transitiveTargets.add(target.getLabel());
-    }
-
-    public NestedSetBuilder<PackageIdentifier> getTransitiveSuccessfulPkgs() {
-      return transitiveSuccessfulPkgs;
-    }
-
-    public NestedSetBuilder<PackageIdentifier> getTransitiveUnsuccessfulPkgs() {
-      return transitiveUnsuccessfulPkgs;
     }
 
     public NestedSetBuilder<Label> getTransitiveTargets() {
@@ -388,16 +378,15 @@ public class TransitiveTargetFunction
     }
 
     public SkyValue build(@Nullable NoSuchTargetException errorLoadingTarget) {
-      NestedSet<PackageIdentifier> successfullyLoadedPkgs = transitiveSuccessfulPkgs.build();
-      NestedSet<PackageIdentifier> unsuccessfullyLoadedPkgs = transitiveUnsuccessfulPkgs.build();
       NestedSet<Label> loadedTargets = transitiveTargets.build();
       NestedSet<Class<? extends Fragment>> configFragments = transitiveConfigFragments.build();
       return successfulTransitiveLoading
-          ? TransitiveTargetValue.successfulTransitiveLoading(successfullyLoadedPkgs,
-          unsuccessfullyLoadedPkgs, loadedTargets, configFragments)
-          : TransitiveTargetValue.unsuccessfulTransitiveLoading(successfullyLoadedPkgs,
-              unsuccessfullyLoadedPkgs, loadedTargets, transitiveRootCauses.build(),
-              errorLoadingTarget, configFragments);
+          ? TransitiveTargetValue.successfulTransitiveLoading(loadedTargets, configFragments)
+          : TransitiveTargetValue.unsuccessfulTransitiveLoading(
+              loadedTargets,
+              transitiveRootCauses.build(),
+              errorLoadingTarget,
+              configFragments);
     }
   }
 }

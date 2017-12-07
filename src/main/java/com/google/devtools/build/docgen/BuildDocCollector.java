@@ -44,10 +44,13 @@ import java.util.TreeMap;
 public class BuildDocCollector {
   private static final Splitter SHARP_SPLITTER = Splitter.on('#').limit(2).trimResults();
 
-  private ConfiguredRuleClassProvider ruleClassProvider;
-  private boolean printMessages;
+  private final String productName;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
+  private final boolean printMessages;
 
-  public BuildDocCollector(ConfiguredRuleClassProvider ruleClassProvider, boolean printMessages) {
+  public BuildDocCollector(
+      String productName, ConfiguredRuleClassProvider ruleClassProvider, boolean printMessages) {
+    this.productName = productName;
     this.ruleClassProvider = ruleClassProvider;
     this.printMessages = printMessages;
   }
@@ -160,8 +163,7 @@ public class BuildDocCollector {
    */
   public Map<String, RuleDocumentation> collect(List<String> inputDirs, String blackList)
       throws BuildEncyclopediaDocException, IOException {
-    RuleLinkExpander expander = new RuleLinkExpander(
-        ruleClassProvider.getProductName(), /* singlePage */ false);
+    RuleLinkExpander expander = new RuleLinkExpander(productName, /* singlePage */ false);
     return collect(inputDirs, blackList, expander);
   }
 

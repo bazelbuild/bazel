@@ -1,7 +1,8 @@
+package(default_visibility = ["//src:__subpackages__"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/java_tools/buildjar:__pkg__"],
 )
 
 java_test(

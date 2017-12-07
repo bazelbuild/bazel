@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -29,10 +30,10 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -67,8 +68,8 @@ public class InfoCommand implements BlazeCommand {
       name = "show_make_env",
       defaultValue = "false",
       category = "misc",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
       help = "Include the \"Make\" environment in the output."
     )
     public boolean showMakeEnvironment;
@@ -106,36 +107,36 @@ public class InfoCommand implements BlazeCommand {
     Options infoOptions = optionsProvider.getOptions(Options.class);
     OutErr outErr = env.getReporter().getOutErr();
     // Creating a BuildConfiguration is expensive and often unnecessary. Delay the creation until
-    // it is needed.
-    Supplier<BuildConfiguration> configurationSupplier = new Supplier<BuildConfiguration>() {
-      private BuildConfiguration configuration;
-      @Override
-      public BuildConfiguration get() {
-        if (configuration != null) {
-          return configuration;
-        }
-        try {
-          // In order to be able to answer configuration-specific queries, we need to setup the
-          // package path. Since info inherits all the build options, all the necessary information
-          // is available here.
-          env.setupPackageCache(
-              optionsProvider, runtime.getDefaultsPackageContent(optionsProvider));
-          // TODO(bazel-team): What if there are multiple configurations? [multi-config]
-          env.getSkyframeExecutor().setConfigurationFactory(runtime.getConfigurationFactory());
-          return env.getSkyframeExecutor().getConfiguration(
-              env.getReporter(), runtime.createBuildOptions(optionsProvider));
-        } catch (InvalidConfigurationException e) {
-          env.getReporter().handle(Event.error(e.getMessage()));
-          throw new ExitCausingRuntimeException(ExitCode.COMMAND_LINE_ERROR);
-        } catch (AbruptExitException e) {
-          throw new ExitCausingRuntimeException("unknown error: " + e.getMessage(),
-              e.getExitCode());
-        } catch (InterruptedException e) {
-          env.getReporter().handle(Event.error("interrupted"));
-          throw new ExitCausingRuntimeException(ExitCode.INTERRUPTED);
-        }
-      }
-    };
+    // it is needed. We memoize so that it's cached intra-command (it's still created freshly on
+    // every command since the configuration can change across commands).
+    Supplier<BuildConfiguration> configurationSupplier =
+        Suppliers.memoize(
+            () -> {
+              try {
+                // In order to be able to answer configuration-specific queries, we need to set up
+                // the package path. Since info inherits all the build options, all the necessary
+                // information is available here.
+                env.setupPackageCache(
+                    optionsProvider, runtime.getDefaultsPackageContent(optionsProvider));
+                env.getSkyframeExecutor()
+                    .setConfigurationFragmentFactories(runtime.getConfigurationFragmentFactories());
+                // TODO(bazel-team): What if there are multiple configurations? [multi-config]
+                return env.getSkyframeExecutor()
+                    .getConfiguration(
+                        env.getReporter(),
+                        runtime.createBuildOptions(optionsProvider),
+                        /*keepGoing=*/ true);
+              } catch (InvalidConfigurationException e) {
+                env.getReporter().handle(Event.error(e.getMessage()));
+                throw new ExitCausingRuntimeException(ExitCode.COMMAND_LINE_ERROR);
+              } catch (AbruptExitException e) {
+                throw new ExitCausingRuntimeException(
+                    "unknown error: " + e.getMessage(), e.getExitCode());
+              } catch (InterruptedException e) {
+                env.getReporter().handle(Event.error("interrupted"));
+                throw new ExitCausingRuntimeException(ExitCode.INTERRUPTED);
+              }
+            });
 
     Map<String, InfoItem> items = getInfoItemMap(env, optionsProvider);
 

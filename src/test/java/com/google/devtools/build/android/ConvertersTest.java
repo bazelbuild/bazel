@@ -15,18 +15,14 @@ package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Joiner;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.ExistingPathListConverter;
 import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.Converters.StringDictionaryConverter;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 import java.util.Map;
 import org.junit.Rule;
 import org.junit.Test;
@@ -40,8 +36,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public final class ConvertersTest {
-
-  private static final String SEPARATOR = File.pathSeparator;
 
   @Rule public final TemporaryFolder tmp = new TemporaryFolder();
 
@@ -58,9 +52,9 @@ public final class ConvertersTest {
   @Test
   public void testPathConverter_invalid() throws Exception {
     String arg = "\u0000";
+    PathConverter converter = new PathConverter();
     expected.expect(OptionsParsingException.class);
     expected.expectMessage(String.format("%s is not a valid path:", arg));
-    PathConverter converter = new PathConverter();
     converter.convert(arg);
   }
 
@@ -74,9 +68,9 @@ public final class ConvertersTest {
   @Test
   public void testExistingPathConverter_nonExisting() throws Exception {
     String arg = "test_file";
+    ExistingPathConverter converter = new ExistingPathConverter();
     expected.expect(OptionsParsingException.class);
     expected.expectMessage(String.format("%s is not a valid path: it does not exist.", arg));
-    ExistingPathConverter converter = new ExistingPathConverter();
     converter.convert(arg);
   }
 
@@ -91,48 +85,36 @@ public final class ConvertersTest {
   @Test
   public void testPathListConverter() throws Exception {
     PathListConverter converter = new PathListConverter();
-    List<Path> result =
-        converter.convert("foo" + SEPARATOR + "bar" + SEPARATOR + SEPARATOR + "baz" + SEPARATOR);
-    assertThat(result)
+    assertThat(converter.convert("foo:bar::baz:"))
         .containsAllOf(Paths.get("foo"), Paths.get("bar"), Paths.get("baz"))
         .inOrder();
   }
 
   @Test
-  public void testExisingPathListConverter() throws Exception {
-    String arg = "non-existing";
-    Path existingFile = tmp.newFile("existing").toPath();
-    expected.expect(OptionsParsingException.class);
-    expected.expectMessage(String.format("%s is not a valid path: it does not exist.", arg));
-    ExistingPathListConverter converter = new ExistingPathListConverter();
-    converter.convert(Joiner.on(SEPARATOR).join(existingFile.toString(), arg));
-  }
-
-  @Test
   public void testStringDictionaryConverter_emptyEntry() throws Exception {
+    StringDictionaryConverter converter = new StringDictionaryConverter();
     expected.expect(OptionsParsingException.class);
     expected.expectMessage("Dictionary entry [] does not contain both a key and a value.");
-    StringDictionaryConverter converter = new StringDictionaryConverter();
     converter.convert("foo:bar,,baz:bar");
   }
 
   @Test
   public void testStringDictionaryConverter_missingKeyOrValue() throws Exception {
     String badEntry = "foo";
+    StringDictionaryConverter converter = new StringDictionaryConverter();
     expected.expect(OptionsParsingException.class);
     expected.expectMessage(String.format(
         "Dictionary entry [%s] does not contain both a key and a value.", badEntry));
-    StringDictionaryConverter converter = new StringDictionaryConverter();
     converter.convert(badEntry);
   }
 
   @Test
   public void testStringDictionaryConverter_extraFields() throws Exception {
     String badEntry = "foo:bar:baz";
+    StringDictionaryConverter converter = new StringDictionaryConverter();
     expected.expect(OptionsParsingException.class);
     expected.expectMessage(String.format(
         "Dictionary entry [%s] contains too many fields.", badEntry));
-    StringDictionaryConverter converter = new StringDictionaryConverter();
     converter.convert(badEntry);
   }
 
@@ -140,10 +122,10 @@ public final class ConvertersTest {
   public void testStringDictionaryConverter_duplicateKey() throws Exception {
     String key = "foo";
     String arg = String.format("%s:%s,%s:%s", key, "bar", key, "baz");
+    StringDictionaryConverter converter = new StringDictionaryConverter();
     expected.expect(OptionsParsingException.class);
     expected.expectMessage(String.format(
         "Dictionary already contains the key [%s].", key));
-    StringDictionaryConverter converter = new StringDictionaryConverter();
     converter.convert(arg);
   }
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -47,20 +48,17 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     }
 
     BuildConfiguration config = create("--cpu=piii");
-    String outputDirPrefix = outputBase
-        + "/" + config.getMainRepositoryName()
-        + "/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-piii-fastbuild";
+    String outputDirPrefix =
+        outputBase + "/execroot/" + config.getMainRepositoryName() + "/blaze-out/.*piii-fastbuild";
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(outputDirPrefix);
+        .matches(outputDirPrefix);
     assertThat(config.getBinDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(outputDirPrefix + "/bin");
+        .matches(outputDirPrefix + "/bin");
     assertThat(config.getIncludeDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(outputDirPrefix + "/include");
-    assertThat(config.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(outputDirPrefix + "/genfiles");
+        .matches(outputDirPrefix + "/include");
     assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(outputDirPrefix + "/testlogs");
+        .matches(outputDirPrefix + "/testlogs");
   }
 
   @Test
@@ -71,11 +69,11 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     BuildConfiguration config = create("--platform_suffix=-test");
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getPath().toString())
-        .isEqualTo(
+        .matches(
             outputBase
-                + "/"
+                + "/execroot/"
                 + config.getMainRepositoryName()
-                + "/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-k8-fastbuild-test");
+                + "/blaze-out/.*k8-fastbuild-test");
   }
 
   @Test
@@ -93,14 +91,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
       fail("modifiable default environment");
     } catch (UnsupportedOperationException ignored) {
       //expected exception
-    }
-  }
-
-  @Test
-  public void testHostCpu() throws Exception {
-    for (String cpu : new String[] { "piii", "k8" }) {
-      BuildConfiguration hostConfig = createHost("--host_cpu=" + cpu);
-      assertThat(hostConfig.getFragment(CppConfiguration.class).getTargetCpu()).isEqualTo(cpu);
     }
   }
 
@@ -141,14 +131,15 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     // TODO(ulfjack): It would be better to get the better error message also if the Jvm is enabled.
     // Currently: "No JVM target found under //tools/jdk:jdk that would work for bogus"
     try {
-      create("--cpu=bogus", "--experimental_disable_jvm");
+      create("--cpu=bogus");
       fail();
     } catch (InvalidConfigurationException e) {
       assertThat(e)
           .hasMessageThat()
           .matches(
               Pattern.compile(
-                  "No toolchain found for cpu 'bogus'. Valid cpus are: \\[\n(  [\\w-]+,\n)+]"));
+                  "No default_toolchain found for cpu 'bogus'. "
+                      + "Valid cpus are: \\[\n(  [\\w-]+,\n)+]"));
     }
   }
 
@@ -237,11 +228,9 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testCycleInFragments() throws Exception {
-    configurationFactory =
-        new ConfigurationFactory(
-            analysisMock.createConfigurationCollectionFactory(),
-            createMockFragment(CppConfiguration.class, JavaConfiguration.class),
-            createMockFragment(JavaConfiguration.class, CppConfiguration.class));
+    configurationFragmentFactories = ImmutableList.of(
+        createMockFragment(CppConfiguration.class, JavaConfiguration.class),
+        createMockFragment(JavaConfiguration.class, CppConfiguration.class));
     try {
       createCollection();
       fail();
@@ -252,10 +241,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testMissingFragment() throws Exception {
-    configurationFactory =
-        new ConfigurationFactory(
-            analysisMock.createConfigurationCollectionFactory(),
-            createMockFragment(CppConfiguration.class, JavaConfiguration.class));
+    configurationFragmentFactories = ImmutableList.of(
+        createMockFragment(CppConfiguration.class, JavaConfiguration.class));
     try {
       createCollection();
       fail();
@@ -285,22 +272,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     assertThat(create("--noforce_pic").getTransitiveOptionDetails().getOptionValue("force_pic"))
         .isEqualTo(Boolean.FALSE);
 
-    // Late-bound default option:
-    BuildConfiguration config = create();
-    assertThat(config.getFragment(CppConfiguration.class).getCompiler())
-        .isEqualTo(config.getTransitiveOptionDetails().getOptionValue("compiler"));
-
     // Legitimately null option:
     assertThat(create().getTransitiveOptionDetails().getOptionValue("test_filter")).isNull();
-  }
-
-  @Test
-  public void testNoDistinctHostConfigurationUnsupportedWithTrimmedConfigs() throws Exception {
-    checkError(
-        "--nodistinct_host_configuration does not currently work with dynamic configurations",
-        "--nodistinct_host_configuration", "--experimental_dynamic_configs=on");
-    assertThat(create("--nodistinct_host_configuration", "--experimental_dynamic_configs=notrim"))
-        .isNotNull();
   }
 
   @Test
@@ -406,10 +379,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void depLabelCycleOnConfigurationLoading() throws Exception {
-    configurationFactory =
-        new ConfigurationFactory(
-            analysisMock.createConfigurationCollectionFactory(),
-            createMockFragmentWithLabelDep("//foo"));
+    configurationFragmentFactories = ImmutableList.of(createMockFragmentWithLabelDep("//foo"));
     getScratch().file("foo/BUILD",
         "load('//skylark:one.bzl', 'one')",
         "cc_library(name = 'foo')");
@@ -428,5 +398,15 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         ".-> //skylark:one.bzl",
         "|   //skylark:two.bzl",
         "`-- //skylark:one.bzl"));
+  }
+
+  @Test
+  public void testNoSeparateGenfilesDirectory() throws Exception {
+    BuildConfiguration target = create("--noexperimental_separate_genfiles_directory");
+    BuildConfiguration host = createHost("--noexperimental_separate_genfiles_directory");
+    assertThat(target.getGenfilesDirectory(RepositoryName.MAIN))
+        .isEqualTo(target.getBinDirectory(RepositoryName.MAIN));
+    assertThat(host.getGenfilesDirectory(RepositoryName.MAIN))
+        .isEqualTo(host.getBinDirectory(RepositoryName.MAIN));
   }
 }

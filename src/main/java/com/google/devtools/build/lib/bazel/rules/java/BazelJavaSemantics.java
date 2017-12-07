@@ -18,21 +18,26 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
+import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -48,7 +53,9 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
@@ -58,7 +65,6 @@ import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -238,6 +244,15 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
   }
 
+  /**
+   * In Bazel this {@code createStubAction} considers {@code javaExecutable} as a file path for the
+   * JVM binary (java).
+   */
+  @Override
+  public boolean isJavaExecutableSubstitution() {
+    return false;
+  }
+
   @Override
   public Artifact createStubAction(
       RuleContext ruleContext,
@@ -245,6 +260,21 @@ public class BazelJavaSemantics implements JavaSemantics {
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
+      String javaExecutable) {
+    return createStubAction(
+        ruleContext, javaCommon, jvmFlags, executable, javaStartClass, "",
+        NestedSetBuilder.<Artifact>stableOrder(), javaExecutable);
+  }
+
+  @Override
+  public Artifact createStubAction(
+      RuleContext ruleContext,
+      JavaCommon javaCommon,
+      List<String> jvmFlags,
+      Artifact executable,
+      String javaStartClass,
+      String coverageStartClass,
+      NestedSetBuilder<Artifact> filesBuilder,
       String javaExecutable) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
 
@@ -259,7 +289,10 @@ public class BazelJavaSemantics implements JavaSemantics {
     final boolean isRunfilesEnabled = ruleContext.getConfiguration().runfilesEnabled();
     arguments.add(Substitution.of("%runfiles_manifest_only%", isRunfilesEnabled ? "" : "1"));
     arguments.add(Substitution.of("%workspace_prefix%", workspacePrefix));
-    arguments.add(Substitution.of("%javabin%", javaExecutable));
+    arguments.add(
+        Substitution.of(
+            "%javabin%",
+            JavaCommon.getJavaBinSubstitutionFromJavaExecutable(ruleContext, javaExecutable)));
     arguments.add(Substitution.of("%needs_runfiles%",
         JavaCommon.getJavaExecutable(ruleContext).isAbsolute() ? "0" : "1"));
 
@@ -299,19 +332,60 @@ public class BazelJavaSemantics implements JavaSemantics {
     String path =
         javaArtifacts.getInstrumentedJar() != null
             ? "${JAVA_RUNFILES}/"
-                + workspacePrefix
-                + javaArtifacts.getInstrumentedJar().getRootRelativePath().getPathString()
+            + workspacePrefix
+            + javaArtifacts.getInstrumentedJar().getRootRelativePath().getPathString()
             : "";
-    arguments.add(
-        Substitution.of(
-            "%set_jacoco_metadata%",
-            ruleContext.getConfiguration().isCodeCoverageEnabled()
-                ? "export JACOCO_METADATA_JAR=" + path
-                : ""));
+
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
+        && ruleContext.getConfiguration().isExperimentalJavaCoverage()) {
+      Artifact runtimeClassPathArtifact = ruleContext.getUniqueDirectoryArtifact(
+          "coverage_runtime_classpath",
+          "runtime-classpath.txt",
+          ruleContext.getBinOrGenfilesDirectory());
+      ruleContext.registerAction(new LazyWritePathsFileAction(
+          ruleContext.getActionOwner(),
+          runtimeClassPathArtifact,
+          javaCommon.getRuntimeClasspath(),
+          true));
+      filesBuilder.add(runtimeClassPathArtifact);
+      arguments.add(Substitution.of(
+          JavaSemantics.JACOCO_METADATA_PLACEHOLDER,
+          "export JACOCO_METADATA_JAR=${JAVA_RUNFILES}/" + workspacePrefix + "/"
+              + runtimeClassPathArtifact.getRootRelativePathString()
+      ));
+      arguments.add(Substitution.of(
+          JavaSemantics.JACOCO_MAIN_CLASS_PLACEHOLDER,
+          "export JACOCO_MAIN_CLASS=" + coverageStartClass));
+      arguments.add(Substitution.of(
+          JavaSemantics.JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER,
+          "export JACOCO_JAVA_RUNFILES_ROOT=${JAVA_RUNFILES}/" + workspacePrefix)
+      );
+      arguments.add(
+          Substitution.of("%java_start_class%", ShellEscaper.escapeString(javaStartClass)));
+    } else {
+      arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER,
+          ruleContext.getConfiguration().isCodeCoverageEnabled()
+              ? "export JACOCO_METADATA_JAR=" + path : ""));
+      arguments.add(Substitution.of(JavaSemantics.JACOCO_MAIN_CLASS_PLACEHOLDER, ""));
+      arguments.add(Substitution.of(JavaSemantics.JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER, ""));
+    }
 
     arguments.add(Substitution.of("%java_start_class%",
         ShellEscaper.escapeString(javaStartClass)));
-    arguments.add(Substitution.ofSpaceSeparatedList("%jvm_flags%", ImmutableList.copyOf(jvmFlags)));
+
+    ImmutableList<String> jvmFlagsList = ImmutableList.copyOf(jvmFlags);
+    arguments.add(Substitution.ofSpaceSeparatedList("%jvm_flags%", jvmFlagsList));
+
+    if (OS.getCurrent() == OS.WINDOWS
+        && ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+      return createWindowsExeLauncher(
+          ruleContext,
+          javaExecutable,
+          classpath,
+          javaStartClass,
+          jvmFlagsList,
+          executable);
+    }
 
     ruleContext.registerAction(new TemplateExpansionAction(
         ruleContext.getActionOwner(), executable, STUB_SCRIPT, arguments, true));
@@ -342,6 +416,38 @@ public class BazelJavaSemantics implements JavaSemantics {
     } else {
       return executable;
     }
+  }
+
+  private static Artifact createWindowsExeLauncher(
+      RuleContext ruleContext,
+      String javaExecutable,
+      NestedSet<Artifact> classpath,
+      String javaStartClass,
+      ImmutableList<String> jvmFlags,
+      Artifact javaLauncher) {
+
+    LaunchInfo launchInfo =
+        LaunchInfo.builder()
+            .addKeyValuePair("binary_type", "Java")
+            .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
+            .addKeyValuePair("java_bin_path", javaExecutable)
+            .addKeyValuePair(
+                "jar_bin_path",
+                JavaCommon.getJavaExecutable(ruleContext)
+                    .getParentDirectory()
+                    .getRelative("jar.exe")
+                    .getPathString())
+            .addKeyValuePair("java_start_class", javaStartClass)
+            .addJoinedValues(
+                "classpath",
+                ";",
+                Iterables.transform(classpath, Artifact.ROOT_RELATIVE_PATH_STRING))
+            .addJoinedValues("jvm_flags", " ", jvmFlags)
+            .build();
+
+    LauncherFileWriteAction.createAndRegister(ruleContext, javaLauncher, launchInfo);
+
+    return javaLauncher;
   }
 
   private static boolean enforceExplicitJavaTestDeps(RuleContext ruleContext) {
@@ -425,8 +531,10 @@ public class BazelJavaSemantics implements JavaSemantics {
       Runfiles.Builder runfilesBuilder) {
     TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
     if (testSupport != null) {
-      // Not using addTransitiveArtifacts() due to the mismatch in NestedSet ordering.
-      runfilesBuilder.addArtifacts(getRuntimeJarsForTargets(testSupport));
+      // We assume that the runtime jars will not have conflicting artifacts
+      // with the same root relative path
+      runfilesBuilder.addTransitiveArtifactsWrappedInStableOrder(
+          getRuntimeJarsForTargets(testSupport));
     }
   }
 
@@ -555,6 +663,18 @@ public class BazelJavaSemantics implements JavaSemantics {
     return !attributes.getInstrumentationMetadata().isEmpty();
   }
 
+  @Override
+  public String addCoverageSupport(
+      JavaCompilationHelper helper,
+      JavaTargetAttributes.Builder attributes,
+      Artifact executable,
+      Artifact instrumentationMetadata,
+      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
+      String mainClass) throws InterruptedException {
+    return addCoverageSupport(helper, attributes, executable, instrumentationMetadata,
+        javaArtifactsBuilder, mainClass, false);
+  }
+
   // TODO(yueg): refactor this (only mainClass different for now)
   @Override
   public String addCoverageSupport(
@@ -563,38 +683,41 @@ public class BazelJavaSemantics implements JavaSemantics {
       Artifact executable,
       Artifact instrumentationMetadata,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
-      String mainClass)
+      String mainClass,
+      boolean isExperimentalCoverage)
       throws InterruptedException {
     // This method can be called only for *_binary/*_test targets.
     Preconditions.checkNotNull(executable);
-    // Add our own metadata artifact (if any).
-    if (instrumentationMetadata != null) {
-      attributes.addInstrumentationMetadataEntries(ImmutableList.of(instrumentationMetadata));
+    if (!isExperimentalCoverage) {
+      // Add our own metadata artifact (if any).
+      if (instrumentationMetadata != null) {
+        attributes.addInstrumentationMetadataEntries(ImmutableList.of(instrumentationMetadata));
+      }
+
+      if (!hasInstrumentationMetadata(attributes)) {
+        return mainClass;
+      }
+
+      Artifact instrumentedJar =
+          helper
+              .getRuleContext()
+              .getBinArtifact(helper.getRuleContext().getLabel().getName() + "_instrumented.jar");
+
+      // Create an instrumented Jar. This will be referenced on the runtime classpath prior
+      // to all other Jars.
+      JavaCommon.createInstrumentedJarAction(
+          helper.getRuleContext(),
+          this,
+          attributes.getInstrumentationMetadata(),
+          instrumentedJar,
+          mainClass);
+      javaArtifactsBuilder.setInstrumentedJar(instrumentedJar);
     }
-
-    if (!hasInstrumentationMetadata(attributes)) {
-      return mainClass;
-    }
-
-    Artifact instrumentedJar =
-        helper
-            .getRuleContext()
-            .getBinArtifact(helper.getRuleContext().getLabel().getName() + "_instrumented.jar");
-
-    // Create an instrumented Jar. This will be referenced on the runtime classpath prior
-    // to all other Jars.
-    JavaCommon.createInstrumentedJarAction(
-        helper.getRuleContext(),
-        this,
-        attributes.getInstrumentationMetadata(),
-        instrumentedJar,
-        mainClass);
-    javaArtifactsBuilder.setInstrumentedJar(instrumentedJar);
 
     // Add the coverage runner to the list of dependencies when compiling in coverage mode.
     TransitiveInfoCollection runnerTarget =
         helper.getRuleContext().getPrerequisite("$jacocorunner", Mode.TARGET);
-    if (runnerTarget.getProvider(JavaCompilationArgsProvider.class) != null) {
+    if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, runnerTarget) != null) {
       helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
     } else {
       helper
@@ -611,13 +734,33 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public CustomCommandLine buildSingleJarCommandLine(BuildConfiguration configuration,
-      Artifact output, String mainClass, ImmutableList<String> manifestLines,
-      Iterable<Artifact> buildInfoFiles, ImmutableList<Artifact> resources,
-      Iterable<Artifact> classpath, boolean includeBuildData,
-      Compression compression, Artifact launcher) {
-    return DeployArchiveBuilder.defaultSingleJarCommandLine(output, mainClass, manifestLines,
-        buildInfoFiles, resources, classpath, includeBuildData, compression, launcher).build();
+  public CustomCommandLine buildSingleJarCommandLine(
+      BuildConfiguration configuration,
+      Artifact output,
+      String mainClass,
+      ImmutableList<String> manifestLines,
+      Iterable<Artifact> buildInfoFiles,
+      ImmutableList<Artifact> resources,
+      NestedSet<Artifact> classpath,
+      boolean includeBuildData,
+      Compression compression,
+      Artifact launcher,
+      boolean usingNativeSinglejar,
+      // Explicitly ignoring params since Bazel doesn't yet support one version
+      OneVersionEnforcementLevel oneVersionEnforcementLevel,
+      Artifact oneVersionWhitelistArtifact) {
+    return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
+            output,
+            mainClass,
+            manifestLines,
+            buildInfoFiles,
+            resources,
+            classpath,
+            includeBuildData,
+            compression,
+            launcher,
+            usingNativeSinglejar)
+        .build();
   }
 
   @Override
@@ -664,7 +807,9 @@ public class BazelJavaSemantics implements JavaSemantics {
   public List<String> getExtraArguments(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     if (ruleContext.getRule().getRuleClass().equals("java_test")) {
       if (useLegacyJavaTest(ruleContext)) {
-        if (ruleContext.getConfiguration().getTestArguments().isEmpty()
+        TestConfiguration testConfiguration =
+            ruleContext.getConfiguration().getFragment(TestConfiguration.class);
+        if (testConfiguration.getTestArguments().isEmpty()
             && !ruleContext.attributes().isAttributeValueExplicitlySpecified("args")) {
           ImmutableList.Builder<String> builder = ImmutableList.builder();
           for (Artifact artifact : sources) {

@@ -22,9 +22,9 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Jimfs;
-import com.google.common.truth.FailureStrategy;
-import com.google.common.truth.SubjectFactory;
+import com.google.common.truth.Subject;
 import com.google.devtools.build.android.AndroidDataBuilder.ResourceType;
+import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidDataMerger.SourceChecker;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
 import com.google.devtools.build.android.xml.PublicXmlResourceValue;
@@ -102,7 +102,7 @@ public class AndroidDataMergerTest {
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, false);
+        merger.merge(transitiveDependency, directDependency, primary, false, true);
 
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -161,7 +161,7 @@ public class AndroidDataMergerTest {
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, false);
+        merger.merge(transitiveDependency, directDependency, primary, false, true);
 
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -226,7 +226,7 @@ public class AndroidDataMergerTest {
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
     UnwrittenMergedAndroidData transitive =
-        merger.merge(transitiveDependency, directDependency, primary, false);
+        merger.merge(transitiveDependency, directDependency, primary, false, true);
 
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -276,7 +276,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
-    merger.merge(transitiveDependency, directDependency, primary, false);
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
 
     assertThat(loggingHandler.warnings)
         .containsExactly(
@@ -325,7 +325,7 @@ public class AndroidDataMergerTest {
             });
 
     assertAbout(unwrittenMergedAndroidData)
-        .that(merger.merge(transitiveDependency, directDependency, primary, false))
+        .that(merger.merge(transitiveDependency, directDependency, primary, false, true))
         .isEqualTo(
             UnwrittenMergedAndroidData.of(
                 primary.getManifest(),
@@ -337,6 +337,39 @@ public class AndroidDataMergerTest {
                             .source("values/strings.xml")
                             .value(SimpleXmlResourceValue.createWithValue(Type.STRING, "way out")))
                     .build()));
+  }
+
+  @Test
+  public void mergeDirectConflictDuplicatedWithDifferentSources() throws Exception {
+    Path primaryRoot = fileSystem.getPath("primary");
+    Path directRoot = fileSystem.getPath("direct");
+
+    ParsedAndroidData transitiveDependency = ParsedAndroidDataBuilder.empty();
+
+    ParsedAndroidData directDependency =
+        ParsedAndroidDataBuilder.buildOn(directRoot, fqnFactory)
+            // Two string/exit will create conflict.
+            .overwritable(
+                xml("string/exit")
+                    .source("values/strings.xml")
+                    .value(SimpleXmlResourceValue.createWithValue(Type.STRING, "way out")),
+                xml("string/exit")
+                    .source("values/more_strings.xml")
+                    .value(SimpleXmlResourceValue.createWithValue(Type.STRING, "way out")),
+                xml("string/another_key")
+                    .source("values/more_strings.xml")
+                    .value(SimpleXmlResourceValue.createWithValue(Type.STRING, "another way out")))
+            .build();
+
+    UnvalidatedAndroidData primary =
+        AndroidDataBuilder.of(primaryRoot)
+            .createManifest("AndroidManifest.xml", "com.google.mergetest")
+            .buildUnvalidated();
+
+    AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
+    merger.merge(transitiveDependency, directDependency, primary, false, true);
+
+    assertThat(loggingHandler.warnings).isEmpty();
   }
 
   @Test
@@ -369,7 +402,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, true);
+        merger.merge(transitiveDependency, directDependency, primary, true, true);
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
             primary.getManifest(),
@@ -409,7 +442,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
-    merger.merge(transitiveDependency, directDependency, primary, false);
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
 
     assertThat(loggingHandler.warnings)
         .containsExactly(
@@ -456,7 +489,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, true);
+        merger.merge(transitiveDependency, directDependency, primary, true, true);
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
             primary.getManifest(),
@@ -500,7 +533,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
-    merger.merge(transitiveDependency, directDependency, primary, false);
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
     assertThat(loggingHandler.warnings)
         .containsExactly(
             MergeConflict.of(
@@ -545,20 +578,59 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
-    merger.merge(transitiveDependency, directDependency, primary, false);
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
 
     FullyQualifiedName fullyQualifiedName = fqnFactory.parse("string/exit");
     assertThat(loggingHandler.warnings)
         .containsExactly(
             MergeConflict.of(
-                    fullyQualifiedName,
-                    DataResourceXml.createWithNoNamespace(
-                        directRoot.resolve("res/values/strings.xml"),
-                        SimpleXmlResourceValue.createWithValue(Type.STRING, "no way out")),
-                    DataResourceXml.createWithNoNamespace(
-                        transitiveRoot.resolve("res/values/strings.xml"),
-                        SimpleXmlResourceValue.createWithValue(Type.STRING, "wrong way out")))
+                fullyQualifiedName,
+                DataResourceXml.createWithNoNamespace(
+                    directRoot.resolve("res/values/strings.xml"),
+                    SimpleXmlResourceValue.createWithValue(Type.STRING, "no way out")),
+                DataResourceXml.createWithNoNamespace(
+                    transitiveRoot.resolve("res/values/strings.xml"),
+                    SimpleXmlResourceValue.createWithValue(Type.STRING, "wrong way out")))
                 .toConflictMessage());
+  }
+
+  @Test
+  public void mergeDirectTransitivePrimaryConflictWithThrowOnConflict() throws Exception {
+    Path primaryRoot = fileSystem.getPath("primary");
+    Path directRoot = fileSystem.getPath("direct");
+    Path transitiveRoot = fileSystem.getPath("transitive");
+
+    ParsedAndroidData transitiveDependency =
+        ParsedAndroidDataBuilder.buildOn(transitiveRoot, fqnFactory)
+            .overwritable(
+                xml("string/exit")
+                    .source("values/strings.xml")
+                    .value(SimpleXmlResourceValue.createWithValue(Type.STRING, "no way out")))
+            .build();
+
+    ParsedAndroidData directDependency =
+        ParsedAndroidDataBuilder.buildOn(directRoot, fqnFactory)
+            .overwritable(
+                xml("string/exit")
+                    .source("values/strings.xml")
+                    .value(SimpleXmlResourceValue.createWithValue(Type.STRING, "wrong way out")))
+            .build();
+
+    UnvalidatedAndroidData primary =
+        AndroidDataBuilder.of(primaryRoot)
+            .createManifest("AndroidManifest.xml", "com.google.mergetest")
+            .addResource(
+                "values/strings.xml", ResourceType.VALUE, "<string name='exit'>way out</string>")
+            .buildUnvalidated();
+
+    AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
+
+    try {
+      merger.merge(transitiveDependency, directDependency, primary, false, true);
+      throw new Exception("Expected a MergeConflictException!");
+    } catch (MergeConflictException e) {
+      return;
+    }
   }
 
   @Test
@@ -596,7 +668,7 @@ public class AndroidDataMergerTest {
 
     UnwrittenMergedAndroidData data =
         AndroidDataMerger.createWithDefaults()
-            .merge(transitiveDependency, directDependency, primary, true);
+            .merge(transitiveDependency, directDependency, primary, true, true);
 
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -634,7 +706,7 @@ public class AndroidDataMergerTest {
             .buildUnvalidated();
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
-    merger.merge(transitiveDependency, directDependency, primary, false);
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
 
     assertThat(loggingHandler.warnings)
         .containsExactly(
@@ -666,7 +738,7 @@ public class AndroidDataMergerTest {
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, false);
+        merger.merge(transitiveDependency, directDependency, primary, false, true);
 
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -720,7 +792,7 @@ public class AndroidDataMergerTest {
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, false);
+        merger.merge(transitiveDependency, directDependency, primary, false, true);
 
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -783,7 +855,7 @@ public class AndroidDataMergerTest {
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, false);
+        merger.merge(transitiveDependency, directDependency, primary, false, true);
 
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -852,7 +924,7 @@ public class AndroidDataMergerTest {
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, false);
+        merger.merge(transitiveDependency, directDependency, primary, false, true);
 
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -915,7 +987,7 @@ public class AndroidDataMergerTest {
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, false);
+        merger.merge(transitiveDependency, directDependency, primary, false, true);
 
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -963,7 +1035,7 @@ public class AndroidDataMergerTest {
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, false);
+        merger.merge(transitiveDependency, directDependency, primary, false, true);
 
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -1001,7 +1073,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
-    merger.merge(transitiveDependency, directDependency, primary, false);
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
     assertThat(loggingHandler.warnings)
         .containsExactly(
             MergeConflict.of(
@@ -1040,7 +1112,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, true);
+        merger.merge(transitiveDependency, directDependency, primary, true, true);
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
             primary.getManifest(),
@@ -1076,7 +1148,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
-    merger.merge(transitiveDependency, directDependency, primary, false);
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
     assertThat(loggingHandler.warnings)
         .containsExactly(
             MergeConflict.of(
@@ -1107,7 +1179,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
     UnwrittenMergedAndroidData data =
-        merger.merge(transitiveDependency, directDependency, primary, true);
+        merger.merge(transitiveDependency, directDependency, primary, true, true);
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
             primary.getManifest(),
@@ -1141,7 +1213,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
-    merger.merge(transitiveDependency, directDependency, primary, false);
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
     assertThat(loggingHandler.warnings)
         .containsExactly(
             MergeConflict.of(
@@ -1176,7 +1248,7 @@ public class AndroidDataMergerTest {
 
     AndroidDataMerger merger = AndroidDataMerger.createWithDefaults();
 
-    merger.merge(transitiveDependency, directDependency, primary, false);
+    merger.merge(transitiveDependency, directDependency, primary, false, false);
     assertThat(loggingHandler.warnings)
         .containsExactly(
             MergeConflict.of(
@@ -1215,7 +1287,7 @@ public class AndroidDataMergerTest {
 
     UnwrittenMergedAndroidData data =
         AndroidDataMerger.createWithDefaults()
-            .merge(transitiveDependency, directDependency, primary, true);
+            .merge(transitiveDependency, directDependency, primary, true, true);
     
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
@@ -1227,15 +1299,8 @@ public class AndroidDataMergerTest {
     assertAbout(unwrittenMergedAndroidData).that(data).isEqualTo(expected);
   }
 
-  final SubjectFactory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>
-      unwrittenMergedAndroidData =
-          new SubjectFactory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>() {
-            @Override
-            public UnwrittenMergedAndroidDataSubject getSubject(
-                FailureStrategy fs, UnwrittenMergedAndroidData that) {
-              return new UnwrittenMergedAndroidDataSubject(fs, that);
-            }
-          };
+  final Subject.Factory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>
+      unwrittenMergedAndroidData = UnwrittenMergedAndroidDataSubject::new;
 
   private static final class TestLoggingHandler extends Handler {
     public final List<String> warnings = new ArrayList<String>();

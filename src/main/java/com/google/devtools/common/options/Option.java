@@ -13,34 +13,30 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
-import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * An interface for annotating fields in classes (derived from OptionsBase)
- * that are options.
+ * An interface for annotating fields in classes (derived from OptionsBase) that are options.
+ *
+ * <p>The fields of this annotation have matching getters in {@link OptionDefinition}. Please do not
+ * access these fields directly, but instead go through that class.
+ *
+ * <p>A number of checks are run on an Option's fields' values at compile time. See
+ * {@link com.google.devtools.common.options.processor.OptionProcessor} for details.
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Option {
-  /**
-   * The name of the option ("--name").
-   */
+  /** The name of the option ("--name"). */
   String name();
 
-  /**
-   * The single-character abbreviation of the option ("-abbrev").
-   */
+  /** The single-character abbreviation of the option ("-a"). */
   char abbrev() default '\0';
 
-  /**
-   * A help string for the usage information.
-   */
+  /** A help string for the usage information. */
   String help() default "";
 
   /**
@@ -90,20 +86,15 @@ public @interface Option {
   /**
    * Grouping categories used for usage documentation. See the enum's definition for details.
    *
-   * <p>For undocumented flags that aren't listed anywhere, this is currently a no-op. Feel free to
-   * set the value that it would have if it were documented, which might be helpful if a flag is
-   * part of an experimental feature that might become documented in the future, or just leave it as
-   * OptionDocumentationCategory.UNCATEGORIZED.
-   *
-   * <p>For hidden or internal options, use the category field only if it is helpful for yourself or
-   * other Bazel developers.
+   * <p>For undocumented flags that aren't listed anywhere, set this to
+   * OptionDocumentationCategory.UNDOCUMENTED.
    */
   OptionDocumentationCategory documentationCategory();
 
   /**
    * Tag about the intent or effect of this option. Unless this option is a no-op (and the reason
    * for this should be documented) all options should have some effect, so this needs to have at
-   * least one value.
+   * least one value, and as many as apply.
    *
    * <p>No option should list NO_OP or UNKNOWN with other effects listed, but all other combinations
    * are allowed.
@@ -111,45 +102,15 @@ public @interface Option {
   OptionEffectTag[] effectTags();
 
   /**
-   * Tag about the state of this option, such as if it gates an experimental feature, or is
-   * deprecated.
+   * Tag about the option itself, not its effect, such as option state (experimental) or intended
+   * use (a value that isn't a flag but is used internally, for example, is "internal")
    *
    * <p>If one or more of the OptionMetadataTag values apply, please include, but otherwise, this
    * list can be left blank.
+   *
+   * <p>Hidden or internal options must be UNDOCUMENTED (set in {@link #documentationCategory()}).
    */
   OptionMetadataTag[] metadataTags() default {};
-
-  /**
-   * Options have multiple uses, some flags, some not. For user-visible flags, they are
-   * "documented," but otherwise, there are 3 types of undocumented options.
-   *
-   * <ul>
-   *   <li>{@code UNDOCUMENTED}: undocumented but user-usable flags. These options are useful for
-   *       (some subset of) users, but not meant to be publicly advertised. For example,
-   *       experimental options which are only meant to be used by specific testers or team members.
-   *       These options will not be listed in the usage info displayed for the {@code --help}
-   *       option. They are otherwise normal - {@link
-   *       OptionsParser.UnparsedOptionValueDescription#isHidden()} returns {@code false} for them,
-   *       and they can be parsed normally from the command line or RC files.
-   *   <li>{@code HIDDEN}: flags which users should not pass or know about, but which are used by
-   *       the program (e.g., communication between a command-line client and a backend server).
-   *       Like {@code "undocumented"} options, these options will not be listed in the usage info
-   *       displayed for the {@code --help} option. However, in addition to this, calling {@link
-   *       OptionsParser.UnparsedOptionValueDescription#isHidden()} on these options will return
-   *       {@code true} - for example, this can be checked to strip out such secret options when
-   *       logging or otherwise reporting the command line to the user. This category does not
-   *       affect the option in any other way; it can still be parsed normally from the command line
-   *       or an RC file.
-   *   <li>{@code INTERNAL}: these are not flags, but options which are purely for internal use
-   *       within the JVM, and should never be shown to the user, nor be parsed by the options
-   *       parser. Like {@code "hidden"} options, these options will not be listed in the usage info
-   *       displayed for the --help option, and are considered hidden by {@link
-   *       OptionsParser.UnparsedOptionValueDescription#isHidden()}. Unlike those, this type of
-   *       option cannot be parsed by any call to {@link OptionsParser#parse} - it will be treated
-   *       as if it was not defined.
-   * </ul>
-   */
-  OptionUsageRestrictions optionUsageRestrictions() default OptionUsageRestrictions.DOCUMENTED;
 
   /**
    * The converter that we'll use to convert the string representation of this option's value into
@@ -162,10 +123,10 @@ public @interface Option {
   Class<? extends Converter> converter() default Converter.class;
 
   /**
-   * A flag indicating whether the option type should be allowed to occur multiple times in a single
-   * option list.
+   * A boolean value indicating whether the option type should be allowed to occur multiple times in
+   * a single arg list.
    *
-   * <p>If the command can occur multiple times, then the attribute value <em>must</em> be a list
+   * <p>If the option can occur multiple times, then the attribute value <em>must</em> be a list
    * type {@code List<T>}, and the result type of the converter for this option must either match
    * the parameter {@code T} or {@code List<T>}. In the latter case the individual lists are
    * concatenated to form the full options value.
@@ -199,12 +160,17 @@ public @interface Option {
   Class<? extends ExpansionFunction> expansionFunction() default ExpansionFunction.class;
 
   /**
-   * If the option requires that additional options be implicitly appended, this field will contain
-   * the additional options. Implicit dependencies are parsed at the end of each {@link
-   * OptionsParser#parse} invocation, and override options specified in the same call. However, they
-   * can be overridden by options specified in a later call or by options with a higher priority.
+   * Additional options that need to be implicitly added for this option.
    *
-   * @see OptionPriority
+   * <p>Nothing guarantees that these options are not overridden by later or higher-priority values
+   * for the same options, so if this is truly a requirement, the user should check that the correct
+   * set of options is set.
+   *
+   * <p>These requirements are added for ANY mention of this option, so may not work as intended: in
+   * the case where a user is trying to explicitly turn off a flag (say, by setting a boolean flag
+   * to its default value of false), the mention will still turn on its requirements. For this
+   * reason, it is best not to use this feature, and rely on expansion flags if multi-flag groupings
+   * are needed.
    */
   String[] implicitRequirements() default {};
 
@@ -236,5 +202,6 @@ public @interface Option {
    * expansion flags to other flags, or as implicit requirements to other flags. Use the inner flags
    * instead.
    */
+  @Deprecated
   boolean wrapperOption() default false;
 }

@@ -28,13 +28,12 @@ public class BlazeRuleHelpPrinter {
 
   private static Map<String, RuleDocumentation> ruleDocMap = null;
 
-  /**
-   * Returns the documentation of the given rule to be printed on the console.
-   */
-  public static String getRuleDoc(String ruleName, ConfiguredRuleClassProvider provider) {
+  /** Returns the documentation of the given rule to be printed on the console. */
+  public static String getRuleDoc(
+      String ruleName, String productName, ConfiguredRuleClassProvider provider) {
     if (ruleDocMap == null) {
       try {
-        BuildDocCollector collector = new BuildDocCollector(provider, false);
+        BuildDocCollector collector = new BuildDocCollector(productName, provider, false);
         Map<String, RuleDocumentation> ruleDocs = collector.collect(
             ImmutableList.of("java/com/google/devtools/build/lib/view",
                              "java/com/google/devtools/build/lib/rules"), null);

@@ -17,9 +17,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
@@ -69,7 +69,7 @@ public interface PythonSemantics {
    *
    * <p>This should create a generating action for {@code common.getExecutable()}.
    */
-  void createExecutable(
+  Artifact createExecutable(
       RuleContext ruleContext,
       PyCommon common,
       CcLinkParamsStore ccLinkParamsStore,

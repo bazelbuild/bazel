@@ -15,9 +15,9 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_
 
-#include <stdint.h>
 #include <time.h>
 
+#include <cinttypes>
 #include <string>
 
 namespace blaze_util {
@@ -162,6 +162,8 @@ bool CanExecuteFile(const std::string &path);
 // Follows symlinks/junctions.
 bool CanAccessDirectory(const std::string &path);
 
+bool IsDevNull(const char *path);
+
 // Returns true if `path` refers to a directory or a symlink/junction to one.
 bool IsDirectory(const std::string& path);
 
@@ -209,9 +211,9 @@ void ForEachDirectoryEntry(const std::string &path,
                            DirectoryEntryConsumer *consume);
 
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
-// Like `AsWindowsPath` but the result is absolute and has UNC prefix if needed.
-bool AsWindowsPathWithUncPrefix(const std::string &path, std::wstring *wpath,
-                                size_t max_path = 260 /* MAX_PATH */);
+const wchar_t *RemoveUncPrefixMaybe(const wchar_t *ptr);
+
+bool AsAbsoluteWindowsPath(const std::string &path, std::wstring *wpath);
 
 // Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
 // Result will never have a UNC prefix, nor a trailing "/" or "\".

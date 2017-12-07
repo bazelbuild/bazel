@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -48,7 +49,8 @@ public abstract class ResourceTestBase {
   };
 
   /** A faked {@link RuleErrorConsumer} that validates that only expected errors were reported. */
-  public static final class FakeRuleErrorConsumer implements RuleErrorConsumer {
+  public static final class FakeRuleErrorConsumer extends AbstractRuleErrorConsumer
+      implements RuleErrorConsumer {
     private String ruleErrorMessage = null;
     private String attributeErrorAttribute = null;
     private String attributeErrorMessage = null;
@@ -78,6 +80,11 @@ public abstract class ResourceTestBase {
     public void attributeError(String attrName, String message) {
       attributeErrorAttribute = attrName;
       attributeErrorMessage = message;
+    }
+
+    @Override
+    public boolean hasErrors() {
+      return ruleErrorMessage != null || attributeErrorMessage != null;
     }
 
     public Collection<String> getAndClearRuleWarnings() {

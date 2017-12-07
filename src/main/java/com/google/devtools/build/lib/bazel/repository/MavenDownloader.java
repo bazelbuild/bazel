@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -72,9 +73,10 @@ public class MavenDownloader extends HttpDownloader {
   }
 
   /**
-   * Download the Maven artifact to the output directory. Returns the path to the jar.
+   * Download the Maven artifact to the output directory. Returns the path to the jar (and the
+   * srcjar if available).
    */
-  public Path download(String name, WorkspaceAttributeMapper mapper, Path outputDirectory,
+  public JarPaths download(String name, WorkspaceAttributeMapper mapper, Path outputDirectory,
       MavenServerValue serverValue) throws IOException, EvalException {
     this.name = name;
     this.outputDirectory = outputDirectory;
@@ -82,59 +84,73 @@ public class MavenDownloader extends HttpDownloader {
     String url = serverValue.getUrl();
     Server server = serverValue.getServer();
 
+    // Initialize maven artifacts
     Artifact artifact;
-    String artifactId = mapper.get("artifact", Type.STRING);
-    String sha1 = mapper.isAttributeValueExplicitlySpecified("sha1")
-        ? mapper.get("sha1", Type.STRING) : null;
-        if (sha1 != null && !KeyType.SHA1.isValid(sha1)) {
-          throw new IOException("Invalid SHA-1 for maven_jar " + name + ": '" + sha1 + "'");
-        }
+    String artifactCoords = mapper.get("artifact", Type.STRING);
+    String sha1 =
+        mapper.isAttributeValueExplicitlySpecified("sha1") ? mapper.get("sha1", Type.STRING) : null;
+    if (sha1 != null && !KeyType.SHA1.isValid(sha1)) {
+      throw new IOException("Invalid SHA-1 for maven_jar " + name + ": '" + sha1 + "'");
+    }
+
     try {
-      artifact = new DefaultArtifact(artifactId);
+      artifact = new DefaultArtifact(artifactCoords);
     } catch (IllegalArgumentException e) {
       throw new IOException(e.getMessage());
     }
- 
+
     boolean isCaching = repositoryCache.isEnabled() && KeyType.SHA1.isValid(sha1);
 
     if (isCaching) {
       Path downloadPath = getDownloadDestination(artifact);
       Path cachedDestination = repositoryCache.get(sha1, downloadPath, KeyType.SHA1);
       if (cachedDestination != null) {
-        return cachedDestination;
+        return new JarPaths(cachedDestination, Optional.absent());
       }
     }
 
+    // Setup env for fetching jars
     MavenConnector connector = new MavenConnector(outputDirectory.getPathString());
     RepositorySystem system = connector.newRepositorySystem();
     RepositorySystemSession session = connector.newRepositorySystemSession(system);
+    RemoteRepository repository =
+        new RemoteRepository.Builder(name, MavenServerValue.DEFAULT_ID, url)
+            .setAuthentication(new MavenAuthentication(server))
+            .build();
 
-    RemoteRepository repository = new RemoteRepository.Builder(
-        name, MavenServerValue.DEFAULT_ID, url)
-        .setAuthentication(new MavenAuthentication(server))
-        .build();
-    ArtifactRequest artifactRequest = new ArtifactRequest();
-
-    artifactRequest.setArtifact(artifact);
-    artifactRequest.setRepositories(ImmutableList.of(repository));
-
+    // Try fetching jar.
+    final Path jarDownload;
     try {
-      ArtifactResult artifactResult = system.resolveArtifact(session, artifactRequest);
-      artifact = artifactResult.getArtifact();
+      artifact = downloadArtifact(artifact, repository, session, system);
     } catch (ArtifactResolutionException e) {
       throw new IOException("Failed to fetch Maven dependency: " + e.getMessage());
     }
 
-    Path downloadPath = outputDirectory.getRelative(artifact.getFile().getAbsolutePath());
+    // Try also fetching srcjar.
+    Artifact artifactWithSrcs = srcjarCoords(artifact);
+    try {
+      artifactWithSrcs = downloadArtifact(artifactWithSrcs, repository, session, system);
+    } catch (ArtifactResolutionException e) {
+      // Intentionally ignored - missing srcjar is not an error.
+    }
+
+    jarDownload = outputDirectory.getRelative(artifact.getFile().getAbsolutePath());
     // Verify checksum.
     if (!Strings.isNullOrEmpty(sha1)) {
-      RepositoryCache.assertFileChecksum(sha1, downloadPath, KeyType.SHA1);
+      RepositoryCache.assertFileChecksum(sha1, jarDownload, KeyType.SHA1);
     }
 
     if (isCaching) {
-      repositoryCache.put(sha1, downloadPath, KeyType.SHA1);
+      repositoryCache.put(sha1, jarDownload, KeyType.SHA1);
     }
-    return downloadPath;
+
+    if (artifactWithSrcs.getFile() != null) {
+      Path srcjarDownload =
+          outputDirectory.getRelative(artifactWithSrcs.getFile().getAbsolutePath());
+      return new JarPaths(jarDownload, Optional.fromNullable(srcjarDownload));
+    } else {
+      return new JarPaths(jarDownload, Optional.absent());
+    }
   }
 
   private Path getDownloadDestination(Artifact artifact) {
@@ -147,6 +163,40 @@ public class MavenDownloader extends HttpDownloader {
     joiner.add(groupIdPath).add(artifactId).add(version).add(filename);
 
     return outputDirectory.getRelative(joiner.toString());
+  }
+
+  private Artifact srcjarCoords(Artifact jar) {
+    return new DefaultArtifact(
+        jar.getGroupId(), jar.getArtifactId(), "sources", jar.getExtension(), jar.getVersion());
+  }
+
+  /*
+   * Set up request for and resolve (retrieve to local repo) artifact
+   */
+  private Artifact downloadArtifact(
+      Artifact artifact,
+      RemoteRepository repository,
+      RepositorySystemSession session,
+      RepositorySystem system)
+      throws ArtifactResolutionException {
+    ArtifactRequest artifactRequest = new ArtifactRequest();
+    artifactRequest.setArtifact(artifact);
+    artifactRequest.setRepositories(ImmutableList.of(repository));
+    ArtifactResult artifactResult = system.resolveArtifact(session, artifactRequest);
+    return artifactResult.getArtifact();
+  }
+
+  /*
+   * Class for packaging srcjar and jar paths together when srcjar is available.
+   */
+  static class JarPaths {
+    final Path jar;
+    @Nullable final Optional<Path> srcjar;
+
+    private JarPaths(Path jar, Optional<Path> srcjar) {
+      this.jar = jar;
+      this.srcjar = srcjar;
+    }
   }
 
   private static class MavenAuthentication implements Authentication {

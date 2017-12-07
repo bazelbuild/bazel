@@ -26,9 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.Set;
@@ -44,10 +42,13 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     Iterable<String> requiredAttributes(Scratch scratch, String packageDir,
         Set<String> alreadyAdded) throws IOException {
       ImmutableList.Builder<String> attributes = new ImmutableList.Builder<>();
-      if (!alreadyAdded.contains("srcs") && !alreadyAdded.contains("non_arc_srcs")) {
-        scratch.file(packageDir + "/a.m");
-        scratch.file(packageDir + "/private.h");
-        attributes.add("srcs = ['a.m', 'private.h']");
+      if (!alreadyAdded.contains("deps")) {
+        String depPackageDir = packageDir + "_defaultDep";
+        scratch.file(depPackageDir + "/a.m");
+        scratch.file(depPackageDir + "/private.h");
+        scratch.file(depPackageDir + "/BUILD",
+            "objc_library(name = 'lib_dep', srcs = ['a.m', 'private.h'])");
+        attributes.add("deps = ['//" + depPackageDir + ":" + "lib_dep']");
       }
       if (!alreadyAdded.contains("platform_type")) {
         attributes.add("platform_type = 'ios'");
@@ -56,6 +57,24 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     }
   };
 
+  @Test
+  public void testMandatoryMinimumOsVersionUnset() throws Exception {
+    RULE_TYPE.scratchTarget(scratch,
+        "platform_type", "'watchos'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//x:x");
+    assertContainsEvent("must be explicitly specified");
+  }
+
+  @Test
+  public void testMandatoryMinimumOsVersionSet() throws Exception {
+    RULE_TYPE.scratchTarget(scratch,
+        "minimum_os_version", "'8.0'",
+        "platform_type", "'watchos'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    getConfiguredTarget("//x:x");
+  }
 
   @Test
   public void testUnknownPlatformType() throws Exception {
@@ -64,44 +83,12 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "test",
         String.format(MultiArchSplitTransitionProvider.UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT,
             "meow_meow_os"),
-        "apple_static_library(name = 'test', srcs = [ 'a.m' ], platform_type = 'meow_meow_os')");
-  }
-
-  @Test
-  public void testCanUseCrosstool() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_crosstool=all");
-    RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
-
-    // If the target is indeed using the c++ backend, then its archive action should be a
-    // CppLinkAction.
-    Action lipoLibAction = lipoLibAction("//x:x");
-    Artifact archive = getFirstArtifactEndingWith(lipoLibAction.getInputs(), ".a");
-    Action archiveAction = getGeneratingAction(archive);
-    assertThat(archiveAction).isInstanceOf(CppLinkAction.class);
-  }
-
-  @Test
-  public void testCanUseCrosstool_multiArch() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_crosstool=all",
-        "--ios_multi_cpus=i386,x86_64");
-    RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
-
-    // If the target is indeed using the c++ backend, then its archive action should be a
-    // CppLinkAction.
-    Action lipoLibAction = lipoLibAction("//x:x");
-    Artifact archive = getFirstArtifactEndingWith(lipoLibAction.getInputs(), ".a");
-    Action archiveAction = getGeneratingAction(archive);
-    assertThat(archiveAction).isInstanceOf(CppLinkAction.class);
+        "apple_static_library(name = 'test', platform_type = 'meow_meow_os')");
   }
 
   @Test
   public void testSymlinkInsteadOfLipoSingleArch() throws Exception {
-    RULE_TYPE.scratchTarget(scratch,
-        "srcs", "['a.m']");
+    RULE_TYPE.scratchTarget(scratch);
 
     SymlinkAction action = (SymlinkAction) lipoLibAction("//x:x");
     CommandAction linkAction = linkLibAction("//x:x");
@@ -134,12 +121,11 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "    resources = [':avoid.png']",
         ")");
 
-    ObjcProvider provider = providerForTarget("//package:test");
-    // Do not remove SDK_FRAMEWORK or GENERAL_RESOURCE_FILE values in avoid_deps.
+    ObjcProvider provider =  getConfiguredTarget("//package:test")
+        .get(AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR).getDepsObjcProvider();
+    // Do not remove SDK_FRAMEWORK values in avoid_deps.
     assertThat(provider.get(ObjcProvider.SDK_FRAMEWORK))
         .containsAllOf(new SdkFramework("AvoidSDK"), new SdkFramework("BaseSDK"));
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.GENERAL_RESOURCE_FILE)))
-        .containsExactly("package/base.png");
   }
 
   @Test
@@ -159,18 +145,15 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testLipoAction() throws Exception {
-    scratch.file("package/BUILD",
-        "apple_static_library(name = 'test',",
-        "    platform_type = 'ios',",
-        "    srcs = [ 'a.m' ])");
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
 
     useConfiguration("--ios_multi_cpus=i386,x86_64");
 
-    CommandAction action = (CommandAction) lipoLibAction("//package:test");
+    CommandAction action = (CommandAction) lipoLibAction("//x:x");
     String i386Lib =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS) + "package/test-fl.a";
+        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x-fl.a";
     String x8664Lib =
-        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "package/test-fl.a";
+        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x-fl.a";
 
     assertThat(Artifact.toExecPaths(action.getInputs()))
         .containsExactly(i386Lib, x8664Lib, MOCK_XCRUNWRAPPER_PATH);
@@ -183,11 +166,11 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
             i386Lib,
             x8664Lib,
             "-o",
-            execPathEndingWith(action.getOutputs(), "test_lipo.a"))
+            execPathEndingWith(action.getOutputs(), "x_lipo.a"))
         .inOrder();
 
     assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
-        .containsExactly("package/test_lipo.a");
+        .containsExactly("x/x_lipo.a");
     assertRequiresDarwin(action);
   }
 
@@ -197,11 +180,10 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "package/BUILD",
         "apple_static_library(",
         "    name = 'test',",
-        "    srcs = ['a.m'],",
         "    deps = [':objcLib'],",
         "    platform_type = 'watchos'",
         ")",
-        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
+        "objc_library(name = 'objcLib', srcs = [ 'a.m' ])");
 
     Action lipoAction = lipoLibAction("//package:test");
 
@@ -222,24 +204,18 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "package/BUILD",
         "apple_static_library(name = 'test',",
-        "    srcs = [ 'a.m' ],",
         "    deps = [ ':cclib' ],",
         "    platform_type = 'ios')",
         "cc_library(name = 'cclib', srcs = ['dep.c'])");
 
     useConfiguration(
         "--ios_multi_cpus=i386,x86_64",
-        "--experimental_disable_go",
         "--experimental_disable_jvm",
         "--crosstool_top=//tools/osx/crosstool:crosstool");
 
     CommandAction action = (CommandAction) lipoLibAction("//package:test");
-    String i386Prefix =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS,
-            DEFAULT_IOS_SDK_VERSION);
-    String x8664Prefix =
-        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS,
-            DEFAULT_IOS_SDK_VERSION);
+    String i386Prefix = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS, null);
+    String x8664Prefix = configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null);
 
     CommandAction i386BinAction =
         (CommandAction)
@@ -252,24 +228,23 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
                 getFirstArtifactEndingWith(action.getInputs(), x8664Prefix + "package/test-fl.a"));
 
     assertThat(Artifact.toExecPaths(i386BinAction.getInputs()))
-        .containsAllOf(i386Prefix + "package/libtest.a", i386Prefix + "package/libcclib.a");
+        .contains(i386Prefix + "package/libcclib.a");
     assertThat(Artifact.toExecPaths(x8664BinAction.getInputs()))
-        .containsAllOf(x8664Prefix + "package/libtest.a", x8664Prefix + "package/libcclib.a");
+        .contains(x8664Prefix + "package/libcclib.a");
   }
 
   @Test
   public void testWatchSimulatorLipoAction() throws Exception {
-    scratch.file("package/BUILD",
-        "apple_static_library(name = 'test', srcs = [ 'a.m' ], platform_type = 'watchos')");
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'watchos'");
 
     // Tests that ios_multi_cpus and ios_cpu are completely ignored.
     useConfiguration("--ios_multi_cpus=x86_64", "--ios_cpu=x86_64", "--watchos_cpus=i386,armv7k");
 
-    CommandAction action = (CommandAction) lipoLibAction("//package:test");
+    CommandAction action = (CommandAction) lipoLibAction("//x:x");
     String i386Bin = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-        + "package/test-fl.a";
+        + "x/x-fl.a";
     String armv7kBin = configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-        + "package/test-fl.a";
+        + "x/x-fl.a";
 
     assertThat(Artifact.toExecPaths(action.getInputs()))
         .containsExactly(i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH);
@@ -278,10 +253,10 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         MOCK_XCRUNWRAPPER_PATH, LIPO, "-create"));
     assertThat(action.getArguments()).containsAllOf(armv7kBin, i386Bin);
     assertContainsSublist(action.getArguments(), ImmutableList.of(
-        "-o", execPathEndingWith(action.getOutputs(), "test_lipo.a")));
+        "-o", execPathEndingWith(action.getOutputs(), "x_lipo.a")));
 
     assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
-        .containsExactly("package/test_lipo.a");
+        .containsExactly("x/x_lipo.a");
     assertAppleSdkPlatformEnv(action, "WatchOS");
     assertRequiresDarwin(action);
   }
@@ -401,62 +376,51 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testFilesToCompileOutputGroup() throws Exception {
-    checkFilesToCompileOutputGroup(RULE_TYPE);
-  }
-
-  @Test
   public void testAppleSdkVersionEnv() throws Exception {
-    scratch.file("package/BUILD",
-        "apple_static_library(name = 'test', srcs = [ 'a.m' ], platform_type = 'ios')");
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
 
-    CommandAction action = linkLibAction("//package:test");
+    CommandAction action = linkLibAction("//x:x");
 
     assertAppleSdkVersionEnv(action);
   }
 
   @Test
   public void testNonDefaultAppleSdkVersionEnv() throws Exception {
-    scratch.file("package/BUILD",
-        "apple_static_library(name = 'test', srcs = [ 'a.m' ], platform_type = 'ios')");
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
     useConfiguration("--ios_sdk_version=8.1");
 
-    CommandAction action = linkLibAction("//package:test");
+    CommandAction action = linkLibAction("//x:x");
 
     assertAppleSdkVersionEnv(action, "8.1");
   }
 
   @Test
   public void testAppleSdkDefaultPlatformEnv() throws Exception {
-    scratch.file("package/BUILD",
-        "apple_static_library(name = 'test', srcs = [ 'a.m' ], platform_type = 'ios')");
-    CommandAction action = linkLibAction("//package:test");
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
+    CommandAction action = linkLibAction("//x:x");
 
     assertAppleSdkPlatformEnv(action, "iPhoneSimulator");
   }
 
   @Test
   public void testAppleSdkIphoneosPlatformEnv() throws Exception {
-    scratch.file("package/BUILD",
-        "apple_static_library(name = 'test', srcs = [ 'a.m' ], platform_type = 'ios')");
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
     useConfiguration("--cpu=ios_arm64");
 
-    CommandAction action = linkLibAction("//package:test");
+    CommandAction action = linkLibAction("//x:x");
 
     assertAppleSdkPlatformEnv(action, "iPhoneOS");
   }
 
   @Test
   public void testAppleSdkWatchsimulatorPlatformEnv() throws Exception {
-    scratch.file(
-        "package/BUILD",
-        "apple_static_library(name = 'test', srcs = [ 'a.m' ], platform_type = 'watchos')");
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'watchos'");
     useConfiguration("--watchos_cpus=i386");
 
-    Action lipoAction = lipoLibAction("//package:test");
+    Action lipoAction = lipoLibAction("//x:x");
 
     String i386Lib =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "package/test-fl.a";
+        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "x/x-fl.a";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Lib);
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
@@ -465,16 +429,14 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkWatchosPlatformEnv() throws Exception {
-    scratch.file(
-        "package/BUILD",
-        "apple_static_library(name = 'test', srcs = [ 'a.m' ], platform_type = 'watchos')");
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'watchos'");
     useConfiguration("--watchos_cpus=armv7k");
 
-    Action lipoAction = lipoLibAction("//package:test");
+    Action lipoAction = lipoLibAction("//x:x");
 
     String armv7kLib =
         configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-            + "package/test-fl.a";
+            + "x/x-fl.a";
     Artifact libArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv7kLib);
     CommandAction linkAction = (CommandAction) getGeneratingAction(libArtifact);
 
@@ -483,11 +445,10 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testXcodeVersionEnv() throws Exception {
-    scratch.file("package/BUILD",
-        "apple_static_library(name = 'test', srcs = [ 'a.m' ], platform_type = 'ios')");
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
     useConfiguration("--xcode_version=5.8");
 
-    CommandAction action = linkLibAction("//package:test");
+    CommandAction action = linkLibAction("//x:x");
 
     assertXcodeVersionEnv(action, "5.8");
   }
@@ -498,7 +459,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "package/BUILD",
         "apple_static_library(",
         "    name = 'test',",
-        "    srcs = ['a.m'],",
         "    deps = [':objcLib'],",
         "    platform_type = 'watchos'",
         ")",
@@ -522,15 +482,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleStaticLibraryProvider() throws Exception {
-    scratch.file(
-        "lib/BUILD",
-        "apple_static_library(",
-        "    name = 'applelib',",
-        "    srcs = ['a.m'],",
-        "    platform_type = 'ios',",
-        "    hdrs = ['a.h'],",
-        ")");
-    ConfiguredTarget binTarget = getConfiguredTarget("//lib:applelib");
+    RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
+    ConfiguredTarget binTarget = getConfiguredTarget("//x:x");
     AppleStaticLibraryProvider provider =
         binTarget.get(AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
@@ -539,5 +492,167 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     assertThat(provider.getMultiArchArchive()).isEqualTo(
         Iterables.getOnlyElement(
             provider.getDepsObjcProvider().get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)));
+  }
+
+  @Test
+  public void testMinimumOsDifferentTargets() throws Exception {
+    checkMinimumOsDifferentTargets(RULE_TYPE, "_lipo.a", "-fl.a");
+  }
+
+  @Test
+  public void testAvoidDepsObjects() throws Exception {
+    scratch.file("package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':objcLib'],",
+        "    avoid_deps = [':avoidLib'],",
+        "    platform_type = 'ios',",
+        ")",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib', ':baseLib'])",
+        "objc_library(name = 'baseLib', srcs = [ 'base.m' ])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    CommandAction action = linkLibAction("//package:test");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllOf(
+        "package/libobjcLib.a", "package/libbaseLib.a");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
+        "package/libavoidLib.a");
+  }
+
+  @Test
+  // Tests that if there is a cc_library in avoid_deps, all of its dependencies are
+  // transitively avoided, even if it is not present in deps.
+  public void testAvoidDepsObjects_avoidViaCcLibrary() throws Exception {
+    scratch.file("package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':objcLib'],",
+        "    avoid_deps = [':avoidCclib'],",
+        "    platform_type = 'ios',",
+        ")",
+        "cc_library(name = 'avoidCclib', srcs = ['cclib.c'], deps = [':avoidLib'])",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib'])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    useConfiguration("--experimental_disable_jvm");
+    CommandAction action = linkLibAction("//package:test");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).contains(
+        "package/libobjcLib.a");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
+        "package/libavoidCcLib.a");
+  }
+
+  @Test
+  // Tests that if there is a cc_library in avoid_deps, and it is present in deps, it will
+  // be avoided, as well as its transitive dependencies.
+  public void testAvoidDepsObjects_avoidCcLibrary() throws Exception {
+    scratch.file("package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':objcLib', ':avoidCclib'],",
+        "    avoid_deps = [':avoidCclib'],",
+        "    platform_type = 'ios',",
+        ")",
+        "cc_library(name = 'avoidCclib', srcs = ['cclib.c'], deps = [':avoidLib'])",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    useConfiguration("--experimental_disable_jvm");
+    CommandAction action = linkLibAction("//package:test");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).contains(
+        "package/libobjcLib.a");
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).doesNotContain(
+        "package/libavoidCcLib.a");
+  }
+
+  @Test
+  public void testFeatureFlags_offByDefault() throws Exception {
+    scratchFeatureFlagTestLib();
+    scratch.file(
+        "test/BUILD",
+        "apple_static_library(",
+        "    name = 'static_lib',",
+        "    deps = ['//lib:objcLib'],",
+        "    platform_type = 'ios',",
+        ")");
+
+    CommandAction linkAction = linkLibAction("//test:static_lib");
+    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+
+    CommandAction flag1offCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1off.o"));
+    CommandAction flag2offCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2off.o"));
+
+    String compileArgs1 = Joiner.on(" ").join(flag1offCompileAction.getArguments());
+    String compileArgs2 = Joiner.on(" ").join(flag2offCompileAction.getArguments());
+    assertThat(compileArgs1).contains("FLAG_1_OFF");
+    assertThat(compileArgs1).contains("FLAG_2_OFF");
+    assertThat(compileArgs2).contains("FLAG_1_OFF");
+    assertThat(compileArgs2).contains("FLAG_2_OFF");
+  }
+
+  @Test
+  public void testFeatureFlags_oneFlagOn() throws Exception {
+    scratchFeatureFlagTestLib();
+    scratch.file(
+        "test/BUILD",
+        "apple_static_library(",
+        "    name = 'static_lib',",
+        "    deps = ['//lib:objcLib'],",
+        "    platform_type = 'ios',",
+        "    feature_flags = {",
+        "      '//lib:flag2': 'on',",
+        "    }",
+        ")");
+
+    CommandAction linkAction = linkLibAction("//test:static_lib");
+    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+
+    CommandAction flag1offCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1off.o"));
+    CommandAction flag2onCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2on.o"));
+
+    String compileArgs1 = Joiner.on(" ").join(flag1offCompileAction.getArguments());
+    String compileArgs2 = Joiner.on(" ").join(flag2onCompileAction.getArguments());
+    assertThat(compileArgs1).contains("FLAG_1_OFF");
+    assertThat(compileArgs1).contains("FLAG_2_ON");
+    assertThat(compileArgs2).contains("FLAG_1_OFF");
+    assertThat(compileArgs2).contains("FLAG_2_ON");
+  }
+
+  @Test
+  public void testFeatureFlags_allFlagsOn() throws Exception {
+    scratchFeatureFlagTestLib();
+    scratch.file(
+        "test/BUILD",
+        "apple_static_library(",
+        "    name = 'static_lib',",
+        "    deps = ['//lib:objcLib'],",
+        "    platform_type = 'ios',",
+        "    feature_flags = {",
+        "      '//lib:flag1': 'on',",
+        "      '//lib:flag2': 'on',",
+        "    }",
+        ")");
+
+    CommandAction linkAction = linkLibAction("//test:static_lib");
+    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+
+    CommandAction flag1onCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1on.o"));
+    CommandAction flag2onCompileAction = (CommandAction) getGeneratingAction(
+        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2on.o"));
+
+    String compileArgs1 = Joiner.on(" ").join(flag1onCompileAction.getArguments());
+    String compileArgs2 = Joiner.on(" ").join(flag2onCompileAction.getArguments());
+    assertThat(compileArgs1).contains("FLAG_1_ON");
+    assertThat(compileArgs1).contains("FLAG_2_ON");
+    assertThat(compileArgs2).contains("FLAG_1_ON");
+    assertThat(compileArgs2).contains("FLAG_2_ON");
   }
 }

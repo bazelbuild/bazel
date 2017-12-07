@@ -23,28 +23,33 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
-import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
+import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -54,8 +59,8 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -104,9 +109,11 @@ public class StandaloneSpawnStrategyTest {
     outputBase.createDirectory();
 
     BlazeDirectories directories =
-        new BlazeDirectories(outputBase, outputBase, workspaceDir, "mock-product-name");
+        new BlazeDirectories(
+            new ServerDirectories(outputBase, outputBase), workspaceDir, "mock-product-name");
     // This call implicitly symlinks the integration bin tools into the exec root.
-    IntegrationMock.get().getIntegrationBinTools(directories, TestConstants.WORKSPACE_NAME);
+    IntegrationMock.get()
+        .getIntegrationBinTools(fileSystem, directories, TestConstants.WORKSPACE_NAME);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(ExecutionOptions.class);
     optionsParser.parse("--verbose_failures");
     LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
@@ -119,6 +126,7 @@ public class StandaloneSpawnStrategyTest {
     Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
     this.executor =
         new BlazeExecutor(
+            fileSystem,
             execRoot,
             reporter,
             bus,
@@ -128,18 +136,25 @@ public class StandaloneSpawnStrategyTest {
             ImmutableMap.<String, SpawnActionContext>of(
                 "",
                 new StandaloneSpawnStrategy(
-                    execRoot, ActionInputPrefetcher.NONE, localExecutionOptions,
-                    /*verboseFailures=*/false, "mock-product-name", resourceManager)),
+                    new LocalSpawnRunner(
+                        execRoot,
+                        localExecutionOptions,
+                        resourceManager,
+                        "mock-product-name",
+                        LocalEnvProvider.UNMODIFIED))),
             ImmutableList.<ActionContextProvider>of());
 
     executor.getExecRoot().createDirectory();
   }
 
   private Spawn createSpawn(String... arguments) {
-    return new BaseSpawn.Local(
-        Arrays.asList(arguments),
-        ImmutableMap.<String, String>of(),
+    return new SimpleSpawn(
         new ActionsTestUtil.NullAction(),
+        ImmutableList.copyOf(arguments),
+        /*environment=*/ ImmutableMap.of(),
+        /*executionInfo=*/ ImmutableMap.of(),
+        /*inputs=*/ ImmutableList.of(),
+        /*outputs=*/ ImmutableList.of(),
         ResourceSet.ZERO);
   }
 
@@ -159,14 +174,17 @@ public class StandaloneSpawnStrategyTest {
     assertThat(err()).isEmpty();
   }
 
-  private void run(Spawn spawn) throws Exception {
-    executor.getSpawnActionContext(spawn.getMnemonic()).exec(spawn, createContext());
+  private List<SpawnResult> run(Spawn spawn) throws Exception {
+    return executor.getSpawnActionContext(spawn.getMnemonic()).exec(spawn, createContext());
   }
+
   private ActionExecutionContext createContext() {
     Path execRoot = executor.getExecRoot();
     return new ActionExecutionContext(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        ActionInputPrefetcher.NONE,
+        new ActionKeyContext(),
         null,
         outErr,
         ImmutableMap.<String, String>of(),
@@ -210,10 +228,19 @@ public class StandaloneSpawnStrategyTest {
 
   @Test
   public void testCommandHonorsEnvironment() throws Exception {
-    Spawn spawn = new BaseSpawn.Local(
-        Arrays.asList("/usr/bin/env"),
-        ImmutableMap.of("foo", "bar", "baz", "boo"),
+    if (OS.getCurrent() == OS.DARWIN) {
+      // // TODO(#)3795: For some reason, we get __CF_USER_TEXT_ENCODING into the env in some
+      // configurations of MacOS machines. I have been unable to reproduce on my Mac, or to track
+      // down where that env var is coming from.
+      return;
+    }
+    Spawn spawn = new SimpleSpawn(
         new ActionsTestUtil.NullAction(),
+        ImmutableList.of("/usr/bin/env"),
+        /*environment=*/ ImmutableMap.of("foo", "bar", "baz", "boo"),
+        /*executionInfo=*/ ImmutableMap.of(),
+        /*inputs=*/ ImmutableList.of(),
+        /*outputs=*/ ImmutableList.of(),
         ResourceSet.ZERO);
     run(spawn);
     assertThat(Sets.newHashSet(out().split("\n"))).isEqualTo(Sets.newHashSet("foo=bar", "baz=boo"));

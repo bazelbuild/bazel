@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -49,11 +50,13 @@ class Skylark {
         }
       };
 
+  private static final Charset CHARSET = StandardCharsets.ISO_8859_1;
   private final BufferedReader reader =
-      new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
+      new BufferedReader(new InputStreamReader(System.in, CHARSET));
   private final Mutability mutability = Mutability.create("interpreter");
   private final Environment env =
       Environment.builder(mutability)
+          .useDefaultSemantics()
           .setGlobals(Environment.DEFAULT_GLOBALS)
           .setEventHandler(PRINT_HANDLER)
           .build();
@@ -62,6 +65,7 @@ class Skylark {
     StringBuilder input = new StringBuilder();
     System.out.print(START_PROMPT);
     try {
+      String lineSeparator = "";
       while (true) {
         String line = reader.readLine();
         if (line == null) {
@@ -70,7 +74,8 @@ class Skylark {
         if (line.isEmpty()) {
           return input.toString();
         }
-        input.append("\n").append(line);
+        input.append(lineSeparator).append(line);
+        lineSeparator = "\n";
         System.out.print(CONTINUATION_PROMPT);
       }
     } catch (IOException io) {
@@ -98,14 +103,14 @@ class Skylark {
   public int execute(String path) {
     String content;
     try {
-      content = new String(Files.readAllBytes(Paths.get(path)), StandardCharsets.UTF_8);
+      content = new String(Files.readAllBytes(Paths.get(path)), CHARSET);
       BuildFileAST.eval(env, content);
       return 0;
     } catch (EvalException e) {
       System.err.println(e.print());
       return 1;
     } catch (Exception e) {
-      System.err.println(e);
+      e.printStackTrace(System.err);
       return 1;
     }
   }

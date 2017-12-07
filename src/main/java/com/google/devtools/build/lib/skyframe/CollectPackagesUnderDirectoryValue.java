@@ -225,7 +225,7 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
 
   /** Create a collect packages under directory request. */
   @ThreadSafe
-  static SkyKey key(
+  public static SkyKey key(
       RepositoryName repository, RootedPath rootedPath, ImmutableSet<PathFragment> excludedPaths) {
     return key(new RecursivePkgKey(repository, rootedPath, excludedPaths));
   }

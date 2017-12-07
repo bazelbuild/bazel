@@ -20,6 +20,7 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +31,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -39,28 +42,29 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.ErrorInfoSubject;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -108,7 +112,11 @@ public class FileFunctionTest {
     this.fs = fs;
     pkgRoot = fs.getRootDirectory().getRelative("root");
     outputBase = fs.getRootDirectory().getRelative("output_base");
-    pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(pkgRoot));
+    pkgLocator =
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(pkgRoot),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     FileSystemUtils.createDirectoryAndParents(pkgRoot);
   }
 
@@ -119,10 +127,11 @@ public class FileFunctionTest {
   private SequentialBuildDriver makeDriver(ExternalFileAction externalFileAction) {
     AtomicReference<PathPackageLocator> pkgLocatorRef = new AtomicReference<>(pkgLocator);
     BlazeDirectories directories =
-        new BlazeDirectories(pkgRoot, outputBase, pkgRoot, TestConstants.PRODUCT_NAME);
+        new BlazeDirectories(
+            new ServerDirectories(pkgRoot, outputBase), pkgRoot, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         new ExternalFilesHelper(pkgLocatorRef, externalFileAction, directories);
-    differencer = new RecordingDifferencer();
+    differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -145,7 +154,7 @@ public class FileFunctionTest {
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD)))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(
                     SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
@@ -153,8 +162,9 @@ public class FileFunctionTest {
                     SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
-                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder().build(
-                            TestRuleClassProvider.getRuleClassProvider(), fs),
+                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
+                            .builder()
+                            .build(TestRuleClassProvider.getRuleClassProvider(), fs),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
@@ -164,6 +174,7 @@ public class FileFunctionTest {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
         differencer, ImmutableMap.<RepositoryName, PathFragment>of());
+    PrecomputedValue.SKYLARK_SEMANTICS.set(differencer, SkylarkSemantics.DEFAULT_SEMANTICS);
     return new SequentialBuildDriver(evaluator);
   }
 
@@ -624,7 +635,11 @@ public class FileFunctionTest {
   @Test
   public void testSymlinkAcrossPackageRoots() throws Exception {
     Path otherPkgRoot = fs.getRootDirectory().getRelative("other_root");
-    pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(pkgRoot, otherPkgRoot));
+    pkgLocator =
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(pkgRoot, otherPkgRoot),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     symlink("a", "/other_root/b");
     assertValueChangesIfContentsOfFileChanges("/other_root/b", true, "a");
   }
@@ -717,7 +732,7 @@ public class FileFunctionTest {
       throws Exception {
     file("../outsideroot");
     symlink("a", "../outsideroot");
-    SequentialBuildDriver driver = 
+    SequentialBuildDriver driver =
         makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
     SkyKey key = skyKey("a");
     EvaluationResult<SkyValue> result =
@@ -1245,22 +1260,22 @@ public class FileFunctionTest {
 
   @Test
   public void testInfiniteSymlinkExpansion_AbsoluteSymlinkToDescendant() throws Exception {
-    runTestInfiniteSymlinkExpansion(/*ancestor=*/ false, /*absoluteSymlink=*/ true);
+    runTestInfiniteSymlinkExpansion(/* symlinkToAncestor= */ false, /*absoluteSymlink=*/ true);
   }
 
   @Test
   public void testInfiniteSymlinkExpansion_RelativeSymlinkToDescendant() throws Exception {
-    runTestInfiniteSymlinkExpansion(/*ancestor=*/ false, /*absoluteSymlink=*/ false);
+    runTestInfiniteSymlinkExpansion(/* symlinkToAncestor= */ false, /*absoluteSymlink=*/ false);
   }
 
   @Test
   public void testInfiniteSymlinkExpansion_AbsoluteSymlinkToAncestor() throws Exception {
-    runTestInfiniteSymlinkExpansion(/*ancestor=*/ true, /*absoluteSymlink=*/ true);
+    runTestInfiniteSymlinkExpansion(/* symlinkToAncestor= */ true, /*absoluteSymlink=*/ true);
   }
 
   @Test
   public void testInfiniteSymlinkExpansion_RelativeSymlinkToAncestor() throws Exception {
-    runTestInfiniteSymlinkExpansion(/*ancestor=*/ true, /*absoluteSymlink=*/ false);
+    runTestInfiniteSymlinkExpansion(/* symlinkToAncestor= */ true, /*absoluteSymlink=*/ false);
   }
 
   @Test
@@ -1270,6 +1285,41 @@ public class FileFunctionTest {
     Path child = parent.getChild("child");
     assertThat(valueForPath(parent).exists()).isFalse();
     assertThat(valueForPath(child).exists()).isFalse();
+  }
+
+  @Test
+  public void testInjectionOverIOException() throws Exception {
+    Path foo = file("foo");
+    SkyKey fooKey = skyKey("foo");
+    fs.stubStatError(foo, new IOException("bork"));
+    BuildDriver driver = makeDriver();
+    EvaluationResult<FileValue> result =
+        driver.evaluate(
+            ImmutableList.of(fooKey),
+            /*keepGoing=*/ true,
+            /*numThreads=*/ 1,
+            NullEventHandler.INSTANCE);
+    ErrorInfoSubject errorInfoSubject = assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(fooKey);
+    errorInfoSubject.isTransient();
+    errorInfoSubject
+        .hasExceptionThat()
+        .hasMessageThat()
+        .isEqualTo("bork");
+    fs.stubbedStatErrors.remove(foo);
+    differencer.inject(
+        fileStateSkyKey("foo"),
+        FileStateValue.create(
+            RootedPath.toRootedPath(pkgRoot, foo),
+            new TimestampGranularityMonitor(BlazeClock.instance())));
+    result =
+        driver.evaluate(
+            ImmutableList.of(fooKey),
+            /*keepGoing=*/ true,
+            /*numThreads=*/ 1,
+            NullEventHandler.INSTANCE);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(fooKey).exists()).isTrue();
   }
 
   private void checkRealPath(String pathString) throws Exception {

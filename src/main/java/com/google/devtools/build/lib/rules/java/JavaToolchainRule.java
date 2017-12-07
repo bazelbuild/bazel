@@ -57,7 +57,7 @@ public final class JavaToolchainRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("target_version", STRING).mandatory()) // javac -target flag value.
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(bootclasspath) -->
-        The Java target exdir entries. Corresponds to javac's -bootclasspath flag.
+        The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("bootclasspath", LABEL_LIST)
@@ -65,7 +65,7 @@ public final class JavaToolchainRule implements RuleDefinition {
                 .cfg(HOST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(extclasspath) -->
-        The Java target exdir entries. Corresponds to javac's -extdir flag.
+        The Java target extdir entries. Corresponds to javac's -extdir flag.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("extclasspath", LABEL_LIST)
@@ -98,11 +98,16 @@ public final class JavaToolchainRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
         Label of the javac jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("javac", LABEL_LIST)
-            .mandatory()
-            .cfg(HOST)
-            .singleArtifact()
-            .allowedFileTypes(FileTypeSet.ANY_FILE))
+        .add(
+            attr("javac", LABEL_LIST)
+                .mandatory()
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(tools) -->
+        Labels of tools available for label-expansion in jvm_opts.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("tools", LABEL_LIST).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javabuilder) -->
         Label of the JavaBuilder deploy jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -110,7 +115,6 @@ public final class JavaToolchainRule implements RuleDefinition {
             attr("javabuilder", LABEL_LIST)
                 .mandatory()
                 .cfg(HOST)
-                .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(singlejar) -->
@@ -146,11 +150,12 @@ public final class JavaToolchainRule implements RuleDefinition {
         Label of a resource jar containing timezone data. If set, the timezone data is added as an
         implicitly runtime dependency of all java_binary rules.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("timezone_data", LABEL)
-            .cfg(HOST)
-            .singleArtifact()
-            .allowedFileTypes(FileTypeSet.ANY_FILE)
-            .exec())
+        .add(
+            attr("timezone_data", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(ijar) -->
         Label of the ijar executable.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -172,11 +177,12 @@ public final class JavaToolchainRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->
         Label of the one-version enforcement binary.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("oneversion", LABEL)
-            .cfg(HOST)
-            .singleArtifact()
-            .allowedFileTypes(FileTypeSet.ANY_FILE)
-            .exec())
+        .add(
+            attr("oneversion", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion_whitelist) -->
         Label of the one-version whitelist.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -195,6 +201,14 @@ public final class JavaToolchainRule implements RuleDefinition {
             attr("compatible_javacopts", STRING_LIST_DICT)
                 .undocumented("internal")
                 .value(ImmutableMap.<String, List<String>>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(plugin_configuration) -->
+        Java plugins that should be enabled for the specified package groups.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("plugin_configuration", LABEL_LIST)
+                .cfg(HOST)
+                .allowedFileTypes()
+                .mandatoryNativeProviders(ImmutableList.of(JavaPluginConfigurationProvider.class)))
         .build();
   }
 

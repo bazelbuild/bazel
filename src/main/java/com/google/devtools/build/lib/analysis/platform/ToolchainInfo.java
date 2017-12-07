@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -39,7 +39,7 @@ import java.util.Map;
   category = SkylarkModuleCategory.PROVIDER
 )
 @Immutable
-public class ToolchainInfo extends SkylarkClassObject {
+public class ToolchainInfo extends NativeInfo {
 
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ToolchainInfo";
@@ -49,49 +49,37 @@ public class ToolchainInfo extends SkylarkClassObject {
           FunctionSignature.of(
               /*numMandatoryPositionals=*/ 0,
               /*numOptionalPositionals=*/ 0,
-              /*numMandatoryNamedOnly*/ 1,
+              /*numMandatoryNamedOnly*/ 0,
               /*starArg=*/ false,
               /*kwArg=*/ true,
-              /*names=*/ "type",
-              "data"),
+              /*names=*/ "data"),
           /*defaultValues=*/ null,
-          /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.of(Label.class), SkylarkType.DICT));
+          /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.DICT));
 
   /** Skylark constructor and identifier for this provider. */
-  public static final NativeClassObjectConstructor<ToolchainInfo> SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor<ToolchainInfo>(
-          ToolchainInfo.class, SKYLARK_NAME, SIGNATURE) {
+  public static final NativeProvider<ToolchainInfo> PROVIDER =
+      new NativeProvider<ToolchainInfo>(ToolchainInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
         protected ToolchainInfo createInstanceFromSkylark(Object[] args, Location loc)
             throws EvalException {
-          // Based on SIGNATURE above, the args are label, map.
-          Label type = (Label) args[0];
           Map<String, Object> data =
-              SkylarkDict.castSkylarkDictOrNoneToDict(args[1], String.class, Object.class, "data");
-          return ToolchainInfo.create(type, data, loc);
+              SkylarkDict.castSkylarkDictOrNoneToDict(args[0], String.class, Object.class, "data");
+          return ToolchainInfo.create(data, loc);
         }
       };
 
-  private final Label type;
-
-  private ToolchainInfo(Label type, Map<String, Object> toolchainData, Location loc) {
-    super(
-        SKYLARK_CONSTRUCTOR,
-        ImmutableMap.<String, Object>builder().put("type", type).putAll(toolchainData).build(),
-        loc);
-
-    this.type = type;
+  public ToolchainInfo(Map<String, Object> toolchainData, Location loc) {
+    super(PROVIDER, ImmutableMap.copyOf(toolchainData), loc);
   }
 
-  public Label type() {
-    return type;
+  public static ToolchainInfo create(Map<String, Object> toolchainData) {
+    return create(toolchainData, Location.BUILTIN);
   }
 
-  public static ToolchainInfo create(Label type, Map<String, Object> toolchainData) {
-    return create(type, toolchainData, Location.BUILTIN);
+  public static ToolchainInfo create(Map<String, Object> toolchainData, Location loc) {
+    return new ToolchainInfo(toolchainData, loc);
   }
 
-  public static ToolchainInfo create(Label type, Map<String, Object> toolchainData, Location loc) {
-    return new ToolchainInfo(type, toolchainData, loc);
-  }
+  /** Add make variables to be exported to dependers. */
+  public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {}
 }

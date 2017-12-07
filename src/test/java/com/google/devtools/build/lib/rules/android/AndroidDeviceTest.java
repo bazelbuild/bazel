@@ -29,12 +29,14 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
+import com.google.devtools.build.lib.packages.InputFile;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -167,10 +169,10 @@ public class AndroidDeviceTest extends BuildViewTestCase {
             getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
             getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
 
-    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
-    ExecutionInfoProvider executionInfoProvider =
-        target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR);
-    assertThat(executionInfoProvider.getExecutionInfo()).doesNotContainKey(REQUIRES_KVM);
+    assertThat(target.get(ExecutionInfo.PROVIDER.getKey())).isNotNull();
+    ExecutionInfo executionInfo =
+        target.get(ExecutionInfo.PROVIDER);
+    assertThat(executionInfo.getExecutionInfo()).doesNotContainKey(REQUIRES_KVM);
     TemplateExpansionAction stubAction = (TemplateExpansionAction) getGeneratingAction(
         getExecutable(target));
     String stubContents = stubAction.getFileContents();
@@ -227,8 +229,8 @@ public class AndroidDeviceTest extends BuildViewTestCase {
 
     assertThat(action.getExecutionInfo())
         .containsEntry(REQUIRES_KVM, "");
-    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
-    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR).getExecutionInfo())
+    assertThat(target.get(ExecutionInfo.PROVIDER.getKey())).isNotNull();
+    assertThat(target.get(ExecutionInfo.PROVIDER).getExecutionInfo())
         .containsKey(REQUIRES_KVM);
   }
 
@@ -528,5 +530,47 @@ public class AndroidDeviceTest extends BuildViewTestCase {
               "               horizontal_resolution = 640, ",
               "               vertical_resolution = 100) ");
 
+  }
+
+  @Test
+  public void testPackageWhitelist() throws Exception {
+    ConfiguredTarget validPackageAndroidDevice =
+        scratchConfiguredTarget(
+            "foo",
+            "nexus_6",
+            "android_device(",
+            "    name = 'nexus_6', ",
+            "    ram = 2048, ",
+            "    horizontal_resolution = 720, ",
+            "    vertical_resolution = 1280, ",
+            "    cache = 32, ",
+            "    system_image = '" + SYSTEM_IMAGE_LABEL + "',",
+            "    screen_density = 280, ",
+            "    vm_heap = 256",
+            ")");
+    assertThat(validPackageAndroidDevice).isNotNull();
+    InputFile mockedAndroidToolsBuildFile =
+        (InputFile) getTarget(ruleClassProvider.getToolsRepository() + "//tools/android:BUILD");
+    String mockedAndroidToolsBuildFileLocation =
+        mockedAndroidToolsBuildFile.getPath().getPathString();
+    String mockedAndroidToolsContent =
+        scratch.readFile(mockedAndroidToolsBuildFileLocation)
+            .replaceAll(Pattern.quote("packages = ['//...']"), "packages = ['//bar/...']");
+    scratch.overwriteFile(mockedAndroidToolsBuildFileLocation, mockedAndroidToolsContent);
+    invalidatePackages();
+    checkError(
+        "baz",
+        "nexus_6",
+        "The android_device rule may not be used in this package",
+        "android_device(",
+        "    name = 'nexus_6', ",
+        "    ram = 2048, ",
+        "    horizontal_resolution = 720, ",
+        "    vertical_resolution = 1280, ",
+        "    cache = 32, ",
+        "    system_image = '" + SYSTEM_IMAGE_LABEL + "',",
+        "    screen_density = 280, ",
+        "    vm_heap = 256",
+        ")");
   }
 }

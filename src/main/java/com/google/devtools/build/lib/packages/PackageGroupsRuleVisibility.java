@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import java.util.Collection;
 import java.util.List;
 
@@ -26,10 +26,8 @@ import java.util.List;
  */
 @Immutable @ThreadSafe
 public class PackageGroupsRuleVisibility implements RuleVisibility {
-  public static final String PACKAGE_LABEL = "__pkg__";
-  public static final String SUBTREE_LABEL = "__subpackages__";
   private final List<Label> packageGroups;
-  private final List<PackageSpecification> directPackages;
+  private final PackageGroupContents directPackages;
   private final List<Label> declaredLabels;
 
   public PackageGroupsRuleVisibility(Label ruleLabel, List<Label> labels) {
@@ -48,14 +46,14 @@ public class PackageGroupsRuleVisibility implements RuleVisibility {
     }
 
     packageGroups = packageGroupBuilder.build();
-    directPackages = directPackageBuilder.build();
+    directPackages = PackageGroupContents.create(directPackageBuilder.build());
   }
 
   public Collection<Label> getPackageGroups() {
     return packageGroups;
   }
 
-  public Collection<PackageSpecification> getDirectPackages() {
+  public PackageGroupContents getDirectPackages() {
     return directPackages;
   }
 

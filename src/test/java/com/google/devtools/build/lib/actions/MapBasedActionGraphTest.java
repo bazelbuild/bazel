@@ -13,16 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.UncheckedActionConflictException;
 import com.google.devtools.build.lib.actions.util.TestAction;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -38,9 +37,11 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class MapBasedActionGraphTest {
+  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
+
   @Test
   public void testSmoke() throws Exception {
-    MutableActionGraph actionGraph = new MapBasedActionGraph();
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     FileSystem fileSystem = new InMemoryFileSystem(BlazeClock.instance());
     Path path = fileSystem.getPath("/root/foo");
     Artifact output = new Artifact(path, Root.asDerivedRoot(path));
@@ -59,7 +60,7 @@ public class MapBasedActionGraphTest {
 
   @Test
   public void testNoActionConflictWhenUnregisteringSharedAction() throws Exception {
-    MutableActionGraph actionGraph = new MapBasedActionGraph();
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     FileSystem fileSystem = new InMemoryFileSystem(BlazeClock.instance());
     Path path = fileSystem.getPath("/root/foo");
     Artifact output = new Artifact(path, Root.asDerivedRoot(path));
@@ -73,7 +74,7 @@ public class MapBasedActionGraphTest {
   }
 
   private static class ActionRegisterer extends AbstractQueueVisitor {
-    private final MutableActionGraph graph = new MapBasedActionGraph();
+    private final MutableActionGraph graph = new MapBasedActionGraph(new ActionKeyContext());
     private final Artifact output;
     // Just to occasionally add actions that were already present.
     private final Set<Action> allActions = Sets.newConcurrentHashSet();

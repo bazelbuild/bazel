@@ -44,7 +44,7 @@ public class CommandBuilderTest {
   }
 
   private void assertWinCmdArgv(CommandBuilder builder, String expected) {
-    assertArgv(builder, "CMD.EXE", "/S", "/E:ON", "/V:ON", "/D", "/C", "\"" + expected + "\"");
+    assertArgv(builder, "CMD.EXE", "/S", "/E:ON", "/V:ON", "/D", "/C", expected);
   }
 
   private void assertFailure(CommandBuilder builder, String expected) {

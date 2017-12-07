@@ -90,6 +90,7 @@ py_binary(
         "aar_native_libs_zip_creator.py",
     ],
     deps = [
+        ":junction_lib",
         "//third_party/py/gflags",
     ],
 )
@@ -120,33 +121,34 @@ py_test(
     ],
 )
 
-sh_binary(
-    name = "zip_manifest_creator",
-    srcs = ["zip_manifest_creator.sh"],
-    data = ["//tools/zip:zipper"],
-)
-
-sh_test(
-    name = "zip_manifest_creator_test",
-    size = "small",
-    srcs = ["zip_manifest_creator_test.sh"],
-    args = ["$(location //tools/zip:zipper)"],
-    data = [
-        ":zip_manifest_creator",
-        "//tools/zip:zipper",
-    ],
-)
-
 py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
-    deps = ["//third_party/py/gflags"],
+    deps = [
+        ":junction_lib",
+        "//third_party/py/gflags",
+    ],
 )
 
 py_test(
     name = "aar_embedded_jars_extractor_test",
     srcs = ["aar_embedded_jars_extractor_test.py"],
     deps = [":aar_embedded_jars_extractor"],
+)
+
+py_binary(
+    name = "aar_resources_extractor",
+    srcs = ["aar_resources_extractor.py"],
+    deps = [
+        ":junction_lib",
+        "//third_party/py/gflags",
+    ],
+)
+
+py_test(
+    name = "aar_resources_extractor_test",
+    srcs = ["aar_resources_extractor_test.py"],
+    deps = [":aar_resources_extractor"],
 )
 
 py_binary(
@@ -158,6 +160,30 @@ py_test(
     name = "resource_extractor_test",
     srcs = ["resource_extractor_test.py"],
     deps = [":resource_extractor"],
+)
+
+py_library(
+    name = "junction_lib",
+    srcs = ["junction.py"],
+    visibility = ["//visibility:private"],
+)
+
+py_test(
+    name = "junction_test",
+    srcs = select({
+        "//src/conditions:windows": ["junction_test.py"],
+        "//src/conditions:windows_msvc": ["junction_test.py"],
+        "//conditions:default": ["dummy_test.py"],
+    }),
+    main = select({
+        "//src/conditions:windows": "junction_test.py",
+        "//src/conditions:windows_msvc": "junction_test.py",
+        "//conditions:default": "dummy_test.py",
+    }),
+    deps = [
+        ":junction_lib",
+        "//src/test/py/bazel:test_base",
+    ],
 )
 
 filegroup(

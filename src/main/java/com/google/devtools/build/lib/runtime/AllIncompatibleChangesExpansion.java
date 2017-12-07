@@ -16,14 +16,13 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.ExpansionContext;
 import com.google.devtools.common.options.ExpansionFunction;
 import com.google.devtools.common.options.IsolatedOptionsData;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -97,55 +96,55 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
    * <p>If any of these requirements are not satisfied, {@link IllegalArgumentException} is thrown,
    * as this constitutes an internal error in the declaration of the option.
    */
-  private static void validateIncompatibleChange(Field field, Option annotation) {
-    String prefix = "Incompatible change option '--" + annotation.name() + "' ";
+  private static void validateIncompatibleChange(OptionDefinition optionDefinition) {
+    String prefix = String.format("Incompatible change %s ", optionDefinition);
 
     // To avoid ambiguity, and the suggestion of using .isEmpty().
     String defaultString = "";
 
     // Validate that disallowed fields aren't used. These will need updating if the default values
     // in Option ever change, and perhaps if new fields are added.
-    if (annotation.abbrev() != '\0') {
+    if (optionDefinition.getAbbreviation() != '\0') {
       throw new IllegalArgumentException(prefix + "must not use the abbrev field");
     }
-    if (!annotation.valueHelp().equals(defaultString)) {
+    if (!optionDefinition.getValueTypeHelpText().equals(defaultString)) {
       throw new IllegalArgumentException(prefix + "must not use the valueHelp field");
     }
-    if (annotation.converter() != Converter.class) {
+    if (optionDefinition.getProvidedConverter() != Converter.class) {
       throw new IllegalArgumentException(prefix + "must not use the converter field");
     }
-    if (annotation.allowMultiple()) {
+    if (optionDefinition.allowsMultiple()) {
       throw new IllegalArgumentException(prefix + "must not use the allowMultiple field");
     }
-    if (annotation.implicitRequirements().length > 0) {
+    if (optionDefinition.hasImplicitRequirements()) {
       throw new IllegalArgumentException(prefix + "must not use the implicitRequirements field");
     }
-    if (!annotation.oldName().equals(defaultString)) {
+    if (!optionDefinition.getOldOptionName().equals(defaultString)) {
       throw new IllegalArgumentException(prefix + "must not use the oldName field");
     }
-    if (annotation.wrapperOption()) {
+    if (optionDefinition.isWrapperOption()) {
       throw new IllegalArgumentException(prefix + "must not use the wrapperOption field");
     }
 
     // Validate the fields that are actually allowed.
-    if (!annotation.name().startsWith(INCOMPATIBLE_NAME_PREFIX)) {
+    if (!optionDefinition.getOptionName().startsWith(INCOMPATIBLE_NAME_PREFIX)) {
       throw new IllegalArgumentException(prefix + "must have name starting with \"incompatible_\"");
     }
-    if (!annotation.category().equals(INCOMPATIBLE_CATEGORY)) {
+    if (!optionDefinition.getOptionCategory().equals(INCOMPATIBLE_CATEGORY)) {
       throw new IllegalArgumentException(prefix + "must have category \"incompatible changes\"");
     }
-    if (!ImmutableList.copyOf(annotation.metadataTags())
+    if (!ImmutableList.copyOf(optionDefinition.getOptionMetadataTags())
         .contains(OptionMetadataTag.INCOMPATIBLE_CHANGE)) {
       throw new IllegalArgumentException(
           prefix + "must have metadata tag \"OptionMetadataTag.INCOMPATIBLE_CHANGE\"");
     }
-    if (!IsolatedOptionsData.isExpansionOption(annotation)) {
-      if (!field.getType().equals(Boolean.TYPE)) {
+    if (!optionDefinition.isExpansionOption()) {
+      if (!optionDefinition.getType().equals(Boolean.TYPE)) {
         throw new IllegalArgumentException(
             prefix + "must have boolean type (unless it's an expansion option)");
       }
     }
-    if (annotation.help().equals(defaultString)) {
+    if (optionDefinition.getHelpText().equals(defaultString)) {
       throw new IllegalArgumentException(
           prefix
               + "must have a \"help\" string that refers the user to "
@@ -154,17 +153,16 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
   }
 
   @Override
-  public ImmutableList<String> getExpansion(ExpansionContext context) {
+  public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
     // Grab all registered options that are identified as incompatible changes by either name or
     // by category. Ensure they satisfy our requirements.
     ArrayList<String> incompatibleChanges = new ArrayList<>();
-    for (Map.Entry<String, Field> entry : context.getOptionsData().getAllNamedFields()) {
-      Field field = entry.getValue();
-      Option annotation = field.getAnnotation(Option.class);
-      if (annotation.name().startsWith(INCOMPATIBLE_NAME_PREFIX)
-          || annotation.category().equals(INCOMPATIBLE_CATEGORY)) {
-        validateIncompatibleChange(field, annotation);
-        incompatibleChanges.add("--" + annotation.name());
+    for (Map.Entry<String, OptionDefinition> entry : optionsData.getAllOptionDefinitions()) {
+      OptionDefinition optionDefinition = entry.getValue();
+      if (optionDefinition.getOptionName().startsWith(INCOMPATIBLE_NAME_PREFIX)
+          || optionDefinition.getOptionCategory().equals(INCOMPATIBLE_CATEGORY)) {
+        validateIncompatibleChange(optionDefinition);
+        incompatibleChanges.add("--" + optionDefinition.getOptionName());
       }
     }
     // Sort to get a deterministic canonical order. This probably isn't necessary because the

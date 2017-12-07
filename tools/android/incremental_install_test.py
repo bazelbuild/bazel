@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +48,7 @@ class MockAdb(object):
     cmd = args[1]
     if cmd == "push":
       # "/test/adb push local remote"
-      with open(args[2]) as f:
+      with open(args[2], "rb") as f:
         content = f.read()
       self.files[args[3]] = content
     elif cmd == "pull":
@@ -56,7 +57,7 @@ class MockAdb(object):
       local = args[3]
       content = self.files.get(remote)
       if content is not None:
-        with open(local, "w") as f:
+        with open(local, "wb") as f:
           f.write(content)
       else:
         returncode = 1
@@ -67,7 +68,7 @@ class MockAdb(object):
       return self._CreatePopenMock(0, "Success", "")
     elif cmd == "install-multiple":
       if args[3] == "-p":
-        with open(args[5]) as f:
+        with open(args[5], "rb") as f:
           content = f.read()
         self.split_apks.add(content)
       else:
@@ -131,11 +132,11 @@ class IncrementalInstallTest(unittest.TestCase):
     self._mock_adb = MockAdb()
 
     # Write the stub datafile which contains the package name of the app.
-    with open(self._STUB_DATAFILE, "w") as f:
+    with open(self._STUB_DATAFILE, "wb") as f:
       f.write("\n".join([self._OLD_APP_PACKGE, self._APP_PACKAGE]))
 
     # Write the local resource apk file.
-    with open(self._RESOURCE_APK, "w") as f:
+    with open(self._RESOURCE_APK, "wb") as f:
       f.write("resource apk")
 
     # Mock out subprocess.Popen to use our mock adb.
@@ -155,7 +156,7 @@ class IncrementalInstallTest(unittest.TestCase):
 
   def _CreateLocalManifest(self, *lines):
     content = "\n".join(lines)
-    with open(self._DEXMANIFEST, "w") as f:
+    with open(self._DEXMANIFEST, "wb") as f:
       f.write(content)
     return content
 
@@ -203,7 +204,7 @@ class IncrementalInstallTest(unittest.TestCase):
   def testUploadToPristineDevice(self):
     self._CreateZip()
 
-    with open("dex1", "w") as f:
+    with open("dex1", "wb") as f:
       f.write("content3")
 
     manifest = self._CreateLocalManifest(
@@ -215,119 +216,119 @@ class IncrementalInstallTest(unittest.TestCase):
 
     resources_checksum_path = self._GetDeviceAppPath("resources_checksum")
     self.assertTrue(resources_checksum_path in self._mock_adb.files)
-    self.assertEquals(manifest, self._GetDeviceFile("dex/manifest"))
-    self.assertEquals("content1", self._GetDeviceFile("dex/ip1"))
-    self.assertEquals("content2", self._GetDeviceFile("dex/ip2"))
-    self.assertEquals("content3", self._GetDeviceFile("dex/ip3"))
-    self.assertEquals("resource apk", self._GetDeviceFile("resources.ap_"))
+    self.assertEqual(manifest, self._GetDeviceFile("dex/manifest"))
+    self.assertEqual("content1", self._GetDeviceFile("dex/ip1"))
+    self.assertEqual("content2", self._GetDeviceFile("dex/ip2"))
+    self.assertEqual("content3", self._GetDeviceFile("dex/ip3"))
+    self.assertEqual("resource apk", self._GetDeviceFile("resources.ap_"))
 
   def testSplitInstallToPristineDevice(self):
-    with open("split1", "w") as f:
+    with open("split1", "wb") as f:
       f.write("split_content1")
 
-    with open("main", "w") as f:
+    with open("main", "wb") as f:
       f.write("main_Content")
 
     self._CallIncrementalInstall(
         incremental=False, split_main_apk="main", split_apks=["split1"])
-    self.assertEquals(set(["split_content1"]), self._mock_adb.split_apks)
+    self.assertEqual(set(["split_content1"]), self._mock_adb.split_apks)
 
   def testSplitInstallUnchanged(self):
-    with open("split1", "w") as f:
+    with open("split1", "wb") as f:
       f.write("split_content1")
 
-    with open("main", "w") as f:
+    with open("main", "wb") as f:
       f.write("main_Content")
 
     self._CallIncrementalInstall(
         incremental=False, split_main_apk="main", split_apks=["split1"])
-    self.assertEquals(set(["split_content1"]), self._mock_adb.split_apks)
+    self.assertEqual(set(["split_content1"]), self._mock_adb.split_apks)
     self._mock_adb.split_apks = set()
     self._CallIncrementalInstall(
         incremental=False, split_main_apk="main", split_apks=["split1"])
-    self.assertEquals(set([]), self._mock_adb.split_apks)
+    self.assertEqual(set([]), self._mock_adb.split_apks)
 
   def testSplitInstallChanges(self):
-    with open("split1", "w") as f:
+    with open("split1", "wb") as f:
       f.write("split_content1")
 
-    with open("main", "w") as f:
+    with open("main", "wb") as f:
       f.write("main_Content")
 
     self._CallIncrementalInstall(
         incremental=False, split_main_apk="main", split_apks=["split1"])
-    self.assertEquals(set(["split_content1"]), self._mock_adb.split_apks)
+    self.assertEqual(set(["split_content1"]), self._mock_adb.split_apks)
 
-    with open("split1", "w") as f:
+    with open("split1", "wb") as f:
       f.write("split_content2")
     self._mock_adb.split_apks = set()
     self._CallIncrementalInstall(
         incremental=False, split_main_apk="main", split_apks=["split1"])
-    self.assertEquals(set(["split_content2"]), self._mock_adb.split_apks)
+    self.assertEqual(set(["split_content2"]), self._mock_adb.split_apks)
 
   def testMissingNativeManifestWithIncrementalInstall(self):
     self._CreateZip()
-    with open("liba.so", "w") as f:
+    with open("liba.so", "wb") as f:
       f.write("liba_1")
 
     # Upload a library to the device.
     native_libs = ["armeabi-v7a:liba.so"]
     self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
-    self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
+    self.assertEqual("liba_1", self._GetDeviceFile("native/liba.so"))
 
     # Delete the manifest, overwrite the library and check that even an
     # incremental install straightens things out.
     self._PutDeviceFile("native/liba.so", "GARBAGE")
     self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
-    self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
+    self.assertEqual("liba_1", self._GetDeviceFile("native/liba.so"))
 
   def testNonIncrementalInstallOverwritesNativeLibs(self):
     self._CreateZip()
-    with open("liba.so", "w") as f:
+    with open("liba.so", "wb") as f:
       f.write("liba_1")
 
     # Upload a library to the device.
     native_libs = ["armeabi-v7a:liba.so"]
     self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
-    self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
+    self.assertEqual("liba_1", self._GetDeviceFile("native/liba.so"))
 
     # Change a library on the device. Incremental install should not replace the
     # changed file, because it only checks the manifest.
     self._PutDeviceFile("native/liba.so", "GARBAGE")
     self._CallIncrementalInstall(incremental=True, native_libs=native_libs)
-    self.assertEquals("GARBAGE", self._GetDeviceFile("native/liba.so"))
+    self.assertEqual("GARBAGE", self._GetDeviceFile("native/liba.so"))
 
     # However, a full install should overwrite it.
     self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
-    self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
+    self.assertEqual("liba_1", self._GetDeviceFile("native/liba.so"))
 
   def testNativeAbiCompatibility(self):
     self._CreateZip()
-    with open("liba.so", "w") as f:
+    with open("liba.so", "wb") as f:
       f.write("liba")
 
     native_libs = ["armeabi:liba.so"]
     self._mock_adb.SetAbi("arm64-v8a")
     self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
-    self.assertEquals("liba", self._GetDeviceFile("native/liba.so"))
+    self.assertEqual("liba", self._GetDeviceFile("native/liba.so"))
 
   def testUploadNativeLibs(self):
     self._CreateZip()
-    with open("liba.so", "w") as f:
+    with open("liba.so", "wb") as f:
       f.write("liba_1")
-    with open("libb.so", "w") as f:
+    with open("libb.so", "wb") as f:
       f.write("libb_1")
 
     native_libs = ["armeabi-v7a:liba.so", "armeabi-v7a:libb.so"]
     self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
-    self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
-    self.assertEquals("libb_1", self._GetDeviceFile("native/libb.so"))
+    self.assertEqual("liba_1", self._GetDeviceFile("native/liba.so"))
+    self.assertEqual("libb_1", self._GetDeviceFile("native/libb.so"))
 
     # Change a library
-    with open("libb.so", "w") as f:
+    with open("libb.so", "wb") as f:
       f.write("libb_2")
     self._CallIncrementalInstall(incremental=True, native_libs=native_libs)
-    self.assertEquals("libb_2", self._GetDeviceFile("native/libb.so"))
+    self.assertEqual("libb_2", self._GetDeviceFile("native/libb.so"))
 
     # Delete a library
     self._CallIncrementalInstall(
@@ -337,7 +338,7 @@ class IncrementalInstallTest(unittest.TestCase):
 
     # Add the deleted library back
     self._CallIncrementalInstall(incremental=True, native_libs=native_libs)
-    self.assertEquals("libb_2", self._GetDeviceFile("native/libb.so"))
+    self.assertEqual("libb_2", self._GetDeviceFile("native/libb.so"))
 
   def testUploadWithOneChangedFile(self):
     # Existing manifest from a previous install.
@@ -366,8 +367,8 @@ class IncrementalInstallTest(unittest.TestCase):
     # We just want to make sure that only one file was updated, so to
     # distinguish that we force the local and remote content to be different but
     # keep the checksum the same.
-    self.assertEquals("old content1", self._GetDeviceFile("dex/ip1"))
-    self.assertEquals("content2", self._GetDeviceFile("dex/ip2"))
+    self.assertEqual("old content1", self._GetDeviceFile("dex/ip1"))
+    self.assertEqual("content2", self._GetDeviceFile("dex/ip2"))
 
   def testFullUploadWithOneChangedFile(self):
 
@@ -392,8 +393,8 @@ class IncrementalInstallTest(unittest.TestCase):
     # Even though the checksums for ip1 were the same, the file still got
     # updated. This is a bit of a dishonest test because the local and remote
     # content for ip1 were different, but their checksums were the same.
-    self.assertEquals("content1", self._GetDeviceFile("dex/ip1"))
-    self.assertEquals("content2", self._GetDeviceFile("dex/ip2"))
+    self.assertEqual("content1", self._GetDeviceFile("dex/ip1"))
+    self.assertEqual("content2", self._GetDeviceFile("dex/ip2"))
 
   def testUploadWithNewFile(self):
 
@@ -410,8 +411,8 @@ class IncrementalInstallTest(unittest.TestCase):
 
     self._CallIncrementalInstall(incremental=True)
 
-    self.assertEquals("content1", self._GetDeviceFile("dex/ip1"))
-    self.assertEquals("content2", self._GetDeviceFile("dex/ip2"))
+    self.assertEqual("content1", self._GetDeviceFile("dex/ip1"))
+    self.assertEqual("content2", self._GetDeviceFile("dex/ip2"))
 
   def testDeletesFile(self):
 
@@ -448,9 +449,9 @@ class IncrementalInstallTest(unittest.TestCase):
         "dex1 - ip3 0")
 
     self._CallIncrementalInstall(incremental=True)
-    self.assertEquals("content1", self._GetDeviceFile("dex/ip1"))
-    self.assertEquals("content2", self._GetDeviceFile("dex/ip2"))
-    self.assertEquals("content3", self._GetDeviceFile("dex/ip3"))
+    self.assertEqual("content1", self._GetDeviceFile("dex/ip1"))
+    self.assertEqual("content2", self._GetDeviceFile("dex/ip2"))
+    self.assertEqual("content3", self._GetDeviceFile("dex/ip3"))
 
   def testNoResourcesToUpdate(self):
     self._CreateRemoteManifest("zip1 zp1 ip1 0")
@@ -468,7 +469,7 @@ class IncrementalInstallTest(unittest.TestCase):
     self._CreateLocalManifest("zip1 zp1 ip1 0")
 
     self._CallIncrementalInstall(incremental=True)
-    self.assertEquals("resources", self._GetDeviceFile("resources.ap_"))
+    self.assertEqual("resources", self._GetDeviceFile("resources.ap_"))
 
   def testUpdateResources(self):
     self._CreateRemoteManifest("zip1 zp1 ip1 0")
@@ -482,7 +483,7 @@ class IncrementalInstallTest(unittest.TestCase):
     self._CreateLocalManifest("zip1 zp1 ip1 0")
 
     self._CallIncrementalInstall(incremental=True)
-    self.assertEquals("resource apk", self._GetDeviceFile("resources.ap_"))
+    self.assertEqual("resource apk", self._GetDeviceFile("resources.ap_"))
 
   def testNoDevice(self):
     self._mock_adb.SetError(1, "", "device not found")
@@ -518,7 +519,7 @@ class IncrementalInstallTest(unittest.TestCase):
     # Based on testUploadToPristineDevice
     self._CreateZip()
 
-    with open("dex1", "w") as f:
+    with open("dex1", "wb") as f:
       f.write("content3")
 
     self._CreateLocalManifest(
@@ -534,7 +535,7 @@ class IncrementalInstallTest(unittest.TestCase):
   def testDebugStart(self):
     self._CreateZip()
 
-    with open("dex1", "w") as f:
+    with open("dex1", "wb") as f:
       f.write("content3")
 
     self._CreateLocalManifest(

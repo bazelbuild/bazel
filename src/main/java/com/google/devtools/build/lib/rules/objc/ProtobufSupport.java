@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -24,12 +24,14 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -38,6 +40,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -68,7 +71,7 @@ final class ProtobufSupport {
   private final BuildConfiguration buildConfiguration;
   private final ProtoAttributes attributes;
   private final IntermediateArtifacts intermediateArtifacts;
-  private final Set<Artifact> dylibHandledProtos;
+  private final Set<PathFragment> dylibHandledProtoPaths;
   private final Iterable<ObjcProtoProvider> objcProtoProviders;
   private final NestedSet<Artifact> portableProtoFilters;
   private final CcToolchainProvider toolchain;
@@ -145,7 +148,7 @@ final class ProtobufSupport {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.attributes = new ProtoAttributes(ruleContext);
-    this.dylibHandledProtos = dylibHandledProtos.toSet();
+    this.dylibHandledProtoPaths = runfilesPaths(dylibHandledProtos.toSet());
     this.objcProtoProviders = objcProtoProviders;
     this.portableProtoFilters = portableProtoFilters;
     this.intermediateArtifacts =
@@ -309,6 +312,14 @@ final class ProtobufSupport {
     return protobufHeaderSearchPaths.build();
   }
 
+  private static Set<PathFragment> runfilesPaths(Set<Artifact> artifacts) {
+    HashSet<PathFragment> pathsSet = new HashSet<>();
+    for (Artifact artifact : artifacts) {
+      pathsSet.add(artifact.getRunfilesPath());
+    }
+    return pathsSet;
+  }
+
   private static ImmutableSetMultimap<ImmutableSet<Artifact>, Artifact> getInputsToOutputsMap(
       ProtoAttributes attributes,
       Iterable<ProtoSourcesProvider> protoProviders,
@@ -392,7 +403,7 @@ final class ProtobufSupport {
     } else {
       commonBuilder.addDepObjcProviders(
           ruleContext.getPrerequisites(
-              ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class));
+              ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR));
     }
     return commonBuilder.build();
   }
@@ -420,8 +431,10 @@ final class ProtobufSupport {
 
   private Iterable<Artifact> getProtoSourceFilesForCompilation(
       Iterable<Artifact> outputProtoFiles) {
+    Predicate<Artifact> notDylibHandled =
+        artifact -> !dylibHandledProtoPaths.contains(artifact.getRunfilesPath());
     Iterable<Artifact> filteredOutputs =
-        Iterables.filter(outputProtoFiles, Predicates.not(Predicates.in(dylibHandledProtos)));
+        Iterables.filter(outputProtoFiles, notDylibHandled);
     return getGeneratedProtoOutputs(filteredOutputs, SOURCE_SUFFIX);
   }
 
@@ -444,7 +457,7 @@ final class ProtobufSupport {
             .addOutputs(getGeneratedProtoOutputs(outputProtos, HEADER_SUFFIX))
             .addOutputs(getProtoSourceFilesForCompilation(outputProtos))
             .setExecutable(attributes.getProtoCompiler().getExecPath())
-            .setCommandLine(getGenerationCommandLine(protoInputsFile))
+            .addCommandLine(getGenerationCommandLine(protoInputsFile))
             .build(ruleContext));
   }
 
@@ -463,17 +476,17 @@ final class ProtobufSupport {
   }
 
   private CustomCommandLine getGenerationCommandLine(Artifact protoInputsFile) {
-    return new CustomCommandLine.Builder()
+    return new Builder()
         .add("--input-file-list")
-        .add(protoInputsFile.getExecPathString())
+        .addExecPath(protoInputsFile)
         .add("--output-dir")
-        .add(getWorkspaceRelativeOutputDir().getSafePathString())
+        .addDynamicString(getWorkspaceRelativeOutputDir().getSafePathString())
         .add("--force")
         .add("--proto-root-dir")
-        .add(getGenfilesPathString())
+        .addDynamicString(getGenfilesPathString())
         .add("--proto-root-dir")
         .add(".")
-        .addBeforeEachExecPath("--config", portableProtoFilters)
+        .addExecPaths(VectorArg.addBefore("--config").each(portableProtoFilters))
         .build();
   }
 
@@ -515,10 +528,9 @@ final class ProtobufSupport {
   }
 
   private boolean isLinkingTarget() {
-    // Since this is the ProtobufSupport helper class, check whether the current target has
-    // configured the protobuf attributes. If not, it's not an objc_proto_library rule, so it must
-    // be a linking rule (e.g. apple_binary).
-    return !attributes.requiresProtobuf();
+    // Since this is the ProtobufSupport helper class, check whether the current target is
+    // an objc_proto_library. If not, it must be a linking rule (e.g. apple_binary).
+    return !attributes.isObjcProtoLibrary();
   }
 
   /**

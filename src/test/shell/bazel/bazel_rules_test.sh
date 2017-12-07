@@ -17,10 +17,19 @@
 # Test rules provided in Bazel not tested by examples
 #
 
+function die() {
+  echo >&2 "ERROR[$(basename "$0") $(date +%H:%M:%S.%N)] $@"
+  exit 1
+}
+
+if ! type rlocation &> /dev/null; then
+  die "the rlocation() Bash function is undefined"
+fi
+
 # Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
-  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
+  || die "integration_test_setup.sh not found!"
+
 
 function test_sh_test() {
   mkdir -p a
@@ -63,7 +72,7 @@ function test_extra_action() {
   # action file. This file is a proto, but I don't want to bother implementing
   # a program that parses the proto here.
   cat > mypkg/echoer.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 if [[ ! -e \$0.runfiles/__main__/mypkg/runfile ]]; then
   echo "Runfile not found" >&2
   exit 1
@@ -238,10 +247,13 @@ EOF
   export PATH="$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path"
   export TMPDIR="${new_tmpdir}"
   # batch mode to force reload of the environment
-  bazel --batch build //pkg:test || fail "Failed to build //pkg:test"
+  bazel --batch build //pkg:test --spawn_strategy=standalone \
+    || fail "Failed to build //pkg:test"
   assert_contains "PATH=$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path" \
     bazel-genfiles/pkg/test.out
-  assert_contains "TMPDIR=.*newfancytmpdir" \
+  assert_contains "TMPDIR=.*execroot.*tmp[0-9a-fA-F]\+_[0-9a-fA-F]\+$" \
+    bazel-genfiles/pkg/test.out
+  assert_not_contains "TMPDIR=.*newfancytmpdir" \
     bazel-genfiles/pkg/test.out
   if [ -n "${old_tmpdir}" ]
   then
@@ -275,7 +287,7 @@ sh_binary(
 EOF
 
   cat > package/in.sh << EOF
-#!/bin/bash
+#!/bin/sh
 echo "Hi"
 EOF
   chmod +x package/in.sh
@@ -303,8 +315,8 @@ genrule(
 EOF
 
   bazel build @r//package:hi >$TEST_log 2>&1 || fail "Should build"
-  expect_log bazel-genfiles/external/r/package/a/b
-  expect_log bazel-genfiles/external/r/package/c/d
+  expect_log "bazel-\(bin\|genfiles\)/external/r/package/a/b"
+  expect_log "bazel-\(bin\|genfiles\)/external/r/package/c/d"
 }
 
 function test_genrule_toolchain_dependency {
@@ -313,11 +325,12 @@ function test_genrule_toolchain_dependency {
 genrule(
     name = "toolchain_check",
     outs = ["version"],
+    toolchains = ['@bazel_tools//tools/jdk:current_java_runtime'],
     cmd = "ls -al \$(JAVABASE) > \$@",
 )
 EOF
   bazel build //t:toolchain_check >$TEST_log 2>&1 || fail "Should build"
-  expect_log "bazel-genfiles/t/version"
+  expect_log "bazel-\(bin\|genfiles\)/t/version"
   expect_not_log "ls: cannot access"
 }
 

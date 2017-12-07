@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
@@ -25,7 +26,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.List;
@@ -122,7 +123,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * Returns the options that affect the Skylark interpreter used for evaluating Skylark rule
    * implementation functions.
    */
-  SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException;
+  SkylarkSemantics getSkylarkSemantics() throws InterruptedException;
 
   /**
    * Returns the Artifact that is used to hold the non-volatile workspace status for the current
@@ -151,4 +152,6 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * called after the ConfiguredTarget is created.
    */
   ImmutableSet<Artifact> getOrphanArtifacts();
+
+  ActionKeyContext getActionKeyContext();
 }

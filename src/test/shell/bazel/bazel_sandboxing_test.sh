@@ -115,7 +115,7 @@ genrule(
   tags = [ "local" ],
 )
 
-load('/examples/genrule/skylark', 'skylark_breaks1')
+load('//examples/genrule:skylark.bzl', 'skylark_breaks1')
 
 skylark_breaks1(
   name = "skylark_breaks1",
@@ -460,6 +460,23 @@ bazel build examples/genrule:works &> ${TEST_log}
 EOF
 }
 
+function test_requires_root() {
+  cat > test.sh <<'EOF'
+#!/bin/sh
+([ $(id -u) = "0" ] && [ $(id -g) = "0" ]) || exit 1
+EOF
+  chmod +x test.sh
+  cat > BUILD <<'EOF'
+sh_test(
+  name = "test",
+  srcs = ["test.sh"],
+  tags = ["requires-fakeroot"],
+)
+EOF
+  bazel test --test_output=errors :test || fail "test did not pass"
+  bazel test --nocache_test_results --sandbox_fake_username --test_output=errors :test || fail "test did not pass"
+}
+
 # Tests that /proc/self == /proc/$$. This should always be true unless the PID namespace is active without /proc being remounted correctly.
 function test_sandbox_proc_self() {
   bazel build examples/genrule:check_proc_works >& $TEST_log || fail "build should have succeeded"
@@ -496,7 +513,7 @@ EOF
   expect_not_log "Executing genrule //:test failed: linux-sandbox failed: error executing command"
 
   # This is the error message telling us that some output artifacts couldn't be copied.
-  expect_log "Could not move output artifacts from sandboxed execution.*(Permission denied)"
+  expect_log "Could not move output artifacts from sandboxed execution."
 
   # The build fails, because the action didn't generate its output artifact.
   expect_log "ERROR:.*Executing genrule //:test failed"
@@ -521,14 +538,20 @@ EOF
 
   # This is the error message printed by the EventHandler telling us that some
   # output artifacts couldn't be copied.
-  expect_log "ERROR: I/O exception while extracting output artifacts from sandboxed execution.*(Permission denied)"
+  expect_log "Could not move output artifacts from sandboxed execution"
 
   # This is the UserExecException telling us that the build failed.
   expect_log "Executing genrule //:test failed:"
 }
 
-# TODO(xingao) Disabled due to https://github.com/bazelbuild/bazel/issues/2760
-function DISABLED_test_sandbox_mount_customized_path () {
+function test_sandbox_mount_customized_path () {
+
+  if ! [ "${PLATFORM-}" = "linux" -a \
+    "$(cat /dev/null /etc/*release | grep 'DISTRIB_CODENAME=' | sed 's/^.*=//')" = "trusty" ]; then
+    echo "Skipping test: the toolchain used in this test is only supported on trusty."
+    return 0
+  fi
+
   # Create BUILD file
   cat > BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
@@ -562,11 +585,13 @@ EOF
   target_folder="${target_root}/x86_64-unknown-linux-gnu/sysroot/lib64"
   target="${target_folder}/ld-2.19.so"
 
-  # Download the toolchain package and unpack it.
-  wget -q https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz
+  # Unpack the toolchain.
   mkdir downloaded_toolchain
-  tar -xf mount_path_toolchain.tar.gz -C ./downloaded_toolchain
+  tar -xf ${TEST_SRCDIR}/mount_path_toolchain/file/mount_path_toolchain.tar.gz -C ./downloaded_toolchain
   chmod -R 0755 downloaded_toolchain
+
+  # Create an empty WORKSPACE file for the local repository.
+  touch downloaded_toolchain/WORKSPACE
 
   # Replace the target_root_placeholder with the actual target_root
   sed -i "s|target_root_placeholder|$target_root|g" downloaded_toolchain/CROSSTOOL

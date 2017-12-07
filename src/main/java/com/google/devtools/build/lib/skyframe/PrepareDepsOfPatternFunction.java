@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.BatchCallback.NullCallback;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -84,15 +84,22 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     if (blacklist == null) {
       return null;
     }
-    ImmutableSet<PathFragment> subdirectoriesToExclude =
+    // This SkyFunction is used to load the universe, so we want both the blacklisted directories
+    // from the global blacklist and the excluded directories from the TargetPatternKey itself to be
+    // embedded in the SkyKeys created and used by the DepsOfPatternPreparer. The
+    // DepsOfPatternPreparer ignores excludedSubdirectories and embeds blacklistedSubdirectories in
+    // the SkyKeys it creates and uses.
+    ImmutableSet<PathFragment> blacklistedSubdirectories =
         patternKey.getAllSubdirectoriesToExclude(blacklist.getPatterns());
+    ImmutableSet<PathFragment> excludedSubdirectories = ImmutableSet.of();
 
     DepsOfPatternPreparer preparer = new DepsOfPatternPreparer(env, pkgPath.get());
 
     try {
       parsedPattern.eval(
           preparer,
-          subdirectoriesToExclude,
+          blacklistedSubdirectories,
+          excludedSubdirectories,
           NullCallback.<Void>instance(),
           RuntimeException.class);
     } catch (TargetParsingException e) {
@@ -137,7 +144,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     public DepsOfPatternPreparer(Environment env, PathPackageLocator pkgPath) {
       this.env = env;
-      this.packageProvider = new EnvironmentBackedRecursivePackageProvider(env);
+      this.packageProvider = new EnvironmentBackedRecursivePackageProvider(env, pkgPath);
       this.pkgPath = pkgPath;
     }
 
@@ -227,13 +234,18 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         String originalPattern,
         String directory,
         boolean rulesOnly,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<Void, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
+      PathFragment directoryPathFragment = TargetPatternResolverUtil.getPathFragment(directory);
+      if (blacklistedSubdirectories.contains(directoryPathFragment)) {
+        return;
+      }
+      Preconditions.checkArgument(excludedSubdirectories.isEmpty(), excludedSubdirectories);
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
-      PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
       List<Path> roots = new ArrayList<>();
       if (repository.isMain()) {
         roots.addAll(pkgPath.getPathEntries());
@@ -253,13 +265,13 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       }
 
       for (Path root : roots) {
-        RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
+        RootedPath rootedPath = RootedPath.toRootedPath(root, directoryPathFragment);
         env.getValues(
             ImmutableList.of(
                 PrepareDepsOfTargetsUnderDirectoryValue.key(
-                    repository, rootedPath, excludedSubdirectories, policy),
+                    repository, rootedPath, blacklistedSubdirectories, policy),
                 CollectPackagesUnderDirectoryValue.key(
-                    repository, rootedPath, excludedSubdirectories)));
+                    repository, rootedPath, blacklistedSubdirectories)));
         if (env.valuesMissing()) {
           throw new MissingDepException();
         }

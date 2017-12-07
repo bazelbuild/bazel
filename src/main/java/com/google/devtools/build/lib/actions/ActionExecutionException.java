@@ -120,7 +120,10 @@ public class ActionExecutionException extends Exception {
         ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER)
         : NestedSetBuilder.<Cause>create(
             Order.STABLE_ORDER,
-            new ActionFailed(action.getPrimaryOutput().getPath(), action.getOwner().getLabel()));
+            new ActionFailed(
+                action.getPrimaryOutput().getPath(),
+                action.getOwner().getLabel(),
+                action.getOwner().getConfigurationChecksum()));
   }
 
   /**

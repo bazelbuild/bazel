@@ -110,7 +110,7 @@ def _add_system_root(repository_ctx, env):
   return env
 
 
-def _find_vc_path(repository_ctx):
+def find_vc_path(repository_ctx):
   """Find Visual C++ build tools install path. Doesn't %-escape the result."""
   # 1. Check if BAZEL_VC or BAZEL_VS is already set by user.
   if "BAZEL_VC" in repository_ctx.os.environ:
@@ -147,21 +147,22 @@ def _find_vc_path(repository_ctx):
   auto_configure_warning("Looking for Visual C++ through registry")
   reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
   vc_dir = None
-  for version in ["15.0", "14.0", "12.0", "11.0", "10.0", "9.0", "8.0"]:
-    if vc_dir:
-      break
-    result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\VC7", "/v", version])
-    if is_cc_configure_debug(repository_ctx):
-      auto_configure_warning("registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
-                             (version, result.stdout, result.stderr))
-    if not result.stderr:
-      for line in result.stdout.split("\n"):
-        line = line.strip()
-        if line.startswith(version) and line.find("REG_SZ") != -1:
-          vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip()
+  for key, suffix in (("VC7", ""), ("VS7", "\\VC")):
+    for version in ["15.0", "14.0", "12.0", "11.0", "10.0", "9.0", "8.0"]:
+      if vc_dir:
+        break
+      result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\" + key, "/v", version])
+      if is_cc_configure_debug(repository_ctx):
+        auto_configure_warning("registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                               (version, result.stdout, result.stderr))
+      if not result.stderr:
+        for line in result.stdout.split("\n"):
+          line = line.strip()
+          if line.startswith(version) and line.find("REG_SZ") != -1:
+            vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip() + suffix
 
   if not vc_dir:
-    auto_configure_fail("Visual C++ build tools not found on your machine.")
+    return "visual-studio-not-found"
   auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
   return vc_dir
 
@@ -183,7 +184,7 @@ def _find_vcvarsall_bat_script(repository_ctx, vc_path):
     vcvarsall = vc_path + "\\VCVARSALL.BAT"
 
   if not repository_ctx.path(vcvarsall).exists:
-    auto_configure_fail("vcvarsall.bat doesn't exist, please check your VC++ installation")
+    auto_configure_fail(vcvarsall + " doesn't exist, please check your VC++ installation")
   return vcvarsall
 
 
@@ -194,16 +195,17 @@ def _find_env_vars(repository_ctx, vc_path):
                       "@echo off\n" +
                       "call \"" + vcvarsall + "\" amd64 > NUL \n" +
                       "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB% \n", True)
-  env = _add_system_root(repository_ctx, repository_ctx.os.environ)
+  env = _add_system_root(repository_ctx,
+                         {"PATH": "", "INCLUDE": "", "LIB": ""})
   envs = execute(repository_ctx, ["./get_env.bat"], environment=env).split(",")
   env_map = {}
   for env in envs:
-    key, value = env.split("=")
+    key, value = env.split("=", 1)
     env_map[key] = escape_string(value.replace("\\", "\\\\"))
   return env_map
 
 
-def _find_msvc_tool(repository_ctx, vc_path, tool):
+def find_msvc_tool(repository_ctx, vc_path, tool):
   """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
   tool_path = ""
   if _is_vs_2017(vc_path):
@@ -233,41 +235,15 @@ def _is_support_whole_archive(repository_ctx, vc_path):
   env = repository_ctx.os.environ
   if "NO_WHOLE_ARCHIVE_OPTION" in env and env["NO_WHOLE_ARCHIVE_OPTION"] == "1":
     return False
-  linker = _find_msvc_tool(repository_ctx, vc_path, "link.exe")
+  linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
   result = execute(repository_ctx, [linker], expect_failure = True)
   return result.find("/WHOLEARCHIVE") != -1
 
 
-def _is_using_dynamic_crt(repository_ctx):
-  """Returns True if USE_DYNAMIC_CRT is set to 1."""
+def _is_use_msvc_wrapper(repository_ctx):
+  """Returns True if USE_MSVC_WRAPPER is set to 1."""
   env = repository_ctx.os.environ
-  return "USE_DYNAMIC_CRT" in env and env["USE_DYNAMIC_CRT"] == "1"
-
-
-def _get_crt_option(repository_ctx, debug = False):
-  """Get the CRT option, default is /MT and /MTd."""
-  crt_option = "/MT"
-  if _is_using_dynamic_crt(repository_ctx):
-    crt_option = "/MD"
-  if debug:
-    crt_option += "d"
-  return crt_option
-
-
-def _get_crt_library(repository_ctx, debug = False):
-  """Get the CRT library to link, default is libcmt.lib and libcmtd.lib."""
-  crt_library = "libcmt"
-  if _is_using_dynamic_crt(repository_ctx):
-    crt_library = "msvcrt"
-  if debug:
-    crt_library += "d"
-  return crt_library + ".lib"
-
-
-def _is_no_msvc_wrapper(repository_ctx):
-  """Returns True if NO_MSVC_WRAPPER is set to 1."""
-  env = repository_ctx.os.environ
-  return "NO_MSVC_WRAPPER" in env and env["NO_MSVC_WRAPPER"] == "1"
+  return "USE_MSVC_WRAPPER" in env and env["USE_MSVC_WRAPPER"] == "1"
 
 
 def _get_compilation_mode_content():
@@ -311,20 +287,44 @@ def configure_windows_toolchain(repository_ctx):
   """Configure C++ toolchain on Windows."""
   repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
 
-  vc_path = _find_vc_path(repository_ctx)
+  vc_path = find_vc_path(repository_ctx)
+  if vc_path == "visual-studio-not-found":
+    vc_path_error_script = "vc_path_not_found.bat"
+    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:vc_path_not_found.bat"), vc_path_error_script)
+    tpl(repository_ctx, "CROSSTOOL", {
+        "%{cpu}": "x64_windows",
+        "%{default_toolchain_name}": "msvc_x64",
+        "%{toolchain_name}": "msys_x64",
+        "%{msvc_env_tmp}": "",
+        "%{msvc_env_path}": "",
+        "%{msvc_env_include}": "",
+        "%{msvc_env_lib}": "",
+        "%{msvc_cl_path}": vc_path_error_script,
+        "%{msvc_link_path}": vc_path_error_script,
+        "%{msvc_lib_path}": vc_path_error_script,
+        "%{compilation_mode_content}": "",
+        "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+        "%{opt_content}": "",
+        "%{dbg_content}": "",
+        "%{cxx_builtin_include_directory}": "",
+        "%{coverage}": "",
+    })
+    return
+
   env = _find_env_vars(repository_ctx, vc_path)
   escaped_paths = escape_string(env["PATH"])
   escaped_include_paths = escape_string(env["INCLUDE"])
   escaped_lib_paths = escape_string(env["LIB"])
   escaped_tmp_dir = escape_string(
       get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\"))
-  msvc_cl_path = _find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
-  msvc_link_path = _find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
-  msvc_lib_path = _find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
+  msvc_cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
+  msvc_ml_path = find_msvc_tool(repository_ctx, vc_path, "ml64.exe").replace("\\", "/")
+  msvc_link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
+  msvc_lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
   escaped_cxx_include_directories = []
   compilation_mode_content = ""
 
-  if not _is_no_msvc_wrapper(repository_ctx):
+  if _is_use_msvc_wrapper(repository_ctx):
     if _is_support_whole_archive(repository_ctx, vc_path):
       support_whole_archive = "True"
     else:
@@ -370,14 +370,11 @@ def configure_windows_toolchain(repository_ctx):
       "%{msvc_env_include}": escaped_include_paths,
       "%{msvc_env_lib}": escaped_lib_paths,
       "%{msvc_cl_path}": msvc_cl_path,
+      "%{msvc_ml_path}": msvc_ml_path,
       "%{msvc_link_path}": msvc_link_path,
       "%{msvc_lib_path}": msvc_lib_path,
       "%{compilation_mode_content}": compilation_mode_content,
       "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-      "%{crt_option}": _get_crt_option(repository_ctx),
-      "%{crt_debug_option}": _get_crt_option(repository_ctx, debug=True),
-      "%{crt_library}": _get_crt_library(repository_ctx),
-      "%{crt_debug_library}": _get_crt_library(repository_ctx, debug=True),
       "%{opt_content}": "",
       "%{dbg_content}": "",
       "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),

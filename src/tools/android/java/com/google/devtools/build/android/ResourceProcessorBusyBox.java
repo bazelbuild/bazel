@@ -14,19 +14,25 @@
 
 package com.google.devtools.build.android;
 
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
+import com.google.devtools.build.android.aapt2.Aapt2Exception;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import java.io.IOException;
 import java.nio.file.FileSystems;
+import java.util.Arrays;
+import java.util.logging.Logger;
 
 /**
  * Provides an entry point for the resource processing stages.
  *
  * <p>A single entry point simplifies the build tool binary configuration and keeps the size of tool
- * jar small, as opposed to multiple tools for each prosess step. It also makes it easy to prototype
+ * jar small, as opposed to multiple tools for each process step. It also makes it easy to prototype
  * changes in the resource processing system.
  *
  * <pre>
@@ -91,6 +97,12 @@ public class ResourceProcessorBusyBox {
         AndroidResourceMergingAction.main(args);
       }
     },
+    MERGE_COMPILED() {
+      @Override
+      void call(String[] args) throws Exception {
+        AndroidCompiledResourceMergingAction.main(args);
+      }
+    },
     GENERATE_AAR() {
       @Override
       void call(String[] args) throws Exception {
@@ -108,10 +120,36 @@ public class ResourceProcessorBusyBox {
       void call(String[] args) throws Exception {
         ManifestMergerAction.main(args);
       }
+    },
+    COMPILE_LIBRARY_RESOURCES() {
+      @Override
+      void call(String[] args) throws Exception {
+        CompileLibraryResourcesAction.main(args);
+      }
+    },
+    LINK_STATIC_LIBRARY() {
+      @Override
+      void call(String[] args) throws Exception {
+        ValidateAndLinkResourcesAction.main(args);
+      }
+    },
+    AAPT2_PACKAGE() {
+      @Override
+      void call(String[] args) throws Exception {
+        Aapt2ResourcePackagingAction.main(args);
+      }
+    },
+    SHRINK_AAPT2() {
+      @Override
+      void call(String[] args) throws Exception {
+        Aapt2ResourceShrinkingAction.main(args);
+      }
     };
 
     abstract void call(String[] args) throws Exception;
   }
+
+  private static final Logger logger = Logger.getLogger(ResourceProcessorBusyBox.class.getName());
 
   /** Converter for the Tool enum. */
   public static final class ToolConverter extends EnumConverter<Tool> {
@@ -133,7 +171,8 @@ public class ResourceProcessorBusyBox {
       help =
           "The processing tool to execute. "
               + "Valid tools: PACKAGE, VALIDATE, GENERATE_BINARY_R, GENERATE_LIBRARY_R, PARSE, "
-              + "MERGE, GENERATE_AAR, SHRINK, MERGE_MANIFEST."
+              + "MERGE, GENERATE_AAR, SHRINK, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
+              + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE, SHRINK_AAPT2, MERGE_COMPILED."
     )
     public Tool tool;
   }
@@ -141,9 +180,22 @@ public class ResourceProcessorBusyBox {
   public static void main(String[] args) throws Exception {
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
     optionsParser.setAllowResidue(true);
-    optionsParser.enableParamsFileSupport(FileSystems.getDefault());
+    optionsParser.enableParamsFileSupport(
+        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parse(args);
     Options options = optionsParser.getOptions(Options.class);
-    options.tool.call(optionsParser.getResidue().toArray(new String[0]));
+    try {
+      options.tool.call(optionsParser.getResidue().toArray(new String[0]));
+    } catch (MergingException | IOException e) {
+      logger.severe(e.getMessage());
+      logSuppressedAndExit(e);
+    } catch (Aapt2Exception e) {
+      logSuppressedAndExit(e);
+    }
+  }
+
+  private static void logSuppressedAndExit(Throwable e) {
+    Arrays.stream(e.getSuppressed()).map(Throwable::getMessage).forEach(logger::severe);
+    System.exit(1);
   }
 }

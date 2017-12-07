@@ -25,7 +25,7 @@ set -eu
 
 # TODO(b/37617303): make tests UI-independent
 add_to_bazelrc "build --noexperimental_ui"
-add_to_bazelrc "build --workspace_status_command="$(which true)" --nostamp"
+add_to_bazelrc "build --workspace_status_command=$(which true) --nostamp"
 add_to_bazelrc "build --show_progress_rate_limit=-1"
 add_to_bazelrc "build --genrule_strategy=local"
 
@@ -273,7 +273,15 @@ genrule(
 )
 EOF
 
-  bazel build -k -s "//${pkg}:"{top,longrun} --progress_report_interval=1 \
+  # The whole test setup relies on bazel running the actions for
+  # :dep and :longrun in parallel. However, bazel normally analyzes
+  # the environment and bases the action scheduling on this; so we
+  # need to tell bazel to (maybe even contrafactually) believe that
+  # there are enough local resources for two genrules to run in parallel.
+  # Give enough head room so that the test won't break again if we tweak
+  # our assumptions about local resource usage.
+  bazel build -j 2 --local_resources=2048000,32,32 \
+       -k -s "//${pkg}:"{top,longrun} --progress_report_interval=1 \
        >& "$TEST_log" && fail "build succeeded"
   expect_log "\[3 / 4\] Still waiting for 1 job to complete:"
   expect_log "^ *Executing genrule //${pkg}:longrun"

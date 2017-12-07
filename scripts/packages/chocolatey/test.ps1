@@ -4,6 +4,8 @@ param(
   [string] $version = "0.4.5.20170330"
 )
 
+$ErrorActionPreference = 'Stop'
+
 choco uninstall bazel --force -y
 if ($prerelease) {
   choco install ".\bazel.$($version).nupkg" --verbose --debug --prerelease --force -y -s $sources

@@ -192,16 +192,20 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='dep2', srcs=['dep2.proto'])");
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x:nodeps")).getRemainingArguments())
-        .contains("--direct_dependencies=x/nodeps.proto");
+        .containsAllOf("--direct_dependencies", "x/nodeps.proto")
+        .inOrder();
 
     assertThat(
             getGeneratingSpawnAction(getDescriptorOutput("//x:withdeps")).getRemainingArguments())
-        .contains("--direct_dependencies=x/dep1.proto:x/dep2.proto:x/withdeps.proto");
+        .containsAllOf("--direct_dependencies", "x/dep1.proto:x/dep2.proto:x/withdeps.proto")
+        .inOrder();
 
     assertThat(
             getGeneratingSpawnAction(getDescriptorOutput("//x:depends_on_alias"))
                 .getRemainingArguments())
-        .contains("--direct_dependencies=x/dep1.proto:x/dep2.proto:x/depends_on_alias.proto");
+        .containsAllOf(
+            "--direct_dependencies", "x/dep1.proto:x/dep2.proto:x/depends_on_alias.proto")
+        .inOrder();
   }
 
   /**
@@ -219,7 +223,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(file.getRootRelativePathString()).isEqualTo("x/foo-descriptor-set.proto.bin");
 
     assertThat(getGeneratingSpawnAction(file).getRemainingArguments())
-        .contains("--direct_dependencies=x/foo.proto:x/bar.proto");
+        .containsAllOf("--direct_dependencies", "x/foo.proto:x/bar.proto")
+        .inOrder();
   }
 
   @Test

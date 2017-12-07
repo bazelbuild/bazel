@@ -19,6 +19,7 @@ import java.io.IOException;
  * A class for flow statements (e.g. break and continue)
  */
 public final class FlowStatement extends Statement {
+  // TODO(laurentlb): This conflicts with Statement.Kind, maybe remove it?
   public enum Kind {
     BREAK("break"),
     CONTINUE("continue");
@@ -28,10 +29,13 @@ public final class FlowStatement extends Statement {
     private Kind(String name) {
       this.name = name;
     }
+
+    public String getName() {
+      return name;
+    }
   }
 
   private final Kind kind;
-  private final FlowException ex;
 
   /**
    *
@@ -39,20 +43,11 @@ public final class FlowStatement extends Statement {
    */
   public FlowStatement(Kind kind) {
     this.kind = kind;
-    this.ex = new FlowException(kind);
   }
 
   public Kind getKind() {
     return kind;
   }
-
-  @Override
-  void doExec(Environment env) throws EvalException {
-    throw ex;
-  }
-
-  @Override
-  void validate(ValidationEnvironment env) throws EvalException {}
 
   @Override
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
@@ -71,29 +66,8 @@ public final class FlowStatement extends Statement {
     visitor.visit(this);
   }
 
-  /**
-   * An exception that signals changes in the control flow (e.g. break or continue)
-   */
-  class FlowException extends EvalException {
-    private final Kind kind;
-
-    public FlowException(Kind kind) {
-      super(FlowStatement.this.getLocation(), "FlowException with kind = " + kind.name);
-      this.kind = kind;
-    }
-
-    /**
-     * Returns whether the enclosing loop should be terminated completely (break)
-     *
-     * @return {@code True} for 'break', {@code false} for 'continue'
-     */
-    public boolean mustTerminateLoop() {
-      return kind == Kind.BREAK;
-    }
-
-    @Override
-    public boolean canBeAddedToStackTrace() {
-      return false;
-    }
+  @Override
+  public Statement.Kind kind() {
+    return Statement.Kind.FLOW;
   }
 }

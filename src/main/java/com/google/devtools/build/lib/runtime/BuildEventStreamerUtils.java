@@ -44,7 +44,7 @@ public final class BuildEventStreamerUtils {
       case REMOTE_FAILURE:
         return BuildEventStreamProtos.TestStatus.REMOTE_FAILURE;
       case BLAZE_HALTED_BEFORE_TESTING:
-        return BuildEventStreamProtos.TestStatus.BLAZE_HALTED_BEFORE_TESTING;
+        return BuildEventStreamProtos.TestStatus.TOOL_HALTED_BEFORE_TESTING;
       default:
         // Not used as the above is a complete case distinction; however, by the open
         // nature of protobuf enums, we need the clause to convice java, that we always

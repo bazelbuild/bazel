@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.bazel.commands;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /**
  * Command-line options for the fetch command.
@@ -28,13 +28,11 @@ public class FetchOptions extends OptionsBase {
     abbrev = 'k',
     defaultValue = "false",
     category = "strategy",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
-        "Continue as much as possible after an error.  While the "
-            + "target that failed and those that depend on it cannot be "
-            + "analyzed, other prerequisites of these "
-            + "targets can be."
+        "Continue as much as possible after an error.  While the target that failed and those "
+            + "that depend on it cannot be analyzed, other prerequisites of these targets can be."
   )
   public boolean keepGoing;
 }

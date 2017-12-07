@@ -15,19 +15,21 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.AliasProvider;
-import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagFeatureVisibility;
-import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
 import java.util.Map;
 
 /**
@@ -48,27 +50,48 @@ public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoPro
   AndroidFeatureFlagSetProvider() {}
 
   /** Creates a new AndroidFeatureFlagSetProvider with the given flags. */
-  public static AndroidFeatureFlagSetProvider create(Map<Label, String> flags) {
-    return new AutoValue_AndroidFeatureFlagSetProvider(ImmutableMap.copyOf(flags));
+  public static AndroidFeatureFlagSetProvider create(Optional<? extends Map<Label, String>> flags) {
+    return new AutoValue_AndroidFeatureFlagSetProvider(flags.transform(ImmutableMap::copyOf));
+  }
+
+  /**
+   * Constructs a definition for the attribute used to restrict access to feature flags. The
+   * whitelist will only be reached if the feature_flags attribute is explicitly set.
+   */
+  public static Attribute.Builder<Label> getWhitelistAttribute(RuleDefinitionEnvironment env) {
+    return ConfigFeatureFlag.getWhitelistAttribute(env, FEATURE_FLAG_ATTR);
   }
 
   /**
    * Builds a map which can be used with create, confirming that the desired flag values were
-   * actually received, and producing an error if they were not (because dynamic configurations are
-   * not enabled, or because aliases were used).
+   * actually received, and producing an error if they were not (because aliases were used).
+   *
+   * <p>If the attribute which defines feature flags was not specified, an empty {@link Optional}
+   * instance is returned.
    */
-  public static ImmutableMap<Label, String> getAndValidateFlagMapFromRuleContext(
+  public static Optional<ImmutableMap<Label, String>> getAndValidateFlagMapFromRuleContext(
       RuleContext ruleContext) throws RuleErrorException {
-    Map<Label, String> expectedValues =
-        NonconfigurableAttributeMapper.of(ruleContext.getRule())
-            .get(FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT);
+    NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(ruleContext.getRule());
 
-    if (expectedValues.isEmpty()) {
-      return ImmutableMap.of();
+    if (!attrs.isAttributeValueExplicitlySpecified(FEATURE_FLAG_ATTR)) {
+      return Optional.absent();
     }
 
-    ConfigFeatureFlagFeatureVisibility.checkAvailable(
-        ruleContext, "the " + FEATURE_FLAG_ATTR + " attribute");
+    Map<Label, String> expectedValues =
+        attrs.get(FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT);
+    if (expectedValues.isEmpty()) {
+      return Optional.of(ImmutableMap.of());
+    }
+
+    if (!ConfigFeatureFlag.isAvailable(ruleContext)) {
+      ruleContext.attributeError(
+          FEATURE_FLAG_ATTR,
+          String.format(
+              "the %s attribute is not available in package '%s'",
+              FEATURE_FLAG_ATTR,
+              ruleContext.getLabel().getPackageIdentifier()));
+      throw new RuleErrorException();
+    }
 
     Iterable<? extends TransitiveInfoCollection> actualTargets =
         ruleContext.getPrerequisites(FEATURE_FLAG_ATTR, Mode.TARGET);
@@ -83,23 +106,23 @@ public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoPro
                 target.getLabel(), label));
         aliasFound = true;
       }
-
-      String expectedValue = expectedValues.get(label);
-      String actualValue = ConfigFeatureFlagProvider.fromTarget(target).getValue();
-
-      if (!expectedValue.equals(actualValue)) {
-        // TODO(mstaib): when static configurations are removed, remove this error case
-        ruleContext.attributeError(
-            FEATURE_FLAG_ATTR,
-            "Setting " + FEATURE_FLAG_ATTR + " requires dynamic configurations to be enabled");
-        throw new RuleErrorException();
-      }
     }
     if (aliasFound) {
       throw new RuleErrorException();
     }
-    return ImmutableMap.copyOf(expectedValues);
+    return Optional.of(ImmutableMap.copyOf(expectedValues));
   }
 
-  public abstract ImmutableMap<Label, String> getFlags();
+  /**
+   * Returns whether it is acceptable to have a dependency with flags {@code depFlags} if the target
+   * has flags {@code targetFlags}.
+   */
+  public static boolean isValidDependency(
+      Optional<? extends Map<Label, String>> targetFlags,
+      Optional<? extends Map<Label, String>> depFlags) {
+    return !depFlags.isPresent()
+        || (targetFlags.isPresent() && targetFlags.get().equals(depFlags.get()));
+  }
+
+  public abstract Optional<ImmutableMap<Label, String>> getFlags();
 }

@@ -32,8 +32,9 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoLibrary;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 
@@ -72,7 +73,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                         ProtoLangToolchainProvider.class))
                 .value(getProtoToolchainLabel(DEFAULT_PROTO_TOOLCHAIN_LABEL)))
-        .advertiseProvider(JavaCompilationArgsProvider.class)
+        .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }
 

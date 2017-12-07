@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.LinkedHashSet;
 import java.util.Set;
 

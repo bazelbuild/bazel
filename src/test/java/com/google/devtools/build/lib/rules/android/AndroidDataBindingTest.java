@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -91,27 +94,15 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         "package android.binary; public class MyApp {};");
   }
 
-  /**
-   * Returns the .params file contents of a {@link JavaCompileAction}
-   */
-  private Iterable<String> getParamFileContents(JavaCompileAction action) {
+  /** Returns the .params file contents of a {@link JavaCompileAction} */
+  private Iterable<String> getParamFileContents(JavaCompileAction action)
+      throws CommandLineExpansionException {
     Artifact paramFile = getFirstArtifactEndingWith(action.getInputs(), "-2.params");
     return ((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents();
   }
 
   @Test
-  public void basicDataBindingIntegrationParallelResourceProcessing() throws Exception {
-    useConfiguration("--experimental_use_parallel_android_resource_processing");
-    basicDataBindingIntegration();
-  }
-
-  @Test
-  public void basicDataBindingIntegrationLegacyResourceProcessing() throws Exception {
-    useConfiguration("--noexperimental_use_parallel_android_resource_processing");
-    basicDataBindingIntegration();
-  }
-
-  private void basicDataBindingIntegration() throws Exception {
+  public void basicDataBindingIntegration() throws Exception {
     writeDataBindingFiles();
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
@@ -153,20 +144,7 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void dataBindingCompilationUsesMetadataFromDepsParallelResourceProcessing()
-      throws Exception {
-    useConfiguration("--experimental_use_parallel_android_resource_processing");
-    dataBindingCompilationUsesMetadataFromDeps();
-  }
-
-  @Test
-  public void dataBindingCompilationUsesMetadataFromDepsLegacyResourceProcessing()
-      throws Exception {
-    useConfiguration("--noexperimental_use_parallel_android_resource_processing");
-    dataBindingCompilationUsesMetadataFromDeps();
-  }
-
-  private void dataBindingCompilationUsesMetadataFromDeps() throws Exception {
+  public void dataBindingCompilationUsesMetadataFromDeps() throws Exception {
     writeDataBindingFiles();
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
@@ -205,17 +183,25 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     String dataBindingFilesDir = targetConfig.getBinDirectory(RepositoryName.MAIN).getExecPath()
         .getRelative("java/android/binary/databinding/app").getPathString();
-    assertThat(getParamFileContents(binCompileAction))
-         .containsAllOf(
-             "-Aandroid.databinding.bindingBuildFolder=" + dataBindingFilesDir,
-             "-Aandroid.databinding.generationalFileOutDir=" + dataBindingFilesDir,
-             "-Aandroid.databinding.sdkDir=/not/used",
-             "-Aandroid.databinding.artifactType=APPLICATION",
-             "-Aandroid.databinding.xmlOutDir=" + dataBindingFilesDir,
-             "-Aandroid.databinding.exportClassListTo=/tmp/exported_classes",
-             "-Aandroid.databinding.modulePackage=android.binary",
-             "-Aandroid.databinding.minApi=14",
-             "-Aandroid.databinding.printEncodedErrors=0");
+    ImmutableList<String> expectedJavacopts =
+        ImmutableList.of(
+            "-Aandroid.databinding.bindingBuildFolder=" + dataBindingFilesDir,
+            "-Aandroid.databinding.generationalFileOutDir=" + dataBindingFilesDir,
+            "-Aandroid.databinding.sdkDir=/not/used",
+            "-Aandroid.databinding.artifactType=APPLICATION",
+            "-Aandroid.databinding.xmlOutDir=" + dataBindingFilesDir,
+            "-Aandroid.databinding.exportClassListTo=/tmp/exported_classes",
+            "-Aandroid.databinding.modulePackage=android.binary",
+            "-Aandroid.databinding.minApi=14",
+            "-Aandroid.databinding.printEncodedErrors=0");
+    assertThat(getParamFileContents(binCompileAction)).containsAllIn(expectedJavacopts);
+
+    // Regression test for b/63134122
+    JavaCompileInfo javaCompileInfo =
+        binCompileAction
+            .getExtraActionInfo(actionKeyContext)
+            .getExtension(JavaCompileInfo.javaCompileInfo);
+    assertThat(javaCompileInfo.getJavacOptList()).containsAllIn(expectedJavacopts);
   }
 
   @Test
@@ -298,6 +284,13 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         ")");
     scratch.file("java/android/binary/MyApp.java",
         "package android.binary; public class MyApp {};");
+    assertThat(getConfiguredTarget("//java/android/binary:app")).isNotNull();
+  }
+
+  @Test
+  public void testNoJvmFragment() throws Exception {
+    writeDataBindingFiles();
+    useConfiguration("--experimental_disable_jvm");
     assertThat(getConfiguredTarget("//java/android/binary:app")).isNotNull();
   }
 }

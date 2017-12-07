@@ -120,7 +120,7 @@ public final class ExtraActionRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("extra_action")
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.RuleBase.class, BaseRuleClasses.MakeVariableExpandingRule.class)
         .factoryClass(ExtraActionFactory.class)
         .build();
   }

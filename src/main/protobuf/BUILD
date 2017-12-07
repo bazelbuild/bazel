@@ -2,22 +2,30 @@ package(default_visibility = ["//visibility:public"])
 
 load("//tools/build_rules:genproto.bzl", "cc_grpc_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
-load("//third_party/protobuf/3.2.0:protobuf.bzl", "cc_proto_library", "py_proto_library")
+load("//third_party/protobuf/3.4.0:protobuf.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 
+exports_files(
+    ["execution_statitics.proto"],
+    visibility = [
+        "//src/test/shell/integration:process_wrapper_test",
+    ],
+)
+
 FILES = [
+    "action_cache",
     "android_deploy_info",
-    "apk_manifest",
+    "bazel_flags",
     "build",
     "bundlemerge",
     "command_server",
     "crosstool_config",
     "deps",
+    "desugar_deps",
+    "execution_statistics",
     "extra_actions_base",
-    "intellij_ide_info",
     "invocation_policy",
     "java_compilation",
-    "package_manifest",
     "plmerge",
     "test_status",
     "worker_protocol",
@@ -61,12 +69,33 @@ java_library_srcs(
     deps = [":option_filters_java_proto"],
 )
 
+proto_library(
+    name = "command_line_proto",
+    srcs = ["command_line.proto"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:__pkg__"],
+    deps = [":option_filters_proto"],
+)
+
+java_proto_library(
+    name = "command_line_java_proto",
+    visibility = ["//src:__subpackages__"],
+    deps = [":command_line_proto"],
+)
+
+java_library_srcs(
+    name = "command_line_java_proto_srcs",
+    visibility = ["//visibility:private"],
+    deps = [":command_line_java_proto"],
+)
+
+cc_proto_library(
+    name = "desugar_deps_cc_proto",
+    deps = [":desugar_deps_proto"],
+)
+
 cc_proto_library(
     name = "worker_protocol_cc_proto",
-    srcs = ["worker_protocol.proto"],
-    include = ".",
-    default_runtime = "//third_party/protobuf:protobuf",
-    protoc = "//third_party/protobuf:protoc",
+    deps = [":worker_protocol_proto"],
 )
 
 java_grpc_library(
@@ -87,6 +116,17 @@ py_proto_library(
     protoc = "//third_party/protobuf:protoc",
 )
 
+java_library_srcs(
+    name = "profile_java_proto_srcs",
+    visibility = ["//visibility:private"],
+    deps = ["//third_party/pprof:profile_java_proto"],
+)
+
+cc_proto_library(
+    name = "execution_statistics_cc_proto",
+    deps = [":execution_statistics_proto"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -95,7 +135,9 @@ filegroup(
 filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
+        ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
         ":option_filters_java_proto_srcs",
+        ":profile_java_proto_srcs",
     ],
 )

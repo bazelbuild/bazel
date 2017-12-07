@@ -15,9 +15,8 @@ package com.google.devtools.build.lib.analysis.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
@@ -26,6 +25,8 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRul
 import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -67,8 +68,10 @@ public abstract class AnalysisMock extends LoadingMock {
   }
 
   @Override
-  public PackageFactoryBuilderWithSkyframeForTesting getPackageFactoryBuilderForTesting() {
-    return super.getPackageFactoryBuilderForTesting().setExtraSkyFunctions(getSkyFunctions());
+  public PackageFactoryBuilderWithSkyframeForTesting getPackageFactoryBuilderForTesting(
+      BlazeDirectories directories) {
+    return super.getPackageFactoryBuilderForTesting(directories)
+        .setExtraSkyFunctions(getSkyFunctions(directories));
   }
 
   @Override
@@ -99,12 +102,8 @@ public abstract class AnalysisMock extends LoadingMock {
    */
   public abstract void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException;
 
-  public abstract ConfigurationFactory createConfigurationFactory();
-
-  public abstract ConfigurationFactory createConfigurationFactory(
-      List<ConfigurationFragmentFactory> configurationFragmentFactories);
-
-  public abstract ConfigurationCollectionFactory createConfigurationCollectionFactory();
+  /** Returns the default factories for configuration fragments used in tests. */
+  public abstract List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories();
 
   @Override
   public abstract ConfiguredRuleClassProvider createRuleClassProvider();
@@ -119,7 +118,7 @@ public abstract class AnalysisMock extends LoadingMock {
     get().ccSupport().setup(config);
   }
 
-  public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions() {
+  public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
     ImmutableMap<String, RepositoryFunction> repositoryHandlers = ImmutableMap.of(
@@ -130,9 +129,11 @@ public abstract class AnalysisMock extends LoadingMock {
     return ImmutableMap.of(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
-            repositoryHandlers, null, new AtomicBoolean(true)),
+            repositoryHandlers, null, new AtomicBoolean(true), ImmutableMap::of, directories),
         SkyFunctions.REPOSITORY,
-        new RepositoryLoaderFunction());
+        new RepositoryLoaderFunction(),
+        FdoSupportValue.SKYFUNCTION,
+        new FdoSupportFunction(directories));
   }
 
   public static class Delegate extends AnalysisMock {
@@ -158,19 +159,8 @@ public abstract class AnalysisMock extends LoadingMock {
     }
 
     @Override
-    public ConfigurationFactory createConfigurationFactory() {
-      return delegate.createConfigurationFactory();
-    }
-
-    @Override
-    public ConfigurationFactory createConfigurationFactory(
-        List<ConfigurationFragmentFactory> configurationFragmentFactories) {
-      return delegate.createConfigurationFactory(configurationFragmentFactories);
-    }
-
-    @Override
-    public ConfigurationCollectionFactory createConfigurationCollectionFactory() {
-      return delegate.createConfigurationCollectionFactory();
+    public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
+      return delegate.getDefaultConfigurationFragmentFactories();
     }
 
     @Override
@@ -199,8 +189,9 @@ public abstract class AnalysisMock extends LoadingMock {
     }
 
     @Override
-    public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions() {
-      return delegate.getSkyFunctions();
+    public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
+        BlazeDirectories directories) {
+      return delegate.getSkyFunctions(directories);
     }
   }
 }

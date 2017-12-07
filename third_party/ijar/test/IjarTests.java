@@ -256,7 +256,7 @@ public class IjarTests {
     final Map<String, String> innerClasses = new HashMap<>();
     new ClassReader(bytes)
         .accept(
-            new ClassVisitor(Opcodes.ASM5) {
+            new ClassVisitor(Opcodes.ASM6) {
               @Override
               public void visitInnerClass(
                   String name, String outerName, String innerName, int access) {
@@ -265,5 +265,11 @@ public class IjarTests {
             },
             /*flags=*/ 0);
     return innerClasses;
+  }
+
+  @Test
+  public void moduleInfo() throws Exception {
+    Map<String, byte[]> lib = readJar("third_party/ijar/test/module_info-interface.jar");
+    assertThat(lib.keySet()).containsExactly("java/lang/String.class");
   }
 }

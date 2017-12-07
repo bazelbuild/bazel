@@ -1,4 +1,10 @@
-package(default_visibility = ["//visibility:private"])
+package(default_visibility = ["//src:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+)
 
 package_group(
     name = "android-junctions-prod",
@@ -19,12 +25,6 @@ package_group(
     packages = [
         "//src/test/java/com/google/devtools/build/lib/...",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
-    visibility = [":bazel-prod"],
 )
 
 java_library(

@@ -15,34 +15,36 @@ package com.google.devtools.build.lib.analysis.util;
 
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BinTools;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -50,11 +52,10 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +65,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Testing framework for tests which check ConfigurationFactory.
+ * Testing framework for tests which create configuration collections.
  */
 @RunWith(JUnit4.class)
 public abstract class ConfigurationTestCase extends FoundationTestCase {
@@ -87,8 +88,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected Path workspace;
   protected AnalysisMock analysisMock;
   protected SequencedSkyframeExecutor skyframeExecutor;
-  protected ConfigurationFactory configurationFactory;
+  protected List<ConfigurationFragmentFactory> configurationFragmentFactories;
   protected ImmutableList<Class<? extends FragmentOptions>> buildOptionClasses;
+  protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
@@ -96,30 +98,40 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     analysisMock = getAnalysisMock();
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     PathPackageLocator pkgLocator =
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory));
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(rootDirectory),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     final PackageFactory pkgFactory;
     BlazeDirectories directories =
-        new BlazeDirectories(outputBase, outputBase, rootDirectory, analysisMock.getProductName());
+        new BlazeDirectories(
+            new ServerDirectories(outputBase, outputBase),
+            rootDirectory,
+            analysisMock.getProductName());
     pkgFactory =
         analysisMock
-            .getPackageFactoryBuilderForTesting()
+            .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, scratch.getFileSystem());
     AnalysisTestUtil.DummyWorkspaceStatusActionFactory workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
 
     skyframeExecutor =
-        SequencedSkyframeExecutor.createForTesting(
+        SequencedSkyframeExecutor.create(
             pkgFactory,
+            fileSystem,
             directories,
-            BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools()),
+            actionKeyContext,
             workspaceStatusActionFactory,
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),
-            Predicates.<PathFragment>alwaysFalse(),
-            analysisMock.getSkyFunctions(),
-            ImmutableList.<PrecomputedValue.Injected>of(),
+            analysisMock.getSkyFunctions(directories),
             ImmutableList.<SkyValueDirtinessChecker>of(),
-            analysisMock.getProductName());
+            BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
+            BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
+            BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+            BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(ImmutableList.of(PrecomputedValue.injected(
         RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
         ImmutableMap.<RepositoryName, PathFragment>of())));
@@ -140,7 +152,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
-    configurationFactory = analysisMock.createConfigurationFactory();
+    configurationFragmentFactories = analysisMock.getDefaultConfigurationFragmentFactories();
     buildOptionClasses = ruleClassProvider.getConfigurationOptions();
   }
 
@@ -172,11 +184,10 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(
         parser.getOptions(TestOptions.class).multiCpus);
 
-    BuildOptions buildOptions = BuildOptions.applyStaticConfigOverride(
-         BuildOptions.of(buildOptionClasses, parser));
     skyframeExecutor.handleDiffs(reporter);
     BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(
-        reporter, configurationFactory, buildOptions, multiCpu, false);
+        reporter, configurationFragmentFactories, BuildOptions.of(buildOptionClasses, parser),
+        multiCpu, false);
     return collection;
   }
 
@@ -190,9 +201,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   public void assertConfigurationsHaveUniqueOutputDirectories(
       BuildConfigurationCollection configCollection) throws Exception {
-    Collection<BuildConfiguration> allConfigs = configCollection.getAllConfigurations();
     Map<Root, BuildConfiguration> outputPaths = new HashMap<>();
-    for (BuildConfiguration config : allConfigs) {
+    for (BuildConfiguration config : configCollection.getTargetConfigurations()) {
       if (config.isActionsEnabled()) {
         BuildConfiguration otherConfig = outputPaths.get(
             config.getOutputDirectory(RepositoryName.MAIN));

@@ -15,14 +15,24 @@ package com.google.devtools.build.docgen;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
 /**
  * Command line options for the Build Encyclopedia docgen.
  */
 public class BuildEncyclopediaOptions extends OptionsBase {
+  @Option(
+    name = "product_name",
+    abbrev = 'n',
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Name of the product to put in the documentation"
+  )
+  public String productName;
+
   @Option(
     name = "input_dir",
     abbrev = 'i',

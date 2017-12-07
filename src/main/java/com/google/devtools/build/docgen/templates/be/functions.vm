@@ -45,7 +45,6 @@ build_test(name = ...)
 </pre>
 
 <p>This will execute the
-
   <a href="{{ page.version_prefix }}/docs/skylark/index.html">Skylark</a>
   module <code>tools/build_rules/build_test.bzl</code> and import the symbol
   <code>build_test</code> in the local environment. This is useful for
@@ -53,8 +52,23 @@ build_test(name = ...)
   using more arguments, you can load more symbols at once.</p>
 
 <pre class="code">
-load(":build_defs.bzl", "COMPILER_FLAGS", "LINKER_FLAGS")
+load("//tools/build_rules:build_defs.bzl", "COMPILER_FLAGS", "LINKER_FLAGS")
 </pre>
+
+<p>
+  In <code>load()</code> statement, keyword arguments have special meaning.
+  They can be used to import a value from a <code>.bzl</code> file under a new
+  name. For example:
+</p>
+
+<pre class="code">
+load(""//tools/build_rules:build_defs.bzl", BUILD_DEF_COMPILER_FLAGS="COMPILER_FLAGS", "LINKER_FLAGS")
+</pre>
+<p>
+This will make <code>COMPILER_FLAGS</code> exported from
+<code>build_defs.bzl</code> available under the name
+<code>BUILD_DEF_COMPILER_FLAGS</code> in the current file.
+</p>
 
 <p>
   The label must refer to an existing package. For example, for the above
@@ -68,7 +82,7 @@ load(":build_defs.bzl", "COMPILER_FLAGS", "LINKER_FLAGS")
 </p>
 
 <p>
-  The <code>load</code> statement still supports the legacy syntax that refers
+  Note: The <code>load</code> statement still supports the legacy syntax that refers
   to Skylark modules by their paths and not by their labels. This statement is
   equivalent to the first example:
 </p>
@@ -222,6 +236,16 @@ the <a href="common-definitions.html#common.visibility">visibility</a> attribute
         <code>//foo/...</code> specifies every package under
         <code>//foo</code>, including <code>//foo</code> itself.</p>
 
+        <p>Package specifications can be prefixed with <code>-</code> to
+        indicate negation: the specification <code>-//foo/bar/...</code>
+        excludes all packages under <code>//foo/bar</code> that would
+        otherwise have been matched by the package patterns in the
+        current <code>package_group</code>. When used together with
+        <code>includes</code>, the set of packages for each package group
+        is computed and then the results are unioned: negative patterns
+        in one package group do not affect the result of included package
+        groups.
+
         <p>If this attribute is missing, the package group itself will contain
         no packages (but it can still include other package groups).</p>
       </td>
@@ -318,19 +342,20 @@ package_group(
 
 <p>Legal license types include:</p>
 <dl>
-<dt><code>restricted</code></dt><dd>Requires mandatory source distribution.</dd>
-<dt><code>reciprocal</code></dt><dd>Allows usage of software freely in
-<b>unmodified</b> form. Any modifications must be made freely available.</dd>
-<dt><code>notice</code></dt><dd>Original or modified third-party software may be
-shipped without danger nor encumbering other sources. All of the licenses in this
-category do, however, have an \"original Copyright notice\" or
-\"advertising clause\", wherein any external distributions must include the notice
-or clause specified in the license.</dd>
-<dt><code>permissive</code></dt><dd>Code that is under a license but does not
-require a notice.</dd>
-<dt><code>unencumbered</code></dt><dd>Public domain, free for any use.</dd>
+  <dt><code>restricted</code></dt><dd>Requires mandatory source
+    distribution.</dd>
+  <dt><code>reciprocal</code></dt><dd>Allows usage of software freely in
+    <b>unmodified</b> form. Any modifications must be made freely
+    available.</dd>
+  <dt><code>notice</code></dt><dd>Original or modified third-party software may
+    be shipped without danger nor encumbering other sources. All of the
+    licenses in this category do, however, have an "original Copyright notice"
+    or "advertising clause", wherein any external distributions must include
+    the notice or clause specified in the license.</dd>
+  <dt><code>permissive</code></dt><dd>Code that is under a license but does not
+    require a notice.</dd>
+  <dt><code>unencumbered</code></dt><dd>Public domain, free for any use.</dd>
 </dl>
-
 licenses(["notice"])  # MIT license
 
 exports_files(["jquery-2.1.1.js"])
@@ -456,7 +481,7 @@ There are several important limitations and caveats:
     existence of BUILD files &mdash; that is, the same glob expression would
     include <code>x/y/z.cc</code> if there was no package called
     <code>x/y</code> or it was marked as deleted using the
-    <a href="../bazel-user-manual.html#flag--deleted_packages">--deleted_packages</a>
+    <a href="../user-manual.html#flag--deleted_packages">--deleted_packages</a>
     flag.
 
   </li>
@@ -537,7 +562,8 @@ sh_test(
 <p>Create a library built from all java files in this directory and all
 subdirectories except those whose path includes a directory named testing.
 Subdirectories containing a BUILD file are ignored.
-<b>This should be a very common pattern.</b>
+<b>This pattern should be avoided if possible, as it can reduce build
+incrementality and therefore increase build times.</b>
 </p>
 <pre class="code">
 java_library(

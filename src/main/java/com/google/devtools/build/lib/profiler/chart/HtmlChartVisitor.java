@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.profiler.chart;
 
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * {@link ChartVisitor} that builds HTML from the visited chart and prints it
@@ -310,16 +311,15 @@ public class HtmlChartVisitor implements ChartVisitor {
     out.println("<a name='" + name + "'/>");
   }
 
-  /**
-   * Formats the given {@link Color} to a css style color string.
-   */
-  private String formatColor(Color color) {
+  /** Formats the given {@link Color} to a css style color string. */
+  public static String formatColor(Color color) {
     int r = color.getRed();
     int g = color.getGreen();
     int b = color.getBlue();
     int a = color.getAlpha();
 
-    return String.format("rgba(%d,%d,%d,%f)", r, g, b, (a / 255.0));
+    // US Locale is used to ensure a dot as decimal separator
+    return String.format(Locale.US, "rgba(%d,%d,%d,%f)", r, g, b, (a / 255.0));
   }
 
   /**

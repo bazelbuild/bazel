@@ -15,8 +15,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
 #define BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
 
-#include <stdint.h>
-
+#include <cinttypes>
 #include <string>
 #include <vector>
 
@@ -106,12 +105,12 @@ class BlazeServerStartup {
 // redirected to the file "daemon_output". Sets server_startup to an object
 // that can be used to query if the server is still alive. The PID of the
 // daemon started is written into server_dir, both as a symlink (for legacy
-// reasons) and as a file.
-void ExecuteDaemon(const std::string& exe,
-                   const std::vector<std::string>& args_vector,
-                   const std::string& daemon_output,
-                   const std::string& server_dir,
-                   BlazeServerStartup** server_startup);
+// reasons) and as a file, and returned to the caller.
+int ExecuteDaemon(const std::string& exe,
+                  const std::vector<std::string>& args_vector,
+                  const std::string& daemon_output,
+                  const std::string& server_dir,
+                  BlazeServerStartup** server_startup);
 
 // Get the version string from the given java executable. The java executable
 // is supposed to output a string in the form '.*version ".*".*'. This method
@@ -168,13 +167,17 @@ uint64_t AcquireLock(const std::string& output_base, bool batch_mode,
 void ReleaseLock(BlazeLock* blaze_lock);
 
 // Verifies whether the server process still exists. Returns true if it does.
-bool VerifyServerProcess(int pid, const std::string& output_base,
-                         const std::string& install_base);
+bool VerifyServerProcess(int pid, const std::string& output_base);
 
 // Kills a server process based on its PID.
 // Returns true if the server process was found and killed.
 // WARNING! This function can be called from a signal handler!
-bool KillServerProcess(int pid);
+bool KillServerProcess(int pid, const std::string& output_base);
+
+// Wait for approximately the specified number of milliseconds. The actual
+// amount of time waited may be more or less because of interrupts or system
+// clock resolution.
+void TrySleep(unsigned int milliseconds);
 
 // Mark path as being excluded from backups (if supported by operating system).
 void ExcludePathFromBackup(const std::string& path);
@@ -195,6 +198,11 @@ void SetEnv(const std::string& name, const std::string& value);
 
 void UnsetEnv(const std::string& name);
 
+// Returns true and prints a warning if Bazel was started by clicking its icon.
+// This is typical on Windows. Other platforms should return false, unless they
+// wish to handle this case too.
+bool WarnIfStartedFromDesktop();
+
 // Ensure we have open file descriptors for stdin/stdout/stderr.
 void SetupStdStreams();
 
@@ -203,13 +211,36 @@ std::string GetUserName();
 // Returns true iff the current terminal is running inside an Emacs.
 bool IsEmacsTerminal();
 
-// Returns true if stderr is connected to a terminal that can support color
-// and cursor movement.
-bool IsStderrStandardTerminal();
+// Returns true iff the current terminal can support color and cursor movement.
+bool IsStandardTerminal();
 
-// Returns the number of columns of the terminal to which stderr is
+// Returns the number of columns of the terminal to which stdout is
 // connected, or 80 if there is no such terminal.
-int GetStderrTerminalColumns();
+int GetTerminalColumns();
+
+// Gets the system-wide explicit limit for the given resource.
+//
+// The resource is one of the RLIMIT_* constants defined in sys/resource.h.
+// Returns 0 if the limit could not be fetched and returns -1 if the function
+// is not implemented for this platform.
+//
+// It is OK to call this function with a parameter of -1 to check if the
+// function is implemented for the platform.
+int32_t GetExplicitSystemLimit(const int resource);
+
+// Raises soft system resource limits to hard limits in an attempt to let
+// large builds work. This is a best-effort operation and may or may not be
+// implemented for a given platform. Returns true if all limits were properly
+// raised; false otherwise.
+bool UnlimitResources();
+
+void DetectBashOrDie();
+
+// This function has no effect on Unix platforms.
+// On Windows, this function looks into PATH to find python.exe, if python
+// binary is found then add
+// --default_override=0:build=--python_path=<python/path> into options.
+void EnsurePythonPathOption(std::vector<std::string>* options);
 
 }  // namespace blaze
 

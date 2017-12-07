@@ -13,20 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
-import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -53,8 +53,9 @@ public final class FilesetTraversalParamsFactory {
       Artifact buildFile, PathFragment destPath, @Nullable Set<String> excludes,
       SymlinkBehavior symlinkBehaviorMode, PackageBoundaryMode pkgBoundaryMode) {
     Preconditions.checkState(buildFile.isSourceArtifact(), "%s", buildFile);
-    return new DirectoryTraversalParams(ownerLabel, DirectTraversalRootImpl.forPackage(buildFile),
-        true, destPath, excludes, symlinkBehaviorMode, pkgBoundaryMode, true, false);
+    return DirectoryTraversalParams.getDirectoryTraversalParams(ownerLabel,
+        DirectTraversalRoot.forPackage(buildFile), true, destPath, excludes,
+        symlinkBehaviorMode, pkgBoundaryMode, true, false);
   }
 
   /**
@@ -76,8 +77,8 @@ public final class FilesetTraversalParamsFactory {
   public static FilesetTraversalParams recursiveTraversalOfDirectory(Label ownerLabel,
       Artifact directoryToTraverse, PathFragment destPath, @Nullable Set<String> excludes,
       SymlinkBehavior symlinkBehaviorMode, PackageBoundaryMode pkgBoundaryMode) {
-    return new DirectoryTraversalParams(ownerLabel,
-        DirectTraversalRootImpl.forFileOrDirectory(directoryToTraverse), false, destPath,
+    return DirectoryTraversalParams.getDirectoryTraversalParams(ownerLabel,
+        DirectTraversalRoot.forFileOrDirectory(directoryToTraverse), false, destPath,
         excludes, symlinkBehaviorMode, pkgBoundaryMode, true,
         !directoryToTraverse.isSourceArtifact());
   }
@@ -99,8 +100,8 @@ public final class FilesetTraversalParamsFactory {
   public static FilesetTraversalParams fileTraversal(Label ownerLabel, Artifact fileToTraverse,
       PathFragment destPath, SymlinkBehavior symlinkBehaviorMode,
       PackageBoundaryMode pkgBoundaryMode) {
-    return new DirectoryTraversalParams(ownerLabel,
-        DirectTraversalRootImpl.forFileOrDirectory(fileToTraverse), false, destPath, null,
+    return DirectoryTraversalParams.getDirectoryTraversalParams(ownerLabel,
+        DirectTraversalRoot.forFileOrDirectory(fileToTraverse), false, destPath, null,
         symlinkBehaviorMode, pkgBoundaryMode, false, !fileToTraverse.isSourceArtifact());
   }
 
@@ -111,7 +112,7 @@ public final class FilesetTraversalParamsFactory {
    * an error on its own, any error messages printed will still be correct.
    *
    * @param ownerLabel the rule that created this object
-   * @param nested the traversal params that were used for the nested (inner) Fileset
+   * @param nested the list of traversal params that were used for the nested (inner) Fileset
    * @param destDir path in the Fileset's output directory that will be the root of files coming
    *     from the nested Fileset
    * @param excludes optional; set of files directly below (not in a subdirectory of) the nested
@@ -119,142 +120,55 @@ public final class FilesetTraversalParamsFactory {
    */
   public static FilesetTraversalParams nestedTraversal(
       Label ownerLabel,
-      FilesetTraversalParams nested,
+      ImmutableList<FilesetTraversalParams> nested,
       PathFragment destDir,
       @Nullable Set<String> excludes) {
-    if (destDir.segmentCount() == 0 && (excludes == null || excludes.isEmpty())) {
+    if (nested.size() == 1
+        && destDir.segmentCount() == 0
+        && (excludes == null || excludes.isEmpty())) {
       // Wrapping the traversal here would not lead to a different result: the output location is
       // the same and there are no additional excludes.
-      return nested;
+      return Iterables.getOnlyElement(nested);
     }
     // When srcdir is another Fileset, then files must be null so strip_prefix must also be null.
-    return new NestedTraversalParams(ownerLabel, nested, destDir, excludes);
+    return NestedTraversalParams.getNestedTraversal(ownerLabel, nested, destDir, excludes);
   }
 
-  private abstract static class ParamsCommon implements FilesetTraversalParams {
-    private final Label ownerLabelForErrorMessages;
-    private final PathFragment destDir;
-    private final ImmutableSet<String> excludes;
+  private static Set<String> getOrderedExcludes(@Nullable Set<String> excludes) {
+    // Order the set for the sake of deterministic fingerprinting.
+    return excludes == null
+        ? ImmutableSet.of()
+        : ImmutableSet.copyOf(Ordering.natural().immutableSortedCopy(excludes));
+  }
 
-    ParamsCommon(
-        Label ownerLabelForErrorMessages, PathFragment destDir, @Nullable Set<String> excludes) {
-      this.ownerLabelForErrorMessages = ownerLabelForErrorMessages;
-      this.destDir = destDir;
-      if (excludes == null) {
-        this.excludes = ImmutableSet.of();
-      } else {
-        // Order the set for the sake of deterministic fingerprinting.
-        this.excludes = ImmutableSet.copyOf(Ordering.natural().immutableSortedCopy(excludes));
+  @AutoValue
+  abstract static class DirectoryTraversalParams implements FilesetTraversalParams {
+    @Override
+    public ImmutableList<FilesetTraversalParams> getNestedTraversal() {
+      return ImmutableList.of();
+    }
+
+    @Memoized
+    @Override
+    public abstract int hashCode();
+
+    @Memoized
+    byte[] getFingerprint() {
+      Fingerprint fp = new Fingerprint();
+      fp.addPath(getDestPath());
+      if (!getExcludedFiles().isEmpty()) {
+        fp.addStrings(getExcludedFiles());
       }
+      fp.addBytes(getDirectTraversal().get().getFingerprint());
+      return fp.digestAndReset();
     }
 
     @Override
-    public Label getOwnerLabelForErrorMessages() {
-      return ownerLabelForErrorMessages;
+    public void fingerprint(Fingerprint fp) {
+      fp.addBytes(getFingerprint());
     }
 
-    @Override
-    public Set<String> getExcludedFiles() {
-      return excludes;
-    }
-
-    @Override
-    public PathFragment getDestPath() {
-      return destDir;
-    }
-
-    protected final void commonFingerprint(Fingerprint fp) {
-      fp.addPath(destDir);
-      if (!excludes.isEmpty()) {
-        fp.addStrings(excludes);
-      }
-    }
-
-    @Override
-    public String toString() {
-      return super.toString()
-          + "["
-          + destDir
-          + ", "
-          + ownerLabelForErrorMessages
-          + ", "
-          + excludes
-          + "]";
-    }
-
-    protected boolean internalEquals(ParamsCommon that) {
-      return Objects.equals(this.ownerLabelForErrorMessages, that.ownerLabelForErrorMessages)
-          && Objects.equals(this.destDir, that.destDir)
-          && Objects.equals(this.excludes, that.excludes);
-    }
-
-    protected int internalHashCode() {
-      return Objects.hash(ownerLabelForErrorMessages, destDir, excludes);
-    }
-  }
-
-  private static final class DirectTraversalImpl implements DirectTraversal {
-    private final DirectTraversalRoot root;
-    private final boolean isPackage;
-    private final boolean followSymlinks;
-    private final PackageBoundaryMode pkgBoundaryMode;
-    private final boolean isRecursive;
-    private final boolean isGenerated;
-
-    DirectTraversalImpl(DirectTraversalRoot root, boolean isPackage, boolean followSymlinks,
-        PackageBoundaryMode pkgBoundaryMode, boolean isRecursive, boolean isGenerated) {
-      this.root = root;
-      this.isPackage = isPackage;
-      this.followSymlinks = followSymlinks;
-      this.pkgBoundaryMode = pkgBoundaryMode;
-      this.isRecursive = isRecursive;
-      this.isGenerated = isGenerated;
-    }
-
-    @Override
-    public DirectTraversalRoot getRoot() {
-      return root;
-    }
-
-    @Override
-    public boolean isPackage() {
-      return isPackage;
-    }
-
-    @Override
-    public boolean isRecursive() {
-      return isRecursive;
-    }
-
-    @Override
-    public boolean isGenerated() {
-      return isGenerated;
-    }
-
-    @Override
-    public boolean isFollowingSymlinks() {
-      return followSymlinks;
-    }
-
-    @Override
-    public PackageBoundaryMode getPackageBoundaryMode() {
-      return pkgBoundaryMode;
-    }
-
-    void fingerprint(Fingerprint fp) {
-      fp.addPath(root.asRootedPath().asPath());
-      fp.addBoolean(isPackage);
-      fp.addBoolean(followSymlinks);
-      fp.addBoolean(isRecursive);
-      fp.addBoolean(isGenerated);
-      pkgBoundaryMode.fingerprint(fp);
-    }
-  }
-
-  private static final class DirectoryTraversalParams extends ParamsCommon {
-    private final DirectTraversalImpl traversal;
-
-    DirectoryTraversalParams(Label ownerLabel,
+    static DirectoryTraversalParams getDirectoryTraversalParams(Label ownerLabel,
         DirectTraversalRoot root,
         boolean isPackage,
         PathFragment destPath,
@@ -263,124 +177,48 @@ public final class FilesetTraversalParamsFactory {
         PackageBoundaryMode pkgBoundaryMode,
         boolean isRecursive,
         boolean isGenerated) {
-      super(ownerLabel, destPath, excludes);
-      traversal = new DirectTraversalImpl(root, isPackage,
+      DirectTraversal traversal = DirectTraversal.getDirectTraversal(root, isPackage,
           symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE, pkgBoundaryMode, isRecursive,
           isGenerated);
+      return new AutoValue_FilesetTraversalParamsFactory_DirectoryTraversalParams(
+          ownerLabel, destPath, getOrderedExcludes(excludes), Optional.of(traversal));
     }
+  }
 
+  @AutoValue
+  abstract static class NestedTraversalParams implements FilesetTraversalParams {
     @Override
     public Optional<DirectTraversal> getDirectTraversal() {
-      return Optional.<DirectTraversal>of(traversal);
+      return Optional.absent();
     }
 
+    @Memoized
     @Override
-    public Optional<FilesetTraversalParams> getNestedTraversal() {
-      return Optional.absent();
+    public abstract int hashCode();
+
+    @Memoized
+    protected byte[] getFingerprint() {
+      Fingerprint fp = new Fingerprint();
+      fp.addPath(getDestPath());
+      if (!getExcludedFiles().isEmpty()) {
+        fp.addStrings(getExcludedFiles());
+      }
+      getNestedTraversal().forEach(nestedTraversal -> nestedTraversal.fingerprint(fp));
+      return fp.digestAndReset();
     }
 
     @Override
     public void fingerprint(Fingerprint fp) {
-      commonFingerprint(fp);
-      traversal.fingerprint(fp);
+      fp.addBytes(getFingerprint());
     }
 
-    @Override
-    public int hashCode() {
-      return 37 * super.internalHashCode() + Objects.hashCode(traversal);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof DirectoryTraversalParams)) {
-        return false;
-      }
-      DirectoryTraversalParams that = (DirectoryTraversalParams) obj;
-      return Objects.equals(this.traversal, that.traversal) && internalEquals(that);
-    }
-  }
-
-  private static final class NestedTraversalParams extends ParamsCommon {
-    private final FilesetTraversalParams nested;
-
-    NestedTraversalParams(
+    static NestedTraversalParams getNestedTraversal(
         Label ownerLabel,
-        FilesetTraversalParams nested,
+        ImmutableList<FilesetTraversalParams> nested,
         PathFragment destDir,
         @Nullable Set<String> excludes) {
-      super(ownerLabel, destDir, excludes);
-      this.nested = nested;
-    }
-
-    @Override
-    public Optional<DirectTraversal> getDirectTraversal() {
-      return Optional.absent();
-    }
-
-    @Override
-    public Optional<FilesetTraversalParams> getNestedTraversal() {
-      return Optional.of(nested);
-    }
-
-    @Override
-    public void fingerprint(Fingerprint fp) {
-      commonFingerprint(fp);
-      nested.fingerprint(fp);
-    }
-
-    @Override
-    public int hashCode() {
-      return 37 * super.internalHashCode() + Objects.hashCode(nested);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof NestedTraversalParams)) {
-        return false;
-      }
-      NestedTraversalParams that = (NestedTraversalParams) obj;
-      return Objects.equals(this.nested, that.nested) && internalEquals(that);
-    }
-  }
-
-  private static final class DirectTraversalRootImpl implements DirectTraversalRoot {
-    private final Path rootDir;
-    private final PathFragment relativeDir;
-
-    static DirectTraversalRoot forPackage(Artifact buildFile) {
-      return new DirectTraversalRootImpl(buildFile.getRoot().getPath(),
-          buildFile.getRootRelativePath().getParentDirectory());
-    }
-
-    static DirectTraversalRoot forFileOrDirectory(Artifact fileOrDirectory) {
-      return new DirectTraversalRootImpl(fileOrDirectory.getRoot().getPath(),
-          fileOrDirectory.getRootRelativePath());
-    }
-
-    private DirectTraversalRootImpl(Path rootDir, PathFragment relativeDir) {
-      this.rootDir = rootDir;
-      this.relativeDir = relativeDir;
-    }
-
-    @Override
-    public Path getRootPart() {
-      return rootDir;
-    }
-
-    @Override
-    public PathFragment getRelativePart() {
-      return relativeDir;
-    }
-
-    @Override
-    public RootedPath asRootedPath() {
-      return RootedPath.toRootedPath(rootDir, relativeDir);
+      return new AutoValue_FilesetTraversalParamsFactory_NestedTraversalParams(
+          ownerLabel, destDir, getOrderedExcludes(excludes), nested);
     }
   }
 }

@@ -181,10 +181,10 @@ public class SpawnInputExpanderTest {
   @Test
   public void testEmptyManifest() throws Exception {
     // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
-    scratchFile("/root/_foo/MANIFEST");
+    scratchFile("/root/out/_foo/MANIFEST");
 
-    Artifact artifact =
-        new Artifact(fs.getPath("/root/foo"), Root.asSourceRoot(fs.getPath("/root")));
+    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"), true);
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     expander.parseFilesetManifest(inputMappings, artifact, "workspace");
     assertThat(inputMappings).isEmpty();
   }

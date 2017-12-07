@@ -25,12 +25,10 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import org.junit.Test;
@@ -74,12 +72,8 @@ public class AspectDefinitionTest {
     Attribute implicit = attr("$runtime", BuildType.LABEL)
         .value(Label.parseAbsoluteUnchecked("//run:time"))
         .build();
-    LateBoundLabel<String> latebound = new LateBoundLabel<String>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, String configuration) {
-          return Label.parseAbsoluteUnchecked("//run:away");
-        }
-    };
+    LateBoundDefault<Void, Label> latebound =
+        LateBoundDefault.fromConstant(Label.parseAbsoluteUnchecked("//run:away"));
     AspectDefinition simple = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
         .add(implicit)
         .add(attr(":latebound", BuildType.LABEL).value(latebound))

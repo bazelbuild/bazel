@@ -28,7 +28,7 @@ function test_run_local() {
   # In standalone mode,
   # we have access to /var which is not mounted in sandboxed mode
   cat <<EOF > dir/test_local.sh
-#!/bin/bash
+#!/bin/sh
 test -e "$(pwd)/emptyfile" && exit 0 || true
 echo "no $(pwd)/emptyfile in standalone mode"
 exit 1

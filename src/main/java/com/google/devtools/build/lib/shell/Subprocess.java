@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.shell;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
@@ -23,17 +22,6 @@ import java.io.OutputStream;
  * A process started by Bazel.
  */
 public interface Subprocess extends Closeable {
-
-  /**
-   * Something that can create subprocesses.
-   */
-  interface Factory {
-
-    /**
-     * Create a subprocess according to the specified parameters.
-     */
-    Subprocess create(SubprocessBuilder params) throws IOException;
-  }
 
   /**
    * Kill the process.

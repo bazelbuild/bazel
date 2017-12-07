@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.Root;
@@ -23,12 +26,10 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Map;
 
 /**
  * Creates a {@link BuildInfoCollectionValue}. Only depends on the unique
@@ -36,13 +37,20 @@ import java.util.Map;
  * injected value.
  */
 public class BuildInfoCollectionFunction implements SkyFunction {
+  private final ActionKeyContext actionKeyContext;
   // Supplier only because the artifact factory has not yet been created at constructor time.
   private final Supplier<ArtifactFactory> artifactFactory;
   private final Supplier<Boolean> removeActionsAfterEvaluation;
+  private final ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories;
 
   BuildInfoCollectionFunction(
-      Supplier<ArtifactFactory> artifactFactory, Supplier<Boolean> removeActionsAfterEvaluation) {
+      ActionKeyContext actionKeyContext,
+      Supplier<ArtifactFactory> artifactFactory,
+      ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories,
+      Supplier<Boolean> removeActionsAfterEvaluation) {
+    this.actionKeyContext = actionKeyContext;
     this.artifactFactory = artifactFactory;
+    this.buildInfoFactories = buildInfoFactories;
     this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
   }
 
@@ -52,11 +60,6 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     WorkspaceStatusValue infoArtifactValue =
         (WorkspaceStatusValue) env.getValue(WorkspaceStatusValue.SKY_KEY);
     if (infoArtifactValue == null) {
-      return null;
-    }
-    Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories =
-        PrecomputedValue.BUILD_INFO_FACTORIES.get(env);
-    if (buildInfoFactories == null) {
       return null;
     }
     WorkspaceNameValue nameValue = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
@@ -78,6 +81,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     };
 
     return new BuildInfoCollectionValue(
+        actionKeyContext,
         buildInfoFactories
             .get(keyAndConfig.getInfoKey())
             .create(

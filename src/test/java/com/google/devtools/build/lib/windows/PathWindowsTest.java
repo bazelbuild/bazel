@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.windows.WindowsFileSystem.WindowsPath;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -338,5 +339,13 @@ public class PathWindowsTest {
     RootedPath actual = RootedPath.toRootedPath(ancestor, child);
     assertThat(actual.getRoot()).isEqualTo(ancestor);
     assertThat(actual.getRelativePath()).isEqualTo(PathFragment.create("baz"));
+  }
+
+  @Test
+  public void testToURI() {
+    // See https://blogs.msdn.microsoft.com/ie/2006/12/06/file-uris-in-windows/
+    Path p = root.getRelative("Temp\\Foo Bar.txt");
+    URI uri = p.toURI();
+    assertThat(uri.toString()).isEqualTo("file:///C:/Temp/Foo%20Bar.txt");
   }
 }

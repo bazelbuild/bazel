@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+
 /**
  * A thin interface exposing only the warning and error reporting functionality
  * of a rule.
@@ -24,6 +26,7 @@ package com.google.devtools.build.lib.packages;
  * <p>This interface should only be implemented by {@code RuleContext}.
  */
 public interface RuleErrorConsumer {
+
   /**
    * Consume a non-attribute-specific warning in a rule.
    */
@@ -43,4 +46,36 @@ public interface RuleErrorConsumer {
    * Consume an attribute-specific error in a rule.
    */
   void attributeError(String attrName, String message);
+
+  /**
+   * Convenience function to report non-attribute-specific errors in the current rule and then
+   * throw a {@link RuleErrorException}, immediately exiting the build invocation. Alternatively,
+   * invoke {@link #ruleError} instead to collect additional error information before ending the
+   * invocation.
+   */
+  RuleErrorException throwWithRuleError(String message) throws RuleErrorException;
+
+  /**
+   * Convenience function to report attribute-specific errors in the current rule, and then throw a
+   * {@link RuleErrorException}, immediately exiting the build invocation. Alternatively, invoke
+   * {@link #attributeError} instead to collect additional error information before ending the
+   * invocation.
+   *
+   * <p>If the name of the attribute starts with <code>$</code>
+   * it is replaced with a string <code>(an implicit dependency)</code>.
+   */
+  RuleErrorException throwWithAttributeError(String attrName, String message)
+      throws RuleErrorException;
+
+  /**
+   * Returns whether this instance is known to have errors at this point during analysis. Do not
+   * call this method after the initializationHook has returned.
+   */
+  boolean hasErrors();
+
+  /**
+   * No-op if {@link #hasErrors} is false, throws {@link RuleErrorException} if it is true.
+   * This provides a convenience to early-exit of configured target creation if there are errors.
+   */
+  void assertNoErrors() throws RuleErrorException;
 }

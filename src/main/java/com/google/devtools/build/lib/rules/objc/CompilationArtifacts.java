@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Artifacts related to compilation. Any rule containing compilable sources will create an instance

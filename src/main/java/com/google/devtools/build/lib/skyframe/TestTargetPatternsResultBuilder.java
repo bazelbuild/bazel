@@ -24,8 +24,12 @@ import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import java.util.ArrayList;
 
 /**
- * Evaluates set of test targets based on list of target patterns. In contradistinction to 
- * {@code BuildTargetPatternEvaluatorUtil} this class will expand all test suites. 
+ * Evaluates the set of test targets based on list of target patterns. Test suite expansion is
+ * performed on inclusion and exclusion target patterns before adding or subtracting from the set.
+ * This differs from the behavior of {@code BuildTargetPatternsResultBuilder}, which only applies
+ * test suite expansion to inclusion target patterns. (The result of this is that excluding a test
+ * suite excludes all of the referenced tests from the set of tests to be run, but does not exclude
+ * those from the set of targets to be built unless --build_tests_only is set.)
  */
 class TestTargetPatternsResultBuilder extends TargetPatternsResultBuilder {
   private final ArrayList<ResolvedTargetsOfPattern> labelsOfPatterns = new ArrayList<>(); 
