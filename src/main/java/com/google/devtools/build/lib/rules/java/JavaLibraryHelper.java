@@ -201,7 +201,7 @@ public final class JavaLibraryHelper {
           attributes, deps);
     }
 
-    NestedSet<Artifact> hostJavabaseArtifacts = getMiddleManFor(hostJavabase);
+    NestedSet<Artifact> hostJavabaseArtifacts = getJavaBaseMiddleman(hostJavabase);
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     JavaCompilationHelper helper =
         new JavaCompilationHelper(ruleContext, semantics, javacOpts, attributes,
@@ -233,15 +233,26 @@ public final class JavaLibraryHelper {
     return artifactsBuilder.build();
   }
 
-  private static NestedSet<Artifact> getMiddleManFor(TransitiveInfoCollection prereq) {
+  static NestedSet<Artifact> getJavaBaseMiddleman(TransitiveInfoCollection prereq) {
     if (prereq == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
-    MiddlemanProvider provider = prereq.getProvider(MiddlemanProvider.class);
-    if (provider == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
+    JavaRuntimeInfo javaRuntimeInfo = prereq.get(JavaRuntimeInfo.PROVIDER);
+    if (javaRuntimeInfo != null) {
+      return javaRuntimeInfo.javaBaseInputsMiddleman();
     }
-    return provider.getMiddlemanArtifact();
+
+    MiddlemanProvider middlemanProvider = prereq.getProvider(MiddlemanProvider.class);
+    if (middlemanProvider != null) {
+      // This branch is necessary so that we support the legacy case when the javabase is set to
+      // a filegroup (e.g. //tools/defaults:jdk).
+      // TODO(lberki): Remove when we have migrated everyone from //tools/defaults:jdk to
+      // //tools/jdk:current_{host_,}java_runtime.
+      return middlemanProvider.getMiddlemanArtifact();
+    }
+
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   /**

@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -73,7 +72,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             .build();
 
     JavaRuntimeInfo javaRuntime = new JavaRuntimeInfo(
-        filesToBuild, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath);
+        filesToBuild, middleman, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath);
 
     TemplateVariableInfo templateVariableInfo = new TemplateVariableInfo(ImmutableMap.of(
         "JAVA", javaBinaryExecPath.getPathString(),
@@ -83,7 +82,6 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(javaRuntime)
-        .addProvider(MiddlemanProvider.class, new MiddlemanProvider(middleman))
         .addNativeDeclaredProvider(templateVariableInfo)
         .build();
   }

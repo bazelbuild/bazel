@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -159,8 +158,8 @@ public abstract class JavaHelper {
   /** Returns the artifacts required to invoke {@code javahome} relative binary in the action. */
   public static NestedSet<Artifact> getHostJavabaseInputs(
       RuleContext ruleContext, String implicitAttributesSuffix) {
-    return AnalysisUtils.getMiddlemanFor(
-        ruleContext, ":host_jdk" + implicitAttributesSuffix, Mode.HOST);
+    return JavaLibraryHelper.getJavaBaseMiddleman(ruleContext.getPrerequisite(
+        ":host_jdk" + implicitAttributesSuffix, Mode.HOST));
   }
 
   public static JavaRuntimeInfo getJavaRuntime(RuleContext ruleContext) {

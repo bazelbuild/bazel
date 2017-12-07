@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -53,7 +52,6 @@ public class JavaRuntimeAlias implements RuleConfiguredTargetFactory {
           .addNativeDeclaredProvider(runtime.get(JavaRuntimeInfo.PROVIDER))
           .addNativeDeclaredProvider(runtime.get(TemplateVariableInfo.PROVIDER))
           .addProvider(RunfilesProvider.class, runtime.getProvider(RunfilesProvider.class))
-          .addProvider(MiddlemanProvider.class, runtime.getProvider(MiddlemanProvider.class))
           .setFilesToBuild(runtime.getProvider(FileProvider.class).getFilesToBuild());
     } else {
       // This happens when --javabase is an absolute path (as opposed to a label). In this case,
@@ -61,6 +59,7 @@ public class JavaRuntimeAlias implements RuleConfiguredTargetFactory {
       // This can go away once --javabase=<absolute path> is not supported anymore.
       Jvm jvm = ruleContext.getFragment(Jvm.class);
       JavaRuntimeInfo runtimeInfo = new JavaRuntimeInfo(
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           jvm.getJavaHome(),
           jvm.getJavaExecutable(),
