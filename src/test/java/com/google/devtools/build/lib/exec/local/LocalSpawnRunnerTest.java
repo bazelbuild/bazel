@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec.local;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
@@ -60,6 +61,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.function.LongSupplier;
 import java.util.logging.Filter;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -570,5 +572,42 @@ public class LocalSpawnRunnerTest {
                 "--stderr=/out/stderr",
                 "/bin/echo",
                 "Hi!"));
+  }
+
+  @Test
+  public void testCreateActionTemp_exceptionIfUnableToCreateDir() throws IOException {
+    Path execRoot = fs.getPath("/execroot");
+    assertThat(execRoot.createDirectory()).isTrue();
+    assertThat(execRoot.exists()).isTrue();
+    execRoot.setWritable(false);
+
+    assertThrows(IOException.class, () -> LocalSpawnRunner.createActionTemp(execRoot, () -> 0));
+  }
+
+  @Test
+  public void testCreateActionTemp_retriesIfNameClashes() throws IOException {
+    Path execRoot = fs.getPath("/execroot");
+    assertThat(execRoot.createDirectory()).isTrue();
+    assertThat(execRoot.exists()).isTrue();
+
+    Path tempPath1 = LocalSpawnRunner.createActionTemp(execRoot, () -> 0);
+    Path tempPath2 = LocalSpawnRunner.createActionTemp(execRoot, new IncreasingSequenceSupplier(0));
+
+    assertThat(tempPath1).isNotEqualTo(tempPath2);
+    assertThat(tempPath1.exists()).isTrue();
+    assertThat(tempPath2.exists()).isTrue();
+  }
+
+  private static class IncreasingSequenceSupplier implements LongSupplier {
+    private long currentElement;
+
+    public IncreasingSequenceSupplier(long startingElement) {
+      this.currentElement = startingElement;
+    }
+
+    @Override
+    public long getAsLong() {
+      return this.currentElement++;
+    }
   }
 }

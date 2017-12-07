@@ -18,6 +18,7 @@ import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 import static java.util.logging.Level.WARNING;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
@@ -48,6 +49,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.LongSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -131,21 +133,27 @@ public final class LocalSpawnRunner implements SpawnRunner {
     }
   }
 
-  private static Path createActionTemp(Path execRoot) throws IOException {
-    String idStr =
-        // Make the name unique among other executor threads.
-        Long.toHexString(Thread.currentThread().getId())
-            + "_"
-            // Make the name unique among other temp directories that this thread has ever created.
-            // On Windows, file and directory deletion is asynchronous, meaning the previous temp
-            // directory name isn't immediately available for the next action that this thread runs.
-            // See https://github.com/bazelbuild/bazel/issues/4035
-            + Long.toHexString(ThreadLocalRandom.current().nextLong());
-    Path result = execRoot.getRelative("tmp" + idStr);
-    if (!result.exists() && !result.createDirectory()) {
-      throw new IOException(String.format("Could not create temp directory '%s'", result));
+  @VisibleForTesting
+  static Path createActionTemp(Path execRoot, LongSupplier randomLongGenerator) throws IOException {
+    Path tempDirPath;
+    do {
+      String idStr =
+          // Make the name unique among other executor threads.
+          Long.toHexString(Thread.currentThread().getId())
+              + "_"
+              // Make the name unique among other temp directories that this thread has ever
+              // created.
+              // On Windows, file and directory deletion is asynchronous, meaning the previous temp
+              // directory name isn't immediately available for the next action that this thread
+              // runs.
+              // See https://github.com/bazelbuild/bazel/issues/4035
+              + Long.toHexString(randomLongGenerator.getAsLong());
+      tempDirPath = execRoot.getRelative("tmp" + idStr);
+    } while (tempDirPath.exists());
+    if (!tempDirPath.createDirectory()) {
+      throw new IOException(String.format("Could not create temp directory '%s'", tempDirPath));
     }
-    return result;
+    return tempDirPath;
   }
 
   private final class SubprocessHandler {
@@ -255,7 +263,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
       stepLog(INFO, "running locally");
       setState(State.LOCAL_ACTION_RUNNING);
 
-      Path tmpDir = createActionTemp(execRoot);
+      Path tmpDir = createActionTemp(execRoot, () -> ThreadLocalRandom.current().nextLong());
       try {
         Command cmd;
         OutputStream stdOut = ByteStreams.nullOutputStream();
