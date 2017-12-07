@@ -23,56 +23,48 @@ nav: docs
             <i class="glyphicon glyphicon-menu-hamburger"></i> Navigation
           </a>
           <nav class="sidebar collapse" id="sidebar-nav">
+           <h3>Home</h3>
             <ul class="sidebar-nav">
               <li><a href="/versions/{{ site.version }}/bazel-overview.html">Bazel Overview</a></li>
-
-              <li>
-                <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#installing-menu" aria-expanded="false"
-                    aria-controls="installing-menu">
-                  Installing <span class="caret"></span>
-                </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="installing-menu">
-                  <li><a href="/versions/{{ site.version }}/install.html">Installing Bazel</a></li>
-                  <li><a href="/versions/{{ site.version }}/install-ubuntu.html">Installing Bazel on Ubuntu</a></li>
-                  <li><a href="/versions/{{ site.version }}/install-redhat.html">Installing Bazel on Fedora and CentOS</a></li>
-                  <li><a href="/versions/{{ site.version }}/install-os-x.html">Installing Bazel on macOS (OS X)</a></li>
-                  <li><a href="/versions/{{ site.version }}/install-windows.html">Installing Bazel on Windows</a></li>
-                  <li><a href="/versions/{{ site.version }}/install-compile-source.html">Compile Bazel from Source</a></li>
-                </ul>
-              </li>
-
-              <li><a href="/versions/{{ site.version }}/getting-started.html">Getting Started</a></li>
-
-              <li>
-                <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#tutorial-menu" aria-expanded="false"
-                    aria-controls="tutorial-menu">
-                  Tutorial <span class="caret"></span>
-                </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="tutorial-menu">
-                  <li><a href="/versions/{{ site.version }}/tutorial/java.html">Build a Java Project</a></li>
-                  <li><a href="/versions/{{ site.version }}/tutorial/cpp.html">Build a C++ Project</a></li>
-                  <li><a href="/versions/{{ site.version }}/tutorial/android-app.html">Build an Android App</a></li>
-                  <li><a href="/versions/{{ site.version }}/tutorial/ios-app.html">Build an iOS App</a></li>
-                </ul>
-              </li>
-              <li><a href="/versions/{{ site.version }}/ide.html">IDE Integration</a></li>
+              <li><a href="/versions/{{ site.version }}/experimental.html">Experimental Features</a></li>
             </ul>
-            <h3>Using Bazel</h3>
+
+            <h3>Install Bazel</h3>
+           <ul class="sidebar-nav">
+              <li><a href="/versions/{{ site.version }}/install.html">Installation Overview</a></li>
+              <li><a href="/versions/{{ site.version }}/install-ubuntu.html">Install on Ubuntu</a></li>
+              <li><a href="/versions/{{ site.version }}/install-redhat.html">Install on Fedora/CentOS</a></li>
+              <li><a href="/versions/{{ site.version }}/install-os-x.html">Install on macOS</a></li>
+              <li><a href="/versions/{{ site.version }}/install-windows.html">Install on Windows</a></li>
+              <li><a href="/versions/{{ site.version }}/install-compile-source.html">Compile from Source</a></li>
+              <li><a href="/versions/{{ site.version }}/ide.html">Integrate with IDEs</a></li>
+            </ul>
+
+          <h3>Tutorials</h3>
+           <ul class="sidebar-nav">
+              <li><a href="/versions/{{ site.version }}/tutorial/java.html">Build a Java Project</a></li>
+              <li><a href="/versions/{{ site.version }}/tutorial/cpp.html">Build a C++ Project</a></li>
+              <li><a href="/versions/{{ site.version }}/tutorial/android-app.html">Build an Android App</a></li>
+              <li><a href="/versions/{{ site.version }}/tutorial/ios-app.html">Build an iOS App</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/tutorial-sharing-variables.html">Skylark: Share Variables</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/tutorial-creating-a-macro.html">Skylark: Create Macros</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/cookbook.html">Skylark: Example Extensions</a></li>
+            </ul>
+
+           <h3>Use Bazel</h3>
             <ul class="sidebar-nav">
-              <li><a href="/versions/{{ site.version }}/build-ref.html">Concepts and Terminology</a></li>
+              <li><a href="/versions/{{ site.version }}/getting-started.html">Get Started</a></li>
               <li><a href="/versions/{{ site.version }}/user-manual.html">User Manual</a></li>
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#cpp-menu" aria-expanded="false"
                     aria-controls="cpp-menu">
-                  C++<span class="caret"></span>
+                  Bazel and C++<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="cpp-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-cpp.html">C++ and Bazel</a></li>
-                  <li><a href="/versions/{{ site.version }}/cpp-use-cases.html">Common C++ Use Cases</a></li>
+                  <li><a href="/versions/{{ site.version }}/bazel-and-cpp.html">C++ Resources</a></li>
+                  <li><a href="/versions/{{ site.version }}/cpp-use-cases.html">C++ Use Cases</a></li>
                 </ul>
               </li>
 
@@ -80,12 +72,12 @@ nav: docs
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#java-menu" aria-expanded="false"
                     aria-controls="java-menu">
-                  Java<span class="caret"></span>
+                  Bazel and Java<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="java-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-java.html">Java and Bazel</a></li>
-                  <li><a href="/versions/{{ site.version }}/migrate-maven.html">Migrating from Maven to Bazel</a></li>
-                  <li><a href="/versions/{{ site.version }}/generate-workspace.html">Generate External Dependencies from Maven</a></li>
+                  <li><a href="/versions/{{ site.version }}/bazel-and-java.html">Java Resources</a></li>
+                  <li><a href="/versions/{{ site.version }}/migrate-maven.html">Migrate from Maven</a></li>
+                  <li><a href="/versions/{{ site.version }}/generate-workspace.html">Convert Maven Dependencies</a></li>
                 </ul>
               </li>
 
@@ -93,11 +85,11 @@ nav: docs
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#android-menu" aria-expanded="false"
                     aria-controls="android-menu">
-                  Android<span class="caret"></span>
+                  Bazel and Android<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="android-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-android.html">Android and Bazel</a></li>
-                  <li><a href="/versions/{{ site.version }}/mobile-install.html">mobile-install</a></li>
+                  <li><a href="/versions/{{ site.version }}/bazel-and-android.html">Android Resources</a></li>
+                  <li><a href="/versions/{{ site.version }}/mobile-install.html">Use mobile-install</a></li>
                 </ul>
               </li>
 
@@ -105,78 +97,109 @@ nav: docs
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#apple-menu" aria-expanded="false"
                     aria-controls="apple-menu">
-                  Apple<span class="caret"></span>
+                  Bazel and Apple<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="apple-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-apple.html">Apple apps and Bazel</a></li>
-                  <li><a href="/versions/{{ site.version }}/migrate-xcode.html">Migrating from Xcode to Bazel</a></li>
+                  <li><a href="/versions/{{ site.version }}/bazel-and-apple.html">Apple Resources</a></li>
+                  <li><a href="/versions/{{ site.version }}/migrate-xcode.html">Migrate from Xcode</a></li>
+                  <li><a href="/versions/{{ site.version }}/migrate-cocoapods.html">Convert CocoaPods</a></li>
                 </ul>
               </li>
-
-              <li><a href="/versions/{{ site.version }}/test-encyclopedia.html">Writing Tests</a></li>
-              <li><a href="/versions/{{ site.version }}/query.html">Query Language</a></li>
-              <li><a href="/versions/{{ site.version }}/query-how-to.html">Query How-To</a></li>
-              <li><a href="/versions/{{ site.version }}/external.html">External Dependencies</a></li>
-              <li><a href="/versions/{{ site.version }}/command-line-reference.html">Command-line Reference</a></li>
-              <li><a href="/versions/{{ site.version }}/output_directories.html">Output Directories</a></li>
-              <li><a href="/versions/{{ site.version }}/windows.html">Bazel on Windows</a></li>
+              <li><a href="/versions/{{ site.version }}/windows.html">Use Bazel on Windows</a></li>
+              <li><a href="/versions/{{ site.version }}/external.html">Add External Dependencies</a></li>
+              <li><a href="/versions/{{ site.version }}/query-how-to.html">Query Builds</a></li>
+              <li><a href="/versions/{{ site.version }}/test-encyclopedia.html">Write Tests</a></li>
               <li><a href="/versions/{{ site.version }}/best-practices.html">Best Practices</a></li>
-              <li><a href="/versions/{{ site.version }}/build-event-protocol.html">Build Event Protocol</a></li>
-              <li><a href="/versions/{{ site.version }}/platforms.html">Platforms</a></li>
-              <li><a href="/versions/{{ site.version }}/toolchains.html">Toolchains</a></li>
-            </ul>
-            {% include be-nav.html %}
-            <h3>Extensions</h3>
-            <ul class="sidebar-nav">
+             </ul>
+
+          <h3>Reference</h3>
+           <ul class="sidebar-nav">
+             <li><a href="/versions/{{ site.version }}/build-ref.html">Bazel Concepts</a></li>
+
+             <li><a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#be-menu" aria-expanded="false"
+                    aria-controls="be-menu">
+                  Build Encyclopedia<span class="caret"></span>
+                </a>
+             <ul class="collapse sidebar-nav sidebar-submenu" id="be-menu">
+                  <li><a href="/versions/{{ site.version }}/be/overview.html">Build Overview</a></li>
+                  <li><a href="/versions/{{ site.version }}/be/common-definitions.html">Build Concepts</a></li>
+                  <li><a href="/versions/{{ site.version }}/be/make-variables.html">Make Variables</a></li>
+                  <li><a href="/versions/{{ site.version }}/be/functions.html">Functions</a></li>
+
+                  <li><a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#be-rules-menu" aria-expanded="false"
+                    aria-controls="be-rules-menu">
+                  Rules<span class="caret"></span>
+                      </a>
+                    <ul class="collapse sidebar-nav sidebar-submenu" id="be-rules-menu">
+                       <li><a href="/versions/{{ site.version }}/be/general.html">General</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/workspace.html">Workspace</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/platform.html">Platform</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/pkg.html">Packaging</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/extra-actions.html">Extra Actions</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/android.html">Android</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_appengine">AppEngine</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_apple">Apple</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/c-cpp.html">C and C++</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_dotnet">C#</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_d">D</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_docker">Docker</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_go">Go</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_groovy">Groovy</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/java.html">Java</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_closure">JavaScript (Closure)</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_jsonnet">Jsonnet</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/objective-c.html">Objective C</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/protocol-buffer.html">Protocol Buffers</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/python.html">Python</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_rust">Rust</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_sass">Sass</a></li>
+                       <li><a href="https://github.com/bazelbuild/rules_scala">Scala</a></li>
+                       <li><a href="/versions/{{ site.version }}/be/shell.html">Shell</a></li>
+                    </ul></li>
+               </ul></li>
+
+             <li><a href="/versions/{{ site.version }}/skylark/build-style.html">BUILD File Reference</a></li>
+             <li><a href="/versions/{{ site.version }}/command-line-reference.html">Command Line Reference</a></li>
+             <li><a href="/versions/{{ site.version }}/build-event-protocol.html">Build Event Protocol</a></li>
+             <li><a href="/versions/{{ site.version }}/query.html">Bazel Query Language</a></li>
+             <li><a href="/versions/{{ site.version }}/output_directories.html">Output Directory Layout</a></li>
+             <li><a href="/versions/{{ site.version }}/platforms.html">Platforms</a></li>
+             <li><a href="/versions/{{ site.version }}/toolchains.html">Toolchains</a></li>
+           </ul>
+
+            <h3>Extend Bazel</h3>
+           <ul class="sidebar-nav">
               <li><a href="/versions/{{ site.version }}/skylark/concepts.html">Overview</a></li>
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#extensions-tutorials" aria-expanded="false"
-                    aria-controls="extensions-tutorials">
-                  Tutorials <span class="caret"></span>
+                    href="#skylark-concepts" aria-expanded="false"
+                    aria-controls="skylark-concepts">
+                  Skylark Concepts<span class="caret"></span>
                 </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="extensions-tutorials">
-                  <li><a href="/versions/{{ site.version }}/skylark/tutorial-sharing-variables.html">Sharing variables</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/tutorial-creating-a-macro.html">Creating a macro</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/cookbook.html">Examples</a></li>
-                </ul>
-              </li>
-
-              <li>
-                <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#extensions-concepts" aria-expanded="false"
-                    aria-controls="extensions-concepts">
-                  Concepts <span class="caret"></span>
-                </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="extensions-concepts">
+                <ul class="collapse sidebar-nav sidebar-submenu" id="skylark-concepts">
+                  <li><a href="/versions/{{ site.version }}/skylark/aspects.html">Aspects</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/depsets.html">Depsets</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/macros.html">Macros</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/rules.html">Rules</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/depsets.html">Depsets</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/aspects.html">Aspects</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/repository_rules.html">Repository rules</a></li>
-                  <li><a href="/versions/{{ site.version }}/rule-challenges.html">Challenges of writing rules</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/backward-compatibility.html">Backward compatibility</a></li>
+                  <li><a href="/versions/{{ site.version }}/skylark/repository_rules.html">Repository Rules</a></li>
                 </ul>
               </li>
-
-              <li><a href="/versions/{{ site.version }}/skylark/deploying.html">Packaging rules</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/skylint.html">Linter</a></li>
-              <li><a href="https://skydoc.bazel.build" target="_blank">Documenting rules</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/performance.html">Performance</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/build-style.html">Style guide for BUILD files</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/bzl-style.html">Style guide for bzl files</a></li>
-
-              <li><a href="/versions/{{ site.version }}/skylark/lib/skylark-overview.html">Reference</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/language.html">Language</a></li>
-            </ul>
-            <h3>Experimental</h3>
-            <ul class="sidebar-nav">
-              <li><a href="/versions/{{ site.version }}/experimental.html">About experimental features</a></li>
-              <li><a href="/versions/{{ site.version }}/migrate-cocoapods.html">Converting CocoaPods dependencies</a></li>
+              <li><a href="/versions/{{ site.version }}/rule-challenges.html">Write Rules</a></li>
+              <li><a href="https://skydoc.bazel.build" target="_blank">Document Rules</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/deploying.html">Deploy Rules</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/performance.html">Optimize Performance</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/backward-compatibility.html">Backward Compatibility</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/skylint.html">Skylark Linter</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/lib/skylark-overview.html">Modules and Globals</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/bzl-style.html">BZL File Reference</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/language.html">Skylark Language Reference</a></li>
             </ul>
           </nav>
         </div>
+
         <div class="col-lg-9">
           <a id="gh-edit" class="gh-edit default-hidden"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</a>
           <script>
@@ -206,7 +229,7 @@ nav: docs
       </div>
     </div>
 
-    <!-- satisfaction survey -->
+    <!-- Satisfaction Survey -->
     <script async="" defer="" src="//survey.g.doubleclick.net/async_survey?site=oohdpic4fyfp3jcnym6aqkdf3e"></script>
 
     {% include footer.html %}
