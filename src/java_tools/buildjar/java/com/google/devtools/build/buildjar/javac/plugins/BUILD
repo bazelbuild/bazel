@@ -66,7 +66,10 @@ bootstrap_java_library(
     srcs = glob(
         ["**/*.java"],
     ),
-    tags = ["manual"],
+    tags = [
+        "manual",
+        "nobuilder",
+    ],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_JarOwner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_invalid_command_line_exception",
