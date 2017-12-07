@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
@@ -458,7 +459,7 @@ public final class BuildTool {
             queryOptions == null
                 ? new HashSet<>()
                 : ConfiguredTargetQueryEnvironment.parseOptions(queryOptions).toSettings());
-    configuredTargetQueryEnvironment.evaluateQuery(
+    QueryEvalResult result = configuredTargetQueryEnvironment.evaluateQuery(
         queryExpr,
         new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
           @Override
@@ -475,6 +476,9 @@ public final class BuildTool {
             }
           }
         });
+    if (result.isEmpty()) {
+      env.getReporter().handle(Event.info("Empty query results"));
+    }
   }
 
   private void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {
