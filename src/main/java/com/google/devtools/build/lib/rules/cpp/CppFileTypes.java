@@ -132,7 +132,9 @@ public final class CppFileTypes {
   public static final FileType LTO_INDEXING_OBJECT_FILE = FileType.of(".indexing.o");
 
   public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib", ".dll");
-  public static final FileType INTERFACE_SHARED_LIBRARY = FileType.of(".ifso");
+  // Unix shared libraries can be passed to linker, but not .dll on Windows
+  public static final FileType UNIX_SHARED_LIBRARY = FileType.of(".so", ".dylib");
+  public static final FileType INTERFACE_SHARED_LIBRARY = FileType.of(".ifso", ".tbd");
   public static final FileType LINKER_SCRIPT = FileType.of(".ld", ".lds", ".ldscript");
 
   // Windows DEF file: https://msdn.microsoft.com/en-us/library/28d6s79h.aspx

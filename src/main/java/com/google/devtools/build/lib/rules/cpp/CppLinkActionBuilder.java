@@ -1856,14 +1856,17 @@ public class CppLinkActionBuilder {
         Map<Artifact, Artifact> ltoMap) {
       boolean includeRuntimeSolibDir = false;
       for (LinkerInput input : runtimeLinkerInputs) {
-        if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
+        if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
+            || input.getArtifactCategory() == ArtifactCategory.INTERFACE_LIBRARY) {
           PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
-          Preconditions.checkState(
-              runtimeSolibDir != null && libDir.equals(runtimeSolibDir),
-              "Artifact '%s' is not under directory '%s'.",
-              input.getArtifact(),
-              solibDir);
-          includeRuntimeSolibDir = true;
+          if (!featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
+            Preconditions.checkState(
+                runtimeSolibDir != null && libDir.equals(runtimeSolibDir),
+                "Artifact '%s' is not under directory '%s'.",
+                input.getArtifact(),
+                solibDir);
+            includeRuntimeSolibDir = true;
+          }
           addDynamicInputLinkOptions(
               input,
               librariesToLink,
@@ -1887,19 +1890,20 @@ public class CppLinkActionBuilder {
         Map<Artifact, Artifact> ltoMap) {
       boolean includeSolibDir = false;
       for (LinkerInput input : linkerInputs) {
-        if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
+        if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
+            || input.getArtifactCategory() == ArtifactCategory.INTERFACE_LIBRARY) {
           PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
           // When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, dynamic libraries are not symlinked
-          // under solibDir, so don't check it.
+          // under solibDir, so don't check it and don't include solibDir.
           if (!featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
             Preconditions.checkState(
                 libDir.startsWith(solibDir),
                 "Artifact '%s' is not under directory '%s'.",
                 input.getArtifact(),
                 solibDir);
-          }
-          if (libDir.equals(solibDir)) {
-            includeSolibDir = true;
+            if (libDir.equals(solibDir)) {
+              includeSolibDir = true;
+            }
           }
           addDynamicInputLinkOptions(
               input,
@@ -1927,7 +1931,9 @@ public class CppLinkActionBuilder {
         ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps,
         PathFragment solibDir,
         String rpathRoot) {
-      Preconditions.checkState(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY);
+      Preconditions.checkState(
+          input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
+              || input.getArtifactCategory() == ArtifactCategory.INTERFACE_LIBRARY);
       Preconditions.checkState(
           !Link.useStartEndLib(input, CppHelper.getArchiveType(cppConfiguration, toolchain)));
 

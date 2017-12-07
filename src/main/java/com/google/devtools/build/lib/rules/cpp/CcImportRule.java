@@ -34,23 +34,29 @@ public final class CcImportRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         /*<!-- #BLAZE_RULE($cc_import).ATTRIBUTE(static_library) -->
-          A single precompiled static library
+          A single precompiled static library.
+          Permited file types: <code>.a</code>, <code>.pic.a</code> or <code>.lib</code>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("static_library", LABEL)
-                .allowedFileTypes(CppFileTypes.ARCHIVE)
+                .allowedFileTypes(CppFileTypes.ARCHIVE, CppFileTypes.PIC_ARCHIVE)
         )
         /*<!-- #BLAZE_RULE($cc_import).ATTRIBUTE(shared_library) -->
           A single precompiled shared library
+          Permited file types: <code>.so</code>, <code>.dll</code> or <code>.dylib</code>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("shared_library", LABEL)
             .allowedFileTypes(CppFileTypes.SHARED_LIBRARY)
         )
         /*<!-- #BLAZE_RULE($cc_import).ATTRIBUTE(shared_library) -->
           A single interface library for linking the shared library
+          Permited file types: <code>.ifso</code>, <code>.tbd</code>, <code>.so</code> or
+          <code>.dylib</code>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("interface_library", LABEL)
-            .allowedFileTypes(CppFileTypes.INTERFACE_SHARED_LIBRARY))
+            .allowedFileTypes(
+                CppFileTypes.INTERFACE_SHARED_LIBRARY,
+                CppFileTypes.UNIX_SHARED_LIBRARY))
         /*<!-- #BLAZE_RULE($cc_import).ATTRIBUTE(hdrs) -->
           The list of header files published by
           this precompiled library to be directly included by sources in dependent rules.

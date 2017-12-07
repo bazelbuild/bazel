@@ -32,6 +32,13 @@ py_test(
 )
 
 py_test(
+    name = "cc_import_test",
+    size = "medium",
+    srcs = ["cc_import_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "bazel_server_mode_test",
     size = "medium",
     srcs = ["bazel_server_mode_test.py"],

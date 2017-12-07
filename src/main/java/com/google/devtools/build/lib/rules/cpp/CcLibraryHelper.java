@@ -303,6 +303,7 @@ public final class CcLibraryHelper {
   private final List<LibraryToLink> staticLibraries = new ArrayList<>();
   private final List<LibraryToLink> picStaticLibraries = new ArrayList<>();
   private final List<LibraryToLink> dynamicLibraries = new ArrayList<>();
+  private final List<LibraryToLink> executionDynamicLibraries = new ArrayList<>();
 
   private boolean emitLinkActions = true;
   private boolean emitLinkActionsIfEmpty;
@@ -653,6 +654,12 @@ public final class CcLibraryHelper {
     return this;
   }
 
+  /** Add the corresponding files as dynamic libraries required at runtime */
+  public CcLibraryHelper addExecutionDynamicLibraries(Iterable<LibraryToLink> libraries) {
+    Iterables.addAll(executionDynamicLibraries, libraries);
+    return this;
+  }
+
   public CcLibraryHelper setCopts(ImmutableList<String> copts) {
     this.copts = Preconditions.checkNotNull(copts);
     return this;
@@ -988,8 +995,10 @@ public final class CcLibraryHelper {
       }
     }
     CcLinkingOutputs originalLinkingOutputs = ccLinkingOutputs;
-    if (!(
-        staticLibraries.isEmpty() && picStaticLibraries.isEmpty() && dynamicLibraries.isEmpty())) {
+    if (!(staticLibraries.isEmpty()
+        && picStaticLibraries.isEmpty()
+        && dynamicLibraries.isEmpty()
+        && executionDynamicLibraries.isEmpty())) {
 
       CcLinkingOutputs.Builder newOutputsBuilder = new CcLinkingOutputs.Builder();
       if (!ccOutputs.isEmpty()) {
@@ -998,7 +1007,9 @@ public final class CcLibraryHelper {
         newOutputsBuilder.merge(originalLinkingOutputs);
         ImmutableSetMultimap<String, LibraryToLink> precompiledLibraryMap =
             CcLinkingOutputs.getLibrariesByIdentifier(
-                Iterables.concat(staticLibraries, picStaticLibraries, dynamicLibraries));
+                Iterables.concat(
+                    staticLibraries, picStaticLibraries,
+                    dynamicLibraries, executionDynamicLibraries));
         ImmutableSetMultimap<String, LibraryToLink> linkedLibraryMap =
             originalLinkingOutputs.getLibrariesByIdentifier();
         for (String matchingIdentifier :
@@ -1031,7 +1042,7 @@ public final class CcLibraryHelper {
               .addStaticLibraries(staticLibraries)
               .addPicStaticLibraries(picStaticLibraries)
               .addDynamicLibraries(dynamicLibraries)
-              .addExecutionDynamicLibraries(dynamicLibraries)
+              .addExecutionDynamicLibraries(executionDynamicLibraries)
               .build();
     }
 
@@ -1567,7 +1578,9 @@ public final class CcLibraryHelper {
           builder.addLibraries(
               ccLinkingOutputs.getPreferredLibraries(
                   linkingStatically, /*preferPic=*/ linkShared || forcePic));
-          if (!linkingStatically) {
+          if (!linkingStatically
+              || (ccLinkingOutputs.getStaticLibraries().isEmpty()
+                  && ccLinkingOutputs.getPicStaticLibraries().isEmpty())) {
             builder.addExecutionDynamicLibraries(
                 LinkerInputs.toLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
           }

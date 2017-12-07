@@ -112,10 +112,7 @@ public class BazelCppRuleClasses {
 
   static final String[] DEPS_ALLOWED_RULES =
       new String[] {
-        "cc_inc_library",
-        "cc_library",
-        "objc_library",
-        "cc_proto_library",
+        "cc_inc_library", "cc_library", "objc_library", "cc_proto_library", "cc_import",
       };
 
   /**

@@ -94,6 +94,11 @@ class TestBase(unittest.TestCase):
     """Returns true if the current platform is Windows."""
     return os.name == 'nt'
 
+  @staticmethod
+  def IsUnix():
+    """Returns true if the current platform is Unix platform."""
+    return os.name == 'posix'
+
   def Path(self, path):
     """Returns the absolute path of `path` relative to self._test_cwd.
 

@@ -256,14 +256,16 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     helper.addStaticLibraries(alwayslinkLibrariesFromSrcs);
     helper.addPicStaticLibraries(picStaticLibrariesFromSrcs);
     helper.addPicStaticLibraries(picAlwayslinkLibrariesFromSrcs);
-    helper.addDynamicLibraries(
+    Iterable<LibraryToLink> dynamicLibraries =
         Iterables.transform(
             precompiledFiles.getSharedLibraries(),
             library ->
                 LinkerInputs.solibLibraryToLink(
                     common.getDynamicLibrarySymlink(library, true),
                     library,
-                    CcLinkingOutputs.libraryIdentifierOf(library))));
+                    CcLinkingOutputs.libraryIdentifierOf(library)));
+    helper.addDynamicLibraries(dynamicLibraries);
+    helper.addExecutionDynamicLibraries(dynamicLibraries);
     CcLibraryHelper.Info info = helper.build();
 
     /*
