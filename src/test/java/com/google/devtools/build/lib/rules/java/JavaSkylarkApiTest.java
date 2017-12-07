@@ -1058,6 +1058,37 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
 
   @Test
+  public void testJavaInfoGetTransitiveExports() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_exports)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'])",
+        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'])",
+        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
+        "             deps = [':my_java_lib_b', ':my_java_lib_c'], ",
+        "             exports = [':my_java_lib_b']) ",
+        "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    Info info = myRuleTarget.get(
+        new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));
+
+    @SuppressWarnings("unchecked") SkylarkNestedSet exports =
+        (SkylarkNestedSet) (info.getValue("property"));
+
+    assertThat(exports.getSet(Label.class))
+        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b"));
+  }
+
+
+  @Test
   public void testJavaInfoGetGenJarsProvider() throws Exception {
     scratch.file(
         "foo/extension.bzl",
@@ -1070,7 +1101,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
         "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
-        "javacopts = ['-processor com.google.process.Processor'])",
+        "             javacopts = ['-processor com.google.process.Processor'])",
         "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
@@ -1083,6 +1114,33 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         .isEqualTo("libmy_java_lib_a-gen.jar");
     assertThat(javaGenJarsProvider.getGenSourceJar().getFilename())
         .isEqualTo("libmy_java_lib_a-gensrc.jar");
+  }
+
+
+  @Test
+  public void javaInfoGetCompilationInfoProvider() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(property = ctx.attr.dep[JavaInfo].compilation_info)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'])",
+        "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    Info info = myRuleTarget.get(
+        new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));
+
+    JavaCompilationInfoProvider javaCompilationInfoProvider =
+        (JavaCompilationInfoProvider) info.getValue("property");
+
+    assertThat(prettyJarNames(javaCompilationInfoProvider.getRuntimeClasspath()))
+        .containsExactly("foo/libmy_java_lib_a.jar");
   }
 
 

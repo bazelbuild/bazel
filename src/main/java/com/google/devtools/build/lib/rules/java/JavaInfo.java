@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -60,7 +61,9 @@ public final class JavaInfo extends NativeInfo {
         JavaRuleOutputJarsProvider.class,
         JavaRunfilesProvider.class,
         JavaPluginInfoProvider.class,
-        JavaGenJarsProvider.class
+        JavaGenJarsProvider.class,
+        JavaExportsProvider.class,
+        JavaCompilationInfoProvider.class
       );
 
   private final TransitiveInfoProviderMap providers;
@@ -300,6 +303,16 @@ public final class JavaInfo extends NativeInfo {
   }
 
   @SkylarkCallable(
+    name = "compilation_info",
+    structField = true,
+    allowReturnNones = true,
+    doc = "Returns compilation information for this Java target."
+  )
+  public JavaCompilationInfoProvider getCompilationInfoProvider() {
+    return getProvider(JavaCompilationInfoProvider.class);
+  }
+
+  @SkylarkCallable(
     name = "transitive_deps",
     doc = "Returns the transitive set of Jars required to build the target.",
     structField = true
@@ -335,6 +348,16 @@ public final class JavaInfo extends NativeInfo {
         JavaSourceJarsProvider::getTransitiveSourceJars);
   }
 
+  @SkylarkCallable(
+      name = "transitive_exports",
+      structField = true,
+      doc = "Returns transitive set of labels that are being exported from this rule."
+  )
+  public NestedSet<Label> getTransitiveExports() {
+    return getProviderAsNestedSet(
+        JavaExportsProvider.class,
+        JavaExportsProvider::getTransitiveExports);
+  }
 
   /**
    * Gets Provider, check it for not null and call function to get NestedSet&lt;S&gt; from it.

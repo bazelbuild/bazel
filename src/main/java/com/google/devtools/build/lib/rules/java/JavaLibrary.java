@@ -208,11 +208,11 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
-    common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
 
-    JavaGenJarsProvider javaGenJarsProvider =
-        common.createJavaGenJarsProvider(genClassJar, genSourceJar);
-    common.addJavaGenJarsProvider(builder, javaGenJarsProvider);
+    JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
+
+    common.addTransitiveInfoProviders(builder, javaInfoBuilder, filesToBuild, classJar);
+    common.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
@@ -224,14 +224,13 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         : JavaCommon.getTransitivePlugins(ruleContext);
 
     // java_library doesn't need to return JavaRunfilesProvider
-    JavaInfo javaInfo = JavaInfo.Builder.create()
+    JavaInfo javaInfo = javaInfoBuilder
         .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
         .addProvider(ProtoJavaApiInfoAspectProvider.class, protoAspectBuilder.build())
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         // TODO(bazel-team): this should only happen for java_plugin
         .addProvider(JavaPluginInfoProvider.class, pluginInfoProvider)
-        .addProvider(JavaGenJarsProvider.class, javaGenJarsProvider)
         .build();
 
     builder
