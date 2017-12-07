@@ -101,7 +101,7 @@ title: User Manual
 </p>
 <pre>
   % ps -e f
-  16143 ?        Sl     3:00 bazel(src-jrluser2) -server -Djava.library.path=...
+  16143 ?        Sl     3:00 bazel(src-johndoe2) -server -Djava.library.path=...
 </pre>
 <p>
   This makes it easier to find out which server process belongs to a
@@ -2391,7 +2391,7 @@ either to the terminal, or to additional log files.
 
 <pre>
   &gt;&gt;&gt;&gt;&gt; # //examples/cpp:hello-world [action 'Linking examples/cpp/hello-world']
-  (cd /home/jrluser/.cache/bazel/_bazel_jrluser/4c084335afceb392cfbe7c31afee3a9f/bazel && \
+  (cd /home/johndoe/.cache/bazel/_bazel_johndoe/4c084335afceb392cfbe7c31afee3a9f/bazel && \
     exec env - \
     /usr/bin/gcc -o bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world -B/usr/bin/ -Wl,-z,relro,-z,now -no-canonical-prefixes -pass-exit-codes -Wl,-S -Wl,@bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world-2.params)
 </pre>
@@ -3417,7 +3417,7 @@ adb -s deadbeef install ...
   and the name of the workspace directory (actually, its MD5 digest),
   so a typical value looks like:
 
-  <code>/var/tmp/google/_bazel_jrluser/d41d8cd98f00b204e9800998ecf8427e</code>.
+  <code>/var/tmp/google/_bazel_johndoe/d41d8cd98f00b204e9800998ecf8427e</code>.
   Note that the client uses the output base to find the Bazel server
   instance, so if you specify a different output base in a Bazel
   command, a different server will be found (or started) to handle the
