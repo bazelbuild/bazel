@@ -117,6 +117,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_checked_arithmetic=" + rand.nextBoolean(),
         "--incompatible_comprehension_variables_do_not_leak=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
+        "--incompatible_depset_union=" + rand.nextBoolean(),
         "--incompatible_dict_literal_has_no_duplicates=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_keyword_only_args=" + rand.nextBoolean(),
@@ -142,6 +143,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleCheckedArithmetic(rand.nextBoolean())
         .incompatibleComprehensionVariablesDoNotLeak(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
+        .incompatibleDepsetUnion(rand.nextBoolean())
         .incompatibleDictLiteralHasNoDuplicates(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowKeywordOnlyArgs(rand.nextBoolean())

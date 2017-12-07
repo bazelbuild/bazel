@@ -39,6 +39,7 @@ guarded behind flags in the current release:
 *   [Top level `if` statements](#top-level-if-statements)
 *   [Comprehensions variables](#comprehensions-variables)
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
+*   [Depset union](#depset-union)
 *   [String is no longer iterable](#string-is-no-longer-iterable)
 *   [Dictionary literal has no duplicates](#dictionary-literal-has-no-duplicates)
 *   [New actions API](#new-actions-api)
@@ -208,6 +209,29 @@ sorted(deps.to_list())  # recommended
 ```
 
 *   Flag: `--incompatible_depset_is_not_iterable`
+*   Default: `false`
+
+
+### Depset union
+
+To merge two sets, the following examples used to be supported, but are now
+deprecated:
+
+``` python
+depset1 + depset2
+depset1 | depset2
+depset1.union(depset2)
+```
+
+The recommended solution is to use the `depset` constructor:
+
+``` python
+depset(transtive=[depset1, depset2])
+```
+
+See the [`depset documentation`](depsets.md) for more information.
+
+*   Flag: `--incompatible_depset_union`
 *   Default: `false`
 
 

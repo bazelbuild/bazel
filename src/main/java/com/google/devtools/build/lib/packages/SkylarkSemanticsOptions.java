@@ -99,6 +99,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleComprehensionVariablesDoNotLeak;
 
   @Option(
+    name = "incompatible_depset_union",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help =
+        "If set to true, depset union using `+`, `|` or `.union` are forbidden. "
+            + "Use the `depset` constructor instead."
+  )
+  public boolean incompatibleDepsetUnion;
+
+  @Option(
     name = "incompatible_depset_is_not_iterable",
     defaultValue = "false",
     category = "incompatible changes",
@@ -265,6 +278,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleCheckedArithmetic(incompatibleCheckedArithmetic)
         .incompatibleComprehensionVariablesDoNotLeak(incompatibleComprehensionVariablesDoNotLeak)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
+        .incompatibleDepsetUnion(incompatibleDepsetUnion)
         .incompatibleDictLiteralHasNoDuplicates(incompatibleDictLiteralHasNoDuplicates)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowKeywordOnlyArgs(incompatibleDisallowKeywordOnlyArgs)

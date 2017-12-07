@@ -43,6 +43,9 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleCheckedArithmetic();
   public abstract boolean incompatibleComprehensionVariablesDoNotLeak();
   public abstract boolean incompatibleDepsetIsNotIterable();
+
+  public abstract boolean incompatibleDepsetUnion();
+
   public abstract boolean incompatibleDictLiteralHasNoDuplicates();
   public abstract boolean incompatibleDisallowDictPlus();
   public abstract boolean incompatibleDisallowKeywordOnlyArgs();
@@ -75,6 +78,7 @@ public abstract class SkylarkSemantics {
           .incompatibleCheckedArithmetic(true)
           .incompatibleComprehensionVariablesDoNotLeak(true)
           .incompatibleDepsetIsNotIterable(false)
+          .incompatibleDepsetUnion(false)
           .incompatibleDictLiteralHasNoDuplicates(true)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowKeywordOnlyArgs(true)
@@ -98,6 +102,9 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleCheckedArithmetic(boolean value);
     public abstract Builder incompatibleComprehensionVariablesDoNotLeak(boolean value);
     public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
+
+    public abstract Builder incompatibleDepsetUnion(boolean value);
+
     public abstract Builder incompatibleDictLiteralHasNoDuplicates(boolean value);
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
     public abstract Builder incompatibleDisallowKeywordOnlyArgs(boolean value);

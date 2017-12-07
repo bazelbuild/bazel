@@ -186,13 +186,23 @@ public class BazelLibrary {
       @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset."),
       @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
     },
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction union =
       new BuiltinFunction("union") {
         @SuppressWarnings("unused")
-        public SkylarkNestedSet invoke(SkylarkNestedSet input, Object newElements, Location loc)
+        public SkylarkNestedSet invoke(
+            SkylarkNestedSet input, Object newElements, Location loc, Environment env)
             throws EvalException {
+          if (env.getSemantics().incompatibleDepsetUnion()) {
+            throw new EvalException(
+                location,
+                "depset method `.union` has been removed. See "
+                    + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
+                    + "recommendations. Use --incompatible_depset_union=false "
+                    + "to temporarily disable this check.");
+          }
           // newElements' type is Object because of the polymorphism on unioning two
           // SkylarkNestedSets versus a set and another kind of iterable.
           // Can't use EvalUtils#toIterable since that would discard this information.
