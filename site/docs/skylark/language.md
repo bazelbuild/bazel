@@ -10,7 +10,7 @@ title: Extensions - Overview
 The page is an overview of Skylark, the language used in Bazel. This should be
 enough to get you started, but you may be interested in a more complete
 [specification of Skylark](spec.md). For a complete list of functions and
-types, please check the [API reference](skylark-overview.html).
+types, please check the [API reference](lib/skylark-overview.html).
 
 ## Syntax
 
