@@ -14,16 +14,44 @@
 
 """Quick and not really nice docker_pull rules based on the docker daemon."""
 
+def can_user_docker(repository_ctx, docker):
+  """Test whether current user is allowed to execute docker."""
+  result = repository_ctx.execute([
+    docker,
+    "version",
+  ])
+  return result.return_code == 0
+
+
 def _impl(repository_ctx):
   docker = repository_ctx.which("docker")
+
+  user_enabled = False
+
+  if docker:
+    user_enabled = can_user_docker(repository_ctx, docker)
+    if not repository_ctx.attr.optional:
+      fail("Current user cannot execute docker commands")
+    if not user_enabled:
+      docker = None
+
   if docker == None and repository_ctx.attr.optional:
-    repository_ctx.file("BUILD", """
+    if user_enabled:
+      repository_ctx.file("BUILD", """
 load("@io_bazel//tools/build_defs/docker:docker.bzl", "docker_build")
 
 # an empty image to still allow building despite not having the base
 # image.
 docker_build(
     name = "image",
+    visibility = ['//visibility:public'],
+)
+""")
+    else:
+      repository_ctx.file("BUILD", """
+filegroup(
+    name = "image",
+    srcs = ["image.tar"],
     visibility = ['//visibility:public'],
 )
 """)
