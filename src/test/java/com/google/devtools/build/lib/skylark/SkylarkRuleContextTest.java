@@ -501,16 +501,6 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testMiddleMan() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:jl");
-    Object result = evalRuleContextCode(ruleContext, "ruleContext.middle_man(':host_jdk')");
-    assertThat(
-            Iterables.getOnlyElement(((SkylarkNestedSet) result).getSet(Artifact.class))
-                .getExecPathString())
-        .contains("middlemen");
-  }
-
-  @Test
   public void testGetRuleAttributeListType() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.outs");
