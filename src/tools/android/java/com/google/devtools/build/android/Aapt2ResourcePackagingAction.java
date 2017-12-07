@@ -33,7 +33,6 @@ import java.io.Closeable;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -88,13 +87,15 @@ public class Aapt2ResourcePackagingAction {
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
 
-      final List<String> densitiesToFilter =
-          options.prefilteredResources.isEmpty()
-              ? options.densities
-              : Collections.<String>emptyList();
-
-      final List<String> densitiesForManifest =
-          densitiesToFilter.isEmpty() ? options.densitiesForManifest : densitiesToFilter;
+      final List<String> densities;
+      if (options.densities.isEmpty()) {
+        // aapt2 always needs to filter on densities, as the resource filtering from analysis is
+        // disregarded.
+        // TODO(b/70335064): Remove this once we never filter in analysis when building for aapt2.
+        densities = options.densitiesForManifest;
+      } else {
+        densities = options.densities;
+      }
 
       profiler.recordEndOf("setup").startTask("merging");
 
@@ -120,8 +121,8 @@ public class Aapt2ResourcePackagingAction {
                   options.throwOnResourceConflict)
               .filter(
                   new DensitySpecificResourceFilter(
-                      densitiesToFilter, filteredResources, mergedResources),
-                  new DensitySpecificManifestProcessor(densitiesForManifest, densityManifest));
+                      densities, filteredResources, mergedResources),
+                  new DensitySpecificManifestProcessor(densities, densityManifest));
 
       profiler.recordEndOf("merging");
 
@@ -152,7 +153,7 @@ public class Aapt2ResourcePackagingAction {
                                 processedManifest))
                 .processManifest(
                     manifest ->
-                        new DensitySpecificManifestProcessor(densitiesForManifest, densityManifest)
+                        new DensitySpecificManifestProcessor(densities, densityManifest)
                             .process(manifest));
         profiler.recordEndOf("compile").startTask("link");
         // Write manifestOutput now before the dummy manifest is created.
@@ -181,7 +182,7 @@ public class Aapt2ResourcePackagingAction {
                 .withAssets(assetDirs)
                 .buildVersion(aaptConfigOptions.buildToolsVersion)
                 .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
-                .filterToDensity(densitiesToFilter)
+                .filterToDensity(densities)
                 .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
                 .link(compiled)
                 .copyPackageTo(options.packagePath)
