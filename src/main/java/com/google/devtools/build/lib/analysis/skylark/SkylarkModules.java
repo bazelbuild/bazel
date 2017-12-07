@@ -61,7 +61,7 @@ public final class SkylarkModules {
           .setGlobals(BazelLibrary.GLOBALS)
           .build();
       for (Class<?> moduleClass : modules) {
-        Runtime.registerModuleGlobals(env, moduleClass);
+        Runtime.setupModuleGlobals(env, moduleClass);
       }
       return env.getGlobals();
     }

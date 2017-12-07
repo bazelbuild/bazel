@@ -24,11 +24,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /**
- * Global constants and support for global namespaces of runtime functions.
+ * Global constants and support for static registration of builtin symbols.
  */
+// TODO(bazel-team): Rename to SkylarkRuntime to avoid conflict with java.lang.Runtime.
 public final class Runtime {
 
   private Runtime() {}
@@ -143,39 +145,113 @@ public final class Runtime {
   }
 
 
-  /** Global registry of functions associated to a class or namespace */
-  private static final Map<Class<?>, Map<String, BaseFunction>> functions = new HashMap<>();
-
   /**
-   * Registers a function with namespace to this global environment.
+   * Returns the canonical class representing the namespace associated with the given class, i.e.,
+   * the class under which builtins should be registered.
    */
-  public static void registerFunction(Class<?> nameSpace, BaseFunction function) {
-    Preconditions.checkNotNull(nameSpace);
-    Preconditions.checkArgument(nameSpace.equals(getCanonicalRepresentation(nameSpace)));
-    Preconditions.checkArgument(
-        getCanonicalRepresentation(function.getObjectType()).equals(nameSpace));
-    functions.computeIfAbsent(nameSpace, k -> new HashMap<String, BaseFunction>());
-    functions.get(nameSpace).put(function.getName(), function);
+  public static Class<?> getSkylarkNamespace(Class<?> clazz) {
+    return String.class.isAssignableFrom(clazz)
+        ? MethodLibrary.StringModule.class
+        : EvalUtils.getSkylarkType(clazz);
   }
 
   /**
-   * Returns the canonical representation of the given class, i.e. the super class for which any
-   * functions were registered.
+   * A registry of builtins, including both global builtins and builtins that are under some
+   * namespace.
    *
-   * <p>Currently, this is only necessary for mapping the different subclasses of {@link
-   * java.util.Map} to the interface.
+   * <p>This object is unsynchronized, but concurrent reads are fine.
    */
-  // TODO(bazel-team): make everything a SkylarkValue, and remove this function.
-  public static Class<?> getCanonicalRepresentation(Class<?> clazz) {
-    if (String.class.isAssignableFrom(clazz)) {
-      return MethodLibrary.StringModule.class;
+  public static class BuiltinRegistry {
+
+    /**
+     * All registered builtins, keyed and sorted by an identifying (but otherwise unimportant)
+     * string.
+     *
+     * <p>The string is typically formed from the builtin's simple name and the Java class in which
+     * it is defined. The Java class need not correspond to a namespace. (This map includes global
+     * builtins that have no namespace.)
+     */
+    private final Map<String, Object> allBuiltins = new TreeMap<>();
+
+    /** All non-global builtin functions, keyed by their namespace class and their name. */
+    private final Map<Class<?>, Map<String, BaseFunction>> functions = new HashMap<>();
+
+    /** Registers a builtin with the given simple name, that was defined in the given Java class. */
+    public void registerBuiltin(Class<?> definingClass, String name, Object builtin) {
+      String key = String.format("%s.%s", definingClass.getName(), name);
+      Preconditions.checkArgument(
+          !allBuiltins.containsKey(key),
+          "Builtin '%s' registered multiple times",
+          key);
+      allBuiltins.put(key, builtin);
     }
-    return EvalUtils.getSkylarkType(clazz);
+
+    /**
+     * Registers a function underneath a namespace.
+     *
+     * <p>This is independent of {@link #registerBuiltin}.
+     */
+    public void registerFunction(Class<?> namespace, BaseFunction function) {
+      Preconditions.checkNotNull(namespace);
+      Preconditions.checkNotNull(function.getObjectType());
+      Class<?> skylarkNamespace = getSkylarkNamespace(namespace);
+      Preconditions.checkArgument(skylarkNamespace.equals(namespace));
+      Class<?> objType = getSkylarkNamespace(function.getObjectType());
+      Preconditions.checkArgument(objType.equals(skylarkNamespace));
+
+      functions.computeIfAbsent(namespace, k -> new HashMap<>());
+      functions.get(namespace).put(function.getName(), function);
+    }
+
+    /** Returns a set of all registered builtins, in a deterministic order. */
+    public ImmutableSet<Object> getBuiltins() {
+      return ImmutableSet.copyOf(allBuiltins.values());
+    }
+
+    @Nullable
+    private Map<String, BaseFunction> getFunctionsInNamespace(Class<?> namespace) {
+      return functions.get(getSkylarkNamespace(namespace));
+    }
+
+    /**
+     * Given a namespace, returns the function with the given name.
+     *
+     * <p>If the namespace does not exist or has no function with that name, returns null.
+     */
+    public BaseFunction getFunction(Class<?> namespace, String name) {
+      Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
+      return namespaceFunctions != null ? namespaceFunctions.get(name) : null;
+    }
+
+    /**
+     * Given a namespace, returns all function names.
+     *
+     * <p>If the namespace does not exist, returns an empty set.
+     */
+    public ImmutableSet<String> getFunctionNames(Class<?> namespace) {
+      Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
+      if (namespaceFunctions == null) {
+        return ImmutableSet.of();
+      }
+      return ImmutableSet.copyOf(namespaceFunctions.keySet());
+    }
   }
 
+  /**
+   * All Skylark builtins.
+   *
+   * <p>Note that just because a symbol is registered here does not necessarily mean that it is
+   * accessible in a particular {@link Environment}. This registry should include any builtin that
+   * is available in any environment.
+   *
+   * <p>Thread safety: This object is unsynchronized. The register functions are typically called
+   * from within static initializer blocks, which should be fine.
+   */
+  private static final BuiltinRegistry builtins = new BuiltinRegistry();
 
-  static Map<String, BaseFunction> getNamespaceFunctions(Class<?> nameSpace) {
-    return functions.get(getCanonicalRepresentation(nameSpace));
+  /** Retrieve the static instance containing information on all known Skylark builtins. */
+  public static BuiltinRegistry getBuiltinRegistry() {
+    return builtins;
   }
 
   /**
@@ -183,7 +259,7 @@ public final class Runtime {
    * @param env the Environment into which to register fields.
    * @param moduleClass the Class object containing globals.
    */
-  public static void registerModuleGlobals(Environment env, Class<?> moduleClass) {
+  public static void setupModuleGlobals(Environment env, Class<?> moduleClass) {
     try {
       if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
         env.setup(
@@ -211,19 +287,15 @@ public final class Runtime {
   }
 
   /**
-   * Returns the function of the namespace of the given name or null of it does not exists.
+   * Registers global fields with SkylarkSignature into the specified Environment. Alias for
+   * {@link #setupModuleGlobals}.
+   *
+   * @deprecated Use {@link #setupModuleGlobals} instead.
    */
-  public static BaseFunction getFunction(Class<?> nameSpace, String name) {
-    Map<String, BaseFunction> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
-    return nameSpaceFunctions != null ? nameSpaceFunctions.get(name) : null;
-  }
-
-  /**
-   * Returns the function names registered with the namespace.
-   */
-  public static Set<String> getFunctionNames(Class<?> nameSpace) {
-    Map<String, BaseFunction> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
-    return nameSpaceFunctions != null ? nameSpaceFunctions.keySet() : ImmutableSet.of();
+  @Deprecated
+  // TODO(bazel-team): Remove after all callers updated.
+  public static void registerModuleGlobals(Environment env, Class<?> moduleClass) {
+    setupModuleGlobals(env, moduleClass);
   }
 
   static void setupMethodEnvironment(

@@ -33,9 +33,9 @@ import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -374,7 +374,7 @@ public class MethodLibrary {
       maxSplits = Integer.MAX_VALUE;
     }
 
-    LinkedList<String> result = new LinkedList<>();
+    ArrayDeque<String> result = new ArrayDeque<>();
     String[] parts = input.split(Pattern.quote(separator), -1);
     int sepLen = separator.length();
     int remainingLength = input.length();
@@ -1170,7 +1170,7 @@ public class MethodLibrary {
             throw new EvalException(
                 loc, "Argument to reversed() must be a sequence, not a depset.");
           }
-          LinkedList<Object> tmpList = new LinkedList<>();
+          ArrayDeque<Object> tmpList = new ArrayDeque<>();
           for (Object element : EvalUtils.toIterable(sequence, loc, env)) {
             tmpList.addFirst(element);
           }
@@ -2042,7 +2042,7 @@ public class MethodLibrary {
    * Returns whether the given object has a method with the given name.
    */
   private static boolean hasMethod(Object obj, String name) throws EvalException {
-    if (Runtime.getFunctionNames(obj.getClass()).contains(name)) {
+    if (Runtime.getBuiltinRegistry().getFunctionNames(obj.getClass()).contains(name)) {
       return true;
     }
 
@@ -2068,7 +2068,7 @@ public class MethodLibrary {
           if (object instanceof ClassObject) {
             fields.addAll(((ClassObject) object).getKeys());
           }
-          fields.addAll(Runtime.getFunctionNames(object.getClass()));
+          fields.addAll(Runtime.getBuiltinRegistry().getFunctionNames(object.getClass()));
           fields.addAll(FuncallExpression.getMethodNames(object.getClass()));
           return MutableList.copyOf(env, fields);
         }

@@ -616,7 +616,7 @@ public final class FuncallExpression extends Expression {
     Location location = call.getLocation();
     Object value = positionals.get(0);
     ImmutableList<Object> positionalArgs = positionals.subList(1, positionals.size());
-    BaseFunction function = Runtime.getFunction(EvalUtils.getSkylarkType(value.getClass()), method);
+    BaseFunction function = Runtime.getBuiltinRegistry().getFunction(value.getClass(), method);
     Object fieldValue =
         (value instanceof ClassObject) ? ((ClassObject) value).getValue(method) : null;
     if (function != null) {

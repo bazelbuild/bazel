@@ -29,10 +29,10 @@ import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -98,7 +98,7 @@ final class SkylarkDocumentationCollector {
   static void collectJavaObjects(SkylarkModule firstModule, Class<?> firstClass,
       Map<String, SkylarkModuleDoc> modules) {
     Set<Class<?>> done = new HashSet<>();
-    Deque<Class<?>> toProcess = new LinkedList<>();
+    Deque<Class<?>> toProcess = new ArrayDeque<>();
     Map<Class<?>, SkylarkModule> annotations = new HashMap<>();
 
     toProcess.addLast(firstClass);
@@ -139,7 +139,7 @@ final class SkylarkDocumentationCollector {
         Class<?> moduleClass = skylarkSignature.objectType();
         SkylarkModule skylarkModule = moduleClass.equals(Object.class)
             ? getTopLevelModule()
-            : Runtime.getCanonicalRepresentation(moduleClass).getAnnotation(SkylarkModule.class);
+            : Runtime.getSkylarkNamespace(moduleClass).getAnnotation(SkylarkModule.class);
         if (skylarkModule == null) {
           // TODO(bazel-team): we currently have undocumented methods on undocumented data
           // structures, namely java.util.List. Remove this case when we are done.
