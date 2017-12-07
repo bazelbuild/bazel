@@ -109,6 +109,6 @@ genrule(
 # Will be removed once toolchain fetching is supported.
 filegroup(
     name = "dummy_toolchain_reference",
-    srcs = ["@bazel_toolchains//configs/debian8_clang/0.2.0/bazel_0.7.0:empty"],
+    srcs = ["@bazel_toolchains//configs/debian8_clang/0.2.0/bazel_0.8.0:empty"],
     visibility = ["//visibility:public"],
 )
