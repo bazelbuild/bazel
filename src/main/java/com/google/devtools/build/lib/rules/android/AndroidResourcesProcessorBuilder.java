@@ -104,6 +104,7 @@ public class AndroidResourcesProcessorBuilder {
   private boolean throwOnResourceConflict;
   private String packageUnderTest;
   private boolean useCompiledResourcesForMerge;
+  private boolean isTestWithResources = false;
 
   /**
    * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
@@ -269,6 +270,11 @@ public class AndroidResourcesProcessorBuilder {
   public AndroidResourcesProcessorBuilder setUseCompiledResourcesForMerge(
       boolean useCompiledResourcesForMerge) {
     this.useCompiledResourcesForMerge = useCompiledResourcesForMerge;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setIsTestWithResources(boolean isTestWithResources) {
+    this.isTestWithResources = isTestWithResources;
     return this;
   }
 
@@ -546,6 +552,10 @@ public class AndroidResourcesProcessorBuilder {
 
     if (packageUnderTest != null) {
       builder.add("--packageUnderTest", packageUnderTest);
+    }
+
+    if (isTestWithResources) {
+      builder.add("--isTestWithResources");
     }
   }
 }

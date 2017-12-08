@@ -345,6 +345,18 @@ public class AndroidResourceProcessingAction {
               + " is in a different package."
     )
     public String packageUnderTest;
+
+    @Option(
+      name = "isTestWithResources",
+      defaultValue = "false",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Indicates that these resources are being processed for a test APK. Tests can only have"
+              + "resources if they are not instrumented or they instrument only themselves."
+    )
+    public boolean isTestWithResources;
   }
 
   private static AaptConfigOptions aaptConfigOptions;
