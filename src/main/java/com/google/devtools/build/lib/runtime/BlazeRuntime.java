@@ -568,9 +568,9 @@ public final class BlazeRuntime {
       System.exit(batchMain(modules, args));
     }
     logger.info(
-        "Starting Blaze server with pid "
+        "Starting Blaze server with "
             + maybeGetPidString()
-            + " and args "
+            + "args "
             + Arrays.toString(args));
     try {
       // Run Blaze in server mode.
