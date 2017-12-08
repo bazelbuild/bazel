@@ -34,6 +34,9 @@ public final class ActionResultTest {
     assertThat(actionResult.cumulativeCommandExecutionCpuTime()).isEmpty();
     assertThat(actionResult.cumulativeCommandExecutionUserTime()).isEmpty();
     assertThat(actionResult.cumulativeCommandExecutionSystemTime()).isEmpty();
+    assertThat(actionResult.cumulativeCommandExecutionBlockOutputOperations()).isEmpty();
+    assertThat(actionResult.cumulativeCommandExecutionBlockInputOperations()).isEmpty();
+    assertThat(actionResult.cumulativeCommandExecutionInvoluntaryContextSwitches()).isEmpty();
   }
 
   @Test
@@ -43,6 +46,9 @@ public final class ActionResultTest {
             .setWallTime(Duration.ofMillis(1984))
             .setUserTime(Duration.ofMillis(225))
             .setSystemTime(Duration.ofMillis(42))
+            .setNumBlockOutputOperations(10)
+            .setNumBlockInputOperations(20)
+            .setNumInvoluntaryContextSwitches(30)
             .setStatus(SpawnResult.Status.SUCCESS)
             .build();
     List<SpawnResult> spawnResults = ImmutableList.of(spawnResult);
@@ -51,6 +57,9 @@ public final class ActionResultTest {
     assertThat(actionResult.cumulativeCommandExecutionCpuTime()).hasValue(Duration.ofMillis(267));
     assertThat(actionResult.cumulativeCommandExecutionUserTime()).hasValue(Duration.ofMillis(225));
     assertThat(actionResult.cumulativeCommandExecutionSystemTime()).hasValue(Duration.ofMillis(42));
+    assertThat(actionResult.cumulativeCommandExecutionBlockOutputOperations()).hasValue(10L);
+    assertThat(actionResult.cumulativeCommandExecutionBlockInputOperations()).hasValue(20L);
+    assertThat(actionResult.cumulativeCommandExecutionInvoluntaryContextSwitches()).hasValue(30L);
   }
 
   @Test
@@ -60,6 +69,9 @@ public final class ActionResultTest {
             .setWallTime(Duration.ofMillis(1979))
             .setUserTime(Duration.ofMillis(1))
             .setSystemTime(Duration.ofMillis(33))
+            .setNumBlockOutputOperations(10)
+            .setNumBlockInputOperations(20)
+            .setNumInvoluntaryContextSwitches(30)
             .setStatus(SpawnResult.Status.SUCCESS)
             .build();
     SpawnResult spawnResult2 =
@@ -67,6 +79,9 @@ public final class ActionResultTest {
             .setWallTime(Duration.ofMillis(4))
             .setUserTime(Duration.ofMillis(1))
             .setSystemTime(Duration.ofMillis(7))
+            .setNumBlockOutputOperations(100)
+            .setNumBlockInputOperations(200)
+            .setNumInvoluntaryContextSwitches(300)
             .setStatus(SpawnResult.Status.SUCCESS)
             .build();
     SpawnResult spawnResult3 =
@@ -74,6 +89,9 @@ public final class ActionResultTest {
             .setWallTime(Duration.ofMillis(1))
             .setUserTime(Duration.ofMillis(2))
             .setSystemTime(Duration.ofMillis(2))
+            .setNumBlockOutputOperations(1000)
+            .setNumBlockInputOperations(2000)
+            .setNumInvoluntaryContextSwitches(3000)
             .setStatus(SpawnResult.Status.SUCCESS)
             .build();
     List<SpawnResult> spawnResults = ImmutableList.of(spawnResult1, spawnResult2, spawnResult3);
@@ -82,6 +100,9 @@ public final class ActionResultTest {
     assertThat(actionResult.cumulativeCommandExecutionCpuTime()).hasValue(Duration.ofMillis(46));
     assertThat(actionResult.cumulativeCommandExecutionUserTime()).hasValue(Duration.ofMillis(4));
     assertThat(actionResult.cumulativeCommandExecutionSystemTime()).hasValue(Duration.ofMillis(42));
+    assertThat(actionResult.cumulativeCommandExecutionBlockOutputOperations()).hasValue(1110L);
+    assertThat(actionResult.cumulativeCommandExecutionBlockInputOperations()).hasValue(2220L);
+    assertThat(actionResult.cumulativeCommandExecutionInvoluntaryContextSwitches()).hasValue(3330L);
   }
 
   @Test
@@ -98,6 +119,9 @@ public final class ActionResultTest {
     assertThat(actionResult.cumulativeCommandExecutionCpuTime()).isEmpty();
     assertThat(actionResult.cumulativeCommandExecutionUserTime()).isEmpty();
     assertThat(actionResult.cumulativeCommandExecutionSystemTime()).isEmpty();
+    assertThat(actionResult.cumulativeCommandExecutionBlockOutputOperations()).isEmpty();
+    assertThat(actionResult.cumulativeCommandExecutionBlockInputOperations()).isEmpty();
+    assertThat(actionResult.cumulativeCommandExecutionInvoluntaryContextSwitches()).isEmpty();
   }
 
   @Test

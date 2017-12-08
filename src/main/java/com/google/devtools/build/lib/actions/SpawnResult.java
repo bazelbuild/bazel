@@ -151,6 +151,30 @@ public interface SpawnResult {
    */
   Optional<Duration> getSystemTime();
 
+  /**
+   * Returns the number of block output operations during the {@link Spawn}'s execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  Optional<Long> getNumBlockOutputOperations();
+
+  /**
+   * Returns the number of block input operations during the {@link Spawn}'s execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  Optional<Long> getNumBlockInputOperations();
+
+  /**
+   * Returns the number of involuntary context switches during the {@link Spawn}'s execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  Optional<Long> getNumInvoluntaryContextSwitches();
+
   /** Whether the spawn result was a cache hit. */
   boolean isCacheHit();
 
@@ -168,6 +192,9 @@ public interface SpawnResult {
     private final Optional<Duration> wallTime;
     private final Optional<Duration> userTime;
     private final Optional<Duration> systemTime;
+    private final Optional<Long> numBlockOutputOperations;
+    private final Optional<Long> numBlockInputOperations;
+    private final Optional<Long> numInvoluntaryContextSwitches;
     private final boolean cacheHit;
 
     SimpleSpawnResult(Builder builder) {
@@ -177,6 +204,9 @@ public interface SpawnResult {
       this.wallTime = builder.wallTime;
       this.userTime = builder.userTime;
       this.systemTime = builder.systemTime;
+      this.numBlockOutputOperations = builder.numBlockOutputOperations;
+      this.numBlockInputOperations = builder.numBlockInputOperations;
+      this.numInvoluntaryContextSwitches = builder.numInvoluntaryContextSwitches;
       this.cacheHit = builder.cacheHit;
     }
 
@@ -221,6 +251,21 @@ public interface SpawnResult {
     @Override
     public Optional<Duration> getSystemTime() {
       return systemTime;
+    }
+
+    @Override
+    public Optional<Long> getNumBlockOutputOperations() {
+      return numBlockOutputOperations;
+    }
+
+    @Override
+    public Optional<Long> getNumBlockInputOperations() {
+      return numBlockInputOperations;
+    }
+
+    @Override
+    public Optional<Long> getNumInvoluntaryContextSwitches() {
+      return numInvoluntaryContextSwitches;
     }
 
     @Override
@@ -269,6 +314,9 @@ public interface SpawnResult {
     private Optional<Duration> wallTime = Optional.empty();
     private Optional<Duration> userTime = Optional.empty();
     private Optional<Duration> systemTime = Optional.empty();
+    private Optional<Long> numBlockOutputOperations = Optional.empty();
+    private Optional<Long> numBlockInputOperations = Optional.empty();
+    private Optional<Long> numInvoluntaryContextSwitches = Optional.empty();
     private boolean cacheHit;
 
     public SpawnResult build() {
@@ -310,6 +358,21 @@ public interface SpawnResult {
 
     public Builder setSystemTime(Duration systemTime) {
       this.systemTime = Optional.of(systemTime);
+      return this;
+    }
+
+    public Builder setNumBlockOutputOperations(long numBlockOutputOperations) {
+      this.numBlockOutputOperations = Optional.of(numBlockOutputOperations);
+      return this;
+    }
+
+    public Builder setNumBlockInputOperations(long numBlockInputOperations) {
+      this.numBlockInputOperations = Optional.of(numBlockInputOperations);
+      return this;
+    }
+
+    public Builder setNumInvoluntaryContextSwitches(long numInvoluntaryContextSwitches) {
+      this.numInvoluntaryContextSwitches = Optional.of(numInvoluntaryContextSwitches);
       return this;
     }
 
