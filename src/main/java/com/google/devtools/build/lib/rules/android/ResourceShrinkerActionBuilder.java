@@ -58,7 +58,7 @@ public class ResourceShrinkerActionBuilder {
     this.ruleContext = ruleContext;
     this.spawnActionBuilder = new SpawnAction.Builder();
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    this.resourceFilterFactory = ResourceFilterFactory.empty(ruleContext);
+    this.resourceFilterFactory = ResourceFilterFactory.empty();
   }
 
   public ResourceShrinkerActionBuilder setUncompressedExtensions(
