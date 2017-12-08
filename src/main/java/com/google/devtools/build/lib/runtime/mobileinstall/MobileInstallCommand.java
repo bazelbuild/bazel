@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.mobileinstall;
 
 import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -247,7 +248,7 @@ public class MobileInstallCommand implements BlazeCommand {
     }
 
     // Collect relevant adb options
-    cmdLine.add("--start_type=" + adbOptions.start);
+    cmdLine.add("--start=" + adbOptions.start);
     if (!adbOptions.adb.isEmpty()) {
       cmdLine.add("--adb=" + adbOptions.adb);
     }
@@ -262,7 +263,8 @@ public class MobileInstallCommand implements BlazeCommand {
 
     // Collect relevant test options
     TestOptions testOptions = options.getOptions(TestOptions.class);
-    if (!testOptions.testFilter.isEmpty()){
+    // Default value of testFilter is null.
+    if (!Strings.isNullOrEmpty(testOptions.testFilter)){
       cmdLine.add("--test_filter=" + testOptions.testFilter);
     }
     for (String arg : testOptions.testArguments) {
