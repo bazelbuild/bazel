@@ -23,7 +23,7 @@ def can_user_docker(repository_ctx, docker):
   return result.return_code == 0
 
 
-def _impl(repository_ctx):
+def _create_repo(repository_ctx):
   docker = repository_ctx.which("docker")
 
   user_enabled = False
@@ -48,14 +48,10 @@ docker_build(
 )
 """)
     else:
-      repository_ctx.file("BUILD", """
-filegroup(
-    name = "image",
-    srcs = ["image.tar"],
-    visibility = ['//visibility:public'],
-)
+      repository_ctx.file("BUILD")
+      repository_ctx.file("enabled.bzl", """
+CAN_TEST_WITH_DOCKER = False
 """)
-    repository_ctx.file("image.tar")
     return
 
   repository_ctx.file("BUILD", """
@@ -67,6 +63,18 @@ docker_build(
     visibility = ["//visibility:public"],
 )
 """)
+  repository_ctx.file("enabled.bzl", """
+CAN_TEST_WITH_DOCKER = True
+""")
+  return docker
+
+
+def _config_impl(repository_ctx):
+  _create_repo(repository_ctx)
+
+
+def _pull_impl(repository_ctx):
+  docker = _create_repo(repository_ctx)
   tag = repository_ctx.attr.tag
   cmd = "pull"
   if repository_ctx.attr.dockerfile:
@@ -98,8 +106,16 @@ docker_build(
         result.return_code,
         result.stderr))
 
+docker_config = repository_rule(
+    implementation = _config_impl,
+    attrs = {
+        "optional": attr.bool(default=False),
+    },
+)
+
+
 docker_pull = repository_rule(
-    implementation = _impl,
+    implementation = _pull_impl,
     attrs = {
         "tag": attr.string(mandatory=True),
         "dockerfile": attr.label(default=None),
