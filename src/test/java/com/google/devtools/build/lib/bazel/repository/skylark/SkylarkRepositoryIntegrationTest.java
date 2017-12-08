@@ -407,39 +407,4 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     // Just request the last external repository to force the whole loading.
     getConfiguredTarget("@foo//:bar");
   }
-
-  // Regression test for https://github.com/bazelbuild/bazel/issues/3908
-  @Test
-  public void testSkylarkCannotOverrideRules() throws Exception {
-    scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        ImmutableList.<String>builder()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name = 'local_repo', path = '/local_repo')") //
-            .add("load('//:test.bzl', 'my_repo')") //
-            .add("my_repo(name = 'local_repo')") //
-            .add("local_repository(name = 'foo', path = '/local_repo')")
-            .build());
-    scratch.file(
-        rootDirectory.getRelative("test.bzl").getPathString(), //
-        "def _impl():", //
-        "  print('BLEH')", //
-        "", //
-        "my_repo = repository_rule(_impl)");
-    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.file("/local_repo/WORKSPACE");
-    scratch.file(
-        "/local_repo/BUILD",
-        "filegroup(name = 'test', srcs = [], visibility = ['//visibility:public'])");
-    // Just request the last external repository to force the whole loading.
-    try {
-      invalidatePackages();
-      getConfiguredTarget("@foo//:test");
-      fail();
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Cannot redefine repository after any load statement in the WORKSPACE file");
-    }
-  }
 }
