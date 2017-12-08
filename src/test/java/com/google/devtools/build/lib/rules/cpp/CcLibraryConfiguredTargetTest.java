@@ -282,7 +282,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .isEqualTo(action.getLinkCommandLine().getLinkTargetType().name());
     assertThat(cppLinkInfo.getLinkStaticness())
         .isEqualTo(action.getLinkCommandLine().getLinkStaticness().name());
-    Iterable<String> linkstamps = Artifact.asExecPaths(action.getLinkstampObjects());
+    Iterable<String> linkstamps = Artifact.asExecPaths(action.getLinkstamps().values());
     assertThat(cppLinkInfo.getLinkStampList()).containsExactlyElementsIn(linkstamps);
     Iterable<String> buildInfoHeaderArtifacts =
         Artifact.asExecPaths(action.getBuildInfoHeaderArtifacts());
@@ -315,7 +315,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .isEqualTo(action.getLinkCommandLine().getLinkTargetType().name());
     assertThat(cppLinkInfo.getLinkStaticness())
         .isEqualTo(action.getLinkCommandLine().getLinkStaticness().name());
-    Iterable<String> linkstamps = Artifact.asExecPaths(action.getLinkstampObjects());
+    Iterable<String> linkstamps = Artifact.asExecPaths(action.getLinkstamps().values());
     assertThat(cppLinkInfo.getLinkStampList()).containsExactlyElementsIn(linkstamps);
     Iterable<String> buildInfoHeaderArtifacts =
         Artifact.asExecPaths(action.getBuildInfoHeaderArtifacts());
