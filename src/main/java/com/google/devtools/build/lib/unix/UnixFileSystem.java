@@ -349,7 +349,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void renameTo(Path sourcePath, Path targetPath) throws IOException {
+  public void renameTo(Path sourcePath, Path targetPath) throws IOException {
     synchronized (sourcePath) {
       NativePosixFiles.rename(sourcePath.toString(), targetPath.toString());
     }
@@ -379,7 +379,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void setLastModifiedTime(Path path, long newTime) throws IOException {
+  public void setLastModifiedTime(Path path, long newTime) throws IOException {
     synchronized (path) {
       if (newTime == -1L) { // "now"
         NativePosixFiles.utime(path.toString(), true, 0);
@@ -392,7 +392,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected byte[] getxattr(Path path, String name) throws IOException {
+  public byte[] getxattr(Path path, String name) throws IOException {
     String pathName = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {

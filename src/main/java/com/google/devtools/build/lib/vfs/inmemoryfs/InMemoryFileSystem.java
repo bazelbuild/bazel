@@ -702,7 +702,7 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
-  protected void setLastModifiedTime(Path path, long newTime) throws IOException {
+  public void setLastModifiedTime(Path path, long newTime) throws IOException {
     synchronized (this) {
       InMemoryContentInfo status = scopeLimitedStat(path, true);
       status.setLastModifiedTime(newTime == -1L ? clock.currentTimeMillis() : newTime);
@@ -751,7 +751,7 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
-  protected void renameTo(Path sourcePath, Path targetPath)
+  public void renameTo(Path sourcePath, Path targetPath)
       throws IOException {
     if (sourcePath.equals(getRootDirectory())) {
       throw Error.EACCES.exception(sourcePath);

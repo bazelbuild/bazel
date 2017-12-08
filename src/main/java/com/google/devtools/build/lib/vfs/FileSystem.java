@@ -284,10 +284,10 @@ public abstract class FileSystem {
   protected abstract long getLastModifiedTime(Path path, boolean followSymlinks) throws IOException;
 
   /**
-   * Sets the last modification time of the file denoted by {@code path}. See
-   * {@link Path#setLastModifiedTime} for specification.
+   * Sets the last modification time of the file denoted by {@code path}. See {@link
+   * Path#setLastModifiedTime} for specification.
    */
-  protected abstract void setLastModifiedTime(Path path, long newTime) throws IOException;
+  public abstract void setLastModifiedTime(Path path, long newTime) throws IOException;
 
   /**
    * Returns value of the given extended attribute name or null if attribute
@@ -304,7 +304,7 @@ public abstract class FileSystem {
    *   system does not support extended attributes at all.
    * @throws IOException if the call failed for any other reason.
    */
-  protected byte[] getxattr(Path path, String name) throws IOException {
+  public byte[] getxattr(Path path, String name) throws IOException {
     return null;
   }
 
@@ -605,6 +605,11 @@ public abstract class FileSystem {
     return readSymbolicLink(path);
   }
 
+  /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
+  public boolean exists(Path path) {
+    return exists(path, true);
+  }
+
   /**
    * Returns true iff {@code path} denotes an existing file of any kind. See
    * {@link Path#exists(Symlinks)} for specification.
@@ -751,11 +756,10 @@ public abstract class FileSystem {
   protected abstract OutputStream getOutputStream(Path path, boolean append) throws IOException;
 
   /**
-   * Renames the file denoted by "sourceNode" to the location "targetNode".
-   * See {@link Path#renameTo} for specification.
+   * Renames the file denoted by "sourceNode" to the location "targetNode". See {@link
+   * Path#renameTo} for specification.
    */
-  protected abstract void renameTo(Path sourcePath, Path targetPath) throws IOException;
-
+  public abstract void renameTo(Path sourcePath, Path targetPath) throws IOException;
 
   /**
    * Create a new hard link file at "linkPath" for file at "originalPath".

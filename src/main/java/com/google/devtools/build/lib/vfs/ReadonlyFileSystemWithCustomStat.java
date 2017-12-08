@@ -87,7 +87,7 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  protected void renameTo(Path sourcePath, Path targetPath) throws IOException {
+  public void renameTo(Path sourcePath, Path targetPath) throws IOException {
     throw modificationException();
   }
 
@@ -97,7 +97,7 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  protected void setLastModifiedTime(Path path, long newTime) throws IOException {
+  public void setLastModifiedTime(Path path, long newTime) throws IOException {
     throw modificationException();
   }
 }

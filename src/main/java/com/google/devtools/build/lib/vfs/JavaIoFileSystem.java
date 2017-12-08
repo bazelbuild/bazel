@@ -308,7 +308,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void renameTo(Path sourcePath, Path targetPath) throws IOException {
+  public void renameTo(Path sourcePath, Path targetPath) throws IOException {
     synchronized (sourcePath) {
       File sourceFile = getIoFile(sourcePath);
       File targetFile = getIoFile(targetPath);
@@ -382,7 +382,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void setLastModifiedTime(Path path, long newTime) throws IOException {
+  public void setLastModifiedTime(Path path, long newTime) throws IOException {
     File file = getIoFile(path);
     if (!file.setLastModified(newTime == -1L ? clock.currentTimeMillis() : newTime)) {
       if (!file.exists()) {

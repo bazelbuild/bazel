@@ -227,7 +227,7 @@ public class UnionFileSystem extends FileSystem {
   }
 
   @Override
-  protected void setLastModifiedTime(Path path, long newTime) throws IOException {
+  public void setLastModifiedTime(Path path, long newTime) throws IOException {
     path = internalResolveSymlink(path);
     checkModifiable(path);
     FileSystem delegate = getDelegate(path);
@@ -409,7 +409,7 @@ public class UnionFileSystem extends FileSystem {
   }
 
   @Override
-  protected byte[] getxattr(Path path, String name) throws IOException {
+  public byte[] getxattr(Path path, String name) throws IOException {
     path = internalResolveSymlink(path);
     FileSystem delegate = getDelegate(path);
     return delegate.getxattr(adjustPath(path, delegate), name);
@@ -431,7 +431,7 @@ public class UnionFileSystem extends FileSystem {
   }
 
   @Override
-  protected void renameTo(Path sourcePath, Path targetPath) throws IOException {
+  public void renameTo(Path sourcePath, Path targetPath) throws IOException {
     sourcePath = internalResolveSymlink(sourcePath);
     FileSystem sourceDelegate = getDelegate(sourcePath);
     if (!sourceDelegate.supportsModifications(sourcePath)) {
