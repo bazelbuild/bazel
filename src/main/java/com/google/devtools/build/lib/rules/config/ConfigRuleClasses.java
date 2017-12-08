@@ -411,7 +411,6 @@ platform(
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(
               attr("default_value", STRING)
-                  .mandatory()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(ConfigFeatureFlag.getWhitelistAttribute(env))
           .build();

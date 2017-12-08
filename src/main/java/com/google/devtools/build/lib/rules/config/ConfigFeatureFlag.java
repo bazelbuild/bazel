@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The implementation of the config_feature_flag rule for defining custom flags for Android rules.
@@ -115,14 +116,17 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
               + Printer.repr(duplicates.build()));
     }
 
-    String defaultValue = ruleContext.attributes().get("default_value", STRING);
-    if (!isValidValue.apply(defaultValue)) {
+    Optional<String> defaultValue =
+        ruleContext.attributes().isAttributeValueExplicitlySpecified("default_value")
+            ? Optional.of(ruleContext.attributes().get("default_value", STRING))
+            : Optional.empty();
+    if (defaultValue.isPresent() && !isValidValue.apply(defaultValue.get())) {
       ruleContext.attributeError(
           "default_value",
           "must be one of "
               + Printer.repr(values.asList())
               + ", but was "
-              + Printer.repr(defaultValue));
+              + Printer.repr(defaultValue.get()));
     }
 
     if (ruleContext.hasErrors()) {
@@ -131,21 +135,28 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    String value =
+    Optional<String> configuredValue =
         ruleContext
             .getFragment(ConfigFeatureFlagConfiguration.class)
-            .getFeatureFlagValue(ruleContext.getOwner())
-            .or(defaultValue);
+            .getFeatureFlagValue(ruleContext.getOwner());
 
-    if (!isValidValue.apply(value)) {
+    if (configuredValue.isPresent() && !isValidValue.apply(configuredValue.get())) {
       // TODO(mstaib): When configurationError is available, use that instead.
       ruleContext.ruleError(
           "value must be one of "
               + Printer.repr(values.asList())
               + ", but was "
-              + Printer.repr(value));
+              + Printer.repr(configuredValue.get()));
       return null;
     }
+
+    if (!configuredValue.isPresent() && !defaultValue.isPresent()) {
+      // TODO(mstaib): When configurationError is available, use that instead.
+      ruleContext.ruleError("flag has no default and must be set, but was not set");
+      return null;
+    }
+
+    String value = configuredValue.orElseGet(defaultValue::get);
 
     ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.create(value, isValidValue);
 

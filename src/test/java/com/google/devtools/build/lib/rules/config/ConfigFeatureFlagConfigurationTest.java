@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -152,11 +153,11 @@ public final class ConfigFeatureFlagConfigurationTest {
   }
 
   @Test
-  public void getFeatureFlagValue_returnsAbsentOptionalWhenRequestingUnsetFlag() throws Exception {
+  public void getFeatureFlagValue_returnsEmptyOptionalWhenRequestingUnsetFlag() throws Exception {
     Optional<String> flagValue =
         getConfigurationWithFlags(ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "valued"))
             .getFeatureFlagValue(new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//b:b")));
-    assertThat(flagValue).isAbsent();
+    assertThat(flagValue).isEmpty();
   }
 
   @Test
