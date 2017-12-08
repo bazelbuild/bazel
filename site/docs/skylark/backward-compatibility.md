@@ -32,7 +32,6 @@ guarded behind flags in the current release:
 
 *   [Set constructor](#set-constructor)
 *   [Keyword-only arguments](#keyword-only-arguments)
-*   [Mutating `+=`](#mutating)
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
 *   [Load argument is a label](#load-argument-is-a-label)
@@ -82,29 +81,6 @@ compatibility with Python 2, we are removing this feature (which we have never
 documented).
 
 *   Flag: `--incompatible_disallow_keyword_only_args`
-*   Default: `true`
-
-
-### Mutating `+=`
-
-We are changing `left += right` when `left` is a list. The old behavior is
-equivalent to `left = left + right`, which creates a new list and assigns it to
-`left`. The new behavior does not rebind `left`, but instead just mutates the
-list in-place.
-
-``` python
-def fct():
-  li = [1]
-  alias = li
-  li += [2]
-  # Old behavior: alias == [1]
-  # New behavior: alias == [1, 2]
-```
-
-This change makes Skylark more compatible with Python and avoids performance
-issues. The `+=` operator for tuples is unaffected.
-
-*   Flag: `--incompatible_list_plus_equals_inplace`
 *   Default: `true`
 
 

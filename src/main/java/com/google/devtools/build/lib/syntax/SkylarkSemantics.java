@@ -51,7 +51,6 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleDisallowKeywordOnlyArgs();
   public abstract boolean incompatibleDisallowToplevelIfStatement();
   public abstract boolean incompatibleDisallowUncalledSetConstructor();
-  public abstract boolean incompatibleListPlusEqualsInplace();
   public abstract boolean incompatibleLoadArgumentIsLabel();
   public abstract boolean incompatibleNewActionsApi();
   public abstract boolean incompatibleShowAllPrintMessages();
@@ -84,7 +83,6 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowKeywordOnlyArgs(true)
           .incompatibleDisallowToplevelIfStatement(true)
           .incompatibleDisallowUncalledSetConstructor(true)
-          .incompatibleListPlusEqualsInplace(true)
           .incompatibleLoadArgumentIsLabel(true)
           .incompatibleNewActionsApi(false)
           .incompatibleShowAllPrintMessages(true)
@@ -110,7 +108,6 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisallowKeywordOnlyArgs(boolean value);
     public abstract Builder incompatibleDisallowToplevelIfStatement(boolean value);
     public abstract Builder incompatibleDisallowUncalledSetConstructor(boolean value);
-    public abstract Builder incompatibleListPlusEqualsInplace(boolean value);
     public abstract Builder incompatibleLoadArgumentIsLabel(boolean value);
     public abstract Builder incompatibleNewActionsApi(boolean value);
     public abstract Builder incompatibleShowAllPrintMessages(boolean value);

@@ -211,7 +211,7 @@ public final class BinaryOperatorExpression extends Expression {
           return divide(lhs, rhs, location);
 
         case PERCENT:
-          return percent(lhs, rhs, env, location);
+          return percent(lhs, rhs, location);
 
         case EQUALS_EQUALS:
           return lhs.equals(rhs);
@@ -293,7 +293,7 @@ public final class BinaryOperatorExpression extends Expression {
     }
 
     if ((lval instanceof MutableList) && (rval instanceof MutableList)) {
-      if (isAugmented && env.getSemantics().incompatibleListPlusEqualsInplace()) {
+      if (isAugmented) {
         @SuppressWarnings("unchecked")
         MutableList<Object> list = (MutableList) lval;
         list.addAll((MutableList<?>) rval, location, env.mutability());
@@ -420,7 +420,7 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements Operator.PERCENT. */
-  private static Object percent(Object lval, Object rval, Environment env, Location location)
+  private static Object percent(Object lval, Object rval, Location location)
       throws EvalException {
     // int % int
     if (lval instanceof Integer && rval instanceof Integer) {

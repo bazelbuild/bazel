@@ -183,19 +183,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowUncalledSetConstructor;
 
   @Option(
-    name = "incompatible_list_plus_equals_inplace",
-    defaultValue = "true",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help =
-        "If set to true, `+=` on lists works like the `extend` method mutating the original "
-            + "list. Otherwise it copies the original list without mutating it."
-  )
-  public boolean incompatibleListPlusEqualsInplace;
-
-  @Option(
     name = "incompatible_load_argument_is_label",
     defaultValue = "true",
     category = "incompatible changes",
@@ -284,7 +271,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowKeywordOnlyArgs(incompatibleDisallowKeywordOnlyArgs)
         .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
         .incompatibleDisallowUncalledSetConstructor(incompatibleDisallowUncalledSetConstructor)
-        .incompatibleListPlusEqualsInplace(incompatibleListPlusEqualsInplace)
         .incompatibleLoadArgumentIsLabel(incompatibleLoadArgumentIsLabel)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleShowAllPrintMessages(incompatibleShowAllPrintMessages)
