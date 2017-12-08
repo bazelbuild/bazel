@@ -71,7 +71,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
    * String)} If you need to override an error message, preferred way is to create a specific {@link
    * NativeProvider}.
    */
-  Info(Provider provider, Map<String, Object> values, String errorMessage) {
+  Info(Provider provider, String errorMessage) {
     this.provider = provider;
     this.creationLoc = null;
     this.errorMessage = Preconditions.checkNotNull(errorMessage);
