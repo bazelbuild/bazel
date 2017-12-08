@@ -175,12 +175,7 @@ public class SkylarkRepositoryModule {
         @SuppressWarnings("unchecked")
         Map<String, Object> attributeValues = (Map<String, Object>) args[0];
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            context.getBuilder(),
-            ruleClass,
-            null,
-            attributeValues,
-            ast,
-            (Boolean) env.lookup("$allow_override"));
+            context.getBuilder(), ruleClass, null, attributeValues, ast);
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
