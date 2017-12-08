@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-def java_runtime_alias(name):
-  if hasattr(native, "java_runtime_alias"):
-    native.java_runtime_alias(name=name)
-  else:
-    pass
+def _java_host_runtime_alias_impl(ctx):
+  vars = ctx.attr._host_java_runtime[platform_common.TemplateVariableInfo]
+  runtime_info = ctx.attr._host_java_runtime[java_common.JavaRuntimeInfo]
+  return struct(providers=[vars, runtime_info])
 
-def java_toolchain_alias(name):
-  if hasattr(native, "java_toolchain_alias"):
-    native.java_toolchain_alias(name=name)
-  else:
-    pass
+java_host_runtime_alias = rule(
+    attrs = {
+        "_host_java_runtime": attr.label(
+            default = Label("//tools/jdk:java_runtime_alias"),
+            cfg = "host",
+        ),
+    },
+    implementation = _java_host_runtime_alias_impl,
+)

@@ -2,9 +2,11 @@ package(default_visibility = ["//visibility:public"])
 
 # TODO(lberki): Remove this once java_toolchain_alias and java_runtime_alias are
 # in a Bazel release
-load("//tools/jdk:alias_rules.bzl", "java_runtime_alias", "java_toolchain_alias")
+load("//tools/jdk:alias_rules.bzl", "java_host_runtime_alias")
 
 java_runtime_alias(name = "current_java_runtime")
+
+java_host_runtime_alias(name = "current_host_java_runtime")
 
 java_toolchain_alias(name = "current_java_toolchain")
 
@@ -26,6 +28,15 @@ filegroup(
         ":jdk7": [":BUILD-jdk7"],
         "//conditions:default": [":BUILD"],
     }),
+)
+
+# This is necessary to get the *host* Java runtime. Depending on
+# //tools/jdk:current_java_runtime from an attribute with the host transition
+# does not work because the dependency is determined based on the configuration
+# *before* the transition.
+alias(
+    name = "java_runtime_alias",
+    actual = "//tools/jdk:current_java_runtime",
 )
 
 alias(

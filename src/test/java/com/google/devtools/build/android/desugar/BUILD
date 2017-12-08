@@ -544,8 +544,6 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -565,8 +563,6 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -585,8 +581,6 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -607,8 +601,6 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -627,8 +619,6 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -647,8 +637,6 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -668,8 +656,6 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -773,8 +759,6 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -1626,8 +1610,6 @@ sh_test(
         ":capture_lambda_disassembled.txt",
     ],
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -1639,8 +1621,6 @@ genrule(
 $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.testdata.CaptureLambda$$$$Lambda$$0' > $@
 """,
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1668,8 +1648,6 @@ genrule(
 $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.testdata.MethodReferenceSuperclass$$$$Lambda$$0' > $@
 """,
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1699,8 +1677,6 @@ genrule(
 $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod' | grep -v 'jacoco' | grep -v 'static {}' > $@
 """,
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1730,8 +1706,6 @@ genrule(
 $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.Named$$AbstractName' | grep -v 'jacoco' | grep -v 'static {}' > $@
 """,
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1761,8 +1735,6 @@ genrule(
 $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod$$Concrete' | grep -v 'jacoco' | grep -v 'static {}' > $@
 """,
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1852,8 +1824,6 @@ genrule(
 $(JAVABASE)/bin/javap  -p -cp $< com.google.devtools.build.android.desugar.testdata.OuterReferenceLambda > $(location baseclass_disassembled.txt)
 grep lambda $(location baseclass_disassembled.txt) > $(location baseclass_lambda_signature.txt)""",
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1869,8 +1839,6 @@ genrule(
 $(JAVABASE)/bin/javap -p -cp $< com.google.devtools.build.android.desugar.testdata.LambdaInOverride > $(location subclass_disassembled.txt)
 grep lambda $(location subclass_disassembled.txt) > $(location subclass_lambda_signature.txt)""",
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
         "@bazel_tools//tools/jdk",
@@ -1901,8 +1869,6 @@ genrule(
     outs = ["jacoco_legacy_default_method_companion_disassembled.txt"],
     cmd = """$(JAVABASE)/bin/javap -c -p -cp $< 'com/example/gavra/java8coverage/Defaults$$$$CC' > $@""",
     tags = ["no_windows"],
-    # This should be current_host_java_runtime, but the last Bazel release
-    # (0.7.0) doesn't support it
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
         "@bazel_tools//tools/jdk",
