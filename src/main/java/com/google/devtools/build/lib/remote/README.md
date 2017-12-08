@@ -6,18 +6,34 @@ Bazel can be configured to use a remote cache and to execute build and test acti
 
 ## Overview
 
-A Bazel build consists of many actions. Each action is defined by the command line, the environment variables, the list of input files and hashes of their contents, and the list of output files or output directories. The result of an action is a complete list of output files and hashes of their contents. Bazel can use a remote cache to store and lookup action results. Conceptually, the remote cache consists of two parts: (1) a map of action hashes to action results, and (2) a [content-addressable store](https://en.wikipedia.org/wiki/Content-addressable_storage) (CAS) of output files.
+A Bazel build consists of actions. One can think of an action as i.e. a compiler invocation. A action is defined by its command line, environment variables, its input files, and its outputs. The result of an action is a complete list of the output files and hashes of their contents. Bazel can use a remote cache to store and lookup said action results and the outputs it references. Conceptually, the remote cache consists of two parts: (1) a map of action hashes to action results, and (2) a [content-addressable store](https://en.wikipedia.org/wiki/Content-addressable_storage) (CAS) of output files.
 
-When it's configured to use a remote cache, Bazel computes a hash for each action, and then looks up the hash in the cache. If the cache already contains a result for that action, then Bazel downloads the output files from the CAS. Otherwise it executes the action locally, uploads the files to the CAS, and then adds the action result to the cache.
+Remote caching works by Bazel looking up the hash of an action in the remote cache, and if successful retrieving the action result and the output files it references. If the lookup fails Bazel executes the action locally uploads the output files to the CAS and stores a list of output files keyed by the hash of the action in the action cache.
 
-Starting at version 0.5.0, Bazel supports two caching protocols:
+Starting with version 0.5.0, Bazel supports two caching protocols:
 
-1. a HTTP-based REST protocol
-2. [a gRPC-based protocol](https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto)
+1. A HTTP-based REST protocol
+2. [A gRPC-based protocol](https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto)
 
 ## Remote caching using the HTTP REST protocol
 
-If all you need is just distributed caching this is probably the most reliable path as the REST APIs are simple and will remain stable.
+The HTTP-based caching protocol is the recommended protocol to use for remote caching. The protocol uses HTTP PUT for uploads and HTTP GET for downloads. The action cache is expected under `/ac` and the CAS is expected under `/cas`.
+
+For example, consider a remote cache running under `localhost:8080`. A request to fetch an action result from the action cache might look like below.
+
+```
+GET /ac/01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b HTTP/1.1
+Host: localhost
+```
+
+An upload to the CAS might look as follows.
+
+```
+PUT /ac/01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b HTTP/1.1
+Host: localhost
+Content-Length: 10
+Content-Type: application/octet-stream
+```
 
 For a quick setup, you can use Hazelcast's REST interface. Alternatively you can use the NGINX server with WebDAV, or the Apache HTTP Server with WebDAV.
 
