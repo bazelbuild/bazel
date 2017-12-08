@@ -3,7 +3,7 @@ layout: documentation
 title: Installing Bazel on Ubuntu
 ---
 
-# <a name="ubuntu"></a>Install Bazel on Ubuntu
+# <a name="ubuntu"></a>Installing Bazel on Ubuntu
 
 Supported Ubuntu Linux platforms:
 
@@ -60,7 +60,7 @@ Once installed, you can upgrade to a newer version of Bazel with:
 sudo apt-get upgrade bazel
 ```
 
-## <a name="install-with-installer-ubuntu"></a>Install using binary installer
+## <a name="install-with-installer-ubuntu"></a>Installing using binary installer
 
 The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 

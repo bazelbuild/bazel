@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Performance
+title: Optimizing Performance
 ---
 
-# Performance
+# Optimizing Performance
 
 <!-- [TOC] -->
 

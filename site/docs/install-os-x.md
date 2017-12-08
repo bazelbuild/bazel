@@ -3,9 +3,9 @@ layout: documentation
 title: Installing Bazel on macOS
 ---
 
-# <a name="mac-os-x"></a>Install Bazel on macOS (OS X)
+# <a name="mac-os-x"></a>Installing Bazel on macOS
 
-Install Bazel on macOS (OS X) using one of the following methods:
+Install Bazel on macOS using one of the following methods:
 
 *   [Use Homebrew (recommended)](#install-on-mac-os-x-homebrew)
 *   [Use the binary installer](#install-with-installer-mac-os-x)
@@ -16,17 +16,17 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 *   access the [bash completion script](install.md)
 *   install the [zsh completion script](install.md)
 
-## <a name="install-on-mac-os-x-homebrew"></a>Install using Homebrew
+## <a name="install-on-mac-os-x-homebrew"></a>Installing using Homebrew
 
 ### 1. Install JDK 8
 
 JDK 8 can be downloaded from [Oracle's JDK
 Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html).
 
-Look for "Mac OS X" under "Java SE Development Kit". This will download a DMG
+Look for "macOS" under "Java SE Development Kit". This will download a DMG
 image with an install wizard.
 
-### 2. Install Homebrew on macOS (OS X)
+### 2. Install Homebrew on macOS
 
 Installing Homebrew is a one-time setup:
 
@@ -53,7 +53,7 @@ Once installed, you can upgrade to a newer version of Bazel with:
 brew upgrade bazel
 ```
 
-## <a name="install-with-installer-mac-os-x"></a>Install using binary installer
+## <a name="install-with-installer-mac-os-x"></a>Installing using binary installer
 
 The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 

@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Compile Bazel from Source
+title: Compiling Bazel from Source
 ---
 
-# <a name="compiling-from-source"></a>Compile Bazel from source
+# <a name="compiling-from-source"></a>Compiling Bazel from Source
 
 You can build Bazel from source following these steps:
 

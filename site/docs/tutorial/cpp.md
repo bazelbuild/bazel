@@ -3,7 +3,7 @@ layout: documentation
 title: Build Tutorial - C++
 ---
 
-Introduction to Bazel: Build a C++ Project
+Introduction to Bazel: Building a C++ Project
 ==========
 
 In this tutorial, you'll learn the basics of building C++ applications with

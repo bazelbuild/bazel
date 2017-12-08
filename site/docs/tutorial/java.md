@@ -3,7 +3,7 @@ layout: documentation
 title: Build Tutorial - Java
 ---
 
-Introduction to Bazel: Build a Java Project
+Introduction to Bazel: Building a Java Project
 ==========
 
 In this tutorial, you'll learn the basics of building Java applications with

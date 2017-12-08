@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Challenges of Writing Rules.
+title: Challenges of Writing Rules
 ---
 
-# Challenges of Writing Rules.
+# Challenges of Writing Rules
 
 We have heard feedback from various people that they have
 difficulty to write efficient Bazel rules. There is no single root cause, but

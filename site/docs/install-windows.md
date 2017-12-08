@@ -3,7 +3,7 @@ layout: documentation
 title: Installing Bazel on Windows
 ---
 
-# <a name="windows"></a>Install Bazel on Windows
+# <a name="windows"></a>Installing Bazel on Windows
 
 Supported Windows platforms:
 
