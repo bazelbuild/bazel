@@ -29,7 +29,7 @@ Host: localhost
 An upload to the CAS might look as follows.
 
 ```
-GET /ac/01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b HTTP/1.1
+PUT /ac/01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b HTTP/1.1
 Host: localhost
 Content-Length: 10
 Content-Type: application/octet-stream
