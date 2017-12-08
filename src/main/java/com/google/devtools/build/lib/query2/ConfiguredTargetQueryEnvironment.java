@@ -81,10 +81,6 @@ import javax.annotation.Nullable;
 /**
  * {@link QueryEnvironment} that runs queries over the configured target (analysis) graph.
  *
- * <p>Currently no edges are filtered out, in contrast to query as implemented on the target graph
- * (host_deps and implicit_deps are important ones). Because of the higher fidelity that users of
- * the configured target graph presumably want, this may be ok, but also may not be.
- *
  * <p>This object can theoretically be used for multiple queries, but currently is only ever used
  * for one over the course of its lifetime.
  *
@@ -165,10 +161,11 @@ public class ConfiguredTargetQueryEnvironment
 
   // Check to make sure the settings requested are currently supported by this class
   private void checkSettings(Set<Setting> settings) throws QueryException {
-    if (settings.contains(Setting.NO_HOST_DEPS)) {
-      settings = Sets.difference(settings, ImmutableSet.of(Setting.NO_HOST_DEPS));
-    }
-    if (!settings.isEmpty()) {
+    if (settings.contains(Setting.NO_NODEP_DEPS)
+        || settings.contains(Setting.TESTS_EXPRESSION_STRICT)) {
+      settings =
+          Sets.difference(
+              settings, ImmutableSet.of(Setting.NO_HOST_DEPS, Setting.NO_IMPLICIT_DEPS));
       throw new QueryException(
           String.format(
               "The following filter(s) are not currently supported by configured query: %s",
@@ -279,37 +276,51 @@ public class ConfiguredTargetQueryEnvironment
     if (!(configTarget instanceof RuleConfiguredTarget) || settings.isEmpty()) {
       return rawFwdDeps;
     }
-    return getAllowedDeps(configTarget.getConfiguration(), rawFwdDeps);
+    return getAllowedDeps(configTarget, rawFwdDeps);
   }
 
   /**
-   * Note: We should check which settings to filter on here but not doing that since we currently
-   * only support one setting (NO_HOST_DEPS) and should've already thrown an error by now if it's
-   * any other filter.
-   *
-   * @param currentConfig: the config of the source target. It's possible to query on a target
-   *     that's configured in the host configuration. In those cases, if --nohost_deps is turned on,
-   *     we only allow reachable targets that are ALSO in the host config. This is somewhat
-   *     counterintuitive and subject to change in the future but seems like the best option right
-   *     now.
-   * @param rawDeps: the next level of deps to filter
+   * @param target source target
+   * @param deps next level of deps to filter
    */
   private Collection<ConfiguredTarget> getAllowedDeps(
-      BuildConfiguration currentConfig, Collection<ConfiguredTarget> rawDeps) {
-    if (currentConfig != null && currentConfig.isHostConfiguration()) {
-      return rawDeps
-          .stream()
-          .filter(
-              dep -> dep.getConfiguration() != null && dep.getConfiguration().isHostConfiguration())
-          .collect(Collectors.toList());
-    } else {
-      return rawDeps
-          .stream()
-          .filter(
-              dep ->
-                  dep.getConfiguration() == null || !dep.getConfiguration().isHostConfiguration())
-          .collect(Collectors.toList());
+      ConfiguredTarget target, Collection<ConfiguredTarget> deps) {
+    // It's possible to query on a target that's configured in the host configuration. In those
+    // cases if --nohost_deps is turned on, we only allow reachable targets that are ALSO in the
+    // host config. This is somewhat counterintuitive and subject to change in the future but seems
+    // like the best option right now.
+    if (settings.contains(Setting.NO_HOST_DEPS)) {
+      BuildConfiguration currentConfig = target.getConfiguration();
+      if (currentConfig != null && currentConfig.isHostConfiguration()) {
+        deps =
+            deps.stream()
+                .filter(
+                    dep ->
+                        dep.getConfiguration() != null
+                            && dep.getConfiguration().isHostConfiguration())
+                .collect(Collectors.toList());
+      } else {
+        deps =
+            deps.stream()
+                .filter(
+                    dep ->
+                        dep.getConfiguration() == null
+                            || !dep.getConfiguration().isHostConfiguration())
+                .collect(Collectors.toList());
+      }
     }
+    if (settings.contains(Setting.NO_IMPLICIT_DEPS) && target instanceof RuleConfiguredTarget) {
+      Set<LabelAndConfiguration> implicitDeps = ((RuleConfiguredTarget) target).getImplicitDeps();
+      deps =
+          deps.stream()
+              .filter(
+                  dep ->
+                      !implicitDeps.contains(
+                          LabelAndConfiguration.of(
+                              dep.getTarget().getLabel(), dep.getConfiguration())))
+              .collect(Collectors.toList());
+    }
+    return deps;
   }
 
   @Override
@@ -337,9 +348,9 @@ public class ConfiguredTargetQueryEnvironment
   }
 
   private Collection<ConfiguredTarget> filterReverseDeps(
-      Map<SkyKey, Collection<ConfiguredTarget>> rawReverseDeps) {
+      Map<ConfiguredTarget, Collection<ConfiguredTarget>> rawReverseDeps) {
     Set<ConfiguredTarget> result = CompactHashSet.create();
-    for (Map.Entry<SkyKey, Collection<ConfiguredTarget>> targetAndRdeps :
+    for (Map.Entry<ConfiguredTarget, Collection<ConfiguredTarget>> targetAndRdeps :
         rawReverseDeps.entrySet()) {
       ImmutableSet.Builder<ConfiguredTarget> ruleDeps = ImmutableSet.builder();
       for (ConfiguredTarget parent : targetAndRdeps.getValue()) {
@@ -350,10 +361,7 @@ public class ConfiguredTargetQueryEnvironment
           result.add(parent);
         }
       }
-      result.addAll(
-          getAllowedDeps(
-              ((ConfiguredTargetKey) targetAndRdeps.getKey().argument()).getConfiguration(),
-              ruleDeps.build()));
+      result.addAll(getAllowedDeps((targetAndRdeps.getKey()), ruleDeps.build()));
     }
     return result;
   }
@@ -365,17 +373,21 @@ public class ConfiguredTargetQueryEnvironment
     for (ConfiguredTarget target : targets) {
       targetsByKey.put(CT_TO_SKYKEY.apply(target), target);
     }
-    Map<SkyKey, Collection<ConfiguredTarget>> reverseDeps =
+    Map<SkyKey, Collection<ConfiguredTarget>> reverseDepsByKey =
         targetifyValues(graph.getReverseDeps(targetsByKey.keySet()));
-    if (targetsByKey.keySet().size() != reverseDeps.keySet().size()) {
+    if (targetsByKey.size() != reverseDepsByKey.size()) {
       Iterable<LabelAndConfiguration> missingTargets =
-          Sets.difference(targetsByKey.keySet(), reverseDeps.keySet())
+          Sets.difference(targetsByKey.keySet(), reverseDepsByKey.keySet())
               .stream()
               .map(SKYKEY_TO_LANDC)
               .collect(Collectors.toList());
       eventHandler.handle(Event.warn("Targets were missing from graph: " + missingTargets));
     }
-    return reverseDeps.isEmpty() ? Collections.emptyList() : filterReverseDeps(reverseDeps);
+    Map<ConfiguredTarget, Collection<ConfiguredTarget>> reverseDepsByCT = new HashMap<>();
+    for (Map.Entry<SkyKey, Collection<ConfiguredTarget>> entry : reverseDepsByKey.entrySet()) {
+      reverseDepsByCT.put(targetsByKey.get(entry.getKey()), entry.getValue());
+    }
+    return reverseDepsByCT.isEmpty() ? Collections.emptyList() : filterReverseDeps(reverseDepsByCT);
   }
 
   @Override

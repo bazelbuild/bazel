@@ -55,17 +55,18 @@ public class MockRuleDefaults {
    *
    * <p>Does not apply when {@link MockRule#ancestor} is set.
    */
-  public static final ImmutableList<Attribute.Builder<?>> DEFAULT_ATTRIBUTES = ImmutableList.of(
-      attr("testonly", BOOLEAN).nonconfigurable("test").value(false),
-      attr("deprecation", STRING).nonconfigurable("test").value((String) null),
-      attr("tags", STRING_LIST),
-      attr("visibility", NODEP_LABEL_LIST).orderIndependent().cfg(HOST).nonconfigurable("test"),
-      attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
-          .allowedFileTypes(FileTypeSet.NO_FILE)
-          .dontCheckConstraints(),
-      attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
-          .allowedFileTypes(FileTypeSet.NO_FILE)
-          .dontCheckConstraints());
+  public static final ImmutableList<Attribute.Builder<?>> DEFAULT_ATTRIBUTES =
+      ImmutableList.of(
+          attr("testonly", BOOLEAN).nonconfigurable("test").value(false),
+          attr("deprecation", STRING).nonconfigurable("test").value((String) null),
+          attr("tags", STRING_LIST).nonconfigurable("test"),
+          attr("visibility", NODEP_LABEL_LIST).orderIndependent().cfg(HOST).nonconfigurable("test"),
+          attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
+              .allowedFileTypes(FileTypeSet.NO_FILE)
+              .dontCheckConstraints(),
+          attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
+              .allowedFileTypes(FileTypeSet.NO_FILE)
+              .dontCheckConstraints());
 
   /**
    * The default configured target factory for mock rules.
