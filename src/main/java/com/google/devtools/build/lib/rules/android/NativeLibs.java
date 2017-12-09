@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -33,6 +35,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.nativedeps.NativeDepsHelper;
@@ -42,6 +45,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -49,21 +53,20 @@ import javax.annotation.Nullable;
 /** Represents the collection of native libraries (.so) to be installed in the APK. */
 @Immutable
 public final class NativeLibs {
-  public static final NativeLibs EMPTY =
-      new NativeLibs(ImmutableMap.<String, NestedSet<Artifact>>of(), null);
+  public static final NativeLibs EMPTY = new NativeLibs(ImmutableMap.of(), null);
 
   public static NativeLibs fromLinkedNativeDeps(
       RuleContext ruleContext,
+      ImmutableList<String> depsAttributes,
       String nativeDepsFileName,
-      Multimap<String, TransitiveInfoCollection> depsByArchitecture,
-      Map<String, CcToolchainProvider> toolchainMap,
-      Map<String, BuildConfiguration> configurationMap,
       CppSemantics cppSemantics)
       throws InterruptedException {
+    Map<String, CcToolchainProvider> toolchainsByCpu = getToolchainsByCpu(ruleContext);
+    Map<String, BuildConfiguration> configurationMap = getBuildConfigurationsByCpu(ruleContext);
     Map<String, NestedSet<Artifact>> result = new LinkedHashMap<>();
     String nativeDepsLibraryBasename = null;
     for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry :
-        depsByArchitecture.asMap().entrySet()) {
+        getSplitDepsByArchitecture(ruleContext, depsAttributes).asMap().entrySet()) {
       CcLinkParams linkParams =
           AndroidCommon.getCcLinkParamsStore(
                   entry.getValue(),
@@ -75,7 +78,7 @@ public final class NativeLibs {
               ruleContext,
               linkParams,
               configurationMap.get(entry.getKey()),
-              toolchainMap.get(entry.getKey()),
+              toolchainsByCpu.get(entry.getKey()),
               cppSemantics);
 
       NestedSetBuilder<Artifact> librariesBuilder = NestedSetBuilder.stableOrder();
@@ -113,8 +116,7 @@ public final class NativeLibs {
   private final ImmutableMap<String, NestedSet<Artifact>> nativeLibs;
   @Nullable private final Artifact nativeLibsName;
 
-  @VisibleForTesting
-  NativeLibs(
+  private NativeLibs(
       ImmutableMap<String, NestedSet<Artifact>> nativeLibs, @Nullable Artifact nativeLibsName) {
     this.nativeLibs = nativeLibs;
     this.nativeLibsName = nativeLibsName;
@@ -138,7 +140,7 @@ public final class NativeLibs {
     return result.build();
   }
 
-  public Pair<Artifact, Runfiles> createApkBuilderSymlinks(RuleContext ruleContext) {
+  Pair<Artifact, Runfiles> createApkBuilderSymlinks(RuleContext ruleContext) {
     Map<PathFragment, Artifact> symlinks = new LinkedHashMap<>();
     for (Map.Entry<String, NestedSet<Artifact>> entry : nativeLibs.entrySet()) {
       String arch = entry.getKey();
@@ -180,6 +182,46 @@ public final class NativeLibs {
   @Nullable
   public Artifact getName() {
     return nativeLibsName;
+  }
+
+  private static Multimap<String, TransitiveInfoCollection> getSplitDepsByArchitecture(
+      RuleContext ruleContext, ImmutableList<String> depsAttributes) {
+    // treeKeys() means that the resulting map sorts the entries by key, which is necessary to
+    // ensure determinism.
+    Multimap<String, TransitiveInfoCollection> depsByArchitecture =
+        MultimapBuilder.treeKeys().arrayListValues().build();
+    for (String depsAttribute : depsAttributes) {
+      for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
+          ruleContext.getSplitPrerequisites(depsAttribute).entrySet()) {
+        String cpu = entry.getKey().or(AndroidCommon.getAndroidConfig(ruleContext).getCpu());
+        depsByArchitecture.putAll(cpu, entry.getValue());
+      }
+    }
+    return depsByArchitecture;
+  }
+
+  private static Map<String, BuildConfiguration> getBuildConfigurationsByCpu(
+      RuleContext ruleContext) {
+    Map<String, BuildConfiguration> configurationMap = new LinkedHashMap<>();
+    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
+        ruleContext.getSplitPrerequisites(":cc_toolchain_split").entrySet()) {
+      String cpu = entry.getKey().or(AndroidCommon.getAndroidConfig(ruleContext).getCpu());
+      TransitiveInfoCollection dep = Iterables.getOnlyElement(entry.getValue());
+      configurationMap.put(cpu, dep.getConfiguration());
+    }
+    return configurationMap;
+  }
+
+  private static Map<String, CcToolchainProvider> getToolchainsByCpu(RuleContext ruleContext) {
+    Map<String, CcToolchainProvider> toolchainMap = new LinkedHashMap<>();
+    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
+        ruleContext.getSplitPrerequisites(":cc_toolchain_split").entrySet()) {
+      String cpu = entry.getKey().or(AndroidCommon.getAndroidConfig(ruleContext).getCpu());
+      TransitiveInfoCollection dep = Iterables.getOnlyElement(entry.getValue());
+      CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext, dep);
+      toolchainMap.put(cpu, toolchain);
+    }
+    return toolchainMap;
   }
 
   private static Iterable<Artifact> filterUniqueSharedLibraries(

@@ -21,14 +21,11 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -40,7 +37,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -48,7 +44,6 @@ import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -58,8 +53,6 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryMobileInstall.MobileInstallResourceApks;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -78,7 +71,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -190,35 +182,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     validateRuleContext(ruleContext);
 
-    // TODO(bazel-team): Find a way to simplify this code.
-    // treeKeys() means that the resulting map sorts the entries by key, which is necessary to
-    // ensure determinism.
-    Multimap<String, TransitiveInfoCollection> depsByArchitecture =
-        MultimapBuilder.treeKeys().arrayListValues().build();
-    AndroidConfiguration androidConfig = ruleContext.getFragment(AndroidConfiguration.class);
-    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
-        ruleContext.getSplitPrerequisites("deps").entrySet()) {
-      String cpu = entry.getKey().or(androidConfig.getCpu());
-      depsByArchitecture.putAll(cpu, entry.getValue());
-    }
-    Map<String, BuildConfiguration> configurationMap = new LinkedHashMap<>();
-    Map<String, CcToolchainProvider> toolchainMap = new LinkedHashMap<>();
-    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
-        ruleContext.getSplitPrerequisites(":cc_toolchain_split").entrySet()) {
-      String cpu = entry.getKey().or(androidConfig.getCpu());
-      TransitiveInfoCollection dep = Iterables.getOnlyElement(entry.getValue());
-      CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext, dep);
-      configurationMap.put(cpu, dep.getConfiguration());
-      toolchainMap.put(cpu, toolchain);
-    }
-
     NativeLibs nativeLibs =
         NativeLibs.fromLinkedNativeDeps(
             ruleContext,
+            ImmutableList.of("deps"),
             androidSemantics.getNativeDepsFileName(),
-            depsByArchitecture,
-            toolchainMap,
-            configurationMap,
             cppSemantics);
 
     boolean shrinkResources = shouldShrinkResources(ruleContext);
