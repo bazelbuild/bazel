@@ -63,7 +63,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   static String targetMapping =
       "com/google/devtools/build/buildjar/javac/resources/target.properties";
 
-  private static final boolean USE_COLOR = true;
+  public static final boolean USE_COLOR = true;
   private ImplicitDependencyExtractor implicitDependencyExtractor;
   private CheckingTreeScanner checkingTreeScanner;
   private final DependencyModule dependencyModule;
