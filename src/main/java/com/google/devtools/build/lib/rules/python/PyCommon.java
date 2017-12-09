@@ -155,8 +155,7 @@ public final class PyCommon {
   }
 
   public void addCommonTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
-      PythonSemantics semantics, NestedSet<Artifact> filesToBuild,
-      NestedSet<PathFragment> imports) {
+      PythonSemantics semantics, NestedSet<Artifact> filesToBuild, NestedSet<PathFragment> imports) {
 
     builder
         .add(
@@ -168,10 +167,7 @@ public final class PyCommon {
                 filesToBuild))
         .addSkylarkTransitiveInfo(
             PYTHON_SKYLARK_PROVIDER_NAME,
-            createSourceProvider(
-                transitivePythonSources,
-                usesSharedLibraries(),
-                imports))
+            createSourceProvider(transitivePythonSources, usesSharedLibraries(), imports))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, transitivePythonSources)
@@ -184,7 +180,8 @@ public final class PyCommon {
    * <p>addSkylarkTransitiveInfo(PYTHON_SKYLARK_PROVIDER_NAME, createSourceProvider(...))
    */
   public static Info createSourceProvider(
-      NestedSet<Artifact> transitivePythonSources, boolean isUsingSharedLibrary,  NestedSet<PathFragment> imports) {
+      NestedSet<Artifact> transitivePythonSources, boolean isUsingSharedLibrary,
+      NestedSet<PathFragment> imports) {
     return NativeProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
             TRANSITIVE_PYTHON_SRCS,
