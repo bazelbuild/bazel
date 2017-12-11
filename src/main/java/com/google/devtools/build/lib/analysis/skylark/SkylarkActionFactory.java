@@ -102,34 +102,37 @@ public class SkylarkActionFactory implements SkylarkValue {
   }
 
   @SkylarkCallable(
-      name = "declare_file",
-      doc =
-          "Declares that rule or aspect creates a file with the given filename. "
-              + "If <code>sibling</code> is not specified, file name is relative to "
-              + "package directory, otherwise the file is in the same directory as "
-              + "<code>sibling</code>. "
-              + "You must create an action that generates the file. <br>"
-              + "Files that are specified in rule's outputs do not need to be declared and are "
-              + "available through <a href=\"ctx.html#outputs\">ctx.outputs</a>.",
-      parameters = {
-          @Param(
-              name = "filename",
-              type = String.class,
-              doc =
-                  "If no 'sibling' provided, path of the new file, relative "
-                  + "to the current package. Otherwise a base name for a file "
-                   + "('sibling' determines a directory)."
-          ),
-          @Param(
-              name = "sibling",
-              doc = "A file that lives in the same directory as the newly created file.",
-              type = Artifact.class,
-              noneable = true,
-              positional = false,
-              named = true,
-              defaultValue = "None"
-          )
-      }
+    name = "declare_file",
+    doc =
+        "Declares that rule or aspect creates a file with the given filename. "
+            + "If <code>sibling</code> is not specified, file name is relative to "
+            + "package directory, otherwise the file is in the same directory as "
+            + "<code>sibling</code>. "
+            + "You must create an action that generates the file. <br>"
+            + "Files cannot be created outside of the current package. "
+            + "Files that are specified in rule's outputs do not need to be declared and are "
+            + "available through <a href=\"ctx.html#outputs\">ctx.outputs</a>.",
+    parameters = {
+      @Param(
+        name = "filename",
+        type = String.class,
+        doc =
+            "If no 'sibling' provided, path of the new file, relative "
+                + "to the current package. Otherwise a base name for a file "
+                + "('sibling' determines a directory)."
+      ),
+      @Param(
+        name = "sibling",
+        doc =
+            "A file that lives in the same directory as the newly created file. "
+                + "The file must be in the current package.",
+        type = Artifact.class,
+        noneable = true,
+        positional = false,
+        named = true,
+        defaultValue = "None"
+      )
+    }
   )
   public Artifact declareFile(String filename, Object sibling) throws EvalException {
     context.checkMutable("actions.declare_file");
