@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -261,6 +262,45 @@ public class RemoteSpawnCacheTest {
     entry.store(result, outputFiles);
     verify(remoteCache)
         .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
+  }
+
+  @Test
+  public void noCacheSpawns() throws Exception {
+    // Checks that spawns that have mayBeCached false are not looked up in the remote cache,
+    // and also that their result is not uploaded to the remote cache. The artifacts, however,
+    // are uploaded.
+    SimpleSpawn uncacheableSpawn = new SimpleSpawn(
+        new FakeOwner("foo", "bar"),
+        /*arguments=*/ ImmutableList.of(),
+        /*environment=*/ ImmutableMap.of(),
+        ImmutableMap.of(ExecutionRequirements.NO_CACHE, ""),
+        /*inputs=*/ ImmutableList.of(),
+        /*outputs=*/ ImmutableList.<ActionInput>of(),
+        ResourceSet.ZERO);
+    CacheHandle entry = cache.lookup(uncacheableSpawn, simplePolicy);
+    verify(remoteCache, never())
+        .getCachedActionResult(any(ActionKey.class));
+    assertThat(entry.hasResult()).isFalse();
+    SpawnResult result = new SpawnResult.Builder().setExitCode(0).setStatus(Status.SUCCESS).build();
+    ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
+    entry.store(result, outputFiles);
+    verify(remoteCache)
+        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(false));
+  }
+
+  @Test
+  public void noCacheSpawnsNoResultStore() throws Exception {
+    // Only successful action results are uploaded to the remote cache. The artifacts, however,
+    // are uploaded regardless.
+    CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
+    verify(remoteCache).getCachedActionResult(any(ActionKey.class));
+    assertThat(entry.hasResult()).isFalse();
+    SpawnResult result =
+        new SpawnResult.Builder().setExitCode(1).setStatus(Status.NON_ZERO_EXIT).build();
+    ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
+    entry.store(result, outputFiles);
+    verify(remoteCache)
+        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(false));
   }
 
   @Test

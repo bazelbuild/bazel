@@ -84,7 +84,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     SpawnCache cache = actionExecutionContext.getContext(SpawnCache.class);
     // In production, the getContext method guarantees that we never get null back. However, our
     // integration tests don't set it up correctly, so cache may be null in testing.
-    if (cache == null || !Spawns.mayBeCached(spawn)) {
+    if (cache == null) {
       cache = SpawnCache.NO_CACHE;
     }
     SpawnResult spawnResult;
@@ -107,12 +107,15 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
 
     if (spawnResult.status() != Status.SUCCESS) {
       String cwd = actionExecutionContext.getExecRoot().getPathString();
+      String resultMessage = spawnResult.getFailureMessage();
       String message =
-          CommandFailureUtils.describeCommandFailure(
-              actionExecutionContext.getVerboseFailures(),
-              spawn.getArguments(),
-              spawn.getEnvironment(),
-              cwd);
+          resultMessage != ""
+              ? resultMessage
+              : CommandFailureUtils.describeCommandFailure(
+                  actionExecutionContext.getVerboseFailures(),
+                  spawn.getArguments(),
+                  spawn.getEnvironment(),
+                  cwd);
       throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/false);
     }
     return ImmutableList.of(spawnResult);

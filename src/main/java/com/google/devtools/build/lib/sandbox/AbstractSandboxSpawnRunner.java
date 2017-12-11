@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
@@ -90,13 +89,13 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       Path execRoot,
       Path tmpDir,
       Duration timeout)
-      throws ExecException, IOException, InterruptedException {
+      throws IOException, InterruptedException {
     try {
       sandbox.createFileSystem();
       OutErr outErr = policy.getFileOutErr();
       policy.prefetchInputs();
 
-      SpawnResult result = run(sandbox, outErr, timeout, tmpDir);
+      SpawnResult result = run(originalSpawn, sandbox, outErr, timeout, execRoot, tmpDir);
 
       policy.lockOutputFiles();
       try {
@@ -104,23 +103,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         sandbox.copyOutputs(execRoot);
       } catch (IOException e) {
         throw new IOException("Could not move output artifacts from sandboxed execution", e);
-      }
-
-      if (result.status() != Status.SUCCESS || result.exitCode() != 0) {
-        String message;
-        if (sandboxOptions.sandboxDebug) {
-          message =
-              CommandFailureUtils.describeCommandFailure(
-                  true, sandbox.getArguments(), sandbox.getEnvironment(), execRoot.getPathString());
-        } else {
-          message =
-              CommandFailureUtils.describeCommandFailure(
-                  verboseFailures,
-                  originalSpawn.getArguments(),
-                  originalSpawn.getEnvironment(),
-                  execRoot.getPathString()) + SANDBOX_DEBUG_SUGGESTION;
-        }
-        throw new SpawnExecException(message, result, /*forciblyRunRemotely=*/false);
       }
       return result;
     } finally {
@@ -131,12 +113,30 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   }
 
   private final SpawnResult run(
-      SandboxedSpawn sandbox, OutErr outErr, Duration timeout, Path tmpDir)
+      Spawn originalSpawn,
+      SandboxedSpawn sandbox,
+      OutErr outErr,
+      Duration timeout,
+      Path execRoot,
+      Path tmpDir)
       throws IOException, InterruptedException {
     Command cmd = new Command(
         sandbox.getArguments().toArray(new String[0]),
         sandbox.getEnvironment(),
         sandbox.getSandboxExecRoot().getPathFile());
+      String failureMessage;
+      if (sandboxOptions.sandboxDebug) {
+        failureMessage =
+            CommandFailureUtils.describeCommandFailure(
+                true, sandbox.getArguments(), sandbox.getEnvironment(), execRoot.getPathString());
+      } else {
+        failureMessage =
+            CommandFailureUtils.describeCommandFailure(
+                verboseFailures,
+                originalSpawn.getArguments(),
+                originalSpawn.getEnvironment(),
+                execRoot.getPathString()) + SANDBOX_DEBUG_SUGGESTION;
+      }
 
     long startTime = System.currentTimeMillis();
     CommandResult commandResult;
@@ -162,6 +162,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       return new SpawnResult.Builder()
           .setStatus(Status.EXECUTION_FAILED)
           .setExitCode(LOCAL_EXEC_ERROR)
+          .setFailureMessage(failureMessage)
           .build();
     }
 
@@ -182,6 +183,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         .setWallTime(wallTime)
         .setUserTime(commandResult.getUserExecutionTime())
         .setSystemTime(commandResult.getSystemExecutionTime())
+        .setFailureMessage(status != Status.SUCCESS || exitCode != 0 ? failureMessage : "")
         .build();
   }
 

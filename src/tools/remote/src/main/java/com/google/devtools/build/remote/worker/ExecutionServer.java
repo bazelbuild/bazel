@@ -267,7 +267,7 @@ final class ExecutionServer extends ExecutionImplBase {
     byte[] stderr = cmdResult.getStderr();
     cache.uploadOutErr(result, stdout, stderr);
     ActionResult finalResult = result.setExitCode(exitCode).build();
-    if (exitCode == 0) {
+    if (exitCode == 0 && !action.getDoNotCache()) {
       ActionKey actionKey = digestUtil.computeActionKey(action);
       cache.setCachedActionResult(actionKey, finalResult);
     }
