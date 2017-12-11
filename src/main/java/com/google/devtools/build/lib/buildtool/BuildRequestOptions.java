@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.RangeConverter;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -404,18 +405,51 @@ public class BuildRequestOptions extends OptionsBase {
   )
   public boolean useActionCache;
 
+  /**
+   * Timeline for retaining inmemory incremental state.
+   *
+   * <ol>
+   *   <li>{@code KEEP_FOREVER} - the default behavior, maintains incrementality state across builds
+   *       to minimize cost of subsequent builds.
+   *   <li>{@code KEEP_FOR_LIFE_OF_BUILD} - during this build, maintains incrementality state like
+   *       KEEP_FOREVER, but discards it at the end of the build. The following build will not be
+   *       incremental.
+   *   <li>{@code DISCARD_EAGERLY} - memory saving mode, eagerly discards state that would have been
+   *       useful for subsequent builds but is not necessary for this one. The following build will
+   *       not be incremental.
+   * </ol>
+   */
+  public enum IncrementalStateRetentionStrategy {
+    KEEP_FOREVER,
+    KEEP_FOR_LIFE_OF_BUILD,
+    DISCARD_EAGERLY
+  }
+
+  /** Option converter for {@link IncrementalStateRetentionStrategy}. */
+  public static class IncrementalStateRetentionStrategyConverter
+      extends EnumConverter<IncrementalStateRetentionStrategy> {
+    public IncrementalStateRetentionStrategyConverter() {
+      super(
+          IncrementalStateRetentionStrategy.class,
+          "Timeline for retaining inmemory incremental state");
+    }
+  }
+
   @Option(
-    name = "keep_incrementality_data",
-    defaultValue = "true",
+    name = "incremental_state_retention_strategy",
+    defaultValue = "KEEP_FOREVER",
     documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
     effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+    converter = IncrementalStateRetentionStrategyConverter.class,
     help =
-        "If false, discard Blaze-internal data that allows for invalidation and re-evaluation "
-            + "on incremental builds in order to save memory on this build. Subsequent builds "
-            + "will not have any incrementality with respect to this one. Usually you will want"
-            + "to specify the --batch startup option along with this one."
+        "Controls how long Blaze-internal data that allows for invalidation and re-evaluation "
+            + "on incremental builds is kept. Default is keep_forever, which allows for "
+            + "incremental builds. Non-incremental options are keep_for_life_of_build, which "
+            + "discards state at the end of a build, and discard_eagerly, which saves memory "
+            + "during the build by discarding state eagerly."
   )
-  public boolean keepIncrementalityData;
+  public IncrementalStateRetentionStrategy incrementalityStateRetentionStrategy;
 
   /** Converter for jobs: [0, MAX_JOBS] or "auto". */
   public static class JobsConverter extends RangeConverter {

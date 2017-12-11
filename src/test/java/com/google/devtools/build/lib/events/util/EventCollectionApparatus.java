@@ -39,8 +39,8 @@ public final class EventCollectionApparatus {
   private List<EventHandler> handlers = new ArrayList<>();
 
   /**
-   * Determine which events the {@link #collector()} created by this apparatus
-   * will collect. Default: {@link EventKind#ERRORS_AND_WARNINGS}.
+   * Determine which events the {@link #collector()} created by this apparatus will collect.
+   * Default: {@link EventKind#ERRORS_WARNINGS_AND_INFO}.
    */
   public EventCollectionApparatus(Set<EventKind> mask) {
     eventCollector = new EventCollector(mask);

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.IncrementalStateRetentionStrategy;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
@@ -107,17 +108,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private boolean lastAnalysisDiscarded = false;
 
-  private enum IncrementalState {
-    NORMAL,
-    CLEAR_EDGES_AND_ACTIONS
-  }
-
   /**
-   * If {@link IncrementalState#CLEAR_EDGES_AND_ACTIONS}, the graph will not store edges, saving
+   * Assume that this build is incremental. If {@link
+   * IncrementalStateRetentionStrategy#DISCARD_EAGERLY}, the graph will not store edges, saving
    * memory but making subsequent builds not incremental. Also, each action will be dereferenced
    * once it is executed, saving memory.
    */
-  private IncrementalState incrementalState = IncrementalState.NORMAL;
+  private IncrementalStateRetentionStrategy incrementalState =
+      IncrementalStateRetentionStrategy.KEEP_FOREVER;
 
   private boolean evaluatorNeedsReset = false;
 
@@ -504,52 +502,71 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         SkyFunctionName.functionIs(SkyFunctions.FILE_STATE)));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Necessary conditions to not store graph edges are either
+   *
+   * <ol>
+   *   <li>batch (since incremental builds are not possible) and discard_analysis_cache (since
+   *       otherwise user isn't concerned about saving memory this way).
+   *   <li>incremental_state_retention_strategy set to discard_eagerly.
+   * </ol>
+   */
   @Override
   public void decideKeepIncrementalState(
       boolean batch, OptionsProvider options, EventHandler eventHandler) {
     Preconditions.checkState(!active);
     BuildView.Options viewOptions = options.getOptions(BuildView.Options.class);
     BuildRequestOptions requestOptions = options.getOptions(BuildRequestOptions.class);
-    boolean explicitlyRequestedNoIncrementalData =
-        requestOptions != null && !requestOptions.keepIncrementalityData;
-    boolean implicitlyRequestedNoIncrementalData =
+    if (requestOptions != null
+        && requestOptions.incrementalityStateRetentionStrategy.equals(
+            IncrementalStateRetentionStrategy.KEEP_FOR_LIFE_OF_BUILD)) {
+      eventHandler.handle(
+          Event.warn(
+              "Incremental state retention strategy keep_for_life_of_build is experimental, use "
+                  + "with caution."));
+    }
+
+    // First check if the incrementality state should be kept around during the build.
+    IncrementalStateRetentionStrategy explicitStrategyOrDefault =
+        requestOptions != null
+            ? requestOptions.incrementalityStateRetentionStrategy
+            : IncrementalStateRetentionStrategy.KEEP_FOREVER;
+    boolean explicitlyRequestedNoIncrementalState =
+        explicitStrategyOrDefault.equals(IncrementalStateRetentionStrategy.DISCARD_EAGERLY);
+    boolean implicitlyRequestedNoIncrementalState =
         batch && viewOptions != null && viewOptions.discardAnalysisCache;
     boolean discardingEdges =
-        explicitlyRequestedNoIncrementalData || implicitlyRequestedNoIncrementalData;
-    if (explicitlyRequestedNoIncrementalData != implicitlyRequestedNoIncrementalData) {
-      if (requestOptions != null && !explicitlyRequestedNoIncrementalData) {
-        eventHandler.handle(
-            Event.warn(
-                "--batch and --discard_analysis_cache specified, but --nokeep_incrementality_data "
-                    + "not specified: incrementality data is implicitly discarded, but you may need"
-                    + " to specify --nokeep_incrementality_data in the future if you want to "
-                    + "maximize memory savings."));
-      }
-      if (!batch) {
-        eventHandler.handle(
-            Event.warn(
-                "--batch not specified with --nokeep_incrementality_data: the server will "
-                    + "remain running, but the next build will not be incremental on this one."));
-      }
+        explicitlyRequestedNoIncrementalState || implicitlyRequestedNoIncrementalState;
+    if (!explicitlyRequestedNoIncrementalState && implicitlyRequestedNoIncrementalState) {
+      eventHandler.handle(
+          Event.warn(
+              "--batch and --discard_analysis_cache specified, but "
+                  + "--incremental_state_retention_strategy not set to discard_eagerly: "
+                  + "incrementality data is implicitly discarded, but you may need to specify "
+                  + "--incremental_state_retention_strategy=discard_eagerly in the future if "
+                  + "you want to maximize memory savings."));
     }
-    IncrementalState oldState = incrementalState;
+
+    // Now check if it is necessary to wipe the previous state. We do this if either the previous
+    // or current incrementalStateRetentionStrategy requires the build to have been isolated.
+    IncrementalStateRetentionStrategy oldState = incrementalState;
     incrementalState =
-        discardingEdges ? IncrementalState.CLEAR_EDGES_AND_ACTIONS : IncrementalState.NORMAL;
-    if (oldState != incrementalState) {
-      logger.info("Set incremental state to " + incrementalState);
+        discardingEdges
+            ? IncrementalStateRetentionStrategy.DISCARD_EAGERLY
+            : explicitStrategyOrDefault;
+    if (!incrementalState.equals(IncrementalStateRetentionStrategy.KEEP_FOREVER)
+        || !oldState.equals(IncrementalStateRetentionStrategy.KEEP_FOREVER)) {
+      logger.info("Old incremental state will be wiped, retention strategy is " + incrementalState);
       evaluatorNeedsReset = true;
-      removeActionsAfterEvaluation.set(
-          incrementalState == IncrementalState.CLEAR_EDGES_AND_ACTIONS);
-    } else if (incrementalState == IncrementalState.CLEAR_EDGES_AND_ACTIONS) {
-      evaluatorNeedsReset = true;
+      removeActionsAfterEvaluation.set(discardingEdges);
     }
   }
 
   @Override
   public boolean hasIncrementalState() {
-    // TODO(bazel-team): Combine this method with clearSkyframeRelevantCaches() once legacy
-    // execution is removed [skyframe-execution].
-    return incrementalState == IncrementalState.NORMAL;
+    return !incrementalState.equals(IncrementalStateRetentionStrategy.DISCARD_EAGERLY);
   }
 
   @Override
