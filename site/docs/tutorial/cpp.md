@@ -382,8 +382,8 @@ file, you can even skip the `//` workspace root identifier and just use
 ## Further reading
 
 Congratulations! You now know the basics of building a C++ project with Bazel.
-Next, read up on the most common [C++ build use cases](cpp-use-cases.md). Then,
-check out the following:
+Next, read up on the most common [C++ build use cases](../cpp-use-cases.md).
+Then, check out the following:
 
 *  [External Dependencies](../external.html) to learn more about working with
    local and remote repositories.
