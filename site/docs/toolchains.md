@@ -128,6 +128,8 @@ lazy loading of toolchains.
 Below is an example toolchain definition:
 
 ```python
+toolchain_type(name = 'my_toolchain_type')
+
 toolchain(
   name = 'linux_toolchain',
   toolchain_type = '//path/to:my_toolchain_type',
