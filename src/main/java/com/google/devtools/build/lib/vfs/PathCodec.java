@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe.serialization;
+package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -29,7 +28,7 @@ public class PathCodec implements ObjectCodec<Path> {
   private final PathFragmentCodec pathFragmentCodec;
 
   /** Create an instance for serializing and deserializing {@link Path}s on {@code fileSystem}. */
-  PathCodec(FileSystem fileSystem) {
+  public PathCodec(FileSystem fileSystem) {
     this.fileSystem = fileSystem;
     this.pathFragmentCodec = new PathFragmentCodec();
   }
@@ -51,8 +50,7 @@ public class PathCodec implements ObjectCodec<Path> {
   }
 
   @Override
-  public Path deserialize(CodedInputStream codedIn)
-      throws IOException, SerializationException {
+  public Path deserialize(CodedInputStream codedIn) throws IOException, SerializationException {
     PathFragment pathFragment = pathFragmentCodec.deserialize(codedIn);
     return fileSystem.getPath(pathFragment);
   }

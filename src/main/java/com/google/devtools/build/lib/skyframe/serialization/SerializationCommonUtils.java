@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -26,22 +23,6 @@ import java.io.IOException;
 public class SerializationCommonUtils {
   public static final ImmutableListCodec<String> STRING_LIST_CODEC =
       new ImmutableListCodec<>(StringCodecs.asciiOptimized());
-  private static final ByteString DEFAULT_REPOSITORY =
-      ByteString.copyFromUtf8(RepositoryName.DEFAULT.getName());
-  private static final ByteString MAIN_REPOSITORY =
-      ByteString.copyFromUtf8(RepositoryName.MAIN.getName());
-
-  public static RepositoryName deserializeRepoName(ByteString repoNameBytes)
-      throws LabelSyntaxException {
-    // We expect MAIN_REPOSITORY the vast majority of the time, so check for it first.
-    if (repoNameBytes.equals(MAIN_REPOSITORY)) {
-      return RepositoryName.MAIN;
-    } else if (repoNameBytes.equals(DEFAULT_REPOSITORY)) {
-      return RepositoryName.DEFAULT;
-    } else {
-      return RepositoryName.create(repoNameBytes.toStringUtf8());
-    }
-  }
 
   public static <T> void serializeNullable(T obj, CodedOutputStream out, ObjectCodec<T> codec)
       throws IOException, SerializationException {

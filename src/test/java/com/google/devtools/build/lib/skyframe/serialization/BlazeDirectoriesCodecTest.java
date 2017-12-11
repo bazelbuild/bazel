@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectoriesCodec;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
+import com.google.devtools.build.lib.vfs.PathCodec;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 

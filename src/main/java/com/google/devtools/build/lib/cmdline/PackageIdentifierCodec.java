@@ -12,17 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe.serialization;
+package com.google.devtools.build.lib.cmdline;
 
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.PathFragmentCodec;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Custom serialization logic for {@link PackageIdentifier}s. */
-class PackageIdentifierCodec implements ObjectCodec<PackageIdentifier> {
+public class PackageIdentifierCodec implements ObjectCodec<PackageIdentifier> {
 
   private final RepositoryNameCodec repoNameCodec = new RepositoryNameCodec();
   private final PathFragmentCodec pathFragmentCodec = new PathFragmentCodec();

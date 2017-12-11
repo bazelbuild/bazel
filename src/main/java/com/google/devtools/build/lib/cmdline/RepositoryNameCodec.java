@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe.serialization;
+package com.google.devtools.build.lib.cmdline;
 
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Custom serialization for {@link RepositoryName}. */
-class RepositoryNameCodec implements ObjectCodec<RepositoryName> {
+public class RepositoryNameCodec implements ObjectCodec<RepositoryName> {
 
   @Override
   public Class<RepositoryName> getEncodedClass() {
@@ -48,9 +49,26 @@ class RepositoryNameCodec implements ObjectCodec<RepositoryName> {
     }
     try {
       // We can read the string we wrote back as bytes to avoid string decoding/copying.
-      return SerializationCommonUtils.deserializeRepoName(codedIn.readBytes());
+      return deserializeRepoName(codedIn.readBytes());
     } catch (LabelSyntaxException e) {
       throw new SerializationException("Failed to deserialize RepositoryName", e);
+    }
+  }
+
+  private static final ByteString DEFAULT_REPOSITORY =
+      ByteString.copyFromUtf8(RepositoryName.DEFAULT.getName());
+  private static final ByteString MAIN_REPOSITORY =
+      ByteString.copyFromUtf8(RepositoryName.MAIN.getName());
+
+  public static RepositoryName deserializeRepoName(ByteString repoNameBytes)
+      throws LabelSyntaxException {
+    // We expect MAIN_REPOSITORY the vast majority of the time, so check for it first.
+    if (repoNameBytes.equals(MAIN_REPOSITORY)) {
+      return RepositoryName.MAIN;
+    } else if (repoNameBytes.equals(DEFAULT_REPOSITORY)) {
+      return RepositoryName.DEFAULT;
+    } else {
+      return RepositoryName.create(repoNameBytes.toStringUtf8());
     }
   }
 }
