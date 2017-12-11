@@ -278,7 +278,7 @@ public class Artifact
    */
   @Override
   @SkylarkCallable(name = "basename", structField = true,
-      doc = "The base file name of this file.")
+      doc = "The base name of this file. This is the name of the file inside the directory.")
   public final String getFilename() {
     return getExecPath().getBaseName();
   }
