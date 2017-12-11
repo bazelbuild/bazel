@@ -166,10 +166,8 @@ public final class NestedSet<E> implements Iterable<E> {
     return children == EMPTY_CHILDREN;
   }
 
-  /**
-   * Returns true if the set has exactly one element.
-   */
-  private boolean isSingleton() {
+  /** Returns true if the set has exactly one element. */
+  public boolean isSingleton() {
     return !(children instanceof Object[]);
   }
 

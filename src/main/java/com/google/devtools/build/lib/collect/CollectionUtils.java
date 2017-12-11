@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.ArrayList;
@@ -198,5 +199,15 @@ public final class CollectionUtils {
   public static <KEY_1, KEY_2, VALUE> Map<KEY_1, Map<KEY_2, VALUE>> copyOf(
       Map<KEY_1, ? extends Map<KEY_2, VALUE>> map) {
     return new HashMap<>(Maps.transformValues(map, HashMap::new));
+  }
+
+  /**
+   * A variant of {@link com.google.common.collect.Iterables.isEmpty} that avoids expanding nested
+   * sets.
+   */
+  public static <T> boolean isEmpty(Iterable<T> iterable) {
+    return (iterable instanceof NestedSet)
+        ? ((NestedSet) iterable).isEmpty()
+        : Iterables.isEmpty(iterable);
   }
 }

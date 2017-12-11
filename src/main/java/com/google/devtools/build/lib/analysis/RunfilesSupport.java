@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -264,8 +265,8 @@ public final class RunfilesSupport {
     return sourcesManifest;
   }
 
-  private Artifact createArtifactsMiddleman(ActionConstructionContext context,
-      Iterable<Artifact> allRunfilesArtifacts) {
+  private Artifact createArtifactsMiddleman(
+      ActionConstructionContext context, NestedSet<Artifact> allRunfilesArtifacts) {
     return context.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
         context.getActionOwner(), owningExecutable, allRunfilesArtifacts,
         context.getMiddlemanDirectory(),
