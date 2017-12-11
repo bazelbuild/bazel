@@ -67,7 +67,7 @@ and a [complete Skylark grammar reference](#grammar) is provided at the end.
 
 Grammar notation:
 
-```grammar {.good}
+```text
 - lowercase and 'quoted' items are lexical tokens.
 - Capitalized names denote grammar productions.
 - (...) implies grouping.
@@ -82,7 +82,7 @@ five kinds: white space, punctuation, keywords, identifiers, and literals.
 Each token is formed from the longest sequence of characters that
 would form a valid token of each kind.
 
-```grammar {.good}
+```text
 File = {Statement | newline} eof .
 ```
 
@@ -162,7 +162,7 @@ r'hello'     r"hello"           # raw string literal
 
 Integer literal tokens are defined by the following grammar:
 
-```grammar {.good}
+```text
 int         = decimal_lit | octal_lit | hex_lit | 0 .
 decimal_lit = ('1' … '9') {decimal_digit} .
 octal_lit   = '0' ('o' | 'O') octal_digit {octal_digit} .
@@ -1127,7 +1127,7 @@ a tuple.
 The grammar uses `Expression` where a multiple-component expression is allowed,
 and `Test` where it accepts an expression of only a single component.
 
-```grammar {.good}
+```text
 Expression = Test {',' Test} .
 
 Test = IfExpr | PrimaryExpr | UnaryExpr | BinaryExpr .
@@ -1155,7 +1155,7 @@ TODO: resolve position of -x, and 'not x' in grammar: Operand or UnaryExpr?
 
 ### Identifiers
 
-```grammar {.good} {.good}
+```text {.good}
 Primary = identifier
 ```
 
@@ -1167,7 +1167,7 @@ Lookup of locals and globals may fail if not yet defined.
 
 Skylark supports string literals of three different kinds:
 
-```grammar {.good}
+```text
 Primary = int | string
 ```
 
@@ -1177,7 +1177,7 @@ See [Literals](#lexical elements) for details.
 
 ### Parenthesized expressions
 
-```grammar {.good}
+```text
 Primary = '(' [Expression] ')'
 ```
 
@@ -1227,7 +1227,7 @@ key/value expression pairs, enclosed in curly brackets, and it yields
 a new dictionary object.
 An optional comma may follow the final pair.
 
-```grammar {.good}
+```text
 DictExpr = '{' [Entries [',']] '}' .
 Entries  = Entry {',' Entry} .
 Entry    = Test ':' Test .
@@ -1254,7 +1254,7 @@ A list expression is a comma-separated list of element expressions,
 enclosed in square brackets, and it yields a new list object.
 An optional comma may follow the last element expression.
 
-```grammar {.good}
+```text
 ListExpr = '[' [Expression [',']] ']' .
 ```
 
@@ -1273,7 +1273,7 @@ Examples:
 There are two unary operators, both appearing before their operand:
 `-`, and `not`.
 
-```grammar {.good}
+```text
 UnaryExpr = '-' PrimaryExpr
           | 'not' Test
           .
@@ -1324,7 +1324,7 @@ Comparison operators, `in`, and `not in` are non-associative,
 so the parser will not accept `0 <= i < n`.
 All other binary operators of equal precedence associate to the left.
 
-```grammar {.good}
+```text
 BinaryExpr = Test {Binop Test} .
 
 Binop = 'or'
@@ -1569,7 +1569,7 @@ It first evaluates the condition `cond`.
 If it's true, it evaluates `a` and yields its value;
 otherwise it yields the value of `b`.
 
-```grammar {.good}
+```text
 IfExpr = Test 'if' Test 'else' Test .
 ```
 
@@ -1595,7 +1595,7 @@ that must be met for the body expression to be evaluated.
 A sequence of `for` and `if` clauses acts like a nested sequence of
 `for` and `if` statements.
 
-```grammar {.good}
+```text
 ListComp = '[' Test {CompClause} ']'.
 DictComp = '{' Entry {CompClause} '}' .
 
@@ -1649,7 +1649,7 @@ print(x)                        # 1
 
 ### Function and method calls
 
-```grammar {.good}
+```text
 CallSuffix = '(' [Arguments] ')' .
 
 Arguments = Argument {',' Argument} .
@@ -1679,7 +1679,7 @@ but some application-defined types have them.
 Methods belong to the built-in types `string`, `list`, and `dict`,
 and to many application-defined types.
 
-```grammar {.good}
+```text
 DotSuffix = '.' identifier .
 ```
 
@@ -1724,7 +1724,7 @@ type such as a string, tuple, or list.  The index `i` must be an `int`
 value in the range -`n` ≤ `i` < `n`, where `n` is `len(a)`; any other
 index results in an error.
 
-```grammar {.good}
+```text
 SliceSuffix = '[' [Expression] [':' Test [':' Test]] ']' .
 ```
 
@@ -1764,7 +1764,7 @@ type, such as a tuple or string, or a frozen value of a mutable type.
 A slice expression `a[start:stop:stride]` yields a new value containing a
 subsequence of `a`, which must be a string, tuple, or list.
 
-```grammar {.good}
+```text
 SliceSuffix = '[' [Expression] [':' Test [':' Test]] ']' .
 ```
 
@@ -1816,7 +1816,7 @@ the creation of a new list and copying of the necessary elements.
 
 ## Statements
 
-```grammar {.good}
+```text
 Statement  = DefStmt | IfStmt | ForStmt | SimpleStmt .
 SimpleStmt = SmallStmt {';' SmallStmt} [';'] '\n' .
 SmallStmt  = ReturnStmt
@@ -1833,7 +1833,7 @@ A `pass` statement does nothing.  Use a `pass` statement when the
 syntax requires a statement but no behavior is required, such as the
 body of a function that does nothing.
 
-```grammar {.good}
+```text
 PassStmt = 'pass' .
 ```
 
@@ -1857,7 +1857,7 @@ An assignment statement has the form `lhs = rhs`.  It evaluates the
 expression on the right-hand side then assigns its value (or values) to
 the variable (or variables) on the left-hand side.
 
-```grammar {.good}
+```text
 AssignStmt = Expression '=' Expression .
 ```
 
@@ -1900,7 +1900,7 @@ variable `lhs` by applying a binary arithmetic operator `op` (one of
 `+`, `-`, `*`, `/`, `//`, `%`) to the previous value of `lhs` and the value
 of `rhs`.
 
-```grammar {.good}
+```text
 AssignStmt = Expression ('=' | '+=' | '-=' | '*=' | '/=' | '//=' | '%=') Expression .
 ```
 
@@ -1934,7 +1934,7 @@ a[i] = a[i] * 2
 
 A `def` statement creates a named function and assigns it to a variable.
 
-```grammar {.good}
+```text
 DefStmt = 'def' identifier '(' [Parameters [',']] ')' ':' Suite .
 ```
 
@@ -1996,7 +1996,7 @@ current module.
 A `return` statement ends the execution of a function and returns a
 value to the caller of the function.
 
-```grammar {.good}
+```text
 ReturnStmt = 'return' Expression .
 ```
 
@@ -2016,7 +2016,7 @@ return 1, 2             # returns (1, 2)
 
 An expression statement evaluates an expression and discards its result.
 
-```grammar {.good}
+```text
 ExprStmt = Expression .
 ```
 
@@ -2033,7 +2033,7 @@ An `if` statement evaluates an expression (the _condition_), then, if
 the truth value of the condition is `True`, executes a list of
 statements.
 
-```grammar {.good}
+```text
 IfStmt = 'if' Test ':' Suite {'elif' Test ':' Suite} ['else' ':' Suite] .
 ```
 
@@ -2080,7 +2080,7 @@ Then, for each element of the iterable's sequence, the loop assigns
 the successive element values to one or more variables and executes a
 list of statements, the _loop body_.
 
-```grammar {.good}
+```text
 ForStmt = 'for' LoopVariables 'in' Expression ':' Suite .
 ```
 
@@ -2118,7 +2118,7 @@ The `break` and `continue` statements terminate the current iteration
 of a `for` loop.  Whereas the `continue` statement resumes the loop at
 the next iteration, a `break` statement terminates the entire loop.
 
-```grammar {.good}
+```text
 BreakStmt    = 'break' .
 ContinueStmt = 'continue' .
 ```
@@ -2153,7 +2153,7 @@ Skylark because they don't allow arbitrary file names for module names.
 
 Syntactically, a load statement looks like a function call `load(...)`.
 
-```grammar {.good}
+```text
 LoadStmt = 'load' '(' string {',' [identifier '='] string} [','] ')' .
 ```
 
@@ -3165,7 +3165,7 @@ Letters are converted to uppercase at the start of words, lowercase elsewhere.
 
 ## Grammar reference
 
-```grammar {.good}
+```text
 File = {Statement | newline} eof .
 
 Statement = DefStmt | IfStmt | ForStmt | SimpleStmt .
