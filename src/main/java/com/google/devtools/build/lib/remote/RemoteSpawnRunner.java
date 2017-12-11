@@ -130,7 +130,8 @@ class RemoteSpawnRunner implements SpawnRunner {
             digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
             platform,
-            policy.getTimeout());
+            policy.getTimeout(),
+            Spawns.mayBeCached(spawn));
 
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = digestUtil.computeActionKey(action);
@@ -262,7 +263,8 @@ class RemoteSpawnRunner implements SpawnRunner {
       Digest command,
       Digest inputRoot,
       Platform platform,
-      Duration timeout) {
+      Duration timeout,
+      boolean cacheable) {
     Action.Builder action = Action.newBuilder();
     action.setCommandDigest(command);
     action.setInputRootDigest(inputRoot);
@@ -278,6 +280,9 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
     if (!timeout.isZero()) {
       action.setTimeout(com.google.protobuf.Duration.newBuilder().setSeconds(timeout.getSeconds()));
+    }
+    if (!cacheable) {
+      action.setDoNotCache(true);
     }
     return action.build();
   }
@@ -326,7 +331,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       @Nullable RemoteActionCache remoteCache,
       @Nullable ActionKey actionKey)
       throws ExecException, IOException, InterruptedException {
-    if (uploadToCache && Spawns.mayBeCached(spawn) && remoteCache != null && actionKey != null) {
+    if (uploadToCache && remoteCache != null && actionKey != null) {
       return execLocallyAndUpload(spawn, policy, inputMap, remoteCache, actionKey);
     }
     return fallbackRunner.exec(spawn, policy);
@@ -351,7 +356,10 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
     List<Path> outputFiles = listExistingOutputFiles(execRoot, spawn);
     try {
-      boolean uploadAction = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
+      boolean uploadAction =
+          Spawns.mayBeCached(spawn)
+              && Status.SUCCESS.equals(result.status())
+              && result.exitCode() == 0;
       remoteCache.upload(actionKey, execRoot, outputFiles, policy.getFileOutErr(), uploadAction);
     } catch (IOException e) {
       if (verboseFailures) {

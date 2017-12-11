@@ -167,23 +167,4 @@ public class AbstractSpawnStrategyTest {
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
     verify(entry).store(eq(result), any(Collection.class));
   }
-
-  @Test
-  public void testTagNoCache() throws Exception {
-    SpawnCache cache = mock(SpawnCache.class);
-    when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
-    when(actionExecutionContext.getExecRoot()).thenReturn(fs.getPath("/execroot"));
-    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
-        .thenReturn(new SpawnResult.Builder().setStatus(Status.SUCCESS).build());
-
-    Spawn uncacheableSpawn =
-        new SpawnBuilder("/bin/echo", "Hi").withExecutionInfo("no-cache", "").build();
-
-    new TestedSpawnStrategy(spawnRunner).exec(uncacheableSpawn, actionExecutionContext);
-
-    // Must only be called exactly once.
-    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
-    // Must not be called.
-    verify(cache, never()).lookup(any(Spawn.class), any(SpawnExecutionPolicy.class));
-  }
 }

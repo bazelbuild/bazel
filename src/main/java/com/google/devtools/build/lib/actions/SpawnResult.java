@@ -154,6 +154,11 @@ public interface SpawnResult {
   /** Whether the spawn result was a cache hit. */
   boolean isCacheHit();
 
+  /** Returns an optional custom failure message for the result. */
+  default String getFailureMessage() {
+    return "";
+  }
+
   String getDetailMessage(
       String messagePrefix, String message, boolean catastrophe, boolean forciblyRunRemotely);
 
@@ -169,6 +174,7 @@ public interface SpawnResult {
     private final Optional<Duration> userTime;
     private final Optional<Duration> systemTime;
     private final boolean cacheHit;
+    private final String failureMessage;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
@@ -178,6 +184,7 @@ public interface SpawnResult {
       this.userTime = builder.userTime;
       this.systemTime = builder.systemTime;
       this.cacheHit = builder.cacheHit;
+      this.failureMessage = builder.failureMessage;
     }
 
     @Override
@@ -229,6 +236,11 @@ public interface SpawnResult {
     }
 
     @Override
+    public String getFailureMessage() {
+      return failureMessage;
+    }
+
+    @Override
     public String getDetailMessage(
         String messagePrefix, String message, boolean catastrophe, boolean forciblyRunRemotely) {
       TerminationStatus status = new TerminationStatus(
@@ -270,6 +282,7 @@ public interface SpawnResult {
     private Optional<Duration> userTime = Optional.empty();
     private Optional<Duration> systemTime = Optional.empty();
     private boolean cacheHit;
+    private String failureMessage = "";
 
     public SpawnResult build() {
       if (status == Status.SUCCESS) {
@@ -330,6 +343,11 @@ public interface SpawnResult {
 
     public Builder setCacheHit(boolean cacheHit) {
       this.cacheHit = cacheHit;
+      return this;
+    }
+
+    public Builder setFailureMessage(String failureMessage) {
+      this.failureMessage = failureMessage;
       return this;
     }
   }

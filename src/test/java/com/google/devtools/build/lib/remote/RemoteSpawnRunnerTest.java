@@ -115,8 +115,9 @@ public class RemoteSpawnRunnerTest {
   @Test
   @SuppressWarnings("unchecked")
   public void nonCachableSpawnsShouldNotBeCached_remote() throws Exception {
-    // Test that if a spawn is marked "NO_CACHE" that it's neither fetched from a remote cache
-    // nor uploaded to a remote cache. It should be executed remotely, however.
+    // Test that if a spawn is marked "NO_CACHE" then it's not fetched from a remote cache.
+    // It should be executed remotely, but marked non-cacheable to remote execution, so that
+    // the action result is not saved in the remote cache.
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteAcceptCached = true;
@@ -156,6 +157,7 @@ public class RemoteSpawnRunnerTest {
     ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
     verify(executor).executeRemotely(requestCaptor.capture());
     assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
+    assertThat(requestCaptor.getValue().getAction().getDoNotCache()).isTrue();
 
     verify(cache, never())
         .getCachedActionResult(any(ActionKey.class));
@@ -173,7 +175,7 @@ public class RemoteSpawnRunnerTest {
   @SuppressWarnings("unchecked")
   public void nonCachableSpawnsShouldNotBeCached_local() throws Exception {
     // Test that if a spawn is executed locally, due to the local fallback, that its result is not
-    // uploaded to the remote cache.
+    // uploaded to the remote cache. However, the artifacts should still be uploaded.
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteAcceptCached = true;
@@ -213,13 +215,13 @@ public class RemoteSpawnRunnerTest {
 
     verify(cache, never())
         .getCachedActionResult(any(ActionKey.class));
-    verify(cache, never())
+    verify(cache)
         .upload(
             any(ActionKey.class),
             any(Path.class),
             any(Collection.class),
             any(FileOutErr.class),
-            any(Boolean.class));
+            eq(false));
   }
 
   @Test

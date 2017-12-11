@@ -544,6 +544,27 @@ EOF
   expect_log "Executing genrule //:test failed:"
 }
 
+function test_sandbox_debug() {
+  cat > BUILD <<'EOF'
+genrule(
+  name = "broken",
+  outs = ["bla.txt"],
+  cmd = "exit 1",
+)
+EOF
+  bazel build --verbose_failures :broken &> $TEST_log \
+    && fail "build should have failed" || true
+  expect_log "Use --sandbox_debug to see verbose messages from the sandbox"
+  expect_log "Executing genrule //:broken failed"
+
+  bazel build --verbose_failures --sandbox_debug :broken &> $TEST_log \
+    && fail "build should have failed" || true
+  expect_log "Executing genrule //:broken failed"
+  expect_not_log "Use --sandbox_debug to see verbose messages from the sandbox"
+  # This will appear a lot in the sandbox failure details.
+  expect_log "bazel-sandbox"
+}
+
 function test_sandbox_mount_customized_path () {
 
   if ! [ "${PLATFORM-}" = "linux" -a \

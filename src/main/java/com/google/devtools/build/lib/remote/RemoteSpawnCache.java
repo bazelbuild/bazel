@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -102,7 +103,8 @@ final class RemoteSpawnCache implements SpawnCache {
             digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
             platform,
-            policy.getTimeout());
+            policy.getTimeout(),
+            Spawns.mayBeCached(spawn));
 
     // Look up action cache, and reuse the action output if it is found.
     final ActionKey actionKey = digestUtil.computeActionKey(action);
@@ -113,7 +115,9 @@ final class RemoteSpawnCache implements SpawnCache {
     Context previous = withMetadata.attach();
     try {
       ActionResult result =
-          this.options.remoteAcceptCached ? remoteCache.getCachedActionResult(actionKey) : null;
+          this.options.remoteAcceptCached && Spawns.mayBeCached(spawn)
+              ? remoteCache.getCachedActionResult(actionKey)
+              : null;
       if (result != null) {
         // We don't cache failed actions, so we know the outputs exist.
         // For now, download all outputs locally; in the future, we can reuse the digests to
@@ -156,7 +160,10 @@ final class RemoteSpawnCache implements SpawnCache {
         @Override
         public void store(SpawnResult result, Collection<Path> files)
             throws InterruptedException, IOException {
-          boolean uploadAction = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
+          boolean uploadAction =
+              Spawns.mayBeCached(spawn)
+                  && Status.SUCCESS.equals(result.status())
+                  && result.exitCode() == 0;
           Context previous = withMetadata.attach();
           try {
             remoteCache.upload(actionKey, execRoot, files, policy.getFileOutErr(), uploadAction);
