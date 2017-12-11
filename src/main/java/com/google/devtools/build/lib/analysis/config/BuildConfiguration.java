@@ -1326,6 +1326,13 @@ public class BuildConfiguration implements BuildEvent {
     for (Map.Entry<String, String> entry : options.actionEnvironment) {
       actionEnv.put(entry.getKey(), entry.getValue());
     }
+    // If we have not specified SOURCE_DATE_EPOCH yet, we will define it there.
+    if (!actionEnv.containsKey("SOURCE_DATE_EPOCH")) {
+      // We overwrite by default SOURCE_DATE_EPOCH unless --action_env SOURCE_DATE_EPOCH is defined
+      // (https://reproducible-builds.org/specs/source-date-epoch/)
+      // to 1 so program that understand it will get a constant value and will strip timestamps.
+      actionEnv.put("SOURCE_DATE_EPOCH", "1");
+    }
     return ActionEnvironment.split(actionEnv);
   }
 

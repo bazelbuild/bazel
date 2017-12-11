@@ -1877,6 +1877,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       for (Entry<String, String> v : opt.actionEnvironment) {
         actionEnvironment.put(v.getKey(), v.getValue());
       }
+      if (!actionEnvironment.containsKey("SOURCE_DATE_EPOCH")) {
+        // We overwrite by default SOURCE_DATE_EPOCH
+        // (https://reproducible-builds.org/specs/source-date-epoch/)
+        // to 1 so program that understand it will get a constant value and will strip timestamps.
+        actionEnvironment.put("SOURCE_DATE_EPOCH", "1");
+      }
     }
     preparePackageLoading(
         createPackageLocator(
