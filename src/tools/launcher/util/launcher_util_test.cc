@@ -73,14 +73,19 @@ TEST_F(LaunchUtilTest, GetBinaryPathWithExtensionTest) {
 }
 
 TEST_F(LaunchUtilTest, GetEscapedArgumentTest) {
-  ASSERT_EQ("foo", GetEscapedArgument("foo"));
-  ASSERT_EQ("\"foo bar\"", GetEscapedArgument("foo bar"));
-  ASSERT_EQ("\"\\\"foo bar\\\"\"", GetEscapedArgument("\"foo bar\""));
-  ASSERT_EQ("foo\\\\bar", GetEscapedArgument("foo\\bar"));
-  ASSERT_EQ("foo\\\"bar", GetEscapedArgument("foo\"bar"));
-  ASSERT_EQ("C:\\\\foo\\\\bar\\\\", GetEscapedArgument("C:\\foo\\bar\\"));
+  ASSERT_EQ("foo", GetEscapedArgument("foo", true));
+  ASSERT_EQ("\"foo bar\"", GetEscapedArgument("foo bar", true));
+  ASSERT_EQ("\"\\\"foo bar\\\"\"", GetEscapedArgument("\"foo bar\"", true));
+  ASSERT_EQ("foo\\\\bar", GetEscapedArgument("foo\\bar", true));
+  ASSERT_EQ("foo\\\"bar", GetEscapedArgument("foo\"bar", true));
+  ASSERT_EQ("C:\\\\foo\\\\bar\\\\", GetEscapedArgument("C:\\foo\\bar\\", true));
   ASSERT_EQ("\"C:\\\\foo foo\\\\bar\\\\\"",
-            GetEscapedArgument("C:\\foo foo\\bar\\"));
+            GetEscapedArgument("C:\\foo foo\\bar\\", true));
+
+  ASSERT_EQ("foo\\bar", GetEscapedArgument("foo\\bar", false));
+  ASSERT_EQ("C:\\foo\\bar\\", GetEscapedArgument("C:\\foo\\bar\\", false));
+  ASSERT_EQ("\"C:\\foo foo\\bar\\\"",
+            GetEscapedArgument("C:\\foo foo\\bar\\", false));
 }
 
 TEST_F(LaunchUtilTest, DoesFilePathExistTest) {

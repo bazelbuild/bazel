@@ -39,15 +39,18 @@ ExitCode BashBinaryLauncher::Launch() {
   vector<string> origin_args = this->GetCommandlineArguments();
   ostringstream bash_command;
   string bash_main_file = GetBinaryPathWithoutExtension(origin_args[0]);
-  bash_command << GetEscapedArgument(bash_main_file);
+  bash_command << GetEscapedArgument(bash_main_file,
+                                     /*escape_backslash = */ true);
   for (int i = 1; i < origin_args.size(); i++) {
     bash_command << ' ';
-    bash_command << GetEscapedArgument(origin_args[i]);
+    bash_command << GetEscapedArgument(origin_args[i],
+                                       /*escape_backslash = */ true);
   }
 
   vector<string> args;
   args.push_back("-c");
-  args.push_back(bash_command.str());
+  args.push_back(
+      GetEscapedArgument(bash_command.str(), /*escape_backslash = */ true));
   return this->LaunchProcess(bash_binary, args);
 }
 

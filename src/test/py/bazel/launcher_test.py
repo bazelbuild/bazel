@@ -188,6 +188,30 @@ class LauncherTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['test', '//foo:test'] + launcher_flag)
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def _buildAndCheckArgumentPassing(self, package, target_name):
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'build', '--windows_exe_launcher=1',
+        '//%s:%s' % (package, target_name)
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    bin_suffix = '.exe' if self.IsWindows() else ''
+    bin1 = os.path.join(bazel_bin, package, '%s%s' % (target_name, bin_suffix))
+    self.assertTrue(os.path.exists(bin1))
+    self.assertTrue(
+        os.path.isdir(
+            os.path.join(bazel_bin, '%s/%s%s.runfiles' % (package, target_name,
+                                                          bin_suffix))))
+
+    arguments = ['a', 'a b', '"b"', 'C:\\a\\b\\', '"C:\\a b\\c\\"']
+    exit_code, stdout, stderr = self.RunProgram([bin1] + arguments)
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual(stdout, arguments)
+
   def testJavaBinaryLauncher(self):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
@@ -222,6 +246,27 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self._buildJavaTargets(bazel_bin, ['--windows_exe_launcher=1'], '.exe'
                            if self.IsWindows() else '')
+
+  def testJavaBinaryArgumentPassing(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'java_binary(',
+        '  name = "bin",',
+        '  srcs = ["Main.java"],',
+        '  main_class = "Main",',
+        ')',
+    ])
+    self.ScratchFile('foo/Main.java', [
+        'public class Main {',
+        '  public static void main(String[] args) {'
+        '    for (String arg : args) {',
+        '      System.out.println(arg);',
+        '    }'
+        '  }',
+        '}',
+    ])
+
+    self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testShBinaryLauncher(self):
     self.ScratchFile('WORKSPACE')
@@ -294,26 +339,7 @@ class LauncherTest(test_base.TestBase):
     ])
     os.chmod(foo_sh, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    bazel_bin = stdout[0]
-
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '--windows_exe_launcher=1', '//foo:bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
-
-    bin_suffix = '.exe' if self.IsWindows() else ''
-
-    bin1 = os.path.join(bazel_bin, 'foo', 'bin%s' % bin_suffix)
-    self.assertTrue(os.path.exists(bin1))
-    self.assertTrue(
-        os.path.isdir(
-            os.path.join(bazel_bin, 'foo/bin%s.runfiles' % bin_suffix)))
-
-    arguments = ['a', 'a b', '"b"', 'C:\\a\\b\\', '"C:\\a b\\c\\"']
-    exit_code, stdout, stderr = self.RunProgram([bin1] + arguments)
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertEqual(stdout, arguments)
+    self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testPyBinaryLauncher(self):
     self.ScratchFile('WORKSPACE')
@@ -375,6 +401,22 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self._buildPyTargets(bazel_bin, ['--windows_exe_launcher=1'], '.exe'
                          if self.IsWindows() else '')
+
+  def testPyBinaryArgumentPassing(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'py_binary(',
+        '  name = "bin",',
+        '  srcs = ["bin.py"],',
+        ')',
+    ])
+    self.ScratchFile('foo/bin.py', [
+        'import sys',
+        'for arg in sys.argv[1:]:',
+        '  print(arg)',
+    ])
+
+    self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testWindowsJavaExeLauncher(self):
     # Skip this test on non-Windows platforms
@@ -452,7 +494,7 @@ class LauncherTest(test_base.TestBase):
     exit_code, stdout, stderr = self.RunProgram(
         [binary, '--jvm_flag="--some_path="./a b/c""', print_cmd])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('--some_path="./a b/c"', stdout)
+    self.assertIn('"--some_path=\\"./a b/c\\""', stdout)
 
     exit_code, stdout, stderr = self.RunProgram(
         [binary, '--jvm_flags="--path1=a --path2=b"', print_cmd])

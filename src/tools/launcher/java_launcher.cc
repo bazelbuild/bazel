@@ -296,7 +296,14 @@ ExitCode JavaBinaryLauncher::Launch() {
     arguments.push_back(arg);
   }
 
-  ExitCode exit_code = this->LaunchProcess(java_bin, arguments);
+  vector<string> escaped_arguments;
+  // Quote the arguments if having spaces
+  for (const auto& arg : arguments) {
+    escaped_arguments.push_back(
+        GetEscapedArgument(arg, /*escape_backslash = */ false));
+  }
+
+  ExitCode exit_code = this->LaunchProcess(java_bin, escaped_arguments);
 
   // Delete classpath jar file after execution.
   if (!classpath_jar.empty()) {

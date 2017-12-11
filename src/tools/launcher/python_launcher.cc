@@ -39,6 +39,12 @@ ExitCode PythonBinaryLauncher::Launch() {
 
   // Replace the first argument with python zip file path
   args[0] = python_zip_file;
+
+  // Escape arguments that has spaces
+  for (int i = 1; i < args.size(); i++) {
+    args[i] = GetEscapedArgument(args[i], /*escape_backslash = */ false);
+  }
+
   return this->LaunchProcess(python_binary, args);
 }
 

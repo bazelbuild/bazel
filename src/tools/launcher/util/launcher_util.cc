@@ -108,7 +108,7 @@ string GetBinaryPathWithExtension(const string& binary) {
   return GetBinaryPathWithoutExtension(binary) + ".exe";
 }
 
-string GetEscapedArgument(const string& argument) {
+string GetEscapedArgument(const string& argument, bool escape_backslash) {
   ostringstream escaped_arg;
   bool has_space = argument.find_first_of(' ') != string::npos;
 
@@ -126,8 +126,8 @@ string GetEscapedArgument(const string& argument) {
         break;
 
       case '\\':
-        // Escape back slashes
-        escaped_arg << "\\\\";
+        // Escape back slashes if escape_backslash is true
+        escaped_arg << (escape_backslash ? "\\\\" : "\\");
         break;
 
       default:
