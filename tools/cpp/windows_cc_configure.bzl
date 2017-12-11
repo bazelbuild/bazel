@@ -240,6 +240,13 @@ def _is_support_whole_archive(repository_ctx, vc_path):
   return result.find("/WHOLEARCHIVE") != -1
 
 
+def _is_support_debug_fastlink(repository_ctx, vc_path):
+  """Run MSVC linker alone to see if it supports /DEBUG:FASTLINK."""
+  linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
+  result = execute(repository_ctx, [linker], expect_failure = True)
+  return result.find("/DEBUG[:{FASTLINK|FULL|NONE}]") != -1
+
+
 def _is_use_msvc_wrapper(repository_ctx):
   """Returns True if USE_MSVC_WRAPPER is set to 1."""
   env = repository_ctx.os.environ
@@ -361,6 +368,9 @@ def configure_windows_toolchain(repository_ctx):
   for path in escaped_include_paths.split(";"):
     if path:
       escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % path)
+
+  support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, vc_path)
+
   tpl(repository_ctx, "CROSSTOOL", {
       "%{cpu}": "x64_windows",
       "%{default_toolchain_name}": "msvc_x64",
@@ -373,6 +383,8 @@ def configure_windows_toolchain(repository_ctx):
       "%{msvc_ml_path}": msvc_ml_path,
       "%{msvc_link_path}": msvc_link_path,
       "%{msvc_lib_path}": msvc_lib_path,
+      "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
+      "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
       "%{compilation_mode_content}": compilation_mode_content,
       "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
       "%{opt_content}": "",

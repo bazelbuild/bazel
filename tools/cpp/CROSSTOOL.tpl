@@ -949,7 +949,7 @@ toolchain {
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       flag_group {
-        flag: "/DEBUG:FULL"
+        flag: "%{dbg_mode_debug}"
         flag: "/INCREMENTAL:NO"
       }
     }
@@ -971,7 +971,7 @@ toolchain {
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       flag_group {
-        flag: "/DEBUG:FASTLINK"
+        flag: "%{fastbuild_mode_debug}"
         flag: "/INCREMENTAL:NO"
       }
     }

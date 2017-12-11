@@ -395,5 +395,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value):
       "%{msvc_ml_path}": "",
       "%{msvc_link_path}": "",
       "%{msvc_lib_path}": "",
+      "%{dbg_mode_debug}": "",
+      "%{fastbuild_mode_debug}": "",
       "%{compilation_mode_content}": "",
   })
