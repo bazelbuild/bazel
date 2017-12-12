@@ -882,7 +882,7 @@ public final class JavaCompilationHelper {
    * prefix and removing the extension and replacing it by the given suffix.
    * The new artifact will have the same root as the given one.
    */
-  private static Artifact derivedArtifact(
+  static Artifact derivedArtifact(
       RuleContext ruleContext, Artifact artifact, String prefix, String suffix) {
     PathFragment path = artifact.getRootRelativePath();
     String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
