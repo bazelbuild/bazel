@@ -129,6 +129,7 @@ toolchain {
 %{opt_content}
   }
   linking_mode_flags { mode: DYNAMIC }
+%{link_content}
 
 %{coverage}
 
