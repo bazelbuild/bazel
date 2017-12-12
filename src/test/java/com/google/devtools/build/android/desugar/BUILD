@@ -11,6 +11,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/dependencies:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:srcs",
     ],
@@ -529,6 +530,28 @@ java_test(
     ],
 )
 
+java_test(
+    name = "BytecodeTypeInferenceTest",
+    srcs = ["BytecodeTypeInferenceTest.java"],
+    data = [
+        "BytecodeTypeInferenceTest.golden.txt",
+        "//src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:test_subjects",
+    ],
+    jvm_flags = [
+        "-Djar_path=$(location //src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:test_subjects)",
+        "-Dgolden_file=$(location BytecodeTypeInferenceTest.golden.txt)",
+    ],
+    tags = ["no_windows"],
+    deps = [
+        ":bytecode_type_printer",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//third_party:asm",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 sh_test(
     name = "testdata_desugared_jar_test",
     size = "small",
@@ -739,6 +762,18 @@ java_library(
     deps = [
         ":libseparate.jar",  # puts full Jar instead of header Jar on the classpath
         ":libseparate_java8.jar",  # puts full Jar instead of header Jar on the classpath
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "bytecode_type_printer",
+    srcs = ["ByteCodeTypePrinter.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//third_party:asm",
+        "//third_party:asm-tree",
+        "//third_party:asm-util",
         "//third_party:guava",
     ],
 )

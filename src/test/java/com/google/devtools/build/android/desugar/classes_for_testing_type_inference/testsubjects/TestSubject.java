@@ -193,4 +193,22 @@ public class TestSubject {
       e.printStackTrace();
     }
   }
+
+  public double testWithDoubleTypes() {
+    double result = 1;
+    for (double i = 1; i < 22; i = i + 1) {
+      System.out.println(i);
+      result += i;
+    }
+    return result;
+  }
+
+  public float testWithFloatAndDoubleTypes() {
+    float result = 1;
+    for (double i = 1; i < 22; i = i + 1) {
+      System.out.println(i);
+      result += (float) i;
+    }
+    return result;
+  }
 }

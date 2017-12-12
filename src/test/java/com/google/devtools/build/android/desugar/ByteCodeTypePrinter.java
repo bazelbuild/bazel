@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.objectweb.asm.ClassReader;
@@ -53,7 +54,7 @@ public class ByteCodeTypePrinter {
   private static ImmutableList<ZipEntry> getSortedClassEntriess(ZipFile jar) {
     return jar.stream()
         .filter(entry -> entry.getName().endsWith(".class"))
-        .sorted()
+        .sorted(Comparator.comparing(ZipEntry::getName))
         .collect(ImmutableList.toImmutableList());
   }
 
@@ -116,105 +117,106 @@ public class ByteCodeTypePrinter {
       this.printWriter = printWriter;
     }
 
-    private void printTypeOfOperandStackTop() {
+    private void printTypeOfOperandStack() {
       printer.print("    |__STACK: " + inference.getOperandStackAsString() + "\n");
+      printer.print("    |__LOCAL: " + inference.getLocalsAsString() + "\n");
     }
 
     @Override
     public void visitIntInsn(int opcode, int operand) {
       printer.visitIntInsn(opcode, operand);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitIntInsn(opcode, operand);
     }
 
     @Override
     public void visitInsn(int opcode) {
       printer.visitInsn(opcode);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitInsn(opcode);
     }
 
     @Override
     public void visitMultiANewArrayInsn(String desc, int dims) {
       printer.visitMultiANewArrayInsn(desc, dims);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitMultiANewArrayInsn(desc, dims);
     }
 
     @Override
     public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
       printer.visitLookupSwitchInsn(dflt, keys, labels);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitLookupSwitchInsn(dflt, keys, labels);
     }
 
     @Override
     public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
       printer.visitTableSwitchInsn(min, max, dflt, labels);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitTableSwitchInsn(min, max, dflt, labels);
     }
 
     @Override
     public void visitIincInsn(int var, int increment) {
       printer.visitIincInsn(var, increment);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitIincInsn(var, increment);
     }
 
     @Override
     public void visitLdcInsn(Object cst) {
       printer.visitLdcInsn(cst);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitLdcInsn(cst);
     }
 
     @Override
     public void visitJumpInsn(int opcode, Label label) {
       printer.visitJumpInsn(opcode, label);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitJumpInsn(opcode, label);
     }
 
     @Override
     public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... bsmArgs) {
       printer.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
     }
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
       printer.visitMethodInsn(opcode, owner, name, desc, itf);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitMethodInsn(opcode, owner, name, desc, itf);
     }
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc) {
       printer.visitMethodInsn(opcode, owner, name, desc);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitMethodInsn(opcode, owner, name, desc);
     }
 
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
       printer.visitFieldInsn(opcode, owner, name, desc);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitFieldInsn(opcode, owner, name, desc);
     }
 
     @Override
     public void visitTypeInsn(int opcode, String type) {
       printer.visitTypeInsn(opcode, type);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitTypeInsn(opcode, type);
     }
 
     @Override
     public void visitVarInsn(int opcode, int var) {
       printer.visitVarInsn(opcode, var);
-      printTypeOfOperandStackTop();
+      printTypeOfOperandStack();
       super.visitVarInsn(opcode, var);
     }
 
