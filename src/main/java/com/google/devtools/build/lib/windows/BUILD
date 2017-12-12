@@ -7,12 +7,28 @@ filegroup(
 )
 
 java_library(
+    name = "windows_short_path",
+    srcs = ["WindowsShortPath.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/vfs:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/windows/jni",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "windows",
-    srcs = glob([
-        "*.java",
-    ]),
+    srcs = [
+        "WindowsFileSystem.java",
+        "WindowsSubprocess.java",
+        "WindowsSubprocessFactory.java",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        ":windows_short_path",
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib/clock",
