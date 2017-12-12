@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright 2016 The Bazel Authors. All rights reserved.
+# Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 set -e
 
+# The following code produces a 120MB file (30*2^22 bytes)
 cat > input.txt <<EOF
 01234567890123456789012345678
 EOF
