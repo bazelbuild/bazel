@@ -303,6 +303,26 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "linux_sandbox_test",
+    size = "large",
+    srcs = ["linux-sandbox_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell:sandboxing_test_utils.sh",
+    ],
+)
+
+sh_test(
+    name = "linux_sandbox_network_test",
+    size = "large",
+    srcs = ["linux-sandbox_network_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell:sandboxing_test_utils.sh",
+    ],
+)
+
 package_group(
     name = "spend_cpu_time_users",
     packages = [

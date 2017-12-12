@@ -21,8 +21,8 @@
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source ${CURRENT_DIR}/bazel_sandboxing_test_utils.sh \
-  || { echo "bazel_sandboxing_test_utils.sh not found!" >&2; exit 1; }
+source ${CURRENT_DIR}/../sandboxing_test_utils.sh \
+  || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
 
 function set_up {
   mkdir -p examples/cpp/{bin,lib}

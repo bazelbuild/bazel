@@ -17,18 +17,22 @@
 # Test sandboxing spawn strategy
 #
 
+set -euo pipefail
+
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source "${CURRENT_DIR}/bazel_sandboxing_test_utils.sh" \
-  || { echo "bazel_sandboxing_test_utils.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/../sandboxing_test_utils.sh" \
+  || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
+
+enable_errexit
 
 readonly OUT_DIR="${TEST_TMPDIR}/out"
 readonly OUT="${OUT_DIR}/outfile"
 readonly ERR="${OUT_DIR}/errfile"
 readonly SANDBOX_DIR="${OUT_DIR}/sandbox"
-readonly MOUNT_TARGET_ROOT="${TEST_SRCDIR}/targets"
+readonly MOUNT_TARGET_ROOT="${TEST_TMPDIR}/targets"
 
 SANDBOX_DEFAULT_OPTS="-W $SANDBOX_DIR"
 
@@ -49,7 +53,9 @@ function test_execvp_error_message_contains_path() {
 
 function test_default_user_is_current_user() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /usr/bin/id &> $TEST_log || fail
-  expect_log "$(id)"
+  local current_uid_number=$(id -u)
+  # Expecting something like: uid=485038(ruperts) ...
+  expect_log "uid=${current_uid_number}("
 }
 
 function test_user_switched_to_root() {
@@ -59,18 +65,7 @@ function test_user_switched_to_root() {
 
 function test_user_switched_to_nobody() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -U -- /usr/bin/id &> $TEST_log || fail
-  expect_log "uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)"
-}
-
-function test_network_namespace() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -N  -- /bin/ip link ls &> $TEST_log || fail
-  expect_log "LOOPBACK,UP"
-}
-
-function test_ping_loopback() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -N -R -- \
-    /bin/sh -c 'ping6 -c 1 ::1 || ping -c 1 127.0.0.1' &>$TEST_log || fail
-  expect_log "1 received"
+  expect_log "uid=[0-9]\+(nobody) gid=[0-9]\+(\(nobody\|nogroup\)) groups=[0-9]\+(\(nobody\|nogroup\))"
 }
 
 function test_exit_code() {
