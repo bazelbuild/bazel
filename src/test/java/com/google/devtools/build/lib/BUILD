@@ -1029,7 +1029,10 @@ java_test(
 
 java_test(
     name = "runtime-tests",
-    srcs = glob(["runtime/*.java"]),
+    srcs = glob([
+        "runtime/*.java",
+        "runtime/commands/*.java"
+    ]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
