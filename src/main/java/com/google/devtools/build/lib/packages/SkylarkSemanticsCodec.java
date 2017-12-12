@@ -46,6 +46,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetIsNotIterable());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetUnion());
     codedOut.writeBoolNoTag(semantics.incompatibleDictLiteralHasNoDuplicates());
+    codedOut.writeBoolNoTag(semantics.incompatibleDisableGlobTracking());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowDictPlus());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowKeywordOnlyArgs());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowToplevelIfStatement());
@@ -70,6 +71,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     builder.incompatibleDepsetIsNotIterable(codedIn.readBool());
     builder.incompatibleDepsetUnion(codedIn.readBool());
     builder.incompatibleDictLiteralHasNoDuplicates(codedIn.readBool());
+    builder.incompatibleDisableGlobTracking(codedIn.readBool());
     builder.incompatibleDisallowDictPlus(codedIn.readBool());
     builder.incompatibleDisallowKeywordOnlyArgs(codedIn.readBool());
     builder.incompatibleDisallowToplevelIfStatement(codedIn.readBool());

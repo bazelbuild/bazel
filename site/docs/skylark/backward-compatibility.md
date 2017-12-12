@@ -293,5 +293,12 @@ All integers are stored using signed 32 bits.
 *   Flag: `--incompatible_checked_arithmetic`
 *   Default: `true`
 
+### Glob tracking
+
+When set, glob tracking is disabled. This is a legacy feature that we expect has
+no user-visible impact.
+
+*   Flag: `--incompatible_disable_glob_tracking`
+*   Default: `false`
 
 <!-- Add new options here -->

@@ -137,6 +137,17 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDictLiteralHasNoDuplicates;
 
   @Option(
+    name = "incompatible_disable_glob_tracking",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help = "If set to true, do not track the values of globs (this is used by rare specific cases"
+  )
+  public boolean incompatibleDisableGlobTracking;
+
+  @Option(
     name = "incompatible_disallow_dict_plus",
     defaultValue = "false",
     category = "incompatible changes",
@@ -267,6 +278,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
         .incompatibleDictLiteralHasNoDuplicates(incompatibleDictLiteralHasNoDuplicates)
+        .incompatibleDisableGlobTracking(incompatibleDisableGlobTracking)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowKeywordOnlyArgs(incompatibleDisallowKeywordOnlyArgs)
         .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)

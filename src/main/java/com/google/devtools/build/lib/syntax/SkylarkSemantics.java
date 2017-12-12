@@ -47,6 +47,9 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleDepsetUnion();
 
   public abstract boolean incompatibleDictLiteralHasNoDuplicates();
+
+  public abstract boolean incompatibleDisableGlobTracking();
+
   public abstract boolean incompatibleDisallowDictPlus();
   public abstract boolean incompatibleDisallowKeywordOnlyArgs();
   public abstract boolean incompatibleDisallowToplevelIfStatement();
@@ -79,6 +82,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
           .incompatibleDictLiteralHasNoDuplicates(true)
+          .incompatibleDisableGlobTracking(false)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowKeywordOnlyArgs(true)
           .incompatibleDisallowToplevelIfStatement(true)
@@ -104,6 +108,9 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDepsetUnion(boolean value);
 
     public abstract Builder incompatibleDictLiteralHasNoDuplicates(boolean value);
+
+    public abstract Builder incompatibleDisableGlobTracking(boolean value);
+
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
     public abstract Builder incompatibleDisallowKeywordOnlyArgs(boolean value);
     public abstract Builder incompatibleDisallowToplevelIfStatement(boolean value);
