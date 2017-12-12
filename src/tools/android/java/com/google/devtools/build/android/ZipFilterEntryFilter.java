@@ -14,8 +14,8 @@
 package com.google.devtools.build.android;
 
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.android.ZipFilterAction.HashMismatchCheckMode;
 import com.google.devtools.build.singlejar.ZipEntryFilter;
-
 import java.io.IOException;
 import java.util.Map;
 
@@ -28,7 +28,7 @@ class ZipFilterEntryFilter implements ZipEntryFilter {
   private final String explicitFilter;
   private final Multimap<String, Long> entriesToOmit;
   private final Map<String, Long> inputEntries;
-  private final boolean errorOnHashMismatch;
+  private final HashMismatchCheckMode hashMismatchCheckMode;
 
   /**
    * Creates a new filter.
@@ -36,14 +36,17 @@ class ZipFilterEntryFilter implements ZipEntryFilter {
    * @param explicitFilter a regular expression to match against entry filenames
    * @param entriesToOmit a map of filename and CRC-32 of entries to omit
    * @param inputEntries a map of filename and CRC-32 of entries in the input Zip file
-   * @param errorOnHashMistmatch whether to error or warn when there is a CRC-32 mismatch
+   * @param hashMismatchCheckMode ignore, warn or error out for content hash mismatches.
    */
-  public ZipFilterEntryFilter(String explicitFilter, Multimap<String, Long> entriesToOmit,
-      Map<String, Long> inputEntries, boolean errorOnHashMistmatch) {
+  public ZipFilterEntryFilter(
+      String explicitFilter,
+      Multimap<String, Long> entriesToOmit,
+      Map<String, Long> inputEntries,
+      HashMismatchCheckMode hashMismatchCheckMode) {
     this.explicitFilter = explicitFilter;
     this.entriesToOmit = entriesToOmit;
     this.inputEntries = inputEntries;
-    this.errorOnHashMismatch = errorOnHashMistmatch;
+    this.hashMismatchCheckMode = hashMismatchCheckMode;
   }
 
   @Override
@@ -51,17 +54,26 @@ class ZipFilterEntryFilter implements ZipEntryFilter {
     if (filename.matches(explicitFilter)) {
       callback.skip();
     } else if (entriesToOmit.containsKey(filename)) {
-      Long entryCrc = inputEntries.get(filename);
-      if (entriesToOmit.containsEntry(filename, entryCrc)) {
+      if (hashMismatchCheckMode == HashMismatchCheckMode.IGNORE) {
         callback.skip();
       } else {
-        if (errorOnHashMismatch) {
-          throw new IllegalStateException(String.format("Requested to filter entries of name "
-              + "'%s'; name matches but the hash does not. Aborting", filename));
+        Long entryCrc = inputEntries.get(filename);
+        if (entriesToOmit.containsEntry(filename, entryCrc)) {
+          callback.skip();
         } else {
-          System.out.printf("\u001b[35mWARNING:\u001b[0m Requested to filter entries of name "
-              + "'%s'; name matches but the hash does not. Copying anyway.\n", filename);
-          callback.copy(null);
+          if (hashMismatchCheckMode == HashMismatchCheckMode.ERROR) {
+            throw new IllegalStateException(
+                String.format(
+                    "Requested to filter entries of name "
+                        + "'%s'; name matches but the hash does not. Aborting",
+                    filename));
+          } else {
+            System.out.printf(
+                "\u001b[35mWARNING:\u001b[0m Requested to filter entries of name "
+                    + "'%s'; name matches but the hash does not. Copying anyway.\n",
+                filename);
+            callback.copy(null);
+          }
         }
       }
     } else {

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.android.ZipFilterAction.HashMismatchCheckMode;
 import com.google.devtools.build.singlejar.ZipEntryFilter.CustomMergeStrategy;
 import com.google.devtools.build.singlejar.ZipEntryFilter.StrategyCallback;
 import java.io.File;
@@ -129,6 +130,19 @@ public class ZipFilterActionTest {
     return zip.toPath();
   }
 
+  private List<String> outputEntriesWithArgs(ImmutableList<String> args, File output)
+      throws IOException {
+    ZipFilterAction.main(args.toArray(new String[0]));
+    List<String> filteredEntries = new ArrayList<>();
+    try (ZipFile zip = new ZipFile(output)) {
+      Enumeration<? extends ZipEntry> entries = zip.entries();
+      while (entries.hasMoreElements()) {
+        filteredEntries.add(entries.nextElement().getName());
+      }
+    }
+    return filteredEntries;
+  }
+
   @Before public void setup() {
     callback = new TestingStrategyCallback();
   }
@@ -173,10 +187,12 @@ public class ZipFilterActionTest {
   }
 
   @Test public void testZipEntryFilter() throws Exception {
-    ZipFilterEntryFilter filter = new ZipFilterEntryFilter(".*R.class.*",
-        ImmutableSetMultimap.of("foo.class", 1L, "baz.class", 2L),
-        ImmutableMap.of("foo.class", 1L, "bar.class", 2L, "baz.class", 3L, "res/R.class", 4L),
-        false);
+    ZipFilterEntryFilter filter =
+        new ZipFilterEntryFilter(
+            ".*R.class.*",
+            ImmutableSetMultimap.of("foo.class", 1L, "baz.class", 2L),
+            ImmutableMap.of("foo.class", 1L, "bar.class", 2L, "baz.class", 3L, "res/R.class", 4L),
+            HashMismatchCheckMode.WARN);
     filter.accept("foo.class", callback);
     callback.assertOp(FilterOperation.SKIP);
     filter.accept("bar.class", callback);
@@ -188,10 +204,12 @@ public class ZipFilterActionTest {
   }
 
   @Test public void testZipEntryFilter_ErrorOnMismatch() throws Exception {
-    ZipFilterEntryFilter filter = new ZipFilterEntryFilter(".*R.class.*",
-        ImmutableSetMultimap.of("foo.class", 1L, "baz.class", 2L),
-        ImmutableMap.of("foo.class", 1L, "bar.class", 2L, "baz.class", 3L, "res/R.class", 4L),
-        true);
+    ZipFilterEntryFilter filter =
+        new ZipFilterEntryFilter(
+            ".*R.class.*",
+            ImmutableSetMultimap.of("foo.class", 1L, "baz.class", 2L),
+            ImmutableMap.of("foo.class", 1L, "bar.class", 2L, "baz.class", 3L, "res/R.class", 4L),
+            HashMismatchCheckMode.ERROR);
     filter.accept("foo.class", callback);
     callback.assertOp(FilterOperation.SKIP);
     filter.accept("bar.class", callback);
@@ -210,15 +228,16 @@ public class ZipFilterActionTest {
     File filter1 = tmp.newFile("filter1");
     File filter2 = tmp.newFile("filter2");
 
-    ImmutableList<String> args = ImmutableList.of(
-        "--inputZip", input.getPath(),
-        "--outputZip", output.getPath(),
-        "--filterZips", Joiner.on(",").join(filter1.getPath(), filter2.getPath(),
-            filter1.getPath()),
-        "--filterTypes", Joiner.on(",").join(".class", ".class", ".java"),
-        "--explicitFilters", Joiner.on(",").join("R\\.class", "R\\$.*\\.class"),
-        "--outputMode", "DONT_CARE",
-        "--noerrorOnHashMismatch");
+    ImmutableList<String> args =
+        ImmutableList.of(
+            "--inputZip", input.getPath(),
+            "--outputZip", output.getPath(),
+            "--filterZips",
+                Joiner.on(",").join(filter1.getPath(), filter2.getPath(), filter1.getPath()),
+            "--filterTypes", Joiner.on(",").join(".class", ".class", ".java"),
+            "--explicitFilters", Joiner.on(",").join("R\\.class", "R\\$.*\\.class"),
+            "--outputMode", "DONT_CARE",
+            "--checkHashMismatch", "IGNORE");
     thrown.expect(ZipException.class);
     thrown.expectMessage("Zip file 'filter1' is malformed");
     ZipFilterAction.main(args.toArray(new String[0]));
@@ -241,15 +260,8 @@ public class ZipFilterActionTest {
         "--filterTypes", ".class",
         "--explicitFilters", Joiner.on(",").join("R\\.class", "R\\$.*\\.class"),
         "--outputMode", "DONT_CARE");
-    ZipFilterAction.main(args.toArray(new String[0]));
-    List<String> filteredEntries = new ArrayList<>();
-    try (ZipFile zip = new ZipFile(output)) {
-      Enumeration<? extends ZipEntry> entries = zip.entries();
-      while (entries.hasMoreElements()) {
-        filteredEntries.add(entries.nextElement().getName());
-      }
-    }
-    assertThat(filteredEntries).containsExactly("foo.java", "baz.class", "2.class", "Read.class");
+    assertThat(outputEntriesWithArgs(args, output))
+        .containsExactly("foo.java", "baz.class", "2.class", "Read.class");
   }
 
   @Test public void testFullIntegrationErrorsOnHash() throws IOException {
@@ -257,16 +269,50 @@ public class ZipFilterActionTest {
     File output = tmp.newFile();
     output.delete();
     Path filter = createZip("foo.java", "bar.class");
-    ImmutableList<String> args = ImmutableList.of(
-        "--inputZip", input.toFile().getPath(),
-        "--outputZip", output.getPath(),
-        "--filterZips", filter.toFile().getPath(),
-        "--filterTypes", ".class",
-        "--outputMode", "DONT_CARE",
-        "--errorOnHashMismatch");
+    ImmutableList<String> args =
+        ImmutableList.of(
+            "--inputZip",
+            input.toFile().getPath(),
+            "--outputZip",
+            output.getPath(),
+            "--filterZips",
+            filter.toFile().getPath(),
+            "--filterTypes",
+            ".class",
+            "--checkHashMismatch",
+            "ERROR",
+            "--outputMode",
+            "DONT_CARE");
     thrown.expect(IllegalStateException.class);
     thrown.expectMessage("name matches but the hash does not");
     ZipFilterAction.main(args.toArray(new String[0]));
+  }
+
+  @Test
+  public void testSkipHashMismatchCheck() throws IOException {
+    Path input =
+        createZip(
+            new Entry("foo.java", "foo"),
+            new Entry("bar.class", "bar1"),
+            new Entry("baz.class", "baz"));
+    File output = tmp.newFile();
+    output.delete();
+    Path filter = createZip(new Entry("foo.java", "foo"), new Entry("bar.class", "bar2"));
+    ImmutableList<String> args =
+        ImmutableList.of(
+            "--inputZip",
+            input.toFile().getPath(),
+            "--outputZip",
+            output.getPath(),
+            "--filterZips",
+            filter.toFile().getPath(),
+            "--filterTypes",
+            ".class",
+            "--checkHashMismatch",
+            "IGNORE",
+            "--outputMode",
+            "DONT_CARE");
+    assertThat(outputEntriesWithArgs(args, output)).containsExactly("foo.java", "baz.class");
   }
 
   @Test public void testFullIntegrationErrorsOnHash_WithExplicitOverride()
@@ -283,14 +329,7 @@ public class ZipFilterActionTest {
         "--explicitFilters", "bar\\.class",
         "--outputMode", "DONT_CARE",
         "--errorOnHashMismatch");
-    ZipFilterAction.main(args.toArray(new String[0]));
-    List<String> filteredEntries = new ArrayList<>();
-    try (ZipFile zip = new ZipFile(output)) {
-      Enumeration<? extends ZipEntry> entries = zip.entries();
-      while (entries.hasMoreElements()) {
-        filteredEntries.add(entries.nextElement().getName());
-      }
-    }
-    assertThat(filteredEntries).containsExactly("foo.java", "baz.class");
+    assertThat(outputEntriesWithArgs(args, output)).containsExactly("foo.java", "baz.class");
   }
+
 }

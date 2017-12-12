@@ -71,6 +71,24 @@ public class ZipFilterAction {
 
   private static final Logger logger = Logger.getLogger(ZipFilterAction.class.getName());
 
+  /** Modes of performing content hash checking during zip filtering. */
+  public enum HashMismatchCheckMode {
+    /** Filter file from input zip iff a file is found with the same filename in filter zips. */
+    IGNORE,
+
+    /**
+     * Filter file from input zip iff a file is found with the same filename and content hash in
+     * filter zips. Print warning if the filename is identical but content hash is not.
+     */
+    WARN,
+
+    /**
+     * Same behavior as WARN, but throw an error if a file is found with the same filename with
+     * different content hash.
+     */
+    ERROR
+  }
+
   @Parameters(optionPrefixes = "--")
   static class Options {
     @Parameter(
@@ -106,14 +124,30 @@ public class ZipFilterAction {
     OutputMode outputMode = OutputMode.DONT_CARE;
 
     @Parameter(
+      names = "--checkHashMismatch",
+      description =
+          "Ignore, warn or throw an error if the content hashes of two files with the "
+              + "same name are different."
+    )
+    HashMismatchCheckMode hashMismatchCheckMode = HashMismatchCheckMode.WARN;
+
+    /**
+     * @deprecated please use --checkHashMismatch ERROR instead. Other options are IGNORE and WARN.
+     */
+    @Deprecated
+    @Parameter(
       names = "--errorOnHashMismatch",
       description = "Error on entry filter with hash mismatch."
     )
     boolean errorOnHashMismatch = false;
 
-    // This is a hack to support existing users of --noerrorOnHashMismatch. JCommander does not
-    // support setting boolean flags with "--no", so instead we set the default to false and just
-    // ignore anyone who passes --noerrorOnHashMismatch.
+    /**
+     * @deprecated please use --checkHashMismatch WARN instead. Other options are IGNORE and WARN.
+     *     <p>This is a hack to support existing users of --noerrorOnHashMismatch. JCommander does
+     *     not support setting boolean flags with "--no", so instead we set the default to false and
+     *     just ignore anyone who passes --noerrorOnHashMismatch.
+     */
+    @Deprecated
     @Parameter(names = "--noerrorOnHashMismatch")
     boolean ignored = false;
   }
@@ -184,7 +218,7 @@ public class ZipFilterAction {
             options.filterTypes, options.filterZips));
 
     final Stopwatch timer = Stopwatch.createStarted();
-    final Multimap<String, Long> entriesToOmit =
+    Multimap<String, Long> entriesToOmit =
         getEntriesToOmit(options.filterZips, options.filterTypes);
     final String explicitFilter =
         options.explicitFilters.isEmpty()
@@ -198,9 +232,15 @@ public class ZipFilterAction {
         inputEntries.put(entry.getName(), entry.getCrc());
       }
     }
+
+    // TODO(jingwen): Remove --errorOnHashMismatch when Blaze release with --checkHashMismatch
+    // is checked in.
+    if (options.errorOnHashMismatch) {
+      options.hashMismatchCheckMode = HashMismatchCheckMode.ERROR;
+    }
     ZipEntryFilter entryFilter =
         new ZipFilterEntryFilter(
-            explicitFilter, entriesToOmit, inputEntries.build(), options.errorOnHashMismatch);
+            explicitFilter, entriesToOmit, inputEntries.build(), options.hashMismatchCheckMode);
 
     try (OutputStream out = Files.newOutputStream(options.outputZip);
         ZipCombiner combiner = new ZipCombiner(options.outputMode, entryFilter, out)) {
