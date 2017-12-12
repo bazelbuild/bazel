@@ -67,15 +67,16 @@ public class CcImportConfiguredTargetTest extends BuildViewTestCase {
         "  shared_library = 'libfoo.a',",
         ")"
     );
-    checkError("c", "foo",
+    checkError(
+        "c",
+        "foo",
         "'//c:libfoo.a' does not produce any cc_import interface_library files "
-        + "(expected .ifso, .tbd, .so or .dylib)",
+            + "(expected .ifso, .tbd, .lib, .so or .dylib)",
         "cc_import(",
         "  name = 'foo',",
         "  shared_library = 'libfoo.dll',",
         "  interface_library = 'libfoo.a',",
-        ")"
-    );
+        ")");
     checkError("d", "foo",
         "'shared_library' shouldn't be specified when 'system_provided' is true",
         "cc_import(",
