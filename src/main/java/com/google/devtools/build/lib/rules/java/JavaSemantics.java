@@ -217,8 +217,6 @@ public interface JavaSemantics {
                 Optional.presentInstances(javaConfig.getBytecodeOptimizers().values()));
           });
 
-  String IJAR_LABEL = "//tools/defaults:ijar";
-
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
   String JACOCO_MAIN_CLASS_PLACEHOLDER = "%set_jacoco_main_class%";
   String JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER = "%set_jacoco_java_runfiles_root%";
