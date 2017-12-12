@@ -125,6 +125,13 @@ sh_test(
 )
 
 sh_test(
+    name = "configured_query_test",
+    size = "large",
+    srcs = ["configured_query_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_command_log_test",
     size = "medium",
     srcs = ["bazel_command_log_test.sh"],

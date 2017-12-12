@@ -56,7 +56,7 @@ EOF
     > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "INFO: Empty query results"
-  expect_log_not "//redwood:sequoiadendreon"
+  expect_not_log "//redwood:sequoiadendreon"
 
 }
 
