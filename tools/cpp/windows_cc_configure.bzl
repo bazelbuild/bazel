@@ -313,6 +313,7 @@ def configure_windows_toolchain(repository_ctx):
         "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
         "%{opt_content}": "",
         "%{dbg_content}": "",
+        "%{link_content}": "",
         "%{cxx_builtin_include_directory}": "",
         "%{coverage}": "",
     })
