@@ -1,6 +1,7 @@
 load("//tools/build_defs/docker:docker.bzl", "docker_build")
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("//src/test/docker:flavours.bzl", "FLAVOURS")
+load("@docker_config//:enabled.bzl", "CAN_TEST_WITH_DOCKER")
 
 pkg_tar(
     name = "bazel_cc_configure",
@@ -24,7 +25,7 @@ pkg_tar(
         "opt",
         "fastbuild",
     ]]
-    for flavour in FLAVOURS
+    for flavour in FLAVOURS if CAN_TEST_WITH_DOCKER
 ]
 
 # Shard the docker test by compilation mode
@@ -58,7 +59,7 @@ SHARD_NUMBER = {
         ],
         deps = ["//third_party/py/gflags"],
     ) for mode in SHARD_NUMBER]
-    for flavour in FLAVOURS
+    for flavour in FLAVOURS if CAN_TEST_WITH_DOCKER
 ]
 
 filegroup(

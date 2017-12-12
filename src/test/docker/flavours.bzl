@@ -17,7 +17,7 @@
 # we would switch to the docker_pull from bazelbuild/rules_docker but
 # we do not have an easy mean to create and maintain the images we need
 # for those tests.
-load("//src/test/docker:docker_pull.bzl", "docker_pull")
+load("//src/test/docker:docker_pull.bzl", "docker_config", "docker_pull")
 
 FLAVOURS = [
     "centos6.7",
@@ -35,3 +35,8 @@ def pull_images_for_docker_tests():
         dockerfile = "//src/test/docker:Dockerfile." + flavour,
         optional = True,
     )
+
+  docker_config(
+      name = "docker_config",
+      optional = True,
+  )

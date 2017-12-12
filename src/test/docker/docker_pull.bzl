@@ -14,10 +14,30 @@
 
 """Quick and not really nice docker_pull rules based on the docker daemon."""
 
-def _impl(repository_ctx):
+def can_user_docker(repository_ctx, docker):
+  """Test whether current user is allowed to execute docker."""
+  result = repository_ctx.execute([
+    docker,
+    "version",
+  ])
+  return result.return_code == 0
+
+
+def _create_repo(repository_ctx):
   docker = repository_ctx.which("docker")
+
+  user_enabled = False
+
+  if docker:
+    user_enabled = can_user_docker(repository_ctx, docker)
+    if not repository_ctx.attr.optional:
+      fail("Current user cannot execute docker commands")
+    if not user_enabled:
+      docker = None
+
   if docker == None and repository_ctx.attr.optional:
-    repository_ctx.file("BUILD", """
+    if user_enabled:
+      repository_ctx.file("BUILD", """
 load("@io_bazel//tools/build_defs/docker:docker.bzl", "docker_build")
 
 # an empty image to still allow building despite not having the base
@@ -27,7 +47,11 @@ docker_build(
     visibility = ['//visibility:public'],
 )
 """)
-    repository_ctx.file("image.tar")
+    else:
+      repository_ctx.file("BUILD")
+      repository_ctx.file("enabled.bzl", """
+CAN_TEST_WITH_DOCKER = False
+""")
     return
 
   repository_ctx.file("BUILD", """
@@ -39,6 +63,18 @@ docker_build(
     visibility = ["//visibility:public"],
 )
 """)
+  repository_ctx.file("enabled.bzl", """
+CAN_TEST_WITH_DOCKER = True
+""")
+  return docker
+
+
+def _config_impl(repository_ctx):
+  _create_repo(repository_ctx)
+
+
+def _pull_impl(repository_ctx):
+  docker = _create_repo(repository_ctx)
   tag = repository_ctx.attr.tag
   cmd = "pull"
   if repository_ctx.attr.dockerfile:
@@ -70,8 +106,16 @@ docker_build(
         result.return_code,
         result.stderr))
 
+docker_config = repository_rule(
+    implementation = _config_impl,
+    attrs = {
+        "optional": attr.bool(default=False),
+    },
+)
+
+
 docker_pull = repository_rule(
-    implementation = _impl,
+    implementation = _pull_impl,
     attrs = {
         "tag": attr.string(mandatory=True),
         "dockerfile": attr.label(default=None),
