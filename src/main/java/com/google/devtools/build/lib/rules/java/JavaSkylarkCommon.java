@@ -434,7 +434,7 @@ public class JavaSkylarkCommon {
     boolean generateMergedSourceJar = (sourceJars.size() > 1 || !sourceFiles.isEmpty())
         || (sourceJars.isEmpty() && sourceFiles.isEmpty() && !exports.isEmpty());
     Artifact outputSourceJar =
-        generateMergedSourceJar ? getSourceJar(skylarkRuleContext) : sourceJars.get(0);
+        generateMergedSourceJar ? getSourceJar(skylarkRuleContext, outputJar) : sourceJars.get(0);
 
     JavaCompilationArtifacts artifacts =
         helper.build(
@@ -481,9 +481,9 @@ public class JavaSkylarkCommon {
         .build();
   }
 
-  private static Artifact getSourceJar(SkylarkRuleContext skylarkRuleContext) throws EvalException {
-    return skylarkRuleContext.getRuleContext()
-        .getBinArtifact("lib" + skylarkRuleContext.getLabel().getName() + "-src.jar");
+  private static Artifact getSourceJar(SkylarkRuleContext skylarkRuleContext, Artifact outputJar) {
+    return JavaCompilationHelper.derivedArtifact(
+        skylarkRuleContext.getRuleContext(), outputJar, "", "-src.jar");
   }
 
   private static Artifact buildIjar(
