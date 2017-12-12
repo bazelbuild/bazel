@@ -17,8 +17,10 @@
 
 load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
+    "compiler_flags",
     "escape_string",
     "get_env_var",
+    "linker_flags",
     "which",
     "tpl",
 )
@@ -170,14 +172,16 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "target_libc": "macosx" if darwin else escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False)),
       "target_cpu": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False)),
       "target_system_name": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False)),
-      "cxx_flag": [
+      "cxx_flag": _escaped_cplus_include_paths(repository_ctx)
+        + compiler_flags(repository_ctx, default = [
           "-std=c++0x",
-      ] + _escaped_cplus_include_paths(repository_ctx),
-      "linker_flag": [
+          ]),
+      "linker_flag": linker_flags(repository_ctx, default = [
           "-lstdc++",
           "-lm",  # Some systems expect -lm in addition to -lstdc++
+        ])
           # Anticipated future default.
-      ] + (
+        + (
           ["-fuse-ld=gold"] if supports_gold_linker else []
       ) + _add_option_if_supported(
           repository_ctx, cc, "-Wl,-no-as-needed"

@@ -17,11 +17,51 @@
 load("@bazel_tools//tools/cpp:windows_cc_configure.bzl", "configure_windows_toolchain")
 load("@bazel_tools//tools/cpp:osx_cc_configure.bzl", "configure_osx_toolchain")
 load("@bazel_tools//tools/cpp:unix_cc_configure.bzl", "configure_unix_toolchain")
-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
+load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "char_escaped", "get_cpu_value", "unescape_string")
+
+
+def _split(value):
+  """Splits value by semi-colon. Value has to be % escaped."""
+  result = []
+  begin = 0
+  end = len(value)
+  for i, c in enumerate(value):
+    if c != ";":
+      # Nothing to do
+      continue
+
+    # May be separation
+    if char_escaped(value, begin, i):
+      # No separation
+      continue
+
+    # Is separation
+    result.append(unescape_string(value[begin:i]))
+    begin = i + 1
+
+  if (end - begin) > 0:
+    # There is something left
+    result.append(unescape_string(value[begin:end]))
+
+
+def _split_and_set(repository_ctx, variable):
+  repository_ctx.os.environ[variable] = _split(repository_ctx.os.environ[variable])
+
+
+def _strong_type_env(repository_ctx):
+  """Strong type certain environments entries."""
+  if "BAZEL_CXX_FLAGS" in repository_ctx.os.environ:
+    _split_and_set(repository_ctx, "BAZEL_CXX_FLAGS")
+  if "BAZEL_LINK_FLAGS" in repository_ctx.os.environ:
+    _split_and_set(repository_ctx, "BAZEL_LINK_FLAGS")
+
 
 def _impl(repository_ctx):
   repository_ctx.symlink(
       Label("@bazel_tools//tools/cpp:dummy_toolchain.bzl"), "dummy_toolchain.bzl")
+
+  _strong_type_env(repository_ctx)
+
   cpu_value = get_cpu_value(repository_ctx)
   if cpu_value == "freebsd":
     # This is defaulting to the static crosstool, we should eventually
@@ -44,7 +84,9 @@ cc_autoconf = repository_rule(
         "ABI_LIBC_VERSION",
         "ABI_VERSION",
         "BAZEL_COMPILER",
+        "BAZEL_CXX_FLAGS",
         "BAZEL_HOST_SYSTEM",
+        "BAZEL_LINK_FLAGS",
         "BAZEL_PYTHON",
         "BAZEL_SH",
         "BAZEL_TARGET_CPU",

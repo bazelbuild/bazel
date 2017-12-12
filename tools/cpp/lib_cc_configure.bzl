@@ -23,6 +23,46 @@ def escape_string(arg):
     return None
 
 
+def unescape_string(arg):
+  """Unescape two percent signs (%%) in the string."""
+  if arg == None:
+    return None
+
+  return str(arg).replace("%%", "%")
+
+
+def _count_direct_escaped(value, begin, end):
+  i = end - 1
+  while i >= begin and value[i] == "%":
+    i = i - 1
+
+  return end - 1 - i
+
+
+def _even_direct_escaped(value, begin, end):
+  return _count_direct_escaped(value, begin, end) % 2 == 0
+
+
+def char_escaped(value, begin, i):
+  return not _even_direct_escaped(value, begin, i)
+
+
+def compiler_flags(repository_ctx, default):
+  """Use ${BAZEL_CXX_FLAGS} for the list of compiler flags."""
+  cxx_flags = repository_ctx.os.environ.get("BAZEL_CXX_FLAGS", default = default)
+  if type(cxx_flags) == type([]):
+    fail("BAZEL_CXX_FLAGS needs to have a value of type list")
+  return cxx_flags
+
+
+def linker_flags(repository_ctx, default):
+  """Use ${BAZEL_LINK_FLAGS} for the list of linker flags."""
+  link_flags = repository_ctx.os.environ.get("BAZEL_LINK_FLAGS", default = default)
+  if type(link_flags) == type([]):
+    fail("BAZEL_LINK_FLAGS needs to have a value of type list")
+  return link_flags
+
+
 def auto_configure_fail(msg):
   """Output failure message when auto configuration fails."""
   red = "\033[0;31m"
