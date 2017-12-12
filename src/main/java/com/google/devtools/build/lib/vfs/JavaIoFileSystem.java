@@ -179,7 +179,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void setWritable(Path path, boolean writable) throws IOException {
+  public void setWritable(Path path, boolean writable) throws IOException {
     File file = getIoFile(path);
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
@@ -217,7 +217,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected boolean createDirectory(Path path) throws IOException {
+  public boolean createDirectory(Path path) throws IOException {
 
     // We always synchronize on the current path before doing it on the parent path and file system
     // path structure ensures that this locking order will never be reversed.
@@ -344,7 +344,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected boolean delete(Path path) throws IOException {
+  public boolean delete(Path path) throws IOException {
     File file = getIoFile(path);
     long startTime = Profiler.nanoTimeMaybe();
     synchronized (path) {

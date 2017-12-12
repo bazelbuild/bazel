@@ -553,7 +553,7 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
-  protected void setWritable(Path path, boolean writable) throws IOException {
+  public void setWritable(Path path, boolean writable) throws IOException {
     InMemoryContentInfo status;
     synchronized (this) {
       status = scopeLimitedStat(path, true);
@@ -597,7 +597,7 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
-  protected boolean createDirectory(Path path) throws IOException {
+  public boolean createDirectory(Path path) throws IOException {
     if (path.equals(getRootDirectory())) {
       throw Error.EACCES.exception(path);
     }
@@ -678,7 +678,7 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
-  protected boolean delete(Path path) throws IOException {
+  public boolean delete(Path path) throws IOException {
     if (path.equals(getRootDirectory())) {
       throw Error.EBUSY.exception(path);
     }

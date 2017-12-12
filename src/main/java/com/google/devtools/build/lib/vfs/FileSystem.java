@@ -250,12 +250,11 @@ public abstract class FileSystem {
     return fileSystem;
   }
 
-
   /**
-   * Creates a directory with the name of the current path. See
-   * {@link Path#createDirectory} for specification.
+   * Creates a directory with the name of the current path. See {@link Path#createDirectory} for
+   * specification.
    */
-  protected abstract boolean createDirectory(Path path) throws IOException;
+  public abstract boolean createDirectory(Path path) throws IOException;
 
   /**
    * Returns the size in bytes of the file denoted by {@code path}. See {@link
@@ -267,11 +266,8 @@ public abstract class FileSystem {
    */
   protected abstract long getFileSize(Path path, boolean followSymlinks) throws IOException;
 
-  /**
-   * Deletes the file denoted by {@code path}. See {@link Path#delete} for
-   * specification.
-   */
-  protected abstract boolean delete(Path path) throws IOException;
+  /** Deletes the file denoted by {@code path}. See {@link Path#delete} for specification. */
+  public abstract boolean delete(Path path) throws IOException;
 
   /**
    * Returns the last modification time of the file denoted by {@code path}. See {@link
@@ -693,7 +689,7 @@ public abstract class FileSystem {
    *
    * @throws IOException if there was an error reading or writing the file's metadata
    */
-  protected abstract void setWritable(Path path, boolean writable) throws IOException;
+  public abstract void setWritable(Path path, boolean writable) throws IOException;
 
   /**
    * Returns true iff the file represented by the path is executable.
