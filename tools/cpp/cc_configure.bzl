@@ -22,6 +22,7 @@ load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 def _impl(repository_ctx):
   repository_ctx.symlink(
       Label("@bazel_tools//tools/cpp:dummy_toolchain.bzl"), "dummy_toolchain.bzl")
+  env = repository_ctx.os.environ
   cpu_value = get_cpu_value(repository_ctx)
   if cpu_value == "freebsd":
     # This is defaulting to the static crosstool, we should eventually
@@ -32,7 +33,8 @@ def _impl(repository_ctx):
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
   elif cpu_value == "x64_windows":
     configure_windows_toolchain(repository_ctx)
-  elif cpu_value == "darwin":
+  elif (cpu_value == "darwin" and
+      ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
     configure_osx_toolchain(repository_ctx)
   else:
     configure_unix_toolchain(repository_ctx, cpu_value)
@@ -50,6 +52,7 @@ cc_autoconf = repository_rule(
         "BAZEL_TARGET_CPU",
         "BAZEL_TARGET_LIBC",
         "BAZEL_TARGET_SYSTEM",
+        "BAZEL_USE_CPP_ONLY_TOOLCHAIN",
         "BAZEL_VC",
         "BAZEL_VS",
         "CC",
