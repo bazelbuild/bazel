@@ -34,31 +34,6 @@ import org.junit.runners.JUnit4;
 public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Test
-  public void testLinkstampBuildVariable() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "cc_binary(",
-        "   name = 'bin',",
-        "   srcs = ['a.cc'],",
-        "   deps = [':lib'],",
-        ")",
-        "cc_library(",
-        "   name = 'lib',",
-        "   srcs = ['b.cc'],",
-        "   linkstamp = 'c.cc',",
-        ")");
-    scratch.file("x/a.cc");
-    scratch.file("x/b.cc");
-    scratch.file("x/c.cc");
-
-    ConfiguredTarget target = getConfiguredTarget("//x:bin");
-    Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    List<String> variableValue =
-        getSequenceVariableValue(variables, CppLinkActionBuilder.LINKSTAMP_PATHS_VARIABLE);
-    assertThat(Iterables.getOnlyElement(variableValue)).contains("c.o");
-  }
-
-  @Test
   public void testForcePicBuildVariable() throws Exception {
     useConfiguration("--force_pic");
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['a.cc'])");

@@ -590,13 +590,10 @@ public class CppHelper {
   }
 
   /**
-   * Resolves the linkstamp collection from the {@code CcLinkParams} into a map.
-   *
-   * <p>Emits a warning on the rule if there are identical linkstamp artifacts with different
+   * Emits a warning on the rule if there are identical linkstamp artifacts with different
    * compilation contexts.
    */
-  public static Map<Artifact, NestedSet<Artifact>> resolveLinkstamps(
-      RuleErrorConsumer listener, CcLinkParams linkParams) {
+  public static void checkLinkstampsUnique(RuleErrorConsumer listener, CcLinkParams linkParams) {
     Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();
     for (Linkstamp pair : linkParams.getLinkstamps()) {
       Artifact artifact = pair.getArtifact();
@@ -606,7 +603,6 @@ public class CppHelper {
       }
       result.put(artifact, pair.getDeclaredIncludeSrcs());
     }
-    return result;
   }
 
   public static void addTransitiveLipoInfoForCommonAttributes(
