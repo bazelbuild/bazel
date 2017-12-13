@@ -1669,4 +1669,39 @@ public class CcToolchainFeaturesTest {
       assertThat(e).hasMessageThat().contains("a b");
     }
   }
+
+  @Test
+  public void testErrorForNoMatchingArtifactNamePatternCategory() throws Exception {
+    try {
+      buildFeatures(
+          "artifact_name_pattern {",
+          "category_name: 'NONEXISTENT_CATEGORY'",
+          "pattern: 'some_pattern'}");
+      fail("Should throw InvalidConfigurationException.");
+    } catch (InvalidConfigurationException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Artifact category NONEXISTENT_CATEGORY not recognized");
+    }
+  }
+
+  @Test
+  public void testErrorForNoMatchingArtifactPatternForCategory() throws Exception {
+    try {
+      CcToolchainFeatures toolchainFeatures =
+          buildFeatures(
+              "artifact_name_pattern {",
+              "category_name: 'static_library'",
+              "pattern: 'some_pattern'}");
+      toolchainFeatures.getArtifactNameForCategory(ArtifactCategory.DYNAMIC_LIBRARY, "output_name");
+      fail("Should throw InvalidConfigurationException.");
+    } catch (InvalidConfigurationException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              String.format(
+                  CcToolchainFeatures.MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE,
+                  ArtifactCategory.DYNAMIC_LIBRARY.toString().toLowerCase()));
+    }
+  }
 }

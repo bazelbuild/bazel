@@ -584,8 +584,11 @@ public class CppCompileActionBuilder {
   }
 
   public CppCompileActionBuilder setOutputs(
-      RuleContext ruleContext, ArtifactCategory outputCategory, String outputName,
-      boolean generateDotd) {
+      RuleContext ruleContext,
+      ArtifactCategory outputCategory,
+      String outputName,
+      boolean generateDotd)
+      throws RuleErrorException {
     this.outputFile = CppHelper.getCompileOutputArtifact(
         ruleContext,
         CppHelper.getArtifactNameForCategory(ruleContext, ccToolchain, outputCategory, outputName),

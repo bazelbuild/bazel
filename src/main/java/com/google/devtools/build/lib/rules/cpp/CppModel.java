@@ -1149,7 +1149,7 @@ public final class CppModel {
     return outputFiles;
   }
 
-  String getOutputNameBaseWith(String base, boolean usePic) {
+  String getOutputNameBaseWith(String base, boolean usePic) throws RuleErrorException {
     return usePic
         ? CppHelper.getArtifactNameForCategory(
             ruleContext, ccToolchain, ArtifactCategory.PIC_FILE, base)
@@ -1529,9 +1529,12 @@ public final class CppModel {
    * Creates cpp PIC compile action builder from the given builder by adding necessary copt and
    * changing output and dotd file names.
    */
-  private CppCompileActionBuilder copyAsPicBuilder(CppCompileActionBuilder builder,
-      String outputName, ArtifactCategory outputCategory,
-      boolean generateDotd) {
+  private CppCompileActionBuilder copyAsPicBuilder(
+      CppCompileActionBuilder builder,
+      String outputName,
+      ArtifactCategory outputCategory,
+      boolean generateDotd)
+      throws RuleErrorException {
     CppCompileActionBuilder picBuilder = new CppCompileActionBuilder(builder);
     picBuilder
         .setPicMode(true)
