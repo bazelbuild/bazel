@@ -3,24 +3,23 @@ package org.checkerframework.dataflow.cfg.node;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.Tree;
-import org.checkerframework.javacutil.ErrorReporter;
-import org.checkerframework.javacutil.InternalUtils;
-
 import java.util.Collection;
 import java.util.LinkedList;
+import org.checkerframework.javacutil.ErrorReporter;
+import org.checkerframework.javacutil.InternalUtils;
 
 /**
  * A node for member references and lambdas.
  *
- * The {@link Node#type} of a FunctionalInterfaceNode is determined by the
- * assignment context the member reference or lambda is used in.
+ * <p>The {@link Node#type} of a FunctionalInterfaceNode is determined by the assignment context the
+ * member reference or lambda is used in.
  *
  * <pre>
- *   <em>FunctionalInterface func = param1, param2, ... -&gt; statement</em>
+ *   <em>FunctionalInterface func = param1, param2, ... &rarr; statement</em>
  * </pre>
  *
  * <pre>
- *   <em>FunctionalInterface func = param1, param2, ... -&gt; { ... }</em>
+ *   <em>FunctionalInterface func = param1, param2, ... &rarr; { ... }</em>
  * </pre>
  *
  * <pre>
@@ -28,7 +27,6 @@ import java.util.LinkedList;
  * </pre>
  *
  * @author David
- *
  */
 public class FunctionalInterfaceNode extends Node {
 
@@ -56,7 +54,7 @@ public class FunctionalInterfaceNode extends Node {
 
     @Override
     public String toString() {
-        if (tree instanceof LambdaExpressionTree){
+        if (tree instanceof LambdaExpressionTree) {
             return "FunctionalInterfaceNode:" + ((LambdaExpressionTree) tree).getBodyKind();
         } else if (tree instanceof MemberReferenceTree) {
             return "FunctionalInterfaceNode:" + ((MemberReferenceTree) tree).getName();

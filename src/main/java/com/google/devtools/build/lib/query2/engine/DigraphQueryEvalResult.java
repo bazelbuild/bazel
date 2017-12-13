@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.graph.Digraph;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /** {@link QueryEvalResult} along with a digraph giving the structure of the results. */
 public class DigraphQueryEvalResult<T> extends QueryEvalResult {

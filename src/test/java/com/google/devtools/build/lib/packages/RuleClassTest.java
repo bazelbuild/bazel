@@ -862,6 +862,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             : ruleDefinitionEnvironment.getTransitiveContentHashCode();
     return new RuleClass(
         name,
+        name,
         /*isSkylark=*/ skylarkExecutable,
         skylarkExecutable,
         /*skylarkTestable=*/ false,
@@ -889,6 +890,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .build(),
         supportsConstraintChecking,
         /*requiredToolchains=*/ ImmutableSet.<Label>of(),
+        /*supportsPlatforms=*/ true,
         attributes);
   }
 

@@ -45,6 +45,10 @@ public class DocgenConsts {
   public static final String SKYLARK_OVERVIEW_TEMPLATE =
       "com/google/devtools/build/docgen/templates/skylark-overview.vm";
 
+  // Build Encyclopedia documentation root
+  // Can be overridden from SkylarkDocumentationProcessor#parseOptions
+  public static String BEDocsRoot = "/versions/master/be";
+
   public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
 
   public static final String VAR_SECTION_BINARY = "SECTION_BINARY";

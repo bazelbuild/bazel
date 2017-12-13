@@ -23,8 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -253,11 +253,11 @@ final class CompilationAttributes {
 
     private static void addCompileOptionsFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("copts", Type.STRING_LIST)) {
-        builder.addCopts(ruleContext.getTokenizedStringListAttr("copts"));
+        builder.addCopts(ruleContext.getExpander().withDataLocations().tokenized("copts"));
       }
 
       if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
-        builder.addLinkopts(ruleContext.getTokenizedStringListAttr("linkopts"));
+        builder.addLinkopts(ruleContext.getExpander().withDataLocations().tokenized("linkopts"));
       }
     }
 

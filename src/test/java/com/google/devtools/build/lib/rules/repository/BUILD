@@ -13,9 +13,9 @@ filegroup(
 java_test(
     name = "RepositoryTests",
     srcs = select({
-        "//src:windows": [":RepositoryTests_windows_srcs"],
-        "//src:windows_msys": [":RepositoryTests_windows_srcs"],
-        "//src:windows_msvc": [":RepositoryTests_windows_srcs"],
+        "//src/conditions:windows": [":RepositoryTests_windows_srcs"],
+        "//src/conditions:windows_msys": [":RepositoryTests_windows_srcs"],
+        "//src/conditions:windows_msvc": [":RepositoryTests_windows_srcs"],
         "//conditions:default": glob(["*.java"]),
     }),
     data = ["test_decompress_archive.tar.gz"],
@@ -56,4 +56,21 @@ filegroup(
         ["*.java"],
         exclude = ["CompressedTarFunctionTest.java"],
     ),
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

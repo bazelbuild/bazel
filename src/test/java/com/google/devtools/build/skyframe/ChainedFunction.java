@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.util.concurrent.CountDownLatch;

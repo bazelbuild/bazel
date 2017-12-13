@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.profiler.chart;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 
 /**
  * The type of a bar in a Gantt Chart. A type consists of a name and a color.

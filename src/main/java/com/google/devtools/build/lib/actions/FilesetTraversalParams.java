@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -31,7 +34,7 @@ import java.util.Set;
 public interface FilesetTraversalParams {
 
   /** Desired behavior if the traversal hits a directory with a BUILD file, i.e. a subpackage. */
-  public enum PackageBoundaryMode {
+  enum PackageBoundaryMode {
     /** The traversal should recurse into the directory, optionally reporting a warning. */
     CROSS,
 
@@ -54,7 +57,7 @@ public interface FilesetTraversalParams {
   }
 
   /**
-   * Abstraction of the root directory of a {@link DirectTraversal}.
+   * The root directory of a {@link DirectTraversal}.
    *
    * <ul>
    * <li>The root of package traversals is the package directory, i.e. the parent of the BUILD file.
@@ -64,14 +67,15 @@ public interface FilesetTraversalParams {
    *
    * <p>For the meaning of "recursive" and "file" traversals see {@link DirectTraversal}.
    */
-  interface DirectTraversalRoot {
+  @AutoValue
+  abstract class DirectTraversalRoot {
 
     /**
      * Returns the root part of the full path.
      *
      * <p>This is typically the workspace root or some output tree's root (e.g. genfiles, binfiles).
      */
-    Path getRootPart();
+    public abstract Path getRootPart();
 
     /**
      * Returns the {@link #getRootPart() root}-relative part of the path.
@@ -79,14 +83,30 @@ public interface FilesetTraversalParams {
      * <p>This is typically the source directory under the workspace or the output file under an
      * output directory.
      */
-    PathFragment getRelativePart();
+    public abstract PathFragment getRelativePart();
 
     /** Returns a {@link RootedPath} composed of the root and relative parts. */
-    RootedPath asRootedPath();
+    public RootedPath asRootedPath() {
+      return RootedPath.toRootedPath(getRootPart(), getRelativePart());
+    }
+
+    @Memoized
+    @Override
+    public abstract int hashCode();
+
+    static DirectTraversalRoot forPackage(Artifact buildFile) {
+      return new AutoValue_FilesetTraversalParams_DirectTraversalRoot(
+          buildFile.getRoot().getPath(), buildFile.getRootRelativePath().getParentDirectory());
+    }
+
+    static DirectTraversalRoot forFileOrDirectory(Artifact fileOrDirectory) {
+      return new AutoValue_FilesetTraversalParams_DirectTraversalRoot(
+          fileOrDirectory.getRoot().getPath(), fileOrDirectory.getRootRelativePath());
+    }
   }
 
   /**
-   * Describes a request for a direct filesystem traversal.
+   * A request for a direct filesystem traversal.
    *
    * <p>"Direct" means this corresponds to an actual filesystem traversal as opposed to traversing
    * another Fileset rule, which is called a "nested" traversal.
@@ -102,10 +122,11 @@ public interface FilesetTraversalParams {
    *
    * <p>See {@link DirectTraversal#getRoot()} for more details.
    */
-  interface DirectTraversal {
+  @AutoValue
+  abstract class DirectTraversal {
 
     /** Returns the root of the traversal; see {@link DirectTraversalRoot}. */
-    DirectTraversalRoot getRoot();
+    public abstract DirectTraversalRoot getRoot();
 
     /**
      * Returns true if this traversal refers to a whole package.
@@ -115,7 +136,7 @@ public interface FilesetTraversalParams {
      * <p>Package traversals are always recursive (see {@link #isRecursive()}) and are never
      * generated (see {@link #isGenerated()}).
      */
-    boolean isPackage();
+    public abstract boolean isPackage();
 
     /**
      * Returns true if this is a "recursive traversal", i.e. created from FilesetEntry.srcdir.
@@ -141,16 +162,48 @@ public interface FilesetTraversalParams {
      * expanded just like normal directories, subsequent directory symlinks under them are *not*
      * expanded though; they are not expanded at all in "file traversals").
      */
-    boolean isRecursive();
+    public abstract boolean isRecursive();
 
     /** Returns true if the root points to a generated file, symlink or directory. */
-    boolean isGenerated();
+    public abstract boolean isGenerated();
 
     /** Returns true if input symlinks should be dereferenced; false if copied. */
-    boolean isFollowingSymlinks();
+    public abstract boolean isFollowingSymlinks();
 
     /** Returns the desired behavior when the traversal hits a subpackage. */
-    PackageBoundaryMode getPackageBoundaryMode();
+    public abstract PackageBoundaryMode getPackageBoundaryMode();
+
+    @Memoized
+    @Override
+    public abstract int hashCode();
+
+    @Memoized
+    byte[] getFingerprint() {
+      Fingerprint fp = new Fingerprint();
+      fp.addPath(getRoot().asRootedPath().asPath());
+      fp.addBoolean(isPackage());
+      fp.addBoolean(isFollowingSymlinks());
+      fp.addBoolean(isRecursive());
+      fp.addBoolean(isGenerated());
+      getPackageBoundaryMode().fingerprint(fp);
+      return fp.digestAndReset();
+    }
+
+    static DirectTraversal getDirectTraversal(
+        DirectTraversalRoot root,
+        boolean isPackage,
+        boolean followSymlinks,
+        PackageBoundaryMode pkgBoundaryMode,
+        boolean isRecursive,
+        boolean isGenerated) {
+      return new AutoValue_FilesetTraversalParams_DirectTraversal(
+          root,
+          isPackage,
+          isRecursive,
+          isGenerated,
+          followSymlinks,
+          pkgBoundaryMode);
+    }
   }
 
   /** Label of the Fileset rule that owns this traversal. */
@@ -169,7 +222,7 @@ public interface FilesetTraversalParams {
    * directory (when FilesetEntry.srcdir is specified) or traversal of a single file (when
    * FilesetEntry.files is specified). See {@link DirectTraversal} for more detail.
    *
-   * <p>The value is present if and only if {@link #getNestedTraversal} is absent.
+   * <p>The value is present if and only if {@link #getNestedTraversal} is empty.
    */
   Optional<DirectTraversal> getDirectTraversal();
 
@@ -178,9 +231,10 @@ public interface FilesetTraversalParams {
    *
    * <p>A nested traversal is the traversal of another Fileset referenced by FilesetEntry.srcdir.
    *
-   * <p>The value is present if and only if {@link #getDirectTraversal} is absent.
+   * <p>The value is non-empty when {@link #getDirectTraversal} is absent AND the nested Fileset has
+   * non-empty FilesetEntries.
    */
-  Optional<FilesetTraversalParams> getNestedTraversal();
+  ImmutableList<FilesetTraversalParams> getNestedTraversal();
 
   /** Adds the fingerprint of this traversal object. */
   void fingerprint(Fingerprint fp);

@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
@@ -21,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.Map;
@@ -231,9 +231,8 @@ class ParallelEvaluatorContext {
 
     @Override
     public void accept(TaggedEvents events) {
-      String tag = events.getTag();
       for (Event e : events.getEvents()) {
-        reporter.handle(e.withTag(tag));
+        reporter.handle(e);
       }
     }
   }

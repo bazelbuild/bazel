@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -289,6 +289,15 @@ public final class AspectDefinition {
      */
     public Builder requireProviders(Class<?>... providers) {
       requiredProviders.addNativeSet(ImmutableSet.copyOf(providers));
+      return this;
+    }
+    
+    /**
+     * Asserts that this aspect can only be evaluated for rules that supply all of the specified
+     * Skylark providers.
+     */
+    public Builder requireSkylarkProviders(SkylarkProviderIdentifier... skylarkProviders) {
+      requiredProviders.addSkylarkSet(ImmutableSet.copyOf(skylarkProviders));
       return this;
     }
 

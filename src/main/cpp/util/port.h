@@ -34,19 +34,42 @@
   __attribute__((__format__ \
     (__printf__, string_index, first_to_check)))
 
-//
-// Tell the compiler that a given function never returns
-//
-#define ATTRIBUTE_NORETURN __attribute__((noreturn))
 #define ATTRIBUTE_UNUSED __attribute__ ((__unused__))
 
 #else  // Not GCC
 
 #define PRINTF_ATTRIBUTE(string_index, first_to_check)
-#define ATTRIBUTE_NORETURN
 #define ATTRIBUTE_UNUSED
 
 #endif  // GCC
+
+// HAVE_ATTRIBUTE
+//
+// A function-like feature checking macro that is a wrapper around
+// `__has_attribute`, which is defined by GCC 5+ and Clang and evaluates to a
+// nonzero constant integer if the attribute is supported or 0 if not.
+//
+// It evaluates to zero if `__has_attribute` is not defined by the compiler.
+//
+// GCC: https://gcc.gnu.org/gcc-5/changes.html
+// Clang: https://clang.llvm.org/docs/LanguageExtensions.html
+#ifdef __has_attribute
+#define HAVE_ATTRIBUTE(x) __has_attribute(x)
+#else
+#define HAVE_ATTRIBUTE(x) (0)
+#endif
+
+// ATTRIBUTE_NORETURN
+//
+// Tells the compiler that a given function never returns.
+#if defined(SWIG)
+#define ATTRIBUTE_NORETURN
+#elif HAVE_ATTRIBUTE(noreturn) || (defined(__GNUC__) && !defined(__clang__))
+#define ATTRIBUTE_NORETURN __attribute__((noreturn))
+#else
+#define ATTRIBUTE_NORETURN
+#endif
+
 
 // Linux I/O priorities support is available only in later versions of glibc.
 // Therefore, we include some of the needed definitions here.  May need to

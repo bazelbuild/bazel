@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,10 +51,16 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     this.elements = new ArrayList<>(1);
   }
 
-  // Only for use when uncompressing a GroupedList.
-  private GroupedList(int size, List<Object> elements) {
+  // Use with caution as there are no checks in place for the integrity of the resulting object
+  // (no de-duping or verifying there are no nested lists).
+  public GroupedList(int size, List<Object> elements) {
     this.size = size;
     this.elements = new ArrayList<>(elements);
+  }
+
+  private GroupedList(int size, Object[] elements) {
+    this.size = size;
+    this.elements = Lists.newArrayList(elements);
   }
 
   /**
@@ -99,6 +107,8 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     return uniquifier;
   }
 
+  // Use with caution as there are no checks in place for the integrity of the resulting object
+  // (no de-duping).
   public void appendGroup(Collection<T> group) {
     // Do a check to make sure we don't have lists here. Note that if group is empty,
     // Iterables.getFirst will return null, and null is not instanceof List.
@@ -206,16 +216,30 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
       return new GroupedList<>();
     }
     if (compressed.getClass().isArray()) {
-      List<Object> elements = new ArrayList<>();
       int size = 0;
-      for (Object item : (Object[]) compressed) {
+      Object[] compressedArray = ((Object[]) compressed);
+      for (Object item : compressedArray) {
         size += sizeOf(item);
-        elements.add(item);
       }
-      return new GroupedList<>(size, elements);
+      return new GroupedList<>(size, compressedArray);
     }
     // Just a single element.
     return new GroupedList<>(1, ImmutableList.of(compressed));
+  }
+
+  public static int numElements(Object compressed) {
+    if (compressed == EMPTY_LIST) {
+      return 0;
+    }
+    if (compressed.getClass().isArray()) {
+      int size = 0;
+      for (Object item : (Object[]) compressed) {
+        size += sizeOf(item);
+      }
+      return size;
+    }
+    // Just a single element.
+    return 1;
   }
 
   @Override
@@ -356,9 +380,12 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
    * <p>If it contains a single element, then that element must not be {@code null}, and that
    * element is added to {@param elements}.
    *
-   * <p>If it contains more than one element, then an {@link ImmutableList} copy of {@param item}
-   * is added as the next element of {@param elements}. (This means {@param elements} may contain
-   * both raw objects and {@link ImmutableList}s.)
+   * <p>If it contains more than one element, then an {@link ImmutableList} copy of {@param item} is
+   * added as the next element of {@param elements}. (This means {@param elements} may contain both
+   * raw objects and {@link ImmutableList}s.)
+   *
+   * <p>Use with caution as there are no checks in place for the integrity of the resulting object
+   * (no de-duping or verifying there are no nested lists).
    */
   private static void addItem(Collection<?> item, List<Object> elements) {
     switch (item.size()) {

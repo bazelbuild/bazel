@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.truth.Truth;
@@ -27,18 +27,19 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
@@ -288,7 +289,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testDisallowDepsWithoutSrcsError() throws Exception {
-    useConfiguration("--experimental_allow_android_library_deps_without_srcs=false");
     checkError("android/deps", "b",
         // message:
         "android_library will be deprecating the use of deps to export targets implicitly",
@@ -346,7 +346,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     ConfiguredTarget a = getConfiguredTarget("//java/peach:a");
     Iterable<String> compileTimeJars = ActionsTestUtil.baseArtifactNames(
-        a.getProvider(JavaCompilationArgsProvider.class)
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, a)
             .getJavaCompilationArgs().getCompileTimeJars());
     assertThat(compileTimeJars).contains("libb-hjar.jar");
     assertThat(compileTimeJars).doesNotContain("libc-hjar.jar");
@@ -395,24 +395,14 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testSrcsLessExportsAreStillDirect() throws Exception {
-    scratch.file("java/exports/BUILD",
+  public void testSrcsLessExportsAreDisallowed() throws Exception {
+    checkError(
+        "java/deps",
+        "b",
+        "android_library will be deprecating the use of deps to export targets implicitly",
         "android_library(name = 'a', srcs = ['a.java'])",
-        "android_library(name = 'b', deps = ['a'])",
-        "android_library(name = 'c', srcs = ['c.java'], deps = [':b'])");
-
-    ConfiguredTarget bTarget = getConfiguredTarget("//java/exports:b");
-    ConfiguredTarget cTarget = getConfiguredTarget("//java/exports:c");
-
-    assertThat(ActionsTestUtil.baseArtifactNames(getDefaultRunfiles(bTarget).getArtifacts()))
-        .isEqualTo(Arrays.asList("liba.jar"));
-
-    assertThat(ActionsTestUtil.baseArtifactNames(getDefaultRunfiles(cTarget).getArtifacts()))
-        .isEqualTo(Arrays.asList("liba.jar", "libc.jar"));
-
-    assertContainsEvent(
-        "android_library will be deprecating the use of deps "
-            + "to export targets implicitly.",  ImmutableSet.of(EventKind.WARNING));
+        "android_library(name = 'b', deps = ['a'])"
+        );
   }
 
   @Test
@@ -499,7 +489,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget idlTarget =
         getConfiguredTarget("//java/android:idl");
     NestedSet<Artifact> outputGroup =
-        getOutputGroup(idlTarget, AndroidSemantics.IDL_JARS_OUTPUT_GROUP);
+        getOutputGroup(idlTarget, AndroidIdlHelper.IDL_JARS_OUTPUT_GROUP);
 
     SpawnAction classJarAction = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         actionsTestUtil().artifactClosureOf(outputGroup), "libidl-idl.jar");
@@ -530,7 +520,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget idlTarget =
         getConfiguredTarget("//java/android:lib");
     NestedSet<Artifact> outputGroup =
-        getOutputGroup(idlTarget, AndroidSemantics.IDL_JARS_OUTPUT_GROUP);
+        getOutputGroup(idlTarget, AndroidIdlHelper.IDL_JARS_OUTPUT_GROUP);
     List<String> asString = Lists.newArrayList();
     for (Artifact artifact : outputGroup) {
       asString.add(artifact.getRootRelativePathString());
@@ -952,39 +942,48 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNeverlinkResources_JavaCompileAction() throws Exception {
+  public void testNeverlinkResources_compileAndRuntimeJars() throws Exception {
     scratch.file("java/apps/android/BUILD",
         "android_library(name = 'foo',",
         "                manifest = 'AndroidManifest.xml',",
-        "                deps = [':lib', ':lib_neverlink'])",
+        "                exports = [':lib', ':lib_neverlink'],)",
         "android_library(name = 'lib_neverlink',",
         "                neverlink = 1,",
-        "                manifest = 'AndroidManifest.xml',",
-        "                deps = [':bar'])",
+        "                manifest = 'AndroidManifest.xml',)",
         "android_library(name = 'lib',",
-        "                manifest = 'AndroidManifest.xml',",
-        "                deps = [':bar'])",
-        "android_library(name = 'bar',",
-        "                manifest = 'AndroidManifest.xml')");
+        "                manifest = 'AndroidManifest.xml',)");
 
     ConfiguredTarget foo = getConfiguredTarget("//java/apps/android:foo");
-    JavaCompilationArgsProvider argsProvider = foo.getProvider(JavaCompilationArgsProvider.class);
-    JavaCompileAction javacAction =
-        (JavaCompileAction) getGeneratingActionForLabel("//java/apps/android:libfoo.jar");
+    ConfiguredTarget lib = getConfiguredTarget("//java/apps/android:lib");
+    ConfiguredTarget libNeverlink = getConfiguredTarget("//java/apps/android:lib_neverlink");
+    NestedSet<Artifact> neverLinkFilesToBuild = getFilesToBuild(libNeverlink);
+    NestedSet<Artifact> libFilesToBuild = getFilesToBuild(lib);
+    JavaCompilationArgsProvider argsProvider =
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, foo);
 
     assertThat(argsProvider.getJavaCompilationArgs().getCompileTimeJars())
         .contains(ActionsTestUtil.getFirstArtifactEndingWith(
-            javacAction.getInputs(), "lib_neverlink_resources.jar"));
+            actionsTestUtil().artifactClosureOf(neverLinkFilesToBuild),
+            "lib_neverlink_resources.jar"));
+    assertThat(argsProvider.getJavaCompilationArgs().getCompileTimeJars())
+        .contains(ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(libFilesToBuild),
+            "lib_resources.jar"));
+
     assertThat(argsProvider.getJavaCompilationArgs().getRuntimeJars())
         .doesNotContain(ActionsTestUtil.getFirstArtifactEndingWith(
-            javacAction.getInputs(), "lib_neverlink_resources.jar"));
+            actionsTestUtil().artifactClosureOf(neverLinkFilesToBuild),
+            "lib_neverlink_resources.jar"));
+    assertThat(argsProvider.getJavaCompilationArgs().getRuntimeJars())
+        .contains(ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(libFilesToBuild),
+            "lib_resources.jar"));
   }
 
   @Test
   public void testResourceMergeAndProcessParallel() throws Exception {
     // Test that for android_library, we can divide the resource processing action into
     // smaller actions.
-    useConfiguration("--experimental_use_parallel_android_resource_processing");
     scratch.file(
         "java/android/app/foo/BUILD",
         "android_library(name = 'r',",
@@ -1512,7 +1511,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             sdk.getProvider(AndroidSdkProvider.class).getAndroidJar(),
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
             getImplicitOutputArtifact(
-                b, a.getConfiguration(), AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
+                b, a.getConfiguration(), AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(linkAction.getOutputs())
         .containsAllOf(
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT),
@@ -1552,7 +1551,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "  manifest = 'a/AndroidManifest.xml',",
         "  resource_files = [ 'res/values/a.xml' ]",
         ")");
-    useConfiguration("--experimental_use_manifest_from_resource_apk");
 
     ConfiguredTarget target = getConfiguredTarget("//java/a:a");
 
@@ -1563,5 +1561,96 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .getManifest()
         .getPath()
         .toString()).contains("processed_manifest");
+  }
+
+  @Test
+  public void testAndroidLibrary_SrcsLessDepsHostConfigurationNoOverride() throws Exception {
+    scratch.file(
+        "java/srclessdeps/BUILD",
+        "android_library(name = 'dep_for_foo',",
+        "                srcs = ['a.java'],",
+        "              )",
+        "android_library(name = 'foo',",
+        "                deps = [':dep_for_foo'],",
+        "              )",
+        "genrule(name = 'some_genrule',",
+        "        tools = [':foo'],",
+        "        outs = ['some_outs'],",
+        "        cmd = '$(location :foo) do_something $@',",
+        "        )");
+
+    useConfiguration("--experimental_allow_android_library_deps_without_srcs");
+    // genrule builds its tools using the host configuration.
+    ConfiguredTarget genruleTarget = getConfiguredTarget("//java/srclessdeps:some_genrule");
+    ConfiguredTarget target = getDirectPrerequisite(genruleTarget, "//java/srclessdeps:foo");
+    assertThat(
+            target
+                .getConfiguration()
+                .getFragment(AndroidConfiguration.class)
+                .allowSrcsLessAndroidLibraryDeps())
+        .isTrue();
+  }
+
+  @Test
+  public void testAndroidLibraryValidatesProguardSpec() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l2',",
+        "                srcs = ['MoreMaps.java'],",
+        "                proguard_specs = ['library_spec.cfg'])",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               deps = [':l2'],",
+        "               proguard_specs = ['proguard-spec.pro'])");
+    Set<Artifact> transitiveArtifacts =
+        actionsTestUtil()
+            .artifactClosureOf(
+                getFilesToBuild(getConfiguredTarget("//java/com/google/android/hello:b")));
+    Action action =
+        actionsTestUtil()
+            .getActionForArtifactEndingWith(transitiveArtifacts, "library_spec.cfg_valid");
+    assertWithMessage("proguard validate action was spawned for binary target.")
+        .that(
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(transitiveArtifacts, "proguard-spec.pro_valid"))
+        .isNull();
+    assertWithMessage("Proguard validate action was not spawned.")
+        .that(ActionsTestUtil.prettyArtifactNames(action.getInputs()))
+        .contains("java/com/google/android/hello/library_spec.cfg");
+  }
+
+  @Test
+  public void testAndroidLibraryValidatesProguardSpecWithoutBinary() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "android_library(name = 'l2',",
+        "                srcs = ['MoreMaps.java'],",
+        "                proguard_specs = ['library_spec.cfg'])",
+        "android_library(name = 'l3',",
+        "                srcs = ['MoreMaps.java'],",
+        "                deps = [':l2'])");
+    Action action =
+        actionsTestUtil()
+            .getActionForArtifactEndingWith(
+                getOutputGroup(
+                    getConfiguredTarget("//java/com/google/android/hello:l2"),
+                    OutputGroupProvider.HIDDEN_TOP_LEVEL),
+                "library_spec.cfg_valid");
+    assertWithMessage("Proguard validate action was not spawned.").that(action).isNotNull();
+    assertWithMessage("Proguard validate action was spawned without correct input.")
+        .that(ActionsTestUtil.prettyArtifactNames(action.getInputs()))
+        .contains("java/com/google/android/hello/library_spec.cfg");
+    Action transitiveAction =
+        actionsTestUtil()
+            .getActionForArtifactEndingWith(
+                getOutputGroup(
+                    getConfiguredTarget("//java/com/google/android/hello:l3"),
+                    OutputGroupProvider.HIDDEN_TOP_LEVEL),
+                "library_spec.cfg_valid");
+    assertWithMessage("Proguard validate action was not spawned.")
+        .that(transitiveAction)
+        .isNotNull();
+    assertWithMessage("Proguard validate action was spawned without correct input.")
+        .that(ActionsTestUtil.prettyArtifactNames(transitiveAction.getInputs()))
+        .contains("java/com/google/android/hello/library_spec.cfg");
   }
 }

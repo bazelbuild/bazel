@@ -31,6 +31,7 @@ source ${SCRIPT_DIR}/relnotes.sh || { echo "relnotes.sh not found!" >&2; exit 1;
 
 function set_up() {
   cd ${MASTER_ROOT}
+  git checkout -q master
 }
 
 function test_format_release_notes() {
@@ -235,6 +236,31 @@ function test_extract_release_note_for_post_copybara_commits() {
   local expected="'output_groups' and 'instrumented_files' cannot be specified in DefaultInfo."
   extract_release_note e788964a6ebc2c4966456ac74044f4f44a126fe5
   local actual=$(printf "%s\n"  "${RELNOTES_[@]}")
+  assert_equals "${expected}" "${actual}"
+}
+
+function test_commit_list_no_rollback() {
+  git checkout -q 2ea4fa26281175c316651ec50784b820a9f409cf
+  local expected='7c672ac643dd59bf4b3e284c6ad019c54545492f
+0257c29f496719bb8414d012334155de6bbefa11
+a9c46e5907be66248b6218ae70e0a1d999c696d5
+78927792c77a6468607e215034c22b0641553f77
+8882192897fa3453d51fe907d19f948215a581af
+2ea4fa26281175c316651ec50784b820a9f409cf'
+  local actual="$(get_release_notes_commits 7c605cf6ea9755a06e5abb16a631faac8ebe2937)"
+  assert_equals "${expected}" "${actual}"
+}
+
+function test_nonone_relnotes() {
+  git checkout -q 2ea4fa26281175c316651ec50784b820a9f409cf
+  local expected='Incompatible changes:
+
+  - --javabase=<absolute path> and --host_javabase=<absolute path>
+    are not supported anymore. If you need this functionality
+    java_runtime_suite(name="suite", default=":runtime")
+    java_runtime(name="runtime", java_home=<path to the JDK>) is an
+    alternative.'
+  local actual="$(release_notes  7c605cf6ea9755a06e5abb16a631faac8ebe2937)"
   assert_equals "${expected}" "${actual}"
 }
 

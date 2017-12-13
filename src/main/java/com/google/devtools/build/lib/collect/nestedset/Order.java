@@ -20,10 +20,8 @@ import java.util.HashMap;
 /**
  * Type of a nested set (defines order).
  *
- *
  * <p>STABLE_ORDER: an unspecified traversal order. Use when the order of elements does not matter.
  * In Skylark it is called "default"; its older deprecated name is "stable".
- *
  *
  * <p>COMPILE_ORDER: left-to-right postorder. In Skylark it is called "postorder"; its older
  * deprecated name is "compile".
@@ -33,7 +31,6 @@ import java.util.HashMap;
  *
  * <p>This type of set would typically be used for artifacts where elements of nested sets go before
  * the direct members of a set, for example in the case of Javascript dependencies.
- *
  *
  * <p>LINK_ORDER: a variation of left-to-right preorder that enforces topological sorting. In
  * Skylark it is called "topological"; its older deprecated name is "link".
@@ -87,7 +84,6 @@ import java.util.HashMap;
  * such cases ordering is decided by the rightmost branch because of the list reversing behind the
  * scenes, so the ordering in the final enumeration will be "E D".
  *
- *
  * <p>NAIVE_LINK_ORDER: a left-to-right preordering. In Skylark it is called "preorder"; its older
  * deprecated name is "naive_link".
  *
@@ -102,23 +98,20 @@ import java.util.HashMap;
  * dependencies-after-parent ordering. Note that the latter is usually more important, so please use
  * LINK_ORDER whenever possible.
  */
-// TODO(bazel-team): Remove deprecatedSkylarkName and it's associated helpers before Bazel 1.0.
+// TODO(bazel-team): Remove deprecated names from the documentation above.
 public enum Order {
-  STABLE_ORDER("default", "stable"),
-  COMPILE_ORDER("postorder", "compile"),
-  LINK_ORDER("topological", "link"),
-  NAIVE_LINK_ORDER("preorder", "naive_link");
+  STABLE_ORDER("default"),
+  COMPILE_ORDER("postorder"),
+  LINK_ORDER("topological"),
+  NAIVE_LINK_ORDER("preorder");
 
   private static final ImmutableMap<String, Order> VALUES;
-  private static final ImmutableMap<String, Order> DEPRECATED_VALUES;
 
   private final String skylarkName;
-  private final String deprecatedSkylarkName;
   private final NestedSet<?> emptySet;
 
-  private Order(String skylarkName, String deprecatedSkylarkName) {
+  private Order(String skylarkName) {
     this.skylarkName = skylarkName;
-    this.deprecatedSkylarkName = deprecatedSkylarkName;
     this.emptySet = new NestedSet<>(this);
   }
 
@@ -134,35 +127,6 @@ public enum Order {
     return skylarkName;
   }
 
-  public String getDeprecatedSkylarkName() {
-    return deprecatedSkylarkName;
-  }
-
-  /**
-   * Parses the given string as a nested set order
-   *
-   * @param name unique name of the order
-   * @param forbidDeprecatedOrderNames if true, old style ordering names will be rejected
-   * @return the appropriate order instance
-   * @throws IllegalArgumentException if the name is not valid
-   */
-  public static Order parse(String name, boolean forbidDeprecatedOrderNames) {
-    if (VALUES.containsKey(name)) {
-      return VALUES.get(name);
-    } else if (DEPRECATED_VALUES.containsKey(name)) {
-      if (forbidDeprecatedOrderNames) {
-        throw new IllegalArgumentException(String.format(
-            "Order name '%s' is deprecated, use '%s' instead",
-            name,
-            DEPRECATED_VALUES.get(name).getSkylarkName()
-        ));
-      }
-      return DEPRECATED_VALUES.get(name);
-    } else {
-      throw new IllegalArgumentException("Invalid order: " + name);
-    }
-  }
-
   /**
    * Parses the given string as a nested set order
    *
@@ -171,7 +135,11 @@ public enum Order {
    * @throws IllegalArgumentException if the name is not valid
    */
   public static Order parse(String name) {
-    return parse(name, false);
+    if (VALUES.containsKey(name)) {
+      return VALUES.get(name);
+    } else {
+      throw new IllegalArgumentException("Invalid order: " + name);
+    }
   }
 
   /**
@@ -191,14 +159,11 @@ public enum Order {
     Order[] tmpValues = Order.values();
 
     HashMap<String, Order> entries = Maps.newHashMapWithExpectedSize(tmpValues.length);
-    HashMap<String, Order> deprecatedEntries = Maps.newHashMapWithExpectedSize(tmpValues.length);
 
     for (Order current : tmpValues) {
       entries.put(current.getSkylarkName(), current);
-      deprecatedEntries.put(current.getDeprecatedSkylarkName(), current);
     }
 
     VALUES = ImmutableMap.copyOf(entries);
-    DEPRECATED_VALUES = ImmutableMap.copyOf(deprecatedEntries);
   }
 }

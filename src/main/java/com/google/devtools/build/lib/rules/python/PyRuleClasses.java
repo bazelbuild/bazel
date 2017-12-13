@@ -14,6 +14,10 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -23,4 +27,18 @@ public class PyRuleClasses {
 
   public static final FileType PYTHON_SOURCE = FileType.of(".py");
   public static final LibraryLanguage LANGUAGE = new LibraryLanguage("Python");
+
+  /**
+   * Input for {@link RuleClass.Builder#cfg(RuleTransitionFactory)}: if
+   * {@link PythonOptions#forcePython} is unset, sets the Python version according to the rule's
+   * default Python version. Assumes the rule has the expected attribute for this setting.
+   *
+   * <p>Since this is a configuration transition, this propagates to the rules' transitive deps.
+   */
+  public static final RuleTransitionFactory DEFAULT_PYTHON_VERSION_TRANSITION =
+      (rule) ->
+          new PythonVersionTransition(
+              PythonVersion.parse(
+                  RawAttributeMapper.of(rule).get("default_python_version", Type.STRING),
+                  PythonVersion.ALL_VALUES));
 }

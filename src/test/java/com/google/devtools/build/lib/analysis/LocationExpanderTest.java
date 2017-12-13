@@ -16,78 +16,100 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import org.junit.Before;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link LocationExpander}. */
 @RunWith(JUnit4.class)
-public class LocationExpanderTest extends BuildViewTestCase {
+public class LocationExpanderTest {
+  private static final class Capture extends AbstractRuleErrorConsumer
+      implements RuleErrorConsumer {
+    private final List<String> warnsOrErrors = new ArrayList<>();
 
-  @Before
-  public void createFiles() throws Exception {
-    // Set up a rule to test expansion in.
-    scratch.file("files/fileA");
-    scratch.file("files/fileB");
+    @Override
+    public void ruleWarning(String message) {
+      warnsOrErrors.add("WARN: " + message);
+    }
 
-    scratch.file(
-        "files/BUILD",
-        "filegroup(name='files',",
-        "  srcs = ['fileA', 'fileB'])",
-        "sh_library(name='lib',",
-        "  deps = [':files'])");
+    @Override
+    public void ruleError(String message) {
+      warnsOrErrors.add("ERROR: " + message);
+    }
+
+    @Override
+    public void attributeWarning(String attrName, String message) {
+      warnsOrErrors.add("WARN-" + attrName + ": " + message);
+    }
+
+    @Override
+    public void attributeError(String attrName, String message) {
+      warnsOrErrors.add("ERROR-" + attrName + ": " + message);
+    }
+
+    @Override
+    public boolean hasErrors() {
+      return !warnsOrErrors.isEmpty();
+    }
   }
 
-  private LocationExpander makeExpander(String label) throws Exception {
-    ConfiguredTarget target = getConfiguredTarget(label);
-    RuleContext ruleContext = getRuleContext(target);
-    return new LocationExpander(ruleContext);
+  private LocationExpander makeExpander(RuleErrorConsumer ruleErrorConsumer) throws Exception {
+    return new LocationExpander(
+        ruleErrorConsumer,
+        ImmutableMap.<String, Function<String, String>>of(
+            "location", (String s) -> "one(" + s + ")",
+            "locations", (String s) -> "more(" + s + ")"));
   }
 
-  @Test
-  public void location_absolute() throws Exception {
-    LocationExpander expander = makeExpander("//files:files");
-    String input = "foo $(location //files:fileA) bar";
-    String result = expander.expand(input);
-
-    assertThat(result).isEqualTo("foo files/fileA bar");
-  }
-
-  @Test
-  public void locations_spaces() throws Exception {
-    scratch.file("spaces/file with space A");
-    scratch.file("spaces/file with space B");
-    scratch.file(
-        "spaces/BUILD",
-        "filegroup(name='files',",
-        "  srcs = ['file with space A', 'file with space B'])",
-        "sh_library(name='lib',",
-        "  deps = [':files'])");
-
-    LocationExpander expander = makeExpander("//spaces:lib");
-    String input = "foo $(locations :files) bar";
-    String result = expander.expand(input);
-
-    assertThat(result).isEqualTo("foo 'spaces/file with space A' 'spaces/file with space B' bar");
+  private String expand(String input) throws Exception {
+    return makeExpander(new Capture()).expand(input);
   }
 
   @Test
-  public void location_relative() throws Exception {
-    LocationExpander expander = makeExpander("//files:files");
-    String input = "foo $(location :fileA) bar";
-    String result = expander.expand(input);
-
-    assertThat(result).isEqualTo("foo files/fileA bar");
+  public void noExpansion() throws Exception {
+    assertThat(expand("abc")).isEqualTo("abc");
   }
 
   @Test
-  public void locations_relative() throws Exception {
-    LocationExpander expander = makeExpander("//files:lib");
-    String input = "foo $(locations :files) bar";
-    String result = expander.expand(input);
+  public void oneOrMore() throws Exception {
+    assertThat(expand("$(location a)")).isEqualTo("one(a)");
+    assertThat(expand("$(locations b)")).isEqualTo("more(b)");
+    assertThat(expand("---$(location a)---")).isEqualTo("---one(a)---");
+  }
 
-    assertThat(result).isEqualTo("foo files/fileA files/fileB bar");
+  @Test
+  public void twoInOne() throws Exception {
+    assertThat(expand("$(location a) $(locations b)")).isEqualTo("one(a) more(b)");
+  }
+
+  @Test
+  public void notAFunction() throws Exception {
+    assertThat(expand("$(locationz a)")).isEqualTo("$(locationz a)");
+  }
+
+  @Test
+  public void missingClosingParen() throws Exception {
+    Capture capture = new Capture();
+    String value = makeExpander(capture).expand("foo $(location a");
+    // In case of an error, no location expansion is performed.
+    assertThat(value).isEqualTo("foo $(location a");
+    assertThat(capture.warnsOrErrors).containsExactly("ERROR: unterminated $(location) expression");
+  }
+
+  // In case of errors, the exact return value is unspecified. However, we don't want to
+  // accidentally change the behavior even in this unspecified case - that's why I added a test
+  // here.
+  @Test
+  public void noExpansionOnError() throws Exception {
+    Capture capture = new Capture();
+    String value = makeExpander(capture).expand("foo $(location a) $(location a");
+    assertThat(value).isEqualTo("foo $(location a) $(location a");
+    assertThat(capture.warnsOrErrors).containsExactly("ERROR: unterminated $(location) expression");
   }
 }

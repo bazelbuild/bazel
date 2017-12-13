@@ -86,7 +86,7 @@ public interface MemoizingEvaluator {
    *
    * <p>The returned map may be a live view of the graph.
    */
-  // TODO(bazel-team): Replace all usages of getValues, getDoneValues, getExistingValueForTesting,
+  // TODO(bazel-team): Replace all usages of getValues, getDoneValues, getExistingValue,
   // and getExistingErrorForTesting with usages of WalkableGraph. Changing the getValues usages
   // require some care because getValues gives access to the previous value for changed/dirty nodes.
   Map<SkyKey, SkyValue> getValues();
@@ -108,12 +108,12 @@ public interface MemoizingEvaluator {
   /**
    * Returns a value if and only if an earlier call to {@link #evaluate} created it; null otherwise.
    *
-   * <p>This method should only be used by tests that need to verify the presence of a value in the
-   * graph after an {@link #evaluate} call.
+   * <p>This method should mainly be used by tests that need to verify the presence of a value in
+   * the graph after an {@link #evaluate} call.
    */
   @VisibleForTesting
   @Nullable
-  SkyValue getExistingValueForTesting(SkyKey key);
+  SkyValue getExistingValue(SkyKey key) throws InterruptedException;
 
   /**
    * Returns an error if and only if an earlier call to {@link #evaluate} created it; null
@@ -127,7 +127,7 @@ public interface MemoizingEvaluator {
   ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException;
 
   @Nullable
-  NodeEntry getExistingEntryForTesting(SkyKey key);
+  NodeEntry getExistingEntryForTesting(SkyKey key) throws InterruptedException;
 
   /**
    * Tests that want finer control over the graph being used may provide a {@code transformer} here.

@@ -51,6 +51,9 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
                 .value(GenRuleBaseRule.ccToolchainAttribute(env)))
+        .add(
+            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
+                .value(GenRuleBaseRule.ccToolchainTypeAttribute(env)))
         .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.hostJdkAttribute(env)))
         .build();
   }

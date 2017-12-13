@@ -38,18 +38,18 @@ public class StatementWithoutEffectCheckerTest {
   public void reportUselessExpressionStatements() throws Exception {
     String messages =
         findIssues("1", "len", "'string'", "'a'.len", "1 + 1", "[1, 2, 3]").toString();
-    Truth.assertThat(messages).contains(":1:1: expression result not used");
-    Truth.assertThat(messages).contains(":2:1: expression result not used");
-    Truth.assertThat(messages).contains(":3:1: expression result not used");
-    Truth.assertThat(messages).contains(":4:1: expression result not used");
-    Truth.assertThat(messages).contains(":5:1: expression result not used");
-    Truth.assertThat(messages).contains(":6:1: expression result not used");
+    Truth.assertThat(messages).contains("1:1-1:1: expression result not used [no-effect]");
+    Truth.assertThat(messages).contains("2:1-2:3: expression result not used [no-effect]");
+    Truth.assertThat(messages).contains("3:1-3:8: expression result not used [no-effect]");
+    Truth.assertThat(messages).contains("4:1-4:7: expression result not used [no-effect]");
+    Truth.assertThat(messages).contains("5:1-5:5: expression result not used [no-effect]");
+    Truth.assertThat(messages).contains("6:1-6:9: expression result not used [no-effect]");
   }
 
   @Test
   public void testListComprehensions() throws Exception {
     Truth.assertThat(findIssues("[x for x in []] # has no effect").toString())
-        .contains(":1:1: expression result not used");
+        .contains("1:1-1:15: expression result not used");
     Truth.assertThat(
             findIssues(
                 "[print(x) for x in range(5)] # allowed because top-level and has an effect"))
@@ -58,13 +58,25 @@ public class StatementWithoutEffectCheckerTest {
             findIssues(
                     "def f():", "  [print(x) for x in range(5)] # should be replaced by for-loop")
                 .toString())
-        .contains(":2:3: expression result not used");
+        .contains(
+            "2:3-2:30: expression result not used."
+                + " Use a for-loop instead of a list comprehension. [no-effect]");
   }
 
   @Test
-  public void dontReportDocstrings() throws Exception {
-    Truth.assertThat(findIssues("\"\"\" docstring \"\"\"", "def f():", "  \"\"\" docstring \"\"\""))
+  public void testDocstrings() throws Exception {
+    Truth.assertThat(
+            findIssues(
+                "\"\"\" docstring \"\"\"",
+                "x = 0",
+                "'''A useless variable.'''",
+                "def f():",
+                "  \"\"\" docstring \"\"\""))
         .isEmpty();
+    Truth.assertThat(
+            findIssues("def f():", "  x = 0", "  '''Local variables can't have docstrings.'''")
+                .toString())
+        .contains("3:3-3:46: expression result not used [no-effect]");
   }
 
   @Test

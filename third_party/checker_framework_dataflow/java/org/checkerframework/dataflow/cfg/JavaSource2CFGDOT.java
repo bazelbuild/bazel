@@ -4,27 +4,6 @@ package org.checkerframework.dataflow.cfg;
 import org.checkerframework.checker.nullness.qual.Nullable;
 */
 
-import org.checkerframework.dataflow.analysis.AbstractValue;
-import org.checkerframework.dataflow.analysis.Analysis;
-import org.checkerframework.dataflow.analysis.Store;
-import org.checkerframework.dataflow.analysis.TransferFunction;
-
-import org.checkerframework.javacutil.BasicTypeProcessor;
-import org.checkerframework.javacutil.TreeUtils;
-
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.util.Map.Entry;
-
-import javax.lang.model.element.ExecutableElement;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
-import javax.xml.ws.Holder;
-
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePathScanner;
@@ -32,10 +11,27 @@ import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.Options;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import javax.lang.model.element.ExecutableElement;
+import javax.tools.JavaFileManager;
+import javax.tools.JavaFileObject;
+import javax.xml.ws.Holder;
+import org.checkerframework.dataflow.analysis.AbstractValue;
+import org.checkerframework.dataflow.analysis.Analysis;
+import org.checkerframework.dataflow.analysis.Store;
+import org.checkerframework.dataflow.analysis.TransferFunction;
+import org.checkerframework.javacutil.BasicTypeProcessor;
+import org.checkerframework.javacutil.TreeUtils;
 
 /**
- * Class to generate the DOT representation of the control flow graph of a given
- * method.
+ * Class to generate the DOT representation of the control flow graph of a given method.
  *
  * @author Stefan Heule
  */
@@ -79,7 +75,7 @@ public class JavaSource2CFGDOT {
                 i++;
                 clas = args[i];
             } else {
-                printError("Unknown command line argument: " + args[i]);
+                printError("Unknown command-line argument: " + args[i]);
                 error = true;
             }
         }
@@ -98,50 +94,56 @@ public class JavaSource2CFGDOT {
 
     /** Print usage information. */
     protected static void printUsage() {
-        System.out
-                .println("Generate the control flow graph of a Java method, represented as a DOT graph.");
-        System.out
-                .println("Parameters: <inputfile> <outputfile> [-method <name>] [-class <name>] [-pdf]");
-        System.out
-                .println("    -pdf:    Also generate the PDF by invoking 'dot'.");
-        System.out
-                .println("    -method: The method to generate the CFG for (defaults to 'test').");
-        System.out
-                .println("    -class:  The class in which to find the method (defaults to 'Test').");
+        System.out.println(
+                "Generate the control flow graph of a Java method, represented as a DOT graph.");
+        System.out.println(
+                "Parameters: <inputfile> <outputdir> [-method <name>] [-class <name>] [-pdf]");
+        System.out.println("    -pdf:    Also generate the PDF by invoking 'dot'.");
+        System.out.println("    -method: The method to generate the CFG for (defaults to 'test').");
+        System.out.println(
+                "    -class:  The class in which to find the method (defaults to 'Test').");
     }
 
     /** Just like method above but without analysis. */
-    public static void generateDOTofCFG(String inputFile, String outputFile,
-            String method, String clas, boolean pdf) {
-        generateDOTofCFG(inputFile, outputFile, method, clas, pdf, null);
+    public static void generateDOTofCFG(
+            String inputFile, String outputDir, String method, String clas, boolean pdf) {
+        generateDOTofCFG(inputFile, outputDir, method, clas, pdf, null);
     }
 
     /**
      * Generate the DOT representation of the CFG for a method.
      *
-     * @param inputFile
-     *            Java source input file.
-     * @param outputFile
-     *            Source output file (without file extension)
-     * @param method
-     *            Method name to generate the CFG for.
-     * @param pdf
-     *            Also generate a PDF?
-     * @param analysis
-     *            Analysis to perform befor the visualization (or
-     *            <code>null</code> if no analysis is to be performed).
+     * @param inputFile java source input file
+     * @param outputDir source output directory
+     * @param method method name to generate the CFG for
+     * @param pdf also generate a PDF?
+     * @param analysis analysis to perform befor the visualization (or {@code null} if no analysis
+     *     is to be performed).
      */
-    public static <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>> void generateDOTofCFG(
-            String inputFile, String outputFile, String method, String clas,
-            boolean pdf, /*@Nullable*/ Analysis<A, S, T> analysis) {
-        Entry<MethodTree, CompilationUnitTree> m = getMethodTreeAndCompilationUnit(inputFile, method, clas);
-        generateDOTofCFG(inputFile, outputFile, method, clas, pdf, analysis, m.getKey(), m.getValue());
+    public static <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
+            void generateDOTofCFG(
+                    String inputFile,
+                    String outputDir,
+                    String method,
+                    String clas,
+                    boolean pdf,
+                    /*@Nullable*/ Analysis<A, S, T> analysis) {
+        Entry<MethodTree, CompilationUnitTree> m =
+                getMethodTreeAndCompilationUnit(inputFile, method, clas);
+        generateDOTofCFG(
+                inputFile, outputDir, method, clas, pdf, analysis, m.getKey(), m.getValue());
     }
 
-    public static <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>> void generateDOTofCFG(
-            String inputFile, String outputFile, String method, String clas,
-            boolean pdf, /*@Nullable*/ Analysis<A, S, T> analysis, MethodTree m,
-            CompilationUnitTree r) {
+    public static <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
+            void generateDOTofCFG(
+                    String inputFile,
+                    String outputDir,
+                    String method,
+                    String clas,
+                    boolean pdf,
+                    /*@Nullable*/ Analysis<A, S, T> analysis,
+                    MethodTree m,
+                    CompilationUnitTree r) {
         String fileName = (new File(inputFile)).getName();
         System.out.println("Working on " + fileName + "...");
 
@@ -154,31 +156,25 @@ public class JavaSource2CFGDOT {
         if (analysis != null) {
             analysis.performAnalysis(cfg);
         }
-        String s = CFGDOTVisualizer.visualize(cfg, cfg.getEntryBlock(), analysis, false);
 
-        try {
-            FileWriter fstream = new FileWriter(outputFile + ".txt");
-            BufferedWriter out = new BufferedWriter(fstream);
-            out.write(s);
-            System.out.println("Finished " + fileName + ".");
-            out.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
+        Map<String, Object> args = new HashMap<>();
+        args.put("outdir", outputDir);
+        args.put("checkerName", "");
+
+        CFGVisualizer<A, S, T> viz = new DOTCFGVisualizer<A, S, T>();
+        viz.init(args);
+        Map<String, Object> res = viz.visualize(cfg, cfg.getEntryBlock(), analysis);
+        viz.shutdown();
 
         if (pdf) {
-            producePDF(outputFile);
+            producePDF((String) res.get("dotFileName"));
         }
     }
 
-    /**
-     * Invoke DOT to generate a PDF.
-     */
+    /** Invoke DOT to generate a PDF. */
     protected static void producePDF(String file) {
         try {
-            String command = "dot -Tpdf \"" + file + ".txt\" -o \"" + file
-                    + ".pdf\"";
+            String command = "dot -Tpdf \"" + file + ".txt\" -o \"" + file + ".pdf\"";
             Process child = Runtime.getRuntime().exec(command);
             child.waitFor();
         } catch (InterruptedException | IOException e) {
@@ -188,66 +184,65 @@ public class JavaSource2CFGDOT {
     }
 
     /**
-     * @return The AST of a specific method in a specific class in a specific
-     *         file (or null if no such method exists).
+     * @return the AST of a specific method in a specific class in a specific file (or null if no
+     *     such method exists)
      */
-    public static /*@Nullable*/ MethodTree getMethodTree(String file,
-            final String method, String clas) {
+    public static /*@Nullable*/ MethodTree getMethodTree(
+            String file, final String method, String clas) {
         return getMethodTreeAndCompilationUnit(file, method, clas).getKey();
     }
 
     /**
-     * @return The AST of a specific method in a specific class as well as the
-     *         {@link CompilationUnitTree} in a specific file (or null they do
-     *         not exist).
+     * @return the AST of a specific method in a specific class as well as the {@link
+     *     CompilationUnitTree} in a specific file (or null they do not exist).
      */
-    public static Entry</*@Nullable*/ MethodTree, /*@Nullable*/ CompilationUnitTree> getMethodTreeAndCompilationUnit(
-            String file, final String method, String clas) {
+    public static Entry</*@Nullable*/ MethodTree, /*@Nullable*/ CompilationUnitTree>
+            getMethodTreeAndCompilationUnit(String file, final String method, String clas) {
         final Holder<MethodTree> m = new Holder<>();
         final Holder<CompilationUnitTree> c = new Holder<>();
-        BasicTypeProcessor typeProcessor = new BasicTypeProcessor() {
-            @Override
-            protected TreePathScanner<?, ?> createTreePathScanner(
-                    CompilationUnitTree root) {
-                c.value = root;
-                return new TreePathScanner<Void, Void>() {
+        BasicTypeProcessor typeProcessor =
+                new BasicTypeProcessor() {
                     @Override
-                    public Void visitMethod(MethodTree node, Void p) {
-                        ExecutableElement el = TreeUtils
-                                .elementFromDeclaration(node);
-                        if (el.getSimpleName().contentEquals(method)) {
-                            m.value = node;
-                            // stop execution by throwing an exception. this
-                            // makes sure that compilation does not proceed, and
-                            // thus the AST is not modified by further phases of
-                            // the compilation (and we save the work to do the
-                            // compilation).
-                            throw new RuntimeException();
-                        }
-                        return null;
+                    protected TreePathScanner<?, ?> createTreePathScanner(
+                            CompilationUnitTree root) {
+                        c.value = root;
+                        return new TreePathScanner<Void, Void>() {
+                            @Override
+                            public Void visitMethod(MethodTree node, Void p) {
+                                ExecutableElement el = TreeUtils.elementFromDeclaration(node);
+                                if (el.getSimpleName().contentEquals(method)) {
+                                    m.value = node;
+                                    // stop execution by throwing an exception. this
+                                    // makes sure that compilation does not proceed, and
+                                    // thus the AST is not modified by further phases of
+                                    // the compilation (and we save the work to do the
+                                    // compilation).
+                                    throw new RuntimeException();
+                                }
+                                return null;
+                            }
+                        };
                     }
                 };
-            }
-        };
 
         Context context = new Context();
+        Options.instance(context).put("compilePolicy", "ATTR_ONLY");
         JavaCompiler javac = new JavaCompiler(context);
-        javac.attrParseOnly = true;
-        JavacFileManager fileManager = (JavacFileManager) context
-                .get(JavaFileManager.class);
+        JavacFileManager fileManager = (JavacFileManager) context.get(JavaFileManager.class);
 
-        JavaFileObject l = fileManager
-                .getJavaFileObjectsFromStrings(List.of(file)).iterator().next();
+        JavaFileObject l =
+                fileManager.getJavaFileObjectsFromStrings(List.of(file)).iterator().next();
 
         PrintStream err = System.err;
         try {
             // redirect syserr to nothing (and prevent the compiler from issuing
             // warnings about our exception.
-            System.setErr(new PrintStream(new OutputStream() {
-                @Override
-                public void write(int b) throws IOException {
-                }
-            }));
+            System.setErr(
+                    new PrintStream(
+                            new OutputStream() {
+                                @Override
+                                public void write(int b) throws IOException {}
+                            }));
             javac.compile(List.of(l), List.of(clas), List.of(typeProcessor));
         } catch (Throwable e) {
             // ok
@@ -271,5 +266,4 @@ public class JavaSource2CFGDOT {
             }
         };
     }
-
 }

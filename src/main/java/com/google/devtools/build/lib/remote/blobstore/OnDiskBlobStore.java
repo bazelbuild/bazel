@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.blobstore;
 
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -52,7 +53,7 @@ public final class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void put(String key, InputStream in) throws IOException {
+  public void put(String key, long length, InputStream in) throws IOException {
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
     Path temp = toPath(UUID.randomUUID().toString());
     try (OutputStream out = temp.getOutputStream()) {
@@ -65,8 +66,8 @@ public final class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void putActionResult(String key, InputStream in) throws IOException, InterruptedException {
-    put(key, in);
+  public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
+    put(key, in.length, new ByteArrayInputStream(in));
   }
 
   @Override

@@ -5,35 +5,62 @@ title: Extensions - Backward compatibility
 
 # Backward compatibility
 
-Bazel is still in Beta and we are going to do breaking changes. As we make
-changes and polish the extension mechanism, old features may be removed and new
-features that are not backwards-compatible may be added.
+Bazel is still in Beta and new releases may include backward incompatible
+changes. As we make changes and polish the extension mechanism, old features
+may be removed and new features that are not backward compatible may be added.
 
-Each release, new incompatible changes will be behind a flag with its default
-value set to `false`. In later releases, the flag will be enabled by default, or
-the flag will be removed entirely.
+Backward incompatible changes are introduced gradually:
 
-To check if your code will be compatible with future releases:
+1.  The backward incompatible change is introduced behind a flag with its
+    default value set to `false`.
+2.  In a later release, the flag's default value will be set to `true`. You
+    can still use the flag to disable the change.
+3.  Then in a later release, the flag will be removed and you will no longer be
+    able to disable the change.
 
-*   build your code with the flag `--all_incompatible_changes`, or
-*   use boolean flags to enable/disable specific incompatible changes.
+To check if your code will be compatible with future releases you can:
 
-This following are the planned incompatible changes that are implemented and
-guarded behind flags.
+*   Build your code with the flag `--all_incompatible_changes`. This flag
+    enables all backward incompatible changes, and so you can ensure your code
+    is compatible with upcoming changes.
+*   Use boolean flags to enable/disable specific backward incompatible changes.
 
-## Set constructor
+## Current backward incompatible changes
 
-We are removing the `set` constructor. Use `depset` instead. `set` and `depset`
-are equivalent, you just need to do search and replace to update the old code.
+The following are the backward incompatible changes that are implemented and
+guarded behind flags in the current release:
 
-We are doing this to reduce confusion between the specialized
-[depset](depsets.md) data structure and Python's set datatype.
+*   [Set constructor](#set-constructor)
+*   [Keyword-only arguments](#keyword-only-arguments)
+*   [Dictionary concatenation](#dictionary-concatenation)
+*   [Load must appear at top of file](#load-must-appear-at-top-of-file)
+*   [Load argument is a label](#load-argument-is-a-label)
+*   [Top level `if` statements](#top-level-if-statements)
+*   [Comprehensions variables](#comprehensions-variables)
+*   [Depset is no longer iterable](#depset-is-no-longer-iterable)
+*   [Depset union](#depset-union)
+*   [String is no longer iterable](#string-is-no-longer-iterable)
+*   [Dictionary literal has no duplicates](#dictionary-literal-has-no-duplicates)
+*   [New actions API](#new-actions-api)
+*   [Checked arithmetic](#checked-arithmetic)
 
-*   Flag: `--incompatible_disallow_set_constructor`
+### Set constructor
+
+To maintain a clear distinction between the specialized [`depset`](depsets.md)
+data structure and Python's native `set` datatype (which does not currently
+exist in Skylark), the `set` constructor has been superseded by `depset`. It is
+no longer allowed to run code that calls the old `set` constructor.
+
+However, for a limited time, it will not be an error to reference the `set`
+constructor from code that is not executed (e.g. a function that is never
+called). Enable this flag to confirm that your code does not still refer to the
+old `set` constructor from unexecuted code.
+
+*   Flag: `--incompatible_disallow_uncalled_set_constructor`
 *   Default: `true`
 
 
-## Keyword-only arguments
+### Keyword-only arguments
 
 Keyword-only parameters are parameters that can be called only using their name.
 
@@ -57,30 +84,7 @@ documented).
 *   Default: `true`
 
 
-## Mutating `+=`
-
-We are changing `left += right` when `left` is a list. The old behavior is
-equivalent to `left = left + right`, which creates a new list and assigns it to
-`left`. The new behavior does not rebind `left`, but instead just mutates the
-list in-place.
-
-``` python
-def fct():
-  li = [1]
-  alias = li
-  li += [2]
-  # Old behavior: alias == [1]
-  # New behavior: alias == [1, 2]
-```
-
-This change makes Skylark more compatible with Python and avoids performance
-issues. The `+=` operator for tuples is unaffected.
-
-*   Flag: `--incompatible_list_plus_equals_inplace`
-*   Default: `false`
-
-
-## Dictionary concatenation
+### Dictionary concatenation
 
 We are removing the `+` operator on dictionaries. This includes the `+=` form
 where the left-hand side is a dictionary. This is done to improve compatibility
@@ -90,7 +94,7 @@ with Python. A possible workaround is to use the `.update` method instead.
 *   Default: `false`
 
 
-## Load must appear at top of file
+### Load must appear at top of file
 
 Previously, the `load` statement could appear anywhere in a `.bzl` file so long
 as it was at the top level. With this change, for `.bzl` files, `load` must
@@ -100,7 +104,7 @@ appear at the beginning of the file, i.e. before any other non-`load` statement.
 *   Default: `false`
 
 
-## Load argument is a label
+### Load argument is a label
 
 Historically, the first argument of `load` could be a path with an implicit
 `.bzl` suffix. We are going to require that all `load` statements use the label
@@ -112,10 +116,10 @@ load("//path:foo.bzl", "var")  # recommended
 ```
 
 *   Flag: `--incompatible_load_argument_is_label`
-*   Default: `false`
+*   Default: `true`
 
 
-## Top level `if` statements
+### Top level `if` statements
 
 This change forbids `if` statements at the top level of `.bzl` files (they are
 already forbidden in `BUILD` files). This change ensures that every global
@@ -126,7 +130,7 @@ that global values cannot be redefined.
 *   Default: `true`
 
 
-## Comprehensions variables
+### Comprehensions variables
 
 This change makes list and dict comprehensions follow Python 3's semantics
 instead of Python 2's. That is, comprehensions have their own local scopes, and
@@ -163,7 +167,7 @@ comprehension.
 *   Default: `true`
 
 
-## Depset is no longer iterable
+### Depset is no longer iterable
 
 When the flag is set to true, `depset` objects are not treated as iterable. If
 you need an iterable, call the `.to_list()` method. This affects `for` loops and
@@ -184,7 +188,30 @@ sorted(deps.to_list())  # recommended
 *   Default: `false`
 
 
-## String is no longer iterable
+### Depset union
+
+To merge two sets, the following examples used to be supported, but are now
+deprecated:
+
+``` python
+depset1 + depset2
+depset1 | depset2
+depset1.union(depset2)
+```
+
+The recommended solution is to use the `depset` constructor:
+
+``` python
+depset(transtive=[depset1, depset2])
+```
+
+See the [`depset documentation`](depsets.md) for more information.
+
+*   Flag: `--incompatible_depset_union`
+*   Default: `false`
+
+
+### String is no longer iterable
 
 When the flag is set to true, `string` objects are not treated as iterable. This
 affects `for` loops and many functions, e.g. `list`, `tuple`, `min`, `max`,
@@ -196,14 +223,18 @@ def my_macro(name, srcs):
   for src in srcs:
     # do something with src
 
-my_macro("foo")  # equivalent to: my_macro(["f", "o", "o"])
+# equivalent to: my_macro("hello", ["f", "o", "o", ".", "c", "c"])
+my_macro(
+  name = "hello",
+  srcs = "foo.cc",
+)
 ```
 
 String indexing and `len` are still allowed. If you need to iterate over a
 string, you may explicitly use:
 
 ``` python
-my_string="hello world"
+my_string = "hello world"
 for i in range(len(my_string)):
   char = my_string[i]
   # do something with char
@@ -213,7 +244,7 @@ for i in range(len(my_string)):
 *   Default: `false`
 
 
-## Dictionary literal has no duplicates
+### Dictionary literal has no duplicates
 
 When the flag is set to true, duplicated keys are not allowed in the dictionary
 literal syntax.
@@ -233,7 +264,7 @@ If you really want to override a value, use a separate statement:
 *   Default: `true`
 
 
-## New actions API
+### New actions API
 
 This change removes the old methods for registering actions within rules, and
 requires that you use the new methods instead. The deprecated methods and their
@@ -254,7 +285,7 @@ replacements are as follows.
 *   Default: `false`
 
 
-## Checked arithmetic
+### Checked arithmetic
 
 When set, arithmetic operations (`+`, `-`, `*`) will fail in case of overflow.
 All integers are stored using signed 32 bits.
@@ -262,16 +293,12 @@ All integers are stored using signed 32 bits.
 *   Flag: `--incompatible_checked_arithmetic`
 *   Default: `true`
 
+### Glob tracking
 
-## Descriptive string representations
+When set, glob tracking is disabled. This is a legacy feature that we expect has
+no user-visible impact.
 
-For certain types of objects (such as `Label`, `File`, and rule contexts), this
-flag changes the string representations returned by `str()` and `repr()` to be
-more uniform and safe. In particular, the new representations are hermetic and
-deterministic.
-
-*   Flag: `--incompatible_descriptive_string_representations`
-*   Default: `true`
-
+*   Flag: `--incompatible_disable_glob_tracking`
+*   Default: `false`
 
 <!-- Add new options here -->

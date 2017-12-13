@@ -14,14 +14,19 @@
 
 package com.google.devtools.skylark.skylint;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * Main class of the linter library.
@@ -29,45 +34,103 @@ import java.util.List;
  * <p>Most users of the linter library should only need to use this class.
  */
 public class Linter {
-
-  /** List of all checkers that the linter runs. */
-  private static final Checker[] checkers = {
-    ControlFlowChecker::check,
-    DocstringChecker::check,
-    NamingConventionsChecker::check,
-    StatementWithoutEffectChecker::check,
-    UsageChecker::check
-  };
+  private static final String PARSE_ERROR_CATEGORY = "parse-error";
+  /** Map of all single-file checks and their names. */
+  private static final ImmutableMap<String, Check> nameToCheck =
+      ImmutableMap.<String, Check>builder()
+          .put("bad-operation", BadOperationChecker::check)
+          .put("control-flow", ControlFlowChecker::check)
+          .put("docstring", DocstringChecker::check)
+          .put("load", LoadStatementChecker::check)
+          .put("naming", NamingConventionsChecker::check)
+          .put("no-effect", StatementWithoutEffectChecker::check)
+          .put("usage", UsageChecker::check)
+          .build();
+  /** Map of all multi-file checks and their names. */
+  private static final ImmutableMap<String, MultiFileCheck> nameToMultiFileCheck =
+      ImmutableMap.<String, MultiFileCheck>builder()
+          .put("deprecation", DeprecationChecker::check)
+          .build();
 
   /** Function to read files (can be changed for testing). */
-  private FileContentsReader fileReader = Files::readAllBytes;
+  private FileFacade fileFacade = DEFAULT_FILE_FACADE;
 
-  public Linter setFileContentsReader(FileContentsReader reader) {
-    this.fileReader = reader;
+  private static final FileFacade DEFAULT_FILE_FACADE =
+      new FileFacade() {
+        @Override
+        public boolean fileExists(Path path) {
+          return Files.exists(path);
+        }
+
+        @Override
+        public byte[] readBytes(Path path) throws IOException {
+          return Files.readAllBytes(path);
+        }
+      };
+
+  private boolean singleFileMode = false;
+  private final Set<String> disabledChecks = new LinkedHashSet<>();
+  private final Set<String> disabledCategories = new LinkedHashSet<>();
+
+  public Linter setFileContentsReader(FileFacade reader) {
+    this.fileFacade = reader;
+    return this;
+  }
+
+  public Linter disableCheck(String checkName) {
+    if (!nameToCheck.containsKey(checkName)) {
+      throw new IllegalArgumentException("Unknown check '" + checkName + "' cannot be disabled.");
+    }
+    disabledChecks.add(checkName);
+    return this;
+  }
+
+  public Linter disableCategory(String categoryName) {
+    disabledCategories.add(categoryName);
+    return this;
+  }
+
+  /** Disables checks that require analyzing multiple files. */
+  public Linter setSingleFileMode() {
+    singleFileMode = true;
     return this;
   }
 
   /**
-   * Runs all checkers on the given file.
+   * Runs all checks on the given file.
    *
    * @param path path of the file
    * @return list of issues found in that file
    */
   public List<Issue> lint(Path path) throws IOException {
-    String content = new String(fileReader.read(path), StandardCharsets.ISO_8859_1);
+    path = path.toAbsolutePath();
+    String content = new String(fileFacade.readBytes(path), StandardCharsets.ISO_8859_1);
     List<Issue> issues = new ArrayList<>();
     BuildFileAST ast =
         BuildFileAST.parseString(
             event -> {
               if (event.getKind() == EventKind.ERROR || event.getKind() == EventKind.WARNING) {
-                issues.add(new Issue(event.getMessage(), event.getLocation()));
+                issues.add(
+                    Issue.create(PARSE_ERROR_CATEGORY, event.getMessage(), event.getLocation()));
               }
             },
             content);
-    for (Checker checker : checkers) {
-      issues.addAll(checker.check(ast));
+    for (Entry<String, Check> entry : nameToCheck.entrySet()) {
+      if (disabledChecks.contains(entry.getKey())) {
+        continue;
+      }
+      issues.addAll(entry.getValue().check(ast));
     }
-    issues.sort(Issue::compare);
+    if (!singleFileMode) {
+      for (Entry<String, MultiFileCheck> entry : nameToMultiFileCheck.entrySet()) {
+        if (disabledChecks.contains(entry.getKey())) {
+          continue;
+        }
+        issues.addAll(entry.getValue().check(path, ast, fileFacade));
+      }
+    }
+    issues.removeIf(issue -> disabledCategories.contains(issue.category));
+    issues.sort(Issue::compareLocation);
     return issues;
   }
 
@@ -77,13 +140,52 @@ public class Linter {
    * <p>This is useful because we can use a fake for testing.
    */
   @FunctionalInterface
-  public interface FileContentsReader {
-    byte[] read(Path path) throws IOException;
+  public interface FileFacade {
+
+    /**
+     * Reads a file path to bytes.
+     *
+     * <p>This operation may be repeated for the same file.
+     */
+    byte[] readBytes(Path path) throws IOException;
+
+    /**
+     * Reads a file and parses it to an AST.
+     *
+     * <p>The default implementation silently ignores syntax errors.
+     */
+    default BuildFileAST readAst(Path path) throws IOException {
+      String contents = new String(readBytes(path), StandardCharsets.ISO_8859_1);
+      return BuildFileAST.parseString(event -> {}, contents);
+    }
+
+    /**
+     * Checks whether a given file exists.
+     *
+     * <p>The default implementation invokes readBytes and returns false if {@link
+     * NoSuchFileException} is thrown, true otherwise.
+     */
+    default boolean fileExists(Path path) {
+      try {
+        readBytes(path);
+      } catch (NoSuchFileException e) {
+        return false;
+      } catch (IOException e) {
+        // This method shouldn't throw.
+      }
+      return true;
+    }
   }
 
-  /** A checker analyzes an AST and produces a list of issues. */
+  /** Allows to invoke a check. */
   @FunctionalInterface
-  public interface Checker {
+  public interface Check {
     List<Issue> check(BuildFileAST ast);
+  }
+
+  /** Allows to invoke a check. */
+  @FunctionalInterface
+  public interface MultiFileCheck {
+    List<Issue> check(Path path, BuildFileAST ast, FileFacade fileFacade);
   }
 }

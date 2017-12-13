@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.extra;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -33,7 +35,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
 import java.util.Collection;
@@ -86,6 +87,7 @@ public final class ExtraAction extends SpawnAction {
         new CompositeRunfilesSupplier(shadowedAction.getRunfilesSupplier(), runfilesSupplier),
         mnemonic,
         false,
+        null,
         null);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
@@ -147,17 +149,16 @@ public final class ExtraAction extends SpawnAction {
   /**
    * @InheritDoc
    *
-   * This method calls in to {@link AbstractAction#getInputFilesForExtraAction} and
-   * {@link Action#getExtraActionInfo} of the action being shadowed from the thread executing this
+   * <p>This method calls in to {@link AbstractAction#getInputFilesForExtraAction} and {@link
+   * Action#getExtraActionInfo} of the action being shadowed from the thread executing this
    * ExtraAction. It assumes these methods are safe to call from a different thread than the thread
    * responsible for the execution of the action being shadowed.
    */
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     // PHASE 2: execution of extra_action.
-
-    super.execute(actionExecutionContext);
+    ActionResult actionResult = super.execute(actionExecutionContext);
 
     // PHASE 3: create dummy output.
     // If the user didn't specify output, we need to create dummy output
@@ -171,6 +172,8 @@ public final class ExtraAction extends SpawnAction {
         }
       }
     }
+
+    return actionResult;
   }
 
   /**

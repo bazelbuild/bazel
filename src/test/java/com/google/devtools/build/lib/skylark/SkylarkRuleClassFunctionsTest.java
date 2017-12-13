@@ -25,7 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkFileType;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions.RuleFunction;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions.SkylarkRuleFunction;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
@@ -141,7 +141,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private RuleClass getRuleClass(String name) throws Exception {
-    return ((RuleFunction) lookup(name)).getRuleClass();
+    return ((SkylarkRuleFunction) lookup(name)).getRuleClass();
   }
 
   private void registerDummyUserDefinedFunction() throws Exception {
@@ -605,7 +605,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRuleImplementation() throws Exception {
     evalAndExport("def impl(ctx): return None", "rule1 = rule(impl)");
-    RuleClass c = ((RuleFunction) lookup("rule1")).getRuleClass();
+    RuleClass c = ((SkylarkRuleFunction) lookup("rule1")).getRuleClass();
     assertThat(c.getConfiguredTargetFunction().getName()).isEqualTo("impl");
   }
 
@@ -628,7 +628,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRuleAddAttribute() throws Exception {
     evalAndExport("def impl(ctx): return None", "r1 = rule(impl, attrs={'a1': attr.string()})");
-    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.hasAttr("a1", Type.STRING)).isTrue();
   }
 
@@ -659,8 +659,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "x = d",
         "y = d",
         "z = d");
-    String dName = ((RuleFunction) lookup("d")).getRuleClass().getName();
-    String fooName = ((RuleFunction) lookup("foo")).getRuleClass().getName();
+    String dName = ((SkylarkRuleFunction) lookup("d")).getRuleClass().getName();
+    String fooName = ((SkylarkRuleFunction) lookup("foo")).getRuleClass().getName();
     assertThat(dName).isEqualTo("d");
     assertThat(fooName).isEqualTo("d");
   }
@@ -668,7 +668,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testOutputToGenfiles() throws Exception {
     evalAndExport("def impl(ctx): pass", "r1 = rule(impl, output_to_genfiles=True)");
-    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.hasBinaryOutput()).isFalse();
   }
 
@@ -681,7 +681,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "            'a1': attr.label_list(allow_files=True),",
         "            'a2': attr.int()",
         "})");
-    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.hasAttr("a1", BuildType.LABEL_LIST)).isTrue();
     assertThat(c.hasAttr("a2", Type.INTEGER)).isTrue();
   }
@@ -690,7 +690,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "def impl(ctx): return None",
         "r1 = rule(impl, attrs = {'a1': attr.string(mandatory=True)})");
-    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.getAttributeByName("a1").isMandatory()).isTrue();
   }
 
@@ -699,9 +699,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "def impl(ctx): return None",
         "r1 = rule(impl, outputs = {'a': 'a.txt'})");
-    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     ImplicitOutputsFunction function = c.getDefaultImplicitOutputsFunction();
-    assertThat(function.getImplicitOutputs(null)).containsExactly("a.txt");
+    assertThat(function.getImplicitOutputs(ev.getEventHandler(), null)).containsExactly("a.txt");
   }
 
   @Test
@@ -775,7 +775,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "def impl(ctx): return None\n"
             + "r1 = rule(impl, attrs = {'a1': "
             + "attr.label(default = Label('//foo:foo'), allow_files=True)})");
-    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     Attribute a = c.getAttributeByName("a1");
     assertThat(a.getDefaultValueForTesting()).isInstanceOf(Label.class);
     assertThat(a.getDefaultValueForTesting().toString()).isEqualTo("//foo:foo");
@@ -786,7 +786,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "def impl(ctx): return None",
         "r1 = rule(impl, attrs = {'a1': attr.int(default = 40+2)})");
-    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     Attribute a = c.getAttributeByName("a1");
     assertThat(a.getDefaultValueForTesting()).isEqualTo(42);
   }
@@ -801,7 +801,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRuleInheritsBaseRuleAttributes() throws Exception {
     evalAndExport("def impl(ctx): return None", "r1 = rule(impl)");
-    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.hasAttr("tags", Type.STRING_LIST)).isTrue();
     assertThat(c.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)).isTrue();
     assertThat(c.hasAttr("deprecation", Type.STRING)).isTrue();
@@ -951,7 +951,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "  }",
         ")");
     scratch.file("third_party/foo/BUILD",
-        "load('/test/rule', 'some_rule')",
+        "load('//test:rule.bzl', 'some_rule')",
         "some_rule(",
         "    name='r',",
         "    licenses = ['unencumbered']",
@@ -1265,6 +1265,39 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void declaredProvidersWithFieldsConcatSuccess() throws Exception {
+    evalAndExport(
+        "data = provider(fields=['f1', 'f2'])",
+        "d1 = data(f1 = 4)",
+        "d2 = data(f2 = 5)",
+        "d3 = d1 + d2",
+        "f1 = d3.f1",
+        "f2 = d3.f2");
+    assertThat(lookup("f1")).isEqualTo(4);
+    assertThat(lookup("f2")).isEqualTo(5);
+  }
+
+  @Test
+  public void declaredProvidersWithFieldsConcatError() throws Exception {
+    evalAndExport("data1 = provider(fields=['f1', 'f2'])", "data2 = provider(fields=['f3'])");
+    checkEvalError(
+        "Cannot concat data1 with data2",
+        "d1 = data1(f1=1, f2=2)",
+        "d2 = data2(f3=3)",
+        "d = d1 + d2");
+  }
+
+  @Test
+  public void declaredProvidersWithOverlappingFieldsConcatError() throws Exception {
+    evalAndExport("data = provider(fields=['f1', 'f2'])");
+    checkEvalError(
+        "Cannot concat structs with common field(s): f1",
+        "d1 = data(f1 = 4)",
+        "d2 = data(f1 = 5)",
+        "d1 + d2");
+  }
+
+  @Test
   public void structsAsDeclaredProvidersTest() throws Exception {
     evalAndExport(
         "data = struct(x = 1)"
@@ -1571,7 +1604,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
       ")"
     );
     scratch.file("third_party/foo/BUILD",
-      "load('extension',  'my_rule')",
+      "load(':extension.bzl', 'my_rule')",
       "my_rule(name = 'main', exe = ':tool.sh')"
     );
 
@@ -1590,7 +1623,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         "def impl(ctx): return None", "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
-    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
   }
 

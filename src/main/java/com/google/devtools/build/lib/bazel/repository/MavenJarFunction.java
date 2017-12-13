@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.bazel.repository.MavenDownloader.JarPaths;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -106,7 +105,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
   }
 
   private RepositoryDirectoryValue.Builder createOutputTree(Rule rule, Path outputDirectory,
-      MavenServerValue serverValue) throws RepositoryFunctionException, InterruptedException {
+      MavenServerValue serverValue) throws RepositoryFunctionException {
     Preconditions.checkState(downloader instanceof MavenDownloader);
     MavenDownloader mavenDownloader = (MavenDownloader) downloader;
 
@@ -135,7 +134,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
   }
 
   private DecompressorDescriptor getDescriptorBuilder(String name, Path jar, Path outputDirectory)
-      throws RepositoryFunctionException, InterruptedException {
+      throws RepositoryFunctionException {
     return DecompressorDescriptor.builder()
         .setDecompressor(JarDecompressor.INSTANCE)
         .setTargetKind(MavenJarRule.NAME)
@@ -145,12 +144,8 @@ public class MavenJarFunction extends HttpArchiveFunction {
         .build();
   }
 
-  /**
-   * @see RepositoryFunction#getRule(RepositoryName, String, Environment)
-   */
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return MavenJarRule.class;
   }
-
 }

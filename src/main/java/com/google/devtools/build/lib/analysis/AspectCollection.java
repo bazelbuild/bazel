@@ -55,11 +55,11 @@ import java.util.Set;
  * Let's look is the {@link AspectCollection} for a Dependency representing a jpl->pl edge
  * for ide_info_aspect application to target <code>jpl</code>:
  * <ul>
- *   <li>the full list of aspects is [java_proto_aspect, DaxProtoAspect, ide_info_aspect]
+ *   <li>the full list of aspects is [java_proto_aspect, DexArchiveAspect, ide_info_aspect]
  *       in this order (the order is determined by the order in which aspects originate on
  *       <code>ab->...->pl</code> path.
  *   </li>
- *   <li>however, DaxProtoAspect is not visible to either ide_info_aspect or java_proto_aspect,
+ *   <li>however, DexArchiveAspect is not visible to either ide_info_aspect or java_proto_aspect,
  *        so the reduced list(and a result of {@link #getAllAspects()}) will be
  *        [java_proto_aspect, ide_info_aspect]
  *   </li>

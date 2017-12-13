@@ -49,47 +49,56 @@ public class TargetPatternPhaseKeyTest {
        .addEqualityGroup(of(ImmutableList.of("c"), ""))
        .addEqualityGroup(of(ImmutableList.<String>of(), ""))
        .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of(), false, null,
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), false, true, null,
            COMPILE_ONE_DEPENDENCY))
        .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of(), true, null,
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), false, false, null,
            COMPILE_ONE_DEPENDENCY))
-       .addEqualityGroup(of(
+        .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), true, true, null,
+           COMPILE_ONE_DEPENDENCY))
+        .addEqualityGroup(of(
+            ImmutableList.<String>of(), "", ImmutableList.<String>of(), true, false, null,
+            COMPILE_ONE_DEPENDENCY))
+        .addEqualityGroup(of(
            ImmutableList.<String>of(), "", ImmutableList.<String>of(), false,
-           emptyTestFilter(),
+           true, emptyTestFilter(),
            BUILD_TESTS_ONLY))
        .addEqualityGroup(of(
            ImmutableList.<String>of(), "", ImmutableList.<String>of(), true,
-           emptyTestFilter(),
+           true, emptyTestFilter(),
            BUILD_TESTS_ONLY))
        .addEqualityGroup(of(
            ImmutableList.<String>of(), "", ImmutableList.<String>of(), false,
-           emptyTestFilter(),
+           true, emptyTestFilter(),
            DETERMINE_TESTS))
        .addEqualityGroup(of(
            ImmutableList.<String>of(), "", ImmutableList.<String>of(), true,
-           emptyTestFilter(),
+           true, emptyTestFilter(),
            DETERMINE_TESTS))
        .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of("a"), false, null))
+           ImmutableList.<String>of(), "", ImmutableList.<String>of("a"), false, true,
+           null))
        .addEqualityGroup(of(
-           ImmutableList.<String>of(), "", ImmutableList.<String>of("a"), true, null))
+           ImmutableList.<String>of(), "", ImmutableList.<String>of("a"), true, true,
+           null))
        .testEquals();
   }
 
   private TargetPatternPhaseKey of(ImmutableList<String> targetPatterns, String offset,
       ImmutableList<String> buildTagFilter,
-      boolean includeManualTests, @Nullable TestFilter testFilter, Flag... flags) {
+      boolean includeManualTests, boolean expandTestSuites, @Nullable TestFilter testFilter,
+      Flag... flags) {
     ImmutableSet<Flag> set = ImmutableSet.copyOf(flags);
     boolean compileOneDependency = set.contains(Flag.COMPILE_ONE_DEPENDENCY);
     boolean buildTestsOnly = set.contains(Flag.BUILD_TESTS_ONLY);
     boolean determineTests = set.contains(Flag.DETERMINE_TESTS);
     return new TargetPatternPhaseKey(targetPatterns, offset, compileOneDependency, buildTestsOnly,
-        determineTests, buildTagFilter, includeManualTests, testFilter);
+        determineTests, buildTagFilter, includeManualTests, expandTestSuites, testFilter);
   }
 
   private TargetPatternPhaseKey of(ImmutableList<String> targetPatterns, String offset) {
-    return of(targetPatterns, offset, ImmutableList.<String>of(), false, null);
+    return of(targetPatterns, offset, ImmutableList.<String>of(), false, true, null);
   }
 
   private TestFilter emptyTestFilter() {

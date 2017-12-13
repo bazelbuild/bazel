@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -63,7 +64,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   }
 
   private boolean visitTransitively(Label label) throws InterruptedException {
-    SkyKey key = TransitiveTargetValue.key(label);
+    SkyKey key = TransitiveTargetKey.of(label);
     EvaluationResult<SkyValue> result =
         skyframeExecutor.prepareAndGet(ImmutableSet.of(key), /*numThreads=*/ 5, reporter);
     TransitiveTargetValue value = (TransitiveTargetValue) result.get(key);

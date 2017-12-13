@@ -57,13 +57,13 @@ import warnings
 
 import six
 
-import _helpers
-import argument_parser
-import exceptions
+from gflags import _helpers
+from gflags import argument_parser
+from gflags import exceptions
 # _flag alias is to avoid 'redefined outer name' warnings.
-import flag as _flag
-import flagvalues
-import validators as gflags_validators
+from gflags import flag as _flag
+from gflags import flagvalues
+from gflags import validators as gflags_validators
 
 
 # Add current module to disclaimed module ids.
@@ -889,3 +889,12 @@ MarkFlagAsRequired = mark_flag_as_required
 MarkFlagsAsRequired = mark_flags_as_required
 MarkFlagsAsMutualExclusive = mark_flags_as_mutual_exclusive
 # pylint: enable=invalid-name
+
+# New PEP8 style functions.
+get_help_width = GetHelpWidth
+text_wrap = TextWrap
+flag_dict_to_args = FlagDictToArgs
+doc_to_help = DocToHelp
+declare_key_flag = DECLARE_key_flag
+adopt_module_key_flags = ADOPT_module_key_flags
+disclaim_key_flags = DISCLAIM_key_flags

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -25,9 +26,10 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigni
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 
 /**
  * A class for coordinating APK building, signing and zipaligning.
@@ -47,6 +49,7 @@ public class ApkActionsBuilder {
   private Artifact signedApk;
   private boolean zipalignApk = false;
   private Artifact signingKey;
+  private String artifactLocation;
 
   private final String apkName;
 
@@ -134,6 +137,12 @@ public class ApkActionsBuilder {
     return this;
   }
 
+  /** Sets the output APK instead of creating with a static/standard path. */
+  public ApkActionsBuilder setArtifactLocationDirectory(String artifactLocation) {
+    this.artifactLocation = artifactLocation;
+    return this;
+  }
+
   /** Registers the actions needed to build the requested APKs in the rule context. */
   public void registerActions(RuleContext ruleContext) {
     boolean useSingleJarApkBuilder =
@@ -144,7 +153,7 @@ public class ApkActionsBuilder {
     Artifact intermediateUnsignedApk =
         unsignedApk != null
             ? unsignedApk
-            : AndroidBinary.getDxArtifact(ruleContext, "unsigned_" + signedApk.getFilename());
+            : getApkArtifact(ruleContext, "unsigned_" + signedApk.getFilename());
     if (useSingleJarApkBuilder) {
       buildApk(ruleContext, intermediateUnsignedApk);
     } else {
@@ -156,8 +165,7 @@ public class ApkActionsBuilder {
       // Zipalignment is performed before signing. So if a zipaligned APK is requested, we need an
       // intermediate zipaligned-but-not-signed apk artifact.
       if (zipalignApk) {
-        apkToSign =
-            AndroidBinary.getDxArtifact(ruleContext, "zipaligned_" + signedApk.getFilename());
+        apkToSign = getApkArtifact(ruleContext, "zipaligned_" + signedApk.getFilename());
         zipalignApk(ruleContext, intermediateUnsignedApk, apkToSign);
       }
       signApk(ruleContext, apkToSign, signedApk);
@@ -235,8 +243,8 @@ public class ApkActionsBuilder {
 
   /** Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar. */
   private void buildApk(RuleContext ruleContext, Artifact outApk) {
-    Artifact compressedApk =
-        AndroidBinary.getDxArtifact(ruleContext, "compressed_" + outApk.getFilename());
+    Artifact compressedApk = getApkArtifact(ruleContext, "compressed_" + outApk.getFilename());
+
     SpawnAction.Builder compressedApkActionBuilder =
         new SpawnAction.Builder()
             .setMnemonic("ApkBuilder")
@@ -295,7 +303,7 @@ public class ApkActionsBuilder {
     if (javaResourceZip != null) {
       // The javaResourceZip contains many files that are unwanted in the APK such as .class files.
       Artifact extractedJavaResourceZip =
-          AndroidBinary.getDxArtifact(ruleContext, "extracted_" + javaResourceZip.getFilename());
+          getApkArtifact(ruleContext, "extracted_" + javaResourceZip.getFilename());
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .setExecutable(resourceExtractor)
@@ -331,8 +339,18 @@ public class ApkActionsBuilder {
       singleJarCommandLine.addExecPath("--sources", inputZip);
     }
 
-    ImmutableList<String> noCompressExtensions =
-        ruleContext.getTokenizedStringListAttr("nocompress_extensions");
+    List<String> noCompressExtensions;
+    if (ruleContext.getRule().isAttrDefined(
+        AndroidRuleClasses.NOCOMPRESS_EXTENSIONS_ATTR, Type.STRING_LIST)) {
+      noCompressExtensions =
+          ruleContext
+              .getExpander()
+              .withDataLocations()
+              .tokenized(AndroidRuleClasses.NOCOMPRESS_EXTENSIONS_ATTR);
+    } else {
+      // This code is also used by android_test, which doesn't have this attribute.
+      noCompressExtensions = ImmutableList.of();
+    }
     if (!noCompressExtensions.isEmpty()) {
       compressedApkCommandLine.addAll("--nocompress_suffixes", noCompressExtensions);
       singleJarCommandLine.addAll("--nocompress_suffixes", noCompressExtensions);
@@ -401,16 +419,25 @@ public class ApkActionsBuilder {
   // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
   private static void setSingleJarAsExecutable(
       RuleContext ruleContext, SpawnAction.Builder builder) {
-    Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
+    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
           .setJarExecutable(
               JavaCommon.getHostJavaExecutable(ruleContext),
               singleJar,
-              JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
+              JavaToolchainProvider.from(ruleContext).getJvmOptions())
           .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext));
     } else {
       builder.setExecutable(singleJar);
+    }
+  }
+
+  private Artifact getApkArtifact(RuleContext ruleContext, String baseName) {
+    if (artifactLocation != null) {
+      return ruleContext.getUniqueDirectoryArtifact(artifactLocation, baseName,
+          ruleContext.getBinOrGenfilesDirectory());
+    } else {
+      return AndroidBinary.getDxArtifact(ruleContext, baseName);
     }
   }
 }

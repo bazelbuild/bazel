@@ -41,7 +41,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
@@ -54,17 +53,18 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -75,7 +75,6 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.List;
@@ -415,9 +414,6 @@ public final class ObjcCommon {
               .addAll(STATIC_FRAMEWORK_FILE, staticFrameworkImports)
               .addAll(DYNAMIC_FRAMEWORK_FILE, dynamicFrameworkImports)
               .addAll(
-                  STATIC_FRAMEWORK_DIR,
-                  uniqueContainers(staticFrameworkImports, FRAMEWORK_CONTAINER_TYPE))
-              .addAll(
                   DYNAMIC_FRAMEWORK_DIR,
                   uniqueContainers(dynamicFrameworkImports, FRAMEWORK_CONTAINER_TYPE))
               .addAll(INCLUDE, includes)
@@ -645,7 +641,7 @@ public final class ObjcCommon {
   static Iterable<String> getNonCrosstoolCopts(RuleContext ruleContext) {
     return Iterables.concat(
         ruleContext.getFragment(ObjcConfiguration.class).getCopts(),
-        ruleContext.getTokenizedStringListAttr("copts"));
+        ruleContext.getExpander().withDataLocations().tokenized("copts"));
   }
 
   static ImmutableSet<PathFragment> userHeaderSearchPaths(

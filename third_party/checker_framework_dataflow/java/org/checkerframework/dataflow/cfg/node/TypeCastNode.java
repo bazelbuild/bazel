@@ -1,22 +1,18 @@
 package org.checkerframework.dataflow.cfg.node;
 
+import com.sun.source.tree.Tree;
 import java.util.Collection;
 import java.util.Collections;
-
 import javax.lang.model.type.TypeMirror;
-
 import org.checkerframework.dataflow.util.HashCodeUtils;
-
-import com.sun.source.tree.Tree;
 
 /**
  * A node for the cast operator:
  *
- * (<em>Point</em>) <em>x</em>
+ * <p>(<em>Point</em>) <em>x</em>
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
 public class TypeCastNode extends Node {
 
@@ -33,6 +29,7 @@ public class TypeCastNode extends Node {
         return operand;
     }
 
+    @Override
     public TypeMirror getType() {
         return type;
     }
@@ -60,8 +57,7 @@ public class TypeCastNode extends Node {
         TypeCastNode other = (TypeCastNode) obj;
         // TODO: TypeMirror.equals may be too restrictive.
         // Check whether Types.isSameType is the better comparison.
-        return getOperand().equals(other.getOperand())
-                && getType().equals(other.getType());
+        return getOperand().equals(other.getOperand()) && getType().equals(other.getType());
     }
 
     @Override

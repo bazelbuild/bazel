@@ -50,11 +50,18 @@ std::shared_ptr<Channel> CreateChannel(
   return CreateCustomChannel(target, creds, ChannelArguments());
 }
 
+// GCC-specific features
+#if (defined(COMPILER_GCC3) || defined(__APPLE__)) && !defined(SWIG)
+#define ATTRIBUTE_UNUSED __attribute__ ((__unused__))
+#else  // Not GCC
+#define ATTRIBUTE_UNUSED
+#endif  // GCC
+
 std::shared_ptr<Channel> CreateCustomChannel(
     const grpc::string& target,
     const std::shared_ptr<ChannelCredentials>& creds,
     const ChannelArguments& args) {
-  internal::GrpcLibrary
+  ATTRIBUTE_UNUSED internal::GrpcLibrary
       init_lib;  // We need to call init in case of a bad creds.
   ChannelArguments cp_args = args;
   std::ostringstream user_agent_prefix;

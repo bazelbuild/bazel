@@ -14,9 +14,9 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import java.util.Collection;
 import java.util.Set;
@@ -43,8 +43,10 @@ public abstract class DirtyBuildingState {
    * build to check whether this node has changed in {@link NodeEntry#setValue}. If they are null,
    * it means that this node is being built for the first time. See {@link
    * InMemoryNodeEntry#directDeps} for more on dependency group storage.
+   *
+   * <p>Public only for the use of alternative graph implementations.
    */
-  protected abstract GroupedList<SkyKey> getLastBuildDirectDeps() throws InterruptedException;
+  public abstract GroupedList<SkyKey> getLastBuildDirectDeps() throws InterruptedException;
 
   /**
    * The number of groups of the dependencies requested last time when the node was built.
@@ -53,8 +55,15 @@ public abstract class DirtyBuildingState {
    */
   protected abstract int getNumOfGroupsInLastBuildDirectDeps();
 
-  /** The value of the node the last time it was built. */
-  protected abstract SkyValue getLastBuildValue() throws InterruptedException;
+  /** The number of total dependencies requested the last time the node was built. */
+  public abstract int getNumElementsInLastBuildDirectDeps();
+
+  /**
+   * The value of the node the last time it was built.
+   *
+   * <p>Public only for the use of alternative graph implementations.
+   */
+  public abstract SkyValue getLastBuildValue() throws InterruptedException;
 
   /**
    * Group of children to be checked next in the process of determining if this entry needs to be
@@ -216,18 +225,23 @@ public abstract class DirtyBuildingState {
     }
 
     @Override
-    protected SkyValue getLastBuildValue() {
+    public SkyValue getLastBuildValue() {
       return lastBuildValue;
     }
 
     @Override
-    protected GroupedList<SkyKey> getLastBuildDirectDeps() throws InterruptedException {
+    public GroupedList<SkyKey> getLastBuildDirectDeps() throws InterruptedException {
       return lastBuildDirectDeps;
     }
 
     @Override
     protected int getNumOfGroupsInLastBuildDirectDeps() {
       return lastBuildDirectDeps.listSize();
+    }
+
+    @Override
+    public int getNumElementsInLastBuildDirectDeps() {
+      return lastBuildDirectDeps.numElements();
     }
 
     @Override

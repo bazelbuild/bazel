@@ -14,15 +14,13 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**

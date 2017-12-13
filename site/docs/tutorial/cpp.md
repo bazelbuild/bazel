@@ -3,7 +3,7 @@ layout: documentation
 title: Build Tutorial - C++
 ---
 
-Introduction to Bazel: Build a C++ Project
+Introduction to Bazel: Building a C++ Project
 ==========
 
 In this tutorial, you'll learn the basics of building C++ applications with
@@ -136,7 +136,7 @@ dependencies.
 
 The attributes in the target explicitly state its dependencies and options.
 While the `name` attribute is mandatory, many are optional. For example, in the
-`hello-greet` target, `name` is self-explanatory, and `srcs` specifies the
+`hello-world` target, `name` is self-explanatory, and `srcs` specifies the
 source file(s) from which Bazel builds the target.
 
 ### Build the project
@@ -382,8 +382,8 @@ file, you can even skip the `//` workspace root identifier and just use
 ## Further reading
 
 Congratulations! You now know the basics of building a C++ project with Bazel.
-Next, read up on the most common [C++ build use cases](cpp-use-cases.md). Then,
-check out the following:
+Next, read up on the most common [C++ build use cases](../cpp-use-cases.md).
+Then, check out the following:
 
 *  [External Dependencies](../external.html) to learn more about working with
    local and remote repositories.

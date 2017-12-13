@@ -110,8 +110,20 @@ For GitHub, this takes the form:
 
 <pre>
 http_archive(
-    name = "<name>",
+    name = "&lt;name&gt;",
+    strip_prefix = "&lt;top-level-name&gt;",
     urls = ["https://github.com/&lt;user&gt;/&lt;repo&gt;/archive/&lt;commit or tag&gt;.tar.gz"],
+)
+</pre>
+
+The <code>top-level-name</code> is often needed because the contents of the archive are nested down
+a directory when the tarball is extracted. For example the Apple Build Rules are referred to using:
+
+<pre>
+http_archive(
+    name = "build_bazel_rules_apple",
+    strip_prefix = "rules_apple-0.1.0",
+    urls = ["https://github.com/bazelbuild/rules_apple/archive/0.1.0.tar.gz"],
 )
 </pre>
 

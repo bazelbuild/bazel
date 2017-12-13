@@ -115,3 +115,22 @@ TEST(TokenStreamTest, OptargMulti) {
 
   EXPECT_TRUE(token_stream.AtEnd());
 }
+
+// '--arg1 optval1,optsuff1 optval2,optstuff2 --arg2' command line.
+TEST(TokenStreamTest, OptargMultiSplit) {
+  const char *args[] = {"--arg1", "optval1,optsuff1", "optval2,optsuff2",
+                        "optvalnosuff"};
+  ArgTokenStream token_stream(ARRAY_SIZE(args), args);
+  std::vector<std::pair<std::string, std::string> > optvals1;
+
+  EXPECT_FALSE(token_stream.MatchAndSet("--foo", &optvals1));
+  ASSERT_TRUE(token_stream.MatchAndSet("--arg1", &optvals1));
+
+  ASSERT_EQ(3, optvals1.size());
+  EXPECT_EQ("optval1", optvals1[0].first);
+  EXPECT_EQ("optsuff1", optvals1[0].second);
+  EXPECT_EQ("optval2", optvals1[1].first);
+  EXPECT_EQ("optsuff2", optvals1[1].second);
+  EXPECT_EQ("optvalnosuff", optvals1[2].first);
+  EXPECT_EQ("", optvals1[2].second);
+}

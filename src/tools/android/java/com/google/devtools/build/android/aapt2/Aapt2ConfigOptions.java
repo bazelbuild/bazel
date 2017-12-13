@@ -90,6 +90,16 @@ public class Aapt2ConfigOptions extends OptionsBase {
   public TriState useAaptCruncher;
 
   @Option(
+    name = "conditionalKeepRules",
+    defaultValue = "auto",
+    category = "config",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Have AAPT2 produce conditional keep rules."
+  )
+  public TriState conditionalKeepRules;
+
+  @Option(
       name = "uncompressedExtensions",
       defaultValue = "",
       converter = CommaSeparatedOptionListConverter.class,
@@ -157,4 +167,14 @@ public class Aapt2ConfigOptions extends OptionsBase {
               + " the output package name following an underscore."
   )
   public List<String> splits;
+
+  @Option(
+      name = "useCompiledResourcesForMerge",
+      defaultValue = "false",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Use compiled resources for merging rather than parsed symbols binary."
+  )
+  public boolean useCompiledResourcesForMerge;
 }

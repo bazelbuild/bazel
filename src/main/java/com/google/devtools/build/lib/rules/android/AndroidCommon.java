@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -22,8 +23,6 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -33,6 +32,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.collect.IterablesChain;
@@ -60,6 +61,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathTyp
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
@@ -71,11 +73,9 @@ import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
  * A helper class for android rules.
@@ -90,6 +90,8 @@ public class AndroidCommon {
 
   public static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
       ImmutableSet.of("deps", "exports");
+  private static final ResourceSet DEX_RESOURCE_SET =
+      ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0);
 
   public static final <T extends TransitiveInfoProvider> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, Mode mode, final Class<T> classType) {
@@ -184,8 +186,8 @@ public class AndroidCommon {
 
     if (JavaCommon.isNeverLink(ruleContext)) {
       builder.addAll(runtimeJars);
-      for (JavaCompilationArgsProvider provider : AnalysisUtils.getProviders(
-          deps, JavaCompilationArgsProvider.class)) {
+      for (JavaCompilationArgsProvider provider :
+          JavaInfo.getProvidersFromListOfTargets(JavaCompilationArgsProvider.class, deps)) {
         builder.addTransitive(provider.getRecursiveJavaCompilationArgs().getRuntimeJars());
       }
     }
@@ -231,7 +233,7 @@ public class AndroidCommon {
             .setProgressMessage("Converting %s to dex format", jarToDex.getExecPathString())
             .setMnemonic("AndroidDexer")
             .addCommandLine(commandLine.build())
-            .setResources(ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0));
+            .setResources(DEX_RESOURCE_SET);
     if (mainDexList != null) {
       builder.addInput(mainDexList);
     }
@@ -403,6 +405,11 @@ public class AndroidCommon {
         || (attributeValue == TriState.AUTO && exportsManifestDefault);
   }
 
+  /** Returns the artifact for the debug key for signing the APK. */
+  static Artifact getApkDebugSigningKey(RuleContext ruleContext) {
+    return ruleContext.getHostPrerequisiteArtifact("debug_key");
+  }
+
   private void compileResources(
       JavaSemantics javaSemantics,
       ResourceApk resourceApk,
@@ -419,7 +426,7 @@ public class AndroidCommon {
     // We don't actually use the ijar. That is almost the same as the resource class jar
     // except for <clinit>, but it takes time to build and waiting for that to build would
     // just delay building the rest of the library.
-    artifactsBuilder.addCompileTimeJar(resourceClassJar);
+    artifactsBuilder.addCompileTimeJarAsFullJar(resourceClassJar);
 
     // Add the compiled resource jar as a declared output of the rule.
     filesBuilder.add(resourceSourceJar);
@@ -541,7 +548,7 @@ public class AndroidCommon {
       boolean addCoverageSupport,
       boolean collectJavaCompilationArgs,
       boolean isBinary,
-      boolean includeLibraryResourceJars)
+      NestedSet<Artifact> excludedRuntimeArtifacts)
       throws InterruptedException, RuleErrorException {
 
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
@@ -572,6 +579,10 @@ public class AndroidCommon {
       DataBinding.addAnnotationProcessor(ruleContext, attributes);
     }
 
+    if (excludedRuntimeArtifacts != null) {
+      attributes.addExcludedArtifacts(excludedRuntimeArtifacts);
+    }
+
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     NestedSetBuilder<Artifact> jarsProducedForRuntime = NestedSetBuilder.<Artifact>stableOrder();
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.<Artifact>stableOrder();
@@ -586,20 +597,16 @@ public class AndroidCommon {
       compileResources(javaSemantics, resourceApk, resourcesJar, artifactsBuilder, attributes,
           filesBuilder, useRClassGenerator);
 
-      // In binary targets, add the resource jar as a runtime dependency. In libraries, the resource
-      // jar from the appropriate binary will be used, but add this jar anyway if requested.
-      if (isBinary || includeLibraryResourceJars) {
-        // Combined resource constants needs to come even before our own classes that may contain
-        // local resource constants.
-        artifactsBuilder.addRuntimeJar(resourceClassJar);
-        jarsProducedForRuntime.add(resourceClassJar);
-      }
+      // Combined resource constants needs to come even before our own classes that may contain
+      // local resource constants.
+      artifactsBuilder.addRuntimeJar(resourceClassJar);
+      jarsProducedForRuntime.add(resourceClassJar);
 
       if (resourceApk.isLegacy()) {
         // Repackages the R.java for each dependency package and places the resultant jars before
         // the dependency libraries to ensure that the generated resource ids are correct.
         createJarJarActions(attributes, jarsProducedForRuntime,
-            resourceApk.getResourceDependencies().getResources(),
+            resourceApk.getResourceDependencies().getResourceContainers(),
             resourceApk.getPrimaryResource().getJavaPackage(), resourceClassJar);
       }
     }
@@ -784,17 +791,26 @@ public class AndroidCommon {
             recursiveJavaCompilationArgs,
             compileTimeDependencyArtifacts,
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
-    javaCommon.addTransitiveInfoProviders(builder, filesToBuild, classJar, ANDROID_COLLECTION_SPEC);
-    javaCommon.addGenJarsProvider(builder, genClassJar, genSourceJar);
+
+    JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
+
+    javaCommon.addTransitiveInfoProviders(
+        builder, javaInfoBuilder, filesToBuild, classJar, ANDROID_COLLECTION_SPEC);
+
+    javaCommon.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
     DataBinding.maybeAddProvider(builder, ruleContext);
+    JavaInfo javaInfo = javaInfoBuilder
+        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
+        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .build();
 
     return builder
         .setFilesToBuild(filesToBuild)
         .addSkylarkTransitiveInfo(
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
-        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .addNativeDeclaredProvider(javaInfo)
         .addProvider(
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaCommon.getJavaCompilationArtifacts().getRuntimeJars()))
@@ -814,7 +830,6 @@ public class AndroidCommon {
                 zipAlignedApk,
                 apksUnderTest,
                 nativeLibs))
-        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addSkylarkTransitiveInfo(AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider())
         .addOutputGroup(
             OutputGroupProvider.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
@@ -885,14 +900,6 @@ public class AndroidCommon {
 
   public ImmutableList<String> getJavacOpts() {
     return javaCommon.getJavacOpts();
-  }
-
-  public Artifact getGenClassJar() {
-    return genClassJar;
-  }
-
-  @Nullable public Artifact getGenSourceJar() {
-    return genSourceJar;
   }
 
   public ImmutableList<Artifact> getRuntimeJars() {
@@ -988,7 +995,7 @@ public class AndroidCommon {
       // binding didn't reprocess a library's data binding expressions redundantly up the dependency
       // chain (meaning each depender processes them again as if they were its own), this problem
       // wouldn't happen.
-      Artifact annotationFile = DataBinding.createAnnotationFile(ruleContext, isLibrary);
+      Artifact annotationFile = DataBinding.createAnnotationFile(ruleContext);
       if (annotationFile != null) {
         srcs = ImmutableList.<Artifact>builder().addAll(srcs).add(annotationFile).build();
       }

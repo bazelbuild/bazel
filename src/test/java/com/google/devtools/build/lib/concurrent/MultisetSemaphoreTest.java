@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -45,17 +45,27 @@ public class MultisetSemaphoreTest {
         .maxNumUniqueValues(3)
         .build();
 
-    // And we serially acquire permits for 3 unique values
+    // And we serially acquire permits for 3 unique values,
     multisetSemaphore.acquireAll(ImmutableSet.of("a", "b", "c"));
+    // Then the MultisetSemaphore thinks it currently has 3 unique values.
+    assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(3);
     // And then attempt to acquire permits for 2 of those same unique values,
-    // Then we don't deadlock.
+    // Then we don't deadlock,
     multisetSemaphore.acquireAll(ImmutableSet.of("b", "c"));
+    // And the MultisetSemaphore still thinks it currently has 3 unique values.
+    assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(3);
     // And then we release one of the permit for one of those unique values,
     multisetSemaphore.releaseAll(ImmutableSet.of("c"));
-    // And then we release the other permit,
+    // Then the MultisetSemaphore still thinks it currently has 3 unique values.
+    assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(3);
+    // And then we release the final permit for that unique value,
     multisetSemaphore.releaseAll(ImmutableSet.of("c"));
-    // We are able to acquire a permit for a 4th unique value.
+    // Then the MultisetSemaphore thinks it currently has 2 unique values.
+    assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(2);
+    // And we are able to acquire a permit for a 4th unique value,
     multisetSemaphore.acquireAll(ImmutableSet.of("d"));
+    // And the MultisetSemaphore thinks it currently has 3 unique values.
+    assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(3);
   }
 
   @Test
@@ -171,12 +181,13 @@ public class MultisetSemaphoreTest {
                     public void run() {
                       try {
                         Set<String> vals = ImmutableSet.of(sameVal, differentVal);
-                        // Tries to acquire a permit for a set of two values, one of which is the same for all
-                        // the N Runnables and one of which is unique across all N Runnables.
+                        // Tries to acquire a permit for a set of two values, one of which is the
+                        // same for all the N Runnables and one of which is unique across all N
+                        // Runnables,
                         multisetSemaphore.acquireAll(vals);
-                        // And then sleeps
+                        // And then sleeps,
                         Thread.sleep(napTimeMs);
-                        // And then releases its permits
+                        // And then releases its permits,
                         multisetSemaphore.releaseAll(vals);
                         // And then counts down the done latch,
                         allDoneLatch.countDown();
@@ -230,8 +241,8 @@ public class MultisetSemaphoreTest {
                     @Override
                     public void run() {
                       try {
-                        // Tries to acquire a permit for the set of N values, with a unique iteration order
-                        // (across all the N! different permutations)
+                        // Tries to acquire a permit for the set of N values, with a unique
+                        // iteration order (across all the N! different permutations),
                         multisetSemaphore.acquireAll(orderedSet);
                         // And then immediately releases the permit.
                         multisetSemaphore.releaseAll(orderedSet);

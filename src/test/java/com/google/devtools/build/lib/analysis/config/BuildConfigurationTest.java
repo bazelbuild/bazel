@@ -95,14 +95,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testHostCpu() throws Exception {
-    for (String cpu : new String[] { "piii", "k8" }) {
-      BuildConfiguration hostConfig = createHost("--host_cpu=" + cpu);
-      assertThat(hostConfig.getFragment(CppConfiguration.class).getTargetCpu()).isEqualTo(cpu);
-    }
-  }
-
-  @Test
   public void testHostCrosstoolTop() throws Exception {
     if (analysisMock.isThisBazel()) {
       return;
@@ -146,7 +138,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
           .hasMessageThat()
           .matches(
               Pattern.compile(
-                  "No toolchain found for cpu 'bogus'. Valid cpus are: \\[\n(  [\\w-]+,\n)+]"));
+                  "No default_toolchain found for cpu 'bogus'. "
+                      + "Valid cpus are: \\[\n(  [\\w-]+,\n)+]"));
     }
   }
 
@@ -278,11 +271,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         .isEqualTo(Boolean.TRUE);
     assertThat(create("--noforce_pic").getTransitiveOptionDetails().getOptionValue("force_pic"))
         .isEqualTo(Boolean.FALSE);
-
-    // Late-bound default option:
-    BuildConfiguration config = create();
-    assertThat(config.getFragment(CppConfiguration.class).getCompiler())
-        .isEqualTo(config.getTransitiveOptionDetails().getOptionValue("compiler"));
 
     // Legitimately null option:
     assertThat(create().getTransitiveOptionDetails().getOptionValue("test_filter")).isNull();

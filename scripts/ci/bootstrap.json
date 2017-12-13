@@ -16,12 +16,10 @@
                 "bazel-genfiles/scripts/packages/debian/bazel.dsc": "bazel.dsc",
                 "bazel-genfiles/scripts/packages/debian/bazel.tar.gz": "bazel.tar.gz",
                 "bazel-genfiles/site/jekyll-tree.tar": "docs.bazel.build.tar",
-                "bazel-bin/src/tools/benchmark/webapp/site.tar": "perf.bazel.build.tar.nobuild"
             },
             "targets": [
                 "//scripts/packages",
-                "//site:jekyll-tree",
-                "//src/tools/benchmark/webapp:site"
+                "//site:jekyll-tree"
             ]
         },
         "opts": ["-c opt"]

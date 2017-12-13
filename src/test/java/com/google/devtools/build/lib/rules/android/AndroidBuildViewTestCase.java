@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -26,20 +27,24 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -55,7 +60,6 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         // TODO(b/35097211): Remove this once the new testing rules are released.
         .addRuleDefinition(new AndroidDeviceScriptFixtureRule())
         .addRuleDefinition(new AndroidHostServiceFixtureRule())
-        .addRuleDefinition(new AndroidInstrumentationRule())
         .addRuleDefinition(new AndroidInstrumentationTestRule())
         .build();
   }
@@ -149,7 +153,8 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected Artifact getResourceClassJar(final ConfiguredTarget target) {
-    JavaRuleOutputJarsProvider jarProvider = target.getProvider(JavaRuleOutputJarsProvider.class);
+    JavaRuleOutputJarsProvider jarProvider =
+        JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target);
     assertThat(jarProvider).isNotNull();
     return Iterables.find(
             jarProvider.getOutputJars(),
@@ -240,5 +245,154 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   protected static Set<Artifact> getNonToolInputs(Action action) {
     return Sets.difference(
         ImmutableSet.copyOf(action.getInputs()), ImmutableSet.copyOf(action.getTools()));
+  }
+
+  protected void checkDebugKey(String debugKeyFile, boolean hasDebugKeyTarget) throws Exception {
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    String defaultKeyStoreFile =
+        ruleClassProvider.getToolsRepository() + "//tools/android:debug_keystore";
+
+    if (hasDebugKeyTarget) {
+      assertWithMessage("Debug key file target missing.")
+          .that(checkKeyPresence(binary, debugKeyFile, defaultKeyStoreFile))
+          .isTrue();
+    } else {
+      assertWithMessage("Debug key file is default, although different target specified.")
+          .that(checkKeyPresence(binary, defaultKeyStoreFile, debugKeyFile))
+          .isTrue();
+    }
+  }
+
+  private boolean checkKeyPresence(
+      ConfiguredTarget binary, String shouldHaveKey, String shouldNotHaveKey) throws Exception {
+    boolean hasKey = false;
+    boolean doesNotHaveKey = false;
+
+    for (ConfiguredTarget debugKeyTarget : getDirectPrerequisites(binary)) {
+      if (debugKeyTarget.getLabel().toString().equals(shouldHaveKey)) {
+        hasKey = true;
+      }
+      if (debugKeyTarget.getLabel().toString().equals(shouldNotHaveKey)) {
+        doesNotHaveKey = true;
+      }
+    }
+
+    return hasKey && !doesNotHaveKey;
+  }
+
+  protected String getAndroidJarPath() throws Exception {
+    return getAndroidSdk().getAndroidJar().getRootRelativePathString();
+  }
+
+  protected Artifact getProguardBinary() throws Exception {
+    return getAndroidSdk().getProguard().getExecutable();
+  }
+
+  private AndroidSdkProvider getAndroidSdk() {
+    Label sdk = targetConfig.getFragment(AndroidConfiguration.class).getSdk();
+    return getConfiguredTarget(sdk, targetConfig).getProvider(AndroidSdkProvider.class);
+  }
+
+  protected void checkProguardUse(String target, String artifact, boolean expectMapping,
+      @Nullable Integer passes,
+      String... expectedlibraryJars) throws Exception {
+    ConfiguredTarget binary = getConfiguredTarget(target);
+    assertProguardUsed(binary);
+    assertProguardGenerated(binary);
+
+    Action dexAction = actionsTestUtil().getActionForArtifactEndingWith(
+        actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "classes.dex");
+    Artifact trimmedJar =
+        getFirstArtifactEndingWith(dexAction.getInputs(), artifact);
+    assertWithMessage("Dex should be built from jar trimmed with Proguard.")
+        .that(trimmedJar)
+        .isNotNull();
+    SpawnAction proguardAction = getGeneratingSpawnAction(trimmedJar);
+
+    if (passes == null) {
+      // Verify proguard as a single action.
+      Action proguardMap = actionsTestUtil().getActionForArtifactEndingWith(getFilesToBuild(binary),
+          "_proguard.map");
+      if (expectMapping) {
+        assertWithMessage("proguard.map is not in the rule output").that(proguardMap).isNotNull();
+      } else {
+        assertWithMessage("proguard.map is in the rule output").that(proguardMap).isNull();
+      }
+      checkProguardLibJars(proguardAction, expectedlibraryJars);
+    } else {
+      // Verify the multi-stage system generated the correct number of stages.
+      Artifact proguardMap = ActionsTestUtil.getFirstArtifactEndingWith(
+          proguardAction.getOutputs(), "_proguard.map");
+      if (expectMapping) {
+        assertWithMessage("proguard.map is not in the rule output").that(proguardMap).isNotNull();
+      } else {
+        assertWithMessage("proguard.map is in the rule output").that(proguardMap).isNull();
+      }
+
+      assertThat(proguardAction.getArguments()).contains("-runtype FINAL");
+      checkProguardLibJars(proguardAction, expectedlibraryJars);
+
+      SpawnAction lastStageAction = proguardAction;
+      // Verify Obfuscation config.
+      for (int pass = passes; pass > 0; pass--) {
+        Artifact lastStageOutput = ActionsTestUtil.getFirstArtifactEndingWith(
+            lastStageAction.getInputs(),
+            "Proguard_optimization_" + pass + ".jar");
+        assertWithMessage("Proguard_optimization_" + pass + ".jar is not in rule output")
+            .that(lastStageOutput)
+            .isNotNull();
+        lastStageAction = getGeneratingSpawnAction(lastStageOutput);
+
+        // Verify Optimization pass config.
+        assertThat(lastStageAction.getArguments()).contains("-runtype OPTIMIZATION");
+        checkProguardLibJars(lastStageAction, expectedlibraryJars);
+      }
+
+      Artifact preoptimizationOutput = ActionsTestUtil.getFirstArtifactEndingWith(
+          lastStageAction.getInputs(), "proguard_preoptimization.jar");
+      assertWithMessage("proguard_preoptimization.jar is not in rule output")
+          .that(preoptimizationOutput)
+          .isNotNull();
+      SpawnAction proOptimization = getGeneratingSpawnAction(preoptimizationOutput);
+
+      // Verify intitial step.
+      assertThat(proOptimization.getArguments()).contains("-runtype INITIAL");
+      checkProguardLibJars(proOptimization, expectedlibraryJars);
+    }
+  }
+
+  void checkProguardLibJars(SpawnAction proguardAction, String... expectedlibraryJars)
+      throws Exception {
+    Collection<String> libraryJars = new ArrayList<>();
+    Iterator<String> argsIterator = proguardAction.getArguments().iterator();
+    for (String argument = argsIterator.next(); argsIterator.hasNext();
+        argument = argsIterator.next()) {
+      if (argument.equals("-libraryjars")) {
+        libraryJars.add(argsIterator.next());
+      }
+    }
+    assertThat(libraryJars).containsExactly((Object[]) expectedlibraryJars);
+  }
+
+  protected void assertProguardGenerated(ConfiguredTarget binary) {
+    Action generateProguardAction = actionsTestUtil().getActionForArtifactEndingWith(
+        actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "_proguard.cfg");
+    assertWithMessage("proguard generating action not spawned")
+        .that(generateProguardAction)
+        .isNotNull();
+    Action proguardAction =
+        actionsTestUtil().getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar");
+    actionsTestUtil();
+    assertWithMessage("Generated config not in inputs to proguard action")
+        .that(proguardAction.getInputs()).contains(ActionsTestUtil.getFirstArtifactEndingWith(
+        generateProguardAction.getOutputs(), "_proguard.cfg"));
+  }
+
+  protected void assertProguardNotUsed(ConfiguredTarget binary) {
+    assertWithMessage("proguard.jar is in the rule output")
+        .that(
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar"))
+        .isNull();
   }
 }

@@ -135,7 +135,8 @@ string JavaBinaryLauncher::CreateClasspathJar(const string& classpath) {
 
   string binary_base_path =
       GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]);
-  string jar_manifest_file_path = binary_base_path + ".jar_manifest";
+  string rand_id = "-" + GetRandomStr(10);
+  string jar_manifest_file_path = binary_base_path + rand_id + ".jar_manifest";
   ofstream jar_manifest_file(jar_manifest_file_path);
   jar_manifest_file << "Manifest-Version: 1.0\n";
   // No line in the MANIFEST.MF file may be longer than 72 bytes.
@@ -152,7 +153,7 @@ string JavaBinaryLauncher::CreateClasspathJar(const string& classpath) {
 
   // Create the command for generating classpath jar.
   // We pass the command to cmd.exe to use redirection for suppressing output.
-  string manifest_jar_path = binary_base_path + "-classpath.jar";
+  string manifest_jar_path = binary_base_path + rand_id + "-classpath.jar";
   string jar_bin = this->Rlocation(this->GetLaunchInfoByKey(JAR_BIN_PATH));
   vector<string> arguments;
   arguments.push_back("/c");
@@ -167,6 +168,9 @@ string JavaBinaryLauncher::CreateClasspathJar(const string& classpath) {
   if (this->LaunchProcess("cmd.exe", arguments) != 0) {
     die("Couldn't create classpath jar: %s", manifest_jar_path.c_str());
   }
+
+  // Delete jar_manifest_file after classpath jar is created.
+  DeleteFileByPath(jar_manifest_file_path.c_str());
 
   return manifest_jar_path;
 }
@@ -261,8 +265,10 @@ ExitCode JavaBinaryLauncher::Launch() {
   // Check if CLASSPATH is over classpath length limit.
   // If it does, then we create a classpath jar to pass CLASSPATH value.
   string classpath_str = classpath.str();
+  string classpath_jar = "";
   if (classpath_str.length() > this->classpath_limit) {
-    arguments.push_back(CreateClasspathJar(classpath_str));
+    classpath_jar = CreateClasspathJar(classpath_str);
+    arguments.push_back(classpath_jar);
   } else {
     arguments.push_back(classpath_str);
   }
@@ -290,7 +296,21 @@ ExitCode JavaBinaryLauncher::Launch() {
     arguments.push_back(arg);
   }
 
-  return this->LaunchProcess(java_bin, arguments);
+  vector<string> escaped_arguments;
+  // Quote the arguments if having spaces
+  for (const auto& arg : arguments) {
+    escaped_arguments.push_back(
+        GetEscapedArgument(arg, /*escape_backslash = */ false));
+  }
+
+  ExitCode exit_code = this->LaunchProcess(java_bin, escaped_arguments);
+
+  // Delete classpath jar file after execution.
+  if (!classpath_jar.empty()) {
+    DeleteFileByPath(classpath_jar.c_str());
+  }
+
+  return exit_code;
 }
 
 }  // namespace launcher

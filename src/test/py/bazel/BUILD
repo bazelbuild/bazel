@@ -25,6 +25,20 @@ py_library(
 )
 
 py_test(
+    name = "action_temp_test",
+    size = "medium",
+    srcs = ["action_temp_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
+    name = "cc_import_test",
+    size = "medium",
+    srcs = ["cc_import_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "bazel_server_mode_test",
     size = "medium",
     srcs = ["bazel_server_mode_test.py"],
@@ -50,21 +64,21 @@ py_test(
     name = "bazel_windows_test",
     size = "medium",
     srcs = select({
-        "//src:windows": ["bazel_windows_test.py"],
-        "//src:windows_msvc": ["bazel_windows_test.py"],
-        "//src:windows_msys": ["bazel_windows_test.py"],
+        "//src/conditions:windows": ["bazel_windows_test.py"],
+        "//src/conditions:windows_msvc": ["bazel_windows_test.py"],
+        "//src/conditions:windows_msys": ["bazel_windows_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
     main = select({
-        "//src:windows": "bazel_windows_test.py",
-        "//src:windows_msvc": "bazel_windows_test.py",
-        "//src:windows_msys": "bazel_windows_test.py",
+        "//src/conditions:windows": "bazel_windows_test.py",
+        "//src/conditions:windows_msvc": "bazel_windows_test.py",
+        "//src/conditions:windows_msys": "bazel_windows_test.py",
         "//conditions:default": "empty_test.py",
     }),
     deps = select({
-        "//src:windows": [":test_base"],
-        "//src:windows_msvc": [":test_base"],
-        "//src:windows_msys": [":test_base"],
+        "//src/conditions:windows": [":test_base"],
+        "//src/conditions:windows_msvc": [":test_base"],
+        "//src/conditions:windows_msys": [":test_base"],
         "//conditions:default": [],
     }),
 )
@@ -74,4 +88,50 @@ py_test(
     size = "medium",
     srcs = ["launcher_test.py"],
     deps = [":test_base"],
+)
+
+py_test(
+    name = "runfiles_test",
+    srcs = ["runfiles_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
+    name = "bazel_windows_cpp_test",
+    size = "large",
+    srcs = select({
+        "//src/conditions:windows": ["bazel_windows_cpp_test.py"],
+        "//src/conditions:windows_msvc": ["bazel_windows_cpp_test.py"],
+        "//src/conditions:windows_msys": ["bazel_windows_cpp_test.py"],
+        "//conditions:default": ["empty_test.py"],
+    }),
+    main = select({
+        "//src/conditions:windows": "bazel_windows_cpp_test.py",
+        "//src/conditions:windows_msvc": "bazel_windows_cpp_test.py",
+        "//src/conditions:windows_msys": "bazel_windows_cpp_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
+    deps = select({
+        "//src/conditions:windows": [":test_base"],
+        "//src/conditions:windows_msvc": [":test_base"],
+        "//src/conditions:windows_msys": [":test_base"],
+        "//conditions:default": [],
+    }),
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src:__pkg__"],
 )

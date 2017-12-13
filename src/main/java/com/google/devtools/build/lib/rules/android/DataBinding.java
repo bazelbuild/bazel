@@ -15,19 +15,19 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -154,9 +154,12 @@ public final class DataBinding {
    */
   static void addAnnotationProcessor(
       RuleContext ruleContext, JavaTargetAttributes.Builder attributes) {
-    JavaPluginInfoProvider plugin = ruleContext.getPrerequisite(
-        DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.TARGET,
-        JavaPluginInfoProvider.class);
+    JavaPluginInfoProvider plugin =
+        JavaInfo.getProvider(
+            JavaPluginInfoProvider.class,
+            ruleContext.getPrerequisite(
+                DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.HOST));
+
     for (String name : plugin.getProcessorClasses()) {
       // For header compilation (see JavaHeaderCompileAction):
       attributes.addApiGeneratingProcessorName(name);
@@ -168,8 +171,6 @@ public final class DataBinding {
     // For full compilation:
     attributes.addProcessorPath(plugin.getProcessorClasspath());
     attributes.addAdditionalOutputs(getMetadataOutputs(ruleContext));
-
-    //addProcessorFlags(ruleContext, attributes, isBinary);
   }
 
   /**
@@ -223,9 +224,9 @@ public final class DataBinding {
    * end user code consumes.
    *
    * <p>This mostly just triggers the annotation processor. Annotation processor settings
-   * are configured in {@link #addProcessorFlags}.
+   * are configured separately in {@link #getJavacopts}.
    */
-  static Artifact createAnnotationFile(RuleContext ruleContext, boolean isLibrary) {
+  static Artifact createAnnotationFile(RuleContext ruleContext) {
     String contents;
     try {
       contents = ResourceFileLoader.loadResource(DataBinding.class,

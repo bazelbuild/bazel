@@ -98,7 +98,12 @@ public class DefaultMethodClassFixerTest {
   private byte[] desugar(ClassReader reader) {
     ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
     DefaultMethodClassFixer fixer =
-        new DefaultMethodClassFixer(writer, classpathReader, bootclassPath, classLoader);
+        new DefaultMethodClassFixer(
+            writer,
+            classpathReader,
+            DependencyCollector.NoWriteCollectors.FAIL_ON_MISSING,
+            bootclassPath,
+            classLoader);
     reader.accept(fixer, 0);
     return writer.toByteArray();
   }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.genrule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -62,19 +64,22 @@ public class GenRuleAction extends SpawnAction {
         runfilesSupplier,
         "Genrule",
         false,
+        null,
         null);
   }
 
   @Override
-  protected void internalExecute(ActionExecutionContext actionExecutionContext)
+  protected List<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     EventHandler reporter = actionExecutionContext.getEventHandler();
     checkInputsForDirectories(reporter, actionExecutionContext.getActionInputFileCache());
+    List<SpawnResult> spawnResults = ImmutableList.of();
     try {
-      super.internalExecute(actionExecutionContext);
+      spawnResults = super.internalExecute(actionExecutionContext);
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("GenRuleAction command line expansion cannot fail");
     }
     checkOutputsForDirectories(reporter);
+    return spawnResults;
   }
 }

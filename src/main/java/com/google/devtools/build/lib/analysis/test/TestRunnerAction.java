@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,7 +25,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -38,7 +41,7 @@ import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -163,8 +166,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     this.baseDir = cacheStatus.getExecPath().getParentDirectory();
 
     int totalShards = executionSettings.getTotalShards();
-    Preconditions.checkState((totalShards == 0 && shardNum == 0) ||
-                                (totalShards > 0 && 0 <= shardNum && shardNum < totalShards));
+    Preconditions.checkState((totalShards == 0 && shardNum == 0)
+                             || (totalShards > 0 && 0 <= shardNum && shardNum < totalShards));
     this.testExitSafe = baseDir.getChild("test.exited_prematurely");
     // testShard Path should be set only if sharding is enabled.
     this.testShard = totalShards > 1
@@ -227,7 +230,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   @Override
-  protected String computeKey() throws CommandLineExpansionException {
+  protected String computeKey(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
     f.addStrings(executionSettings.getArgs().arguments());
@@ -348,13 +352,13 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   /**
    * Deletes <b>all</b> possible test outputs.
    *
-   * TestRunnerAction potentially can create many more non-declared outputs - xml output,
-   * coverage data file and logs for failed attempts. All those outputs are uniquely
-   * identified by the test log base name with arbitrary prefix and extension.
+   * <p>TestRunnerAction potentially can create many more non-declared outputs - xml output,
+   * coverage data file and logs for failed attempts. All those outputs are uniquely identified by
+   * the test log base name with arbitrary prefix and extension.
    */
   @Override
-  protected void deleteOutputs(Path execRoot) throws IOException {
-    super.deleteOutputs(execRoot);
+  protected void deleteOutputs(FileSystem fileSystem, Path execRoot) throws IOException {
+    super.deleteOutputs(fileSystem, execRoot);
 
     // We do not rely on globs, as it causes quadratic behavior in --runs_per_test and test
     // shard count.
@@ -461,8 +465,19 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
       env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
       env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
-      // TODO(elenairina): Remove this after the next blaze release (after 2017.07.30).
-      env.put("NEW_JAVA_COVERAGE_IMPL", "True");
+      // TODO(elenairina): Remove this after it reaches a blaze release.
+      if (configuration.isExperimentalJavaCoverage()) {
+        // This value ("released") tells lcov_merger whether it should use the old or the new
+        // java  coverage implementation. The meaning of "released" is that lcov_merger will receive
+        // this value only after blaze containing this change will be released.
+        env.put("NEW_JAVA_COVERAGE_IMPL", "released");
+      } else {
+        // This value ("True") should have told lcov_merger whether it should use the old or the new
+        // java  coverage implementation. Due to several failed attempts at submitting the new 
+        // implementation, this value will be treated still as the old implementation. This 
+        // environment variable must be set to a value recognized by lcov_merger.
+        env.put("NEW_JAVA_COVERAGE_IMPL", "True");
+      }
     }
   }
 
@@ -656,11 +671,11 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     TestActionContext context = actionExecutionContext.getContext(TestActionContext.class);
     try {
-      context.exec(this, actionExecutionContext);
+      return ActionResult.create(context.exec(this, actionExecutionContext));
     } catch (ExecException e) {
       throw e.toActionExecutionException(this);
     } finally {

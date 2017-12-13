@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -42,12 +42,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -89,6 +88,12 @@ public final class CcLibraryHelper {
           + "hidden_header_tokens"
           + OutputGroupProvider.INTERNAL_SUFFIX;
 
+  /** A string constant for the name of archive library(.a, .lo) output group. */
+  public static final String ARCHIVE_LIBRARY_OUTPUT_GROUP_NAME = "archive";
+
+  /** A string constant for the name of dynamic library output group. */
+  public static final String DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME = "dynamic_library";
+
   /**
    * A group of source file types and action names for builds controlled by CcLibraryHelper.
    * Determines what file types CcLibraryHelper considers sources and what action configs are
@@ -110,9 +115,11 @@ public final class CcLibraryHelper {
             CppCompileAction.CPP_HEADER_PARSING,
             CppCompileAction.CPP_HEADER_PREPROCESSING,
             CppCompileAction.CPP_MODULE_COMPILE,
+            CppCompileAction.CPP_MODULE_CODEGEN,
             CppCompileAction.ASSEMBLE,
             CppCompileAction.PREPROCESS_ASSEMBLE,
             CppCompileAction.CLIF_MATCH,
+            CppCompileAction.LINKSTAMP_COMPILE,
             Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
             // We need to create pic-specific actions for link actions, as they will produce
             // differently named outputs.
@@ -141,6 +148,7 @@ public final class CcLibraryHelper {
             CppCompileAction.CPP_HEADER_PREPROCESSING,
             CppCompileAction.ASSEMBLE,
             CppCompileAction.PREPROCESS_ASSEMBLE,
+            CppCompileAction.LINKSTAMP_COMPILE,
             Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
             // We need to create pic-specific actions for link actions, as they will produce
             // differently named outputs.
@@ -237,15 +245,25 @@ public final class CcLibraryHelper {
     }
 
     /**
-     * Adds the static, pic-static, and dynamic (both compile-time and execution-time) libraries to
-     * the given builder.
+     * Adds the static, pic-static libraries to the given builder.
+     * If addDynamicLibraries parameter is true, it also adds dynamic(both compile-time and
+     * execution-time) libraries.
      */
-    public void addLinkingOutputsTo(NestedSetBuilder<Artifact> filesBuilder) {
+    public void addLinkingOutputsTo(
+        NestedSetBuilder<Artifact> filesBuilder, boolean addDynamicLibraries) {
       filesBuilder
           .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getStaticLibraries()))
-          .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getPicStaticLibraries()))
-          .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibraries()))
-          .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getExecutionDynamicLibraries()));
+          .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getPicStaticLibraries()));
+      if (addDynamicLibraries) {
+        filesBuilder
+            .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibraries()))
+            .addAll(
+                LinkerInputs.toNonSolibArtifacts(linkingOutputs.getExecutionDynamicLibraries()));
+      }
+    }
+
+    public void addLinkingOutputsTo(NestedSetBuilder<Artifact> filesBuilder) {
+      addLinkingOutputsTo(filesBuilder, true);
     }
   }
 
@@ -285,6 +303,7 @@ public final class CcLibraryHelper {
   private final List<LibraryToLink> staticLibraries = new ArrayList<>();
   private final List<LibraryToLink> picStaticLibraries = new ArrayList<>();
   private final List<LibraryToLink> dynamicLibraries = new ArrayList<>();
+  private final List<LibraryToLink> executionDynamicLibraries = new ArrayList<>();
 
   private boolean emitLinkActions = true;
   private boolean emitLinkActionsIfEmpty;
@@ -635,6 +654,12 @@ public final class CcLibraryHelper {
     return this;
   }
 
+  /** Add the corresponding files as dynamic libraries required at runtime */
+  public CcLibraryHelper addExecutionDynamicLibraries(Iterable<LibraryToLink> libraries) {
+    Iterables.addAll(executionDynamicLibraries, libraries);
+    return this;
+  }
+
   public CcLibraryHelper setCopts(ImmutableList<String> copts) {
     this.copts = Preconditions.checkNotNull(copts);
     return this;
@@ -925,13 +950,6 @@ public final class CcLibraryHelper {
    * @throws RuleErrorException
    */
   public Info build() throws RuleErrorException, InterruptedException {
-    // Fail early if there is no lipo context collector on the rule - otherwise we end up failing
-    // in lipo optimization.
-    Preconditions.checkState(
-        // 'cc_inc_library' rules do not compile, and thus are not affected by LIPO.
-        ruleContext.getRule().getRuleClass().equals("cc_inc_library")
-            || ruleContext.isAttrDefined(":lipo_context_collector", BuildType.LABEL));
-
     if (checkDepsGenerateCpp) {
       for (LanguageDependentFragment dep :
           AnalysisUtils.getProviders(deps, LanguageDependentFragment.class)) {
@@ -977,8 +995,10 @@ public final class CcLibraryHelper {
       }
     }
     CcLinkingOutputs originalLinkingOutputs = ccLinkingOutputs;
-    if (!(
-        staticLibraries.isEmpty() && picStaticLibraries.isEmpty() && dynamicLibraries.isEmpty())) {
+    if (!(staticLibraries.isEmpty()
+        && picStaticLibraries.isEmpty()
+        && dynamicLibraries.isEmpty()
+        && executionDynamicLibraries.isEmpty())) {
 
       CcLinkingOutputs.Builder newOutputsBuilder = new CcLinkingOutputs.Builder();
       if (!ccOutputs.isEmpty()) {
@@ -987,7 +1007,9 @@ public final class CcLibraryHelper {
         newOutputsBuilder.merge(originalLinkingOutputs);
         ImmutableSetMultimap<String, LibraryToLink> precompiledLibraryMap =
             CcLinkingOutputs.getLibrariesByIdentifier(
-                Iterables.concat(staticLibraries, picStaticLibraries, dynamicLibraries));
+                Iterables.concat(
+                    staticLibraries, picStaticLibraries,
+                    dynamicLibraries, executionDynamicLibraries));
         ImmutableSetMultimap<String, LibraryToLink> linkedLibraryMap =
             originalLinkingOutputs.getLibrariesByIdentifier();
         for (String matchingIdentifier :
@@ -1020,13 +1042,12 @@ public final class CcLibraryHelper {
               .addStaticLibraries(staticLibraries)
               .addPicStaticLibraries(picStaticLibraries)
               .addDynamicLibraries(dynamicLibraries)
-              .addExecutionDynamicLibraries(dynamicLibraries)
+              .addExecutionDynamicLibraries(executionDynamicLibraries)
               .build();
     }
 
     DwoArtifactsCollector dwoArtifacts =
         DwoArtifactsCollector.transitiveCollector(
-            ruleContext,
             ccOutputs,
             deps, /*generateDwo=*/
             false, /*ltoBackendArtifactsUsePic=*/
@@ -1056,7 +1077,7 @@ public final class CcLibraryHelper {
     if (emitCompileProviders) {
       boolean isLipoCollector = cppConfiguration.isLipoContextCollector();
       boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-      boolean usePic = CppHelper.usePic(ruleContext, false);
+      boolean usePic = CppHelper.usePic(ruleContext, ccToolchain, false);
       outputGroups.put(
           OutputGroupProvider.FILES_TO_COMPILE,
           ccOutputs.getFilesToCompile(isLipoCollector, processHeadersInDependencies, usePic));
@@ -1137,10 +1158,20 @@ public final class CcLibraryHelper {
               configuration,
               Link.LinkTargetType.DYNAMIC_LIBRARY,
               linkedArtifactNameSuffix));
+
+      if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)
+          && emitInterfaceSharedObjects) {
+        dynamicLibrary.add(
+            CppHelper.getLinuxLinkedArtifact(
+                ruleContext,
+                configuration,
+                LinkTargetType.INTERFACE_DYNAMIC_LIBRARY,
+                linkedArtifactNameSuffix));
+      }
     }
 
-    outputGroups.put("archive", archiveFile.build());
-    outputGroups.put("dynamic_library", dynamicLibrary.build());
+    outputGroups.put(ARCHIVE_LIBRARY_OUTPUT_GROUP_NAME, archiveFile.build());
+    outputGroups.put(DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME, dynamicLibrary.build());
   }
 
   /**
@@ -1542,14 +1573,19 @@ public final class CcLibraryHelper {
           CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
         builder.addLinkstamps(linkstamps.build(), cppCompilationContext);
         builder.addTransitiveTargets(
-            deps,
-            CcLinkParamsInfo.TO_LINK_PARAMS,
-            CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
+            deps, CcLinkParamsInfo.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
         if (!neverlink) {
           builder.addLibraries(
               ccLinkingOutputs.getPreferredLibraries(
                   linkingStatically, /*preferPic=*/ linkShared || forcePic));
+          if (!linkingStatically
+              || (ccLinkingOutputs.getStaticLibraries().isEmpty()
+                  && ccLinkingOutputs.getPicStaticLibraries().isEmpty())) {
+            builder.addExecutionDynamicLibraries(
+                LinkerInputs.toLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
+          }
           builder.addLinkOpts(linkopts);
+          builder.addNonCodeInputs(nonCodeLinkerInputs);
         }
       }
     };

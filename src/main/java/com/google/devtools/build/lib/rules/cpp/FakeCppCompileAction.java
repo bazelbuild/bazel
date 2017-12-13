@@ -17,26 +17,29 @@ package com.google.devtools.build.lib.rules.cpp;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -63,6 +66,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       boolean usePic,
       boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
+      ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> prunableInputs,
       Artifact outputFile,
       PathFragment tempOutputFile,
@@ -87,6 +91,7 @@ public class FakeCppCompileAction extends CppCompileAction {
         usePic,
         useHeaderModules,
         mandatoryInputs,
+        builtinIncludeFiles,
         prunableInputs,
         outputFile,
         dotdFile,
@@ -106,7 +111,6 @@ public class FakeCppCompileAction extends CppCompileAction {
         CppCompilationContext.disallowUndeclaredHeaders(context),
         actionContext,
         nocopts,
-        VOID_SPECIAL_INPUTS_HANDLER,
         lipoScannables,
         ImmutableList.<Artifact>of(),
         GUID,
@@ -120,16 +124,20 @@ public class FakeCppCompileAction extends CppCompileAction {
 
   @Override
   @ThreadCompatible
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     setModuleFileFlags();
+    List<SpawnResult> spawnResults;
     // First, do a normal compilation, to generate the ".d" file. The generated object file is built
     // to a temporary location (tempOutputFile) and ignored afterwards.
     logger.info("Generating " + getDotdFile());
     CppCompileActionContext context = actionExecutionContext.getContext(actionContext);
     CppCompileActionContext.Reply reply = null;
     try {
-      reply = context.execWithReply(this, actionExecutionContext);
+      CppCompileActionResult cppCompileActionResult =
+          context.execWithReply(this, actionExecutionContext);
+      reply = cppCompileActionResult.contextReply();
+      spawnResults = cppCompileActionResult.spawnResults();
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "C++ compilation of rule '" + getOwner().getLabel() + "'",
@@ -148,7 +156,6 @@ public class FakeCppCompileAction extends CppCompileAction {
           new HeaderDiscovery.Builder()
               .setAction(this)
               .setSourceFile(getSourceFile())
-              .setSpecialInputsHandler(specialInputsHandler)
               .setDependencies(processDepset(execRoot, reply).getDependencies())
               .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
               .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());
@@ -199,12 +206,14 @@ public class FakeCppCompileAction extends CppCompileAction {
     // line to write to $TEST_TMPDIR instead.
     final String outputPrefix = "$TEST_TMPDIR/";
     String argv =
-        getArguments()
+        getArgv(outputFile.getExecPath())
             .stream()
             .map(
                 input -> {
                   String result = ShellEscaper.escapeString(input);
-                  // Replace -c <tempOutputFile> so it's -c <outputFile>.
+                  // Once -c and -o options are added into action_config, the argument of
+                  // getArgv(outputFile.getExecPath()) won't be used anymore. There will always be
+                  // -c <tempOutputFile>, but here it has to be outputFile, so we replace it.
                   if (input.equals(tempOutputFile.getPathString())) {
                     result =
                         outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());
@@ -233,6 +242,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       throw new ActionExecutionException("failed to create fake compile command for rule '"
           + getOwner().getLabel() + ": " + e.getMessage(), this, false);
     }
+    return ActionResult.create(spawnResults);
   }
 
   @Override

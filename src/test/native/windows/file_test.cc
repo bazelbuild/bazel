@@ -32,7 +32,6 @@ namespace windows {
 
 using blaze_util::DeleteAllUnder;
 using blaze_util::GetTestTmpDirW;
-using std::string;
 using std::unique_ptr;
 using std::wstring;
 
@@ -57,10 +56,10 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
 
   // Create junctions from all combinations of UNC-prefixed or non-prefixed name
   // and target paths.
-  ASSERT_EQ("", CreateJunction(name + L"1", target));
-  ASSERT_EQ("", CreateJunction(name + L"2", target.substr(4)));
-  ASSERT_EQ("", CreateJunction(name.substr(4) + L"3", target));
-  ASSERT_EQ("", CreateJunction(name.substr(4) + L"4", target.substr(4)));
+  ASSERT_EQ(L"", CreateJunction(name + L"1", target));
+  ASSERT_EQ(L"", CreateJunction(name + L"2", target.substr(4)));
+  ASSERT_EQ(L"", CreateJunction(name.substr(4) + L"3", target));
+  ASSERT_EQ(L"", CreateJunction(name.substr(4) + L"4", target.substr(4)));
 
   // Assert creation of the junctions.
   ASSERT_EQ(IS_JUNCTION_YES,

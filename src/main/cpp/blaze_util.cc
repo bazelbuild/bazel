@@ -124,11 +124,6 @@ bool SearchNullaryOption(const vector<string>& args, const char *key) {
   return SearchNullaryOption(args, key, false);
 }
 
-bool SearchNullaryOptionEverywhere(const vector<string>& args,
-                                   const char *key) {
-  return SearchNullaryOption(args, key, true);
-}
-
 bool VerboseLogging() { return !GetEnv("VERBOSE_BLAZE_CLIENT").empty(); }
 
 // Read the Jvm version from a file descriptor. The read fd

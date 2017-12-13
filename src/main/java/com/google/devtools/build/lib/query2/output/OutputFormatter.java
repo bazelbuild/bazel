@@ -153,6 +153,16 @@ public abstract class OutputFormatter implements Serializable {
             : DependencyFilter.NO_IMPLICIT_DEPS);
   }
 
+  /**
+   * Workaround for a bug in {@link java.nio.channels.Channels#newChannel(OutputStream)}, which
+   * attempts to close the output stream on interrupt, which can cause a deadlock if there is an
+   * ongoing write. If this formatter uses Channels.newChannel, then it must return false here, and
+   * perform its own buffering.
+   */
+  public boolean canBeBuffered() {
+    return true;
+  }
+
   public void verifyCompatible(QueryEnvironment<?> env, QueryExpression expr)
       throws QueryException {
   }

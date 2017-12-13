@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;

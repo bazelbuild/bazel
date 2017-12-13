@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableCollection;
@@ -53,10 +54,9 @@ import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -423,8 +423,12 @@ public class PackageFunction implements SkyFunction {
    */
   private SkyValue getExternalPackage(Environment env, Path packageLookupPath)
       throws PackageFunctionException, InterruptedException {
+    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return null;
+    }
     RootedPath workspacePath = RootedPath.toRootedPath(
-        packageLookupPath, Label.EXTERNAL_PACKAGE_FILE_NAME);
+        packageLookupPath, Label.WORKSPACE_FILE_NAME);
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
     PackageValue workspace = null;
     try {
@@ -458,7 +462,7 @@ public class PackageFunction implements SkyFunction {
     }
 
     if (packageFactory != null) {
-      packageFactory.afterDoneLoadingPackage(pkg);
+      packageFactory.afterDoneLoadingPackage(pkg, skylarkSemantics);
     }
     return new PackageValue(pkg);
   }
@@ -532,7 +536,7 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
-    SkylarkSemanticsOptions skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
     if (skylarkSemantics == null) {
       return null;
     }
@@ -621,7 +625,7 @@ public class PackageFunction implements SkyFunction {
     // We know this SkyFunction will not be called again, so we can remove the cache entry.
     packageFunctionCache.invalidate(packageId);
 
-    packageFactory.afterDoneLoadingPackage(pkg);
+    packageFactory.afterDoneLoadingPackage(pkg, skylarkSemantics);
     return new PackageValue(pkg);
   }
 
@@ -1186,7 +1190,7 @@ public class PackageFunction implements SkyFunction {
       Path buildFilePath,
       @Nullable FileValue buildFileValue,
       RuleVisibility defaultVisibility,
-      SkylarkSemanticsOptions skylarkSemantics,
+      SkylarkSemantics skylarkSemantics,
       List<Statement> preludeStatements,
       Path packageRoot,
       Environment env)

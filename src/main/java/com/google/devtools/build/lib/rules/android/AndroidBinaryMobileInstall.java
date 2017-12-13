@@ -23,18 +23,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
@@ -78,7 +79,7 @@ public final class AndroidBinaryMobileInstall {
                   ruleContext.getImplicitOutputArtifact(
                       AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
                   resourceDeps,
-                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
+                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
                   ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
       ruleContext.assertNoErrors();
@@ -90,7 +91,7 @@ public final class AndroidBinaryMobileInstall {
                   ruleContext,
                   getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
                   resourceDeps,
-                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
+                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
                   ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
       ruleContext.assertNoErrors();
@@ -134,7 +135,6 @@ public final class AndroidBinaryMobileInstall {
       FilesToRunProvider resourceExtractor,
       NestedSet<Artifact> nativeLibsZips,
       Artifact signingKey,
-      ImmutableList<Artifact> dataDeps,
       ImmutableList<Artifact> additionalMergedManifests,
       ApplicationManifest applicationManifest)
       throws InterruptedException, RuleErrorException {
@@ -308,8 +308,7 @@ public final class AndroidBinaryMobileInstall {
         incrementalDeployInfo,
         resourceApk.getManifest(),
         additionalMergedManifests,
-        ImmutableList.<Artifact>of(),
-        dataDeps);
+        ImmutableList.<Artifact>of());
 
     Artifact splitDeployInfo = ruleContext.getImplicitOutputArtifact(
         AndroidRuleClasses.DEPLOY_INFO_SPLIT);
@@ -318,8 +317,7 @@ public final class AndroidBinaryMobileInstall {
         splitDeployInfo,
         resourceApk.getManifest(),
         additionalMergedManifests,
-        ImmutableList.<Artifact>of(),
-        dataDeps);
+        ImmutableList.<Artifact>of());
 
     NestedSet<Artifact> fullInstallOutputGroup = NestedSetBuilder.<Artifact>stableOrder()
         .add(fullDeployMarker)
@@ -357,7 +355,8 @@ public final class AndroidBinaryMobileInstall {
       return null;
     }
 
-    JavaCompilationArgsProvider provider = dep.getProvider(JavaCompilationArgsProvider.class);
+    JavaCompilationArgsProvider provider =
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
     if (provider == null) {
       ruleContext.attributeError(attribute, "'" + dep.getLabel() + "' should be a Java target");
       return null;
@@ -380,6 +379,7 @@ public final class AndroidBinaryMobileInstall {
         .setOutputJar(stubDeployJar)
         .setAttributes(attributes)
         .setDerivedJarFunction(desugaredJars)
+        .setCheckDesugarDeps(AndroidCommon.getAndroidConfig(ruleContext).checkDesugarDeps())
         .build();
 
     Artifact stubDex =

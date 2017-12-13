@@ -86,7 +86,8 @@ misleading alias to point both targets to one guava library, then the BUILD file
 
 ## `.bazelrc`
 
-For project-specific options, use the configuration file `_your-workspace_/tools/bazel.rc`.
+For project-specific options, use the configuration file `_your-workspace_/tools/bazel.rc` (see
+[bazelrc format](https://docs.bazel.build/bazel-user-manual.html#bazelrc)).
 
 For options that you **do not** want to check into source control, create the configuration file
 `_your-workspace_/.bazelrc` and add `.bazelrc` to your `.gitignore`.  Note that this file has a
@@ -156,7 +157,7 @@ A Skylark repository rule should generally be responsible for:
 -  Generating or symlinking BUILD files into the external repository directory.
 
 Avoid using `repository_ctx.execute` when possible.  For example, when using a non-Bazel C++
-library that has a build using Make, it is preferable to use `respository_ctx.download()` and then
+library that has a build using Make, it is preferable to use `repository_ctx.download()` and then
 write a BUILD file that builds it, instead of running `ctx.execute(["make"])`.
 
 

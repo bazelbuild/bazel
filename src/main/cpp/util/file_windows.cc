@@ -1000,7 +1000,10 @@ string MakeCanonical(const char* path) {
   // Resolve all 8dot3 style segments of the path, if any. The input path may
   // have had some. Junctions may also refer to 8dot3 names.
   unique_ptr<WCHAR[]> long_realpath;
-  if (!GetLongPath(realpath.c_str(), &long_realpath)) {
+  wstring error(GetLongPath(realpath.c_str(), &long_realpath));
+  if (!error.empty()) {
+    // TODO(laszlocsomor): refactor MakeCanonical to return an error message,
+    // return `error` here.
     return "";
   }
 

@@ -246,8 +246,11 @@ EOF
   add_to_bazelrc common --show_progress_rate_limit=0.03
   bazel run //x:x --color=yes >$out1color 2>$err1raw_color || fail "expected success"
   bazel run //x:x --color=no >$out1nocolor 2>$err1raw_nocolor || fail "expected success"
+  echo >> $err1raw_color
+  echo >> $err1raw_nocolor
 
   ${PRODUCT_NAME}-bin/x/x >$out2 2>$err2
+  echo >> $err2
 
   # Extract the binary's stderr from the raw stderr, which also contains bazel's
   # stderr; if present, remove a trailing ^[[0m (reset terminal to defaults).
@@ -325,5 +328,45 @@ EOF
   bazel run //a:b >"$TEST_log" || fail "Expected success"
   expect_log "Dancing with wolves"
 }
+
+function test_run_for_custom_executable() {
+  mkdir -p a
+  cat > a/x.bzl <<EOF
+def _impl(ctx):
+  f = ctx.actions.declare_file("x.sh")
+  ctx.actions.write(f,
+      "#!/bin/sh\n"
+      + "if [ -z \$1 ]; then\\n"
+      + "   echo Run Forest run\\n"
+      + "else\\n"
+      + "   echo Run Forest run > \$1\\n"
+      + "fi",
+      is_executable=True)
+  return [DefaultInfo(executable=f)]
+
+my_rule = rule(_impl, executable = True)
+
+def _tool_impl(ctx):
+  f = ctx.actions.declare_file("output")
+  ctx.actions.run(executable = ctx.executable.tool,
+    inputs = [],
+    outputs = [f],
+    arguments = [f.path]
+  )
+  return DefaultInfo(files = depset([f]))
+my_tool_rule = rule(_tool_impl, attrs = { 'tool' : attr.label(executable = True, cfg = "host") })
+EOF
+
+cat > a/BUILD <<EOF
+load(":x.bzl", "my_rule", "my_tool_rule")
+my_rule(name = "zzz")
+my_tool_rule(name = "kkk", tool = ":zzz")
+EOF
+  bazel run //a:zzz > "$TEST_log" || fail "Expected success"
+  expect_log "Run Forest run"
+  bazel build //a:kkk > "$TEST_log" || fail "Expected success"
+  grep "Run Forest run" bazel-bin/a/output || fail "Output file wrong"
+}
+
 
 run_suite "'${PRODUCT_NAME} run' integration tests"

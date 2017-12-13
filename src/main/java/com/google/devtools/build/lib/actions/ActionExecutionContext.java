@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -23,8 +24,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -42,6 +43,7 @@ public class ActionExecutionContext implements Closeable {
   private final Executor executor;
   private final ActionInputFileCache actionInputFileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
+  private final ActionKeyContext actionKeyContext;
   private final MetadataHandler metadataHandler;
   private final FileOutErr fileOutErr;
   private final ImmutableMap<String, String> clientEnv;
@@ -53,6 +55,7 @@ public class ActionExecutionContext implements Closeable {
       Executor executor,
       ActionInputFileCache actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
+      ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
@@ -60,6 +63,7 @@ public class ActionExecutionContext implements Closeable {
       @Nullable SkyFunction.Environment env) {
     this.actionInputFileCache = actionInputFileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.actionKeyContext = actionKeyContext;
     this.metadataHandler = metadataHandler;
     this.fileOutErr = fileOutErr;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
@@ -72,6 +76,7 @@ public class ActionExecutionContext implements Closeable {
       Executor executor,
       ActionInputFileCache actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
+      ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
@@ -80,6 +85,7 @@ public class ActionExecutionContext implements Closeable {
         executor,
         actionInputFileCache,
         actionInputPrefetcher,
+        actionKeyContext,
         metadataHandler,
         fileOutErr,
         clientEnv,
@@ -91,6 +97,7 @@ public class ActionExecutionContext implements Closeable {
       Executor executor,
       ActionInputFileCache actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
+      ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
@@ -99,6 +106,7 @@ public class ActionExecutionContext implements Closeable {
         executor,
         actionInputFileCache,
         actionInputPrefetcher,
+        actionKeyContext,
         metadataHandler,
         fileOutErr,
         clientEnv,
@@ -116,6 +124,10 @@ public class ActionExecutionContext implements Closeable {
 
   public MetadataHandler getMetadataHandler() {
     return metadataHandler;
+  }
+
+  public FileSystem getFileSystem() {
+    return executor.getFileSystem();
   }
 
   public Path getExecRoot() {
@@ -211,6 +223,10 @@ public class ActionExecutionContext implements Closeable {
     return Preconditions.checkNotNull(env);
   }
 
+  public ActionKeyContext getActionKeyContext() {
+    return actionKeyContext;
+  }
+
   @Override
   public void close() throws IOException {
     fileOutErr.close();
@@ -225,6 +241,7 @@ public class ActionExecutionContext implements Closeable {
         executor,
         actionInputFileCache,
         actionInputPrefetcher,
+        actionKeyContext,
         metadataHandler,
         fileOutErr,
         clientEnv,

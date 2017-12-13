@@ -31,8 +31,9 @@
         }
     }, {
         "configurations": [
-            {"node": "freebsd-11"},
-            {"node": "freebsd-12"}
+            {"node": "freebsd-11"} //,
+            // TODO(aehlig): Fix bazelbuild/continuous-integration#149 and reactivate.
+            // {"node": "freebsd-12"}
         ],
         "parameters": {
             // As configure step, we redo the USES=shebangfix of the devel/bazel
@@ -95,19 +96,8 @@
                 // ASSERT_DEATH will try to write to C:/Windows, then fails.
                 "--test_env=TEMP"
             ],
-            "test_tag_filters": [
-                "-no_windows",
-                "-slow"
-            ],
             "tests": [
-                "//src/test/py/...",
-                "//src/test/java/...",
-                "//src/test/cpp/...",
-                "//src/test/native:all_tests",
-                "//src/tools/launcher/util/...",
-                "//src/test/shell/bazel:bazel_bootstrap_distfile_test",
-                "//src/test/shell/bazel:bazel_windows_example_test",
-                "//third_party/def_parser/..."
+                "//src:all_windows_tests"
             ],
             "targets": ["//src:bazel"]
         }

@@ -266,7 +266,7 @@ granularity, allowing:
 
 Tips for adding more BUILD files:
 
-*  You can start by adding a BUILD file to each Java package. Start wtih
+*  You can start by adding a BUILD file to each Java package. Start with
    Java packages that have the fewest dependencies and work you way up
    to packages with the most dependencies.
 *  As you add BUILD files and specify targets, add these new targets to the

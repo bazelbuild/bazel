@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Rules for manipulation of various packaging."""
+load(":path.bzl", "dest_path", "compute_data_path")
 
 # Filetype to restrict inputs
 tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2"]
 deb_filetype = [".deb", ".udeb"]
-load(":path.bzl", "dest_path", "compute_data_path")
 
 def _pkg_tar_impl(ctx):
   """Implementation of the pkg_tar rule."""

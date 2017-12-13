@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
@@ -35,9 +36,12 @@ import com.google.devtools.remoteexecution.v1test.Digest;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import java.io.IOException;
+import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
+  private static final Logger logger = Logger.getLogger(RemoteModule.class.getName());
+
   @VisibleForTesting
   static final class CasPathConverter implements PathConverter {
     // Not final; unfortunately, the Bazel startup process requires us to create this object before
@@ -47,16 +51,17 @@ public final class RemoteModule extends BlazeModule {
     // TODO(ulfjack): Change the Bazel startup process to make the options available when we create
     // the PathConverter.
     RemoteOptions options;
+    DigestUtil digestUtil;
 
     @Override
     public String apply(Path path) {
-      if (options == null || !remoteEnabled(options)) {
+      if (options == null || digestUtil == null || !remoteEnabled(options)) {
         return null;
       }
       String server = options.remoteCache;
       String remoteInstanceName = options.remoteInstanceName;
       try {
-        Digest digest = Digests.computeDigest(path);
+        Digest digest = digestUtil.compute(path);
         return remoteInstanceName.isEmpty()
             ? String.format(
                 "bytestream://%s/blobs/%s/%d",
@@ -89,30 +94,43 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     env.getEventBus().register(this);
-
+    String buildRequestId = env.getBuildRequestId().toString();
+    String commandId = env.getCommandId().toString();
+    logger.info("Command: buildRequestId = " + buildRequestId + ", commandId = " + commandId);
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
+    HashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
+    DigestUtil digestUtil = new DigestUtil(hashFn);
     converter.options = remoteOptions;
+    converter.digestUtil = digestUtil;
 
     // Quit if no remote options specified.
     if (remoteOptions == null) {
       return;
     }
 
+
     try {
-      boolean restCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
+      boolean remoteOrLocalCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
       boolean grpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
 
-      Retrier retrier = new Retrier(remoteOptions);
+      RemoteRetrier retrier =
+          new RemoteRetrier(
+              remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
       CallCredentials creds = GrpcUtils.newCallCredentials(authAndTlsOptions);
+      // TODO(davido): The naming is wrong here. "Remote"-prefix in RemoteActionCache class has no
+      // meaning.
       final RemoteActionCache cache;
-      if (restCache) {
-        cache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
+      if (remoteOrLocalCache) {
+        cache =
+            new SimpleBlobStoreActionCache(
+                SimpleBlobStoreFactory.create(remoteOptions, env.getWorkingDirectory()),
+                digestUtil);
       } else if (grpcCache || remoteOptions.remoteExecutor != null) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
         String target = grpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
         Channel ch = GrpcUtils.newChannel(target, authAndTlsOptions);
-        cache = new GrpcRemoteCache(ch, creds, remoteOptions, retrier);
+        cache = new GrpcRemoteCache(ch, creds, remoteOptions, retrier, digestUtil);
       } else {
         cache = null;
       }
@@ -128,7 +146,7 @@ public final class RemoteModule extends BlazeModule {
         executor = null;
       }
 
-      actionContextProvider = new RemoteActionContextProvider(env, cache, executor);
+      actionContextProvider = new RemoteActionContextProvider(env, cache, executor, digestUtil);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       env.getBlazeModuleEnvironment().exit(new AbruptExitException(ExitCode.COMMAND_LINE_ERROR));

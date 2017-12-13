@@ -100,9 +100,12 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
   private static SpawnRunner createLocalRunner(CommandEnvironment env) {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
-    LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
-        ? new XCodeLocalEnvProvider()
-        : LocalEnvProvider.UNMODIFIED;
+    LocalEnvProvider localEnvProvider =
+        OS.getCurrent() == OS.DARWIN
+            ? new XCodeLocalEnvProvider()
+            : (OS.getCurrent() == OS.WINDOWS
+                ? LocalEnvProvider.ADD_TEMP_WINDOWS
+                : LocalEnvProvider.ADD_TEMP_POSIX);
     return
         new LocalSpawnRunner(
             env.getExecRoot(),

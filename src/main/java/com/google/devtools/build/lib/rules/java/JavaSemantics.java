@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
@@ -31,24 +32,25 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.File;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -87,6 +89,9 @@ public interface JavaSemantics {
   SafeImplicitOutputsFunction JAVA_ONE_VERSION_ARTIFACT =
       fromTemplates("%{name}-one-version.txt");
 
+  SafeImplicitOutputsFunction JAVA_COVERAGE_RUNTIME_CLASS_PATH_TXT =
+      fromTemplates("%{name}-runtime-classpath.txt");
+
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
       fromTemplates("%{name}_deploy-src.jar");
 
@@ -112,14 +117,11 @@ public interface JavaSemantics {
   /** The java_toolchain.compatible_javacopts key for proto compilations. */
   public static final String PROTO_JAVACOPTS_KEY = "proto";
 
-  LateBoundLabel<BuildConfiguration> JAVA_TOOLCHAIN =
-      new LateBoundLabel<BuildConfiguration>(JAVA_TOOLCHAIN_LABEL, JavaConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return configuration.getFragment(JavaConfiguration.class).getToolchainLabel();
-        }
-      };
+  LateBoundDefault<?, Label> JAVA_TOOLCHAIN =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          Label.parseAbsoluteUnchecked(JAVA_TOOLCHAIN_LABEL),
+          (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
 
   /**
    * Name of the output group used for source jars.
@@ -135,113 +137,114 @@ public interface JavaSemantics {
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
   /** Implementation for the :jvm attribute. */
-  static LateBoundLabel<BuildConfiguration> jvmAttribute(RuleDefinitionEnvironment env) {
-    return new LateBoundLabel<BuildConfiguration>(
-        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL), Jvm.class) {
-      @Override
-      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-        return configuration.getFragment(Jvm.class).getJvmLabel();
-      }
-    };
+  static LateBoundDefault<?, Label> jvmAttribute(RuleDefinitionEnvironment env) {
+    return LateBoundDefault.fromTargetConfiguration(
+        Jvm.class,
+        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
+        (rule, attributes, jvm) -> jvm.getJvmLabel());
   }
 
   /** Implementation for the :host_jdk attribute. */
-  static LateBoundLabel<BuildConfiguration> hostJdkAttribute(RuleDefinitionEnvironment env) {
-    return new LateBoundLabel<BuildConfiguration>(
-        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL), Jvm.class) {
-      @Override
-      public boolean useHostConfiguration() {
-        return true;
-      }
-
-      @Override
-      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-        return configuration.getFragment(Jvm.class).getJvmLabel();
-      }
-    };
+  static LateBoundDefault<?, Label> hostJdkAttribute(RuleDefinitionEnvironment env) {
+    return LateBoundDefault.fromHostConfiguration(
+        Jvm.class,
+        env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
+        (rule, attributes, jvm) -> jvm.getJvmLabel());
   }
 
   /**
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
    * default, so it returns null for the configuration-independent default value.
    */
-  LateBoundLabel<BuildConfiguration> JAVA_LAUNCHER =
-      new LateBoundLabel<BuildConfiguration>(JavaConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          // This nullness check is purely for the sake of a test that doesn't bother to include an
-          // attribute map when calling this method.
-          if (attributes != null) {
-            // Don't depend on the launcher if we don't create an executable anyway
-            if (attributes.has("create_executable")
-                && !attributes.get("create_executable", Type.BOOLEAN)) {
-              return null;
-            }
+  LateBoundDefault<?, Label> JAVA_LAUNCHER =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          null,
+          (rule, attributes, javaConfig) -> {
+            // This nullness check is purely for the sake of a test that doesn't bother to include
+            // an
+            // attribute map when calling this method.
+            if (attributes != null) {
+              // Don't depend on the launcher if we don't create an executable anyway
+              if (attributes.has("create_executable")
+                  && !attributes.get("create_executable", Type.BOOLEAN)) {
+                return null;
+              }
 
-            // don't read --java_launcher if this target overrides via a launcher attribute
-            if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
-              return attributes.get("launcher", LABEL);
+              // don't read --java_launcher if this target overrides via a launcher attribute
+              if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
+                return attributes.get("launcher", LABEL);
+              }
             }
-          }
-          return configuration.getFragment(JavaConfiguration.class).getJavaLauncherLabel();
-        }
-      };
+            return javaConfig.getJavaLauncherLabel();
+          });
 
-  LateBoundLabelList<BuildConfiguration> JAVA_PLUGINS =
-      new LateBoundLabelList<BuildConfiguration>() {
-        @Override
-        public List<Label> resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return ImmutableList.copyOf(configuration.getPlugins());
-        }
-      };
+  LateBoundDefault<?, List<Label>> JAVA_PLUGINS =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          ImmutableList.of(),
+          (rule, attributes, javaConfig) -> ImmutableList.copyOf(javaConfig.getPlugins()));
+
+  /** Implementation for the :proguard attribute. */
+  LateBoundDefault<?, Label> PROGUARD =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          null,
+          (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
+
+  LateBoundDefault<?, List<Label>> EXTRA_PROGUARD_SPECS =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          ImmutableList.of(),
+          (rule, attributes, javaConfig) ->
+              ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
+
+  LateBoundDefault<?, List<Label>> BYTECODE_OPTIMIZERS =
+      LateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          ImmutableList.of(),
+          (rule, attributes, javaConfig) -> {
+            // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
+            JavaOptimizationMode optMode = javaConfig.getJavaOptimizationMode();
+            boolean hasProguardSpecs =
+                attributes.has("proguard_specs")
+                    && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
+            if (optMode == JavaOptimizationMode.NOOP
+                || (optMode == JavaOptimizationMode.LEGACY && !hasProguardSpecs)) {
+              return ImmutableList.<Label>of();
+            }
+            return ImmutableList.copyOf(
+                Optional.presentInstances(javaConfig.getBytecodeOptimizers().values()));
+          });
+
+  String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
+  String JACOCO_MAIN_CLASS_PLACEHOLDER = "%set_jacoco_main_class%";
+  String JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER = "%set_jacoco_java_runfiles_root%";
 
   /**
-   * Implementation for the :proguard attribute.
+   * Substitution for exporting the jars needed for jacoco coverage.
    */
-  LateBoundLabel<BuildConfiguration> PROGUARD =
-      new LateBoundLabel<BuildConfiguration>(JavaConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return configuration.getFragment(JavaConfiguration.class).getProguardBinary();
-        }
-      };
+  class ComputedJacocoSubstitution extends ComputedSubstitution {
+    private final NestedSet<Artifact> jars;
+    private final String pathPrefix;
 
-  LateBoundLabelList<BuildConfiguration> EXTRA_PROGUARD_SPECS =
-      new LateBoundLabelList<BuildConfiguration>() {
-        @Override
-        public List<Label> resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return ImmutableList.copyOf(
-              configuration.getFragment(JavaConfiguration.class).getExtraProguardSpecs());
-        }
-      };
+    public ComputedJacocoSubstitution(NestedSet<Artifact> jars, String workspacePrefix) {
+      super(JACOCO_METADATA_PLACEHOLDER);
+      this.jars = jars;
+      this.pathPrefix = "${JAVA_RUNFILES}/" + workspacePrefix;
+    }
 
-  LateBoundLabelList<BuildConfiguration> BYTECODE_OPTIMIZERS =
-      new LateBoundLabelList<BuildConfiguration>(JavaConfiguration.class) {
-        @Override
-        public List<Label> resolve(
-            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
-          JavaOptimizationMode optMode =
-              configuration.getFragment(JavaConfiguration.class).getJavaOptimizationMode();
-          boolean hasProguardSpecs = attributes.has("proguard_specs")
-              && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
-          if (optMode == JavaOptimizationMode.NOOP
-              || (optMode == JavaOptimizationMode.LEGACY && !hasProguardSpecs)) {
-            return ImmutableList.<Label>of();
-          }
-          return ImmutableList.copyOf(
-              Optional.presentInstances(
-                  configuration
-                      .getFragment(JavaConfiguration.class)
-                      .getBytecodeOptimizers()
-                      .values()));
-        }
-      };
-
-  String IJAR_LABEL = "//tools/defaults:ijar";
+    /**
+     * Concatenating the root relative paths of the artifacts. Each relative path entry is prepended
+     * with "${JAVA_RUNFILES}" and the workspace prefix.
+     */
+    @Override
+    public String getValue() {
+      return Streams.stream(jars)
+          .map(artifact -> pathPrefix + "/" + artifact.getRootRelativePathString())
+          .collect(Collectors.joining(File.pathSeparator, "export JACOCO_METADATA_JARS=", ""));
+    }
+  }
 
   /**
    * Verifies if the rule contains any errors.
@@ -291,7 +294,10 @@ public interface JavaSemantics {
       NestedSet<Artifact> classpath,
       boolean includeBuildData,
       Compression compression,
-      Artifact launcher);
+      Artifact launcher,
+      boolean usingNativeSinglejar,
+      OneVersionEnforcementLevel oneVersionEnforcementLevel,
+      Artifact oneVersionWhitelistArtifact);
 
   /**
    * Creates the action that writes the Java executable stub script.
@@ -318,6 +324,24 @@ public interface JavaSemantics {
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
+      String javaExecutable);
+
+  /**
+   * Same as {@link #createStubAction(RuleContext, JavaCommon, List, Artifact, String, String)}.
+   *
+   * <p> In *experimental* coverage mode creates a txt file containing the runtime jars names.
+   * {@code JacocoCoverageRunner} will use it to retrieve the name of the jars considered for
+   * collecting coverage. {@code JacocoCoverageRunner} will *not* collect coverage implicitly
+   * for all the runtime jars, only for those that pack a file ending in "-paths-for-coverage.txt".
+   */
+  public Artifact createStubAction(
+      RuleContext ruleContext,
+      JavaCommon javaCommon,
+      List<String> jvmFlags,
+      Artifact executable,
+      String javaStartClass,
+      String coverageStartClass,
+      NestedSetBuilder<Artifact> filesBuilder,
       String javaExecutable);
 
   /**
@@ -370,6 +394,23 @@ public interface JavaSemantics {
       Artifact instrumentationMetadata,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       String mainClass)
+      throws InterruptedException;
+
+  /**
+   * Same as {@link #addCoverageSupport(JavaCompilationHelper, JavaTargetAttributes.Builder,
+   * Artifact, Artifact, JavaCompilationArtifacts.Builder, String)}.
+   *
+   * <p> In *experimental* coverage mode omits dealing with instrumentation metadata and does not
+   * create the instrumented jar.
+   */
+  String addCoverageSupport(
+      JavaCompilationHelper helper,
+      JavaTargetAttributes.Builder attributes,
+      Artifact executable,
+      Artifact instrumentationMetadata,
+      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
+      String mainClass,
+      boolean isExperimentalCoverage)
       throws InterruptedException;
 
   /**

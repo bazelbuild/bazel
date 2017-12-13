@@ -71,6 +71,7 @@ public class EvaluationTestCase {
   public Environment newBuildEnvironment() {
     Environment env =
         Environment.builder(mutability)
+            .useDefaultSemantics()
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(getEventHandler())
             .setPhase(Phase.LOADING)
@@ -85,6 +86,7 @@ public class EvaluationTestCase {
    */
   public Environment newSkylarkEnvironment() {
     return Environment.builder(mutability)
+        .useDefaultSemantics()
         .setGlobals(BazelLibrary.GLOBALS)
         .setEventHandler(getEventHandler())
         .build();

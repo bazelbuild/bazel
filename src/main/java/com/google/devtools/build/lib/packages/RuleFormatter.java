@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
-import com.google.devtools.build.lib.util.Preconditions;
+import javax.annotation.Nullable;
 
 /** Serialize a {@link Rule} as its protobuf representation. */
 public class RuleFormatter {
@@ -68,6 +69,9 @@ public class RuleFormatter {
         // evaluates to. The Skylark-defined ComputedDefault function won't be available after
         // deserialization due to Skylark's non-serializability.
         valueToSerialize = evaluateSkylarkComputedDefault(rule, rawAttributeMapper, attr);
+        if (valueToSerialize == null) {
+          continue;
+        }
       } else {
         // If the rule class is Skylark-defined and the attribute value is implicit, then we
         // must serialize it. The Skylark-defined rule class won't be available after
@@ -86,30 +90,30 @@ public class RuleFormatter {
   }
 
   /**
-   * Evaluates a {@link ComputedDefault} attribute value for a {@link Rule} with a
-   * Skylark-defined {@link RuleClass}.
+   * Evaluates a {@link ComputedDefault} attribute value for a {@link Rule} with a Skylark-defined
+   * {@link RuleClass}.
    *
-   * <p>Fortunately (from the perspective of rule serialization), Skylark doesn't support defining
-   * rule classes with {@link ComputedDefault} attributes, and so the only {@link
-   * ComputedDefault} attributes we need to worry about for Skylark-defined rule classes are
-   * declared in those rule classes' natively-defined base rule classes.
+   * <p>We can't serialize ComputedDefault attributes defined in Skylark, because those can depend
+   * on other attributes which are configurable.
    *
-   * <p>See the comment for {@link #SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES} for the
-   * locations of these expected attributes. None of them have dependencies on other attributes
-   * which are configurable, so they can be evaluated here without loss of fidelity.
+   * <p>For a few attributes ({@link #SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES}), we know for
+   * certain that they don't have dependencies on other attributes which are configurable, so they
+   * can be evaluated here without loss of fidelity.
    *
-   * <p>The {@link RawAttributeMapper#get} method, inherited from {@link
-   * AbstractAttributeMapper}, evaluates the {@link ComputedDefault} function, so we use that,
-   * after verifying the attribute's name is expected.
+   * <p>The {@link RawAttributeMapper#get} method, inherited from {@link AbstractAttributeMapper},
+   * evaluates the {@link ComputedDefault} function, so we use that, after verifying the attribute's
+   * name is expected.
+   *
+   * @return the attribute's default value if we know it can be safely serialized, or null
+   *     otherwise.
    */
+  @Nullable
   private static Object evaluateSkylarkComputedDefault(
       Rule rule, RawAttributeMapper rawAttributeMapper, Attribute attr) {
-    Preconditions.checkState(
-        SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES.contains(attr.getName()),
-        "Unexpected ComputedDefault value for %s in %s",
-        attr,
-        rule);
-    return rawAttributeMapper.get(attr.getName(), attr.getType());
+    if (SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES.contains(attr.getName())) {
+      return rawAttributeMapper.get(attr.getName(), attr.getType());
+    }
+    return null;
   }
 }
 

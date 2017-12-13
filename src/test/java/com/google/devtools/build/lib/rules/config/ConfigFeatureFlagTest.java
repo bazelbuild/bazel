@@ -19,11 +19,11 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -76,6 +76,25 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "config_feature_flag(",
         "    name = 'flag',",
         "    allowed_values = ['default', 'configured', 'other'],",
+        ")");
+    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getValue())
+        .isEqualTo("configured");
+  }
+
+  @Test
+  public void configFeatureFlagProvider_usesConfiguredValueOverDefault() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "feature_flag_setter(",
+        "    name = 'top',",
+        "    exports_flag = ':flag',",
+        "    flag_values = {",
+        "        ':flag': 'configured',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
     assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getValue())
@@ -114,8 +133,8 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "       '//conditions:default': 'error'",
         "    }))");
 
-    ConfiguredAttributeMapper attributeMapper = ConfiguredAttributeMapper.of(
-        (RuleConfiguredTarget) getConfiguredTarget("//test:gen"));
+    ConfiguredAttributeMapper attributeMapper =
+        ((RuleConfiguredTarget) getConfiguredTarget("//test:gen")).getAttributeMapper();
     assertThat(attributeMapper.get("cmd", Type.STRING)).isEqualTo("hello");
   }
 
@@ -250,6 +269,34 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   }
 
   @Test
+  public void configFeatureFlagProvider_throwsErrorIfNeitherDefaultNorConfiguredValueSet()
+      throws Exception {
+    reporter.removeHandler(failFastHandler); // expecting an error
+    scratch.file(
+        "test/BUILD",
+        "feature_flag_setter(",
+        "    name = 'top',",
+        "    exports_flag = ':flag',",
+        "    flag_values = {",
+        "        ':other': 'configured',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['other', 'configured'],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'other',",
+        "    allowed_values = ['default', 'configured', 'other'],",
+        "    default_value = 'default',",
+        ")");
+    assertThat(getConfiguredTarget("//test:flag")).isNull();
+    assertContainsEvent(
+        "in config_feature_flag rule //test:flag: "
+            + "flag has no default and must be set, but was not set");
+  }
+
+  @Test
   public void allowedValuesAttribute_cannotBeEmpty() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.file(
@@ -282,7 +329,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   }
 
   @Test
-  public void defaultValueAttribute_mustBeMemberOfAllowedValues() throws Exception {
+  public void defaultValueAttribute_mustBeMemberOfAllowedValuesIfPresent() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.file(
         "test/BUILD",
@@ -305,7 +352,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   }
 
   @Test
-  public void configurationValue_mustBeMemberOfAllowedValues() throws Exception {
+  public void configurationValue_mustBeMemberOfAllowedValuesIfPresent() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.file(
         "test/BUILD",

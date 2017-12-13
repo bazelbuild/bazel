@@ -31,7 +31,6 @@ skylark, the fragment must be declared in the rule definition:
 ```
 def __impl(ctx):
     cpu = ctx.fragments.apple.ios_cpu()
-    env = ctx.fragments.apple.target_apple_env(platform)
 my_rule = rule(
   implementation = __impl
   fragments = ['apple']

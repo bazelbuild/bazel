@@ -14,18 +14,18 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -120,11 +120,11 @@ public class ProtoCommon {
 
   public static Runfiles.Builder createDataRunfilesProvider(
       final NestedSet<Artifact> transitiveProtoSources, RuleContext ruleContext) {
+    // We assume that the proto sources will not have conflicting artifacts
+    // with the same root relative path
     return new Runfiles.Builder(
             ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
-        // TODO(bazel-team): addArtifacts is deprecated, but addTransitive fails
-        // due to nested set ordering restrictions. Figure this out.
-        .addArtifacts(transitiveProtoSources);
+        .addTransitiveArtifactsWrappedInStableOrder(transitiveProtoSources);
   }
 
   // =================================================================

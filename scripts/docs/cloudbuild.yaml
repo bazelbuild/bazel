@@ -1,0 +1,13 @@
+steps:
+- name: gcr.io/cloud-builders/docker
+  args: ['build', '--tag=gcr.io/$PROJECT_ID/bazel-jekyll', 'scripts/docs']
+- name: gcr.io/$PROJECT_ID/bazel-jekyll
+  args: ['build', '//site']
+- name: gcr.io/cloud-builders/gsutil
+  args: ['-m', 'rsync', '-r', '-c', '-d', '/workspace/bazel-bin/site/site-build', 'gs://docs.bazel.build']
+- name: gcr.io/cloud-builders/gsutil
+  args: ['web', 'set', '-m', 'index.html', '-e', '404.html', 'gs://docs.bazel.build']
+- name: gcr.io/cloud-builders/gsutil
+  args: ['-m', 'acl', 'ch', '-R', '-u', 'AllUsers:R', 'gs://docs.bazel.build']
+
+timeout: 3600s

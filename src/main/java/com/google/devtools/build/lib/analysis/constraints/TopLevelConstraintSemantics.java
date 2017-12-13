@@ -15,16 +15,17 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicates;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
@@ -36,6 +37,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -47,32 +49,41 @@ import javax.annotation.Nullable;
  * <p>For all other targets see {@link ConstraintSemantics}.
  */
 public class TopLevelConstraintSemantics {
+  private final PackageManager packageManager;
+  private final ExtendedEventHandler eventHandler;
 
   /**
-   * Checks that if this is an environment-restricted build, all top-level targets support
-   * expected top-level environments. Expected top-level environments can be declared explicitly
-   * through {@code --target_environment} or implicitly through
-   * {@code --experimental_auto_cpu_environment_group}. For the latter, top-level targets must
-   * be compatible with the build's target configuration CPU.
+   * Constructor with helper classes for loading targets.
    *
-   * <p>If any target doesn't support an explicitly expected environment declared through
-   * {@link BuildConfiguration.Options#targetEnvironments}, the entire build fails with an error.
+  * @param packageManager object for retrieving loaded targets
+  * @param eventHandler the build's event handler
+  */
+  public TopLevelConstraintSemantics(PackageManager packageManager,
+      ExtendedEventHandler eventHandler) {
+    this.packageManager = packageManager;
+    this.eventHandler = eventHandler;
+  }
+
+  /**
+   * Checks that if this is an environment-restricted build, all top-level targets support expected
+   * top-level environments. Expected top-level environments can be declared explicitly through
+   * {@code --target_environment} or implicitly through {@code --auto_cpu_environment_group}. For
+   * the latter, top-level targets must be compatible with the build's target configuration CPU.
    *
-   * <p>If any target doesn't support an implicitly expected environment declared through
-   * {@link BuildConfiguration.Options#autoCpuEnvironmentGroup}, the target is skipped during
-   * execution while remaining targets execute as normal.
+   * <p>If any target doesn't support an explicitly expected environment declared through {@link
+   * BuildConfiguration.Options#targetEnvironments}, the entire build fails with an error.
+   *
+   * <p>If any target doesn't support an implicitly expected environment declared through {@link
+   * BuildConfiguration.Options#autoCpuEnvironmentGroup}, the target is skipped during execution
+   * while remaining targets execute as normal.
    *
    * @param topLevelTargets the build's top-level targets
-   * @param packageManager object for retrieving loaded targets
-   * @param eventHandler the build's event handler
-   *
    * @return the set of bad top-level targets.
    * @throws ViewCreationFailedException if any target doesn't support an explicitly expected
-   * environment declared through {@link BuildConfiguration.Options#targetEnvironments}
+   *     environment declared through {@link BuildConfiguration.Options#targetEnvironments}
    */
-  public static Set<ConfiguredTarget> checkTargetEnvironmentRestrictions(
-      Iterable<ConfiguredTarget> topLevelTargets, PackageManager packageManager,
-      ExtendedEventHandler eventHandler)
+  public Set<ConfiguredTarget> checkTargetEnvironmentRestrictions(
+      Iterable<ConfiguredTarget> topLevelTargets)
       throws ViewCreationFailedException, InterruptedException {
     ImmutableSet.Builder<ConfiguredTarget> badTargets = ImmutableSet.builder();
     // Maps targets that are missing *explicitly* required environments to the set of environments
@@ -82,77 +93,54 @@ public class TopLevelConstraintSemantics {
     Multimap<ConfiguredTarget, Label> exceptionInducingTargets = ArrayListMultimap.create();
     for (ConfiguredTarget topLevelTarget : topLevelTargets) {
       BuildConfiguration config = topLevelTarget.getConfiguration();
-      boolean failBuildIfTargetIsBad = true;
       if (config == null) {
         // TODO(bazel-team): support file targets (they should apply package-default constraints).
         continue;
       } else if (!config.enforceConstraints()) {
+        continue;  // Constraint checking is disabled for all targets.
+      } else if (topLevelTarget.getTarget().getAssociatedRule() == null) {
         continue;
+      } else if (!topLevelTarget
+          .getTarget()
+          .getAssociatedRule()
+          .getRuleClassObject()
+          .supportsConstraintChecking()) {
+        continue; // This target doesn't participate in constraints.
       }
 
-      List<Label> targetEnvironments = config.getTargetEnvironments();
-      if (targetEnvironments.isEmpty()) {
-        try {
-          targetEnvironments = autoConfigureTargetEnvironments(config,
-              config.getAutoCpuEnvironmentGroup(), packageManager, eventHandler);
-          failBuildIfTargetIsBad = false;
-        } catch (NoSuchPackageException
-            | NoSuchTargetException
-            | ConstraintSemantics.EnvironmentLookupException e) {
-          throw new ViewCreationFailedException("invalid target environment", e);
+      // Check explicitly expected environments.
+      exceptionInducingTargets.putAll(topLevelTarget, // This is a no-op on empty collections.
+          getMissingEnvironments(topLevelTarget, config.getTargetEnvironments()));
+
+      // Check auto-detected CPU environments.
+      try {
+        if (!getMissingEnvironments(topLevelTarget,
+            autoConfigureTargetEnvironments(config, config.getAutoCpuEnvironmentGroup()))
+            .isEmpty()) {
+          badTargets.add(topLevelTarget);
         }
-      }
-
-      if (targetEnvironments.isEmpty()) {
-        continue;
-      }
-
-      // Parse and collect this configuration's environments.
-      EnvironmentCollection.Builder builder = new EnvironmentCollection.Builder();
-      for (Label envLabel : targetEnvironments) {
-        try {
-          Target env = packageManager.getTarget(eventHandler, envLabel);
-          builder.put(ConstraintSemantics.getEnvironmentGroup(env), envLabel);
-        } catch (NoSuchPackageException | NoSuchTargetException
-            | ConstraintSemantics.EnvironmentLookupException e) {
-          throw new ViewCreationFailedException("invalid target environment", e);
-        }
-      }
-      EnvironmentCollection expectedEnvironments = builder.build();
-
-      // Now check the target against those environments.
-      TransitiveInfoCollection asProvider;
-      if (topLevelTarget instanceof OutputFileConfiguredTarget) {
-        asProvider = ((OutputFileConfiguredTarget) topLevelTarget).getGeneratingRule();
-      } else {
-        asProvider = topLevelTarget;
-      }
-      SupportedEnvironmentsProvider provider =
-          Verify.verifyNotNull(asProvider.getProvider(SupportedEnvironmentsProvider.class));
-      Collection<Label> missingEnvironments =
-          ConstraintSemantics.getUnsupportedEnvironments(
-              provider.getRefinedEnvironments(), expectedEnvironments);
-      if (!missingEnvironments.isEmpty()) {
-        badTargets.add(topLevelTarget);
-        if (failBuildIfTargetIsBad) {
-          exceptionInducingTargets.putAll(topLevelTarget, missingEnvironments);
-        }
+      } catch (NoSuchPackageException
+          | NoSuchTargetException
+          | ConstraintSemantics.EnvironmentLookupException e) {
+        throw new ViewCreationFailedException("invalid target environment", e);
       }
     }
 
     if (!exceptionInducingTargets.isEmpty()) {
       throw new ViewCreationFailedException(getBadTargetsUserMessage(exceptionInducingTargets));
     }
-    return ImmutableSet.copyOf(badTargets.build());
+    return ImmutableSet.copyOf(
+        badTargets
+            .addAll(exceptionInducingTargets.keySet())
+            .build());
   }
 
   /**
    * Helper method for {@link #checkTargetEnvironmentRestrictions} that populates inferred
    * expected environments.
    */
-  private static List<Label> autoConfigureTargetEnvironments(BuildConfiguration config,
-      @Nullable Label environmentGroupLabel, PackageManager packageManager,
-      ExtendedEventHandler eventHandler)
+  private List<Label> autoConfigureTargetEnvironments(BuildConfiguration config,
+      @Nullable Label environmentGroupLabel)
       throws InterruptedException, NoSuchTargetException, NoSuchPackageException,
       ConstraintSemantics.EnvironmentLookupException {
     if (environmentGroupLabel == null) {
@@ -170,6 +158,54 @@ public class TopLevelConstraintSemantics {
     }
 
     return targetEnvironments.build();
+  }
+
+  /**
+   * Returns the expected environments that the given top-level target doesn't support.
+   *
+   * @param topLevelTarget the top-level target to check
+   * @param expectedEnvironmentLabels the environments this target is expected to support
+   *
+   * @throw InterruptedException if environment target resolution fails
+   * @throw ViewCreationFailedException if an expected environment isn't a valid target
+   */
+  private Collection<Label> getMissingEnvironments(ConfiguredTarget topLevelTarget,
+      Collection<Label> expectedEnvironmentLabels)
+      throws InterruptedException, ViewCreationFailedException {
+    if (expectedEnvironmentLabels.isEmpty()) {
+      return ImmutableList.of();
+    }
+
+    // Convert expected environment labels to actual environments.
+    EnvironmentCollection.Builder expectedEnvironmentsBuilder = new EnvironmentCollection.Builder();
+    for (Label envLabel : expectedEnvironmentLabels) {
+      try {
+        Target env = packageManager.getTarget(eventHandler, envLabel);
+        expectedEnvironmentsBuilder.put(ConstraintSemantics.getEnvironmentGroup(env), envLabel);
+      } catch (NoSuchPackageException | NoSuchTargetException
+          | ConstraintSemantics.EnvironmentLookupException e) {
+        throw new ViewCreationFailedException("invalid target environment", e);
+      }
+    }
+    EnvironmentCollection expectedEnvironments = expectedEnvironmentsBuilder.build();
+
+    // Now check the target against expected environments.
+    TransitiveInfoCollection asProvider;
+    if (topLevelTarget instanceof OutputFileConfiguredTarget) {
+      asProvider = ((OutputFileConfiguredTarget) topLevelTarget).getGeneratingRule();
+    } else {
+      asProvider = topLevelTarget;
+    }
+    SupportedEnvironmentsProvider provider =
+        Verify.verifyNotNull(asProvider.getProvider(SupportedEnvironmentsProvider.class));
+    return ConstraintSemantics
+        .getUnsupportedEnvironments(provider.getRefinedEnvironments(), expectedEnvironments)
+        .stream()
+        // We apply this filter because the target might also not support default environments in
+        // other environment groups. We don't care about those. We only care about the environments
+        // explicitly referenced.
+        .filter(Predicates.in(expectedEnvironmentLabels))
+        .collect(Collectors.toSet());
   }
 
   /**

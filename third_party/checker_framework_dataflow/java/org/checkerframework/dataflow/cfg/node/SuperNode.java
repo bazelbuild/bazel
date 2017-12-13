@@ -1,14 +1,11 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import java.util.Collection;
-import java.util.Collections;
-
-import org.checkerframework.dataflow.util.HashCodeUtils;
-
-import org.checkerframework.javacutil.InternalUtils;
-
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.Tree;
+import java.util.Collection;
+import java.util.Collections;
+import org.checkerframework.dataflow.util.HashCodeUtils;
+import org.checkerframework.javacutil.InternalUtils;
 
 /**
  * A node for a reference to 'super'.
@@ -19,7 +16,6 @@ import com.sun.source.tree.Tree;
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
 public class SuperNode extends Node {
 
@@ -27,8 +23,7 @@ public class SuperNode extends Node {
 
     public SuperNode(Tree t) {
         super(InternalUtils.typeOf(t));
-        assert t instanceof IdentifierTree
-                && ((IdentifierTree) t).getName().contentEquals("super");
+        assert t instanceof IdentifierTree && ((IdentifierTree) t).getName().contentEquals("super");
         tree = t;
     }
 

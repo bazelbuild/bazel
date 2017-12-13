@@ -36,6 +36,7 @@ TEST(OptionsTest, Flags1) {
   EXPECT_FALSE(options.preserve_compression);
   EXPECT_FALSE(options.verbose);
   EXPECT_FALSE(options.warn_duplicate_resources);
+  EXPECT_FALSE(options.check_desugar_deps);
   EXPECT_EQ("output_jar", options.output_jar);
 }
 
@@ -43,6 +44,7 @@ TEST(OptionsTest, Flags2) {
   const char *args[] = {"--dont_change_compression",
                         "--verbose",
                         "--warn_duplicate_resources",
+                        "--check_desugar_deps",
                         "--output", "output_jar"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
@@ -54,6 +56,7 @@ TEST(OptionsTest, Flags2) {
   ASSERT_TRUE(options.preserve_compression);
   ASSERT_TRUE(options.verbose);
   ASSERT_TRUE(options.warn_duplicate_resources);
+  ASSERT_TRUE(options.check_desugar_deps);
 }
 
 TEST(OptionsTest, SingleOptargs) {
@@ -90,9 +93,9 @@ TEST(OptionsTest, MultiOptargs) {
   options.ParseCommandLine(arraysize(args), args);
 
   ASSERT_EQ(3, options.input_jars.size());
-  EXPECT_EQ("jar1", options.input_jars[0]);
-  EXPECT_EQ("jar2", options.input_jars[1]);
-  EXPECT_EQ("jar3", options.input_jars[2]);
+  EXPECT_EQ("jar1", options.input_jars[0].first);
+  EXPECT_EQ("jar2", options.input_jars[1].first);
+  EXPECT_EQ("jar3", options.input_jars[2].first);
   ASSERT_EQ(2, options.resources.size());
   EXPECT_EQ("res1", options.resources[0]);
   EXPECT_EQ("res2", options.resources[1]);

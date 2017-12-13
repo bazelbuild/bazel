@@ -35,9 +35,11 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -251,6 +253,8 @@ public class ResourceShrinkerAction {
     // Parse arguments.
     OptionsParser optionsParser = OptionsParser.newOptionsParser(
         Options.class, AaptConfigOptions.class);
+    optionsParser.enableParamsFileSupport(
+        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parseAndExitUponError(args);
     aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     options = optionsParser.getOptions(Options.class);
@@ -327,11 +331,8 @@ public class ResourceShrinkerAction {
           null /* publicResourcesOut */,
           null /* dataBindingInfoOut */);
       if (options.shrunkResources != null) {
-        AndroidResourceOutputs.createResourcesZip(
-            shrunkResources,
-            resourceFiles.resolve("assets"),
-            options.shrunkResources,
-            false /* compress */);
+        ResourcesZip.from(shrunkResources, resourceFiles.resolve("assets"))
+            .writeTo(options.shrunkResources, false /* compress */);
       }
       if (options.rTxtOutput != null) {
         AndroidResourceOutputs.copyRToOutput(

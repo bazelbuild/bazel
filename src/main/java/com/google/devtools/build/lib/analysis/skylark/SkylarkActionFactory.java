@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.analysis.skylark;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -24,9 +26,11 @@ import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
@@ -46,20 +50,25 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkMutable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 /**
  * Provides a Skylark interface for all action creation needs.
@@ -72,17 +81,17 @@ import java.util.UUID;
 
 public class SkylarkActionFactory implements SkylarkValue {
   private final SkylarkRuleContext context;
-  private final SkylarkSemanticsOptions skylarkSemanticsOptions;
+  private final SkylarkSemantics skylarkSemantics;
   private RuleContext ruleContext;
   /** Counter for actions.run_shell helper scripts. Every script must have a unique name. */
   private int runShellOutputCounter = 0;
 
   public SkylarkActionFactory(
       SkylarkRuleContext context,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
+      SkylarkSemantics skylarkSemantics,
       RuleContext ruleContext) {
     this.context = context;
-    this.skylarkSemanticsOptions = skylarkSemanticsOptions;
+    this.skylarkSemantics = skylarkSemantics;
     this.ruleContext = ruleContext;
   }
 
@@ -93,34 +102,37 @@ public class SkylarkActionFactory implements SkylarkValue {
   }
 
   @SkylarkCallable(
-      name = "declare_file",
-      doc =
-          "Declares that rule or aspect creates a file with the given filename. "
-              + "If <code>sibling</code> is not specified, file name is relative to "
-              + "package directory, otherwise the file is in the same directory as "
-              + "<code>sibling</code>. "
-              + "You must create an action that generates the file. <br>"
-              + "Files that are specified in rule's outputs do not need to be declared and are "
-              + "available through <a href=\"ctx.html#outputs\">ctx.outputs</a>.",
-      parameters = {
-          @Param(
-              name = "filename",
-              type = String.class,
-              doc =
-                  "If no 'sibling' provided, path of the new file, relative "
-                  + "to the current package. Otherwise a base name for a file "
-                   + "('sibling' determines a directory)."
-          ),
-          @Param(
-              name = "sibling",
-              doc = "A file that lives in the same directory as the newly created file.",
-              type = Artifact.class,
-              noneable = true,
-              positional = false,
-              named = true,
-              defaultValue = "None"
-          )
-      }
+    name = "declare_file",
+    doc =
+        "Declares that rule or aspect creates a file with the given filename. "
+            + "If <code>sibling</code> is not specified, file name is relative to "
+            + "package directory, otherwise the file is in the same directory as "
+            + "<code>sibling</code>. "
+            + "You must create an action that generates the file. <br>"
+            + "Files cannot be created outside of the current package. "
+            + "Files that are specified in rule's outputs do not need to be declared and are "
+            + "available through <a href=\"ctx.html#outputs\">ctx.outputs</a>.",
+    parameters = {
+      @Param(
+        name = "filename",
+        type = String.class,
+        doc =
+            "If no 'sibling' provided, path of the new file, relative "
+                + "to the current package. Otherwise a base name for a file "
+                + "('sibling' determines a directory)."
+      ),
+      @Param(
+        name = "sibling",
+        doc =
+            "A file that lives in the same directory as the newly created file. "
+                + "The file must be in the current package.",
+        type = Artifact.class,
+        noneable = true,
+        positional = false,
+        named = true,
+        defaultValue = "None"
+      )
+    }
   )
   public Artifact declareFile(String filename, Object sibling) throws EvalException {
     context.checkMutable("actions.declare_file");
@@ -232,8 +244,12 @@ public class SkylarkActionFactory implements SkylarkValue {
       @Param(name = "output", type = Artifact.class, doc = "the output file.", named = true),
       @Param(
         name = "content",
-        type = String.class,
-        doc = "the contents of the file.",
+        type = Object.class,
+        allowedTypes = {@ParamType(type = String.class), @ParamType(type = Args.class)},
+        doc =
+            "the contents of the file. "
+                + "May be a either a string or actions.args() object. "
+                + "See <a href=\"actions.html#args\">ctx.actions.args()</a>.",
         named = true
       ),
       @Param(
@@ -245,10 +261,23 @@ public class SkylarkActionFactory implements SkylarkValue {
       )
     }
   )
-  public void write(Artifact output, String content, Boolean isExecutable) throws EvalException {
+  public void write(Artifact output, Object content, Boolean isExecutable) throws EvalException {
     context.checkMutable("actions.write");
-    FileWriteAction action =
-        FileWriteAction.create(ruleContext, output, content, isExecutable);
+    final Action action;
+    if (content instanceof String) {
+      action = FileWriteAction.create(ruleContext, output, (String) content, isExecutable);
+    } else if (content instanceof Args) {
+      Args args = (Args) content;
+      action =
+          new ParameterFileWriteAction(
+              ruleContext.getActionOwner(),
+              output,
+              args.build(),
+              args.parameterFileType,
+              StandardCharsets.UTF_8);
+    } else {
+      throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
+    }
     ruleContext.registerAction(action);
   }
 
@@ -296,7 +325,10 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc = "command line arguments of the action."
+        doc =
+            "command line arguments of the action. "
+                + "Must be a list of strings or actions.args() objects. "
+                + "See <a href=\"actions.html#args\">ctx.actions.args()</a>."
       ),
       @Param(
         name = "mnemonic",
@@ -378,15 +410,8 @@ public class SkylarkActionFactory implements SkylarkValue {
     context.checkMutable("actions.run");
     SpawnAction.Builder builder = new SpawnAction.Builder();
 
-    if (arguments instanceof SkylarkList) {
-      SkylarkList skylarkList = ((SkylarkList) arguments);
-      @SuppressWarnings("unchecked")
-      List<String> argumentsContents = skylarkList.getContents(String.class, "arguments");
-      builder.addCommandLine(CustomCommandLine.builder().addAll(argumentsContents).build());
-    } else {
-      Args args = (Args) arguments;
-      builder.addCommandLine(args.build());
-    }
+    SkylarkList argumentsList = ((SkylarkList) arguments);
+    buildCommandLine(builder, argumentsList);
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
       builder.addInput(executable);
@@ -408,6 +433,24 @@ public class SkylarkActionFactory implements SkylarkValue {
     }
     registerSpawnAction(outputs, inputs, mnemonicUnchecked, progressMessage, useDefaultShellEnv,
         envUnchecked, executionRequirementsUnchecked, inputManifestsUnchecked, builder);
+  }
+
+  /**
+   * Registers actions in the context of this {@link SkylarkActionFactory}.
+   *
+   * Use {@link #getActionConstructionContext()} to obtain the context required to
+   * create those actions.
+   */
+  public void registerAction(ActionAnalysisMetadata... actions) {
+    ruleContext.registerAction(actions);
+  }
+
+  /**
+   * Returns information needed to construct actions that can be
+   * registered with {@link #registerAction(ActionAnalysisMetadata...)}.
+   */
+  public ActionConstructionContext getActionConstructionContext() {
+    return ruleContext;
   }
 
   @SkylarkCallable(
@@ -444,6 +487,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         positional = false,
         doc =
             "command line arguments of the action. "
+                + "Must be a list of strings or actions.args() objects.<br>"
                 + "Blaze passes the elements in this attribute as arguments to the command."
                 + "The command can access these arguments as <code>$1</code>, <code>$2</code>, "
                 + "etc. See <a href=\"actions.html#args\">ctx.actions.args()</a>."
@@ -549,26 +593,9 @@ public class SkylarkActionFactory implements SkylarkValue {
     context.checkMutable("actions.run_shell");
 
     // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
+    SkylarkList argumentList = (SkylarkList) arguments;
     SpawnAction.Builder builder = new SpawnAction.Builder();
-    if (arguments instanceof SkylarkList) {
-      CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
-      SkylarkList argumentList = (SkylarkList) arguments;
-      if (argumentList.size() > 0) {
-        // When we use a shell command, add an empty argument before other arguments.
-        //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
-        // bash will use the empty argument as the value of $0 (which we don't care about).
-        // arg1 and arg2 will be $1 and $2, as a user expects.
-        commandLine.add("");
-      }
-
-      @SuppressWarnings("unchecked")
-      List<String> argumentsContents = argumentList.getContents(String.class, "arguments");
-      commandLine.addAll(argumentsContents);
-      builder.addCommandLine(commandLine.build());
-    } else {
-      Args args = (Args) arguments;
-      builder.addCommandLine(CommandLine.concat(ImmutableList.of(""), args.build()));
-    }
+    buildCommandLine(builder, argumentList);
 
     if (commandUnchecked instanceof String) {
       Map<String, String> executionInfo =
@@ -602,6 +629,13 @@ public class SkylarkActionFactory implements SkylarkValue {
           "expected string or list of strings for command instead of "
               + EvalUtils.getDataTypeName(commandUnchecked));
     }
+    if (argumentList.size() > 0) {
+      // When we use a shell command, add an empty argument before other arguments.
+      //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
+      // bash will use the empty argument as the value of $0 (which we don't care about).
+      // arg1 and arg2 will be $1 and $2, as a user expects.
+      builder.addExecutableArguments("");
+    }
     registerSpawnAction(
         outputs,
         inputs,
@@ -612,6 +646,40 @@ public class SkylarkActionFactory implements SkylarkValue {
         executionRequirementsUnchecked,
         inputManifestsUnchecked,
         builder);
+  }
+
+  private void buildCommandLine(SpawnAction.Builder builder, SkylarkList argumentsList)
+      throws EvalException {
+    List<String> stringArgs = new ArrayList<>();
+    for (Object value : argumentsList) {
+      if (value instanceof String) {
+        stringArgs.add((String) value);
+      } else if (value instanceof Args) {
+        if (!stringArgs.isEmpty()) {
+          builder.addCommandLine(CommandLine.of(stringArgs));
+          stringArgs = new ArrayList<>();
+        }
+        Args args = (Args) value;
+        ParamFileInfo paramFileInfo = null;
+        if (args.flagFormatString != null) {
+          paramFileInfo =
+              ParamFileInfo.builder(args.parameterFileType)
+                  .setFlagFormatString(args.flagFormatString)
+                  .setUseAlways(args.useAlways)
+                  .setCharset(StandardCharsets.UTF_8)
+                  .build();
+        }
+        builder.addCommandLine(args.commandLine.build(), paramFileInfo);
+      } else {
+        throw new EvalException(
+            null,
+            "expected list of strings or ctx.actions.args() for arguments instead of "
+                + EvalUtils.getDataTypeName(value));
+      }
+    }
+    if (!stringArgs.isEmpty()) {
+      builder.addCommandLine(CommandLine.of(stringArgs));
+    }
   }
 
   /**
@@ -796,8 +864,8 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "args.add(foo_deps)\n"
             + "args.add(\"--bar\")\n"
             + "args.add(bar_deps, join_with=\",\")\n"
-            + "ctx.run(\n"
-            + "  arguments = args,\n"
+            + "ctx.actions.run(\n"
+            + "  arguments = [args],\n"
             + "  ...\n"
             + ")\n"
             + "# Expands to [\n"
@@ -808,9 +876,12 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "# ]"
             + "</pre>"
   )
-  static class Args {
-
+  static class Args extends SkylarkMutable {
+    private final Mutability mutability;
     private final SkylarkCustomCommandLine.Builder commandLine;
+    private ParameterFileType parameterFileType = ParameterFileType.SHELL_QUOTED;
+    private String flagFormatString;
+    private boolean useAlways;
 
     @SkylarkSignature(
       name = "add",
@@ -870,7 +941,9 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "None",
           noneable = true,
-          doc = "The passed objects are passed through a map function. "
+          doc =
+              "The passed objects are passed through a map function. "
+                  + "For vector args the function is given a list and is expected to return a list."
         )
       },
       useLocation = true
@@ -887,6 +960,9 @@ public class SkylarkActionFactory implements SkylarkValue {
               Object mapFn,
               Location loc)
               throws EvalException {
+            if (self.isImmutable()) {
+              throw new EvalException(null, "cannot modify frozen value");
+            }
             if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
               self.addVectorArg(value, format, beforeEach, joinWith, mapFn, loc);
             } else {
@@ -953,7 +1029,89 @@ public class SkylarkActionFactory implements SkylarkValue {
       }
     }
 
-    public Args(SkylarkSemanticsOptions skylarkSemantics, EventHandler eventHandler) {
+    @SkylarkCallable(
+      name = "use_param_file",
+      doc =
+          "Spills the args to a params file, replacing them with a pointer to the param file. "
+              + "Use when your args may be too large for the system's command length limits ",
+      parameters = {
+        @Param(
+          name = "param_file_arg",
+          type = String.class,
+          named = true,
+          doc =
+              "a format string with a single \"%s\". "
+                  + "If the args are spilled to a params file then they are replaced "
+                  + "with an argument consisting of this string formatted with"
+                  + "the path of the params file."
+        ),
+        @Param(
+          name = "use_always",
+          type = Boolean.class,
+          named = true,
+          positional = false,
+          defaultValue = "False",
+          doc =
+              "whether to always spill the args to a params file. If false, "
+                  + "bazel will decide whether the arguments need to be spilled "
+                  + "based on your system and arg length."
+        )
+      }
+    )
+    public void useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException {
+      if (isImmutable()) {
+        throw new EvalException(null, "cannot modify frozen value");
+      }
+      if (!paramFileArg.contains("%s")) {
+        throw new EvalException(
+            null,
+            "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"");
+      }
+      this.flagFormatString = paramFileArg;
+      this.useAlways = useAlways;
+    }
+
+    @SkylarkCallable(
+      name = "set_param_file_format",
+      doc = "sets the format of the param file when written to disk",
+      parameters = {
+        @Param(
+          name = "format",
+          type = String.class,
+          named = true,
+          doc =
+              "the format of the param file. Must be one of:<br>"
+                  + "\"shell\": All arguments are shell quoted and separated by whitespace<br>"
+                  + "\"multiline\": All arguments are unquoted and separated by newline characters"
+                  + "The format defaults to \"shell\" if not called."
+        )
+      }
+    )
+    public void setParamFileFormat(String format) throws EvalException {
+      if (isImmutable()) {
+        throw new EvalException(null, "cannot modify frozen value");
+      }
+      final ParameterFileType parameterFileType;
+      switch (format) {
+        case "shell":
+          parameterFileType = ParameterFileType.SHELL_QUOTED;
+          break;
+        case "multiline":
+          parameterFileType = ParameterFileType.UNQUOTED;
+          break;
+        default:
+          throw new EvalException(
+              null,
+              "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"");
+      }
+      this.parameterFileType = parameterFileType;
+    }
+
+    private Args(
+        @Nullable Mutability mutability,
+        SkylarkSemantics skylarkSemantics,
+        EventHandler eventHandler) {
+      this.mutability = mutability != null ? mutability : Mutability.IMMUTABLE;
       this.commandLine = new SkylarkCustomCommandLine.Builder(skylarkSemantics, eventHandler);
     }
 
@@ -961,10 +1119,43 @@ public class SkylarkActionFactory implements SkylarkValue {
       return commandLine.build();
     }
 
+    @Override
+    public Mutability mutability() {
+      return mutability;
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("context.args() object");
+    }
+
     static {
       SkylarkSignatureProcessor.configureSkylarkFunctions(Args.class);
     }
   }
+
+  @SkylarkSignature(
+    name = "args",
+    doc = "returns an Args object that can be used to build memory-efficient command lines.",
+    objectType = SkylarkActionFactory.class,
+    returnType = Args.class,
+    parameters = {
+        @Param(
+            name = "self",
+            type = SkylarkActionFactory.class,
+            doc = "This 'actions' object."
+        )
+    },
+    useEnvironment = true
+  )
+  public static final BuiltinFunction args =
+      new BuiltinFunction("args") {
+        public Args invoke(SkylarkActionFactory self, Environment env) {
+          return new Args(env.mutability(),
+              env.getSemantics(),
+              self.ruleContext.getAnalysisEnvironment().getEventHandler());
+        }
+      };
 
   @Override
   public boolean isImmutable() {
@@ -979,5 +1170,9 @@ public class SkylarkActionFactory implements SkylarkValue {
 
   void nullify() {
     ruleContext = null;
+  }
+
+  static {
+    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkActionFactory.class);
   }
 }

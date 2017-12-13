@@ -20,13 +20,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspect;
 import com.google.devtools.build.lib.rules.java.proto.RpcSupport;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -35,12 +35,12 @@ import java.util.List;
 /** An Aspect which BazelJavaProtoLibrary injects to build Java SPEED protos. */
 public class BazelJavaProtoAspect extends JavaProtoAspect {
 
-  public BazelJavaProtoAspect(LateBoundLabel<BuildConfiguration> hostJdkAttribute) {
+  public BazelJavaProtoAspect(LateBoundDefault<?, Label> hostJdkAttribute) {
     super(
         BazelJavaSemantics.INSTANCE,
         null, /* jacocoAttr */
         new NoopRpcSupport(),
-        "@com_google_protobuf_java//:java_toolchain",
+        "@com_google_protobuf//:java_toolchain",
         hostJdkAttribute);
   }
 

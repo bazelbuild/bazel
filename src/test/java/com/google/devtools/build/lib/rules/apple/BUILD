@@ -21,8 +21,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:serialization-test-base",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party/protobuf:protobuf_java",
@@ -46,6 +46,8 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//third_party:guava",
@@ -64,4 +66,21 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

@@ -488,6 +488,30 @@ public final class OptionProcessor extends AbstractProcessor {
     }
   }
 
+  /**
+   * Some flags wrap other flags. They are objectively useless, as there is no difference between
+   * passing --wrapper=--foo and --foo other than the "source" information tracked. This
+   * functionality comes from requiring compatibility at some past point in time, but is actively
+   * being deprecated. No non-deprecated flag can use this feature.
+   */
+  private void checkWrapperOptions(VariableElement optionField) throws OptionProcessorException {
+    Option annotation = optionField.getAnnotation(Option.class);
+    if (annotation.wrapperOption()) {
+      if (annotation.deprecationWarning().isEmpty()) {
+        throw new OptionProcessorException(
+            optionField,
+            "Can't have non deprecated wrapper options, this feature is deprecated. "
+                + "Please add a deprecationWarning.");
+      }
+      if (!ImmutableList.copyOf(annotation.metadataTags()).contains(OptionMetadataTag.DEPRECATED)) {
+        throw new OptionProcessorException(
+            optionField,
+            "Can't have non deprecated wrapper options, this feature is deprecated. "
+                + "Please add the metadata tag DEPRECATED.");
+      }
+    }
+  }
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (Element annotatedElement : roundEnv.getElementsAnnotatedWith(Option.class)) {
@@ -504,6 +528,7 @@ public final class OptionProcessor extends AbstractProcessor {
         checkConverter(optionField);
         checkEffectTagRationality(optionField);
         checkMetadataTagAndCategoryRationality(optionField);
+        checkWrapperOptions(optionField);
       } catch (OptionProcessorException e) {
         error(e.getElementInError(), e.getMessage());
       }

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import javax.annotation.Nullable;
 
@@ -59,35 +60,36 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    * <p>Examples of changes that should affect the key are:
    *
    * <ul>
-   * <li>Changes to the BUILD file that materially affect the rule which gave rise to this Action.
-   * <li>Changes to the command-line options, environment, or other global configuration resources
-   *     which affect the behaviour of this kind of Action (other than changes to the names of the
-   *     input/output files, which are handled externally).
-   * <li>An upgrade to the build tools which changes the program logic of this kind of Action
-   *     (typically this is achieved by incorporating a UUID into the key, which is changed each
-   *     time the program logic of this action changes).
+   *   <li>Changes to the BUILD file that materially affect the rule which gave rise to this Action.
+   *   <li>Changes to the command-line options, environment, or other global configuration resources
+   *       which affect the behaviour of this kind of Action (other than changes to the names of the
+   *       input/output files, which are handled externally).
+   *   <li>An upgrade to the build tools which changes the program logic of this kind of Action
+   *       (typically this is achieved by incorporating a UUID into the key, which is changed each
+   *       time the program logic of this action changes).
    * </ul>
    */
-  String getKey();
+  String getKey(ActionKeyContext actionKeyContext);
 
   /**
-   * Returns a human-readable description of the inputs to {@link #getKey()}.
-   * Used in the output from '--explain', and in error messages for
-   * '--check_up_to_date' and '--check_tests_up_to_date'.
-   * May return null, meaning no extra information is available.
+   * Returns a human-readable description of the inputs to {@link #getKey(ActionKeyContext)}. Used
+   * in the output from '--explain', and in error messages for '--check_up_to_date' and
+   * '--check_tests_up_to_date'. May return null, meaning no extra information is available.
    *
    * <p>If the return value is non-null, for consistency it should be a multiline message of the
    * form:
+   *
    * <pre>
    *   <var>Summary</var>
    *     <var>Fieldname</var>: <var>value</var>
    *     <var>Fieldname</var>: <var>value</var>
    *     ...
    * </pre>
+   *
    * where each line after the first one is intended two spaces, and where any fields that might
    * contain newlines or other funny characters are escaped using {@link
-   * com.google.devtools.build.lib.shell.ShellUtils#shellEscape}.
-   * For example:
+   * com.google.devtools.build.lib.shell.ShellUtils#shellEscape}. For example:
+   *
    * <pre>
    *   Compiling foo.cc
    *     Command: /usr/bin/gcc
@@ -97,7 +99,8 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    *     Argument: foo.o
    * </pre>
    */
-  @Nullable String describeKey();
+  @Nullable
+  String describeKey();
 
   /**
    * Get the {@link RunfilesSupplier} providing runfiles needed by this action.
@@ -124,4 +127,11 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    */
   @ThreadSafe
   boolean discoversInputs();
+
+  /**
+   * Returns the {@link PlatformInfo} platform this action should be executed on. If the execution
+   * platform is {@code null}, then the host platform is assumed.
+   */
+  @Nullable
+  PlatformInfo getExecutionPlatform();
 }

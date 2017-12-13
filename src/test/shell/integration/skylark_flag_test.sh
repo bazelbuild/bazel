@@ -25,22 +25,121 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# Text that will be appended to every print() output when the flag is enabled.
 MARKER="<== skylark flag test ==>"
 
-function setup_package() {
-  mkdir -p test
-  cat > test/BUILD <<'EOF'
-load(":test.bzl", "macro")
+sanity_fail_msg="Marker string '$MARKER' was seen even though "
+sanity_fail_msg+="--internal_skylark_flag_test_canary wasn't passed"
 
+
+function test_build_file() {
+  mkdir -p test
+  cat > test/BUILD <<'EOF' || fail "couldn't create file"
 print("In BUILD: ")
+
+genrule(
+    name = "dummy",
+    cmd = "echo 'dummy' >$@",
+    outs = ["dummy.txt"],
+)
+EOF
+
+  # Sanity check.
+  bazel build //test:dummy \
+      &>"$TEST_log" || fail "bazel build failed";
+  expect_log "In BUILD: " "Did not find BUILD print output"
+  expect_not_log "$MARKER" "$sanity_fail_msg"
+
+  bazel build //test:dummy \
+      --internal_skylark_flag_test_canary \
+      &>"$TEST_log" || fail "bazel build failed";
+  expect_log "In BUILD: $MARKER" \
+      "Skylark flags are not propagating to BUILD file evaluation"
+}
+
+function test_bzl_file_and_macro() {
+  mkdir -p test
+  cat > test/BUILD <<'EOF' || fail "couldn't create file"
+load(":test.bzl", "macro")
 
 macro()
 EOF
-  cat >test/test.bzl <<'EOF'
+  cat >test/test.bzl <<'EOF' || fail "couldn't create file"
 print("In bzl: ")
 
+def macro():
+  print("In macro: ")
+  native.genrule(
+      name = "dummy",
+      cmd = "echo 'dummy' >$@",
+      outs = ["dummy.txt"],
+  )
+EOF
+
+  # Sanity check.
+  bazel build //test:dummy \
+      &>"$TEST_log" || fail "bazel build failed";
+  expect_log "In bzl: " "Did not find .bzl print output"
+  expect_log "In macro: " "Did not find macro print output"
+  expect_not_log "$MARKER" "$sanity_fail_msg"
+
+  bazel build //test:dummy \
+      --internal_skylark_flag_test_canary \
+      &>"$TEST_log" || fail "bazel build failed";
+  expect_log "In bzl: $MARKER" \
+      "Skylark flags are not propagating to .bzl file evaluation"
+  expect_log "In macro: $MARKER" \
+      "Skylark flags are not propagating to macro evaluation"
+}
+
+function test_rule() {
+  mkdir -p test
+  cat > test/BUILD <<'EOF' || fail "couldn't create file"
+load(":test.bzl", "some_rule")
+
+some_rule(
+    name = "dummy",
+)
+EOF
+  cat >test/test.bzl <<'EOF' || fail "couldn't create file"
 def _rule_impl(ctx):
   print("In rule: ")
+
+some_rule = rule(
+    implementation = _rule_impl,
+)
+EOF
+
+  # Sanity check.
+  bazel build //test:dummy \
+      &>"$TEST_log" || fail "bazel build failed";
+  expect_log "In rule: " "Did not find rule print output"
+  expect_not_log "$MARKER" "$sanity_fail_msg"
+
+  bazel build //test:dummy \
+      --internal_skylark_flag_test_canary \
+      &>"$TEST_log" || fail "bazel build failed";
+  expect_log "In rule: $MARKER" \
+      "Skylark flags are not propagating to rule implementation function evaluation"
+}
+
+# TODO(brandjon): Once we're no long dropping print() output in computed default
+# functions, also test that we're propagating flags there. Alternatively, this
+# could be tested by having conditional code that crashes while evaluating the
+# Skylark function iff the flag is set.
+
+function test_aspect() {
+  mkdir -p test
+  cat > test/BUILD <<'EOF' || fail "couldn't create file"
+load(":test.bzl", "some_rule")
+
+some_rule(
+    name = "dummy",
+)
+EOF
+  cat >test/test.bzl <<'EOF' || fail "couldn't create file"
+def _rule_impl(ctx):
+  pass
 
 some_rule = rule(
     implementation = _rule_impl,
@@ -53,51 +152,19 @@ def _aspect_impl(target, ctx):
 some_aspect = aspect(
     implementation = _aspect_impl,
 )
-
-def macro():
-  print("In macro: ")
-  some_rule(name="some_target")
 EOF
-}
 
-function test_sanity() {
-  # Control test: Make sure the print strings appear, and the marker string
-  # doesn't appear, when we don't pass the flag.
-  setup_package
-  bazel build //test:some_target  --aspects test/test.bzl%some_aspect \
-    &>"$TEST_log" || fail "bazel build failed";
-  fail_msg="Marker string '$MARKER' was seen even though "
-  fail_msg+="--internal_skylark_flag_test_canary wasn't passed"
-  expect_not_log "$MARKER" "$fail_msg"
-  expect_log "In BUILD: " "Did not find BUILD print output"
-  expect_log "In bzl: " "Did not find .bzl print output"
-  expect_log "In macro: " "Did not find macro print output"
-  expect_log "In rule: " "Did not find rule print output"
-  # TODO(brandjon): If we add computed default functions as per below, add a
-  # sanity check for it here too.
+  # Sanity check.
+  bazel build //test:dummy --aspects test/test.bzl%some_aspect \
+      &>"$TEST_log" || fail "bazel build failed";
   expect_log "In aspect: " "Did not find aspect print output"
-}
+  expect_not_log "$MARKER" "$sanity_fail_msg"
 
-function test_skylark_flags() {
-  # Check that the marker string appears when we pass the flag.
-  setup_package
-  bazel build //test:some_target --aspects test/test.bzl%some_aspect \
-    --internal_skylark_flag_test_canary \
-    &>"$TEST_log" || fail "bazel build failed";
-  expect_log "In BUILD: $MARKER" \
-    "Skylark flags are not propagating to BUILD file evaluation"
-  expect_log "In bzl: $MARKER" \
-    "Skylark flags are not propagating to .bzl file evaluation"
-  expect_log "In macro: $MARKER" \
-    "Skylark flags are not propagating to macro evaluation"
-  expect_log "In rule: $MARKER" \
-    "Skylark flags are not propagating to rule implementation function evaluation"
-  # TODO(brandjon): Once we're no long dropping print() output in computed
-  # default functions, also test that we're propagating flags there.
-  # Alternatively, this could be tested by having conditional code that crashes
-  # while evaluating the Skylark function iff the flag is set.
+  bazel build //test:dummy --aspects test/test.bzl%some_aspect \
+      --internal_skylark_flag_test_canary \
+      &>"$TEST_log" || fail "bazel build failed";
   expect_log "In aspect: $MARKER" \
-    "Skylark flags are not propagating to aspect implementation function evaluation"
+      "Skylark flags are not propagating to aspect implementation function evaluation"
 }
 
 

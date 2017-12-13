@@ -12,6 +12,7 @@ using Bazel to build and test for those platforms.
 ## Contents
 
 - [Working with Bazel](#working-with-bazel)
+- [Migrating to Bazel](#migrating-to-bazel)
 - [Apple apps and Skylark](#apple-apps-and-skylark)
 
 ## Working with Bazel
@@ -22,6 +23,13 @@ The following resources will help you work with Bazel on macOS and iOS projects:
 *  [Objective-C build rules](https://docs.bazel.build/versions/master/be/objective-c.html)
 *  [General Apple rules](https://github.com/bazelbuild/rules_apple)
 *  [Integration with Xcode](ide.html)
+
+## Migrating to Bazel
+
+If you currently build your macOS and iOS projects with Xcode, follow the steps
+in the migration guide to start building them with Bazel:
+
+*  [Migrating from Xcode to Bazel](migrate-xcode.html)
 
 ## Apple apps and Skylark
 

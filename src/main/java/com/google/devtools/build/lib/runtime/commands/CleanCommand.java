@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -54,41 +54,28 @@ import java.util.logging.Logger;
   inherits = {BuildCommand.class}
 )
 public final class CleanCommand implements BlazeCommand {
-  /**
-   * An interface for special options for the clean command.
-   */
+  /** An interface for special options for the clean command. */
   public static class Options extends OptionsBase {
     @Option(
-      name = "clean_style",
-      defaultValue = "",
-      category = "clean",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Can be 'expunge', 'expunge_async', or 'async'."
-    )
-    public String cleanStyle;
-
-    @Option(
       name = "expunge",
-      defaultValue = "null",
+      defaultValue = "false",
       category = "clean",
-      expansion = "--clean_style=expunge",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "If specified, clean removes the entire working tree for this %{product} "
-              + "instance, which includes all %{product}-created temporary and build output "
-              + "files, and stops the %{product} server if it is running."
+          "If true, clean removes the entire working tree for this %{product} instance, "
+              + "which includes all %{product}-created temporary and build output files, "
+              + "and stops the %{product} server if it is running."
     )
-    public Void expunge;
+    public boolean expunge;
 
     @Option(
       name = "expunge_async",
       defaultValue = "null",
       category = "clean",
-      expansion = "--clean_style=expunge_async",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      expansion = {"--expunge", "--async"},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "If specified, clean asynchronously removes the entire working tree for "
               + "this %{product} instance, which includes all %{product}-created temporary and "
@@ -100,24 +87,19 @@ public final class CleanCommand implements BlazeCommand {
 
     @Option(
       name = "async",
-      defaultValue = "null",
+      defaultValue = "false",
       category = "clean",
-      expansion = "--clean_style=async",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "If specified, clean asynchronously removes the entire working tree for "
-              + "this %{product} instance, which includes all %{product}-created temporary and "
-              + "build output files. When this command completes, it will be safe to execute new "
-              + "commands in the same client, even though the deletion may continue in the "
-              + "background."
+          "If true, output cleaning is asynchronous. When this command completes, it will be safe "
+              + "to execute new commands in the same client, even though the deletion may continue "
+              + "in the background."
     )
-    public Void async;
+    public boolean async;
   }
 
-  /**
-   * Posted on the public event stream to announce that a clean is happening.
-   */
+  /** Posted on the public event stream to announce that a clean is happening. */
   public static class CleanStartingEvent {
     private final OptionsProvider optionsProvider;
 
@@ -136,55 +118,40 @@ public final class CleanCommand implements BlazeCommand {
   public ExitCode exec(CommandEnvironment env, OptionsProvider options)
       throws ShutdownBlazeServerException {
     Options cleanOptions = options.getOptions(Options.class);
-    boolean expungeAsync = cleanOptions.cleanStyle.equals("expunge_async");
-    boolean expunge = cleanOptions.cleanStyle.equals("expunge");
-    boolean async = cleanOptions.cleanStyle.equals("async");
-
+    boolean async = cleanOptions.async;
     env.getEventBus().post(new NoBuildEvent());
-
-    if (!expunge && !expungeAsync && !async && !cleanOptions.cleanStyle.isEmpty()) {
-      env.getReporter().handle(Event.error(
-          null, "Invalid clean_style value '" + cleanOptions.cleanStyle + "'"));
-      return ExitCode.COMMAND_LINE_ERROR;
-    }
-
-    String asyncName = (expunge || expungeAsync) ? "--expunge_async" : "--async";
 
     // TODO(dmarting): Deactivate expunge_async on non-Linux platform until we completely fix it
     // for non-Linux platforms (https://github.com/bazelbuild/bazel/issues/1906).
     // MacOS and FreeBSD support setsid(2) but don't have /usr/bin/setsid, so if we wanted to
     // support --expunge_async on these platforms, we'd have to write a wrapper that calls setsid(2)
     // and exec(2).
-    if ((expungeAsync || async) && OS.getCurrent() != OS.LINUX) {
-      String fallbackName = expungeAsync ? "--expunge" : "synchronous clean";
+    if (async && OS.getCurrent() != OS.LINUX) {
+      String fallbackName = cleanOptions.expunge ? "--expunge" : "synchronous clean";
       env.getReporter()
           .handle(
               Event.info(
                   null /*location*/,
-                  asyncName
-                      + " cannot be used on non-Linux platforms, falling back to "
+                  "--async cannot be used on non-Linux platforms, falling back to "
                       + fallbackName));
-      expunge = expungeAsync;
-      expungeAsync = false;
       async = false;
-      cleanOptions.cleanStyle = expunge ? "expunge" : "";
     }
 
     String cleanBanner =
-        (expungeAsync || async)
+        async
             ? "Starting clean."
             : "Starting clean (this may take a while). "
-                + "Consider using "
-                + asyncName
-                + " if the clean takes more than several minutes.";
+                + "Consider using --async if the clean takes more than several minutes.";
 
     env.getEventBus().post(new CleanStartingEvent(options));
-    env.getReporter().handle(Event.info(null/*location*/, cleanBanner));
+    env.getReporter().handle(Event.info(null /*location*/, cleanBanner));
 
     try {
-      String symlinkPrefix = options.getOptions(BuildRequest.BuildRequestOptions.class)
-          .getSymlinkPrefix(env.getRuntime().getProductName());
-      actuallyClean(env, env.getOutputBase(), expunge, expungeAsync, async, symlinkPrefix);
+      String symlinkPrefix =
+          options
+              .getOptions(BuildRequestOptions.class)
+              .getSymlinkPrefix(env.getRuntime().getProductName());
+      actuallyClean(env, env.getOutputBase(), cleanOptions.expunge, async, symlinkPrefix);
       return ExitCode.SUCCESS;
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
@@ -228,12 +195,7 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   private void actuallyClean(
-      CommandEnvironment env,
-      Path outputBase,
-      boolean expunge,
-      boolean expungeAsync,
-      boolean async,
-      String symlinkPrefix)
+      CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
       throws IOException, ShutdownBlazeServerException, CommandException, ExecException,
           InterruptedException {
     String workspaceDirectory = env.getWorkspace().getBaseName();
@@ -241,7 +203,7 @@ public final class CleanCommand implements BlazeCommand {
       env.getOutputService().clean();
     }
     env.getBlazeWorkspace().clearCaches();
-    if (expunge) {
+    if (expunge && !async) {
       logger.info("Expunging...");
       env.getRuntime().prepareForAbruptShutdown();
       // Close java.log.
@@ -263,33 +225,33 @@ public final class CleanCommand implements BlazeCommand {
       // all significant files will be gone by then.
       FileSystemUtils.deleteTreesBelow(outputBase);
       FileSystemUtils.deleteTree(outputBase);
-    } else if (expungeAsync) {
+    } else if (expunge && async) {
       logger.info("Expunging asynchronously...");
       env.getRuntime().prepareForAbruptShutdown();
       asyncClean(env, outputBase, "Output base");
     } else {
       logger.info("Output cleaning...");
       env.getBlazeWorkspace().resetEvaluator();
-      // In order to be sure that we delete everything, delete the workspace directory both for
-      // --deep_execroot and for --nodeep_execroot.
-      for (String directory : new String[] {workspaceDirectory, "execroot"}) {
-        Path child = outputBase.getRelative(directory);
-        if (child.exists()) {
-          logger.finest("Cleaning " + child + (async ? " asynchronously..." : ""));
-          if (async) {
-            asyncClean(env, child, "Output tree");
-          } else {
-            FileSystemUtils.deleteTreesBelow(child);
-          }
+      Path execroot = outputBase.getRelative("execroot");
+      if (execroot.exists()) {
+        logger.finest("Cleaning " + execroot + (async ? " asynchronously..." : ""));
+        if (async) {
+          asyncClean(env, execroot, "Output tree");
+        } else {
+          FileSystemUtils.deleteTreesBelow(execroot);
         }
       }
     }
     // remove convenience links
     OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
-        workspaceDirectory, env.getWorkspace(), env.getReporter(),
-        symlinkPrefix, env.getRuntime().getProductName());
+        workspaceDirectory,
+        env.getWorkspace(),
+        env.getReporter(),
+        symlinkPrefix,
+        env.getRuntime().getProductName());
+
     // shutdown on expunge cleans
-    if (expunge || expungeAsync) {
+    if (expunge) {
       throw new ShutdownBlazeServerException(0);
     }
     System.gc();

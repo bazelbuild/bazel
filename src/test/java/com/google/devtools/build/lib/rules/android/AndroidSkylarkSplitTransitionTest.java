@@ -54,7 +54,7 @@ public class AndroidSkylarkSplitTransitionTest extends BuildViewTestCase {
 
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/my_rule', 'my_rule')",
+        "load('//test/skylark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', deps = [':main1', ':main2'], dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])",
         "cc_binary(name = 'main2', srcs = ['main2.c'])");

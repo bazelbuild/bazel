@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -24,18 +26,25 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
+import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
+import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
+import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -43,18 +52,17 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import java.util.ArrayList;
@@ -87,10 +95,8 @@ public class CppHelper {
   private static final ImmutableList<String> LINKOPTS_PREREQUISITE_LABEL_KINDS =
       ImmutableList.of("deps", "srcs");
 
-  /** Returns label used to select resolved cc_toolchain instances based on platform. */
-  public static Label getCcToolchainType(String toolsRepository) {
-    return Label.parseAbsoluteUnchecked(toolsRepository + "//tools/cpp:toolchain_type");
-  }
+  /** Base label of the c++ toolchain category. */
+  public static final String TOOLCHAIN_TYPE_LABEL = "//tools/cpp:toolchain_type";
 
   private CppHelper() {
     // prevents construction
@@ -125,12 +131,31 @@ public class CppHelper {
   /**
    * Returns the malloc implementation for the given target.
    */
-  public static TransitiveInfoCollection mallocForTarget(RuleContext ruleContext) {
+  public static TransitiveInfoCollection mallocForTarget(
+      RuleContext ruleContext, String mallocAttrName) {
     if (ruleContext.getFragment(CppConfiguration.class).customMalloc() != null) {
       return ruleContext.getPrerequisite(":default_malloc", Mode.TARGET);
     } else {
-      return ruleContext.getPrerequisite("malloc", Mode.TARGET);
+      return ruleContext.getPrerequisite(mallocAttrName, Mode.TARGET);
     }
+  }
+
+  public static TransitiveInfoCollection mallocForTarget(RuleContext ruleContext) {
+    return mallocForTarget(ruleContext, "malloc");
+  }
+
+  /**
+   * Returns true if this target should obtain c++ make variables from the toolchain instead of from
+   * the configuration.
+   */
+  public static boolean shouldUseToolchainForMakeVariables(RuleContext ruleContext) {
+    Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
+    return (ruleContext.getConfiguration().getOptions().get(Options.class).makeVariableSource
+            == MakeVariableSource.TOOLCHAIN)
+        && (ruleContext
+            .getFragment(PlatformConfiguration.class)
+            .getEnabledToolchainTypes()
+            .contains(toolchainType));
   }
 
   /**
@@ -143,47 +168,48 @@ public class CppHelper {
    * @return a list of strings containing the expanded and tokenized values for the
    *         attribute
    */
-  // TODO(bazel-team): Move to CcCommon; refactor CcPlugin to use either CcLibraryHelper or
-  // CcCommon.
-  static List<String> expandMakeVariables(
+  private static List<String> expandMakeVariables(
       RuleContext ruleContext, String attributeName, List<String> input) {
     boolean tokenization =
         !ruleContext.getFeatures().contains("no_copts_tokenization");
 
     List<String> tokens = new ArrayList<>();
-    ImmutableList<? extends MakeVariableSupplier> makeVariableSuppliers =
-        ImmutableList.of(new CcFlagsSupplier(ruleContext));
+    Expander expander = ruleContext.getExpander().withDataExecLocations();
     for (String token : input) {
-      try {
-        // Legacy behavior: tokenize all items.
-        if (tokenization) {
-          ruleContext.tokenizeAndExpandMakeVars(
-              tokens, attributeName, token, makeVariableSuppliers);
-        } else {
-          String exp =
-              ruleContext.expandSingleMakeVariable(attributeName, token, makeVariableSuppliers);
-          if (exp != null) {
+      // Legacy behavior: tokenize all items.
+      if (tokenization) {
+        expander.tokenizeAndExpandMakeVars(tokens, attributeName, token);
+      } else {
+        String exp = expander.expandSingleMakeVariable(attributeName, token);
+        if (exp != null) {
+          try {
             ShellUtils.tokenize(tokens, exp);
-          } else {
-            tokens.add(
-                ruleContext.expandMakeVariables(attributeName, token, makeVariableSuppliers));
+          } catch (ShellUtils.TokenizationException e) {
+            ruleContext.attributeError(attributeName, e.getMessage());
           }
+        } else {
+          tokens.add(expander.expand(attributeName, token));
         }
-      } catch (ShellUtils.TokenizationException e) {
-        ruleContext.attributeError(attributeName, e.getMessage());
       }
     }
     return ImmutableList.copyOf(tokens);
   }
 
   /**
-   * Appends the tokenized values of the copts attribute to copts.
+   * Returns the tokenized values of the copts attribute to copts.
    */
-  public static ImmutableList<String> getAttributeCopts(RuleContext ruleContext, String attr) {
+  // Called from CcCommon and CcSupport (Google's internal version of proto_library).
+  public static ImmutableList<String> getAttributeCopts(RuleContext ruleContext) {
+    String attr = "copts";
     Preconditions.checkArgument(ruleContext.getRule().isAttrDefined(attr, Type.STRING_LIST));
     List<String> unexpanded = ruleContext.attributes().get(attr, Type.STRING_LIST);
-
     return ImmutableList.copyOf(expandMakeVariables(ruleContext, attr, unexpanded));
+  }
+
+  // Called from CcCommon.
+  static ImmutableList<String> getPackageCopts(RuleContext ruleContext) {
+    List<String> unexpanded = ruleContext.getRule().getPackage().getDefaultCopts();
+    return ImmutableList.copyOf(expandMakeVariables(ruleContext, "copts", unexpanded));
   }
 
   /**
@@ -191,18 +217,101 @@ public class CppHelper {
    * (if attemptLabelExpansion == {@code true} and it does not look like make
    * variable or flag) or tokenizes and expands make variables.
    */
-  public static void expandAttribute(RuleContext ruleContext,
-      List<String> values, String attrName, String attrValue, boolean attemptLabelExpansion) {
-    if (attemptLabelExpansion && CppHelper.isLinkoptLabel(attrValue)) {
-      if (!CppHelper.expandLabel(ruleContext, values, attrValue)) {
-        ruleContext.attributeError(attrName, "could not resolve label '" + attrValue + "'");
+  public static List<String> expandLinkopts(
+      RuleContext ruleContext, String attrName, Iterable<String> values) {
+    List<String> result = new ArrayList<>();
+    Expander expander = ruleContext.getExpander().withDataExecLocations();
+    for (String value : values) {
+      if (isLinkoptLabel(value)) {
+        if (!expandLabel(ruleContext, result, value)) {
+          ruleContext.attributeError(attrName, "could not resolve label '" + value + "'");
+        }
+      } else {
+        expander
+            .tokenizeAndExpandMakeVars(
+                result,
+                attrName,
+                value);
       }
+    }
+    return result;
+  }
+
+  /**
+   * Returns the immutable list of linker options for fully statically linked outputs. Does not
+   * include command-line options passed via --linkopt or --linkopts.
+   *
+   * @param config the CppConfiguration for this build
+   * @param toolchain the c++ toolchain
+   * @param features default settings affecting this link
+   * @param sharedLib true if the output is a shared lib, false if it's an executable
+   */
+  public static ImmutableList<String> getFullyStaticLinkOptions(
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      Iterable<String> features,
+      Boolean sharedLib) {
+    if (sharedLib) {
+      return toolchain.getSharedLibraryLinkOptions(
+          toolchain.getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode()),
+          features);
     } else {
-      ruleContext.tokenizeAndExpandMakeVars(
-          values,
-          attrName,
-          attrValue,
-          ImmutableList.of(new CcFlagsSupplier(ruleContext)));
+      return toolchain
+          .getFullyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .evaluate(features);
+    }
+  }
+
+  /**
+   * Returns the immutable list of linker options for mostly statically linked outputs. Does not
+   * include command-line options passed via --linkopt or --linkopts.
+   *
+   * @param config the CppConfiguration for this build
+   * @param toolchain the c++ toolchain
+   * @param features default settings affecting this link
+   * @param sharedLib true if the output is a shared lib, false if it's an executable
+   */
+  public static ImmutableList<String> getMostlyStaticLinkOptions(
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      Iterable<String> features,
+      Boolean sharedLib) {
+    if (sharedLib) {
+      return toolchain.getSharedLibraryLinkOptions(
+          toolchain.supportsEmbeddedRuntimes()
+              ? toolchain.getMostlyStaticSharedLinkFlags(
+                  config.getCompilationMode(), config.getLipoMode())
+              : toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()),
+          features);
+    } else {
+      return toolchain
+          .getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .evaluate(features);
+    }
+  }
+
+  /**
+   * Returns the immutable list of linker options for artifacts that are not fully or mostly
+   * statically linked. Does not include command-line options passed via --linkopt or --linkopts.
+   *
+   * @param config the CppConfiguration for this build
+   * @param toolchain the c++ toolchain
+   * @param features default settings affecting this link
+   * @param sharedLib true if the output is a shared lib, false if it's an executable
+   */
+  public static ImmutableList<String> getDynamicLinkOptions(
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      Iterable<String> features,
+      Boolean sharedLib) {
+    if (sharedLib) {
+      return toolchain.getSharedLibraryLinkOptions(
+          toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()),
+          features);
+    } else {
+      return toolchain
+          .getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode())
+          .evaluate(features);
     }
   }
 
@@ -227,8 +336,8 @@ public class CppHelper {
    * @param labelName the name of the label to expand
    * @return true if the label was expanded successfully, false otherwise
    */
-  private static boolean expandLabel(RuleContext ruleContext, List<String> linkopts,
-      String labelName) {
+  private static boolean expandLabel(
+      RuleContext ruleContext, List<String> linkopts, String labelName) {
     try {
       Label label = ruleContext.getLabel().getRelative(labelName);
       for (String prereqKind : LINKOPTS_PREREQUISITE_LABEL_KINDS) {
@@ -247,6 +356,28 @@ public class CppHelper {
     }
     linkopts.add(labelName);
     return false;
+  }
+
+  /**
+   * Returns the dynamic linking mode (full, off, or default) implied by the given configuration and
+   * toolchain.
+   */
+  public static DynamicMode getDynamicMode(CppConfiguration config, CcToolchainProvider toolchain) {
+    // With LLVM, ThinLTO is automatically used in place of LIPO. ThinLTO works fine with dynamic
+    // linking (and in fact creates a lot more work when dynamic linking is off).
+    if (config.getLipoMode() == LipoMode.BINARY && !toolchain.isLLVMCompiler()) {
+      // TODO(bazel-team): implement dynamic linking with LIPO
+      return DynamicMode.OFF;
+    } else {
+      return config.getDynamicModeFlag();
+    }
+  }
+
+  /** Returns true if LIPO optimization should be applied for this configuration and toolchain. */
+  public static boolean isLipoOptimization(CppConfiguration config, CcToolchainProvider toolchain) {
+    // The LIPO optimization bits are set in the LIPO context collector configuration, too.
+    // If compiler is LLVM, then LIPO gets auto-converted to ThinLTO.
+    return config.lipoOptimizationIsActivated() && !toolchain.isLLVMCompiler();
   }
 
   /**
@@ -302,14 +433,13 @@ public class CppHelper {
   }
 
   /**
-   * This almost trivial method looks up the given cc toolchain attribute on the rule context, makes
-   * sure that it refers to a rule that has a {@link CcToolchainProvider}
-   * (gives an error otherwise), and returns a reference to that {@link CcToolchainProvider}.
-   * The method only returns {@code null} if there is no such attribute
-   * (this is currently not an error).
+   * Makes sure that the given info collection has a {@link CcToolchainProvider} (gives an error
+   * otherwise), and returns a reference to that {@link CcToolchainProvider}. The method will only
+   * return {@code null}, if the toolchain attribute is undefined for the rule class.
    */
-   @Nullable public static CcToolchainProvider getToolchain(RuleContext ruleContext,
-       String toolchainAttribute) {
+  @Nullable
+  public static CcToolchainProvider getToolchain(
+      RuleContext ruleContext, String toolchainAttribute) {
      if (!ruleContext.isAttrDefined(toolchainAttribute, LABEL)) {
        // TODO(bazel-team): Report an error or throw an exception in this case.
        return null;
@@ -318,13 +448,48 @@ public class CppHelper {
      return getToolchain(ruleContext, dep);
    }
 
+  /** Returns the c++ toolchain type, or null if it is not specified on the rule class. */
+  public static Label getToolchainTypeFromRuleClass(RuleContext ruleContext) {
+    Label toolchainType;
+    // TODO(b/65835260): Remove this conditional once j2objc can learn the toolchain type.
+    if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)) {
+      toolchainType =
+          ruleContext.attributes().get(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL);
+    } else {
+      toolchainType = null;
+    }
+    return toolchainType;
+  }
+
   /**
-   * This almost trivial method makes sure that the given info collection has a {@link
-   * CcToolchainProvider} (gives an error otherwise), and returns a reference to that {@link
-   * CcToolchainProvider}. The method never returns {@code null}, even if there is no toolchain.
+   * Makes sure that the given info collection has a {@link CcToolchainProvider} (gives an error
+   * otherwise), and returns a reference to that {@link CcToolchainProvider}. The method never
+   * returns {@code null}, even if there is no toolchain.
    */
-  public static CcToolchainProvider getToolchain(RuleContext ruleContext,
-      TransitiveInfoCollection dep) {
+  public static CcToolchainProvider getToolchain(
+      RuleContext ruleContext, TransitiveInfoCollection dep) {
+
+    Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
+    if (toolchainType != null
+        && ruleContext
+            .getFragment(PlatformConfiguration.class)
+            .getEnabledToolchainTypes()
+            .contains(toolchainType)) {
+      return getToolchainFromPlatformConstraints(ruleContext, toolchainType);
+    }
+    return getToolchainFromCrosstoolTop(ruleContext, dep);
+  }
+
+  private static CcToolchainProvider getToolchainFromPlatformConstraints(
+      RuleContext ruleContext, Label toolchainType) {
+    ResolvedToolchainProviders providers =
+        (ResolvedToolchainProviders)
+            ruleContext.getToolchainContext().getResolvedToolchainProviders();
+    return (CcToolchainProvider) providers.getForToolchainType(toolchainType);
+  }
+
+  private static CcToolchainProvider getToolchainFromCrosstoolTop(
+      RuleContext ruleContext, TransitiveInfoCollection dep) {
     // TODO(bazel-team): Consider checking this generally at the attribute level.
     if ((dep == null) || (dep.get(ToolchainInfo.PROVIDER) == null)) {
       ruleContext.ruleError("The selected C++ toolchain is not a cc_toolchain rule");
@@ -425,13 +590,10 @@ public class CppHelper {
   }
 
   /**
-   * Resolves the linkstamp collection from the {@code CcLinkParams} into a map.
-   *
-   * <p>Emits a warning on the rule if there are identical linkstamp artifacts with different
+   * Emits a warning on the rule if there are identical linkstamp artifacts with different
    * compilation contexts.
    */
-  public static Map<Artifact, NestedSet<Artifact>> resolveLinkstamps(
-      RuleErrorConsumer listener, CcLinkParams linkParams) {
+  public static void checkLinkstampsUnique(RuleErrorConsumer listener, CcLinkParams linkParams) {
     Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();
     for (Linkstamp pair : linkParams.getLinkstamps()) {
       Artifact artifact = pair.getArtifact();
@@ -441,7 +603,6 @@ public class CppHelper {
       }
       result.put(artifact, pair.getDeclaredIncludeSrcs());
     }
-    return result;
   }
 
   public static void addTransitiveLipoInfoForCommonAttributes(
@@ -482,22 +643,42 @@ public class CppHelper {
   // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in
   // CcCommonConfiguredTarget.noCoptsMatches().
   /**
-   * Determines if we should apply -fPIC for this rule's C++ compilations. This determination
-   * is generally made by the global C++ configuration settings "needsPic" and
-   * and "usePicForBinaries". However, an individual rule may override these settings by applying
-   * -fPIC" to its "nocopts" attribute. This allows incompatible rules to "opt out" of global PIC
-   * settings (see bug: "Provide a way to turn off -fPIC for targets that can't be built that way").
+   * Determines if we should apply -fPIC for this rule's C++ compilations. This determination is
+   * generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
+   * However, an individual rule may override these settings by applying -fPIC" to its "nocopts"
+   * attribute. This allows incompatible rules to "opt out" of global PIC settings (see bug:
+   * "Provide a way to turn off -fPIC for targets that can't be built that way").
    *
    * @param ruleContext the context of the rule to check
    * @param forBinary true if compiling for a binary, false if for a shared library
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
-  public static boolean usePic(RuleContext ruleContext, boolean forBinary) {
+  public static boolean usePic(
+      RuleContext ruleContext, CcToolchainProvider toolchain, boolean forBinary) {
     if (CcCommon.noCoptsMatches("-fPIC", ruleContext)) {
       return false;
     }
     CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
-    return forBinary ? config.usePicObjectsForBinaries() : config.needsPic();
+    return forBinary ? usePicObjectsForBinaries(config, toolchain) : needsPic(config, toolchain);
+  }
+
+  /** Returns whether binaries must be compiled with position independent code. */
+  public static boolean usePicForBinaries(CppConfiguration config, CcToolchainProvider toolchain) {
+    return toolchain.toolchainNeedsPic() && config.getCompilationMode() != CompilationMode.OPT;
+  }
+
+  /** Returns true iff we should use ".pic.o" files when linking executables. */
+  public static boolean usePicObjectsForBinaries(
+      CppConfiguration config, CcToolchainProvider toolchain) {
+    return config.forcePic() || usePicForBinaries(config, toolchain);
+  }
+
+  /**
+   * Returns true if shared libraries must be compiled with position independent code for the build
+   * implied by the given config and toolchain.
+   */
+  public static boolean needsPic(CppConfiguration config, CcToolchainProvider toolchain) {
+    return config.forcePic() || toolchain.toolchainNeedsPic();
   }
 
   /**
@@ -532,46 +713,75 @@ public class CppHelper {
   }
 
   /**
-   * Returns a middleman for all files to build for the given configured target,
-   * substituting shared library artifacts with corresponding solib symlinks. If
-   * multiple calls are made, then it returns the same artifact for configurations
-   * with the same internal directory.
+   * Returns a middleman for all files to build for the given configured target, substituting shared
+   * library artifacts with corresponding solib symlinks. If multiple calls are made, then it
+   * returns the same artifact for configurations with the same internal directory.
    *
-   * <p>The resulting middleman only aggregates the inputs and must be expanded
-   * before populating the set of files necessary to execute an action.
+   * <p>The resulting middleman only aggregates the inputs and must be expanded before populating
+   * the set of files necessary to execute an action.
    */
-  static List<Artifact> getAggregatingMiddlemanForCppRuntimes(RuleContext ruleContext,
-      String purpose, Iterable<Artifact> artifacts, String solibDirOverride,
+  static List<Artifact> getAggregatingMiddlemanForCppRuntimes(
+      RuleContext ruleContext,
+      String purpose,
+      Iterable<Artifact> artifacts,
+      String solibDir,
+      String solibDirOverride,
       BuildConfiguration configuration) {
-    return getMiddlemanInternal(ruleContext, ruleContext.getActionOwner(), purpose,
-        artifacts, true, true, solibDirOverride, configuration);
+    return getMiddlemanInternal(
+        ruleContext,
+        ruleContext.getActionOwner(),
+        purpose,
+        artifacts,
+        true,
+        true,
+        solibDir,
+        solibDirOverride,
+        configuration);
   }
 
   @VisibleForTesting
   public static List<Artifact> getAggregatingMiddlemanForTesting(
-      RuleContext ruleContext, ActionOwner owner, String purpose, Iterable<Artifact> artifacts,
-      boolean useSolibSymlinks, BuildConfiguration configuration) {
+      RuleContext ruleContext,
+      ActionOwner owner,
+      String purpose,
+      Iterable<Artifact> artifacts,
+      boolean useSolibSymlinks,
+      String solibDir,
+      BuildConfiguration configuration) {
     return getMiddlemanInternal(
-        ruleContext, owner, purpose, artifacts, useSolibSymlinks, false, null, configuration);
+        ruleContext,
+        owner,
+        purpose,
+        artifacts,
+        useSolibSymlinks,
+        false,
+        solibDir,
+        null,
+        configuration);
   }
 
-  /**
-   * Internal implementation for getAggregatingMiddlemanForCppRuntimes.
-   */
+  /** Internal implementation for getAggregatingMiddlemanForCppRuntimes. */
   private static List<Artifact> getMiddlemanInternal(
-      RuleContext ruleContext, ActionOwner actionOwner, String purpose,
-      Iterable<Artifact> artifacts, boolean useSolibSymlinks, boolean isCppRuntime,
-      String solibDirOverride, BuildConfiguration configuration) {
+      RuleContext ruleContext,
+      ActionOwner actionOwner,
+      String purpose,
+      Iterable<Artifact> artifacts,
+      boolean useSolibSymlinks,
+      boolean isCppRuntime,
+      String solibDir,
+      String solibDirOverride,
+      BuildConfiguration configuration) {
     MiddlemanFactory factory = ruleContext.getAnalysisEnvironment().getMiddlemanFactory();
     if (useSolibSymlinks) {
       List<Artifact> symlinkedArtifacts = new ArrayList<>();
       for (Artifact artifact : artifacts) {
         Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename()));
-        symlinkedArtifacts.add(isCppRuntime
-            ? SolibSymlinkAction.getCppRuntimeSymlink(
-                ruleContext, artifact, solibDirOverride, configuration)
-            : SolibSymlinkAction.getDynamicLibrarySymlink(
-                ruleContext, artifact, false, true, configuration));
+        symlinkedArtifacts.add(
+            isCppRuntime
+                ? SolibSymlinkAction.getCppRuntimeSymlink(
+                    ruleContext, artifact, solibDir, solibDirOverride, configuration)
+                : SolibSymlinkAction.getDynamicLibrarySymlink(
+                    ruleContext, solibDir, artifact, false, true, configuration));
       }
       artifacts = symlinkedArtifacts;
       purpose += "_with_solib";
@@ -641,7 +851,7 @@ public class CppHelper {
         Preconditions.checkNotNull(
             featureConfiguration.getToolForAction(CppCompileAction.STRIP_ACTION_NAME));
     Variables variables =
-        new Variables.Builder()
+        new Variables.Builder(toolchain.getBuildVariables())
             .addStringVariable(CppModel.OUTPUT_FILE_VARIABLE_NAME, output.getExecPathString())
             .addStringSequenceVariable(
                 CppModel.STRIPOPTS_VARIABLE_NAME, cppConfiguration.getStripOpts())
@@ -717,5 +927,103 @@ public class CppHelper {
 
     return getArtifactNameForCategory(
         ruleContext, toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
+  }
+
+  /**
+   * Returns true when {@link CppRuleClasses#WINDOWS_EXPORT_ALL_SYMBOLS} feature is enabled and
+   * {@link CppRuleClasses#NO_WINDOWS_EXPORT_ALL_SYMBOLS} feature is not enabled and no custom DEF
+   * file is specified in win_def_file attribute.
+   */
+  public static boolean shouldUseGeneratedDefFile(
+      RuleContext ruleContext, FeatureConfiguration featureConfiguration) {
+    return featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_EXPORT_ALL_SYMBOLS)
+        && !featureConfiguration.isEnabled(CppRuleClasses.NO_WINDOWS_EXPORT_ALL_SYMBOLS)
+        && ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET) == null;
+  }
+
+  /**
+   * Create actions for parsing object files to generate a DEF file, should only be used when
+   * targeting Windows.
+   *
+   * @param defParser The tool we use to parse object files for generating the DEF file.
+   * @param objectFiles A list of object files to parse
+   * @param dllName The DLL name to be written into the DEF file, it specifies which DLL is required
+   *     at runtime
+   * @return The DEF file artifact.
+   */
+  public static Artifact createDefFileActions(
+      RuleContext ruleContext,
+      Artifact defParser,
+      ImmutableList<Artifact> objectFiles,
+      String dllName) {
+    Artifact defFile = ruleContext.getBinArtifact(ruleContext.getLabel().getName() + ".def");
+    CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
+    for (Artifact objectFile : objectFiles) {
+      argv.addDynamicString(objectFile.getExecPathString());
+    }
+
+    Artifact paramFile =
+        ruleContext.getDerivedArtifact(
+            ParameterFile.derivePath(defFile.getRootRelativePath()), defFile.getRoot());
+
+    ruleContext.registerAction(
+        new ParameterFileWriteAction(
+            ruleContext.getActionOwner(),
+            paramFile,
+            argv.build(),
+            ParameterFile.ParameterFileType.SHELL_QUOTED,
+            UTF_8));
+
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(paramFile)
+            .addInputs(objectFiles)
+            .addOutput(defFile)
+            .setExecutable(defParser)
+            .useDefaultShellEnvironment()
+            .addCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath(defFile)
+                    .addDynamicString(dllName)
+                    .addPrefixedExecPath("@", paramFile)
+                    .build())
+            .setMnemonic("DefParser")
+            .build(ruleContext));
+    return defFile;
+  }
+
+  /**
+   * Returns true if the build implied by the given config and toolchain uses --start-lib/--end-lib
+   * ld options.
+   */
+  public static boolean useStartEndLib(CppConfiguration config, CcToolchainProvider toolchain) {
+    return config.startEndLibIsRequested() && toolchain.supportsStartEndLib();
+  }
+
+  /**
+   * Returns the type of archives being used by the build implied by the given config and toolchain.
+   */
+  public static Link.ArchiveType getArchiveType(
+      CppConfiguration config, CcToolchainProvider toolchain) {
+    return useStartEndLib(config, toolchain)
+        ? Link.ArchiveType.START_END_LIB
+        : Link.ArchiveType.REGULAR;
+  }
+
+  /**
+   * Returns true if interface shared objects should be used in the build implied by the given
+   * config and toolchain.
+   */
+  public static boolean useInterfaceSharedObjects(
+      CppConfiguration config, CcToolchainProvider toolchain) {
+    return toolchain.supportsInterfaceSharedObjects() && config.getUseInterfaceSharedObjects();
+  }
+
+  /**
+   * Returns true if Fission is specified and supported by the CROSSTOOL for the build implied by
+   * the given configuration and toolchain.
+   */
+  public static boolean useFission(CppConfiguration config, CcToolchainProvider toolchain) {
+    return config.fissionIsActiveForCurrentCompilationMode() && toolchain.supportsFission();
   }
 }

@@ -13,7 +13,6 @@ java_library(
         "*.java",
     ]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",

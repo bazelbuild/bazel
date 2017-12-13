@@ -31,7 +31,7 @@ public class Java7CompatibilityTest {
   public void testJava7CompatibleInterface() throws Exception {
     ClassReader reader = new ClassReader(ExtendsDefault.class.getName());
     ClassTester tester = new ClassTester();
-    reader.accept(new Java7Compatibility(tester, null), 0);
+    reader.accept(new Java7Compatibility(tester, null, null), 0);
     assertThat(tester.version).isEqualTo(Opcodes.V1_7);
     assertThat(tester.bridgeMethods).isEqualTo(0); // make sure we strip bridge methods
     assertThat(tester.clinitMethods).isEqualTo(1); // make sure we don't strip <clinit>
@@ -41,7 +41,7 @@ public class Java7CompatibilityTest {
   public void testDefaultMethodFails() throws Exception {
     ClassReader reader = new ClassReader(WithDefault.class.getName());
     try {
-      reader.accept(new Java7Compatibility(null, null), 0);
+      reader.accept(new Java7Compatibility(null, null, null), 0);
       fail("IllegalArgumentException expected");
     } catch (IllegalArgumentException expected) {
       assertThat(expected).hasMessageThat().contains("getVersion()I");
@@ -56,7 +56,7 @@ public class Java7CompatibilityTest {
   public void testConcreteClassRedeclaresBridges() throws Exception {
     ClassReader reader = new ClassReader(Impl.class.getName());
     ClassTester tester = new ClassTester();
-    reader.accept(new Java7Compatibility(tester, null), 0);
+    reader.accept(new Java7Compatibility(tester, null, null), 0);
     assertThat(tester.version).isEqualTo(Opcodes.V1_7);
     assertThat(tester.bridgeMethods).isEqualTo(2);
   }

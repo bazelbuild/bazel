@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.createDirectoryAndParents;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -37,10 +38,13 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
+import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Actions;
@@ -70,9 +74,9 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -111,6 +115,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   // more detail.
   private static final Striped<Lock> outputDirectoryDeletionLock = Striped.lock(64);
 
+  private final ActionKeyContext actionKeyContext;
   private Reporter reporter;
   private final AtomicReference<EventBus> eventBus;
   private Map<String, String> clientEnv = ImmutableMap.of();
@@ -152,8 +157,10 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private OutputService outputService;
 
   SkyframeActionExecutor(
+      ActionKeyContext actionKeyContext,
       AtomicReference<EventBus> eventBus,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef) {
+    this.actionKeyContext = actionKeyContext;
     this.eventBus = eventBus;
     this.statusReporterRef = statusReporterRef;
   }
@@ -233,7 +240,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
     Pair<ActionGraph, SortedMap<PathFragment, Artifact>> result;
-    result = constructActionGraphAndPathMap(actionLookupValues, temporaryBadActionMap);
+    result =
+        constructActionGraphAndPathMap(actionKeyContext, actionLookupValues, temporaryBadActionMap);
     ActionGraph actionGraph = result.first;
     SortedMap<PathFragment, Artifact> artifactPathMap = result.second;
 
@@ -249,16 +257,17 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   }
 
   /**
-   * Simultaneously construct an action graph for all the actions in Skyframe and a map from
-   * {@link PathFragment}s to their respective {@link Artifact}s. We do this in a threadpool to save
-   * around 1.5 seconds on a mid-sized build versus a single-threaded operation.
+   * Simultaneously construct an action graph for all the actions in Skyframe and a map from {@link
+   * PathFragment}s to their respective {@link Artifact}s. We do this in a threadpool to save around
+   * 1.5 seconds on a mid-sized build versus a single-threaded operation.
    */
   private static Pair<ActionGraph, SortedMap<PathFragment, Artifact>>
       constructActionGraphAndPathMap(
+          ActionKeyContext actionKeyContext,
           Iterable<ActionLookupValue> values,
           ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
-      throws InterruptedException {
-    MutableActionGraph actionGraph = new MapBasedActionGraph();
+          throws InterruptedException {
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap = new ConcurrentSkipListMap<>();
     // Action graph construction is CPU-bound.
     int numJobs = Runtime.getRuntime().availableProcessors();
@@ -307,8 +316,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
                 actionGraph.registerAction(action);
               } catch (ActionConflictException e) {
                 Exception oldException = badActionMap.put(action, new ConflictException(e));
-                Preconditions.checkState(oldException == null,
-                  "%s | %s | %s", action, e, oldException);
+                Preconditions.checkState(
+                    oldException == null, "%s | %s | %s", action, e, oldException);
                 // We skip the rest of the loop, and do not add the path->artifact mapping for this
                 // artifact below -- we don't need to check it since this action is already in
                 // error.
@@ -466,6 +475,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         executorEngine,
         new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
         actionInputPrefetcher,
+        actionKeyContext,
         metadataHandler,
         fileOutErr,
         clientEnv,
@@ -499,27 +509,33 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
       if (action instanceof NotifyOnActionCacheHit) {
         NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
-        ActionCachedContext context = new ActionCachedContext() {
-          @Override
-          public EventHandler getEventHandler() {
-            return executorEngine.getEventHandler();
-          }
+        ActionCachedContext context =
+            new ActionCachedContext() {
+              @Override
+              public EventHandler getEventHandler() {
+                return executorEngine.getEventHandler();
+              }
 
-          @Override
-          public EventBus getEventBus() {
-            return executorEngine.getEventBus();
-          }
+              @Override
+              public EventBus getEventBus() {
+                return executorEngine.getEventBus();
+              }
 
-          @Override
-          public Path getExecRoot() {
-            return executorEngine.getExecRoot();
-          }
+              @Override
+              public FileSystem getFileSystem() {
+                return executorEngine.getFileSystem();
+              }
 
-          @Override
-          public <T extends ActionContext> T getContext(Class<? extends T> type) {
-            return executorEngine.getContext(type);
-          }
-        };
+              @Override
+              public Path getExecRoot() {
+                return executorEngine.getExecRoot();
+              }
+
+              @Override
+              public <T extends ActionContext> T getContext(Class<? extends T> type) {
+                return executorEngine.getContext(type);
+              }
+            };
         notify.actionCacheHit(context);
       }
 
@@ -575,6 +591,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
             executorEngine,
             new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
             actionInputPrefetcher,
+            actionKeyContext,
             metadataHandler,
             actionLogBufferPathGenerator.generate(),
             clientEnv,
@@ -779,7 +796,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     // Delete the outputs before executing the action, just to ensure that
     // the action really does produce the outputs.
     try {
-      action.prepare(context.getExecRoot());
+      action.prepare(context.getFileSystem(), context.getExecRoot());
       createOutputDirectories(action);
     } catch (IOException e) {
       reportError("failed to delete output files before executing action", e, action, null);
@@ -847,7 +864,10 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     // instead.
     FileOutErr outErrBuffer = actionExecutionContext.getFileOutErr();
     try {
-      action.execute(actionExecutionContext);
+      ActionResult actionResult = action.execute(actionExecutionContext);
+      if (actionResult != ActionResult.EMPTY) {
+        postEvent(new ActionResultReceivedEvent(action, actionResult));
+      }
 
       // Action terminated fine, now report the output.
       // The .showOutput() method is not necessarily a quick check: in its

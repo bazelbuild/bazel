@@ -495,19 +495,22 @@ static void PreprocessEnvString(const string* env_str) {
 }
 #endif  // defined(COMPILER_MSVC)
 
-// IMPORTANT: Keep the options added here in sync with
-// BlazeCommandDispatcher.INTERNAL_COMMAND_OPTIONS!
+// IMPORTANT: The options added here do not come from the user. In order for
+// their source to be correctly tracked, the options must either be passed
+// as --default_override=0, 0 being "client", or must be listed in
+// BlazeOptionHandler.INTERNAL_COMMAND_OPTIONS!
 std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
-    const std::string& cwd,
-    const std::vector<RcFile*>& blazercs,
+    const std::string& cwd, const std::vector<RcFile*>& blazercs,
     const std::map<std::string, std::vector<RcOption>>& rcoptions) {
   // Provide terminal options as coming from the least important rc file.
   std::vector<std::string> result = {
-    "--rc_source=client",
-    "--default_override=0:common=--isatty=" +
-        ToString(IsStandardTerminal()),
-    "--default_override=0:common=--terminal_columns=" +
-        ToString(GetTerminalColumns())};
+      "--rc_source=client",
+      "--default_override=0:common=--isatty=" + ToString(IsStandardTerminal()),
+      "--default_override=0:common=--terminal_columns=" +
+          ToString(GetTerminalColumns())};
+  if (IsEmacsTerminal()) {
+    result.push_back("--default_override=0:common=--emacs");
+  }
 
   EnsurePythonPathOption(&result);
 
@@ -522,8 +525,8 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
     if (it->first != "startup") {
       for (const RcOption& rcoption : it->second) {
         result.push_back(
-            "--default_override=" + ToString(rcoption.rcfile_index() + 1) + ":"
-            + it->first + "=" + rcoption.option());
+            "--default_override=" + ToString(rcoption.rcfile_index() + 1) +
+            ":" + it->first + "=" + rcoption.option());
       }
     }
   }
@@ -538,10 +541,6 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
     }
   }
   result.push_back("--client_cwd=" + blaze::ConvertPath(cwd));
-
-  if (IsEmacsTerminal()) {
-    result.push_back("--emacs");
-  }
   return result;
 }
 

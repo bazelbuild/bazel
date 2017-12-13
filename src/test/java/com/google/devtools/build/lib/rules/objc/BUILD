@@ -13,7 +13,8 @@ filegroup(
 java_library(
     name = "ObjcRulesTests_lib",
     srcs = [
-        # TODO(b/64531582): Finish fixing all test files in this directory.
+        # TODO(b/64531582): Use glob for all files in this directory once
+        # legacy tests are removed.
         "AppleBinaryTest.java",
         "AppleDynamicLibraryTest.java",
         "AppleStaticLibraryTest.java",
@@ -21,23 +22,18 @@ java_library(
         "AppleToolchainSelectionTest.java",
         "BinaryRuleType.java",
         "BinaryRuleTypePair.java",
-        "HeaderDiscoveryTest.java",
         "HeaderThinningTest.java",
         "InterspersingTest.java",
         "IosDeviceTest.java",
         "J2ObjcLibraryTest.java",
         "J2ObjcSourceTest.java",
-        "LegacyAppleBinaryTest.java",
-        "LegacyAppleDynamicLibraryTest.java",
-        "LegacyAppleStaticLibraryTest.java",
-        "LegacyObjcBundleLibraryTest.java",
-        "LegacyObjcBundleTest.java",
-        "LegacyObjcFrameworkTest.java",
-        "LegacyObjcImportTest.java",
-        "LegacyObjcLibraryTest.java",
+        "LegacyTest.java",
+        "ObjcBuildVariablesTest.java",
         "ObjcBundleLibraryTest.java",
         "ObjcBundleTest.java",
         "ObjcFrameworkTest.java",
+        "ObjcProtoAspectTest.java",
+        "ObjcProtoLibraryTest.java",
         "ObjcImportTest.java",
         "ObjcLibraryTest.java",
         "ObjcProviderTest.java",
@@ -56,6 +52,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -66,6 +63,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/rules/cpp:util",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
@@ -85,4 +83,21 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/rules:__pkg__"],
 )

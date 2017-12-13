@@ -135,6 +135,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
 
     builder.redirectOutput(getRedirect(params.getStdout(), params.getStdoutFile()));
     builder.redirectError(getRedirect(params.getStderr(), params.getStderrFile()));
+    builder.redirectErrorStream(params.redirectErrorStream());
     builder.directory(params.getWorkingDirectory());
 
     // Deadline is now + given timeout.

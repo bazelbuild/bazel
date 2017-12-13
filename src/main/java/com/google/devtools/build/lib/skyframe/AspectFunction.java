@@ -14,25 +14,27 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredTargetFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
@@ -59,7 +62,6 @@ import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.Skylar
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -215,7 +217,12 @@ public final class AspectFunction implements SkyFunction {
     Target target = associatedTarget.getTarget();
 
     if (configuredTargetValue.getConfiguredTarget().getProvider(AliasProvider.class) != null) {
-      return createAliasAspect(env, target, aspect, key,
+      return createAliasAspect(
+          env,
+          view.getActionKeyContext(),
+          target,
+          aspect,
+          key,
           configuredTargetValue.getConfiguredTarget());
     }
 
@@ -320,6 +327,7 @@ public final class AspectFunction implements SkyFunction {
 
       return createAspect(
           env,
+          view.getActionKeyContext(),
           key,
           aspectPath,
           aspect,
@@ -405,6 +413,7 @@ public final class AspectFunction implements SkyFunction {
 
   private SkyValue createAliasAspect(
       Environment env,
+      ActionKeyContext actionKeyContext,
       Target originalTarget,
       Aspect aspect,
       AspectKey originalKey,
@@ -436,7 +445,8 @@ public final class AspectFunction implements SkyFunction {
         originalTarget.getLabel(),
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
-        ImmutableList.<ActionAnalysisMetadata>of(),
+        actionKeyContext,
+        ImmutableList.of(),
         transitivePackages,
         removeActionsAfterEvaluation.get());
   }
@@ -444,6 +454,7 @@ public final class AspectFunction implements SkyFunction {
   @Nullable
   private AspectValue createAspect(
       Environment env,
+      ActionKeyContext actionKeyContext,
       AspectKey key,
       ImmutableList<Aspect> aspectPath,
       Aspect aspect,
@@ -466,20 +477,25 @@ public final class AspectFunction implements SkyFunction {
     }
 
     ConfiguredAspect configuredAspect;
-    if (ConfiguredTargetFunction.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
-      configuredAspect =
-          view.getConfiguredTargetFactory()
-              .createAspect(
-                  analysisEnvironment,
-                  associatedTarget,
-                  aspectPath,
-                  aspectFactory,
-                  aspect,
-                  directDeps,
-                  configConditions,
-                  toolchainContext,
-                  aspectConfiguration,
-                  view.getHostConfiguration(aspectConfiguration));
+    if (AspectResolver.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
+      try {
+        CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
+        configuredAspect =
+            view.getConfiguredTargetFactory()
+                .createAspect(
+                    analysisEnvironment,
+                    associatedTarget,
+                    aspectPath,
+                    aspectFactory,
+                    aspect,
+                    directDeps,
+                    configConditions,
+                    toolchainContext,
+                    aspectConfiguration,
+                    view.getHostConfiguration(aspectConfiguration));
+      } finally {
+        CurrentRuleTracker.endConfiguredAspect();
+      }
     } else {
       configuredAspect = ConfiguredAspect.forNonapplicableTarget(aspect.getDescriptor());
     }
@@ -506,6 +522,7 @@ public final class AspectFunction implements SkyFunction {
         associatedTarget.getLabel(),
         associatedTarget.getTarget().getLocation(),
         configuredAspect,
+        actionKeyContext,
         ImmutableList.copyOf(analysisEnvironment.getRegisteredActions()),
         transitivePackages.build(),
         removeActionsAfterEvaluation.get());

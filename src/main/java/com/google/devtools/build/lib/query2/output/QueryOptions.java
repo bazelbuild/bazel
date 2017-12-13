@@ -250,7 +250,7 @@ public class QueryOptions extends OptionsBase {
     defaultValue = "false",
     category = "query",
     documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "If true, the tests() expression gives an error if it encounters a test_suite containing "
             + "non-test targets."
@@ -325,6 +325,19 @@ public class QueryOptions extends OptionsBase {
 
     return System.lineSeparator();
   }
+
+  @Option(
+    name = "proto:flatten_selects",
+    defaultValue = "true",
+    category = "query",
+    documentationCategory = OptionDocumentationCategory.QUERY,
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+    help =
+        "If enabled, configurable attributes created by select() are flattened. For list types "
+            + "the flattened representation is a list containing each value of the select map "
+            + "exactly once. Scalar types are flattened to null."
+  )
+  public boolean protoFlattenSelects;
 
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {

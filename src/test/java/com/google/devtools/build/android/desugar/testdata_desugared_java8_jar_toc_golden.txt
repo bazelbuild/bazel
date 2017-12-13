@@ -56,6 +56,9 @@ com/google/devtools/build/android/desugar/testdata/java8/DefaultInterfaceMethodW
 com/google/devtools/build/android/desugar/testdata/java8/DefaultInterfaceMethodWithStaticInitializer.class
 com/google/devtools/build/android/desugar/testdata/java8/DefaultInterfaceWithBridges.class
 com/google/devtools/build/android/desugar/testdata/java8/DefaultInterfaceWithLambda.class
+com/google/devtools/build/android/desugar/testdata/java8/DefaultMethodFromSeparateJava8Target.class
+com/google/devtools/build/android/desugar/testdata/java8/DefaultMethodFromSeparateJava8TargetOverridden.class
+com/google/devtools/build/android/desugar/testdata/java8/DefaultMethodTransitivelyFromSeparateJava8Target.class
 com/google/devtools/build/android/desugar/testdata/java8/FunctionWithDefaultMethod$DoubleInts.class
 com/google/devtools/build/android/desugar/testdata/java8/FunctionWithDefaultMethod$DoubleInts2.class
 com/google/devtools/build/android/desugar/testdata/java8/FunctionWithDefaultMethod.class

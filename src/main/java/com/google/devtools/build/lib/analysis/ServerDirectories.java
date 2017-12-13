@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.PathCodec;
-import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathCodec;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -62,46 +62,33 @@ public final class ServerDirectories {
   }
 
   private static HashCode checkMD5(HashCode hash) {
-    Preconditions.checkArgument(hash.bits() == Hashing.md5().bits(),
-                                "Hash '%s' has %s bits", hash, hash.bits());
+    Preconditions.checkArgument(
+        hash.bits() == Hashing.md5().bits(), "Hash '%s' has %s bits", hash, hash.bits());
     return hash;
   }
 
-  /**
-   * Returns the Filesystem that all of our directories belong to. Handy for
-   * resolving absolute paths.
-   */
-  public FileSystem getFileSystem() {
-    return installBase.getFileSystem();
-  }
-
-  /**
-   * Returns the installation base directory. Currently used by info command only.
-   */
+  /** Returns the installation base directory. Currently used by info command only. */
   public Path getInstallBase() {
     return installBase;
   }
 
   /**
-   * Returns the base of the output tree, which hosts all build and scratch
-   * output for a user and workspace.
+   * Returns the base of the output tree, which hosts all build and scratch output for a user and
+   * workspace.
    */
   public Path getOutputBase() {
     return outputBase;
   }
 
-  /**
-   * Returns the installed embedded binaries directory, under the shared
-   * installBase location.
-   */
+  /** Returns the installed embedded binaries directory, under the shared installBase location. */
   public Path getEmbeddedBinariesRoot() {
     return installBase.getChild("_embedded_binaries");
   }
 
- /**
-  * Returns the MD5 content hash of the blaze binary (includes deploy JAR, embedded binaries, and
-  * anything else that ends up in the install_base).
-  */
+  /**
+   * Returns the MD5 content hash of the blaze binary (includes deploy JAR, embedded binaries, and
+   * anything else that ends up in the install_base).
+   */
   public HashCode getInstallMD5() {
     return installMD5;
   }
@@ -125,7 +112,8 @@ public final class ServerDirectories {
         && this.outputBase.equals(that.outputBase);
   }
 
-  void serialize(CodedOutputStream out, PathCodec pathCodec) throws IOException {
+  void serialize(CodedOutputStream out, PathCodec pathCodec)
+      throws IOException, SerializationException {
     pathCodec.serialize(installBase, out);
     out.writeBoolNoTag(installMD5 != null);
     if (installMD5 != null) {
@@ -135,7 +123,7 @@ public final class ServerDirectories {
   }
 
   static ServerDirectories deserialize(CodedInputStream in, PathCodec pathCodec)
-      throws IOException {
+      throws IOException, SerializationException {
     Path installBase = pathCodec.deserialize(in);
     HashCode installMd5 = null;
     if (in.readBool()) {

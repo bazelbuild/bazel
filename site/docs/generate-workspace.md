@@ -8,7 +8,7 @@ title: Generate external dependencies for a Java project
 The tool `generate_workspace` helps automate the process of writing
 the WORKSPACE file for a Java project. This tool is
 helpful when the list of external dependencies is long, such as when working
-with [external transitive dependnecies](external.html#transitive-dependencies).
+with [external transitive dependencies](external.html#transitive-dependencies).
 
 The `generate_workspace` tool will generate a `generate_workspace.bzl` file
 which includes:

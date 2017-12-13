@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -102,6 +103,7 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
+  /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
     SUMMARY, // Provide summary output only.
     ERRORS, // Print output from failed tests to the stderr after the test failure.
@@ -116,6 +118,7 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
+  /** An enum for specifying different formatting styles of test summaries. */
   public enum TestSummaryFormat {
     SHORT, // Print information only about tests.
     TERSE, // Like "SHORT", but even shorter: Do not print PASSED and NO STATUS tests.
@@ -144,7 +147,8 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   @Override
-  public abstract void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
+  public abstract List<SpawnResult> exec(
+      TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 
   /**
@@ -406,7 +410,12 @@ public abstract class TestStrategy implements TestActionContext {
 
     new SymlinkTreeHelper(execSettings.getInputManifest().getPath(), runfilesDir, false)
         .createSymlinks(
-            testAction, actionExecutionContext, binTools, shellEnvironment, enableRunfiles);
+            testAction,
+            actionExecutionContext,
+            binTools,
+            shellEnvironment,
+            execSettings.getInputManifest(),
+            enableRunfiles);
 
     actionExecutionContext.getEventHandler()
         .handle(Event.progress(testAction.getProgressMessage()));

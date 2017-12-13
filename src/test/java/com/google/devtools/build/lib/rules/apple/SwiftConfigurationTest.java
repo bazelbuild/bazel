@@ -47,7 +47,7 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
     scratch.file(
         "examples/swift_skylark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('/examples/rule/apple_rules', 'swift_binary')",
+        "load('//examples/rule:apple_rules.bzl', 'swift_binary')",
         "swift_binary(",
         "   name='my_target',",
         ")");

@@ -81,9 +81,4 @@ public final class SelectorValue implements SkylarkValue {
   public void repr(SkylarkPrinter printer) {
     printer.format("select(%r)", dictionary);
   }
-
-  @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    printer.format("selector(%r)", dictionary);
-  }
 }

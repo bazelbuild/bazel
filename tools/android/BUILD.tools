@@ -7,12 +7,12 @@ alias(
 
 android_library(
     name = "incremental_stub_application",
-    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
+    exports = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
 )
 
 android_library(
     name = "incremental_split_stub_application",
-    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_split_stub_application"],
+    exports = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_split_stub_application"],
 )
 
 alias(
@@ -41,8 +41,18 @@ alias(
 )
 
 alias(
+    name = "dexsharder",
+    actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileSplitter",
+)
+
+alias(
     name = "desugar_java8",
     actual = "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
+)
+
+alias(
+    name = "zip_filter",
+    actual = "//src/tools/android/java/com/google/devtools/build/android:ZipFilterAction",
 )
 
 # Bazel puts this on the bootclasspath of android_* targets to support Java 8
@@ -56,8 +66,8 @@ filegroup(
 java_import(
     name = "singlejar_deploy",
     jars = select({
-        "//src:windows": ["@bazel_tools//tools/jdk:singlejar"],
-        "//src:windows_msvc": ["@bazel_tools//tools/jdk:singlejar"],
+        "//src/conditions:windows": ["@bazel_tools//tools/jdk:singlejar"],
+        "//src/conditions:windows_msvc": ["@bazel_tools//tools/jdk:singlejar"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:private"],
@@ -67,8 +77,8 @@ java_binary(
     name = "singlejar_javabin",
     main_class = "com.google.devtools.build.singlejar.SingleJar",
     runtime_deps = select({
-        "//src:windows": [":singlejar_deploy"],
-        "//src:windows_msvc": [":singlejar_deploy"],
+        "//src/conditions:windows": [":singlejar_deploy"],
+        "//src/conditions:windows_msvc": [":singlejar_deploy"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:private"],
@@ -97,14 +107,14 @@ genrule(
         "@local_jdk//:bootclasspath"
     ],
     tools = select({
-        "//src:windows": [":singlejar_javabin"],
-        "//src:windows_msvc": [":singlejar_javabin"],
+        "//src/conditions:windows": [":singlejar_javabin"],
+        "//src/conditions:windows_msvc": [":singlejar_javabin"],
         "//conditions:default": ["@bazel_tools//tools/jdk:singlejar"],
     }),
     outs = ["java_lang_extras.jar"],
     cmd = select({
-        "//src:windows": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
-        "//src:windows_msvc": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
+        "//src/conditions:windows": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
+        "//src/conditions:windows_msvc": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
         "//conditions:default": gen_java_lang_extras_jar_cmd % "@bazel_tools//tools/jdk:singlejar",
     }),
     visibility = ["//visibility:private"],
@@ -163,6 +173,7 @@ py_binary(
         "aar_native_libs_zip_creator.py",
     ],
     deps = [
+        ":junction_lib",
         "//third_party/py/gflags",
     ],
 )
@@ -183,7 +194,10 @@ sh_binary(
 py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
-    deps = ["//third_party/py/gflags"],
+    deps = [
+        ":junction_lib",
+        "//third_party/py/gflags",
+    ],
 )
 
 py_binary(
@@ -235,8 +249,12 @@ filegroup(
 
 alias(
     name = "databinding_annotation_processor",
-    actual = "@android_databinding//:annotation_processor",
+    actual = "//external:databinding_annotation_processor",
 )
+
+# This is the default value of databinding_annotation_processor if the user does
+# not provide one.
+filegroup(name = "empty")
 
 alias(
     name = "jarjar_bin",
@@ -297,4 +315,9 @@ config_setting(
     flag_values = {
         ":true": "false",
     },
+)
+
+package_group(
+    name = "android_device_whitelist",
+    packages = ["//..."],
 )

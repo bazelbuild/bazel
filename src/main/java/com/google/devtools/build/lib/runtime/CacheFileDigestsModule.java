@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheStats;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.logging.Logger;
 
 /** Enables the caching of file digests in {@link DigestUtils}. */

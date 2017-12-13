@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.python.PyRuleClasses;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 
 /**
@@ -42,6 +43,7 @@ public final class BazelPyTestRule implements RuleDefinition {
     }
     return builder
         .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
+        .cfg(PyRuleClasses.DEFAULT_PYTHON_VERSION_TRANSITION)
         .add(attr("$zipper", LABEL).cfg(HOST).exec().value(env.getToolsLabel("//tools/zip:zipper")))
         .override(
             attr("testonly", BOOLEAN)

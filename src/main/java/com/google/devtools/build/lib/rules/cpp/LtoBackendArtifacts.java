@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -53,21 +55,14 @@ public final class LtoBackendArtifacts {
   // The bitcode file which is the input of the compile.
   private final Artifact bitcodeFile;
 
-  // A file containing a list of bitcode files necessary to run the backend step. Currently
-  // unused.
+  // A file containing a list of bitcode files necessary to run the backend step.
   private final Artifact imports;
 
   // The result of executing the above command line, an ELF object file.
   private final Artifact objectFile;
 
-  // A map of all of the bitcode files. This is the universe from which the .imports file
-  // distills its lists.  The map is the same across all LtoBackendArtifacts of a given
-  // binary.
-  private final Map<PathFragment, Artifact> bitcodeFiles;
-
-  // Command line arguments to apply to back-end compile action, typically from
-  // the feature configuration and user-provided linkopts.
-  private List<String> commandLine;
+  // The corresponding dwoFile if fission is used.
+  private Artifact dwoFile;
 
   LtoBackendArtifacts(
       PathFragment ltoOutputRootPrefix,
@@ -75,7 +70,13 @@ public final class LtoBackendArtifacts {
       Map<PathFragment, Artifact> allBitCodeFiles,
       RuleContext ruleContext,
       BuildConfiguration configuration,
-      CppLinkAction.LinkArtifactFactory linkArtifactFactory) {
+      CppLinkAction.LinkArtifactFactory linkArtifactFactory,
+      FeatureConfiguration featureConfiguration,
+      CcToolchainProvider ccToolchain,
+      FdoSupportProvider fdoSupport,
+      boolean usePic,
+      boolean generateDwo,
+      List<String> commandLine) {
     this.bitcodeFile = bitcodeFile;
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
 
@@ -85,7 +86,50 @@ public final class LtoBackendArtifacts {
     index = linkArtifactFactory.create(
         ruleContext, configuration, FileSystemUtils.appendExtension(obj, ".thinlto.bc"));
 
-    bitcodeFiles = allBitCodeFiles;
+    scheduleLtoBackendAction(
+        ruleContext,
+        featureConfiguration,
+        ccToolchain,
+        fdoSupport,
+        usePic,
+        generateDwo,
+        configuration,
+        linkArtifactFactory,
+        commandLine,
+        allBitCodeFiles);
+  }
+
+  // Interface to create an LTO backend that does not perform any cross-module optimization.
+  public LtoBackendArtifacts(
+      PathFragment ltoOutputRootPrefix,
+      Artifact bitcodeFile,
+      RuleContext ruleContext,
+      BuildConfiguration configuration,
+      CppLinkAction.LinkArtifactFactory linkArtifactFactory,
+      FeatureConfiguration featureConfiguration,
+      CcToolchainProvider ccToolchain,
+      FdoSupportProvider fdoSupport,
+      boolean usePic,
+      boolean generateDwo,
+      List<String> commandLine) {
+    this.bitcodeFile = bitcodeFile;
+
+    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
+    objectFile = linkArtifactFactory.create(ruleContext, configuration, obj);
+    imports = null;
+    index = null;
+
+    scheduleLtoBackendAction(
+        ruleContext,
+        featureConfiguration,
+        ccToolchain,
+        fdoSupport,
+        usePic,
+        generateDwo,
+        configuration,
+        linkArtifactFactory,
+        commandLine,
+        null);
   }
 
   public Artifact getObjectFile() {
@@ -96,16 +140,16 @@ public final class LtoBackendArtifacts {
     return bitcodeFile;
   }
 
+  public Artifact getDwoFile() {
+    return dwoFile;
+  }
+
   public void addIndexingOutputs(ImmutableList.Builder<Artifact> builder) {
     builder.add(imports);
     builder.add(index);
   }
 
-  public void setCommandLine(List<String> cmdLine) {
-    commandLine = cmdLine;
-  }
-
-  public void scheduleLtoBackendAction(
+  private void scheduleLtoBackendAction(
       RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
@@ -113,12 +157,27 @@ public final class LtoBackendArtifacts {
       boolean usePic,
       boolean generateDwo,
       BuildConfiguration configuration,
-      CppLinkAction.LinkArtifactFactory linkArtifactFactory) {
+      CppLinkAction.LinkArtifactFactory linkArtifactFactory,
+      List<String> commandLine,
+      Map<PathFragment, Artifact> bitcodeFiles) {
     LtoBackendAction.Builder builder = new LtoBackendAction.Builder();
-    builder.addImportsInfo(bitcodeFiles, imports);
 
     builder.addInput(bitcodeFile);
-    builder.addInput(index);
+
+    Preconditions.checkState(
+        (index == null) == (imports == null),
+        "Either both or neither index and imports files should be null");
+    if (imports != null) {
+      builder.addImportsInfo(bitcodeFiles, imports);
+      // Although the imports file is not used by the LTOBackendAction while the action is
+      // executing, it is needed during the input discovery phase, and we must list it as an input
+      // to the action // in order for it to be preserved under
+      // --experimental_discard_orphaned_artifacts.
+      builder.addInput(imports);
+    }
+    if (index != null) {
+      builder.addInput(index);
+    }
     builder.addTransitiveInputs(ccToolchain.getCompile());
 
     builder.addOutput(objectFile);
@@ -128,13 +187,17 @@ public final class LtoBackendArtifacts {
 
     // The command-line doesn't specify the full path to clang++, so we set it in the
     // environment.
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-
-    PathFragment compiler = cppConfiguration.getCppExecutable();
+    PathFragment compiler = ccToolchain.getToolPathFragment(Tool.GCC);
 
     builder.setExecutable(compiler);
-    Variables.Builder buildVariablesBuilder = new Variables.Builder();
-    buildVariablesBuilder.addStringVariable("thinlto_index", index.getExecPath().toString());
+    Variables.Builder buildVariablesBuilder =
+        new Variables.Builder(ccToolchain.getBuildVariables());
+    if (index != null) {
+      buildVariablesBuilder.addStringVariable("thinlto_index", index.getExecPath().toString());
+    } else {
+      // An empty input indicates not to perform cross-module optimization.
+      buildVariablesBuilder.addStringVariable("thinlto_index", "/dev/null");
+    }
     // The output from the LTO backend step is a native object file.
     buildVariablesBuilder.addStringVariable(
         "thinlto_output_object_file", objectFile.getExecPath().toString());
@@ -148,7 +211,7 @@ public final class LtoBackendArtifacts {
     }
 
     if (generateDwo) {
-      Artifact dwoFile =
+      dwoFile =
           linkArtifactFactory.create(
               ruleContext,
               configuration,
@@ -158,10 +221,11 @@ public final class LtoBackendArtifacts {
           "per_object_debug_info_file", dwoFile.getExecPathString());
     }
 
-    Variables buildVariables = buildVariablesBuilder.build();
     List<String> execArgs = new ArrayList<>();
-    execArgs.addAll(featureConfiguration.getCommandLine("lto-backend", buildVariables));
     execArgs.addAll(commandLine);
+    Variables buildVariables = buildVariablesBuilder.build();
+    // Feature options should go after --copt for consistency with compile actions.
+    execArgs.addAll(featureConfiguration.getCommandLine("lto-backend", buildVariables));
     // If this is a PIC compile (set based on the CppConfiguration), the PIC
     // option should be added after the rest of the command line so that it
     // cannot be overridden. This is consistent with the ordering in the

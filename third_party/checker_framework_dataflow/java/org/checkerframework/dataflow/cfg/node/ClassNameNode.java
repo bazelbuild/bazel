@@ -4,34 +4,30 @@ package org.checkerframework.dataflow.cfg.node;
 import org.checkerframework.checker.nullness.qual.Nullable;
 */
 
-import org.checkerframework.dataflow.util.HashCodeUtils;
-
-import org.checkerframework.javacutil.InternalUtils;
-import org.checkerframework.javacutil.TreeUtils;
-
-import java.util.Collection;
-import java.util.Collections;
-
-import javax.lang.model.element.Element;
-
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Tree;
+import java.util.Collection;
+import java.util.Collections;
+import javax.lang.model.element.Element;
+import javax.lang.model.type.TypeMirror;
+import org.checkerframework.dataflow.util.HashCodeUtils;
+import org.checkerframework.javacutil.InternalUtils;
+import org.checkerframework.javacutil.TreeUtils;
 
 /**
- * A node representing a class name used in an expression
- * such as a static method invocation.
+ * A node representing a class name used in an expression such as a static method invocation.
  *
- * parent.<em>class</em> .forName(...)
+ * <p>parent.<em>class</em> .forName(...)
  *
  * @author Stefan Heule
  * @author Charlie Garrett
- *
  */
 public class ClassNameNode extends Node {
 
     protected final Tree tree;
-    // The class named by this node
+    /** The class named by this node */
     protected final Element element;
 
     /** The parent name, if any. */
@@ -45,11 +41,29 @@ public class ClassNameNode extends Node {
         this.parent = null;
     }
 
+    public ClassNameNode(ClassTree tree) {
+        super(InternalUtils.typeOf(tree));
+        assert tree.getKind() == Tree.Kind.CLASS
+                || tree.getKind() == Tree.Kind.ENUM
+                || tree.getKind() == Tree.Kind.INTERFACE
+                || tree.getKind() == Tree.Kind.ANNOTATION_TYPE;
+        this.tree = tree;
+        this.element = TreeUtils.elementFromDeclaration(tree);
+        this.parent = null;
+    }
+
     public ClassNameNode(MemberSelectTree tree, Node parent) {
         super(InternalUtils.typeOf(tree));
         this.tree = tree;
         this.element = TreeUtils.elementFromUse(tree);
         this.parent = parent;
+    }
+
+    public ClassNameNode(TypeMirror type, Element element) {
+        super(type);
+        this.tree = null;
+        this.element = element;
+        this.parent = null;
     }
 
     public Element getElement() {
@@ -82,11 +96,9 @@ public class ClassNameNode extends Node {
         }
         ClassNameNode other = (ClassNameNode) obj;
         if (getParent() == null) {
-            return other.getParent() == null
-                    && getElement().equals(other.getElement());
+            return other.getParent() == null && getElement().equals(other.getElement());
         } else {
-            return getParent().equals(other.getParent())
-                    && getElement().equals(other.getElement());
+            return getParent().equals(other.getParent()) && getElement().equals(other.getElement());
         }
     }
 

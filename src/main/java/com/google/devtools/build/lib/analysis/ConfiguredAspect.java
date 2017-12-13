@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtraActionProvider;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.TreeMap;

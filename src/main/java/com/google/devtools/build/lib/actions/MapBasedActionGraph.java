@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.util.Preconditions;
-
+import com.google.common.base.Preconditions;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -24,8 +23,13 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public final class MapBasedActionGraph implements MutableActionGraph {
+  private final ActionKeyContext actionKeyContext;
   private final ConcurrentMultimapWithHeadElement<Artifact, ActionAnalysisMetadata>
       generatingActionMap = new ConcurrentMultimapWithHeadElement<>();
+
+  public MapBasedActionGraph(ActionKeyContext actionKeyContext) {
+    this.actionKeyContext = actionKeyContext;
+  }
 
   @Override
   @Nullable
@@ -37,10 +41,11 @@ public final class MapBasedActionGraph implements MutableActionGraph {
   public void registerAction(ActionAnalysisMetadata action) throws ActionConflictException {
     for (Artifact artifact : action.getOutputs()) {
       ActionAnalysisMetadata previousAction = generatingActionMap.putAndGet(artifact, action);
-      if (previousAction != null && previousAction != action
-          && !Actions.canBeShared(action, previousAction)) {
+      if (previousAction != null
+          && previousAction != action
+          && !Actions.canBeShared(actionKeyContext, action, previousAction)) {
         generatingActionMap.remove(artifact, action);
-        throw new ActionConflictException(artifact, previousAction, action);
+        throw new ActionConflictException(actionKeyContext, artifact, previousAction, action);
       }
     }
   }
@@ -50,9 +55,13 @@ public final class MapBasedActionGraph implements MutableActionGraph {
     for (Artifact artifact : action.getOutputs()) {
       generatingActionMap.remove(artifact, action);
       ActionAnalysisMetadata otherAction = generatingActionMap.get(artifact);
-      Preconditions.checkState(otherAction == null
-          || (otherAction != action && Actions.canBeShared(action, otherAction)),
-          "%s %s", action, otherAction);
+      Preconditions.checkState(
+          otherAction == null
+              || (otherAction != action
+                  && Actions.canBeShared(actionKeyContext, action, otherAction)),
+          "%s %s",
+          action,
+          otherAction);
     }
   }
 

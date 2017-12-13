@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
@@ -59,6 +59,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     Artifact frameworkAidl = ruleContext.getPrerequisiteArtifact("framework_aidl", Mode.HOST);
     TransitiveInfoCollection aidlLib = ruleContext.getPrerequisite("aidl_lib", Mode.TARGET);
     Artifact androidJar = ruleContext.getPrerequisiteArtifact("android_jar", Mode.HOST);
+    Artifact sourceProperties = ruleContext.getHostPrerequisiteArtifact("source_properties");
     Artifact shrinkedAndroidJar =
         ruleContext.getPrerequisiteArtifact("shrinked_android_jar", Mode.HOST);
     Artifact annotationsJar = ruleContext.getPrerequisiteArtifact("annotations_jar", Mode.HOST);
@@ -76,6 +77,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
                 frameworkAidl,
                 aidlLib,
                 androidJar,
+                sourceProperties,
                 shrinkedAndroidJar,
                 annotationsJar,
                 mainDexClasses,

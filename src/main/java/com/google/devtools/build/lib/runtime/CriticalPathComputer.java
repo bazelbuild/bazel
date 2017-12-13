@@ -14,19 +14,20 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -48,6 +49,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   static final int SLOWEST_COMPONENTS_SIZE = 30;
   // outputArtifactToComponent is accessed from multiple event handlers.
   protected final ConcurrentMap<Artifact, C> outputArtifactToComponent = Maps.newConcurrentMap();
+  private final ActionKeyContext actionKeyContext;
 
   /** Maximum critical path found. */
   private C maxCriticalPath;
@@ -71,7 +73,9 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
 
   private final Object lock = new Object();
 
-  protected CriticalPathComputer(Clock clock, boolean discardActions) {
+  protected CriticalPathComputer(
+      ActionKeyContext actionKeyContext, Clock clock, boolean discardActions) {
+    this.actionKeyContext = actionKeyContext;
     this.clock = clock;
     this.discardActions = discardActions;
     maxCriticalPath = null;
@@ -134,7 +138,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
     if (storedComponent != null) {
       Action oldAction = storedComponent.maybeGetAction();
       if (oldAction != null) {
-        if (!Actions.canBeShared(newAction, oldAction)) {
+        if (!Actions.canBeShared(actionKeyContext, newAction, oldAction)) {
           throw new IllegalStateException(
               "Duplicate output artifact found for unsharable actions."
                   + "This can happen if a previous event registered the action.\n"

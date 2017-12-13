@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.escape.Escaper;
@@ -22,7 +23,6 @@ import com.google.common.escape.Escapers;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -54,7 +54,8 @@ public final class Actions {
    * <p>This method implements an equivalence relationship across actions, based on the action
    * class, the key, and the list of inputs and outputs.
    */
-  public static boolean canBeShared(ActionAnalysisMetadata a, ActionAnalysisMetadata b) {
+  public static boolean canBeShared(
+      ActionKeyContext actionKeyContext, ActionAnalysisMetadata a, ActionAnalysisMetadata b) {
     if (!a.getMnemonic().equals(b.getMnemonic())) {
       return false;
     }
@@ -66,7 +67,7 @@ public final class Actions {
 
     Action actionA = (Action) a;
     Action actionB = (Action) b;
-    if (!actionA.getKey().equals(actionB.getKey())) {
+    if (!actionA.getKey(actionKeyContext).equals(actionB.getKey(actionKeyContext))) {
       return false;
     }
     // Don't bother to check input and output counts first; the expected result for these tests is
@@ -89,10 +90,11 @@ public final class Actions {
    *     of indirection.
    * @throws ActionConflictException iff there are two actions generate the same output
    */
-  public static GeneratingActions findAndThrowActionConflict(List<ActionAnalysisMetadata> actions)
+  public static GeneratingActions findAndThrowActionConflict(
+      ActionKeyContext actionKeyContext, List<ActionAnalysisMetadata> actions)
       throws ActionConflictException {
     return Actions.maybeFilterSharedActionsAndThrowIfConflict(
-        actions, /*allowSharedAction=*/ false);
+        actionKeyContext, actions, /*allowSharedAction=*/ false);
   }
 
   /**
@@ -106,13 +108,16 @@ public final class Actions {
    *     output
    */
   public static GeneratingActions filterSharedActionsAndThrowActionConflict(
-      List<ActionAnalysisMetadata> actions) throws ActionConflictException {
+      ActionKeyContext actionKeyContext, List<ActionAnalysisMetadata> actions)
+      throws ActionConflictException {
     return Actions.maybeFilterSharedActionsAndThrowIfConflict(
-        actions, /*allowSharedAction=*/ true);
+        actionKeyContext, actions, /*allowSharedAction=*/ true);
   }
 
   private static GeneratingActions maybeFilterSharedActionsAndThrowIfConflict(
-      List<ActionAnalysisMetadata> actions, boolean allowSharedAction)
+      ActionKeyContext actionKeyContext,
+      List<ActionAnalysisMetadata> actions,
+      boolean allowSharedAction)
       throws ActionConflictException {
     Map<Artifact, Integer> generatingActions = new HashMap<>();
     int actionIndex = 0;
@@ -120,8 +125,10 @@ public final class Actions {
       for (Artifact artifact : action.getOutputs()) {
         Integer previousIndex = generatingActions.put(artifact, actionIndex);
         if (previousIndex != null && previousIndex != actionIndex) {
-          if (!allowSharedAction || !Actions.canBeShared(actions.get(previousIndex), action)) {
-            throw new ActionConflictException(artifact, actions.get(previousIndex), action);
+          if (!allowSharedAction
+              || !Actions.canBeShared(actionKeyContext, actions.get(previousIndex), action)) {
+            throw new ActionConflictException(
+                actionKeyContext, artifact, actions.get(previousIndex), action);
           }
         }
       }

@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.isDoneForBuild;
 import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.maybeMarkRebuilding;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,7 +25,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.ArrayDeque;
@@ -394,13 +394,7 @@ class SimpleCycleDetector implements CycleDetector {
       if (cycleLength == 1) {
         // Remove the direct children remaining to visit of the cycle node.
         Preconditions.checkState(
-            unvisitedDeps.contains(descendant),
-            "%s %s %s %s %s",
-            key,
-            descendant,
-            cycleChild,
-            unvisitedDeps,
-            entry);
+            unvisitedDeps.contains(descendant), "%s %s %s %s", key, descendant, cycleChild, entry);
         it.remove();
       }
     }

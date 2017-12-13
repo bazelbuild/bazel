@@ -110,7 +110,7 @@ def _add_system_root(repository_ctx, env):
   return env
 
 
-def _find_vc_path(repository_ctx):
+def find_vc_path(repository_ctx):
   """Find Visual C++ build tools install path. Doesn't %-escape the result."""
   # 1. Check if BAZEL_VC or BAZEL_VS is already set by user.
   if "BAZEL_VC" in repository_ctx.os.environ:
@@ -162,7 +162,7 @@ def _find_vc_path(repository_ctx):
             vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip() + suffix
 
   if not vc_dir:
-    auto_configure_fail("Visual C++ build tools not found on your machine.")
+    return "visual-studio-not-found"
   auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
   return vc_dir
 
@@ -205,7 +205,7 @@ def _find_env_vars(repository_ctx, vc_path):
   return env_map
 
 
-def _find_msvc_tool(repository_ctx, vc_path, tool):
+def find_msvc_tool(repository_ctx, vc_path, tool):
   """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
   tool_path = ""
   if _is_vs_2017(vc_path):
@@ -235,35 +235,16 @@ def _is_support_whole_archive(repository_ctx, vc_path):
   env = repository_ctx.os.environ
   if "NO_WHOLE_ARCHIVE_OPTION" in env and env["NO_WHOLE_ARCHIVE_OPTION"] == "1":
     return False
-  linker = _find_msvc_tool(repository_ctx, vc_path, "link.exe")
+  linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
   result = execute(repository_ctx, [linker], expect_failure = True)
   return result.find("/WHOLEARCHIVE") != -1
 
 
-def _is_using_dynamic_crt(repository_ctx):
-  """Returns True if USE_DYNAMIC_CRT is set to 1."""
-  env = repository_ctx.os.environ
-  return "USE_DYNAMIC_CRT" in env and env["USE_DYNAMIC_CRT"] == "1"
-
-
-def _get_crt_option(repository_ctx, debug = False):
-  """Get the CRT option, default is /MT and /MTd."""
-  crt_option = "/MT"
-  if _is_using_dynamic_crt(repository_ctx):
-    crt_option = "/MD"
-  if debug:
-    crt_option += "d"
-  return crt_option
-
-
-def _get_crt_library(repository_ctx, debug = False):
-  """Get the CRT library to link, default is libcmt.lib and libcmtd.lib."""
-  crt_library = "libcmt"
-  if _is_using_dynamic_crt(repository_ctx):
-    crt_library = "msvcrt"
-  if debug:
-    crt_library += "d"
-  return crt_library + ".lib"
+def _is_support_debug_fastlink(repository_ctx, vc_path):
+  """Run MSVC linker alone to see if it supports /DEBUG:FASTLINK."""
+  linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
+  result = execute(repository_ctx, [linker], expect_failure = True)
+  return result.find("/DEBUG[:{FASTLINK|FULL|NONE}]") != -1
 
 
 def _is_use_msvc_wrapper(repository_ctx):
@@ -313,16 +294,41 @@ def configure_windows_toolchain(repository_ctx):
   """Configure C++ toolchain on Windows."""
   repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
 
-  vc_path = _find_vc_path(repository_ctx)
+  vc_path = find_vc_path(repository_ctx)
+  if vc_path == "visual-studio-not-found":
+    vc_path_error_script = "vc_path_not_found.bat"
+    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:vc_path_not_found.bat"), vc_path_error_script)
+    tpl(repository_ctx, "CROSSTOOL", {
+        "%{cpu}": "x64_windows",
+        "%{default_toolchain_name}": "msvc_x64",
+        "%{toolchain_name}": "msys_x64",
+        "%{msvc_env_tmp}": "",
+        "%{msvc_env_path}": "",
+        "%{msvc_env_include}": "",
+        "%{msvc_env_lib}": "",
+        "%{msvc_cl_path}": vc_path_error_script,
+        "%{msvc_link_path}": vc_path_error_script,
+        "%{msvc_lib_path}": vc_path_error_script,
+        "%{compilation_mode_content}": "",
+        "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+        "%{opt_content}": "",
+        "%{dbg_content}": "",
+        "%{link_content}": "",
+        "%{cxx_builtin_include_directory}": "",
+        "%{coverage}": "",
+    })
+    return
+
   env = _find_env_vars(repository_ctx, vc_path)
   escaped_paths = escape_string(env["PATH"])
   escaped_include_paths = escape_string(env["INCLUDE"])
   escaped_lib_paths = escape_string(env["LIB"])
   escaped_tmp_dir = escape_string(
       get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\"))
-  msvc_cl_path = _find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
-  msvc_link_path = _find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
-  msvc_lib_path = _find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
+  msvc_cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
+  msvc_ml_path = find_msvc_tool(repository_ctx, vc_path, "ml64.exe").replace("\\", "/")
+  msvc_link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
+  msvc_lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
   escaped_cxx_include_directories = []
   compilation_mode_content = ""
 
@@ -363,6 +369,9 @@ def configure_windows_toolchain(repository_ctx):
   for path in escaped_include_paths.split(";"):
     if path:
       escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % path)
+
+  support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, vc_path)
+
   tpl(repository_ctx, "CROSSTOOL", {
       "%{cpu}": "x64_windows",
       "%{default_toolchain_name}": "msvc_x64",
@@ -372,16 +381,16 @@ def configure_windows_toolchain(repository_ctx):
       "%{msvc_env_include}": escaped_include_paths,
       "%{msvc_env_lib}": escaped_lib_paths,
       "%{msvc_cl_path}": msvc_cl_path,
+      "%{msvc_ml_path}": msvc_ml_path,
       "%{msvc_link_path}": msvc_link_path,
       "%{msvc_lib_path}": msvc_lib_path,
+      "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
+      "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
       "%{compilation_mode_content}": compilation_mode_content,
       "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-      "%{crt_option}": _get_crt_option(repository_ctx),
-      "%{crt_debug_option}": _get_crt_option(repository_ctx, debug=True),
-      "%{crt_library}": _get_crt_library(repository_ctx),
-      "%{crt_debug_library}": _get_crt_library(repository_ctx, debug=True),
       "%{opt_content}": "",
       "%{dbg_content}": "",
+      "%{link_content}": "",
       "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),
       "%{coverage}": "",
   })

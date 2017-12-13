@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -36,10 +37,11 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -234,15 +236,6 @@ public final class ObjcProvider extends NativeInfo {
   public static final Key<PathFragment> FRAMEWORK_SEARCH_PATH_ONLY =
       new Key<>(LINK_ORDER, "framework_search_paths", PathFragment.class);
 
-  /**
-   * Exec paths of {@code .framework} directories corresponding to static frameworks to link. These
-   * cause -F arguments (framework search paths) to be added to each compile action, and
-   * -framework (link framework) arguments to be added to each link action. These differ from
-   * dynamic frameworks in that they are statically linked into the binary.
-   */
-  // TODO(cparsons): Rename this key to static_framework_dir.
-  public static final Key<PathFragment> STATIC_FRAMEWORK_DIR =
-      new Key<>(LINK_ORDER, "framework_dir", PathFragment.class);
 
   /**
    * Files in {@code .framework} directories that should be included as inputs when compiling and
@@ -409,7 +402,6 @@ public final class ObjcProvider extends NativeInfo {
           SDK_DYLIB,
           SDK_FRAMEWORK,
           SOURCE,
-          STATIC_FRAMEWORK_DIR,
           STATIC_FRAMEWORK_FILE,
           STORYBOARD,
           STRINGS,
@@ -698,6 +690,29 @@ public final class ObjcProvider extends NativeInfo {
       avoidItemsSet.addAll(avoidProvider.getPropagable(key).toList());
     }
     addTransitiveAndFilter(objcProviderBuilder, key, Predicates.not(Predicates.in(avoidItemsSet)));
+  }
+
+  /**
+   * Returns all unique static framework directories (directories ending in '.framework') for all
+   * static framework files in this provider.
+   */
+  public Iterable<PathFragment> getStaticFrameworkDirs() {
+    return ObjcCommon.uniqueContainers(get(STATIC_FRAMEWORK_FILE),
+        ObjcCommon.FRAMEWORK_CONTAINER_TYPE);
+  }
+
+  /**
+   * Returns all unique static framework directories (directories ending in '.framework') for all
+   * static framework files in this provider.
+   */
+  @SkylarkCallable(
+      name = "framework_dir",
+      structField = true,
+      doc = "Returns all unique static framework directories (directories ending in '.framework') "
+          + "for all static framework files in this provider."
+  )
+  public SkylarkNestedSet getStaticFrameworkDirsForSkylark() {
+    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(getStaticFrameworkDirs());
   }
 
   /**

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,9 +59,7 @@ public class Eval {
 
   void execIfBranch(IfStatement.ConditionalStatements node)
       throws EvalException, InterruptedException {
-    for (Statement stmt : node.getStatements()) {
-      exec(stmt);
-    }
+    execStatements(node.getStatements());
   }
 
   void execFor(ForStatement node) throws EvalException, InterruptedException {
@@ -72,9 +71,7 @@ public class Eval {
         node.getVariable().assign(it, env, node.getLocation());
 
         try {
-          for (Statement stmt : node.getBlock()) {
-            exec(stmt);
-          }
+          execStatements(node.getBlock());
         } catch (FlowException ex) {
           if (ex == breakException) {
             return;
@@ -98,7 +95,7 @@ public class Eval {
     }
 
     FunctionSignature sig = node.getSignature().getSignature();
-    if (env.getSemantics().incompatibleDisallowKeywordOnlyArgs
+    if (env.getSemantics().incompatibleDisallowKeywordOnlyArgs()
         && sig.getShape().getMandatoryNamedOnly() > 0) {
       throw new EvalException(
           node.getLocation(),
@@ -123,13 +120,11 @@ public class Eval {
         return;
       }
     }
-    for (Statement stmt : node.getElseBlock()) {
-      exec(stmt);
-    }
+    execStatements(node.getElseBlock());
   }
 
   void execLoad(LoadStatement node) throws EvalException, InterruptedException {
-    if (env.getSemantics().incompatibleLoadArgumentIsLabel) {
+    if (env.getSemantics().incompatibleLoadArgumentIsLabel()) {
       String s = node.getImport().getValue();
       if (!s.startsWith("//") && !s.startsWith(":") && !s.startsWith("@")) {
         throw new EvalException(
@@ -174,6 +169,14 @@ public class Eval {
    * @throws InterruptedException may be thrown in a sub class.
    */
   public void exec(Statement st) throws EvalException, InterruptedException {
+    try {
+      execDispatch(st);
+    } catch (EvalException ex) {
+      throw st.maybeTransformException(ex);
+    }
+  }
+
+  void execDispatch(Statement st) throws EvalException, InterruptedException {
     switch (st.kind()) {
       case ASSIGNMENT:
         execAssignment((AssignmentStatement) st);
@@ -203,9 +206,19 @@ public class Eval {
       case LOAD:
         execLoad((LoadStatement) st);
         break;
+      case PASS:
+        break;
       case RETURN:
         execReturn((ReturnStatement) st);
         break;
+    }
+  }
+
+  private void execStatements(ImmutableList<Statement> statements)
+      throws EvalException, InterruptedException {
+    // Hot code path, good chance of short lists which don't justify the iterator overhead.
+    for (int i = 0; i < statements.size(); i++) {
+      exec(statements.get(i));
     }
   }
 }

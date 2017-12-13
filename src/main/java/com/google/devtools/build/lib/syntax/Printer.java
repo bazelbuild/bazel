@@ -16,11 +16,10 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Formattable;
@@ -67,35 +66,6 @@ public class Printer {
    */
   public static BasePrinter getPrinter() {
     return getPrinter(new StringBuilder());
-  }
-
-  /**
-   * Creates an instance of BasePrinter with a given buffer.
-   *
-   * @param env {@link Environment}
-   * @param buffer an {@link Appendable}
-   * @return new BasePrinter
-   */
-  static BasePrinter getPrinter(Environment env, Appendable buffer) {
-    if (env.getSemantics().incompatibleDescriptiveStringRepresentations) {
-      return new BasePrinter(buffer);
-    } else {
-      return new LegacyPrinter(buffer);
-    }
-  }
-
-  /**
-   * Creates an instance of BasePrinter with an empty buffer.
-   *
-   * @param env {@link Environment}
-   * @return new BasePrinter
-   */
-  static BasePrinter getPrinter(Environment env) {
-    if (env.getSemantics().incompatibleDescriptiveStringRepresentations) {
-      return new BasePrinter();
-    } else {
-      return new LegacyPrinter();
-    }
   }
 
   private Printer() {}
@@ -345,8 +315,8 @@ public class Printer {
         // values such as Locations or ASTs.
         this.append("null");
 
-      } else if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).repr(this);
+      } else if (o instanceof SkylarkPrintable) {
+        ((SkylarkPrintable) o).repr(this);
 
       } else if (o instanceof String) {
         writeString((String) o);
@@ -373,13 +343,6 @@ public class Printer {
         this.repr(entry.getKey());
         this.append(": ");
         this.repr(entry.getValue());
-
-      } else if (o instanceof PathFragment) {
-        this.append(((PathFragment) o).getPathString());
-
-      } else if (o instanceof Path) {
-        append(o.toString());
-
       } else if (o instanceof Class<?>) {
         this.append(EvalUtils.getDataTypeNameFromClass((Class<?>) o));
 
@@ -612,37 +575,6 @@ public class Printer {
 
     BasePrinter append(CharSequence sequence, int start, int end) {
       return this.append(sequence.subSequence(start, end));
-    }
-  }
-
-  /** A version of BasePrinter that renders object in old style for compatibility reasons. */
-  static final class LegacyPrinter extends BasePrinter {
-    protected LegacyPrinter() {
-      super();
-    }
-
-    protected LegacyPrinter(Appendable buffer) {
-      super(buffer);
-    }
-
-    @Override
-    public LegacyPrinter repr(Object o) {
-      if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).reprLegacy(this);
-      } else {
-        super.repr(o);
-      }
-      return this;
-    }
-
-    @Override
-    public LegacyPrinter str(Object o) {
-      if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).strLegacy(this);
-      } else {
-        super.str(o);
-      }
-      return this;
     }
   }
 

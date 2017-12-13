@@ -208,6 +208,15 @@ function test_build_hello_world() {
   bazel build //java/main:main &> $TEST_log || fail "build failed"
 }
 
+# This test builds a simple java deploy jar using remote singlejar and ijar
+# targets which compile them from source.
+function test_build_hello_world_with_remote_embedded_tool_targets() {
+  write_hello_library_files
+
+  bazel build //java/main:main_deploy.jar --define EXECUTOR=remote \
+    &> $TEST_log || fail "build failed"
+}
+
 function test_build_with_sourcepath() {
   mkdir -p g
   cat >g/A.java <<'EOF'
@@ -1239,64 +1248,238 @@ EOF
   expect_log "Using type com.google.sandwich.C from an indirect dependency"
 }
 
-function test_java_common_build_ijar() {
+function test_java_common_create_provider_with_ijar() {
   mkdir -p java/com/google/foo
   touch java/com/google/foo/{BUILD,A.java,my_rule.bzl}
   cat > java/com/google/foo/A.java << EOF
 package com.google.foo;
 class A {}
 EOF
+
   cat > java/com/google/foo/BUILD << EOF
 load(":my_rule.bzl", "my_rule")
 java_library(name = "a", srcs = ["A.java"])
-my_rule(name = "banana", jar = "liba.jar")
+my_rule(name = "banana", compile_time_jars = ["liba.jar"])
 EOF
 
   cat > java/com/google/foo/my_rule.bzl << EOF
 def _impl(ctx):
-  ijar = java_common.build_ijar(ctx, ctx.files.jar[0], ctx.attr._java_toolchain)
-  print(ijar.path)
-  return DefaultInfo(files = depset([ijar]))
+  provider = java_common.create_provider(
+    ctx.actions,
+    compile_time_jars = ctx.files.compile_time_jars,
+    java_toolchain = ctx.attr._java_toolchain
+  )
+  print(provider.compile_jars)
+  print(provider.full_compile_jars)
+  return DefaultInfo(files = provider.compile_jars)
 
 my_rule = rule(
   implementation = _impl,
   attrs = {
-    "jar": attr.label(allow_files=True),
+    "compile_time_jars": attr.label_list(allow_files=True),
     "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
   }
 )
 EOF
+
   bazel build java/com/google/foo:banana >& "$TEST_log" || fail "Unexpected fail"
   expect_log "liba-ijar.jar"
-  unzip -l bazel-genfiles/java/com/google/foo/_ijar/banana/java/com/google/foo/liba-ijar.jar >> "$TEST_log"
+  unzip -l bazel-bin/java/com/google/foo/liba-ijar.jar >> "$TEST_log"
   expect_log "00:00   com/google/foo/A.class"
 }
 
-function test_java_common_create_empty_ijars() {
+function test_java_common_create_provider_without_ijar() {
   mkdir -p java/com/google/foo
-  touch java/com/google/foo/{BUILD,a.jar,my_rule.bzl}
+  touch java/com/google/foo/{BUILD,A.java,my_rule.bzl}
+  cat > java/com/google/foo/A.java << EOF
+package com.google.foo;
+class A {}
+EOF
+
   cat > java/com/google/foo/BUILD << EOF
 load(":my_rule.bzl", "my_rule")
-exports_files(["a.jar"])
-my_rule(name = "banana", jar = "a.jar")
+java_library(name = "a", srcs = ["A.java"])
+my_rule(name = "banana", compile_time_jars = ["liba.jar"])
 EOF
 
   cat > java/com/google/foo/my_rule.bzl << EOF
 def _impl(ctx):
-  ijar = java_common.build_ijar(ctx, ctx.files.jar[0], ctx.attr._java_toolchain)
-  print(ijar.path)
-  return DefaultInfo(files = depset([ijar]))
+  provider = java_common.create_provider(
+    use_ijar = False,
+    compile_time_jars = ctx.files.compile_time_jars,
+  )
+  print(provider.compile_jars)
+  return DefaultInfo(files = provider.compile_jars)
 
 my_rule = rule(
   implementation = _impl,
   attrs = {
-    "jar": attr.label(allow_files=True),
+    "compile_time_jars": attr.label_list(allow_files=True),
+  }
+)
+EOF
+
+  bazel build java/com/google/foo:banana >& "$TEST_log" || fail "Unexpected failure"
+  expect_log "liba.jar"
+}
+
+function test_java_common_create_provider_with_ijar_unset_actions() {
+  mkdir -p java/com/google/foo
+  touch java/com/google/foo/{BUILD,A.java,my_rule.bzl}
+  cat > java/com/google/foo/A.java << EOF
+package com.google.foo;
+class A {}
+EOF
+
+  cat > java/com/google/foo/BUILD << EOF
+load(":my_rule.bzl", "my_rule")
+java_library(name = "a", srcs = ["A.java"])
+my_rule(name = "banana", compile_time_jars = ["liba.jar"])
+EOF
+
+  cat > java/com/google/foo/my_rule.bzl << EOF
+def _impl(ctx):
+  provider = java_common.create_provider(
+    compile_time_jars = ctx.files.compile_time_jars,
+    java_toolchain = ctx.attr._java_toolchain
+  )
+  return DefaultInfo(files = provider.compile_jars)
+
+my_rule = rule(
+  implementation = _impl,
+  attrs = {
+    "compile_time_jars": attr.label_list(allow_files=True),
     "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
   }
 )
 EOF
+
   bazel build java/com/google/foo:banana >& "$TEST_log" && fail "Unexpected success"
-  expect_log "Unable to open Zip file java/com/google/foo/a.jar: Invalid argument"
+  expect_log "In java_common.create_provider the value of use_ijar is True. Make sure the first argument of the function is the ctx.actions object."
+}
+
+function test_java_common_create_provider_with_ijar_unset_java_toolchain() {
+  mkdir -p java/com/google/foo
+  touch java/com/google/foo/{BUILD,A.java,my_rule.bzl}
+  cat > java/com/google/foo/A.java << EOF
+package com.google.foo;
+class A {}
+EOF
+
+  cat > java/com/google/foo/BUILD << EOF
+load(":my_rule.bzl", "my_rule")
+java_library(name = "a", srcs = ["A.java"])
+my_rule(name = "banana", compile_time_jars = ["liba.jar"])
+EOF
+
+  cat > java/com/google/foo/my_rule.bzl << EOF
+def _impl(ctx):
+  provider = java_common.create_provider(
+    ctx.actions,
+    compile_time_jars = ctx.files.compile_time_jars,
+  )
+  return DefaultInfo(files = provider.compile_jars)
+
+my_rule = rule(
+  implementation = _impl,
+  attrs = {
+    "compile_time_jars": attr.label_list(allow_files=True),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
+  }
+)
+EOF
+
+  bazel build java/com/google/foo:banana >& "$TEST_log" && fail "Unexpected success"
+  expect_log "In java_common.create_provider the value of use_ijar is True. Make sure the java_toolchain argument is a valid java_toolchain Target."
+}
+
+function test_java_test_timeout() {
+  setup_javatest_support
+  mkdir -p javatests/com/google/timeout
+  touch javatests/com/google/timeout/{BUILD,TimeoutTests.java}
+
+  cat > javatests/com/google/timeout/TimeoutTests.java << EOF
+package com.google.timeout;
+
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.junit.Test;
+
+@RunWith(JUnit4.class)
+public class TimeoutTests {
+
+  @Test
+  public void testPasses() throws InterruptedException { }
+
+  @Test
+  public void testTimesOut() throws InterruptedException {
+    // sleep more than 1 min
+    Thread.sleep(Long.MAX_VALUE);
+  }
+}
+EOF
+
+  cat > javatests/com/google/timeout/BUILD <<EOF
+java_test(
+  name = "TimeoutTests",
+  srcs = ["TimeoutTests.java"],
+  deps = ['//third_party:junit4'],
+  timeout = "short", # 1 min
+)
+EOF
+
+  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5  >& "$TEST_log" && fail "Unexpected success"
+  xml_log=bazel-testlogs/javatests/com/google/timeout/TimeoutTests/test.xml
+  [[ -s $xml_log ]] || fail "$xml_log was not present after test"
+  cat "$xml_log" > "$TEST_log"
+  expect_log "failures='2'"
+  expect_log "<failure message='Test cancelled' type='java.lang.Exception'>java.lang.Exception: Test cancelled"
+  expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
+}
+
+function test_wrapper_resolves_runfiles_to_subsuming_tree() {
+    setup_clean_workspace
+    mkdir -p java/com/google/runfiles/
+    cat <<'EOF' > java/com/google/runfiles/EchoRunfiles.java
+package com.google.runfiles;
+
+public class EchoRunfiles {
+   public static void main(String[] argv) {
+       System.out.println(System.getenv("JAVA_RUNFILES"));
+   }
+}
+EOF
+    cat <<'EOF' > java/com/google/runfiles/BUILD
+java_binary(
+    name = 'EchoRunfiles',
+    srcs = ['EchoRunfiles.java'],
+    visibility = ['//visibility:public'],
+)
+EOF
+    cat <<'EOF' > check_runfiles.sh
+#!/bin/sh -eu
+unset JAVA_RUNFILES # Force the wrapper script to recompute it.
+subrunfiles=`$TEST_SRCDIR/__main__/java/com/google/runfiles/EchoRunfiles`
+if [ $subrunfiles != $TEST_SRCDIR ]; then
+  echo $subrunfiles
+  echo "DOES NOT MATCH"
+  echo $TEST_SRCDIR
+  exit 1
+fi
+EOF
+    chmod u+x check_runfiles.sh
+    cat <<'EOF' > BUILD
+sh_test(
+    name = 'check_runfiles',
+    srcs = ['check_runfiles.sh'],
+    data = ['//java/com/google/runfiles:EchoRunfiles'],
+)
+EOF
+
+    # Create a runfiles tree for EchoRunfiles.
+    bazel build //java/com/google/runfiles:EchoRunfiles
+    # We're testing a formerly non-hermetic interaction, so disable the sandbox.
+    bazel test --spawn_strategy=standalone --test_output=errors :check_runfiles
 }
 
 run_suite "Java integration tests"

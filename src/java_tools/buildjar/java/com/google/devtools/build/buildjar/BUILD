@@ -7,9 +7,6 @@ filegroup(
     name = "srcs",
     srcs = glob(
         ["**"],
-        exclude = [
-            "javac/testing/**",
-        ],
     ) + [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
@@ -78,6 +75,7 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party/java/jacoco:core",
         "//third_party/java/jdk/langtools:javac",
     ],
@@ -152,6 +150,7 @@ bootstrap_java_library(
         "//third_party/protobuf:protobuf-jars",
         "//third_party/java/jacoco:core-jars",
         "//third_party/grpc:bootstrap-grpc-jars",
+        "//third_party:tomcat_annotations_api-jars",
     ],
     neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
     tags = ["manual"],
@@ -170,6 +169,7 @@ bootstrap_java_binary(
         exclude = [
             "JarOwner.java",
             "VanillaJavaBuilder.java",
+            "javac/testing/**",
         ],
     ),
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",

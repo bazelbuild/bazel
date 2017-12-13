@@ -46,6 +46,29 @@ def _build_crosstool(d, prefix="  "):
   return "\n".join(lines)
 
 
+def _build_link_content():
+  # `-static-libstdc++` is only supported when invoking GCC as `g++`, and
+  # `-lstdc++` forces dynamic linking of libstdc++. To get desired
+  # mostly-static behavior, invoke the link by explicitly naming a static
+  # library archive.
+  #
+  # https://github.com/bazelbuild/bazel/issues/2840
+  return """
+  linking_mode_flags {
+    mode: DYNAMIC
+    linker_flag: "-lstdc++"
+  }
+  linking_mode_flags {
+    mode: FULLY_STATIC
+    linker_flag: "-lstdc++"
+  }
+  linking_mode_flags {
+    mode: MOSTLY_STATIC
+    linker_flag: "-l:libstdc++.a"
+  }
+  """
+
+
 def _build_tool_path(d):
   """Build the list of %-escaped tool_path for the CROSSTOOL file."""
   lines = []
@@ -174,7 +197,6 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           "-std=c++0x",
       ] + _escaped_cplus_include_paths(repository_ctx),
       "linker_flag": [
-          "-lstdc++",
           "-lm",  # Some systems expect -lm in addition to -lstdc++
           # Anticipated future default.
       ] + (
@@ -385,18 +407,18 @@ def configure_unix_toolchain(repository_ctx, cpu_value):
                     _build_tool_path(tool_paths),
       "%{opt_content}": _build_crosstool(opt_content, "    "),
       "%{dbg_content}": _build_crosstool(dbg_content, "    "),
+      "%{link_content}": _build_link_content(),
       "%{cxx_builtin_include_directory}": "",
       "%{coverage}": _coverage_feature(darwin),
       "%{msvc_env_tmp}": "",
       "%{msvc_env_path}": "",
       "%{msvc_env_include}": "",
       "%{msvc_env_lib}": "",
-      "%{crt_option}": "",
-      "%{crt_debug_option}": "",
-      "%{crt_library}": "",
-      "%{crt_debug_library}": "",
       "%{msvc_cl_path}": "",
+      "%{msvc_ml_path}": "",
       "%{msvc_link_path}": "",
       "%{msvc_lib_path}": "",
+      "%{dbg_mode_debug}": "",
+      "%{fastbuild_mode_debug}": "",
       "%{compilation_mode_content}": "",
   })

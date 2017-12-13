@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
@@ -26,7 +28,6 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -70,7 +71,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
    * String)} If you need to override an error message, preferred way is to create a specific {@link
    * NativeProvider}.
    */
-  Info(Provider provider, Map<String, Object> values, String errorMessage) {
+  Info(Provider provider, String errorMessage) {
     this.provider = provider;
     this.creationLoc = null;
     this.errorMessage = Preconditions.checkNotNull(errorMessage);
@@ -110,6 +111,26 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   public Location getCreationLocOrNull() {
     return creationLoc;
   }
+
+  /**
+   * Returns the fields of this struct.
+   *
+   * Overrides {@link ClassObject#getKeys()}, but does not allow {@link EvalException} to
+   * be thrown.
+   */
+  @Override
+  public abstract ImmutableCollection<String> getKeys();
+
+  /**
+   * Returns the value associated with the name field in this struct,
+   * or null if the field does not exist.
+   *
+   * Overrides {@link ClassObject#getValue(String)}, but does not allow {@link EvalException} to
+   * be thrown.
+   */
+  @Nullable
+  @Override
+  public abstract Object getValue(String name);
 
   @Override
   public String errorMessage(String name) {
@@ -163,24 +184,6 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   public void repr(SkylarkPrinter printer) {
     boolean first = true;
     printer.append("struct(");
-    // Sort by key to ensure deterministic output.
-    for (String key : Ordering.natural().sortedCopy(getKeys())) {
-      if (!first) {
-        printer.append(", ");
-      }
-      first = false;
-      printer.append(key);
-      printer.append(" = ");
-      printer.repr(getValue(key));
-    }
-    printer.append(")");
-  }
-
-  @Override
-  public void reprLegacy(SkylarkPrinter printer) {
-    boolean first = true;
-    printer.append(provider.getPrintableName());
-    printer.append("(");
     // Sort by key to ensure deterministic output.
     for (String key : Ordering.natural().sortedCopy(getKeys())) {
       if (!first) {

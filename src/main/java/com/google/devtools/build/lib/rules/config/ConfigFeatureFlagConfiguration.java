@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.config;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.Hasher;
@@ -32,6 +31,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 
@@ -141,7 +141,7 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
    * ArtifactOwner for a rule, call {@code ruleContext.getOwner()}.
    */
   public Optional<String> getFeatureFlagValue(ArtifactOwner owner) {
-    return Optional.fromNullable(flagValues.get(owner.getLabel()));
+    return Optional.ofNullable(flagValues.get(owner.getLabel()));
   }
 
   /**

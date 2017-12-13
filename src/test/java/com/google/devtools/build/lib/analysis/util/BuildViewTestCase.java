@@ -19,8 +19,8 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirs
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -50,17 +51,14 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
-import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -80,10 +78,12 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -112,6 +112,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -126,16 +127,16 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.LegacyLoadingPhaseRunner;
+import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -148,6 +149,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -177,6 +179,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected TimestampGranularityMonitor tsgm;
   protected BlazeDirectories directories;
+  protected ActionKeyContext actionKeyContext;
   protected BinTools binTools;
 
   // Note that these configurations are virtual (they use only VFS)
@@ -196,6 +199,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private MutableActionGraph mutableActionGraph;
 
+  private LoadingOptions customLoadingOptions = null;
+
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
     analysisMock = getAnalysisMock();
@@ -204,6 +209,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             new ServerDirectories(outputBase, outputBase),
             rootDirectory,
             analysisMock.getProductName());
+    actionKeyContext = new ActionKeyContext();
     binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
     analysisMock.setupMockClient(mockToolsConfig);
@@ -213,7 +219,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skylarkSemanticsOptions = parseSkylarkSemanticsOptions();
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
-    mutableActionGraph = new MapBasedActionGraph();
+    mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = getRuleClassProvider();
 
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of(
@@ -222,7 +228,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ImmutableMap.<RepositoryName, PathFragment>of()));
     pkgFactory =
         analysisMock
-            .getPackageFactoryBuilderForTesting()
+            .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(extraPrecomputedValues)
             .setEnvironmentExtensions(getEnvironmentExtensions())
             .setPlatformSetRegexps(getPlatformSetRegexps())
@@ -231,17 +237,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             pkgFactory,
+            fileSystem,
             directories,
-            binTools,
+            actionKeyContext,
             workspaceStatusActionFactory,
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),
-            Predicates.<PathFragment>alwaysFalse(),
-            analysisMock.getSkyFunctions(),
-            ImmutableList.of(),
+            analysisMock.getSkyFunctions(directories),
             ImmutableList.<SkyValueDirtinessChecker>of(),
-            PathFragment.EMPTY_FRAGMENT,
-            analysisMock.getProductName(),
+            BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
+            BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
             BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
@@ -251,7 +256,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+        new PathPackageLocator(
+            outputBase,
+            ImmutableList.of(rootDirectory),
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageCacheOptions,
         skylarkSemanticsOptions,
         "",
@@ -286,8 +294,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.<EnvironmentExtension>of();
   }
 
-  protected SkylarkSemanticsOptions getSkylarkSemantics() {
-    return skylarkSemanticsOptions;
+  protected SkylarkSemantics getSkylarkSemantics() {
+    return skylarkSemanticsOptions.toSkylarkSemantics();
   }
 
   protected ResourceSet getStartingResources() {
@@ -297,10 +305,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final BuildConfigurationCollection createConfigurations(String... args)
       throws Exception {
-    optionsParser = OptionsParser.newOptionsParser(Iterables.concat(Arrays.asList(
-          ExecutionOptions.class,
-          BuildRequest.BuildRequestOptions.class),
-          ruleClassProvider.getConfigurationOptions()));
+    optionsParser =
+        OptionsParser.newOptionsParser(
+            Iterables.concat(
+                Arrays.asList(ExecutionOptions.class, BuildRequestOptions.class),
+                ruleClassProvider.getConfigurationOptions()));
     List<String> allArgs = new ArrayList<>();
     // TODO(dmarting): Add --stamp option only to test that requires it.
     allArgs.add("--stamp");  // Stamp is now defaulted to false.
@@ -353,8 +362,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   private void setUpSkyframe() {
-    PathPackageLocator pkgLocator = PathPackageLocator.create(
-        outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
+    PathPackageLocator pkgLocator =
+        PathPackageLocator.create(
+            outputBase,
+            packageCacheOptions.packagePath,
+            reporter,
+            rootDirectory,
+            rootDirectory,
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
@@ -475,18 +490,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     String defaultsPackageContent = ruleClassProvider.getDefaultsPackageContent(optionsParser);
     skyframeExecutor.setupDefaultPackage(defaultsPackageContent);
-    skyframeExecutor.dropConfiguredTargets();
+    skyframeExecutor.handleConfiguredTargetChange();
 
     view = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
     view.setConfigurationsForTesting(masterConfig);
 
-    view.setArtifactRoots(
-        ImmutableMap.of(PackageIdentifier.createInMainRepo(""), rootDirectory));
+    view.setArtifactRoots(new PackageRootsNoSymlinkCreation(rootDirectory));
   }
 
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() {
     return new CachingAnalysisEnvironment(
         view.getArtifactFactory(),
+        actionKeyContext,
         ArtifactOwner.NULL_OWNER,
         /*isSystemEnv=*/ true, /*extendedSanityChecks*/
         false,
@@ -714,15 +729,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified label, using the
-   * given build configuration. If the label corresponds to a target with a top-level configuration
-   * transition, that transition is applied to the given config in the returned ConfiguredTarget.
+   * Returns the ConfiguredTarget for the specified label, using the given build configuration. If
+   * the label corresponds to a target with a top-level configuration transition, that transition is
+   * applied to the given config in the returned ConfiguredTarget.
    *
-   * <p>If the evaluation of the SkyKey corresponding to the configured target fails, this
-   * method may return null.  In that case, use a debugger to inspect the {@link ErrorInfo}
-   * for the evaluation, which is produced by the
-   * {@link MemoizingEvaluator#getExistingValueForTesting} call in
-   * {@link SkyframeExecutor#getConfiguredTargetForTesting}.  See also b/26382502.
+   * <p>If the evaluation of the SkyKey corresponding to the configured target fails, this method
+   * may return null. In that case, use a debugger to inspect the {@link ErrorInfo} for the
+   * evaluation, which is produced by the {@link MemoizingEvaluator#getExistingValue} call in {@link
+   * SkyframeExecutor#getConfiguredTargetForTesting}. See also b/26382502.
    */
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
     return view.getConfiguredTargetForTesting(reporter, BlazeTestUtils.convertLabel(label), config);
@@ -770,7 +784,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     invalidatePackages();
     // Need to re-initialize the workspace status.
-    getSkyframeExecutor().injectWorkspaceStatusData("test");
+    getSkyframeExecutor().maybeInvalidateWorkspaceStatusValue("test");
   }
 
   /**
@@ -993,9 +1007,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /**
    * Gets a derived Artifact for testing in the {@link BuildConfiguration#getBinDirectory}. This
    * method should only be used for tests that do no analysis, and so there is no ConfiguredTarget
-   * to own this artifact. If the test runs the analysis phase, {@link
-   * #getBinArtifact(String, ArtifactOwner)} or its convenience methods should be
-   * used instead.
+   * to own this artifact. If the test runs the analysis phase, {@link #getBinArtifact(String,
+   * ConfiguredTarget)} or its convenience methods should be used instead.
    */
   protected Artifact getBinArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(PathFragment.create(rootRelativePath),
@@ -1073,7 +1086,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Gets a derived Artifact for testing in the {@link BuildConfiguration#getGenfilesDirectory}.
    * This method should only be used for tests that do no analysis, and so there is no
    * ConfiguredTarget to own this artifact. If the test runs the analysis phase, {@link
-   * #getGenfilesArtifact(String, ArtifactOwner)} or its convenience methods should be used instead.
+   * #getGenfilesArtifact(String, ConfiguredTarget)} or its convenience methods should be used
+   * instead.
    */
   protected Artifact getGenfilesArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(PathFragment.create(rootRelativePath),
@@ -1499,11 +1513,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns an attribute value retriever for the given rule for the target configuration.
    */
   protected AttributeMap attributes(RuleConfiguredTarget ct) {
-    return ConfiguredAttributeMapper.of(ct);
+    return ct.getAttributeMapper();
   }
 
   protected AttributeMap attributes(ConfiguredTarget rule) {
     return attributes((RuleConfiguredTarget) rule);
+  }
+
+  protected void useLoadingOptions(String... options) throws OptionsParsingException {
+    customLoadingOptions = Options.parse(LoadingOptions.class, options).getOptions();
   }
 
   protected AnalysisResult update(List<String> targets,
@@ -1524,7 +1542,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       EventBus eventBus)
       throws Exception {
 
-    LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
+    LoadingOptions loadingOptions =
+        customLoadingOptions == null
+            ? Options.getDefaults(LoadingOptions.class)
+            : customLoadingOptions;
 
     BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
     viewOptions.keepGoing = keepGoing;
@@ -1714,7 +1735,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public SkylarkSemanticsOptions getSkylarkSemantics() {
+    public SkylarkSemantics getSkylarkSemantics() {
       throw new UnsupportedOperationException();
     }
 
@@ -1752,6 +1773,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     @Override
     public ImmutableSet<Artifact> getOrphanArtifacts() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ActionKeyContext getActionKeyContext() {
+      return actionKeyContext;
     }
   }
 
@@ -1902,7 +1928,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     RawAttributeMapper attr = RawAttributeMapper.of(associatedRule);
 
-    String path = Iterables.getOnlyElement(outputFunction.getImplicitOutputs(attr));
+    String path = Iterables.getOnlyElement(outputFunction.getImplicitOutputs(eventCollector, attr));
 
     return view.getArtifactFactory()
         .getDerivedArtifact(

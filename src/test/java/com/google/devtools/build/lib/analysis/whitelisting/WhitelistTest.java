@@ -29,7 +29,7 @@ public final class WhitelistTest extends BuildViewTestCase {
   protected ConfiguredRuleClassProvider getRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    return builder.addRuleDefinition(new WhitelistDummyRule()).build();
+    return builder.addRuleDefinition(WhitelistDummyRule.DEFINITION).build();
   }
 
   @Test

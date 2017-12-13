@@ -74,4 +74,12 @@ Subtractive patterns:
   build the former %{product} has to build the latter too. As usual, the '--' is
   required to prevent '-f' from being interpreted as an option.
 
+  When running the test command, test suite expansion is applied to each target
+  pattern in sequence as the set of targets is evaluated. This means that
+  individual tests from a test suite can be excluded by a later target pattern.
+  It also means that an exclusion target pattern which matches a test suite will
+  exclude all tests which that test suite references. (Targets that would be
+  matched by the list of target patterns without any test suite expansion are
+  also built unless --build_tests_only is set.)
+
 %{options}

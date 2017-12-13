@@ -279,7 +279,7 @@ public abstract class AbstractComprehension extends Expression {
     evalStep(env, collector, 0);
     Object result = collector.getResult(env);
 
-    if (!env.getSemantics().incompatibleComprehensionVariablesDoNotLeak) {
+    if (!env.getSemantics().incompatibleComprehensionVariablesDoNotLeak()) {
       return result;
     }
 

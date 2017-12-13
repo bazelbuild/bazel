@@ -18,31 +18,30 @@ import com.google.devtools.build.lib.events.Location;
 
 /** An issue found by the linter. */
 public class Issue {
-  // TODO(skylark-team): Represent issues more efficiently than just by a string
+  public final String category;
   public final String message;
-  public final LinterLocation location;
+  public final LocationRange location;
 
-  public Issue(String message, LinterLocation location) {
+  public Issue(String category, String message, LocationRange location) {
+    this.category = category;
     this.message = message;
     this.location = location;
   }
 
-  public Issue(String message, Location location) {
-    this(message, LinterLocation.from(location));
+  public static Issue create(String category, String message, Location location) {
+    return new Issue(category, message, LocationRange.from(location));
   }
 
   @Override
   public String toString() {
-    return location + ": " + message;
+    return location + ": " + message + " [" + category + "]";
   }
 
-  public static int compare(Issue i1, Issue i2) {
-    LinterLocation l1 = i1.location;
-    LinterLocation l2 = i2.location;
-    int lineComparison = l1.line - l2.line;
-    if (lineComparison != 0) {
-      return lineComparison;
-    }
-    return l1.column - l2.column;
+  public String prettyPrint(String path) {
+    return path + ":" + toString();
+  }
+
+  public static int compareLocation(Issue i1, Issue i2) {
+    return LocationRange.compare(i1.location, i2.location);
   }
 }

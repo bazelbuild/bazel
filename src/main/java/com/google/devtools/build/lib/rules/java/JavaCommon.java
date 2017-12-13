@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.Util;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -54,7 +55,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathTyp
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -321,7 +321,8 @@ public class JavaCommon {
       if (neverLinkedness == null) {
         continue;
       }
-      boolean reportError = !ruleContext.getConfiguration().getAllowRuntimeDepsOnNeverLink();
+      boolean reportError =
+          !ruleContext.getFragment(JavaConfiguration.class).getAllowRuntimeDepsOnNeverLink();
       if (neverLinkedness.isNeverlink()) {
         String msg = String.format("neverlink dep %s not allowed in runtime deps", c.getLabel());
         if (reportError) {
@@ -459,14 +460,32 @@ public class JavaCommon {
 
   private ImmutableList<String> computeJavacOpts(Iterable<String> extraJavacOpts) {
     return Streams.concat(
-            JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions().stream(),
+            JavaToolchainProvider.from(ruleContext).getJavacOptions().stream(),
             Streams.stream(extraJavacOpts),
-            ruleContext.getTokenizedStringListAttr("javacopts").stream())
+            ruleContext.getExpander().withDataLocations().tokenized("javacopts").stream())
         .collect(toImmutableList());
   }
 
   public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
     JavaRuntimeInfo javaRuntime = JavaHelper.getHostJavaRuntime(ruleContext);
+    return javaRuntime != null
+        ? javaRuntime.javaBinaryExecPath()
+        : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
+  }
+
+  /**
+   * Returns the host java executable.
+   *
+   * <p>The method looks for the executable in the following
+   * locations (in the specified order) and returns it immediately after it's found:
+   * <ol>
+   * <li> The JavaRuntimeInfo in the given hostJavabase target
+   * <li> The JVM fragment of the host configuration, retrieved from the given rule context
+   * </ol>
+   */
+  public static PathFragment getHostJavaExecutable(
+      RuleContext ruleContext, TransitiveInfoCollection hostJavabase) {
+    JavaRuntimeInfo javaRuntime = hostJavabase.get(JavaRuntimeInfo.PROVIDER);
     return javaRuntime != null
         ? javaRuntime.javaBinaryExecPath()
         : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
@@ -569,7 +588,7 @@ public class JavaCommon {
   public static List<String> getJvmFlags(RuleContext ruleContext) {
     List<String> jvmFlags = new ArrayList<>();
     jvmFlags.addAll(ruleContext.getFragment(JavaConfiguration.class).getDefaultJvmFlags());
-    jvmFlags.addAll(ruleContext.getExpandedStringListAttr("jvm_flags", RuleContext.Tokenize.NO));
+    jvmFlags.addAll(ruleContext.getExpander().withDataLocations().list("jvm_flags"));
     return jvmFlags;
   }
 
@@ -683,13 +702,16 @@ public class JavaCommon {
 
   public void addTransitiveInfoProviders(
       RuleConfiguredTargetBuilder builder,
+      JavaInfo.Builder javaInfoBuilder,
       NestedSet<Artifact> filesToBuild,
       @Nullable Artifact classJar) {
-    addTransitiveInfoProviders(builder, filesToBuild, classJar, JAVA_COLLECTION_SPEC);
+    addTransitiveInfoProviders(
+        builder, javaInfoBuilder, filesToBuild, classJar, JAVA_COLLECTION_SPEC);
   }
 
   public void addTransitiveInfoProviders(
       RuleConfiguredTargetBuilder builder,
+      JavaInfo.Builder javaInfoBuilder,
       NestedSet<Artifact> filesToBuild,
       @Nullable Artifact classJar,
       InstrumentationSpec instrumentationSpec) {
@@ -704,6 +726,9 @@ public class JavaCommon {
         .add(JavaExportsProvider.class, exportsProvider)
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar))
         .add(JavaCompilationInfoProvider.class, compilationInfoProvider);
+
+    javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
+    javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
   }
 
   private static InstrumentedFilesProvider getInstrumentationFilesProvider(RuleContext ruleContext,
@@ -720,6 +745,7 @@ public class JavaCommon {
 
   public void addGenJarsProvider(
       RuleConfiguredTargetBuilder builder,
+      JavaInfo.Builder javaInfoBuilder,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar) {
     JavaGenJarsProvider genJarsProvider = collectTransitiveGenJars(
@@ -733,6 +759,8 @@ public class JavaCommon {
     builder
         .add(JavaGenJarsProvider.class, genJarsProvider)
         .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJarsBuilder.build());
+
+    javaInfoBuilder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
   }
 
   /**
@@ -797,6 +825,13 @@ public class JavaCommon {
         getPluginInfoProvidersForAttribute(ruleContext, ":java_plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "deps", Mode.TARGET));
+    // Enable any plugins from java_toolchain.plugins that are configured for the current package.
+    JavaToolchainProvider.from(ruleContext)
+        .pluginConfiguration()
+        .stream()
+        .filter(p -> p.matches(ruleContext.getLabel()))
+        .map(JavaPluginConfigurationProvider::plugin)
+        .forEachOrdered(result::add);
     return ImmutableList.copyOf(result);
   }
 
@@ -891,7 +926,7 @@ public class JavaCommon {
    */
   public final <P extends TransitiveInfoProvider> Iterable<P> getDependencies(
       Class<P> provider) {
-    return AnalysisUtils.getProviders(getDependencies(), provider);
+    return JavaInfo.getProvidersFromListOfTargets(provider, getDependencies());
   }
 
   /** Gets all the deps that implement a particular provider. */

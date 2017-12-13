@@ -14,20 +14,21 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -334,6 +335,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
     return builder;
   }
 
+  public Label getLabel() {
+    return AliasProvider.getDependencyLabel(target);
+  }
+
   public ConfiguredTarget getTarget() {
     return target;
   }
@@ -421,17 +426,15 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
 
   @Override
   public int compareTo(TestSummary that) {
-    if (this.isCached() != that.isCached()) {
-      return this.isCached() ? -1 : 1;
-    } else if ((this.isCached() && that.isCached()) && (this.numUncached() != that.numUncached())) {
-      return this.numUncached() - that.numUncached();
-    } else if (this.status != that.status) {
-      return getSortKey(this.status) - getSortKey(that.status);
-    } else {
-      Artifact thisExecutable = this.target.getProvider(FilesToRunProvider.class).getExecutable();
-      Artifact thatExecutable = that.target.getProvider(FilesToRunProvider.class).getExecutable();
-      return thisExecutable.getPath().compareTo(thatExecutable.getPath());
-    }
+    return ComparisonChain.start()
+        .compareTrueFirst(this.isCached(), that.isCached())
+        .compare(this.numUncached(), that.numUncached())
+        .compare(getSortKey(this.status), getSortKey(that.status))
+        .compare(this.getLabel(), that.getLabel())
+        .compare(
+            this.getTarget().getConfiguration().checksum(),
+            that.getTarget().getConfiguration().checksum())
+        .result();
   }
 
   public List<Long> getTestTimes() {
@@ -456,7 +459,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   @Override
   public BuildEventId getEventId() {
     return BuildEventId.testSummary(
-        target.getTarget().getLabel(), target.getConfiguration().getEventId());
+        AliasProvider.getDependencyLabel(target), target.getConfiguration().getEventId());
   }
 
   @Override

@@ -37,6 +37,7 @@ public final class BazelMain {
    */
   public static final ImmutableList<Class<? extends BlazeModule>> BAZEL_MODULES =
       ImmutableList.of(
+          com.google.devtools.build.lib.runtime.BazelFileSystemModule.class,
           com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule.class,
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
           com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
@@ -50,7 +51,9 @@ public final class BazelMain {
           com.google.devtools.build.lib.runtime.BuildSummaryStatsModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.class,
-          com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class);
+          com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class,
+          com.google.devtools.build.lib.profiler.callcounts.CallcountsModule.class,
+          com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule.class);
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());

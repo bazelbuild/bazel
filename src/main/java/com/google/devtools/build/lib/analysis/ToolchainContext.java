@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.analysis;
 
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -37,7 +39,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -53,13 +54,23 @@ import javax.annotation.Nullable;
 public class ToolchainContext {
   public static ToolchainContext create(
       String targetDescription,
+      PlatformInfo executionPlatform,
+      PlatformInfo targetPlatform,
       Set<Label> requiredToolchains,
       ImmutableBiMap<Label, Label> resolvedLabels) {
-    ToolchainContext toolchainContext =
-        new ToolchainContext(
-            targetDescription, requiredToolchains, new ResolvedToolchainLabels(resolvedLabels));
-    return toolchainContext;
+    return new ToolchainContext(
+        targetDescription,
+        executionPlatform,
+        targetPlatform,
+        requiredToolchains,
+        new ResolvedToolchainLabels(resolvedLabels));
   }
+
+  /** The {@link PlatformInfo} describing where these toolchains can be executed. */
+  private final PlatformInfo executionPlatform;
+
+  /** The {@link PlatformInfo} describing the outputs of these toolchains. */
+  private final PlatformInfo targetPlatform;
 
   /** Description of the target the toolchain context applies to, for use in error messages. */
   private final String targetDescription;
@@ -75,13 +86,29 @@ public class ToolchainContext {
 
   private ToolchainContext(
       String targetDescription,
+      PlatformInfo executionPlatform,
+      PlatformInfo targetPlatform,
       Set<Label> requiredToolchains,
       ResolvedToolchainLabels resolvedToolchainLabels) {
     this.targetDescription = targetDescription;
+    this.executionPlatform = executionPlatform;
+    this.targetPlatform = targetPlatform;
     this.requiredToolchains = ImmutableList.copyOf(requiredToolchains);
     this.resolvedToolchainLabels = resolvedToolchainLabels;
     this.resolvedToolchainProviders =
         new ResolvedToolchainProviders(ImmutableMap.<Label, ToolchainInfo>of());
+  }
+
+  public PlatformInfo getExecutionPlatform() {
+    return executionPlatform;
+  }
+
+  public PlatformInfo getTargetPlatform() {
+    return targetPlatform;
+  }
+
+  public ImmutableList<Label> getRequiredToolchains() {
+    return requiredToolchains;
   }
 
   public void resolveToolchains(OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap) {

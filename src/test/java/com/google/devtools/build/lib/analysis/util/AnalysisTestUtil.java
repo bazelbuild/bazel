@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -46,7 +48,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -158,7 +160,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
+    public SkylarkSemantics getSkylarkSemantics() throws InterruptedException {
       return original.getSkylarkSemantics();
     }
 
@@ -188,8 +190,14 @@ public final class AnalysisTestUtil {
     public ImmutableSet<Artifact> getOrphanArtifacts() {
       return original.getOrphanArtifacts();
     }
+
+    @Override
+    public ActionKeyContext getActionKeyContext() {
+      return original.getActionKeyContext();
+    }
   }
 
+  /** A dummy WorkspaceStatusAction. */
   @Immutable
   public static final class DummyWorkspaceStatusAction extends WorkspaceStatusAction {
     private final String key;
@@ -208,7 +216,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public void execute(ActionExecutionContext actionExecutionContext)
+    public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {
         FileSystemUtils.writeContent(stableStatus.getPath(), new byte[] {});
@@ -216,6 +224,7 @@ public final class AnalysisTestUtil {
       } catch (IOException e) {
         throw new ActionExecutionException(e, this, true);
       }
+      return ActionResult.EMPTY;
     }
 
     @Override
@@ -224,7 +233,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public String computeKey() {
+    public String computeKey(ActionKeyContext actionKeyContext) {
       return "";
     }
 
@@ -254,6 +263,7 @@ public final class AnalysisTestUtil {
     }
   }
 
+  /** A WorkspaceStatusAction.Context that has no stable keys and no volatile keys. */
   @ExecutionStrategy(contextType = WorkspaceStatusAction.Context.class)
   public static class DummyWorkspaceStatusActionContext implements WorkspaceStatusAction.Context {
     @Override
@@ -304,6 +314,7 @@ public final class AnalysisTestUtil {
 
   public static final AnalysisEnvironment STUB_ANALYSIS_ENVIRONMENT = new StubAnalysisEnvironment();
 
+  /** An AnalysisEnvironment with stubbed-out methods. */
   public static class StubAnalysisEnvironment implements AnalysisEnvironment {
     @Override
     public void registerAction(ActionAnalysisMetadata... action) {
@@ -350,7 +361,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
+    public SkylarkSemantics getSkylarkSemantics() throws InterruptedException {
       return null;
     }
 
@@ -388,6 +399,11 @@ public final class AnalysisTestUtil {
     @Override
     public ImmutableSet<Artifact> getOrphanArtifacts() {
       return ImmutableSet.<Artifact>of();
+    }
+
+    @Override
+    public ActionKeyContext getActionKeyContext() {
+      return null;
     }
   };
 

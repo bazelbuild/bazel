@@ -14,11 +14,10 @@
 package com.google.devtools.build.lib.analysis.select;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
-
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;

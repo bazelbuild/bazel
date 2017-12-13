@@ -41,6 +41,7 @@ public abstract class FoundationTestCase {
   // The event bus of the reporter
   protected EventBus eventBus;
   protected EventCollector eventCollector;
+  protected FileSystem fileSystem;
   protected Scratch scratch;
 
   /** Returns the Scratch instance for this test case. */
@@ -69,7 +70,8 @@ public abstract class FoundationTestCase {
 
   @Before
   public final void initializeFileSystemAndDirectories() throws Exception {
-    scratch = new Scratch(createFileSystem(), "/workspace");
+    fileSystem = createFileSystem();
+    scratch = new Scratch(fileSystem, "/workspace");
     outputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
     rootDirectory = scratch.dir("/workspace");
     scratch.file(rootDirectory.getRelative("WORKSPACE").getPathString());

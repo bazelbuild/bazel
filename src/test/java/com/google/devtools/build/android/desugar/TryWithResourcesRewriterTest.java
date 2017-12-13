@@ -206,16 +206,20 @@ public class TryWithResourcesRewriterTest {
         .isEqualTo(orig.countExtPrintStackTracePrintWriter());
 
     assertThat(orig.countThrowableGetSuppressed()).isEqualTo(desugared.countExtGetSuppressed());
-    // $closeResource is rewritten to ThrowableExtension.closeResource, so addSuppressed() is called
-    // in the runtime library now.
-    assertThat(orig.countThrowableAddSuppressed())
-        .isAtLeast(desugared.countThrowableAddSuppressed());
+    // $closeResource may be specialized into multiple versions.
+    assertThat(orig.countThrowableAddSuppressed()).isAtMost(desugared.countExtAddSuppressed());
     assertThat(orig.countThrowablePrintStackTrace()).isEqualTo(desugared.countExtPrintStackTrace());
     assertThat(orig.countThrowablePrintStackTracePrintStream())
         .isEqualTo(desugared.countExtPrintStackTracePrintStream());
     assertThat(orig.countThrowablePrintStackTracePrintWriter())
         .isEqualTo(desugared.countExtPrintStackTracePrintWriter());
 
+    if (orig.getSyntheticCloseResourceCount() > 0) {
+      // Depending on the specific javac version, $closeResource(Throwable, AutoCloseable) may not
+      // be there.
+      assertThat(orig.getSyntheticCloseResourceCount()).isEqualTo(1);
+      assertThat(desugared.getSyntheticCloseResourceCount()).isAtLeast(1);
+    }
     assertThat(desugared.countThrowablePrintStackTracePrintStream()).isEqualTo(0);
     assertThat(desugared.countThrowablePrintStackTracePrintStream()).isEqualTo(0);
     assertThat(desugared.countThrowablePrintStackTracePrintWriter()).isEqualTo(0);
@@ -270,6 +274,7 @@ public class TryWithResourcesRewriterTest {
   private static class DesugaredThrowableMethodCallCounter extends ClassVisitor {
     private final ClassLoader classLoader;
     private final Map<String, AtomicInteger> counterMap;
+    private int syntheticCloseResourceCount;
 
     public DesugaredThrowableMethodCallCounter(ClassLoader loader) {
       super(ASM5);
@@ -291,6 +296,12 @@ public class TryWithResourcesRewriterTest {
     @Override
     public MethodVisitor visitMethod(
         int access, String name, String desc, String signature, String[] exceptions) {
+      if (BitFlags.isSet(access, Opcodes.ACC_SYNTHETIC | Opcodes.ACC_STATIC)
+          && name.equals("$closeResource")
+          && Type.getArgumentTypes(desc).length == 2
+          && Type.getArgumentTypes(desc)[0].getDescriptor().equals("Ljava/lang/Throwable;")) {
+        ++syntheticCloseResourceCount;
+      }
       return new InvokeCounter();
     }
 
@@ -322,6 +333,10 @@ public class TryWithResourcesRewriterTest {
           counter.incrementAndGet();
         }
       }
+    }
+
+    public int getSyntheticCloseResourceCount() {
+      return syntheticCloseResourceCount;
     }
 
     public int countThrowableAddSuppressed() {
@@ -396,13 +411,16 @@ public class TryWithResourcesRewriterTest {
     private byte[] desugarTryWithResources(String className) {
       try {
         ClassReader reader = new ClassReader(className);
+        CloseResourceMethodScanner scanner = new CloseResourceMethodScanner();
+        reader.accept(scanner, ClassReader.SKIP_DEBUG);
         ClassWriter writer = new ClassWriter(reader, COMPUTE_MAXS);
         TryWithResourcesRewriter rewriter =
             new TryWithResourcesRewriter(
                 writer,
                 TryWithResourcesRewriterTest.class.getClassLoader(),
                 visitedExceptionTypes,
-                numOfTryWithResourcesInvoked);
+                numOfTryWithResourcesInvoked,
+                scanner.hasCloseResourceMethod());
         reader.accept(rewriter, 0);
         return writer.toByteArray();
       } catch (IOException e) {

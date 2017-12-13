@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -37,6 +37,8 @@ import javax.annotation.Nullable;
  * Given a {@link RuleClass} and a set of attribute values, returns a {@link Rule} instance. Also
  * performs a number of checks and associates the {@link Rule} and the owning {@link Package}
  * with each other.
+ *
+ * <p>This class is immutable, once created the set of managed {@link RuleClass}es will not change.
  *
  * <p>Note: the code that actually populates the RuleClass map has been moved to {@link
  * RuleClassProvider}.
@@ -338,7 +340,7 @@ public class RuleFactory {
     FuncallExpression generator = topCall.first;
     BaseFunction function = topCall.second;
     String name = generator.getNameArg();
-    
+
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     for (Map.Entry<String, Object> attributeAccessor : args.getAttributeAccessors()) {
       String attributeName = args.getName(attributeAccessor);

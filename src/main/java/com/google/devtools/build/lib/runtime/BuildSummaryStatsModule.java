@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
@@ -26,6 +29,8 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -37,6 +42,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
   private static final Logger logger = Logger.getLogger(BuildSummaryStatsModule.class.getName());
 
+  private ActionKeyContext actionKeyContext;
   private SimpleCriticalPathComputer criticalPathComputer;
   private EventBus eventBus;
   private Reporter reporter;
@@ -47,6 +53,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     this.reporter = env.getReporter();
     this.eventBus = env.getEventBus();
+    this.actionKeyContext = env.getSkyframeExecutor().getActionKeyContext();
     eventBus.register(this);
   }
 
@@ -66,7 +73,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @Subscribe
   public void executionPhaseStarting(ExecutionStartingEvent event) {
     if (enabled) {
-      criticalPathComputer = new SimpleCriticalPathComputer(BlazeClock.instance(), discardActions);
+      criticalPathComputer =
+          new SimpleCriticalPathComputer(actionKeyContext, BlazeClock.instance(), discardActions);
       eventBus.register(criticalPathComputer);
     }
   }
@@ -75,14 +83,18 @@ public class BuildSummaryStatsModule extends BlazeModule {
   public void buildComplete(BuildCompleteEvent event) {
     try {
       // We might want to make this conditional on a flag; it can sometimes be a bit of a nuisance.
+      List<Pair<String, ByteString>> statistics = new ArrayList<>();
       List<String> items = new ArrayList<>();
       items.add(String.format("Elapsed time: %.3fs", event.getResult().getElapsedSeconds()));
+      statistics.add(Pair.of("elapsed time", ByteString.copyFromUtf8(
+          String.format("%f", event.getResult().getElapsedSeconds()))));
 
       if (criticalPathComputer != null) {
         Profiler.instance().startTask(ProfilerTask.CRITICAL_PATH, "Critical path");
         AggregatedCriticalPath<SimpleCriticalPathComponent> criticalPath =
             criticalPathComputer.aggregate();
         items.add(criticalPath.toStringSummary());
+        statistics.add(Pair.of("critical path", ByteString.copyFromUtf8(criticalPath.toString())));
         logger.info(criticalPath.toString());
         logger.info(
             "Slowest actions:\n  "
@@ -102,6 +114,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
       }
 
       reporter.handle(Event.info(Joiner.on(", ").join(items)));
+      reporter.post(new BuildToolLogs(statistics, ImmutableList.of()));
     } finally {
       criticalPathComputer = null;
     }

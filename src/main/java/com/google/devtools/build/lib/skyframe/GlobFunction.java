@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Maps;
@@ -20,7 +21,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,6 +73,10 @@ public final class GlobFunction implements SkyFunction {
       if (globSubdirPkgLookupValue.packageExists()) {
         // We crossed the package boundary, that is, pkg/subdir contains a BUILD file and thus
         // defines another package, so glob expansion should not descend into that subdir.
+        return GlobValue.EMPTY;
+      } else if (globSubdirPkgLookupValue
+          instanceof PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue) {
+        // We crossed a repository boundary, so glob expansion should not descend into that subdir.
         return GlobValue.EMPTY;
       }
     }
@@ -351,11 +355,18 @@ public final class GlobFunction implements SkyFunction {
           valueRequested,
           fileName,
           glob);
-      if (!((PackageLookupValue) valueRequested).packageExists()) {
+      PackageLookupValue packageLookupValue = (PackageLookupValue) valueRequested;
+      if (packageLookupValue.packageExists()) {
+        // This is a separate package, so ignore it.
+        return null;
+      } else if (packageLookupValue
+          instanceof PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue) {
+        // This is a separate repository, so ignore it.
+        return null;
+      } else {
         return glob.getSubdir().getRelative(fileName);
       }
     }
-    return null;
   }
 
   @Nullable

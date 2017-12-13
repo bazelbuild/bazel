@@ -20,17 +20,15 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
+import com.google.devtools.build.lib.testutil.TestOnlyInNormalExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import org.junit.Before;
@@ -41,12 +39,12 @@ import org.junit.runners.JUnit4;
 /**
  * Tests <target, sourceConfig> -> <dep, depConfig> relationships over latebound attributes.
  *
- * <p>Ideally these tests would be in
- * {@link com.google.devtools.build.lib.skyframe.ConfigurationsForTargetsTest}. But that's a
- * Skyframe test (ConfiguredTargetFunction is a Skyframe function). And the Skyframe library doesn't
- * know anything about latebound attributes. So we need to place these properly under the analysis
- * package.
+ * <p>Ideally these tests would be in {@link
+ * com.google.devtools.build.lib.skyframe.ConfigurationsForTargetsTest}. But that's a Skyframe test
+ * (ConfiguredTargetFunction is a Skyframe function). And the Skyframe library doesn't know anything
+ * about latebound attributes. So we need to place these properly under the analysis package.
  */
+@TestOnlyInNormalExecutionMode // TODO(b/67651960): fix or justify disabling.
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
@@ -59,30 +57,22 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     }
   };
 
-  /**
-   * Mock late-bound attribute resolver that returns a fixed label.
-   */
-  private static final Attribute.LateBoundLabel<BuildConfiguration> LATEBOUND_VALUE_RESOLVER =
-      new Attribute.LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration config) {
-          return Label.parseAbsoluteUnchecked("//foo:latebound_dep");
-        }
-      };
-
-  /**
-   * Rule definition with a latebound dependency.
-   */
-  private static final RuleDefinition LATE_BOUND_DEP_RULE = (MockRule) () -> MockRule.define(
-      "rule_with_latebound_attr",
-      (builder, env) -> {
-        builder
-            .add(
-                attr(":latebound_attr", LABEL)
-                    .value(LATEBOUND_VALUE_RESOLVER)
-                    .cfg(CHANGE_FOO_FLAG_TRANSITION))
-            .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class);
-      });
+  /** Rule definition with a latebound dependency. */
+  private static final RuleDefinition LATE_BOUND_DEP_RULE =
+      (MockRule)
+          () ->
+              MockRule.define(
+                  "rule_with_latebound_attr",
+                  (builder, env) -> {
+                    builder
+                        .add(
+                            attr(":latebound_attr", LABEL)
+                                .value(
+                                    Attribute.LateBoundDefault.fromConstant(
+                                        Label.parseAbsoluteUnchecked("//foo:latebound_dep")))
+                                .cfg(CHANGE_FOO_FLAG_TRANSITION))
+                        .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class);
+                  });
 
   @Before
   public void setupCustomLateBoundRules() throws Exception {

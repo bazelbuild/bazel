@@ -198,7 +198,9 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
 
     // Regression test for b/63134122
     JavaCompileInfo javaCompileInfo =
-        binCompileAction.getExtraActionInfo().getExtension(JavaCompileInfo.javaCompileInfo);
+        binCompileAction
+            .getExtraActionInfo(actionKeyContext)
+            .getExtension(JavaCompileInfo.javaCompileInfo);
     assertThat(javaCompileInfo.getJavacOptList()).containsAllIn(expectedJavacopts);
   }
 
@@ -282,6 +284,13 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         ")");
     scratch.file("java/android/binary/MyApp.java",
         "package android.binary; public class MyApp {};");
+    assertThat(getConfiguredTarget("//java/android/binary:app")).isNotNull();
+  }
+
+  @Test
+  public void testNoJvmFragment() throws Exception {
+    writeDataBindingFiles();
+    useConfiguration("--experimental_disable_jvm");
     assertThat(getConfiguredTarget("//java/android/binary:app")).isNotNull();
   }
 }

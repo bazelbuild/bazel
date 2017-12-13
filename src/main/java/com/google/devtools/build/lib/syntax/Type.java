@@ -568,8 +568,16 @@ public abstract class Type<T> {
     @Override
     public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
         throws InterruptedException {
-      for (ElemT elem : cast(value)) {
-        elemType.visitLabels(visitor, elem, context);
+      List<ElemT> elems = cast(value);
+      // Hot code path. Optimize for lists with O(1) access to avoid iterator garbage.
+      if (elems instanceof ImmutableList || elems instanceof ArrayList) {
+        for (int i = 0; i < elems.size(); i++) {
+          elemType.visitLabels(visitor, elems.get(i), context);
+        }
+      } else {
+        for (ElemT elem : elems) {
+          elemType.visitLabels(visitor, elem, context);
+        }
       }
     }
 

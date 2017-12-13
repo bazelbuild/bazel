@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
@@ -168,7 +169,9 @@ public class JavacTurbine implements AutoCloseable {
     // JavaBuilder exempts some annotation processors from Strict Java Deps enforcement.
     // To avoid having to apply the same exemptions here, we just ignore strict deps errors
     // and leave enforcement to JavaBuilder.
-    DependencyModule dependencyModule = buildDependencyModule(turbineOptions, StrictJavaDeps.WARN);
+    ImmutableSet<Path> platformJars = ImmutableSet.copyOf(asPaths(turbineOptions.bootClassPath()));
+    DependencyModule dependencyModule =
+        buildDependencyModule(turbineOptions, StrictJavaDeps.WARN, platformJars);
 
     if (sources.isEmpty()) {
       // accept compilations with an empty source list for compatibility with JavaBuilder
@@ -183,21 +186,21 @@ public class JavacTurbine implements AutoCloseable {
 
     Result result = Result.ERROR;
     JavacTurbineCompileResult compileResult = null;
-    ImmutableList<String> actualClasspath = ImmutableList.of();
+    ImmutableList<Path> actualClasspath = ImmutableList.of();
 
-    ImmutableList<String> originalClasspath = turbineOptions.classPath();
-    ImmutableList<String> compressedClasspath =
-        dependencyModule.computeStrictClasspath(turbineOptions.classPath());
+    ImmutableList<Path> originalClasspath = asPaths(turbineOptions.classPath());
+    ImmutableList<Path> compressedClasspath =
+        dependencyModule.computeStrictClasspath(originalClasspath);
 
     requestBuilder.setStrictDepsPlugin(new StrictJavaDepsPlugin(dependencyModule));
 
-    JavacTransitive transitive = new JavacTransitive(turbineOptions.bootClassPath());
+    JavacTransitive transitive = new JavacTransitive(platformJars);
     requestBuilder.setTransitivePlugin(transitive);
 
     if (turbineOptions.shouldReduceClassPath()) {
       // compile with reduced classpath
       actualClasspath = compressedClasspath;
-      requestBuilder.setClassPath(asPaths(actualClasspath));
+      requestBuilder.setClassPath(actualClasspath);
       compileResult = JavacTurbineCompiler.compile(requestBuilder.build());
       if (compileResult.success()) {
         result = Result.OK_WITH_REDUCED_CLASSPATH;
@@ -209,7 +212,7 @@ public class JavacTurbine implements AutoCloseable {
         || (!compileResult.success() && hasRecognizedError(compileResult.output()))) {
       // fall back to transitive classpath
       actualClasspath = originalClasspath;
-      requestBuilder.setClassPath(asPaths(actualClasspath));
+      requestBuilder.setClassPath(actualClasspath);
       compileResult = JavacTurbineCompiler.compile(requestBuilder.build());
       if (compileResult.success()) {
         result = Result.OK_WITH_FULL_CLASSPATH;
@@ -230,29 +233,31 @@ public class JavacTurbine implements AutoCloseable {
   }
 
   private static DependencyModule buildDependencyModule(
-      TurbineOptions turbineOptions, StrictJavaDeps strictDepsMode) {
+      TurbineOptions turbineOptions,
+      StrictJavaDeps strictDepsMode,
+      ImmutableSet<Path> platformJars) {
     DependencyModule.Builder dependencyModuleBuilder =
         new DependencyModule.Builder()
             .setReduceClasspath()
             .setTargetLabel(turbineOptions.targetLabel().orNull())
-            .addDepsArtifacts(turbineOptions.depsArtifacts())
-            .setPlatformJars(turbineOptions.bootClassPath())
+            .addDepsArtifacts(asPaths(turbineOptions.depsArtifacts()))
+            .setPlatformJars(platformJars)
             .setStrictJavaDeps(strictDepsMode.toString())
             .addDirectMappings(parseJarsToTargets(turbineOptions.directJarsToTargets()))
             .addIndirectMappings(parseJarsToTargets(turbineOptions.indirectJarsToTargets()));
 
     if (turbineOptions.outputDeps().isPresent()) {
-      dependencyModuleBuilder.setOutputDepsProtoFile(turbineOptions.outputDeps().get());
+      dependencyModuleBuilder.setOutputDepsProtoFile(Paths.get(turbineOptions.outputDeps().get()));
     }
 
     return dependencyModuleBuilder.build();
   }
 
-  private static ImmutableMap<String, JarOwner> parseJarsToTargets(
+  private static ImmutableMap<Path, JarOwner> parseJarsToTargets(
       ImmutableMap<String, String> input) {
-    ImmutableMap.Builder<String, JarOwner> result = ImmutableMap.builder();
+    ImmutableMap.Builder<Path, JarOwner> result = ImmutableMap.builder();
     for (Map.Entry<String, String> entry : input.entrySet()) {
-      result.put(entry.getKey(), parseJarOwner(entry.getKey()));
+      result.put(Paths.get(entry.getKey()), parseJarOwner(entry.getKey()));
     }
     return result.build();
   }
@@ -326,7 +331,7 @@ public class JavacTurbine implements AutoCloseable {
    */
   static class PrivateMemberPruner extends ClassVisitor {
     public PrivateMemberPruner(ClassVisitor cv) {
-      super(Opcodes.ASM5, cv);
+      super(Opcodes.ASM6, cv);
     }
 
     @Override

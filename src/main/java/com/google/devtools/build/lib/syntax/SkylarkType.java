@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -602,9 +602,14 @@ public abstract class SkylarkType implements Serializable {
    * Throws EvalException if the type of the object is not allowed to be present in Skylark.
    */
   static void checkTypeAllowedInSkylark(Object object, Location loc) throws EvalException {
+    // TODO(bazel-team): Unify this check with the logic in EvalUtils.getSkylarkType(). Might
+    // break some providers whose contents don't implement SkylarkValue, aren't wrapped in
+    // SkylarkList, etc.
     if (!isTypeAllowedInSkylark(object)) {
       throw new EvalException(
-          loc, "internal error: type '" + object.getClass().getSimpleName() + "' is not allowed");
+          loc,
+          "internal error: type '" + object.getClass().getSimpleName() + "' is not allowed as a "
+              + "Skylark value (checkTypeAllowedInSkylark() failed)");
     }
   }
 
@@ -722,7 +727,7 @@ public abstract class SkylarkType implements Serializable {
    */
   public static Object convertToSkylark(Object object, @Nullable Environment env) {
     if (object instanceof List && !(object instanceof SkylarkList)) {
-      return new MutableList<>((List<?>) object, env);
+      return MutableList.copyOf(env, (List<?>) object);
     }
     if (object instanceof SkylarkValue) {
       return object;

@@ -125,9 +125,8 @@ void BinaryLauncherBase::CreateCommandLine(
     const vector<string>& arguments) const {
   ostringstream cmdline;
   cmdline << '\"' << executable << '\"';
-  bool first = true;
   for (const auto& s : arguments) {
-    cmdline << ' ' << GetEscapedArgument(s);
+    cmdline << ' ' << s;
   }
 
   string cmdline_str = cmdline.str();

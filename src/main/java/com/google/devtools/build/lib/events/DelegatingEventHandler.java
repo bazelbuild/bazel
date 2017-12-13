@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.events;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 
 /**
  * An EventHandler which delegates to another EventHandler. Primarily useful as a base class for

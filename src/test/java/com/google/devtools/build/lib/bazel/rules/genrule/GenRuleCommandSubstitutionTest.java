@@ -93,7 +93,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     eventCollector.clear();
 
     genrule("$(location foo bar");
-    assertExpansionFails("unterminated $(location) expression", "//test");
+    assertExpansionFails("unterminated variable reference", "//test");
 
     genrule("$(location");
     assertExpansionFails("unterminated variable reference", "//test");
@@ -105,10 +105,10 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     assertExpansionFails("$(locationz) not defined", "//test");
 
     genrule("$(locationz )");
-    assertExpansionFails("$(locationz ) not defined", "//test");
+    assertExpansionFails("$(locationz) not defined", "//test");
 
     genrule("$(locationz foo )");
-    assertExpansionFails("$(locationz foo ) not defined", "//test");
+    assertExpansionFails("$(locationz) not defined", "//test");
   }
 
   @Test
@@ -221,7 +221,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     eventCollector.clear();
 
     genrule("$(locations foo bar");
-    assertExpansionFails("unterminated $(locations) expression", "//test");
+    assertExpansionFails("unterminated variable reference", "//test");
 
     genrule("$(locations");
     assertExpansionFails("unterminated variable reference", "//test");
@@ -233,10 +233,10 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     assertExpansionFails("$(locationsz) not defined", "//test");
 
     genrule("$(locationsz )");
-    assertExpansionFails("$(locationsz ) not defined", "//test");
+    assertExpansionFails("$(locationsz) not defined", "//test");
 
     genrule("$(locationsz foo )");
-    assertExpansionFails("$(locationsz foo ) not defined", "//test");
+    assertExpansionFails("$(locationsz) not defined", "//test");
   }
 
   @Test
@@ -447,8 +447,8 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     assertNoEvents();
 
     genrule("$(basename file)");
-    assertExpansionFails("$(basename file) not defined", "//test");
-    assertContainsEvent("$(basename file) not defined");
+    assertExpansionFails("$(basename) not defined", "//test");
+    assertContainsEvent("$(basename) not defined");
   }
 
   @Test

@@ -30,16 +30,6 @@ using std::wstring;
 static_assert(sizeof(jchar) == sizeof(WCHAR),
               "jchar and WCHAR should be the same size");
 
-string GetJavaUTFString(JNIEnv* env, jstring str) {
-  string result;
-  if (str != nullptr) {
-    const char* jstr = env->GetStringUTFChars(str, nullptr);
-    result.assign(jstr);
-    env->ReleaseStringUTFChars(str, jstr);
-  }
-  return result;
-}
-
 wstring GetJavaWstring(JNIEnv* env, jstring str) {
   wstring result;
   if (str != nullptr) {

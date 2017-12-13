@@ -11,6 +11,8 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/dependencies:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
@@ -20,7 +22,7 @@ filegroup(
     name = "android_jar_for_testing",
     srcs = select({
         # TODO(ajmichael): Use //tools/defaults:android_jar here once it supplies runfiles.
-        "//external:has_androidsdk": ["@androidsdk//:platforms/android-25/android.jar"],
+        "//external:has_androidsdk": ["@androidsdk//:platforms/android-24/android.jar"],
         "//conditions:default": ["@bazel_tools//tools/android:error_message.jar"],
     }),
 )
@@ -60,14 +62,28 @@ java_test(
     ],
 )
 
+# Test for b/62060793. Verifies constant lambda arguments that were pushed using *CONST_0
+# instructions.
+java_test(
+    name = "DesugarFunctionalTestForConstantArgumentsInLambdas",
+    size = "small",
+    srcs = ["DesugarLambdaTest.java"],
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.android.desugar.DesugarLambdaTest",
+    deps = [
+        ":desugar_lambda_with_constant_arguments_lib",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 # Test for b/62456849. If a synthetic method is named "lambda$XXX", but not used in invokedynamic,
 # then Desugar should keep it in the class, rather than renaming it.
 java_test(
     name = "DesugarFunctionalTestForSyntheticMethodsWithLambdaNames",
     size = "small",
-    srcs = [
-        "DesugarFunctionalTest.java",
-    ],
+    srcs = ["DesugarFunctionalTest.java"],
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
@@ -159,8 +175,7 @@ java_test(
     ],
     tags = ["no_windows"],
     deps = [
-        ":libseparate.jar",
-        ":testdata_desugared_java8_like_in_android_studio.jar",  # Make tests run against desugared library
+        ":testdata_desugared_java8_like_in_android_studio",  # Make tests run against desugared library
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -307,8 +322,8 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
     ],
 )
@@ -326,8 +341,8 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
     ],
 )
@@ -338,18 +353,19 @@ java_test(
     srcs = ["DefaultMethodClassFixerTest.java"],
     data = [
         ":android_jar_for_testing",
-        ":guava_base_classpath.jar",
         ":separate",
         ":testdata_java8",
+        "//third_party:guava-jars",
     ],
     jvm_flags = [
         "-DDefaultMethodClassFixerTest.bootclasspath=$(location :android_jar_for_testing)",
-        "-DDefaultMethodClassFixerTest.classpath=$(location :separate):$(location :guava_base_classpath.jar):$(location //third_party/java/jacoco:blaze-agent)",
+        "-DDefaultMethodClassFixerTest.classpath=$(location :separate):$(location //third_party:guava-jars):$(location //third_party/java/jacoco:blaze-agent)",
         "-DDefaultMethodClassFixerTest.input=$(location :testdata_java8)",
     ],
     tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar:deps_collector_api",
         "//third_party:asm",
         "//third_party:asm-tree",
         "//third_party:guava",
@@ -363,7 +379,6 @@ java_test(
     name = "MethodInfoTest",
     size = "small",
     srcs = ["MethodInfoTest.java"],
-    tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:junit4",
@@ -375,7 +390,6 @@ java_test(
     name = "FieldInfoTest",
     size = "small",
     srcs = ["FieldInfoTest.java"],
-    tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:junit4",
@@ -387,7 +401,6 @@ java_test(
     name = "Java7CompatibilityTest",
     size = "small",
     srcs = ["Java7CompatibilityTest.java"],
-    tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:asm",
@@ -400,7 +413,6 @@ java_test(
     name = "IndexedInputsTest",
     size = "small",
     srcs = ["IndexedInputsTest.java"],
-    tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:guava",
@@ -419,6 +431,7 @@ java_test(
         "-Dfortest.simulated.android.sdk_int=19",
         "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
     ],
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.TryWithResourcesRewriterTest",
     deps = [
         ":mocked_android_os_sdk_for_testing",
@@ -443,6 +456,7 @@ java_test(
         "-Dfortest.simulated.android.sdk_int=18",
         "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
     ],
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.TryWithResourcesRewriterTest",
     deps = [
         ":mocked_android_os_sdk_for_testing",
@@ -486,7 +500,7 @@ java_test(
 # This test sets the lambda dump directory via the system property in the command line
 # (i.e., jvm_flags). So the dump directory is expected to succeed.
 java_test(
-    name = "DesugarMainCLassTestLambdaDirectoryCorrectlySet",
+    name = "DesugarMainClassTestLambdaDirectoryCorrectlySet",
     size = "small",
     srcs = ["DesugarMainClassTest.java"],
     jvm_flags = ["-Djdk.internal.lambda.dumpProxyClasses=$$(mktemp -d)"],
@@ -503,13 +517,35 @@ java_test(
 # Different from the test target above, this test does not set the lambda dump directory in the
 # command line. Instead, it sets the system property in the test code, which is expected to fail.
 java_test(
-    name = "DesugarMainCLassTestLambdaDirectoryIncorrectlySet",
+    name = "DesugarMainClassTestLambdaDirectoryIncorrectlySet",
     size = "small",
     srcs = ["DesugarMainClassTest.java"],
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarMainClassTest",
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "BytecodeTypeInferenceTest",
+    srcs = ["BytecodeTypeInferenceTest.java"],
+    data = [
+        "BytecodeTypeInferenceTest.golden.txt",
+        "//src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:test_subjects",
+    ],
+    jvm_flags = [
+        "-Djar_path=$(location //src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:test_subjects)",
+        "-Dgolden_file=$(location BytecodeTypeInferenceTest.golden.txt)",
+    ],
+    tags = ["no_windows"],
+    deps = [
+        ":bytecode_type_printer",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//third_party:asm",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -531,6 +567,7 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 # Make sure desugaring twice doesn't add any files
@@ -549,6 +586,7 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
@@ -566,6 +604,7 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 # TODO(b/37110951): Add jar content test for desugared default methods that works with coverage on
@@ -585,6 +624,7 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
@@ -602,6 +642,7 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
@@ -619,6 +660,7 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 # Test for b/63900665
@@ -637,6 +679,7 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 # Test for b/62047432
@@ -672,6 +715,7 @@ java_library(
     resources = ["testdata/testresource.txt"],
     deps = [
         ":separate",
+        ":separate_java8",
         "//third_party:guava",
     ],
 )
@@ -694,6 +738,11 @@ java_library(
 )
 
 java_library(
+    name = "separate_java8",
+    srcs = glob(["testdata/separate8/*.java"]),
+)
+
+java_library(
     name = "testdata_like_in_android_studio",
     srcs = glob(["testdata/*.java"]),
     resources = ["testdata/testresource.txt"],
@@ -712,6 +761,19 @@ java_library(
     resources = ["testdata/testresource.txt"],
     deps = [
         ":libseparate.jar",  # puts full Jar instead of header Jar on the classpath
+        ":libseparate_java8.jar",  # puts full Jar instead of header Jar on the classpath
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "bytecode_type_printer",
+    srcs = ["ByteCodeTypePrinter.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//third_party:asm",
+        "//third_party:asm-tree",
+        "//third_party:asm-util",
         "//third_party:guava",
     ],
 )
@@ -732,10 +794,11 @@ sh_test(
         "@bazel_tools//tools/jdk",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 # The following genrules run the code tested here as a build tool.  While that's
-# very similar to how Blaze will invoke it natively, the downside is that
+# very similar to how Bazel will invoke it natively, the downside is that
 # running the tested tool in a genrule doesn't contribute code coverage
 # information for the tested tool.  Note that the code in :testdata doesn't
 # appear in coverage reports when depending on this target regardless because
@@ -743,11 +806,11 @@ sh_test(
 genrule(
     name = "desugar_testdata",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":testdata",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -755,11 +818,44 @@ genrule(
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
           "--nodesugar_interface_method_bodies_if_needed -i $(location :testdata) -o $@ " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+)
+
+# Generates special lambda invocation so we can test for b/62060793.
+genrule(
+    name = "generate_lambda_with_constant_arguments_in_test_data",
+    outs = ["testdata_generate_lambda_with_constant_arguments.jar"],
+    cmd = "$(location :generate_lambda_with_constant_arguments) $@",
+    tags = ["no_windows"],
+    tools = [":generate_lambda_with_constant_arguments"],
+)
+
+# Desugar the test data for b/62456849
+genrule(
+    name = "desugar_lambda_with_constant_arguments",
+    srcs = [
+        ":generate_lambda_with_constant_arguments_in_test_data",
+        # Depend on Jacoco runtime in case testdata was built with coverage instrumentation
+        "//third_party/java/jacoco:blaze-agent",
+        "//tools/defaults:android_jar",
+    ],
+    outs = ["testdata_desugar_generate_lambda_with_constant_arguments.jar"],
+    cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
+          "-i $(location :generate_lambda_with_constant_arguments_in_test_data) -o $@ " +
+          "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
+          "--bootclasspath_entry $(location //tools/defaults:android_jar)",
+    tags = ["no_windows"],
+    tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+)
+
+java_import(
+    name = "desugar_lambda_with_constant_arguments_lib",
+    jars = [":desugar_lambda_with_constant_arguments"],
+    tags = ["no_windows"],
 )
 
 # Convert human-written methods whose names start with "lambda$XXX" to synthetic methods, so we can
@@ -779,11 +875,10 @@ genrule(
 genrule(
     name = "desugar_testdata_with_synthetic_methods_with_lambda_names",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":generate_synthetic_methods_with_lambda_names_in_test_data",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -791,7 +886,7 @@ genrule(
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
           "--nodesugar_interface_method_bodies_if_needed -i $(location :generate_synthetic_methods_with_lambda_names_in_test_data) -o $@ " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -801,11 +896,11 @@ genrule(
 genrule(
     name = "desugar_testdata_again",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":testdata_desugared.jar",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -813,7 +908,7 @@ genrule(
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
           "--nodesugar_interface_method_bodies_if_needed -i $(location :testdata_desugared.jar) -o $@ " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -826,11 +921,11 @@ genrule(
 genrule(
     name = "desugar_testdata_by_disabling_lambda_desugaring",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":testdata",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -839,7 +934,7 @@ genrule(
           "--min_sdk_version 17 -i $(location :testdata) -o $@ " +
           "--nodesugar_try_with_resources_if_needed " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar) " +
           "--only_desugar_javac9_for_lint",
@@ -995,19 +1090,22 @@ java_library(
 genrule(
     name = "desugar_testdata_java8",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
+        ":separate_java8",
         ":testdata_java8",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
     outs = ["testdata_desugared_java8.jar"],
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
-          "--min_sdk_version 24 -i $(location :testdata_java8) -o $@ " +
+          "--min_sdk_version 24 " +
+          "-i $(location :testdata_java8) -o $@ " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location :separate_java8) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -1017,11 +1115,12 @@ genrule(
 genrule(
     name = "desugar_testdata_java8_like_in_android_studio",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
+        ":separate_java8",
         ":testdata_java8_like_in_android_studio",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1032,7 +1131,8 @@ genrule(
           "--min_sdk_version 24 " +
           "-i $(location :testdata_java8_like_in_android_studio) -o $@ " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location :separate_java8) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -1042,19 +1142,41 @@ genrule(
 genrule(
     name = "desugar_testdata_with_default_methods",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
+        ":separate_java8",
         ":testdata_java8",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
     outs = ["testdata_desugared_default_methods.jar"],
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
-          "--desugar_interface_method_bodies_if_needed -i $(location :testdata_java8) -o $@ " +
+          "-i $(location :testdata_java8) -o $@ " +
+          "--emit_dependency_metadata_as_needed " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location :separate_java8) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
+          "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
+          "--bootclasspath_entry $(location //tools/defaults:android_jar)",
+    tags = ["no_windows"],
+    tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+)
+
+genrule(
+    name = "desugar_separate_java8_with_default_methods",
+    srcs = [
+        ":separate_java8",
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
+        "//third_party/java/jacoco:blaze-agent",
+        "//tools/defaults:android_jar",
+    ],
+    outs = ["separate_java8_desugared_default_methods.jar"],
+    cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
+          "-i $(location :separate_java8) -o $@ " +
+          "--emit_dependency_metadata_as_needed " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -1064,11 +1186,12 @@ genrule(
 genrule(
     name = "desugar_testdata_with_default_methods_for_static_initializer_test",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
+        ":separate_java8",
         ":testdata_java8",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1077,7 +1200,8 @@ genrule(
           "--desugar_interface_method_bodies_if_needed -i $(location :testdata_java8) " +
           "-o desugar_testdata_with_default_methods_for_static_initializer_test.jar " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location :separate_java8) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar) " +
           " &> $@",
@@ -1088,11 +1212,12 @@ genrule(
 genrule(
     name = "desugar_testdata_with_default_methods_again",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
+        ":separate_java8",
         ":testdata_desugared_default_methods.jar",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1100,7 +1225,8 @@ genrule(
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
           "--desugar_interface_method_bodies_if_needed -i $(location :testdata_desugared_default_methods.jar) -o $@ " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location :separate_java8) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -1111,8 +1237,8 @@ genrule(
     name = "desugar_testdata_core_library",
     srcs = [
         ":testdata_core_library",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1128,11 +1254,11 @@ genrule(
 genrule(
     name = "desugar_testdata_like_in_android_studio",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":testdata_like_in_android_studio",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1144,7 +1270,7 @@ genrule(
           "-i $(location :testdata_like_in_android_studio) -o $@ " +
           "--copy_bridges_from_classpath " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -1154,11 +1280,11 @@ genrule(
 genrule(
     name = "desugar_testdata_and_separate_with_multiple_inputs",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":testdata_like_in_android_studio",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1172,7 +1298,7 @@ genrule(
           "-i $(location :separate) -o $(location separate_desugared_with_multiple_inputs.jar) " +
           "--copy_bridges_from_classpath " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -1182,11 +1308,11 @@ genrule(
 genrule(
     name = "desugar_testdata_from_directory_to_jar",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":testdata_like_in_android_studio",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1203,7 +1329,7 @@ genrule(
           -i $$tmpdir -o $(location testdata_desugared_from_directory_to_jar.jar) \
           --copy_bridges_from_classpath \
           --classpath_entry $(location :separate) \
-          --classpath_entry $(location :guava_base_classpath.jar) \
+          --classpath_entry $(location //third_party:guava-jars) \
           --classpath_entry $(location //third_party/java/jacoco:blaze-agent) \
           --bootclasspath_entry $(location //tools/defaults:android_jar)
      rm -rf $$tmpdir
@@ -1218,11 +1344,11 @@ genrule(
 genrule(
     name = "desugar_testdata_from_directory_to_directory",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":testdata_like_in_android_studio",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1240,7 +1366,7 @@ genrule(
           -i $$tmpdirIn  -o $$tmpdirOut \
           --copy_bridges_from_classpath \
           --classpath_entry $(location :separate) \
-          --classpath_entry $(location :guava_base_classpath.jar) \
+          --classpath_entry $(location //third_party:guava-jars) \
           --classpath_entry $(location //third_party/java/jacoco:blaze-agent) \
           --bootclasspath_entry $(location //tools/defaults:android_jar)
      pushd $$tmpdirOut
@@ -1259,11 +1385,11 @@ genrule(
 genrule(
     name = "desugar_testdata_with_classpath_directory",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":testdata_like_in_android_studio",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1280,7 +1406,7 @@ genrule(
           -i $(location :testdata_like_in_android_studio) -o $(location testdata_desugared_with_classpath_directory.jar) \
           --copy_bridges_from_classpath \
           --classpath_entry $$tmpdir \
-          --classpath_entry $(location :guava_base_classpath.jar) \
+          --classpath_entry $(location //third_party:guava-jars) \
           --classpath_entry $(location //third_party/java/jacoco:blaze-agent) \
           --bootclasspath_entry $(location //tools/defaults:android_jar)
      rm -rf $$tmpdir
@@ -1297,11 +1423,11 @@ genrule(
 genrule(
     name = "desugar_testdata_by_desugaring_try_with_resources",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":testdata",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1310,7 +1436,7 @@ genrule(
           "--nodesugar_interface_method_bodies_if_needed -i $(location :testdata) -o $@ " +
           "--min_sdk_version 17 --desugar_try_with_resources_if_needed " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -1324,8 +1450,6 @@ genrule(
     name = "desugar_default_method_with_legacy_coverage",
     srcs = [
         "jacoco_0_7_5_default_method.jar",
-        # Depend on Jacoco runtime in case :testdata_java8 was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1345,11 +1469,11 @@ genrule(
 genrule(
     name = "desugar_testdata_by_disabling_desugaring_try_with_resources_with_minsdkversion_above_18",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":testdata",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1358,7 +1482,7 @@ genrule(
           "--nodesugar_interface_method_bodies_if_needed -i $(location :testdata) -o $@ " +
           "--min_sdk_version 19 --desugar_try_with_resources_if_needed " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -1368,11 +1492,11 @@ genrule(
 genrule(
     name = "desugar_testdata_by_desugaring_try_with_resources_twice",
     srcs = [
-        ":guava_base_classpath.jar",
+        "//third_party:guava-jars",
         ":separate",
         ":desugar_testdata_by_desugaring_try_with_resources",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1381,7 +1505,7 @@ genrule(
           "--nodesugar_interface_method_bodies_if_needed -i $(location :desugar_testdata_by_desugaring_try_with_resources) -o $@ " +
           "--min_sdk_version 17 --desugar_try_with_resources_if_needed " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location :guava_base_classpath.jar) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location //tools/defaults:android_jar)",
     tags = ["no_windows"],
@@ -1404,25 +1528,42 @@ java_import(
 java_import(
     name = "testdata_desugared_java8",
     jars = ["testdata_desugared_java8.jar"],
-    deps = [":separate"],
+    deps = [
+        ":separate",
+        ":separate_java8",  # use un-desugared since we're not desugaring default methods here
+    ],
 )
 
 java_import(
     name = "testdata_desugared_java8_like_in_android_studio",
     jars = ["testdata_desugared_java8_like_in_android_studio.jar"],
-    deps = [":separate"],
+    deps = [
+        ":separate",
+        ":separate_java8",  # use un-desugared since we're not desugaring default methods here
+    ],
 )
 
 java_import(
     name = "testdata_desugared_default_methods",
     jars = ["testdata_desugared_default_methods.jar"],
-    deps = [":separate"],
+    deps = [
+        ":separate",
+        ":separate_java8_desugared_default_methods",
+    ],
 )
 
 java_import(
     name = "testdata_desugared_default_methods_twice",
     jars = ["testdata_desugared_default_methods_twice.jar"],
-    deps = [":separate"],
+    deps = [
+        ":separate",
+        ":separate_java8_desugared_default_methods",
+    ],
+)
+
+java_import(
+    name = "separate_java8_desugared_default_methods",
+    jars = ["separate_java8_desugared_default_methods.jar"],
 )
 
 java_import(
@@ -1488,6 +1629,9 @@ genrule(
 $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.testdata.Lambda$$$$Lambda$$0' > $@
 """,
     tags = ["no_windows"],
+    # Bazel 0.8.0 doesn't have this target under @bazel_tools, so we have to
+    # use the one in the main repository
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
 
@@ -1504,6 +1648,7 @@ sh_test(
         ":capture_lambda_disassembled.txt",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 genrule(
@@ -1514,6 +1659,7 @@ genrule(
 $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.testdata.CaptureLambda$$$$Lambda$$0' > $@
 """,
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
 
@@ -1540,6 +1686,7 @@ genrule(
 $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.testdata.MethodReferenceSuperclass$$$$Lambda$$0' > $@
 """,
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
 
@@ -1568,6 +1715,7 @@ genrule(
 $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod' | grep -v 'jacoco' | grep -v 'static {}' > $@
 """,
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
 
@@ -1596,6 +1744,7 @@ genrule(
 $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.Named$$AbstractName' | grep -v 'jacoco' | grep -v 'static {}' > $@
 """,
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
 
@@ -1624,6 +1773,7 @@ genrule(
 $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod$$Concrete' | grep -v 'jacoco' | grep -v 'static {}' > $@
 """,
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
 
@@ -1655,8 +1805,8 @@ genrule(
     name = "desugar_capture_lambda",
     srcs = [
         ":capture_lambda",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1673,8 +1823,8 @@ genrule(
     name = "desugar_capture_lambda_again",
     srcs = [
         ":capture_lambda_desugared.jar",
-        # Depend on Jacoco runtime in case :testdata was instrumented with
-        # --collect_code_coverage or by running "blaze coverage"
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
         "//third_party/java/jacoco:blaze-agent",
         "//tools/defaults:android_jar",
     ],
@@ -1712,6 +1862,7 @@ genrule(
 $(JAVABASE)/bin/javap  -p -cp $< com.google.devtools.build.android.desugar.testdata.OuterReferenceLambda > $(location baseclass_disassembled.txt)
 grep lambda $(location baseclass_disassembled.txt) > $(location baseclass_lambda_signature.txt)""",
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
 
@@ -1726,6 +1877,7 @@ genrule(
 $(JAVABASE)/bin/javap -p -cp $< com.google.devtools.build.android.desugar.testdata.LambdaInOverride > $(location subclass_disassembled.txt)
 grep lambda $(location subclass_disassembled.txt) > $(location subclass_lambda_signature.txt)""",
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
         "@bazel_tools//tools/jdk",
     ],
@@ -1755,14 +1907,20 @@ genrule(
     outs = ["jacoco_legacy_default_method_companion_disassembled.txt"],
     cmd = """$(JAVABASE)/bin/javap -c -p -cp $< 'com/example/gavra/java8coverage/Defaults$$$$CC' > $@""",
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
         "@bazel_tools//tools/jdk",
     ],
 )
 
-alias(
-    name = "guava_base_classpath.jar",
-    actual = "//third_party:guava/guava-21.0.jar",
+java_binary(
+    name = "generate_lambda_with_constant_arguments",
+    srcs = ["Bug62060793TestDataGenerator.java"],
+    main_class = "com.google.devtools.build.android.desugar.Bug62060793TestDataGenerator",
+    deps = [
+        "//third_party:asm",
+        "//third_party:guava",
+    ],
 )
 
 java_binary(
@@ -1773,4 +1931,23 @@ java_binary(
         "//third_party:asm",
         "//third_party:guava",
     ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+        "//src/test/java/com/google/devtools/build/android/desugar/dependencies:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/android/desugar/runtime:all_windows_tests",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
 )

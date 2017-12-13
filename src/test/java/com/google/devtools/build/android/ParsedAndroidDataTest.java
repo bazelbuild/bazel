@@ -21,8 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.jimfs.Jimfs;
-import com.google.common.truth.FailureStrategy;
-import com.google.common.truth.SubjectFactory;
+import com.google.common.truth.Subject;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
@@ -142,8 +141,8 @@ public class ParsedAndroidDataTest {
                     .createManifest("AndroidManifest.xml", "com.google.foo", "")
                     .buildDependency()));
 
-    FullyQualifiedName.Factory fqnFactory = FullyQualifiedName.Factory.from(
-        ImmutableList.<String>of("hdpi", "v4"));
+    FullyQualifiedName.Factory fqnFactory =
+        FullyQualifiedName.Factory.from(ImmutableList.<String>of("hdpi", "v4"));
     FullyQualifiedName drawable = fqnFactory.parse("drawable/seven_eight");
     assertThat(dataSet.getOverwritingResources())
         .containsExactly(
@@ -167,8 +166,7 @@ public class ParsedAndroidDataTest {
 
     FullyQualifiedName layoutFoo = fqnFactory.parse("layout/foo");
     assertThat(dataSet.getOverwritingResources())
-        .containsExactly(
-            layoutFoo, DataValueFile.of(root.resolve("res/layout/foo.xml")));
+        .containsExactly(layoutFoo, DataValueFile.of(root.resolve("res/layout/foo.xml")));
 
     assertThat(dataSet.getCombiningResources()).isEmpty();
   }
@@ -178,14 +176,15 @@ public class ParsedAndroidDataTest {
     Path parent = fs.getPath("parent");
     Path root = parent.resolve("transDep");
     AndroidDataBuilder.of(root)
-            .addResource("layout/foo.xml", AndroidDataBuilder.ResourceType.LAYOUT, "")
-            .addResourceBinary(
-                "drawable/menu.png", Files.createFile(fs.getPath("menu.png")))
-            .createManifest("AndroidManifest.xml", "com.google.foo", "")
-            .buildDependency();
+        .addResource("layout/foo.xml", AndroidDataBuilder.ResourceType.LAYOUT, "")
+        .addResourceBinary("drawable/menu.png", Files.createFile(fs.getPath("menu.png")))
+        .createManifest("AndroidManifest.xml", "com.google.foo", "")
+        .buildDependency();
     ParsedAndroidData dataSet =
         ParsedAndroidData.from(
-            new UnvalidatedAndroidData(ImmutableList.of(root), ImmutableList.<Path>of(),
+            new UnvalidatedAndroidData(
+                ImmutableList.of(root),
+                ImmutableList.<Path>of(),
                 root.resolve("AndroidManifest.xml")));
 
     FullyQualifiedName layoutFoo = fqnFactory.parse("layout/foo");
@@ -337,8 +336,6 @@ public class ParsedAndroidDataTest {
     DataSource otherRootValuesPath = DataSource.of(otherRoot.resolve("res/values/attr.xml"));
     FullyQualifiedName idSomeId = fqnFactory.parse("id/some_id");
 
-
-
     Truth.assertAbout(parsedAndroidData)
         .that(dataSet)
         .isEqualTo(
@@ -385,7 +382,6 @@ public class ParsedAndroidDataTest {
                         rootValuesPath, IdXmlResourceValue.of()) // value
                     ),
                 ImmutableMap.<DataKey, DataAsset>of()));
-
   }
 
   @Test
@@ -470,9 +466,7 @@ public class ParsedAndroidDataTest {
     FullyQualifiedName layoutKey = fqnFactory.parse("layout/databinding_layout");
     Path layoutPath = root.resolve("res/layout/databinding_layout.xml");
     assertThat(dataSet.getOverwritingResources())
-        .containsExactly(
-            layoutKey, DataValueFile.of(layoutPath)
-        );
+        .containsExactly(layoutKey, DataValueFile.of(layoutPath));
     FullyQualifiedName idTextView = fqnFactory.parse("id/MyTextView");
     FullyQualifiedName idTextView2 = fqnFactory.parse("id/AnotherTextView");
     assertThat(dataSet.getCombiningResources())
@@ -511,9 +505,7 @@ public class ParsedAndroidDataTest {
     FullyQualifiedName menuKey = fqnFactory.parse("menu/some_menu");
     Path menuPath = root.resolve("res/menu/some_menu.xml");
     assertThat(dataSet.getOverwritingResources())
-        .containsExactly(
-            menuKey, DataValueFile.of(menuPath)
-        );
+        .containsExactly(menuKey, DataValueFile.of(menuPath));
     FullyQualifiedName groupIdKey = fqnFactory.parse("id/some_group");
     FullyQualifiedName itemIdKey = fqnFactory.parse("id/action_settings");
     assertThat(dataSet.getCombiningResources())
@@ -554,14 +546,12 @@ public class ParsedAndroidDataTest {
                 "</animated-selector>")
             .createManifest("AndroidManifest.xml", "com.carroll.lewis", "")
             .buildParsed();
-    FullyQualifiedName.Factory fqnV21Factory = FullyQualifiedName.Factory.from(
-        ImmutableList.<String>of("v21"));
+    FullyQualifiedName.Factory fqnV21Factory =
+        FullyQualifiedName.Factory.from(ImmutableList.<String>of("v21"));
     FullyQualifiedName drawableKey = fqnV21Factory.parse("drawable/some_drawable");
     Path drawablePath = root.resolve("res/drawable-v21/some_drawable.xml");
     assertThat(dataSet.getOverwritingResources())
-        .containsExactly(
-            drawableKey, DataValueFile.of(drawablePath)
-        );
+        .containsExactly(drawableKey, DataValueFile.of(drawablePath));
     FullyQualifiedName focusedState = fqnV21Factory.parse("id/focused_state");
     FullyQualifiedName defaultState = fqnV21Factory.parse("id/default_state");
     FullyQualifiedName pressedState = fqnV21Factory.parse("id/pressed_state");
@@ -605,7 +595,9 @@ public class ParsedAndroidDataTest {
       builder.buildParsed();
       fail("expected MergingException");
     } catch (MergingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("3 Parse Error(s)");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(MergingException.withMessage("3 Parse Error(s)").getMessage());
       String combinedSuberrors = Joiner.on('\n').join(e.getSuppressed());
       assertThat(combinedSuberrors)
           .contains(fs.getPath("values/unique_strings.xml") + ": ParseError at [row,col]:[3,35]");
@@ -613,8 +605,7 @@ public class ParsedAndroidDataTest {
           .contains("unrecognized resource type: <not_string name='invalid_string'>");
       assertThat(combinedSuberrors)
           .contains(fs.getPath("layout/unique_layout.xml") + ": ParseError at [row,col]:[6,3]");
-      assertThat(combinedSuberrors)
-          .contains("must be terminated by the matching end-tag");
+      assertThat(combinedSuberrors).contains("must be terminated by the matching end-tag");
       assertThat(combinedSuberrors)
           .contains(fs.getPath("menu/unique_menu.xml") + ": ParseError at [row,col]:[1,30]");
       assertThat(combinedSuberrors)
@@ -627,13 +618,16 @@ public class ParsedAndroidDataTest {
     Path root = fs.getPath("root");
     AndroidDataBuilder builder =
         AndroidDataBuilder.of(root)
-            .addResource("values/missing_name.xml",
-                  AndroidDataBuilder.ResourceType.VALUE,
-                  "<public flame=\"not_name\" type=\"string\" id=\"0x7f050000\" />")
-            .addResource("values/missing_type.xml",
+            .addResource(
+                "values/missing_name.xml",
+                AndroidDataBuilder.ResourceType.VALUE,
+                "<public flame=\"not_name\" type=\"string\" id=\"0x7f050000\" />")
+            .addResource(
+                "values/missing_type.xml",
                 AndroidDataBuilder.ResourceType.VALUE,
                 "<public name=\"yarn\" id=\"0x7f050000\" />")
-            .addResource("values/bad_type.xml",
+            .addResource(
+                "values/bad_type.xml",
                 AndroidDataBuilder.ResourceType.VALUE,
                 "<public name=\"twine\" type=\"tring\" id=\"0x7f050000\" />")
             .addResource(
@@ -649,7 +643,9 @@ public class ParsedAndroidDataTest {
       builder.buildParsed();
       fail("expected MergingException");
     } catch (MergingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("5 Parse Error(s)");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(MergingException.withMessage("5 Parse Error(s)").getMessage());
       String combinedSuberrors = Joiner.on('\n').join(e.getSuppressed());
       assertThat(combinedSuberrors).contains(fs.getPath("values/missing_name.xml").toString());
       assertThat(combinedSuberrors).contains("resource name is required for public");
@@ -664,12 +660,6 @@ public class ParsedAndroidDataTest {
     }
   }
 
-  final SubjectFactory<ParsedAndroidDataSubject, ParsedAndroidData> parsedAndroidData =
-      new SubjectFactory<ParsedAndroidDataSubject, ParsedAndroidData>() {
-        @Override
-        public ParsedAndroidDataSubject getSubject(FailureStrategy fs, ParsedAndroidData that) {
-          return new ParsedAndroidDataSubject(fs, that);
-        }
-      };
-
+  final Subject.Factory<ParsedAndroidDataSubject, ParsedAndroidData> parsedAndroidData =
+      ParsedAndroidDataSubject::new;
 }

@@ -87,7 +87,7 @@ public final class BuildFileContentsGenerator implements FileContentsGenerator {
     while (chainLength > 1) {
       previous = current;
       current = new BuildRuleBuilder(ruleClass, uniqueRuleName());
-      if (ruleClass.equals("java_library")) {
+      if (ruleClass.equals("java_library") || ruleClass.equals("android_library")) {
         current.dependsVia("exports").on(previous);
       } else {
         current.dependsVia("deps").on(previous);
@@ -107,9 +107,10 @@ public final class BuildFileContentsGenerator implements FileContentsGenerator {
    */
   public FileContentsGenerator addRuleWithDependencies(String ruleClass, int noOfDeps) {
     BuildRuleBuilder masterRule = new BuildRuleBuilder(ruleClass, uniqueRuleName());
+    String dependingAttr = ruleClass.equals("android_library") ? "exports" : "deps";
     for (int i = 0; i < noOfDeps; i++) {
       BuildRuleBuilder dependentRule = new BuildRuleBuilder(ruleClass, uniqueRuleName());
-      masterRule.dependsVia("deps").on(dependentRule);
+      masterRule.dependsVia(dependingAttr).on(dependentRule);
       contents.append(dependentRule.build());
     }
     contents.append(masterRule.build());

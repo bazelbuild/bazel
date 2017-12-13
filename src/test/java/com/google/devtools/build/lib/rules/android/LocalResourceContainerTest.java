@@ -17,12 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,7 +49,7 @@ public class LocalResourceContainerTest extends ResourceTestBase {
     }
 
     errorConsumer.assertAttributeError(
-        "resources", "is not in the expected resource directory structure");
+        "resource_files", "is not in the expected resource directory structure");
   }
 
   @Test
@@ -64,7 +62,7 @@ public class LocalResourceContainerTest extends ResourceTestBase {
     }
 
     errorConsumer.assertAttributeError(
-        "resources", "All resources must share a common directory");
+        "resource_files", "All resources must share a common directory");
   }
 
   @Test
@@ -86,7 +84,7 @@ public class LocalResourceContainerTest extends ResourceTestBase {
 
   private ImmutableList<PathFragment> getResourceRoots(ImmutableList<Artifact> artifacts)
       throws Exception {
-    return LocalResourceContainer.getResourceRoots(errorConsumer, artifacts);
+    return LocalResourceContainer.getResourceRoots(errorConsumer, artifacts, "resource_files");
   }
 
   @Test
@@ -117,8 +115,6 @@ public class LocalResourceContainerTest extends ResourceTestBase {
   private void assertFilter(
       ImmutableList<Artifact> unfilteredResources, ImmutableList<Artifact> filteredResources)
       throws Exception {
-    ResourceFilter filter =
-        new FakeResourceFilter(ImmutableMap.of(unfilteredResources, filteredResources));
     ImmutableList<PathFragment> unfilteredResourcesRoots = getResourceRoots(unfilteredResources);
     LocalResourceContainer unfiltered =
         new LocalResourceContainer(
@@ -127,7 +123,10 @@ public class LocalResourceContainerTest extends ResourceTestBase {
             unfilteredResources,
             unfilteredResourcesRoots);
 
-    LocalResourceContainer filtered = unfiltered.filter(errorConsumer, filter);
+    ResourceFilter fakeFilter =
+        ResourceFilter.of(ImmutableSet.copyOf(filteredResources), (artifact) -> {});
+
+    LocalResourceContainer filtered = unfiltered.filter(errorConsumer, fakeFilter);
 
     if (unfilteredResources.equals(filteredResources)) {
       // The filtering was a no-op; the original object, not a copy, should be returned
@@ -143,30 +142,6 @@ public class LocalResourceContainerTest extends ResourceTestBase {
       // be returned.
       assertThat(filtered.getAssets()).isSameAs(unfiltered.getAssets());
       assertThat(filtered.getAssetRoots()).isSameAs(unfiltered.getAssetRoots());
-    }
-  }
-
-  private static class FakeResourceFilter extends ResourceFilter {
-    private final Map<ImmutableList<Artifact>, ImmutableList<Artifact>> filterInputToOutputMap;
-
-    FakeResourceFilter(
-        Map<ImmutableList<Artifact>, ImmutableList<Artifact>> filterInputToOutputMap) {
-      super(
-          ImmutableList.<String>of(),
-          ImmutableList.<String>of(),
-          FilterBehavior.FILTER_IN_ANALYSIS);
-      this.filterInputToOutputMap = filterInputToOutputMap;
-    }
-
-    @Override
-    public ImmutableList<Artifact> filter(
-        RuleErrorConsumer errorConsumer, ImmutableList<Artifact> artifacts) {
-      if (filterInputToOutputMap.containsKey(artifacts)) {
-        return filterInputToOutputMap.get(artifacts);
-      }
-
-      assertWithMessage("Called with unexpected input: " + artifacts).fail();
-      return artifacts;
     }
   }
 }

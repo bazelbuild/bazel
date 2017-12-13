@@ -2,7 +2,10 @@
 layout: documentation
 title: Extensions examples
 ---
+
 # Extensions examples
+
+<!-- [TOC] -->
 
 ## <a name="macro"></a>Macro creating a rule
 
@@ -408,12 +411,12 @@ sh_binary(
 
 `merge.sh`:
 
-```python
-#!/bin/bash
+```sh
+#!/bin/sh
 
 out=$1
 shift
-cat $* > $out
+cat "$@" > $out
 ```
 
 `header.html`:

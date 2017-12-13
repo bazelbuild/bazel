@@ -14,47 +14,12 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
-import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.util.ExitCode;
-import java.util.Collection;
 
 /** {@link BuildEvent} indicating that a request that does not involve building as finished. */
-public final class NoBuildRequestFinishedEvent implements BuildEvent {
-  private final ExitCode exitCode;
-  private final long finishTimeMillis;
-
+public final class NoBuildRequestFinishedEvent extends BuildCompletingEvent {
   public NoBuildRequestFinishedEvent(ExitCode exitCode, long finishTimeMillis) {
-    this.exitCode = exitCode;
-    this.finishTimeMillis = finishTimeMillis;
-  }
-
-  @Override
-  public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.<BuildEventId>of();
-  }
-
-  @Override
-  public BuildEventId getEventId() {
-    return BuildEventId.buildFinished();
-  }
-
-  @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
-    return GenericBuildEvent.protoChaining(this)
-        .setFinished(
-            BuildEventStreamProtos.BuildFinished.newBuilder()
-                .setExitCode(
-                    BuildEventStreamProtos.BuildFinished.ExitCode.newBuilder()
-                        .setName(exitCode.name())
-                        .setCode(exitCode.getNumericExitCode())
-                        .build())
-                .setFinishTimeMillis(finishTimeMillis)
-                .build())
-        .build();
+    super(exitCode, finishTimeMillis);
   }
 }

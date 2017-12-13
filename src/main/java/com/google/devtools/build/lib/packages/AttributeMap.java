@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Type;
 import javax.annotation.Nullable;
 
@@ -95,9 +96,10 @@ public interface AttributeMap {
    */
   boolean isAttributeValueExplicitlySpecified(String attributeName);
 
-  /**
-   * An interface which accepts {@link Attribute}s, used by {@link #visitLabels}.
-   */
+  /** Returns the {@link Location} at which the attribute was defined. */
+  Location getAttributeLocation(String attrName);
+
+  /** An interface which accepts {@link Attribute}s, used by {@link #visitLabels}. */
   interface AcceptsLabelAttribute {
     /**
      * Accept a (Label, Attribute) pair describing a dependency edge.

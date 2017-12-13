@@ -209,11 +209,14 @@ public class SkylarkNativeModule {
             + "<code>package_name()</code> will match the caller BUILD file package. "
             + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
     parameters = {},
+    useAst = true,
     useEnvironment = true
   )
-  private static final BuiltinFunction packageName =
+  static final BuiltinFunction packageName =
       new BuiltinFunction("package_name") {
-        public String invoke(Environment env) throws EvalException, ConversionException {
+        public String invoke(FuncallExpression ast, Environment env)
+            throws EvalException, ConversionException {
+          env.checkLoadingPhase("native.package_name", ast.getLocation());
           return (String) env.lookup("PACKAGE_NAME");
         }
       };
@@ -226,14 +229,18 @@ public class SkylarkNativeModule {
         "The name of the repository the rule or build extension is called from. "
             + "For example, in packages that are called into existence by the WORKSPACE stanza "
             + "<code>local_repository(name='local', path=...)</code> it will be set to "
-            + "<code>@local</code>. In packages in the main repository, it will be empty. This "
-            + "function is equivalent to the deprecated variable <code>REPOSITORY_NAME</code>.",
+            + "<code>@local</code>. In packages in the main repository, it will be set to "
+            + "<code>@</code>. This function is equivalent to the deprecated variable "
+            + "<code>REPOSITORY_NAME</code>.",
     parameters = {},
+    useAst = true,
     useEnvironment = true
   )
-  private static final BuiltinFunction repositoryName =
+  static final BuiltinFunction repositoryName =
       new BuiltinFunction("repository_name") {
-        public String invoke(Environment env) throws EvalException, ConversionException {
+        public String invoke(FuncallExpression ast, Environment env)
+            throws EvalException, ConversionException {
+          env.checkLoadingPhase("native.repository_name", ast.getLocation());
           return (String) env.lookup("REPOSITORY_NAME");
         }
       };

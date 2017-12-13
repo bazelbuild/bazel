@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import java.util.ArrayList;
 import java.util.IllegalFormatException;
 import java.util.List;
@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
 
 /** Supports ctx.actions.args() from Skylark. */
 class SkylarkCustomCommandLine extends CommandLine {
-  private final SkylarkSemanticsOptions skylarkSemantics;
+  private final SkylarkSemantics skylarkSemantics;
   private final EventHandler eventHandler;
   private final ImmutableList<Object> arguments;
 
@@ -116,7 +116,7 @@ class SkylarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         ImmutableList.Builder<String> builder,
-        SkylarkSemanticsOptions skylarkSemantics,
+        SkylarkSemantics skylarkSemantics,
         EventHandler eventHandler)
         throws CommandLineExpansionException {
       final List<Object> mutatedValues;
@@ -282,7 +282,7 @@ class SkylarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         ImmutableList.Builder<String> builder,
-        SkylarkSemanticsOptions skylarkSemantics,
+        SkylarkSemantics skylarkSemantics,
         EventHandler eventHandler)
         throws CommandLineExpansionException {
       Object object = arguments.get(argi++);
@@ -348,11 +348,11 @@ class SkylarkCustomCommandLine extends CommandLine {
   }
 
   static class Builder {
-    private final SkylarkSemanticsOptions skylarkSemantics;
+    private final SkylarkSemantics skylarkSemantics;
     private final ImmutableList.Builder<Object> arguments = ImmutableList.builder();
     private final EventHandler eventHandler;
 
-    public Builder(SkylarkSemanticsOptions skylarkSemantics, EventHandler eventHandler) {
+    public Builder(SkylarkSemantics skylarkSemantics, EventHandler eventHandler) {
       this.skylarkSemantics = skylarkSemantics;
       this.eventHandler = eventHandler;
     }
@@ -430,7 +430,7 @@ class SkylarkCustomCommandLine extends CommandLine {
       BaseFunction mapFn,
       Object arg,
       Location location,
-      SkylarkSemanticsOptions skylarkSemantics,
+      SkylarkSemantics skylarkSemantics,
       EventHandler eventHandler)
       throws CommandLineExpansionException {
     ImmutableList<Object> args = ImmutableList.of(arg);

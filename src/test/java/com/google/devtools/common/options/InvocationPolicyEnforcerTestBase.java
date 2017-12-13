@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Level;
 import org.junit.Before;
 import org.junit.BeforeClass;
 
@@ -62,7 +63,8 @@ public class InvocationPolicyEnforcerTestBase {
 
     return new InvocationPolicyEnforcer(
         InvocationPolicyParser.parsePolicy(
-            startupOptionsParser.getOptions(BlazeServerStartupOptions.class).invocationPolicy));
+            startupOptionsParser.getOptions(BlazeServerStartupOptions.class).invocationPolicy),
+        Level.INFO);
   }
 
   OptionsParser parser;

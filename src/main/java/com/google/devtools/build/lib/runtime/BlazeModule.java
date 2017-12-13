@@ -80,26 +80,30 @@ public abstract class BlazeModule {
    *
    * @param startupOptions the server's startup options
    */
-  public FileSystem getFileSystem(OptionsProvider startupOptions) {
+  public FileSystem getFileSystem(OptionsProvider startupOptions) throws AbruptExitException {
     return null;
   }
 
   /**
-   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit}, and
-   * {@link #getFileSystem}.
+   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit}, and {@link
+   * #getFileSystem}.
    *
    * @param startupOptions the server's startup options
    * @param versionInfo the Bazel version currently running
    * @param instanceId the id of the current Bazel server
+   * @param fileSystem
    * @param directories the install directory
    * @param clock the clock
-   *
    * @throws AbruptExitException to shut down the server immediately
    */
-  public void blazeStartup(OptionsProvider startupOptions,
-      BlazeVersionInfo versionInfo, UUID instanceId, ServerDirectories directories,
-      Clock clock) throws AbruptExitException {
-  }
+  public void blazeStartup(
+      OptionsProvider startupOptions,
+      BlazeVersionInfo versionInfo,
+      UUID instanceId,
+      FileSystem fileSystem,
+      ServerDirectories directories,
+      Clock clock)
+      throws AbruptExitException {}
 
   /**
    * Called to initialize a new server ({@link BlazeRuntime}). Modules can override this method to
@@ -229,7 +233,7 @@ public abstract class BlazeModule {
   /**
    * Called when Blaze shuts down.
    *
-   * <p>If you are also implementing {@link #shutdownOnCrash()}, consider putting the common
+   * <p>If you are also implementing {@link #blazeShutdownOnCrash()}, consider putting the common
    * shutdown code in the latter and calling that other hook from here.
    */
   public void blazeShutdown() {

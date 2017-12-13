@@ -23,9 +23,9 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBu
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.LAUNCH_STORYBOARD_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.PROVISIONING_PROFILE_ATTR;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.util.Arrays;
 

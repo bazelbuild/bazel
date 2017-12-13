@@ -33,20 +33,16 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHA
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.rules.cpp.transitions.EnableLipoTransition;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
@@ -56,36 +52,17 @@ import com.google.devtools.build.lib.util.OsUtils;
 public class CppRuleClasses {
   /**
    * Implementation for the :lipo_context_collector attribute.
+   *
+   * <p>This attribute connects a target to the LIPO context target configured with the lipo input
+   * collector configuration.
    */
-  public static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT_COLLECTOR =
-      new LateBoundLabel<BuildConfiguration>() {
-    @Override
-    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-      // This attribute connects a target to the LIPO context target configured with the
-      // lipo input collector configuration.
-      CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
-      return cppConfiguration.isLipoOptimization() ? cppConfiguration.getLipoContextLabel() : null;
-    }
-  };
-
-  /**
-   * Configuration transitions required by LIPO.
-   */
-  public enum LipoTransition implements Transition {
-    /**
-     * LIPO context collector.
-     *
-     * <p>This configuration transition leads into a configuration that is used for collecting
-     * C++ compilation contexts for LIPO builds so that e.g. an include path entry required by an
-     * inlined function is there when the place is compiled where it is inlined at.
-     */
-    LIPO_COLLECTOR,
-
-    /**
-     * Transition used for switching back to the LIPO-optimized configuration.
-     */
-    TARGET_CONFIG_FOR_LIPO;
-  }
+  public static final LateBoundDefault<?, Label> LIPO_CONTEXT_COLLECTOR =
+      LateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          // TODO(b/69548520): Remove call to isLipoOptimization
+          (rule, attributes, cppConfig) ->
+              cppConfig.isLipoOptimization() ? cppConfig.getLipoContextLabel() : null);
 
   /**
    * Declares the implementations for C++ transition enums.
@@ -94,8 +71,7 @@ public class CppRuleClasses {
    */
   public static final ImmutableMap<Transition, Transition> DYNAMIC_TRANSITIONS_MAP =
       ImmutableMap.of(
-          Attribute.ConfigurationTransition.DATA, DisableLipoTransition.INSTANCE,
-          LipoTransition.LIPO_COLLECTOR, LipoContextCollectorTransition.INSTANCE
+          Attribute.ConfigurationTransition.DATA, DisableLipoTransition.INSTANCE
       );
 
 
@@ -112,23 +88,20 @@ public class CppRuleClasses {
    */
   public static final String CROSSTOOL_LABEL = "//tools/cpp:toolchain";
 
-  public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).customMalloc();
-        }
-      };
+  public static final LateBoundDefault<?, Label> DEFAULT_MALLOC =
+      LateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class, null, (rule, attributes, cppConfig) -> cppConfig.customMalloc());
 
-  public static LateBoundLabel<BuildConfiguration> ccToolchainAttribute(
+  public static LateBoundDefault<CppConfiguration, Label> ccToolchainAttribute(
       RuleDefinitionEnvironment env) {
-    return new LateBoundLabel<BuildConfiguration>(
-        env.getToolsLabel(CROSSTOOL_LABEL), CppConfiguration.class) {
-      @Override
-      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-        return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
-      }
-    };
+    return LateBoundDefault.fromTargetConfiguration(
+        CppConfiguration.class,
+        env.getToolsLabel(CROSSTOOL_LABEL),
+        (rules, attributes, cppConfig) -> cppConfig.getCcToolchainRuleLabel());
+  }
+
+  public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
+    return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
   }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
@@ -188,6 +161,13 @@ public class CppRuleClasses {
    * randomization of symbol names that are in the anonymous namespace but have external linkage.
    */
   public static final String RANDOM_SEED = "random_seed";
+
+  /**
+   * A string constant for the compile_action_flags_in_flag_set feature. This feature is just a
+   * transitional feature which helps telling whether -c and -o options are already in flag_set of
+   * action_config in CROSSTOOL file. Once the transition is done, it should be removed.
+   */
+  public static final String COMPILE_ACTION_FLAGS_IN_FLAG_SET = "compile_action_flags_in_flag_set";
 
   /**
    * A string constant for the dependency_file feature. This feature generates the .d file.
@@ -294,6 +274,9 @@ public class CppRuleClasses {
    */
   public static final String PREPROCESSOR_DEFINES = "preprocessor_defines";
 
+  /** A string constant for the includes feature. */
+  public static final String INCLUDES = "includes";
+
   /**
    * A string constant for the include_paths feature.
    */
@@ -305,10 +288,51 @@ public class CppRuleClasses {
   public static final String THIN_LTO = "thin_lto";
 
   /**
+   * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
+   * with ThinLTO.
+   */
+  public static final String THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS =
+      "thin_lto_linkstatic_tests_use_shared_nonlto_backends";
+
+  /**
    * A string constant for the PDB file generation feature, should only be used for toolchains
    * targeting Windows that include a linker producing PDB files
    */
   public static final String GENERATE_PDB_FILE = "generate_pdb_file";
+
+  /**
+   * A string constant for a feature that automatically exporting symbols on Windows. Bazel
+   * generates a DEF file for object files of a cc_library, then use it at linking time. This
+   * feature should only be used for toolchains targeting Windows, and the toolchain should support
+   * using DEF files for exporting symbols.
+   */
+  public static final String WINDOWS_EXPORT_ALL_SYMBOLS = "windows_export_all_symbols";
+
+  /** A string constant for a feature to disable WINDOWS_EXPORT_ALL_SYMBOLS. */
+  public static final String NO_WINDOWS_EXPORT_ALL_SYMBOLS = "no_windows_export_all_symbols";
+
+  /** A string constant for a feature to copy dynamic libraries to the binary's directory. */
+  public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY = "copy_dynamic_libraries_to_binary";
+
+  /** A string constant for a feature to statically link MSVCRT info on Windows. */
+  public static final String STATIC_LINK_MSVCRT = "static_link_msvcrt";
+
+  /** A string constant for a feature to statically link MSVCRT without debug info on Windows. */
+  public static final String STATIC_LINK_MSVCRT_NO_DEBUG = "static_link_msvcrt_no_debug";
+
+  /** A string constant for a feature to dynamically link MSVCRT without debug info on Windows. */
+  public static final String DYNAMIC_LINK_MSVCRT_NO_DEBUG = "dynamic_link_msvcrt_no_debug";
+
+  /** A string constant for a feature to statically link MSVCRT with debug info on Windows. */
+  public static final String STATIC_LINK_MSVCRT_DEBUG = "static_link_msvcrt_debug";
+
+  /** A string constant for a feature to dynamically link MSVCRT with debug info on Windows. */
+  public static final String DYNAMIC_LINK_MSVCRT_DEBUG = "dynamic_link_msvcrt_debug";
+
+  /**
+   * A string constant for a feature that indicates we are using a toolchain building for Windows.
+   */
+  public static final String TARGETS_WINDOWS = "targets_windows";
 
   /**
    * A string constant for no_stripping feature, if it's specified, then no strip action config is
@@ -351,6 +375,6 @@ public class CppRuleClasses {
   /** Produce artifacts for coverage in gcc coverage mapping format. */
   public static final String GCC_COVERAGE_MAP_FORMAT = "gcc_coverage_map_format";
 
-  /** A string constant for the match-clif feature. */
+  /** A string constant for the match-clif action. */
   public static final String MATCH_CLIF = "match_clif";
 }

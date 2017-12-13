@@ -16,9 +16,12 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -27,7 +30,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BaseSpawn;
@@ -42,6 +47,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -49,12 +55,13 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CompileTimeConstant;
@@ -63,6 +70,7 @@ import com.google.errorprone.annotations.FormatString;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +109,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   private final ImmutableMap<String, String> executionInfo;
 
   private final ExtraActionInfoSupplier<?> extraActionInfoSupplier;
+
+  @Nullable private final PlatformInfo executionPlatform;
 
   /**
    * Constructs a SpawnAction using direct initialization arguments.
@@ -147,6 +157,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         EmptyRunfilesSupplier.INSTANCE,
         mnemonic,
         false,
+        null,
         null);
   }
 
@@ -188,7 +199,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean executeUnconditionally,
-      ExtraActionInfoSupplier<?> extraActionInfoSupplier) {
+      ExtraActionInfoSupplier<?> extraActionInfoSupplier,
+      @Nullable PlatformInfo executionPlatform) {
     super(owner, tools, inputs, runfilesSupplier, outputs, env);
     this.resourceSet = resourceSet;
     this.executionInfo = executionInfo;
@@ -198,6 +210,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     this.mnemonic = mnemonic;
     this.executeUnconditionally = executeUnconditionally;
     this.extraActionInfoSupplier = extraActionInfoSupplier;
+    this.executionPlatform = executionPlatform;
   }
 
   @Override
@@ -253,17 +266,17 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    *
    * <p>Called by {@link #execute}.
    */
-  protected void internalExecute(ActionExecutionContext actionExecutionContext)
+  protected List<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, CommandLineExpansionException {
-    getContext(actionExecutionContext)
+    return getContext(actionExecutionContext)
         .exec(getSpawn(actionExecutionContext.getClientEnv()), actionExecutionContext);
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
-      internalExecute(actionExecutionContext);
+      return ActionResult.create(internalExecute(actionExecutionContext));
     } catch (ExecException e) {
       String failMessage;
       if (isShellCommand()) {
@@ -326,7 +339,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @Override
-  protected String computeKey() throws CommandLineExpansionException {
+  protected String computeKey(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
     f.addStrings(argv.arguments());
@@ -391,8 +405,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @Override
-  public ExtraActionInfo.Builder getExtraActionInfo() throws CommandLineExpansionException {
-    ExtraActionInfo.Builder builder = super.getExtraActionInfo();
+  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
+      throws CommandLineExpansionException {
+    ExtraActionInfo.Builder builder = super.getExtraActionInfo(actionKeyContext);
     if (extraActionInfoSupplier == null) {
       SpawnInfo spawnInfo = getExtraActionSpawnInfo();
       return builder
@@ -451,13 +466,18 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     return actionExecutionContext.getSpawnActionContext(getMnemonic());
   }
 
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform() {
+    return executionPlatform;
+  }
+
   /**
    * A spawn instance that is tied to a specific SpawnAction.
    */
   public class ActionSpawn extends BaseSpawn {
 
-    private final List<Artifact> filesets = new ArrayList<>();
-
+    private final ImmutableList<Artifact> filesets;
     private final ImmutableMap<String, String> effectiveEnvironment;
 
     /**
@@ -474,11 +494,13 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           SpawnAction.this.getRunfilesSupplier(),
           SpawnAction.this,
           resourceSet);
+      ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
       for (Artifact input : getInputs()) {
         if (input.isFileset()) {
-          filesets.add(input);
+          builder.add(input);
         }
       }
+      filesets = builder.build();
       LinkedHashMap<String, String> env = new LinkedHashMap<>(SpawnAction.this.getEnvironment());
       if (clientEnv != null) {
         for (String var : SpawnAction.this.getClientEnvironmentVariables()) {
@@ -500,17 +522,68 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
     @Override
     public ImmutableList<Artifact> getFilesetManifests() {
-      return ImmutableList.copyOf(filesets);
+      return filesets;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Iterable<? extends ActionInput> getInputFiles() {
-      // Remove Fileset directories in inputs list. Instead, these are
-      // included as manifests in getEnvironment().
-      List<Artifact> inputs = Lists.newArrayList(getInputs());
-      inputs.removeAll(filesets);
-      inputs.removeAll(this.getRunfilesSupplier().getManifests());
-      return inputs;
+      Iterable<? extends ActionInput> inputs = getInputs();
+      ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
+      if (filesets.isEmpty() && manifests.isEmpty()) {
+        return inputs;
+      }
+      // TODO(buchgr): These optimizations shouldn't exists. Instead getInputFiles() should
+      // directly return a NestedSet. In order to do this, rules need to be updated to
+      // provide inputs as nestedsets and store manifest files and filesets separately.
+      if (inputs instanceof NestedSet) {
+        return new FilesetAndManifestFilteringNestedSetView<>(
+            (NestedSet<ActionInput>) inputs, filesets, manifests);
+      } else {
+        return new FilesetAndManifestFilteringIterable<>(inputs, filesets, manifests);
+      }
+    }
+  }
+
+  /**
+   * Remove Fileset directories in inputs list. Instead, these are included as manifests in
+   * getEnvironment().
+   */
+  private static class FilesetAndManifestFilteringIterable<E> implements Iterable<E> {
+
+    private final Iterable<E> inputs;
+    private final ImmutableSet<Artifact> exclude;
+
+    FilesetAndManifestFilteringIterable(
+        Iterable<E> inputs, ImmutableList<Artifact> filesets, ImmutableList<Artifact> manifests) {
+      this.inputs = inputs;
+      this.exclude = ImmutableSet.<Artifact>builder().addAll(filesets).addAll(manifests).build();
+    }
+
+    @Override
+    public Iterator<E> iterator() {
+      return Iterators.filter(inputs.iterator(), (e) -> !exclude.contains(e));
+    }
+  }
+
+  /**
+   * The same as {@link FilesetAndManifestFilteringIterable} but retains the information that this
+   * the input files are stored as NestedSets.
+   */
+  private static class FilesetAndManifestFilteringNestedSetView<E> extends NestedSetView<E>
+      implements Iterable<E> {
+
+    private final FilesetAndManifestFilteringIterable<E> filteredInputs;
+
+    FilesetAndManifestFilteringNestedSetView(
+        NestedSet<E> set, ImmutableList<Artifact> filesets, ImmutableList<Artifact> manifests) {
+      super(set);
+      this.filteredInputs = new FilesetAndManifestFilteringIterable<E>(set, filesets, manifests);
+    }
+
+    @Override
+    public Iterator<E> iterator() {
+      return filteredInputs.iterator();
     }
   }
 
@@ -550,6 +623,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private String mnemonic = "Unknown";
     protected ExtraActionInfoSupplier<?> extraActionInfoSupplier = null;
     private boolean disableSandboxing = false;
+    @Nullable private PlatformInfo executionPlatform;
 
     /**
      * Creates a SpawnAction builder.
@@ -577,6 +651,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       this.commandLines = Lists.newArrayList(other.commandLines);
       this.progressMessage = other.progressMessage;
       this.mnemonic = other.mnemonic;
+      this.executionPlatform = other.executionPlatform;
     }
 
     /**
@@ -745,7 +820,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           progressMessage,
           new CompositeRunfilesSupplier(
               Iterables.concat(this.inputRunfilesSuppliers, this.toolRunfilesSuppliers)),
-          mnemonic);
+          mnemonic,
+          executionPlatform);
     }
 
     /**
@@ -776,7 +852,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
-        String mnemonic) {
+        String mnemonic,
+        PlatformInfo executionPlatform) {
       return new SpawnAction(
           owner,
           tools,
@@ -791,7 +868,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           runfilesSupplier,
           mnemonic,
           executeUnconditionally,
-          extraActionInfoSupplier);
+          extraActionInfoSupplier,
+          executionPlatform);
     }
 
     private ImmutableList<String> buildExecutableArgs(
@@ -1293,6 +1371,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       this.disableSandboxing = true;
       return this;
     }
+
+    public Builder setExecutionPlatform(@Nullable PlatformInfo executionPlatform) {
+      this.executionPlatform = executionPlatform;
+      return this;
+    }
   }
 
   /**
@@ -1327,8 +1410,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           result.add((String) value);
         } else if (value instanceof Artifact) {
           Artifact paramFile = (Artifact) value;
-          String flag = (String) values[++i];
-          result.add(flag + paramFile.getExecPathString());
+          String flagFormatString = (String) values[++i];
+          result.add(flagFormatString.replaceFirst("%s", paramFile.getExecPathString()));
         } else if (value instanceof CommandLine) {
           CommandLine commandLine = (CommandLine) value;
           if (artifactExpander != null) {
@@ -1351,7 +1434,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
       Builder addParamFile(Artifact paramFile, ParamFileInfo paramFileInfo) {
         values.add(paramFile);
-        values.add(paramFileInfo.getFlag());
+        values.add(paramFileInfo.getFlagFormatString());
         return this;
       }
 

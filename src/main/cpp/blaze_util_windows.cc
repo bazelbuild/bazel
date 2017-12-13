@@ -57,6 +57,7 @@ static_assert(sizeof(wchar_t) == sizeof(WCHAR),
 // Add 4 characters for potential UNC prefix and a couple more for safety.
 static const size_t kWindowsPathBufferSize = 0x8010;
 
+using bazel::windows::AutoAttributeList;
 using bazel::windows::AutoHandle;
 using bazel::windows::CreateJunction;
 
@@ -501,9 +502,9 @@ class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
 };
 
 
-void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
-                   const string& daemon_output, const string& server_dir,
-                   BlazeServerStartup** server_startup) {
+int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+                  const string& daemon_output, const string& server_dir,
+                  BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
   if (!blaze_util::AsAbsoluteWindowsPath(daemon_output, &wdaemon_output)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -551,13 +552,27 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   }
   AutoHandle stderr_file(stderr_handle);
 
-  PROCESS_INFORMATION processInfo = {0};
-  STARTUPINFOA startupInfo = {0};
+  // Create an attribute list with length of 1
+  AutoAttributeList lpAttributeList(1);
 
-  startupInfo.hStdInput = devnull;
-  startupInfo.hStdError = stdout_file;
-  startupInfo.hStdOutput = stderr_handle;
-  startupInfo.dwFlags |= STARTF_USESTDHANDLES;
+  HANDLE handlesToInherit[2] = {stdout_file, stderr_handle};
+  if (!UpdateProcThreadAttribute(
+          lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+          handlesToInherit, 2 * sizeof(HANDLE), NULL, NULL)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "ExecuteDaemon(%s): UpdateProcThreadAttribute", exe.c_str());
+  }
+
+  PROCESS_INFORMATION processInfo = {0};
+  STARTUPINFOEXA startupInfoEx = {0};
+
+  startupInfoEx.StartupInfo.cb = sizeof(startupInfoEx);
+  startupInfoEx.StartupInfo.hStdInput = devnull;
+  startupInfoEx.StartupInfo.hStdOutput = stdout_file;
+  startupInfoEx.StartupInfo.hStdError = stderr_handle;
+  startupInfoEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+  startupInfoEx.lpAttributeList = lpAttributeList;
+
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
 
@@ -567,10 +582,11 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
       /* lpProcessAttributes */ NULL,
       /* lpThreadAttributes */ NULL,
       /* bInheritHandles */ TRUE,
-      /* dwCreationFlags */ DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+      /* dwCreationFlags */ DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP |
+          EXTENDED_STARTUPINFO_PRESENT,
       /* lpEnvironment */ NULL,
       /* lpCurrentDirectory */ NULL,
-      /* lpStartupInfo */ &startupInfo,
+      /* lpStartupInfo */ &startupInfoEx.StartupInfo,
       /* lpProcessInformation */ &processInfo);
 
   if (!ok) {
@@ -593,23 +609,14 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   // Don't close processInfo.hProcess here, it's now owned by the
   // ProcessHandleBlazeServerStartup instance.
   CloseHandle(processInfo.hThread);
+
+  return processInfo.dwProcessId;
 }
 
-// Returns whether assigning the given process to a job failed because nested
-// jobs are not available on the current system.
-static bool IsFailureDueToNestedJobsNotSupported(HANDLE process) {
-  BOOL is_in_job;
-  if (!IsProcessInJob(process, NULL, &is_in_job)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "IsFailureDueToNestedJobsNotSupported: IsProcessInJob");
-    return false;
-  }
-
-  if (!is_in_job) {
-    // Not in a job.
-    return false;
-  }
-  return !IsWindows8OrGreater();
+// Returns whether nested jobs are not available on the current system.
+static bool NestedJobsSupported() {
+  // Nested jobs are supported from Windows 8
+  return IsWindows8OrGreater();
 }
 
 // Run the given program in the current working directory, using the given
@@ -624,20 +631,23 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
 
   PROCESS_INFORMATION processInfo = {0};
 
-  HANDLE job = CreateJobObject(NULL, NULL);
-  if (job == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "ExecuteProgram(%s): CreateJobObject", exe.c_str());
-  }
+  HANDLE job = INVALID_HANDLE_VALUE;
+  if (NestedJobsSupported()) {
+    job = CreateJobObject(NULL, NULL);
+    if (job == NULL) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "ExecuteProgram(%s): CreateJobObject", exe.c_str());
+    }
 
-  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
-  job_info.BasicLimitInformation.LimitFlags =
-      JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
+    job_info.BasicLimitInformation.LimitFlags =
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 
-  if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
-                               &job_info, sizeof(job_info))) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "ExecuteProgram(%s): SetInformationJobObject", exe.c_str());
+    if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
+                                 &job_info, sizeof(job_info))) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "ExecuteProgram(%s): SetInformationJobObject", exe.c_str());
+    }
   }
 
   BOOL success = CreateProcessA(
@@ -657,18 +667,23 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
          "ExecuteProgram(%s): CreateProcess(%s)", exe.c_str(), cmdline.cmdline);
   }
 
-  // We will try to put the launched process into a Job object. This will make
-  // Windows reliably kill all child processes that the process itself may
-  // launch once the process exits. On Windows systems that don't support nested
-  // jobs, this may fail if we are already running inside a job ourselves. In
-  // this case, we'll continue anyway, because we assume that our parent is
-  // handling process management for us.
-  if (!AssignProcessToJobObject(job, processInfo.hProcess) &&
-      !IsFailureDueToNestedJobsNotSupported(processInfo.hProcess)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "ExecuteProgram(%s): AssignProcessToJobObject", exe.c_str());
+  // On Windows versions that support nested jobs (Windows 8 and above), we
+  // assign the Bazel server to a job object. Every process that Bazel creates,
+  // as well as all their child processes, will be assigned to this job object.
+  // When the Bazel server terminates the OS can reliably kill the entire
+  // process tree under it. On Windows versions that don't support nested jobs
+  // (Windows 7), we don't assign the Bazel server to a big job object. Instead,
+  // when Bazel creates new processes, it does so using the JNI library. The
+  // library assigns individual job objects to each subprocess. This way when
+  // these processes terminate, the OS can kill all their subprocesses. Bazel's
+  // own subprocesses are not in a job object though, so we only create
+  // subprocesses via the JNI library.
+  if (job != INVALID_HANDLE_VALUE) {
+    if (!AssignProcessToJobObject(job, processInfo.hProcess)) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "ExecuteProgram(%s): AssignProcessToJobObject", exe.c_str());
+    }
   }
-
   // Now that we potentially put the process into a new job object, we can start
   // running it.
   if (ResumeThread(processInfo.hThread) == -1) {
@@ -732,9 +747,9 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
          posix_target.c_str(), posix_name.c_str(), posix_name.c_str());
     return false;
   }
-  string error(CreateJunction(name, target));
+  wstring error(CreateJunction(name, target));
   if (!error.empty()) {
-    blaze_util::PrintError("SymlinkDirectories(%s, %s): CreateJunction: %s",
+    blaze_util::PrintError("SymlinkDirectories(%s, %s): CreateJunction: %S",
                            posix_target.c_str(), posix_name.c_str(),
                            error.c_str());
     return false;

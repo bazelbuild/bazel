@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.util.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -42,9 +42,6 @@ import java.util.function.Supplier;
  * {@link #reset()} manually.
  */
 public final class Chunker {
-
-  private static final Chunk EMPTY_CHUNK =
-      new Chunk(Digests.computeDigest(new byte[0]), ByteString.EMPTY, 0);
 
   private static int defaultChunkSize = 1024 * 16;
 
@@ -106,6 +103,7 @@ public final class Chunker {
   private final Supplier<InputStream> dataSupplier;
   private final Digest digest;
   private final int chunkSize;
+  private final Chunk emptyChunk;
 
   private InputStream data;
   private long offset;
@@ -115,12 +113,12 @@ public final class Chunker {
   // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
 
-  public Chunker(byte[] data) throws IOException {
-    this(data, getDefaultChunkSize());
+  public Chunker(byte[] data, DigestUtil digestUtil) throws IOException {
+    this(data, getDefaultChunkSize(), digestUtil);
   }
 
-  public Chunker(byte[] data, int chunkSize) throws IOException {
-    this(() -> new ByteArrayInputStream(data), Digests.computeDigest(data), chunkSize);
+  public Chunker(byte[] data, int chunkSize, DigestUtil digestUtil) throws IOException {
+    this(() -> new ByteArrayInputStream(data), digestUtil.compute(data), chunkSize, digestUtil);
   }
 
   public Chunker(Path file) throws IOException {
@@ -128,38 +126,52 @@ public final class Chunker {
   }
 
   public Chunker(Path file, int chunkSize) throws IOException {
-    this(() -> {
-      try {
-        return file.getInputStream();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    }, Digests.computeDigest(file), chunkSize);
+    this(
+        () -> {
+          try {
+            return file.getInputStream();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        },
+        new DigestUtil(file.getFileSystem().getDigestFunction()).compute(file),
+        chunkSize,
+        new DigestUtil(file.getFileSystem().getDigestFunction()));
   }
 
-  public Chunker(ActionInput actionInput, MetadataProvider inputCache, Path execRoot) throws
-      IOException{
-    this(actionInput, inputCache, execRoot, getDefaultChunkSize());
-  }
-
-  public Chunker(ActionInput actionInput, MetadataProvider inputCache, Path execRoot,
-      int chunkSize)
+  public Chunker(
+      ActionInput actionInput, MetadataProvider inputCache, Path execRoot, DigestUtil digestUtil)
       throws IOException {
-    this(() -> {
-      try {
-        return execRoot.getRelative(actionInput.getExecPathString()).getInputStream();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    }, Digests.getDigestFromInputCache(actionInput, inputCache), chunkSize);
+    this(actionInput, inputCache, execRoot, getDefaultChunkSize(), digestUtil);
+  }
+
+  public Chunker(
+      ActionInput actionInput,
+      MetadataProvider inputCache,
+      Path execRoot,
+      int chunkSize,
+      DigestUtil digestUtil)
+      throws IOException {
+    this(
+        () -> {
+          try {
+            return execRoot.getRelative(actionInput.getExecPathString()).getInputStream();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        },
+        DigestUtil.getFromInputCache(actionInput, inputCache),
+        chunkSize,
+        digestUtil);
   }
 
   @VisibleForTesting
-  Chunker(Supplier<InputStream> dataSupplier, Digest digest, int chunkSize)
+  Chunker(Supplier<InputStream> dataSupplier, Digest digest, int chunkSize, DigestUtil digestUtil)
       throws IOException {
     this.dataSupplier = checkNotNull(dataSupplier);
     this.digest = checkNotNull(digest);
     this.chunkSize = chunkSize;
+    this.emptyChunk = new Chunk(digestUtil.compute(new byte[0]), ByteString.EMPTY, 0);
   }
 
   public Digest digest() {
@@ -206,7 +218,7 @@ public final class Chunker {
 
     if (digest.getSizeBytes() == 0) {
       data = null;
-      return EMPTY_CHUNK;
+      return emptyChunk;
     }
 
     // The cast to int is safe, because the return value is capped at chunkSize.

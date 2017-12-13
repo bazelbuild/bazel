@@ -14,14 +14,27 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -219,5 +232,94 @@ public class CircularDependencyTest extends BuildViewTestCase {
     getConfiguredTarget("//x:a");
     assertContainsEvent("cycle in dependency graph");
     assertContainsEvent("//x:c with aspect //x:x.bzl%rule_aspect");
+  }
+
+  /** A late bound dependency which depends on the 'dep' label if the 'define' is in --defines. */
+  // TODO(b/65746853): provide a way to do this without passing the entire configuration
+  private static final LateBoundDefault<BuildConfiguration, Label> LATE_BOUND_DEP =
+      LateBoundDefault.fromTargetConfiguration(
+          BuildConfiguration.class,
+          null,
+          (rule, attributes, config) ->
+              config.getCommandLineBuildVariables().containsKey(attributes.get("define", STRING))
+                  ? attributes.get("dep", NODEP_LABEL)
+                  : null);
+
+  /** A rule which always depends on the given label. */
+  private static final MockRule NORMAL_DEPENDER =
+      () -> MockRule.define("normal_dep", attr("dep", LABEL).allowedFileTypes());
+
+  /** A rule which depends on a given label only if the given define is set. */
+  private static final MockRule LATE_BOUND_DEPENDER =
+      () ->
+          MockRule.define(
+              "late_bound_dep",
+              attr("define", STRING).mandatory(),
+              attr("dep", NODEP_LABEL).mandatory(),
+              attr(":late_bound_dep", LABEL).value(LATE_BOUND_DEP));
+
+  /** A rule which removes a define from the configuration of its dependency. */
+  private static final MockRule DEFINE_CLEARER =
+      () ->
+          MockRule.define(
+              "define_clearer",
+              attr("define", STRING).mandatory(),
+              attr("dep", LABEL)
+                  .mandatory()
+                  .allowedFileTypes()
+                  .cfg(
+                      (AttributeMap map) ->
+                          (BuildOptions options) -> {
+                            String define = map.get("define", STRING);
+                            BuildOptions newOptions = options.clone();
+                            BuildConfiguration.Options optionsFragment =
+                                newOptions.get(BuildConfiguration.Options.class);
+                            optionsFragment.commandLineBuildVariables =
+                                optionsFragment
+                                    .commandLineBuildVariables
+                                    .stream()
+                                    .filter((pair) -> !pair.getKey().equals(define))
+                                    .collect(toImmutableList());
+                            return ImmutableList.of(newOptions);
+                          }));
+
+  @Override
+  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder =
+        new ConfiguredRuleClassProvider.Builder()
+            .addRuleDefinition(NORMAL_DEPENDER)
+            .addRuleDefinition(LATE_BOUND_DEPENDER)
+            .addRuleDefinition(DEFINE_CLEARER);
+    TestRuleClassProvider.addStandardRules(builder);
+    return builder.build();
+  }
+
+  @Test
+  public void testLateBoundTargetCycleNotConfiguredTargetCycle() throws Exception {
+    // Target graph: //a -> //b -?> //c -> //a (loop)
+    // Configured target graph: //a -> //b -> //c -> //a (2) -> //b (2)
+    scratch.file("a/BUILD", "normal_dep(name = 'a', dep = '//b')");
+    scratch.file("b/BUILD", "late_bound_dep(name = 'b', dep = '//c', define = 'CYCLE_ON')");
+    scratch.file("c/BUILD", "define_clearer(name = 'c', dep = '//a', define = 'CYCLE_ON')");
+
+    useConfiguration("--define=CYCLE_ON=yes");
+    getConfiguredTarget("//a");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testSelectTargetCycleNotConfiguredTargetCycle() throws Exception {
+    // Target graph: //a -> //b -?> //c -> //a (loop)
+    // Configured target graph: //a -> //b -> //c -> //a (2) -> //b (2) -> //b:stop (2)
+    scratch.file("a/BUILD", "normal_dep(name = 'a', dep = '//b')");
+    scratch.file("b/BUILD",
+        "config_setting(name = 'cycle', define_values = {'CYCLE_ON': 'yes'})",
+        "normal_dep(name = 'stop')",
+        "normal_dep(name = 'b', dep = select({':cycle': '//c', '//conditions:default': ':stop'}))");
+    scratch.file("c/BUILD", "define_clearer(name = 'c', dep = '//a', define = 'CYCLE_ON')");
+
+    useConfiguration("--define=CYCLE_ON=yes");
+    getConfiguredTarget("//a");
+    assertNoEvents();
   }
 }

@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
@@ -26,11 +26,15 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,7 +58,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         "apple_binary(",
         "  name = 'opl_binary',",
         "  deps = [':opl_protobuf'],",
-        "  platform_type = 'tvos'",
+        "  platform_type = 'ios'",
         ")",
         "objc_library(",
         "  name = 'non_strict_lib',",
@@ -64,11 +68,6 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         "objc_library(",
         "  name = 'strict_lib',",
         "  deps = [':opl_protobuf'],",
-        ")",
-        "",
-        "objc_proto_library(",
-        "  name = 'opl',",
-        "  deps = [':protolib'],",
         ")",
         "",
         "objc_proto_library(",
@@ -92,10 +91,6 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         "  portable_proto_filters = [",
         "    'proto_filter.txt',",
         "  ],",
-        ")",
-        "objc_proto_library(",
-        "  name = 'opl_well_known_types',",
-        "  deps = [':protolib_well_known_types'],",
         ")",
         "",
         "filegroup(",
@@ -142,7 +137,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         "proto_library(",
         "  name = 'protolib_well_known_types',",
         "  srcs = ['file_a.proto'],",
-        "  deps = ['//objcproto:well_known_type_proto'],",
+        "  deps = ['" + TestConstants.TOOLS_REPOSITORY + "//objcproto:well_known_type_proto'],",
         ")",
         "",
         "genrule(",
@@ -156,7 +151,6 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         "  srcs = ['file_a_genfile.proto'],",
         "  deps = ['//dep:dep_lib'],",
         ")",
-        "",
         "objc_proto_library(",
         "  name = 'gen_opl',",
         "  deps = [':gen_protolib'],",
@@ -176,19 +170,6 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testOutputs() throws Exception {
-    NestedSet<Artifact> filesToBuild = getFilesToBuild(getConfiguredTarget("//package:opl"));
-    assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAllOf(
-            "package/libopl.a",
-            "package/_generated_protos/opl/package/FileA.pb.h",
-            "package/_generated_protos/opl/package/FileA.pb.m",
-            "package/_generated_protos/opl/package/dir/FileB.pb.h",
-            "package/_generated_protos/opl/package/dir/FileB.pb.m",
-            "package/_generated_protos/opl/dep/File.pb.h");
-  }
-
-  @Test
-  public void testOutputsProtobuf() throws Exception {
     NestedSet<Artifact> filesToBuild =
         getFilesToBuild(getConfiguredTarget("//package:opl_protobuf"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
@@ -201,20 +182,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testOutputsWithAutoUnionExperiment() throws Exception {
-    NestedSet<Artifact> filesToBuild = getFilesToBuild(getConfiguredTarget("//package:opl"));
-    assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAllOf(
-            "package/libopl.a",
-            "package/_generated_protos/opl/package/FileA.pb.h",
-            "package/_generated_protos/opl/package/FileA.pb.m",
-            "package/_generated_protos/opl/package/dir/FileB.pb.h",
-            "package/_generated_protos/opl/package/dir/FileB.pb.m",
-            "package/_generated_protos/opl/dep/File.pb.h");
-  }
-
-  @Test
-  public void testDependingOnProtobufObjcProtoLibrary() throws Exception {
+  public void testDependingObjcProtoLibrary() throws Exception {
     NestedSet<Artifact> filesToBuild = getFilesToBuild(getConfiguredTarget("//package:nested_opl"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
         .containsAllOf(
@@ -225,7 +193,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testOutputsProtobufWithAutoUnionExperiment() throws Exception {
+  public void testOutputsWithAutoUnion() throws Exception {
     NestedSet<Artifact> filesToBuild =
         getFilesToBuild(getConfiguredTarget("//package:opl_protobuf"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
@@ -240,31 +208,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testPB2GeneratedFileNames() throws Exception {
-    NestedSet<Artifact> filesToBuild =
-        getFilesToBuild(getConfiguredTarget("//package:opl_pb2_special_names"));
-    assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAllOf(
-            "package/_generated_protos/opl_pb2_special_names/package/J2ObjcDescriptor.pb.h",
-            "package/_generated_protos/opl_pb2_special_names/package/J2ObjcDescriptor.pb.m",
-            "package/_generated_protos/opl_pb2_special_names/package/Http.pb.h",
-            "package/_generated_protos/opl_pb2_special_names/package/Http.pb.m",
-            "package/_generated_protos/opl_pb2_special_names/package/Https.pb.h",
-            "package/_generated_protos/opl_pb2_special_names/package/Https.pb.m",
-            "package/_generated_protos/opl_pb2_special_names/package/SomeUrlBlah.pb.h",
-            "package/_generated_protos/opl_pb2_special_names/package/SomeUrlBlah.pb.m",
-            "package/_generated_protos/opl_pb2_special_names/package/ThumbnailUrl.pb.h",
-            "package/_generated_protos/opl_pb2_special_names/package/ThumbnailUrl.pb.m",
-            "package/_generated_protos/opl_pb2_special_names/package/Url.pb.h",
-            "package/_generated_protos/opl_pb2_special_names/package/Url.pb.m",
-            "package/_generated_protos/opl_pb2_special_names/package/Url2Https.pb.h",
-            "package/_generated_protos/opl_pb2_special_names/package/Url2Https.pb.m",
-            "package/_generated_protos/opl_pb2_special_names/package/Urlbar.pb.h",
-            "package/_generated_protos/opl_pb2_special_names/package/Urlbar.pb.m");
-  }
-
-  @Test
-  public void testProtobufGeneratedFileNames() throws Exception {
+  public void testGeneratedFileNames() throws Exception {
     NestedSet<Artifact> filesToBuild =
         getFilesToBuild(getConfiguredTarget("//package:opl_protobuf_special_names"));
     String outputPath = "package/_generated_protos/opl_protobuf_special_names/package/";
@@ -289,21 +233,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testOutputsPB2WithWellKnownTypes() throws Exception {
-    NestedSet<Artifact> filesToBuild =
-        getFilesToBuild(getConfiguredTarget("//package:opl_well_known_types"));
-    assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsAllOf(
-            "package/_generated_protos/opl_well_known_types/package/FileA.pb.h",
-            "package/_generated_protos/opl_well_known_types/package/FileA.pb.m");
-    assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .containsNoneOf(
-            "package/_generated_protos/opl_well_known_types/objcproto/WellKnownType.pb.h",
-            "package/_generated_protos/opl_well_known_types/objcproto/WellKnownType.pb.m");
-  }
-
-  @Test
-  public void testOutputsProtobufWithWellKnownTypes() throws Exception {
+  public void testOutputsWithWellKnownTypes() throws Exception {
     NestedSet<Artifact> filesToBuild =
         getFilesToBuild(getConfiguredTarget("//package:opl_protobuf_well_known_types"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
@@ -323,48 +253,12 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     NestedSet<Artifact> filesToBuild = getFilesToBuild(getConfiguredTarget("//package:gen_opl"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
         .containsAllOf(
-            "package/libgen_opl.a",
-            "package/_generated_protos/gen_opl/package/FileAGenfile.pb.h",
-            "package/_generated_protos/gen_opl/package/FileAGenfile.pb.m");
+            "package/_generated_protos/gen_opl/package/FileAGenfile.pbobjc.h",
+            "package/_generated_protos/gen_opl/package/FileAGenfile.pbobjc.m");
   }
 
   @Test
   public void testSourceGenerationAction() throws Exception {
-    Artifact sourceFile =
-        ActionsTestUtil.getFirstArtifactEndingWith(
-            getFilesToBuild(getConfiguredTarget("//package:opl")), "/FileA.pb.m");
-    SpawnAction action = (SpawnAction) getGeneratingAction(sourceFile);
-
-    Artifact inputFileList =
-        ActionsTestUtil.getFirstArtifactEndingWith(action.getInputs(), "/_proto_input_files");
-
-    ImmutableList<String> protoInputs =
-        ImmutableList.of("dep/file.proto", "package/file_a.proto", "package/dir/file_b.proto");
-
-    assertThat(action.getArguments())
-        .containsExactly(
-            "/usr/bin/python",
-            "tools/objc/compile_protos.py",
-            "--input-file-list",
-            inputFileList.getExecPathString(),
-            "--output-dir",
-            // 2x parent directory because the package has one element ("package")
-            sourceFile.getExecPath().getParentDirectory().getParentDirectory().toString(),
-            "--working-dir", ".")
-        .inOrder();
-    assertRequiresDarwin(action);
-    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllOf(
-        "tools/objc/compile_protos.py",
-        "tools/objc/proto_support");
-    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllIn(protoInputs);
-    assertThat(action.getInputs()).contains(inputFileList);
-
-    FileWriteAction inputListAction = (FileWriteAction) getGeneratingAction(inputFileList);
-    assertThat(inputListAction.getFileContents()).isEqualTo(sortedJoin(protoInputs));
-  }
-
-  @Test
-  public void testProtobufSourceGenerationAction() throws Exception {
     Artifact sourceFile =
         ActionsTestUtil.getFirstArtifactEndingWith(
             getFilesToBuild(getConfiguredTarget("//package:opl_protobuf")), "/FileA.pbobjc.m");
@@ -380,7 +274,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     BuildConfiguration topLevelConfig = getAppleCrosstoolConfiguration();
     assertThat(action.getArguments())
         .containsExactly(
-            "tools/objc/protobuf_compiler_wrapper.sh",
+            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/protobuf_compiler_wrapper.sh",
             "--input-file-list",
             inputFileList.getExecPathString(),
             "--output-dir",
@@ -400,9 +294,9 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         .inOrder();
     assertThat(Artifact.toRootRelativePaths(action.getInputs()))
         .containsAllOf(
-            "tools/objc/protobuf_compiler_wrapper.sh",
-            "tools/objc/protobuf_compiler_helper.py",
-            "tools/objc/proto_support");
+            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/protobuf_compiler_wrapper.sh",
+            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/protobuf_compiler_helper.py",
+            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/proto_support");
     assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllIn(protoInputs);
     assertThat(action.getInputs()).contains(inputFileList);
 
@@ -411,7 +305,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testProtobufWithWellKnownTypesProtoListInput() throws Exception {
+  public void testWellKnownTypesProtoListInput() throws Exception {
     Artifact sourceFile =
         ActionsTestUtil.getFirstArtifactEndingWith(
             getFilesToBuild(getConfiguredTarget("//package:opl_protobuf_well_known_types")),
@@ -422,59 +316,19 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         ActionsTestUtil.getFirstArtifactEndingWith(
             action.getInputs(), "/_proto_input_files_BundledProtos_0");
 
-    ImmutableList<String> protoInputs = ImmutableList.of("package/file_a.proto");
+    ImmutableList<String> protoInputs = ImmutableList.of(
+        "package/file_a.proto",
+        TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "objcproto/well_known_type.proto");
 
     assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAllIn(protoInputs);
     assertThat(action.getInputs()).contains(inputFileList);
 
-    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
-        .contains("objcproto/well_known_type.proto");
-
     FileWriteAction inputListAction = (FileWriteAction) getGeneratingAction(inputFileList);
-    assertThat(inputListAction.getFileContents()).isEqualTo(sortedJoin(protoInputs));
+    assertThat(inputListAction.getFileContents()).contains("package/file_a.proto");
   }
 
   @Test
-  public void testUseObjcHeaders() throws Exception {
-     scratch.file("objcheaderpackage/BUILD",
-        "objc_proto_library(",
-        "  name = 'opl',",
-        "  deps = ['//package:protolib'],",
-        "  use_objc_header_names = 1,",
-        ")");
-
-    Artifact sourceFile =
-        ActionsTestUtil.getFirstArtifactEndingWith(
-            getFilesToBuild(getConfiguredTarget("//objcheaderpackage:opl")), "/FileA.pb.m");
-    SpawnAction action = (SpawnAction) getGeneratingAction(sourceFile);
-
-    assertThat(action.getArguments()).contains("--use-objc-header-names");
-
-    NestedSet<Artifact> filesToBuild =
-        getFilesToBuild(getConfiguredTarget("//objcheaderpackage:opl"));
-    assertThat(Artifact.toRootRelativePaths(filesToBuild)).containsAllOf(
-        "objcheaderpackage/_generated_protos/opl/package/FileA.pbobjc.h",
-        "objcheaderpackage/_generated_protos/opl/package/FileA.pb.m",
-        "objcheaderpackage/_generated_protos/opl/package/dir/FileB.pbobjc.h",
-        "objcheaderpackage/_generated_protos/opl/package/dir/FileB.pb.m"
-    );
-  }
-
-  @Test
-  public void testProtobufCompilationAction() throws Exception {
-    useConfiguration("--ios_cpu=i386");
-
-    ConfiguredTarget target = getConfiguredTarget("//package:opl_protobuf");
-    Artifact sourceFile =
-        ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), "/FileA.pbobjc.m");
-    SpawnAction generateAction = (SpawnAction) getGeneratingAction(sourceFile);
-
-    assertThat(generateAction).isNotNull();
-  }
-
-
-  @Test
-  public void testProtobufObjcProviderWithAutoUnionExperiment() throws Exception {
+  public void testObjcProviderWithAutoUnion() throws Exception {
     ConfiguredTarget target = getConfiguredTarget("//package:opl_protobuf");
     Artifact headerFile =
         ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), "/FileA.pbobjc.h");
@@ -487,19 +341,6 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         .doesNotContain(getBinArtifact("libopl_protobuf.a", target));
 
     assertThat(provider.get(ObjcProvider.HEADER).toSet()).contains(headerFile);
-  }
-
-  @Test
-  public void testPerProtoIncludes() throws Exception {
-    ConfiguredTarget target = getConfiguredTarget("//package:opl");
-    Artifact headerFile = ActionsTestUtil.getFirstArtifactEndingWith(
-        getFilesToBuild(target), "/FileA.pb.h");
-
-    ObjcProvider provider = providerForTarget("//package:opl");
-    assertThat(provider.get(ObjcProvider.INCLUDE).toSet()).containsExactly(
-        // 2x parent directory because the package has one element ("package")
-        headerFile.getExecPath().getParentDirectory().getParentDirectory()
-    );
   }
 
   @Test
@@ -520,65 +361,23 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
         ")");
   }
 
-  // This is a test for deprecated functionality.
   @Test
-  public void testErrorForDepWithFilegroupWithoutProtoFiles() throws Exception {
+  public void testErrorForFileInDeps() throws Exception {
+    String expectedError =
+        "filegroup rule '//x:protos' is misplaced here "
+            + "(expected proto_library or objc_proto_library)";
     checkError(
         "x",
         "x",
-        ProtoAttributes.NO_PROTOS_ERROR,
-        "objc_proto_library(",
-        "    name = 'x',",
-        "    deps = [':fg'],",
-        ")",
-        "filegroup(",
-        "    name = 'fg',",
-        "    srcs = ['file.dat'],",
-        ")");
-  }
-
-  @Test
-  public void testWarningForProtoSourceDeps() throws Exception {
-    checkWarning(
-        "x",
-        "x",
-        ProtoAttributes.FILES_DEPRECATED_WARNING,
-        "objc_proto_library(",
-        "    name = 'x',",
-        "    deps = ['foo.proto'],",
-        ")");
-  }
-
-  @Test
-  public void testWarningForFilegroupDeps() throws Exception {
-    checkWarning(
-        "x",
-        "x",
-        ProtoAttributes.FILES_DEPRECATED_WARNING,
-        "filegroup(",
-        "    name = 'protos',",
-        "    srcs = ['foo.proto'],",
-        ")",
+        expectedError,
         "objc_proto_library(",
         "    name = 'x',",
         "    deps = [':protos'],",
+        ")",
+        "filegroup(",
+        "    name = 'protos',",
+        "    srcs = ['file.proto'],",
         ")");
-  }
-
-  @Test
-  public void testObjcCopts() throws Exception {
-    useConfiguration("--objccopt=-foo");
-
-    List<String> args = compileAction("//package:opl", "FileA.pb.o").getArguments();
-    assertThat(args).contains("-foo");
-  }
-
-  @Test
-  public void testObjcCopts_argumentOrdering() throws Exception {
-    useConfiguration("--objccopt=-foo");
-
-    List<String> args = compileAction("//package:opl", "FileA.pb.o").getArguments();
-    assertThat(args).containsAllOf("-fno-objc-arc", "-foo").inOrder();
   }
 
   @Test
@@ -599,85 +398,6 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testErrorWhenDependingOnPB2FromProtobufTarget() throws Exception {
-    checkError(
-        "x",
-        "x",
-        ProtoAttributes.PROTOCOL_BUFFERS2_IN_PROTOBUF_DEPS_ERROR,
-        "objc_proto_library(",
-        "    name = 'x',",
-        "    portable_proto_filters = ['filter.pbascii'],",
-        "    deps = [':pb2', ':protos_b'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'pb2',",
-        "    deps = [':protos_a'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_a',",
-        "    srcs = ['a.proto'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_b',",
-        "    srcs = ['b.proto'],",
-        ")");
-  }
-
-  @Test
-  public void testErrorWhenDependingOnPB2FromPB2Target() throws Exception {
-    checkError(
-        "x",
-        "x",
-        ProtoAttributes.OBJC_PROTO_LIB_DEP_IN_PROTOCOL_BUFFERS2_DEPS_ERROR,
-        "objc_proto_library(",
-        "    name = 'x',",
-        "    deps = [':pb2', ':protos_b'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'pb2',",
-        "    deps = [':protos_a'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_a',",
-        "    srcs = ['a.proto'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_b',",
-        "    srcs = ['b.proto'],",
-        ")");
-  }
-
-  @Test
-  public void testErrorForPortableProtoFiltersWithUseObjcHeaderNames() throws Exception {
-    checkErrorForPortableProtoFilterWithPb2Option("use_objc_header_names = 1");
-  }
-
-  @Test
-  public void testErrorForPortableProtoFiltersWithPerProtoIncludes() throws Exception {
-    checkErrorForPortableProtoFilterWithPb2Option("per_proto_includes = 1");
-  }
-
-  @Test
-  public void testErrorForPortableProtoFiltersWithOptionsFile() throws Exception {
-    checkErrorForPortableProtoFilterWithPb2Option("options_file = 'options_file.txt'");
-  }
-
-  @Test
-  public void testErrorForUsesProtobufWithUseObjcHeaderNames() throws Exception {
-    checkErrorForUsesProtobufWithPb2Option("use_objc_header_names = 1");
-  }
-
-  @Test
-  public void testErrorForUsesProtobufWithPerProtoIncludes() throws Exception {
-    checkErrorForUsesProtobufWithPb2Option("per_proto_includes = 1");
-  }
-
-  @Test
-  public void testErrorForUsesProtobufWithOptionsFile() throws Exception {
-    checkErrorForUsesProtobufWithPb2Option("options_file = 'options_file.txt'");
-  }
-
-  @Test
   public void testModulemapCreatedForNonLinkingTargets() throws Exception {
     checkOnlyLibModuleMapsArePresentForTarget("//package:opl_protobuf");
   }
@@ -687,121 +407,21 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     checkOnlyLibModuleMapsArePresentForTarget("//package:opl_binary");
   }
 
-  @Test
-  public void testErrorForPortableProtoFilterFilesInDeps() throws Exception {
-    checkError(
-        "x",
-        "x",
-        ProtoAttributes.FILES_NOT_ALLOWED_ERROR,
-        "objc_proto_library(",
-        "    name = 'x',",
-        "    portable_proto_filters = ['proto_filter.txt'],",
-        "    deps = [':protos'],",
-        ")",
-        "filegroup(",
-        "    name = 'protos',",
-        "    srcs = ['file.proto'],",
-        ")");
-  }
-
-  @Test
-  public void testErrorForUsesProtobufAsFalseWithFilters() throws Exception {
-    checkError(
-        "x",
-        "x",
-        ProtoAttributes.USES_PROTOBUF_CANT_BE_SPECIFIED_AS_FALSE,
-        "objc_proto_library(",
-        "    name = 'x',",
-        "    uses_protobuf = 0,",
-        "    portable_proto_filters = ['myfilter.pbascii'],",
-        "    deps = [':protos'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos',",
-        "    srcs = ['file.proto'],",
-        ")");
-  }
-
-  private void checkErrorForPortableProtoFilterWithPb2Option(String pb2Option) throws Exception {
-    checkError(
-        "x",
-        "x",
-        ProtoAttributes.PROTOBUF_ATTRIBUTES_NOT_EXCLUSIVE_ERROR,
-        "objc_proto_library(",
-        "    name = 'x',",
-        "    portable_proto_filters = ['proto_filter.txt'],",
-        "    " + pb2Option + ",",
-        "    deps = [':protos'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos',",
-        "    srcs = ['file.proto'],",
-        ")");
-  }
-
-  private void checkErrorForUsesProtobufWithPb2Option(String pb2Option) throws Exception {
-    checkError(
-        "x",
-        "x",
-        ProtoAttributes.PROTOBUF_ATTRIBUTES_NOT_EXCLUSIVE_ERROR,
-        "objc_proto_library(",
-        "    name = 'x',",
-        "    uses_protobuf = 1,",
-        "    " + pb2Option + ",",
-        "    deps = [':protos'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos',",
-        "    srcs = ['file.proto'],",
-        ")");
-  }
-
   private static String sortedJoin(Iterable<String> elements) {
     return Joiner.on('\n').join(Ordering.natural().immutableSortedCopy(elements));
   }
 
   private void checkOnlyLibModuleMapsArePresentForTarget(String target) throws Exception {
-    Artifact libModuleMap =
-        getGenfilesArtifact(
-            "opl_protobuf.modulemaps/module.modulemap",
-            getConfiguredTarget("//package:opl_protobuf"));
-    Artifact protolibModuleMap =
-        getGenfilesArtifact(
-            "protobuf_lib.modulemaps/module.modulemap",
-            getConfiguredTarget("//objcproto:protobuf_lib"));
-
     ObjcProvider provider = providerForTarget(target);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.MODULE_MAP).toSet()))
-        .containsExactlyElementsIn(
-            Artifact.toRootRelativePaths(ImmutableSet.of(libModuleMap, protolibModuleMap)));
+        .containsExactly(
+            "package/opl_protobuf.modulemaps/module.modulemap",
+            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
+                + "objcproto/protobuf_lib.modulemaps/module.modulemap");
   }
 
   @Test
   public void testObjcProvider() throws Exception {
-    ConfiguredTarget target = getConfiguredTarget("//package:opl");
-    Artifact headerFile =
-        ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), "/FileA.pb.h");
-    Artifact sourceFile =
-        ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), "/FileA.pb.m");
-
-    ObjcProvider provider = providerForTarget("//package:opl");
-    assertThat(provider.get(ObjcProvider.INCLUDE).toSet())
-        .contains(headerFile.getExecPath().getParentDirectory().getParentDirectory());
-
-    ConfiguredTarget libProtoBufTarget = getConfiguredTarget("//objcproto:ProtocolBuffers_lib");
-    assertThat(provider.get(ObjcProvider.LIBRARY).toSet())
-        .containsExactly(
-            getBinArtifact("libopl.a", target),
-            getBinArtifact("libProtocolBuffers_lib.a", libProtoBufTarget));
-
-    assertThat(provider.get(ObjcProvider.HEADER).toSet()).containsAllOf(headerFile, sourceFile);
-
-    assertThat(provider.get(ObjcProvider.INCLUDE).toSet())
-        .contains(headerFile.getExecPath().getParentDirectory().getParentDirectory());
-  }
-
-  @Test
-  public void testProtobufObjcProvider() throws Exception {
     ConfiguredTarget target = getConfiguredTarget("//package:opl_protobuf");
     Artifact headerFile =
         ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), "/FileA.pbobjc.h");
@@ -809,9 +429,9 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     assertThat(provider.get(ObjcProvider.INCLUDE).toSet())
         .contains(headerFile.getExecPath().getParentDirectory().getParentDirectory());
 
-    ConfiguredTarget libProtoBufTarget = getConfiguredTarget("//objcproto:protobuf_lib");
-    assertThat(provider.get(ObjcProvider.LIBRARY).toSet())
-        .containsExactly(getBinArtifact("libprotobuf_lib.a", libProtoBufTarget));
+    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY).toSet()))
+        .containsExactly(TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
+            + "objcproto/libprotobuf_lib.a");
 
     assertThat(provider.get(ObjcProvider.HEADER).toSet()).contains(headerFile);
 
@@ -820,35 +440,128 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompilationActionInCoverageMode() throws Exception {
-    useConfiguration("--collect_code_coverage");
-
-    ConfiguredTarget target = getConfiguredTarget("//package:opl");
-    CommandAction linkAction =
-        (CommandAction) getGeneratingAction(getBinArtifact("libopl.a", target));
-
-    CommandAction compileAction =
-        (CommandAction)
-            getGeneratingAction(
-                ActionsTestUtil.getFirstArtifactEndingWith(linkAction.getInputs(), "/FileA.pb.o"));
-
-    assertThat(Artifact.toRootRelativePaths(compileAction.getOutputs()))
-        .containsAllOf(
-            "package/_objs/opl/package/_generated_protos/opl/package/FileA.pb.o",
-            "package/_objs/opl/package/_generated_protos/opl/package/FileA.pb.gcno");
-  }
-
-  @Test
   public void testModuleMapActionFiltersHeaders() throws Exception {
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//package:opl");
-    Artifact moduleMap = getGenfilesArtifact("opl.modulemaps/module.modulemap", configuredTarget);
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//package:opl_protobuf");
+    Artifact moduleMap =
+        getGenfilesArtifact("opl_protobuf.modulemaps/module.modulemap", configuredTarget);
 
     CppModuleMapAction genMap = (CppModuleMapAction) getGeneratingAction(moduleMap);
     assertThat(Artifact.toRootRelativePaths(genMap.getPrivateHeaders())).isEmpty();
     assertThat(Artifact.toRootRelativePaths(genMap.getPublicHeaders()))
         .containsExactly(
-            "package/_generated_protos/opl/package/FileA.pb.h",
-            "package/_generated_protos/opl/package/dir/FileB.pb.h",
-            "package/_generated_protos/opl/dep/File.pb.h");
+            "package/_generated_protos/opl_protobuf/package/FileA.pbobjc.h",
+            "package/_generated_protos/opl_protobuf/package/dir/FileB.pbobjc.h",
+            "package/_generated_protos/opl_protobuf/dep/File.pbobjc.h");
+  }
+
+  @Test
+  public void testCompilationAction() throws Exception {
+    useConfiguration("--cpu=ios_i386");
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
+
+    // Because protos are linked/compiled within the apple_binary context, we need to traverse the
+    // action graph to find the linked protos (.a) and compiled protos (.o).
+    ConfiguredTarget binaryTarget = getConfiguredTarget("//package:opl_binary");
+    SymlinkAction symlinkAction =
+        (SymlinkAction) getGeneratingAction(getBinArtifact("opl_binary_lipobin", binaryTarget));
+
+    Artifact binaryInput = Iterables.getOnlyElement(symlinkAction.getInputs());
+
+    CommandAction linkAction = (CommandAction) getGeneratingAction(binaryInput);
+
+    Artifact linkedProtos =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            linkAction.getInputs(), "libopl_binary_BundledProtos_0.a");
+    CommandAction linkedProtosAction = (CommandAction) getGeneratingAction(linkedProtos);
+
+    Artifact objectFile =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            linkedProtosAction.getInputs(), "FileA.pbobjc.o");
+    CommandAction compiledProtoAction = (CommandAction) getGeneratingAction(objectFile);
+
+    Artifact sourceFile =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            compiledProtoAction.getInputs(), "/FileA.pbobjc.m");
+    Artifact dotdFile =
+        ActionsTestUtil.getFirstArtifactEndingWith(compiledProtoAction.getOutputs(), ".d");
+
+    // We remove spaces since the crosstool rules do not use spaces in command line args.
+    String compileArgs = Joiner.on("").join(compiledProtoAction.getArguments()).replace(" ", "");
+
+    List<String> expectedArgs =
+        new ImmutableList.Builder<String>()
+            .addAll(AppleToolchain.DEFAULT_WARNINGS.values())
+            .add("-fexceptions")
+            .add("-fasm-blocks")
+            .add("-fobjc-abi-version=2")
+            .add("-fobjc-legacy-dispatch")
+            .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
+            .add("-mios-simulator-version-min=" + DEFAULT_IOS_SDK_VERSION)
+            .add("-arch", "i386")
+            .add("-isysroot", AppleToolchain.sdkDir())
+            .add("-F", AppleToolchain.sdkDir() + AppleToolchain.DEVELOPER_FRAMEWORK_PATH)
+            .add("-F", frameworkDir(platform))
+            .addAll(FASTBUILD_COPTS)
+            .addAll(
+                ObjcLibraryTest.iquoteArgs(
+                    providerForTarget("//package:opl_binary"),
+                    getTargetConfiguration()))
+            .add("-I")
+            .add(sourceFile.getExecPath().getParentDirectory().getParentDirectory().toString())
+            .add("-fno-objc-arc")
+            .add("-c", sourceFile.getExecPathString())
+            .add("-o")
+            .add(objectFile.getExecPathString())
+            .add("-MD")
+            .add("-MF")
+            .add(dotdFile.getExecPathString())
+            .build();
+
+    for (String expectedArg : expectedArgs) {
+      assertThat(compileArgs).contains(expectedArg);
+    }
+
+    assertRequiresDarwin(compiledProtoAction);
+    assertThat(Artifact.toRootRelativePaths(compiledProtoAction.getInputs()))
+        .containsAllOf(
+            "package/_generated_protos/opl_binary/package/FileA.pbobjc.m",
+            "package/_generated_protos/opl_binary/package/FileA.pbobjc.h",
+            "package/_generated_protos/opl_binary/package/dir/FileB.pbobjc.h",
+            "package/_generated_protos/opl_binary/dep/File.pbobjc.h");
+  }
+
+  @Test
+  public void testLibraryLinkAction() throws Exception {
+    useConfiguration("--cpu=ios_armv7");
+
+    // Because protos are linked within the apple_binary context, we need to traverse the action
+    // graph to find the linked protos (.a).
+    ConfiguredTarget binaryTarget = getConfiguredTarget("//package:opl_binary");
+    SymlinkAction symlinkAction =
+        (SymlinkAction) getGeneratingAction(getBinArtifact("opl_binary_lipobin", binaryTarget));
+
+    Artifact binaryInput = Iterables.getOnlyElement(symlinkAction.getInputs());
+
+    CommandAction linkAction = (CommandAction) getGeneratingAction(binaryInput);
+
+    Artifact linkedProtos =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            linkAction.getInputs(), "libopl_binary_BundledProtos_0.a");
+    CommandAction linkedProtosAction = (CommandAction) getGeneratingAction(linkedProtos);
+    Artifact objListFile =
+        ActionsTestUtil.getFirstArtifactEndingWith(linkedProtosAction.getInputs(), ".objlist");
+    assertThat(linkedProtosAction.getArguments())
+        .containsAllIn(
+            ImmutableList.of(
+                "-static",
+                "-filelist",
+                objListFile.getExecPathString(),
+                "-arch_only",
+                "armv7",
+                "-syslibroot",
+                AppleToolchain.sdkDir(),
+                "-o",
+                linkedProtos.getExecPathString()));
+    assertRequiresDarwin(linkedProtosAction);
   }
 }

@@ -25,6 +25,8 @@ title: User Manual
     <a href='#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
     <a href='#clean'>clean</a>               Removes output files and optionally stops the server.
 
+    <a href='#dump'>dump</a>                Dumps the internal state of the Bazel server process.
+
     <a href='#help'>help</a>                Prints help for commands, or the index.
     <a href='#info'>info</a>                Displays runtime info about the bazel server.
 
@@ -99,7 +101,7 @@ title: User Manual
 </p>
 <pre>
   % ps -e f
-  16143 ?        Sl     3:00 bazel(src-jrluser2) -server -Djava.library.path=...
+  16143 ?        Sl     3:00 bazel(src-johndoe2) -server -Djava.library.path=...
 </pre>
 <p>
   This makes it easier to find out which server process belongs to a
@@ -122,31 +124,38 @@ title: User Manual
   server process doesn't interfere with proper versioning.
 </p>
 
-<h3 id='bazelrc'><code>.bazelrc</code>, the Bazel configuration file,
-the <code class='flag'>--bazelrc=<var>file</var></code> option, and the
-<code class='flag'>--config=<var>value</var></code> option</h3>
+<h3 id='bazelrc'>
+  <code>.bazelrc</code>, the Bazel configuration file,
+  the <code class='flag'>--bazelrc=<var>file</var></code> option, and
+  the <code class='flag'>--config=<var>value</var></code> option
+</h3>
 
 <p>
   Bazel accepts many options.  Typically, some of these are varied
   frequently (e.g. <code class='flag'>--subcommands</code>) while others stay the
   same across several builds (e.g. <code class='flag'>--package_path</code>).
-  To avoid having to specify these constant options every time you do
-  a build or run some other Bazel command, Bazel allows you to
-  specify options in a configuration file.
+  To avoid having to specify these unchanged options for every build (and other commands)
+  Bazel allows you to specify options in a configuration file.
 </p>
+
+<h4>Where are <code>.bazelrc</code> files?</h4>
 <p>
-  Bazel looks for an optional configuration file in the location
-  specified by the <code class='flag'>--bazelrc=<var>file</var></code> option.  If
-  this option is not specified then, by default, Bazel looks for the
-  file called <code>.bazelrc</code> in one of two directories: first,
-  in your base workspace directory, then in your home directory.  If
-  it finds a file in the first (workspace-specific) location, it will
-  not look at the second (global) location.
+  Bazel looks for an optional configuration file in the following locations,
+  in order. It will stop searching once it has successfully found a file.
 </p>
-<p>
-  The <code class='flag'>--bazelrc=<var>file</var></code> option must
-  appear <em>before</em> the command name (e.g. <code>build</code>).
-</p>
+<ol>
+  <li>
+    The path specified by the <code class='flag'>--bazelrc=<var>file</var></code>
+    startup option. If specified, this option must appear <em>before</em> the
+    command name (e.g. <code>build</code>)
+  </li>
+  <li>
+    A file named <code>.bazelrc</code> in your base workspace directory
+  </li>
+  <li>
+    A file named <code>.bazelrc</code> in your home directory
+  </li>
+</ol>
 <p>
   The option <code class='flag'>--bazelrc=/dev/null</code> effectively disables the
   use of a configuration file.  We strongly recommend that you use
@@ -155,73 +164,119 @@ the <code class='flag'>--bazelrc=<var>file</var></code> option, and the
 </p>
 
 <p>
-  Aside from the configuration file described above, Bazel also looks
-  for a master configuration file next to the binary, in the workspace
-  at <code>tools/bazel.rc</code> or system-wide at
-  <code>/etc/bazel.bazelrc</code>. These files are here to support
-  installation-wide options or options shared between users.
+  Aside from the optional configuration file described above, Bazel also looks
+  for a master rc file next to the binary, in the workspace at
+  <code>tools/bazel.rc</code> or system-wide at <code>/etc/bazel.bazelrc</code>.
+  These files are here to support installation-wide options or options shared
+  between users. Reading of this file can be disabled using the
+  <code class='flag'>--nomaster_bazelrc</code> option.
 </p>
+<h4><code>.bazelrc</code> syntax and semantics</h4>
 <p>
-  Like all UNIX "rc" files, the <code>.bazelrc</code> file is a text
-  file with a line-based grammar.  Lines starting <code>#</code> are
-  considered comments and are ignored, as are blank lines.  Each line
-  contains a sequence of words, which are tokenized according to the
-  same rules as the Bourne shell.
-  The first word on each line is the name of a Bazel command, such
-  as <code>build</code> or <code>query</code>.  The remaining words
-  are the default options that apply to that command.
-  More than one line may be used for a command; the options are combined
-  as if they had appeared on a single line.
-  (Users of CVS, another tool with a "Swiss army knife" command-line
-  interface, will find the syntax familiar to that of <code>.cvsrc</code>.)
+  Like all UNIX "rc" files, the <code>.bazelrc</code> file is a text file with
+  a line-based grammar.  Lines starting <code>#</code> are considered comments
+  and are ignored, as are blank lines.  Each line contains a sequence of words,
+  which are tokenized according to the same rules as the Bourne shell.
 </p>
+
+<h5>Imports</h5>
 <p>
-  Startup options may be specified in the
-  <code>.bazelrc</code> file using the command <code>startup</code>.
-  These options are described in the interactive help
-  at <code>bazel help startup_options</code>.
-</p>
-<p>
-  Options specified in the command line always take precedence over
-  those from a configuration file. In configuration files, lines for a more specific command take
-  precedence over lines for a less specific command (e.g. the 'test' command inherits all the
-  options from the 'build' command, so a 'test --foo=bar' line takes precedence over a
-  'build --foo=baz' line, regardless of which configuration files these two lines are in) and lines
-  equally specific for which command they apply have precedence based on the configuration file they
-  are in, with the user-specific configuration file taking precedence over the master one.
-</p>
-<p>
-  Options may include words other than flags, such as the names of
-  build targets, etc; these are always prepended to the explicit
-  argument list provided on the command-line, if any.
-</p>
-<p>
-  Common command options may be specified in the
-  <code>.bazelrc</code> file using the command <code>common</code>.
-</p>
-<p>
-  In addition, commands may have <code>:name</code> suffixes. These
-  options are ignored by default, but can be pulled in through the
-  <code>--config=<var>name</var></code> option, either on the command line or in
-  a <code>.bazelrc</code> file. The intention is that these bundle command line
-  options that are commonly used together, for example
-  <code>--config=memcheck</code>.
-</p>
-<p>
-  Note that some config sections are defined in the master bazelrc file.
-  To avoid conflicts, user-defined sections
-  should start with the '_' (underscore) character.
-</p>
-<p>
-  The command named <code>import</code> is special: if Bazel encounters such
+  Lines that start with <code>import</code> are special: if Bazel encounters such
   a line in a <code>.bazelrc</code> file, it parses the contents of the file
   referenced by the import statement, too. Options specified in an imported file
-  take precedence over ones specified before the import statement, options
-  specified after the import statement take precedence over the ones in the
-  imported file, and options in files imported later take precedence over files
+  take precedence over options specified before the import statement. Options
+  specified after the import statement take precedence over the options in the
+  imported file. Options in files imported later take precedence over files
   imported earlier. To specify a path that is relative to the workspace root,
   write <code>import %workspace%/path/to/bazelrc</code>.
 </p>
+
+<h5>Option defaults</h5>
+<p>
+  Most lines of a bazelrc define default option values. The first word on each
+  line specifies when these defaults are applied:
+</p>
+<ol>
+  <li>
+    <code>startup</code>: startup options, which go before the command, and
+    are described in <code>bazel help startup_options</code>.
+  </li>
+  <li>
+    <code>common</code>: options that apply to all Bazel commands.
+  </li>
+  <li>
+    <code><i>command</i></code>: Bazel command, such as <code>build</code>
+    or <code>query</code> to which the options apply. These options also apply
+    to all commands that inherit from the specified command. (For example,
+    <code>test</code> inherits from <code>build</code>.)
+  </li>
+</ol>
+<p>
+  Each of these lines may be used more than once and the arguments that follow
+  the first word are combined as if they had appeared on a single line.
+  (Users of CVS, another tool with a "Swiss army knife" command-line interface,
+  will find the syntax familiar to that of <code>.cvsrc</code>.)
+</p>
+<p>
+  Options specified in the command line always take precedence over those from
+  a configuration file. Within the configuration file, precedence is
+  given by specificity. This means that lines for a more specific command take
+  precedence over lines for a less specific command, with <code>common</code>
+  getting lowest precedence (for example, the <code>test</code> command inherits
+  all the options from the <code>build</code> command, so the line
+  <code>test --foo=bar</code> takes precedence over the line
+  <code>build --foo=baz</code> line, regardless of which rc file or what order
+  these two lines are in). Two lines specifying options for the same command at
+  equal specificity are parsed in the order in which they appear within the file.
+  The user-specific configuration file takes precedence over the master file.
+</p>
+<p>
+  Because this precedence rule does not match the file order, we recommend
+  that the file follows the same order, with <code>common</code> options at the
+  top, and most-specific commands near the bottom. This way, the order in which
+  the options are read is the same as the order in which they are applied,
+  which is more intuitive.
+</p>
+<p>
+  The arguments specified on line of an rc file may include arguments that are
+  not options, such as the names of build targets, and so on. These, like the
+  options specified in the same files, have lower precedence than their siblings
+  on the command line, and are always prepended to the explicit list of non-
+  option arguments.
+</p>
+<h5><code>--config</code></h5>
+<p>
+  In addition to setting option defaults, the rc file can be used to group
+  options and provide a shorthand for common groupings. This is done by adding
+  a <code>:name</code> suffix to the command. These options are ignored by
+  default, but will be included when the option
+  <code>--config=<var>name</var></code> is present, either on the command line
+  or in a <code>.bazelrc</code> file, recursively, even inside of another
+  config definition. Only the options specified by <code>command:name</code>
+  for applicable commands will be expanded, in the precedence order described
+  above.
+</p>
+<p>
+  Note that configs can be defined in any <code>.bazelrc</code> file, and that
+  all lines of the form <code>command:name</code> (for applicable commands)
+  will be expanded, across the different rc files. In order to avoid name
+  conflicts, we suggest that configs defined in personal rc files start
+  with an underscore ('_') to avoid unintentional name sharing.
+</p>
+<p>
+  The expansion behavior for these <code>--config=foo</code> options has
+  changed. The legacy behavior, still the default, is to expand these in a
+  fixed point expansion after all default rc options are loaded. This is
+  unintuitive and has caused debugging difficulties in the past. The new
+  behavior is to expand <code>--config=foo</code> to the options it expands to
+  "in-place" so that the options specified for the config have the same
+  precedence that the <code>--config=foo</code> option had. This is more
+  intuitive, and can be enabled using the startup flag
+  <code>--expand_configs_in_place</code>, which can be included in a bazelrc
+  file on a <code>startup</code> line.
+</p>
+
+<h5>Example</h5>
 <p>
   Here's an example <code>~/.bazelrc</code> file:
 </p>
@@ -234,6 +289,7 @@ the <code class='flag'>--bazelrc=<var>file</var></code> option, and the
   build --color=yes
   query --keep_going
 
+  # Definition of --config=memcheck
   build:memcheck --strip=never --test_timeout=3600
 </pre>
 
@@ -453,6 +509,14 @@ Subtractive patterns:
   under 'contrib' depends on something under 'contrib' though, in order to
   build the former bazel has to build the latter too. As usual, the '--' is
   required to prevent '-f' from being interpreted as an option.
+
+  When running the test command, test suite expansion is applied to each target
+  pattern in sequence as the set of targets is evaluated. This means that
+  individual tests from a test suite can be excluded by a later target pattern.
+  It also means that an exclusion target pattern which matches a test suite will
+  exclude all tests which that test suite references. (Targets that would be
+  matched by the list of target patterns without any test suite expansion are
+  also built unless --build_tests_only is set.)
 </pre>
 <p>
   Whereas <a href="build-ref.html#labels">labels</a> are used
@@ -687,11 +751,18 @@ $ bazel fetch //...
     configuration:
     <code class='flag'>--compiler</code>,
     <code class='flag'>--use_ijars</code>,
-    <code class='flag'>--java_toolchain</code>,
     If <code class='flag'>--host_crosstool_top</code> is used, then the value of
     <code class='flag'>--host_cpu</code> is used to look up a
     <code>default_toolchain</code> in the Crosstool
     (ignoring <code class='flag'>--compiler</code>) for the host configuration.
+  </li>
+  <li>
+    Use the value of <code class="flag">--host_javabase</code> for
+    <code class='flag'>--javabase</code>
+  </li>
+  <li>
+    Use the value of <code class="flag">--host_java_toolchain</code> for
+    <code class='flag'>--java_toolchain</code>
   </li>
   <li>Use optimized builds for C++ code (<code>-c opt</code>).
   </li>
@@ -841,7 +912,7 @@ $ bazel fetch //...
   Bazel uses sandboxes to guarantee that actions run hermetically<sup>1</sup> and correctly.
   Bazel runs <i>Spawn</i>s (loosely speaking: actions) in sandboxes that only contain the minimal
   set of files the tool requires to do its job. Currently sandboxing works on Linux 3.12 or newer
-  with the <code>CONFIG_USER_NS</code> option enabled, and also on Mac OS 10.11 for newer.
+  with the <code>CONFIG_USER_NS</code> option enabled, and also on macOS 10.11 or newer.
 </p>
 <p>
   Bazel will print a warning if your system does not support sandboxing to alert you to the fact
@@ -851,7 +922,7 @@ $ bazel fetch //...
 </p>
 
 <p>
-  On some platforms such as <a href="https://cloud.google.com/container-engine/">Google Container
+  On some platforms such as <a href="https://cloud.google.com/kubernetes-engine/">Google Kubernetes
   Engine</a> cluster nodes or Debian, user namespaces are deactivated by default due to security
   concerns. This can be checked by looking at the file
   <code>/proc/sys/kernel/unprivileged_userns_clone</code>: if it exists and contains a 0, then
@@ -1063,55 +1134,6 @@ $ bazel fetch //...
   checking is done.
 
 </p>
-
-<h4 id='flag--experimental_action_listener'>
-  <code class='flag'>--experimental_action_listener=<var>label</var></code>
-</h4>
-<p>
-  The <code>experimental_action_listener</code> option instructs Bazel to use
-  details from the <a href="be/extra-actions.html#action_listener"
-  ><code>action_listener</code></a> rule specified by <var>label</var> to
-  insert <a href="be/extra-actions.html#extra_action"
-  ><code>extra_actions</code></a> into the build graph.
-</p>
-
-<h4 id='flag--experimental_extra_action_top_level_only'>
-  <code class='flag'>--[no]experimental_extra_action_top_level_only</code>
-</h4>
-<p>
-  If this option is set to true, extra actions specified by the
-  <a href='#flag--experimental_action_listener'> <code>
-  --experimental_action_listener</code></a> command line option will only be
-  scheduled for top level targets.
-</p>
-
-<h4 id='flag--experimental_extra_action_filter'>
-  <code class='flag'>--experimental_extra_action_filter=<var>regex</var></code>
-</h4>
-<p>
-  The <code>experimental_extra_action_filter</code> option instructs Bazel to
-  filter the set of targets to schedule <code>extra_actions</code> for.
-</p>
-<p>
-  This flag is only applicable in combination with the
-  <a href='#flag--experimental_action_listener'
-  ><code>--experimental_action_listener</code></a> flag.
-</p>
-<p>
-  By default all <code>extra_actions</code> in the transitive closure of the
-  requested targets-to-build get scheduled for execution.
-  <code>--experimental_extra_action_filter</code> will restrict scheduling to
-  <code>extra_actions</code> of which the owner's label matches the specified
-  regular expression.
-</p>
-<p>
-  The following example will limit scheduling of <code>extra_actions</code>
-  to only apply to actions of which the owner's label contains '/bar/':
-</p>
-<pre>% bazel build --experimental_action_listener=//test:al //foo/... \
-  --experimental_extra_action_filter=.*/bar/.*
-</pre>
-
 <h4 id='flag--output_filter'><code class='flag'>--output_filter <var>regex</var></code></h4>
 <p>
   The <code class='flag'>--output_filter</code> option will only show build and compilation
@@ -1511,6 +1533,55 @@ the compilation of binaries during the build.
 
 </p>
 
+<h4 id='flag--experimental_action_listener'>
+  <code class='flag'>--experimental_action_listener=<var>label</var></code>
+</h4>
+<p>
+  The <code>experimental_action_listener</code> option instructs Bazel to use
+  details from the <a href="be/extra-actions.html#action_listener"
+  ><code>action_listener</code></a> rule specified by <var>label</var> to
+  insert <a href="be/extra-actions.html#extra_action"
+  ><code>extra_actions</code></a> into the build graph.
+</p>
+
+<h4 id='flag--experimental_extra_action_top_level_only'>
+  <code class='flag'>--[no]experimental_extra_action_top_level_only</code>
+</h4>
+<p>
+  If this option is set to true, extra actions specified by the
+  <a href='#flag--experimental_action_listener'> <code>
+  --experimental_action_listener</code></a> command line option will only be
+  scheduled for top level targets.
+</p>
+
+<h4 id='flag--experimental_extra_action_filter'>
+  <code class='flag'>--experimental_extra_action_filter=<var>regex</var></code>
+</h4>
+<p>
+  The <code>experimental_extra_action_filter</code> option instructs Bazel to
+  filter the set of targets to schedule <code>extra_actions</code> for.
+</p>
+<p>
+  This flag is only applicable in combination with the
+  <a href='#flag--experimental_action_listener'
+  ><code>--experimental_action_listener</code></a> flag.
+</p>
+<p>
+  By default all <code>extra_actions</code> in the transitive closure of the
+  requested targets-to-build get scheduled for execution.
+  <code>--experimental_extra_action_filter</code> will restrict scheduling to
+  <code>extra_actions</code> of which the owner's label matches the specified
+  regular expression.
+</p>
+<p>
+  The following example will limit scheduling of <code>extra_actions</code>
+  to only apply to actions of which the owner's label contains '/bar/':
+</p>
+<pre>% bazel build --experimental_action_listener=//test:al //foo/... \
+  --experimental_extra_action_filter=.*/bar/.*
+</pre>
+
+<h3 id='strategy-options'>Build strategy options</h3>
 <p>
   Note that a particular combination of crosstool version, compiler version,
   libc version, and target CPU is allowed only if it has been specified
@@ -1553,20 +1624,6 @@ The default is <code>armeabi-v7a</code>.
     <a href='#flag--android_crosstool_top'><code class='flag'>--android_crosstool_top</code></a>
     or <a href='#flag--crosstool_top'><code class='flag'>--crosstool_top</code></a> flags.
   </p>
-</p>
-
-<h4 id='flag--experimental_skip_static_outputs'><code class='flag'>--experimental_skip_static_outputs</code></h4>
-<p>
-  The <code class='flag'>--experimental_skip_static_outputs</code> option causes all
-  statically-linked C++ binaries to <b>not</b> be output in any meaningful
-  way.
-
-</p>
-<p>
-  If you set this flag, you must also
-  set <a href="#flag--distinct_host_configuration"><code class='flag'>--distinct_host_configuration</code></a>.
-  It is also inherently incompatible with running tests &mdash; don't use it for
-  that.  This option is experimental and may go away at any time.
 </p>
 
 <h4 id='flag--per_file_copt'><code class='flag'>--per_file_copt
@@ -1771,6 +1828,13 @@ The default is <code>armeabi-v7a</code>.
   source files.
 </p>
 
+<h4 id='flag--host_java_toolchain'><code class='flag'>--host_java_toolchain <var>label</var></code></h4>
+<p>
+  If not specified, bazel uses the value of <code class='flag'>--java_toolchain</code> to compile
+  code in the host configuration, i.e., tools run during the build. The main purpose of this flag
+  is to enable cross-compilation.
+</p>
+
 <h4 id='flag--javabase'><code class='flag'>--javabase (<var>path</var>|<var>label</var>)</code></h4>
 <p>
   This option sets the <i>label</i> or the <i>path</i> of the base Java installation to
@@ -1782,11 +1846,22 @@ The default is <code>armeabi-v7a</code>.
   <code>JAR</code>) are derived from this option.
 </p>
 
+<h4 id='flag--host_javabase'><code class='flag'>--host_javabase <var>label</var></code></h4>
+<p>
+  If not specified, bazel uses the value of <code class='flag'>--javabase</code>
+  in the host configuration, i.e., for Java-based tools that run during the build.
+  The main purpose of this flag is to enable cross-compilation.
+</p>
+
 <p>
   This does not select the Java compiler that is used to compile Java
   source files. The compiler can be selected by settings the
   <a href="#flag--java_toolchain"><code class='flag'>--java_toolchain</code></a>
   option.
+</p>
+<p>
+  This option should not be confused with the startup option
+  <a href='#startup_flag--host_javabase'>--host_javabase</a>.
 </p>
 
 <h3 id='strategy-options'>Build strategy options</h3>
@@ -1838,7 +1913,7 @@ The default is <code>armeabi-v7a</code>.
 <p>
   This option, which takes an integer argument, specifies a limit on
   the number of jobs that should be executed concurrently during the
-  execution phase of the build. The default is 200.
+  execution phase of the build.
 </p>
 <p>
   Note that the number of concurrent jobs that Bazel will run
@@ -2316,9 +2391,9 @@ either to the terminal, or to additional log files.
 
 <pre>
   &gt;&gt;&gt;&gt;&gt; # //examples/cpp:hello-world [action 'Linking examples/cpp/hello-world']
-  (cd /home/jrluser/.cache/bazel/_bazel_jrluser/4c084335afceb392cfbe7c31afee3a9f/bazel && \
+  (cd /home/johndoe/.cache/bazel/_bazel_johndoe/4c084335afceb392cfbe7c31afee3a9f/bazel && \
     exec env - \
-    /usr/bin/gcc -o bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world -B/usr/bin/ -Wl,-z,relro,-z,now -no-canonical-prefixes -pass-exit-codes -Wl,-S -Wl,@bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world-2.params)
+    /usr/bin/gcc -o bazel-out/local-fastbuild/bin/examples/cpp/hello-world -B/usr/bin/ -Wl,-z,relro,-z,now -no-canonical-prefixes -pass-exit-codes -Wl,-S -Wl,@bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world-2.params)
 </pre>
 <p>
   Where possible, commands are printed in a Bourne shell compatible syntax,
@@ -3187,17 +3262,67 @@ will invoke <code>adb</code> as
 adb -s deadbeef install ...
 </pre>
 </p>
-<h4 id='flag--adb_jobs'><code class='flag'>--adb_jobs <var>number</var></code></h4>
-<p>
-  The number of instances of adb to use in parallel to update files on the
-  device.
-</p>
 <h4 id='flag--incremental_install_verbosity'><code class='flag'>--incremental_install_verbosity <var>number</var></code></h4>
 <p>
   The verbosity for incremental install. Set to 1 for debug logging to be
   printed to the console.
 </p>
 
+<p>
+  By default, command will just print help message outlining possible
+  options to dump specific areas of the Bazel state. In order to dump
+  internal state, at least one of the options must be specified.
+</p>
+<p>
+  Following options are supported:
+</p>
+<ul>
+  <li><code class='flag'>--action_cache</code> dumps action cache content.</li>
+  <li><code class='flag'>--packages</code> dumps package cache content.</li>
+  <li><code class='flag'>--vfs</code> dumps VFS state.</li>
+  <li><code class='flag'>--skyframe</code> dumps state of internal Bazel dependency graph.</li>
+  <li><code class='flag'>--rules</code> dumps rule summary for each rule and aspect class,
+    including counts and action counts. This includes both native and Skylark rules.
+    If memory tracking is enabled, then the rules' memory consumption is also printed.</li>
+  <li><code class='flag'>--skylark_memory</code> dumps a
+    <href a=https://github.com/google/pprof>pprof</href> compatible .gz file to the specified path.
+    You must enable memory tracking for this to work.</li>
+</ul>
+
+  <h4 id='memory-tracking'>Memory tracking</h4>
+  <p>
+    Some <code>dump</code> commands require memory tracking. To turn this on, you have to pass
+    startup flags to Bazel:
+  </p>
+  <ul>
+    <li><code>--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar</code></li>
+    <li><code>--host_jvm_args=-DRULE_MEMORY_TRACKER=1</code></li>
+  </ul>
+  <p>
+    The java-agent is checked into bazel at
+    third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar, so make
+    sure you adjust <code>$BAZEL</code> for where you keep your bazel repository.
+
+    Do not forget to keep passing these options to Bazel for every command or the server will
+    restart.
+  </p>
+  <p>Example:</p>
+  <pre>
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
+    build --nobuild &lt;targets&gt;
+
+    # Dump rules
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
+    dump --rules
+
+    # Dump Skylark heap and analyze it with pprof
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
+    dump --skylark_memory=$HOME/prof.gz
+    % pprof -flame $HOME/prof.gz
+  </pre>
 <h3 id='analyze-profile'>The <code>analyze-profile</code> command</h3>
 
 <p>
@@ -3292,7 +3417,7 @@ adb -s deadbeef install ...
   and the name of the workspace directory (actually, its MD5 digest),
   so a typical value looks like:
 
-  <code>/var/tmp/google/_bazel_jrluser/d41d8cd98f00b204e9800998ecf8427e</code>.
+  <code>/var/tmp/google/_bazel_johndoe/d41d8cd98f00b204e9800998ecf8427e</code>.
   Note that the client uses the output base to find the Bazel server
   instance, so if you specify a different output base in a Bazel
   command, a different server will be found (or started) to handle the
@@ -3348,6 +3473,22 @@ adb -s deadbeef install ...
   You can also use the <code class='flag'>--output_user_root</code> option to choose an
   alternate base location for all of Bazel's output (install base and output
   base) if there is a better location in your filesystem layout.
+</p>
+
+<h4 id='startup_flag--host_javabase'><code class='flag'>--host_javabase=<var>dir</var></code></h4>
+<p>
+  Specifies the Java virtual machine in which <i>Bazel itself</i> runs. The value must be a path to
+  the directory containing a JDK or JRE. It should not be a label.
+  This option should appear before any bazel command, and not be confused with the build option
+  <a href='#flag--host_javabase'>--host_javabase</a>, for example:
+</p>
+<pre>
+  % bazel --host_javabase=/usr/local/buildtools/java/jdk9 build //foo
+</pre>
+<p>
+  This flag does <i>not</i> affect the JVMs used by Bazel subprocesses such as applications, tests,
+  tools, and so on. Use build options <a href='#flag--javabase'>--javabase</a> or
+  <a href='#flag--host_javabase'>--host_javabase</a> instead.
 </p>
 
 <h4 id='flag--host_jvm_args'><code class='flag'>--host_jvm_args=<var>string</var></code></h4>

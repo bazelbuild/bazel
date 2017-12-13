@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
+import org.objectweb.asm.Opcodes;
+
 /**
  * Convenience method for working with {@code int} bitwise flags.
  */
@@ -32,6 +34,18 @@ class BitFlags {
    */
   public static boolean noneSet(int flags, int bitmask) {
     return (flags & bitmask) == 0;
+  }
+
+  public static boolean isInterface(int access) {
+    return isSet(access, Opcodes.ACC_INTERFACE);
+  }
+
+  public static boolean isStatic(int access) {
+    return isSet(access, Opcodes.ACC_STATIC);
+  }
+
+  public static boolean isSynthetic(int access) {
+    return isSet(access, Opcodes.ACC_SYNTHETIC);
   }
 
   // Static methods only

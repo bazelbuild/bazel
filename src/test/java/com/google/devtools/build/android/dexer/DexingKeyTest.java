@@ -30,9 +30,10 @@ public class DexingKeyTest {
 
   @Test
   public void testOrderMatters() {
-    DexingKey key = DexingKey.create(false, true, new byte[0]);
+    DexingKey key = DexingKey.create(false, true, 2, new byte[0]);
     assertThat(key.localInfo()).isFalse();
     assertThat(key.optimize()).isTrue();
+    assertThat(key.positionInfo()).isEqualTo(2);
   }
 
   /**
@@ -41,10 +42,10 @@ public class DexingKeyTest {
    */
   @Test
   public void testContentMatters() {
-    assertThat(DexingKey.create(false, false, new byte[] { 1, 2, 3 }))
-        .isEqualTo(DexingKey.create(false, false, new byte[] { 1, 2, 3 }));
-    assertThat(DexingKey.create(false, false, new byte[] { 1, 2, 3 }))
-        .isNotEqualTo(DexingKey.create(false, false, new byte[] { 1, 3, 3 }));
+    assertThat(DexingKey.create(false, false, 1, new byte[] { 1, 2, 3 }))
+        .isEqualTo(DexingKey.create(false, false, 1, new byte[] { 1, 2, 3 }));
+    assertThat(DexingKey.create(false, false, 1, new byte[] { 1, 2, 3 }))
+        .isNotEqualTo(DexingKey.create(false, false, 1, new byte[] { 1, 3, 3 }));
   }
 
   /**

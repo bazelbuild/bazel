@@ -14,16 +14,22 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static java.util.stream.Collectors.toList;
+
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
+import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.RuleStat;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.common.options.EnumConverter;
@@ -38,6 +44,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,8 +74,8 @@ public class DumpCommand implements BlazeCommand {
       name = "packages",
       defaultValue = "false",
       category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump package cache content."
     )
     public boolean dumpPackages;
@@ -77,8 +84,8 @@ public class DumpCommand implements BlazeCommand {
       name = "vfs",
       defaultValue = "false",
       category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump virtual filesystem cache content."
     )
     public boolean dumpVfs;
@@ -87,8 +94,8 @@ public class DumpCommand implements BlazeCommand {
       name = "action_cache",
       defaultValue = "false",
       category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump action cache content."
     )
     public boolean dumpActionCache;
@@ -97,19 +104,41 @@ public class DumpCommand implements BlazeCommand {
       name = "rule_classes",
       defaultValue = "false",
       category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump rule classes."
     )
     public boolean dumpRuleClasses;
+
+    @Option(
+      name = "rules",
+      defaultValue = "false",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "Dump rules, including counts and memory usage (if memory is tracked)."
+    )
+    public boolean dumpRules;
+
+    @Option(
+      name = "skylark_memory",
+      defaultValue = "null",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Dumps a pprof-compatible memory profile to the specified path."
+              + " To learn more please see <a href=https://github.com/google/pprof>pprof</a>."
+    )
+    public String skylarkMemory;
 
     @Option(
       name = "skyframe",
       defaultValue = "off",
       category = "verbosity",
       converter = SkyframeDumpEnumConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump Skyframe graph: 'off', 'summary', or 'detailed'."
     )
     public SkyframeDumpOption dumpSkyframe;
@@ -146,6 +175,8 @@ public class DumpCommand implements BlazeCommand {
             || dumpOptions.dumpVfs
             || dumpOptions.dumpActionCache
             || dumpOptions.dumpRuleClasses
+            || dumpOptions.dumpRules
+            || dumpOptions.skylarkMemory != null
             || (dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF);
     if (!anyOutput) {
       Map<String, String> categories = new HashMap<>();
@@ -187,6 +218,19 @@ public class DumpCommand implements BlazeCommand {
       if (dumpOptions.dumpRuleClasses) {
         dumpRuleClasses(runtime, out);
         out.println();
+      }
+
+      if (dumpOptions.dumpRules) {
+        dumpRuleStats(env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
+        out.println();
+      }
+
+      if (dumpOptions.skylarkMemory != null) {
+        try {
+          dumpSkylarkHeap(env.getBlazeWorkspace(), dumpOptions.skylarkMemory, out);
+        } catch (IOException e) {
+          env.getReporter().error(null, "Could not dump skylark memory", e);
+        }
       }
 
       if (dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF) {
@@ -243,5 +287,114 @@ public class DumpCommand implements BlazeCommand {
       }
       out.println(")");
     }
+  }
+
+  private void dumpRuleStats(BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out) {
+    List<RuleStat> ruleStats = executor.getRuleStats();
+    if (ruleStats.isEmpty()) {
+      out.print("No rules in Blaze server, please run a build command first.");
+      return;
+    }
+    List<RuleStat> rules = ruleStats.stream().filter(RuleStat::isRule).collect(toList());
+    List<RuleStat> aspects = ruleStats.stream().filter(r -> !r.isRule()).collect(toList());
+    Map<String, RuleBytes> ruleBytes = new HashMap<>();
+    Map<String, RuleBytes> aspectBytes = new HashMap<>();
+    AllocationTracker allocationTracker = workspace.getAllocationTracker();
+    if (allocationTracker != null) {
+      allocationTracker.getRuleMemoryConsumption(ruleBytes, aspectBytes);
+    }
+    printRuleStatsOfType(rules, "RULE", out, ruleBytes, allocationTracker != null);
+    printRuleStatsOfType(aspects, "ASPECT", out, aspectBytes, allocationTracker != null);
+  }
+
+  private static void printRuleStatsOfType(
+      List<RuleStat> ruleStats,
+      String type,
+      PrintStream out,
+      Map<String, RuleBytes> ruleToBytes,
+      boolean bytesEnabled) {
+    if (ruleStats.isEmpty()) {
+      return;
+    }
+    ruleStats.sort(Comparator.comparing(RuleStat::getCount).reversed());
+    int longestName =
+        ruleStats.stream().map(r -> r.getName().length()).max(Integer::compareTo).get();
+    int maxNameWidth = 30;
+    int nameColumnWidth = Math.min(longestName, maxNameWidth);
+    int numberColumnWidth = 10;
+    int bytesColumnWidth = 13;
+    int eachColumnWidth = 11;
+    printWithPadding(out, type, nameColumnWidth);
+    printWithPaddingBefore(out, "COUNT", numberColumnWidth);
+    printWithPaddingBefore(out, "ACTIONS", numberColumnWidth);
+    if (bytesEnabled) {
+      printWithPaddingBefore(out, "BYTES", bytesColumnWidth);
+      printWithPaddingBefore(out, "EACH", eachColumnWidth);
+    }
+    out.println();
+    for (RuleStat ruleStat : ruleStats) {
+      printWithPadding(
+          out, truncateName(ruleStat.getName(), ruleStat.isRule(), maxNameWidth), nameColumnWidth);
+      printWithPaddingBefore(out, formatLong(ruleStat.getCount()), numberColumnWidth);
+      printWithPaddingBefore(out, formatLong(ruleStat.getActionCount()), numberColumnWidth);
+      if (bytesEnabled) {
+        RuleBytes ruleBytes = ruleToBytes.get(ruleStat.getKey());
+        long bytes = ruleBytes != null ? ruleBytes.getBytes() : 0L;
+        printWithPaddingBefore(out, formatLong(bytes), bytesColumnWidth);
+        printWithPaddingBefore(out, formatLong(bytes / ruleStat.getCount()), eachColumnWidth);
+      }
+      out.println();
+    }
+    out.println();
+  }
+
+  private static String truncateName(String name, boolean isRule, int maxNameWidth) {
+    // If this is an aspect, we'll chop off everything except the aspect name
+    if (!isRule) {
+      int dividerIndex = name.lastIndexOf('%');
+      if (dividerIndex >= 0) {
+        name = name.substring(dividerIndex + 1);
+      }
+    }
+    if (name.length() <= maxNameWidth) {
+      return name;
+    }
+    int starti = name.length() - maxNameWidth + "...".length();
+    return "..." + name.substring(starti);
+  }
+
+  private static void printWithPadding(PrintStream out, String str, int columnWidth) {
+    out.print(str);
+    pad(out, columnWidth + 2, str.length());
+  }
+
+  private static void printWithPaddingBefore(PrintStream out, String str, int columnWidth) {
+    pad(out, columnWidth, str.length());
+    out.print(str);
+    pad(out, 2, 0);
+  }
+
+  private static void pad(PrintStream out, int columnWidth, int consumed) {
+    for (int i = 0; i < columnWidth - consumed; ++i) {
+      out.print(' ');
+    }
+  }
+
+  private static String formatLong(long number) {
+    return String.format("%,d", number);
+  }
+
+  private void dumpSkylarkHeap(BlazeWorkspace workspace, String path, PrintStream out)
+      throws IOException {
+    AllocationTracker allocationTracker = workspace.getAllocationTracker();
+    if (allocationTracker == null) {
+      out.println(
+          "Cannot dump skylark heap without running in memory tracking mode. "
+              + "Please refer to the user manual for the dump commnd "
+              + "for information how to turn on memory tracking.");
+      return;
+    }
+    out.println("Dumping skylark heap to: " + path);
+    allocationTracker.dumpSkylarkAllocations(path);
   }
 }

@@ -262,6 +262,19 @@ java_test(
     ],
 )
 
+java_test(
+    name = "ZipFilterActionTest",
+    size = "small",
+    srcs = ["ZipFilterActionTest.java"],
+    deps = [
+        "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 java_library(
     name = "test_utils",
     testonly = 1,
@@ -275,4 +288,27 @@ java_library(
         "//third_party:guava",
         "//third_party:truth",
     ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+        "//src/test/java/com/google/devtools/build/android/desugar:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/android/dexer:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/android/idlclass:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/android/junctions:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/android/resources:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/android/ziputils:all_windows_tests",
+    ],
+    visibility = ["//src:__pkg__"],
 )

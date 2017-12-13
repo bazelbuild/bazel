@@ -15,17 +15,14 @@ package com.google.devtools.build.lib.analysis.constraints;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -81,120 +78,58 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Dummy rule class for testing rule class defaults. This class applies invalid defaults. Note
    * that the specified environments must be independently created.
    */
-  private static final class BadRuleClassDefaultRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .setUndocumented()
-          // These defaults are invalid since compatibleWith and restrictedTo can't mix
-          // environments from the same group.
-          .compatibleWith(env.getLabel("//buildenv/rule_class_compat:a"))
-          .restrictedTo(env.getLabel("//buildenv/rule_class_compat:b"))
-          .build();
-    }
+  private static final MockRule BAD_RULE_CLASS_DEFAULT_RULE = () -> MockRule.define(
+      "bad_rule_class_default",
+      (builder, env) ->
+          builder
+              .setUndocumented()
+              // These defaults are invalid since compatibleWith and restrictedTo can't mix
+              // environments from the same group.
+              .compatibleWith(env.getLabel("//buildenv/rule_class_compat:a"))
+              .restrictedTo(env.getLabel("//buildenv/rule_class_compat:b")));
 
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("bad_rule_class_default")
-          .ancestors(BaseRuleClasses.RuleBase.class)
-          .factoryClass(UnknownRuleConfiguredTarget.class)
-          .build();
-    }
-  }
+  private static final MockRule RULE_WITH_IMPLICIT_AND_LATEBOUND_DEFAULTS = () -> MockRule.define(
+      "rule_with_implicit_and_latebound_deps",
+      (builder, env) ->
+          builder
+              .setUndocumented()
+              .add(Attribute.attr("$implicit", BuildType.LABEL)
+                  .value(Label.parseAbsoluteUnchecked("//helpers:implicit")))
+              .add(Attribute.attr(":latebound", BuildType.LABEL)
+                  .value(
+                      Attribute.LateBoundDefault.fromConstant(
+                          Label.parseAbsoluteUnchecked("//helpers:latebound"))))
+              .add(Attribute.attr("normal", BuildType.LABEL)
+                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                  .value(Label.parseAbsoluteUnchecked("//helpers:default"))));
 
-  private static final class RuleClassWithImplicitAndLateBoundDefaults implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .setUndocumented()
-          .add(Attribute.attr("$implicit", BuildType.LABEL)
-              .value(Label.parseAbsoluteUnchecked("//helpers:implicit")))
-          .add(Attribute.attr(":latebound", BuildType.LABEL)
-              .value(
-                  new Attribute.LateBoundLabel<BuildConfiguration>() {
-                    @Override
-                    public Label resolve(Rule rule, AttributeMap attributes,
-                        BuildConfiguration configuration) {
-                      return Label.parseAbsoluteUnchecked("//helpers:latebound");
-                    }
-                  }))
-          .add(Attribute.attr("normal", BuildType.LABEL)
-              .allowedFileTypes(FileTypeSet.NO_FILE)
-              .value(Label.parseAbsoluteUnchecked("//helpers:default")))
-          .build();
-    }
+  private static final MockRule RULE_WITH_ENFORCED_IMPLICIT_ATTRIBUTE = () -> MockRule.define(
+      "rule_with_enforced_implicit_deps",
+      (builder, env) ->
+          builder
+              .setUndocumented()
+              .add(Attribute.attr("$implicit", BuildType.LABEL)
+                  .value(Label.parseAbsoluteUnchecked("//helpers:implicit"))
+                  .checkConstraints()));
 
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("rule_with_implicit_and_latebound_deps")
-          .ancestors(BaseRuleClasses.RuleBase.class)
-          .factoryClass(UnknownRuleConfiguredTarget.class)
-          .build();
-    }
-  }
 
-  private static final class RuleClassWithEnforcedImplicitAttribute implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .setUndocumented()
-          .add(Attribute.attr("$implicit", BuildType.LABEL)
-              .value(Label.parseAbsoluteUnchecked("//helpers:implicit"))
-              .checkConstraints())
-          .build();
-    }
+  private static final MockRule RULE_WITH_SKIPPED_ATTRIBUTE = () -> MockRule.define(
+      "rule_with_skipped_attr",
+      (builder, env) ->
+          builder
+              .setUndocumented()
+              .add(Attribute.attr("some_attr", BuildType.LABEL)
+                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                  .dontCheckConstraints()));
 
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("rule_with_enforced_implicit_deps")
-          .ancestors(BaseRuleClasses.RuleBase.class)
-          .factoryClass(UnknownRuleConfiguredTarget.class)
-          .build();
-    }
-  }
 
-  private static final class RuleClassWithSkippedAttribute implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .setUndocumented()
-          .add(Attribute.attr("some_attr", BuildType.LABEL)
-              .allowedFileTypes(FileTypeSet.NO_FILE)
-              .dontCheckConstraints())
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("rule_with_skipped_attr")
-          .ancestors(BaseRuleClasses.RuleBase.class)
-          .factoryClass(UnknownRuleConfiguredTarget.class)
-          .build();
-    }
-  }
-
-  private static final class ConstraintExemptRuleClass implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .setUndocumented()
-          .exemptFromConstraintChecking("for testing removal of restricted_to / compatible_with")
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("totally_free_rule")
-          .ancestors(BaseRuleClasses.RuleBase.class)
-          .factoryClass(UnknownRuleConfiguredTarget.class)
-          .build();
-    }
-  }
+  private static final MockRule CONSTRAINT_EXEMPT_RULE_CLASS = () -> MockRule.define(
+      "totally_free_rule",
+      (builder, env) ->
+          builder
+              .setUndocumented()
+              .exemptFromConstraintChecking(
+                  "for testing removal of restricted_to / compatible_with"));
 
   /**
    * Injects the rule class default rules into the default test rule class provider.
@@ -204,11 +139,11 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new RuleClassDefaultRule());
-    builder.addRuleDefinition(new BadRuleClassDefaultRule());
-    builder.addRuleDefinition(new RuleClassWithImplicitAndLateBoundDefaults());
-    builder.addRuleDefinition(new RuleClassWithEnforcedImplicitAttribute());
-    builder.addRuleDefinition(new RuleClassWithSkippedAttribute());
-    builder.addRuleDefinition(new ConstraintExemptRuleClass());
+    builder.addRuleDefinition(BAD_RULE_CLASS_DEFAULT_RULE);
+    builder.addRuleDefinition(RULE_WITH_IMPLICIT_AND_LATEBOUND_DEFAULTS);
+    builder.addRuleDefinition(RULE_WITH_ENFORCED_IMPLICIT_ATTRIBUTE);
+    builder.addRuleDefinition(RULE_WITH_SKIPPED_ATTRIBUTE);
+    builder.addRuleDefinition(CONSTRAINT_EXEMPT_RULE_CLASS);
     return builder.build();
   }
 
@@ -799,10 +734,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    some_attr = '//helpers:default',",
         "    compatible_with = ['//buildenv/foo:b'])");
     assertThat(getConfiguredTarget("//hello:hi")).isNotNull();
-    // This rule is implemented by UnknownRuleConfiguredTarget, which fails on analysis by design.
-    // Ensure that's the only event reported.
-    assertThat(Iterables.getOnlyElement(eventCollector).getMessage()).isEqualTo(
-        "in rule_with_skipped_attr rule //hello:hi: cannot build rule_with_skipped_attr rules");
+    assertNoEvents();
   }
 
   @Test

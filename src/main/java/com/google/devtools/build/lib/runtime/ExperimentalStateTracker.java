@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 
 /**
  * An experimental state tracker for the new experimental UI.
@@ -58,7 +59,8 @@ class ExperimentalStateTracker {
   static final String ELLIPSIS = "...";
   static final String FETCH_PREFIX = "    Fetching ";
   static final String AND_MORE = " ...";
-
+  static final String NO_STATUS = "-----";
+  static final int STATUS_LENGTH = 5;
 
   static final int NANOS_PER_SECOND = 1000000000;
   static final String URL_PROTOCOL_SEP = "://";
@@ -76,10 +78,16 @@ class ExperimentalStateTracker {
 
   // currently running actions, using the path of the primary
   // output as unique identifier.
-  private final Deque<String> runningActions;
+  private final Deque<String> nonExecutingActions;
+  private final Deque<String> executingActions;
   private final Map<String, Action> actions;
+  private final Map<String, String> actionStatus;
+  // Time the action entered its current status.
   private final Map<String, Long> actionNanoStartTimes;
-  private final Map<String, String> actionStrategy;
+  // As sometimes the executing stategy might be sent before the action started,
+  // we have to keep track of a small number of executing, but not yet started
+  // actions.
+  private final Set<String> notStartedExecutingActions;
 
   // running downloads are identified by the original URL they were trying to
   // access.
@@ -110,10 +118,11 @@ class ExperimentalStateTracker {
   private long bepTransportClosingStartTimeMillis;
 
   ExperimentalStateTracker(Clock clock, int targetWidth) {
-    this.runningActions = new ArrayDeque<>();
+    this.nonExecutingActions = new ArrayDeque<>();
+    this.executingActions = new ArrayDeque<>();
     this.actions = new TreeMap<>();
     this.actionNanoStartTimes = new TreeMap<>();
-    this.actionStrategy = new TreeMap<>();
+    this.actionStatus = new TreeMap<>();
     this.testActions = new TreeMap<>();
     this.runningDownloads = new ArrayDeque<>();
     this.downloads = new TreeMap<>();
@@ -121,6 +130,7 @@ class ExperimentalStateTracker {
     this.ok = true;
     this.clock = clock;
     this.targetWidth = targetWidth;
+    this.notStartedExecutingActions = new TreeSet<>();
   }
 
   ExperimentalStateTracker(Clock clock) {
@@ -156,6 +166,10 @@ class ExperimentalStateTracker {
     } else {
       additionalMessage = "" + count + " targets";
     }
+  }
+
+  synchronized int totalNumberOfActions() {
+    return nonExecutingActions.size() + executingActions.size();
   }
 
   /**
@@ -229,7 +243,15 @@ class ExperimentalStateTracker {
     Action action = event.getAction();
     String name = action.getPrimaryOutput().getPath().getPathString();
     Long nanoStartTime = event.getNanoTimeStart();
-    runningActions.addLast(name);
+
+    // We might already know about the action, if the status message was sent over the
+    // bus before the start notification. In this case the action is already executing,
+    // otherwise not yet.
+    if (notStartedExecutingActions.remove(name)) {
+      executingActions.addLast(name);
+    } else {
+      nonExecutingActions.addLast(name);
+    }
     actions.put(name, action);
     actionNanoStartTimes.put(name, nanoStartTime);
     if (action.getOwner() != null) {
@@ -243,13 +265,29 @@ class ExperimentalStateTracker {
     }
   }
 
-  void actionStatusMessage(ActionStatusMessage event) {
+  synchronized void actionStatusMessage(ActionStatusMessage event) {
     String strategy = event.getStrategy();
+    String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
+    executingActions.remove(name);
+    nonExecutingActions.remove(name);
+
+    actionNanoStartTimes.put(name, clock.nanoTime());
     if (strategy != null) {
-      String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
-      synchronized (this) {
-        actionStrategy.put(name, strategy);
+      actionStatus.put(name, strategy);
+      // only add the action, if we already know about it being started
+      if (actions.get(name) != null) {
+        executingActions.addLast(name);
+      } else {
+        notStartedExecutingActions.add(name);
       }
+    } else {
+      String message = event.getMessage();
+      actionStatus.put(name, message);
+      // only add the action, if we already know about it being started
+      if (actions.get(name) != null) {
+        nonExecutingActions.addLast(name);
+      }
+      notStartedExecutingActions.remove(name);
     }
   }
 
@@ -257,10 +295,11 @@ class ExperimentalStateTracker {
     actionsCompleted++;
     Action action = event.getAction();
     String name = action.getPrimaryOutput().getPath().getPathString();
-    runningActions.remove(name);
+    executingActions.remove(name);
+    nonExecutingActions.remove(name);
     actions.remove(name);
     actionNanoStartTimes.remove(name);
-    actionStrategy.remove(name);
+    actionStatus.remove(name);
 
     if (action.getOwner() != null) {
       Label owner = action.getOwner().getLabel();
@@ -388,9 +427,22 @@ class ExperimentalStateTracker {
     }
 
     String postfix = "";
+    String prefix = "";
     long nanoRuntime = nanoTime - actionNanoStartTimes.get(name);
     long runtimeSeconds = nanoRuntime / NANOS_PER_SECOND;
-    String strategy = actionStrategy.get(name);
+    String strategy = null;
+    if (executingActions.contains(name)) {
+      strategy = actionStatus.get(name);
+    } else {
+      String status = actionStatus.get(name);
+      if (status == null) {
+        status = NO_STATUS;
+      }
+      if (status.length() > STATUS_LENGTH) {
+        status = status.substring(0, STATUS_LENGTH);
+      }
+      prefix = prefix + "[" + status + "] ";
+    }
     // To keep the UI appearance more stable, always show the elapsed
     // time if we also show a strategy (otherwise the strategy will jump in
     // the progress bar).
@@ -407,10 +459,10 @@ class ExperimentalStateTracker {
     }
 
     if (desiredWidth <= 0) {
-      return message + postfix;
+      return prefix + message + postfix;
     }
-    if (message.length() + postfix.length() <= desiredWidth) {
-      return message + postfix;
+    if (prefix.length() + message.length() + postfix.length() <= desiredWidth) {
+      return prefix + message + postfix;
     }
 
     // We have to shorten the message to fit into the line.
@@ -423,40 +475,65 @@ class ExperimentalStateTracker {
         if (pathIndex >= 0) {
           String start = message.substring(0, pathIndex);
           String end = message.substring(pathIndex + pathString.length());
-          int pathTargetLength = desiredWidth - start.length() - end.length() - postfix.length();
+          int pathTargetLength =
+              desiredWidth - start.length() - end.length() - postfix.length() - prefix.length();
           // This attempt of shortening is reasonable if what is left from the label
           // is significantly longer (twice as long) as the ellipsis symbols introduced.
           if (pathTargetLength >= 3 * ELLIPSIS.length()) {
             String shortPath = suffix(pathString, pathTargetLength - ELLIPSIS.length());
             int slashPos = shortPath.indexOf('/');
             if (slashPos >= 0) {
-              return start + ELLIPSIS + shortPath.substring(slashPos) + end + postfix;
+              return prefix + start + ELLIPSIS + shortPath.substring(slashPos) + end + postfix;
             }
           }
         }
 
         // Second attempt: just take a shortened version of the label.
         String shortLabel =
-            shortenedLabelString(action.getOwner().getLabel(), desiredWidth - postfix.length());
-        if (shortLabel.length() + postfix.length() <= desiredWidth) {
-          return shortLabel + postfix;
+            shortenedLabelString(
+                action.getOwner().getLabel(), desiredWidth - postfix.length() - prefix.length());
+        if (prefix.length() + shortLabel.length() + postfix.length() <= desiredWidth) {
+          return prefix + shortLabel + postfix;
         }
       }
     }
-    if (3 * ELLIPSIS.length() + postfix.length() <= desiredWidth) {
-      message = ELLIPSIS + suffix(message, desiredWidth - ELLIPSIS.length() - postfix.length());
+    if (3 * ELLIPSIS.length() + postfix.length() + prefix.length() <= desiredWidth) {
+      message =
+          ELLIPSIS
+              + suffix(
+                  message, desiredWidth - ELLIPSIS.length() - postfix.length() - prefix.length());
     }
 
-    return message + postfix;
+    return prefix + message + postfix;
+  }
+
+  /**
+   * Stream of actions in decreasing order of importance for the UI. I.e., first have all executing
+   * actions and then all non-executing actions, each time in order of increasing start time for
+   * that state.
+   */
+  private Stream<String> sortedActions() {
+    return Stream.concat(executingActions.stream(), nonExecutingActions.stream());
+  }
+
+  private synchronized String countActions() {
+    int actionsCount = totalNumberOfActions();
+    if (actionsCount == 1) {
+      return " 1 action";
+    } else if (actionsCount == executingActions.size()) {
+      return "" + actionsCount + " actions running";
+    } else {
+      return "" + actionsCount + " actions, " + executingActions.size() + " running";
+    }
   }
 
   private void sampleOldestActions(AnsiTerminalWriter terminalWriter) throws IOException {
     int count = 0;
     int totalCount = 0;
     long nanoTime = clock.nanoTime();
-    int actionCount = runningActions.size();
+    int actionCount = totalNumberOfActions();
     Set<String> toSkip = new TreeSet<>();
-    for (String action : runningActions) {
+    for (String action : (Iterable<String>) sortedActions()::iterator) {
       totalCount++;
       if (toSkip.contains(action)) {
         continue;
@@ -524,7 +601,7 @@ class ExperimentalStateTracker {
     if (status != null) {
       return false;
     }
-    if (runningActions.size() >= 1) {
+    if (totalNumberOfActions() >= 1) {
       return true;
     }
     return false;
@@ -549,8 +626,8 @@ class ExperimentalStateTracker {
         } else {
           terminalWriter.failStatus();
         }
-        terminalWriter.append(
-            shortenedLabelString(mostRecentTest.getTarget().getLabel(), width - prefix.length()));
+        terminalWriter.append(shortenedLabelString(
+            mostRecentTest.getLabel(), width - prefix.length()));
         terminalWriter.normal();
       }
       return true;
@@ -689,6 +766,7 @@ class ExperimentalStateTracker {
       throws IOException {
     PositionAwareAnsiTerminalWriter terminalWriter =
         new PositionAwareAnsiTerminalWriter(rawTerminalWriter);
+    int actionsCount = totalNumberOfActions();
     if (timestamp != null) {
       terminalWriter.append(timestamp);
     }
@@ -735,24 +813,25 @@ class ExperimentalStateTracker {
       }
       terminalWriter.append(";");
     }
-    if (runningActions.size() == 0) {
-      terminalWriter.normal().append(" no action running");
+    if (actionsCount == 0) {
+      terminalWriter.normal().append(" no action");
       maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
-    } else if (runningActions.size() == 1) {
+    } else if (actionsCount == 1) {
       if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {
         // As we will break lines anyway, also show the number of running actions, to keep
         // things stay roughly in the same place (also compensating for the missing plural-s
         // in the word action).
-        terminalWriter.normal().append("  1 action running");
+        terminalWriter.normal().append("  1 action");
         maybeShowRecentTest(
             terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
         String statusMessage =
-            describeAction(runningActions.peekFirst(), clock.nanoTime(), targetWidth - 4, null);
+            describeAction(
+                sortedActions().findFirst().get(), clock.nanoTime(), targetWidth - 4, null);
         terminalWriter.normal().newline().append("    " + statusMessage);
       } else {
         String statusMessage =
             describeAction(
-                runningActions.peekFirst(),
+                sortedActions().findFirst().get(),
                 clock.nanoTime(),
                 targetWidth - terminalWriter.getPosition() - 1,
                 null);
@@ -762,14 +841,14 @@ class ExperimentalStateTracker {
       if (shortVersion) {
         String statusMessage =
             describeAction(
-                runningActions.peekFirst(),
+                sortedActions().findFirst().get(),
                 clock.nanoTime(),
                 targetWidth - terminalWriter.getPosition(),
                 null);
-        statusMessage += " ... (" + runningActions.size() + " actions running)";
+        statusMessage += " ... (" + countActions() + ")";
         terminalWriter.normal().append(" " + statusMessage);
       } else {
-        String statusMessage = "" + runningActions.size() + " actions running";
+        String statusMessage = countActions();
         terminalWriter.normal().append(" " + statusMessage);
         maybeShowRecentTest(
             terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());

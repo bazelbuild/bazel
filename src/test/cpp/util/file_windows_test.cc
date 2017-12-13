@@ -64,7 +64,7 @@ class FileWindowsTest : public ::testing::Test {
     wstring wtarget;                                                          \
     EXPECT_TRUE(AsWindowsPath(name, &wname));                                 \
     EXPECT_TRUE(AsWindowsPath(target, &wtarget));                             \
-    EXPECT_EQ("", CreateJunction(wname, wtarget));                            \
+    EXPECT_EQ(L"", CreateJunction(wname, wtarget));                           \
   }
 
 // Asserts that dir1 can be created with some content, and dir2 doesn't exist.

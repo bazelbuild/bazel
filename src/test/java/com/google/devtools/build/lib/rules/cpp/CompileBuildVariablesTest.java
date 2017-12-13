@@ -124,4 +124,20 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         Variables.toStringList(variables, CppModel.USER_COMPILE_FLAGS_VARIABLE_NAME);
     assertThat(copts).containsExactly("-foo").inOrder();
   }
+
+  @Test
+  public void testPresenceOfSysrootBuildVariable() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, "builtin_sysroot: '/usr/local/custom-sysroot'");
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+
+    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    assertThat(variables.getStringVariable(CppModel.SYSROOT_VARIABLE_NAME))
+        .isEqualTo("/usr/local/custom-sysroot");
+  }
 }

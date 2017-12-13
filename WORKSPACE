@@ -79,6 +79,12 @@ new_local_repository(
 )
 
 new_local_repository(
+    name = "com_google_protobuf_cc",
+    build_file = "./third_party/protobuf/3.4.0/BUILD",
+    path = "./third_party/protobuf/3.4.0/",
+)
+
+new_local_repository(
     name = "com_google_protobuf_java",
     build_file = "./third_party/protobuf/3.4.0/com_google_protobuf_java.BUILD",
     path = "./third_party/protobuf/3.4.0/",
@@ -124,18 +130,24 @@ http_file(
 http_archive(
     name = "bazel_toolchains",
     urls = [
-        "http://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/9dbd803ad3b9447430a296810197b09b3a710956.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/archive/9dbd803ad3b9447430a296810197b09b3a710956.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/b49ba3689f46ac50e9277dafd8ff32b26951f82e.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/b49ba3689f46ac50e9277dafd8ff32b26951f82e.tar.gz",
     ],
-    strip_prefix = "bazel-toolchains-9dbd803ad3b9447430a296810197b09b3a710956",
-    sha256 = "0799aa12db5260a499beb40f81744e760c59d055bfc5d271dd2c2ed4d5419faa",
+    strip_prefix = "bazel-toolchains-b49ba3689f46ac50e9277dafd8ff32b26951f82e",
+    sha256 = "1266f1e27b4363c83222f1a776397c7a069fbfd6aacc9559afa61cdd73e1b429",
 )
 
 http_archive(
     name = "com_googlesource_code_re2",
     urls = [
-        "https://github.com/google/re2/archive/2017-08-01.tar.gz",
+        "https://github.com/google/re2/archive/2017-12-01.tar.gz",
     ],
-    strip_prefix = "re2-2017-08-01",
-    sha256 = "938723dc197125392698c5fcf41acb74877866ff140b81fd50b7314bf26f1636",
+    strip_prefix = "re2-2017-12-01",
+    sha256 = "62797e7cd7cc959419710cd25b075b5f5b247da0e8214d47bf5af9b32128fb0d",
+)
+
+# For src/test/shell/bazel:bazel_sandboxing_test
+http_file(
+  name = 'mount_path_toolchain',
+  url = 'https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz',
 )

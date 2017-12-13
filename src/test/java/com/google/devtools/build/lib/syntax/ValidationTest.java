@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -237,7 +237,7 @@ public class ValidationTest extends EvaluationTestCase {
   public void testGetSkylarkType() throws Exception {
     Class<?> emptyTupleClass = Tuple.empty().getClass();
     Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
-    Class<?> mutableListClass = new MutableList<>(Tuple.of(1, 2, 3), env).getClass();
+    Class<?> mutableListClass = MutableList.copyOf(env, Tuple.of(1, 2, 3)).getClass();
 
     assertThat(EvalUtils.getSkylarkType(mutableListClass)).isEqualTo(MutableList.class);
     assertThat(MutableList.class.isAnnotationPresent(SkylarkModule.class)).isTrue();
@@ -261,7 +261,7 @@ public class ValidationTest extends EvaluationTestCase {
   public void testSkylarkTypeEquivalence() throws Exception {
     Class<?> emptyTupleClass = Tuple.empty().getClass();
     Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
-    Class<?> mutableListClass = new MutableList<>(Tuple.of(1, 2, 3), env).getClass();
+    Class<?> mutableListClass = MutableList.copyOf(env, Tuple.of(1, 2, 3)).getClass();
 
     assertThat(SkylarkType.of(mutableListClass)).isEqualTo(SkylarkType.LIST);
     assertThat(SkylarkType.of(emptyTupleClass)).isEqualTo(SkylarkType.TUPLE);

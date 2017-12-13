@@ -13,16 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Iterator;
-
 import javax.annotation.Nullable;
 
 /**
@@ -86,6 +86,7 @@ public final class MiddlemanFactory {
   public Artifact createRunfilesMiddleman(
       ActionOwner owner, @Nullable Artifact owningArtifact, Iterable<Artifact> inputs,
       Root middlemanDir, String tag) {
+    Preconditions.checkArgument(middlemanDir.isMiddlemanRoot());
     if (hasExactlyOneInput(inputs)) { // Optimization: No middleman for just one input.
       return Iterables.getOnlyElement(inputs);
     }
@@ -97,6 +98,9 @@ public final class MiddlemanFactory {
   }
 
   private <T> boolean hasExactlyOneInput(Iterable<T> iterable) {
+    if (iterable instanceof NestedSet) {
+      return ((NestedSet) iterable).isSingleton();
+    }
     Iterator<T> it = iterable.iterator();
     if (!it.hasNext()) {
       return false;
@@ -151,7 +155,7 @@ public final class MiddlemanFactory {
   private Pair<Artifact, Action> createMiddleman(
       ActionOwner owner, String middlemanName, String purpose, Iterable<Artifact> inputs,
       Root middlemanDir, MiddlemanType middlemanType) {
-    if (inputs == null || Iterables.isEmpty(inputs)) {
+    if (inputs == null || CollectionUtils.isEmpty(inputs)) {
       return null;
     }
 

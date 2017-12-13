@@ -34,15 +34,18 @@ public class JavaRuntimeInfo extends NativeInfo {
       new NativeProvider<JavaRuntimeInfo>(JavaRuntimeInfo.class, SKYLARK_NAME) {};
 
   private final NestedSet<Artifact> javaBaseInputs;
+  private final NestedSet<Artifact> javaBaseInputsMiddleman;
   private final PathFragment javaHome;
   private final PathFragment javaBinaryExecPath;
   private final PathFragment javaBinaryRunfilesPath;
 
   public JavaRuntimeInfo(
-      NestedSet<Artifact> javaBaseInputs, PathFragment javaHome,
-      PathFragment javaBinaryExecPath, PathFragment javaBinaryRunfilesPath) {
+      NestedSet<Artifact> javaBaseInputs, NestedSet<Artifact> javaBaseInputsMiddleman,
+      PathFragment javaHome, PathFragment javaBinaryExecPath,
+      PathFragment javaBinaryRunfilesPath) {
     super(PROVIDER, ImmutableMap.<String, Object>of());
     this.javaBaseInputs = javaBaseInputs;
+    this.javaBaseInputsMiddleman = javaBaseInputsMiddleman;
     this.javaHome = javaHome;
     this.javaBinaryExecPath = javaBinaryExecPath;
     this.javaBinaryRunfilesPath = javaBinaryRunfilesPath;
@@ -51,6 +54,11 @@ public class JavaRuntimeInfo extends NativeInfo {
   /** All input artifacts in the javabase. */
   public NestedSet<Artifact> javaBaseInputs() {
     return javaBaseInputs;
+  }
+
+  /** A middleman representing the javabase. */
+  public NestedSet<Artifact> javaBaseInputsMiddleman() {
+    return javaBaseInputsMiddleman;
   }
 
   /** The root directory of the Java installation. */

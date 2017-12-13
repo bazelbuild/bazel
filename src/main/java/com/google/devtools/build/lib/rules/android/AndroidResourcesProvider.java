@@ -29,10 +29,12 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
       Label label,
       NestedSet<ResourceContainer> transitiveAndroidResources,
       NestedSet<ResourceContainer> directAndroidResources,
-      NestedSet<Artifact> transitiveResourceRoots,
+      NestedSet<Artifact> transitiveResources,
+      NestedSet<Artifact> transitiveAssets,
       NestedSet<Artifact> transitiveManifests,
       NestedSet<Artifact> transitiveAapt2RTxt,
       NestedSet<Artifact> transitiveSymbolsBin,
+      NestedSet<Artifact> transitiveCompiledSymbols,
       NestedSet<Artifact> transitiveStaticLib,
       NestedSet<Artifact> transitiveRTxt,
       boolean isResourcesOnly) {
@@ -40,10 +42,12 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
         label,
         transitiveAndroidResources,
         directAndroidResources,
-        transitiveResourceRoots,
+        transitiveResources,
+        transitiveAssets,
         transitiveManifests,
         transitiveAapt2RTxt,
         transitiveSymbolsBin,
+        transitiveCompiledSymbols,
         transitiveStaticLib,
         transitiveRTxt,
         isResourcesOnly);
@@ -58,13 +62,17 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
   /** Returns the immediate ResourceContainers for the label. */
   public abstract NestedSet<ResourceContainer> getDirectAndroidResources();
 
-  public abstract NestedSet<Artifact> getTransitiveResourceRoots();
+  public abstract NestedSet<Artifact> getTransitiveResources();
+
+  public abstract NestedSet<Artifact> getTransitiveAssets();
 
   public abstract NestedSet<Artifact> getTransitiveManifests();
 
   public abstract NestedSet<Artifact> getTransitiveAapt2RTxt();
 
   public abstract NestedSet<Artifact> getTransitiveSymbolsBin();
+
+  public abstract NestedSet<Artifact> getTransitiveCompiledSymbols();
 
   public abstract NestedSet<Artifact> getTransitiveStaticLib();
 

@@ -3,7 +3,7 @@ layout: documentation
 title: Installing Bazel on Ubuntu
 ---
 
-# <a name="ubuntu"></a>Install Bazel on Ubuntu
+# <a name="ubuntu"></a>Installing Bazel on Ubuntu
 
 Supported Ubuntu Linux platforms:
 
@@ -60,7 +60,7 @@ Once installed, you can upgrade to a newer version of Bazel with:
 sudo apt-get upgrade bazel
 ```
 
-## <a name="install-with-installer-ubuntu"></a>Install using binary installer
+## <a name="install-with-installer-ubuntu"></a>Installing using binary installer
 
 The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
@@ -75,23 +75,26 @@ sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python
 
 ### 2. Download Bazel
 
+**Note:** In the installer file names listed in this document, replace
+`<version>` with the appropriate Bazel version number.
+
 Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
-Download the binary installer `bazel-0.5.2-installer-linux-x86_64.sh`. This
+Download the binary installer `bazel-<version>-installer-linux-x86_64.sh`. This
 installer contains the Bazel binary and the required JDK, and can be used even
 if JDK is already installed.
 
-Note that `bazel-0.5.2-without-jdk-installer-linux-x86_64.sh` also exist. It is
-a version without embedded JDK 8. Only use this installer if you already have
-JDK 8 installed.
+Note that `bazel-<version>-without-jdk-installer-linux-x86_64.sh` also exists.
+It is a version without embedded JDK 8. Only use this installer if you already
+have JDK 8 installed.
 
 ### 3. Run the installer
 
 Run the installer:
 
 ```bash
-chmod +x bazel-0.5.2-installer-linux-x86_64.sh
-./bazel-0.5.2-installer-linux-x86_64.sh --user
+chmod +x bazel-<version>-installer-linux-x86_64.sh
+./bazel-<version>-installer-linux-x86_64.sh --user
 ```
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and

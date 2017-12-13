@@ -24,11 +24,11 @@ if [ "${PLATFORM}" != "darwin" ]; then
   exit 0
 fi
 
-function make_app() {
+function make_lib() {
   rm -rf ios
   mkdir -p ios
 
-  cat >ios/app.m <<EOF
+  cat >ios/main.m <<EOF
 #import <UIKit/UIKit.h>
 
 int main(int argc, char *argv[]) {
@@ -39,110 +39,36 @@ int main(int argc, char *argv[]) {
 }
 EOF
 
-  cat >ios/App-Info.plist <<EOF
-<plist version="1.0">
-<dict>
-        <key>CFBundleExecutable</key>
-        <string>app</string>
-        <key>CFBundleName</key>
-        <string>app</string>
-        <key>CFBundleDisplayName</key>
-        <string>app</string>
-        <key>CFBundlePackageType</key>
-        <string>APPL</string>
-        <key>CFBundleIdentifier</key>
-        <string>com.google.app</string>
-        <key>CFBundleSignature</key>
-        <string>????</string>
-        <key>CFBundleVersion</key>
-        <string>1.0</string>
-        <key>LSRequiresIPhoneOS</key>
-        <true/>
-</dict>
-</plist>
-EOF
-
-  cat >ios/PassTest-Info.plist <<EOF
-<plist version="1.0">
-<dict>
-        <key>CFBundleExecutable</key>
-        <string>PassingXcTest</string>
-</dict>
-</plist>
-EOF
-
-  cat >ios/passtest.m <<EOF
-#import <XCTest/XCTest.h>
-
-@interface PassingXcTest : XCTestCase
-
-@end
-
-@implementation PassingXcTest
-
-- (void)testPass {
-  XCTAssertEqual(1, 1, @"should pass");
-}
-
-@end
-EOF
-
   cat >ios/BUILD <<EOF
-objc_binary(name = "bin",
-            non_arc_srcs = ['app.m'])
-ios_application(name = "app",
-                binary = ':bin',
-                infoplist = 'App-Info.plist')
-ios_test(name = 'PassingXcTest',
-         srcs = ['passtest.m'],
-         infoplist = "PassTest-Info.plist",
-         xctest = True,
-         xctest_app = ':app')
+objc_library(name = "lib",
+             non_arc_srcs = ['main.m'])
 EOF
 }
 
 function test_build_app() {
   setup_objc_test_support
-  make_app
+  make_lib
 
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
-}
-
-function test_ios_test() {
-  setup_objc_test_support
-  make_app
-
-  bazel build --test_output=all --ios_sdk_version=$IOS_SDK_VERSION \
-      --ios_minimum_os=8.0 \
-      //ios:PassingXcTest >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-out/ios_x86_64-fastbuild/bin/ios/PassingXcTest.ipa \
-      || fail "should generate PassingXcTest.ipa"
-}
-
-function test_valid_ios_sdk_version() {
-  setup_objc_test_support
-  make_app
-
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
+      //ios:lib >$TEST_log 2>&1 || fail "should pass"
+  ls bazel-out/ios_x86_64-fastbuild/bin/ios/liblib.a \
+      || fail "should generate lib.a"
 }
 
 # Bazel caches mappings for ios sdk locations for local host execution.
 # Verify that multiple invocations (with primed cache) work.
 function test_xcrun_cache() {
   setup_objc_test_support
-  make_app
+  make_lib
 
   ! ls bazel-out/__xcruncache || fail "clean build should not have cache file"
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      //ios:bin >$TEST_log 2>&1 || fail "should pass"
+      //ios:lib >$TEST_log 2>&1 || fail "should pass"
   ls bazel-out/__xcruncache || fail "xcrun cache should be present"
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
+      //ios:lib >$TEST_log 2>&1 || fail "should pass"
+  ls bazel-out/ios_x86_64-fastbuild/bin/ios/liblib.a \
+      || fail "should generate lib.a"
   ls bazel-out/__xcruncache || fail "xcrun cache should be present"
 
   bazel clean
@@ -151,10 +77,10 @@ function test_xcrun_cache() {
 
 function test_invalid_ios_sdk_version() {
   setup_objc_test_support
-  make_app
+  make_lib
 
   ! bazel build --verbose_failures --ios_sdk_version=2.34 \
-      //ios:app >$TEST_log 2>&1 || fail "should fail"
+      //ios:lib >$TEST_log 2>&1 || fail "should fail"
   expect_log "SDK \"iphonesimulator2.34\" cannot be located."
 }
 

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.sh;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -24,16 +23,16 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.ExecutableSymlinkAction;
+import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
-import com.google.devtools.build.lib.bazel.rules.NativeLauncherUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 
 /**
  * Implementation for the sh_binary rule.
@@ -105,22 +104,19 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     Artifact bashLauncher =
         ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
 
-    ByteArrayOutputStream launchInfo = new ByteArrayOutputStream();
-    try {
-      NativeLauncherUtil.writeLaunchInfo(launchInfo, "binary_type", "Bash");
-      NativeLauncherUtil.writeLaunchInfo(
-          launchInfo, "workspace_name", ruleContext.getWorkspaceName());
-      NativeLauncherUtil.writeLaunchInfo(
-          launchInfo,
-          "bash_bin_path",
-          ruleContext.getFragment(BazelConfiguration.class).getShellExecutable().getPathString());
-      NativeLauncherUtil.writeDataSize(launchInfo);
-    } catch (IOException e) {
-      ruleContext.ruleError(e.getMessage());
-      throw new RuleErrorException();
-    }
+    LaunchInfo launchInfo =
+        LaunchInfo.builder()
+            .addKeyValuePair("binary_type", "Bash")
+            .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
+            .addKeyValuePair(
+                "bash_bin_path",
+                ruleContext
+                    .getFragment(BazelConfiguration.class)
+                    .getShellExecutable()
+                    .getPathString())
+            .build();
 
-    NativeLauncherUtil.createNativeLauncherActions(ruleContext, bashLauncher, launchInfo);
+    LauncherFileWriteAction.createAndRegister(ruleContext, bashLauncher, launchInfo);
 
     return bashLauncher;
   }

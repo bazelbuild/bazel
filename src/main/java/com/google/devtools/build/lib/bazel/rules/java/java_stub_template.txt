@@ -119,7 +119,8 @@ done
 #
 # For case 1, $0 will be a regular file, and the runfiles tree will be
 # at $0.runfiles.
-# For case 2 or 3, $0 will be a symlink to the file seen in case 1.
+# For case 2, $0 will be a symlink to the file seen in case 1.
+# For case 3, we use Y's runfiles tree, which will be a superset of X's.
 # For case 4, $JAVA_RUNFILES and $TEST_SRCDIR should already be set.
 # Case 5 is handled like case 1.
 # Case 6 is handled like case 3.
@@ -145,7 +146,7 @@ if [[ "$SINGLEJAR" != 1 || "%needs_runfiles%" == 1 ]]; then
       fi
       if [[ $self == *.runfiles/* ]]; then
         JAVA_RUNFILES="${self%.runfiles/*}.runfiles"
-        # don't break; this value is only a last resort for case 6b
+        break
       fi
       if [[ ! -L "$self" ]]; then
         break
@@ -199,7 +200,7 @@ else
     for line in "${my_array[@]}"
     do
       line_split=($line)
-      runfiles_array[${line_split[0]}]=${line_split[1]}
+      runfiles_array[${line_split[0]}]=${line_split[@]:1}
     done
   fi
 
@@ -208,12 +209,21 @@ else
       echo $1
     else
       if is_macos; then
-        echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
+        # Print the rest of line after the first space
+        # First, set the first column to empty and print rest of the line
+        # Second, use a trick of awk to remove leading and trailing spaces.
+        echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ $1=""; print }' | awk '{ $1=$1; print }')
       else
         echo ${runfiles_array[$1]}
       fi
     fi
   }
+fi
+
+if is_macos || [[ ${OSTYPE} == "freebsd" ]]; then
+  function md5func() { md5 -q $@ ; }
+else
+  function md5func() { md5sum $@ | awk '{print $1}' ; }
 fi
 
 # Set JAVABIN to the path to the JVM launcher.
@@ -245,6 +255,8 @@ export CLASSLOADER_PREFIX_PATH="${RUNPATH}"
 # We need to make the metadata jar with uninstrumented classes available for generating
 # the lcov-compatible coverage report, and we don't want it on the classpath.
 %set_jacoco_metadata%
+%set_jacoco_main_class%
+%set_jacoco_java_runfiles_root%
 
 if [[ -n "$JVM_DEBUG_PORT" ]]; then
   JVM_DEBUG_SUSPEND=${DEFAULT_JVM_DEBUG_SUSPEND:-"y"}
@@ -291,8 +303,9 @@ function create_and_run_classpath_jar() {
   done
   unset IFS
 
+  RAND_ID=$(cat /dev/urandom | head -c 128 | md5func)
   # Create manifest file
-  MANIFEST_FILE="${self}.jar_manifest"
+  MANIFEST_FILE="${self}-${RAND_ID}.jar_manifest"
 
   echo "Manifest-Version: 1.0" >$MANIFEST_FILE
   CLASSPATH_LINE="Class-Path:$MANIFEST_CLASSPATH"
@@ -308,14 +321,21 @@ function create_and_run_classpath_jar() {
   echo "Created-By: Bazel" >>$MANIFEST_FILE
 
   # Create classpath JAR file
-  MANIFEST_JAR_FILE="${self}-classpath.jar"
-  is_windows && MANIFEST_JAR_FILE="$(cygpath --windows "$MANIFEST_JAR_FILE")"
+  MANIFEST_JAR_FILE="${self}-${RAND_ID}-classpath.jar"
+  if is_windows; then
+    MANIFEST_JAR_FILE="$(cygpath --windows "$MANIFEST_JAR_FILE")"
+    MANIFEST_FILE="$(cygpath --windows "$MANIFEST_FILE")"
+  fi
   JARBIN="${JARBIN:-$(rlocation "$1")}"
   $JARBIN cvfm "$MANIFEST_JAR_FILE" "$MANIFEST_FILE" >/dev/null || \
     die "ERROR: $self failed because $JARBIN failed"
 
   # Execute JAVA command
   $JAVABIN -classpath "$MANIFEST_JAR_FILE" "${ARGS[@]}"
+  exit_code=$?
+  rm -f "$MANIFEST_FILE"
+  rm -f "$MANIFEST_JAR_FILE"
+  exit $exit_code
 }
 
 # If the user didn't specify a --classpath_limit, use the default value.

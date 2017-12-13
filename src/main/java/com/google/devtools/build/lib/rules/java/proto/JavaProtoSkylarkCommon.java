@@ -121,7 +121,7 @@ public class JavaProtoSkylarkCommon {
         JavaInfo.Builder.create()
             .addProvider(
                 JavaCompilationArgsProvider.class,
-                runtime.getProvider(JavaCompilationArgsProvider.class))
+                JavaInfo.getProvider(JavaCompilationArgsProvider.class, runtime))
             .build();
   }
 
@@ -141,7 +141,7 @@ public class JavaProtoSkylarkCommon {
     ConfiguredTarget javaToolchainConfigTarget =
         (ConfiguredTarget) checkNotNull(skylarkRuleContext.getAttr().getValue(javaToolchainAttr));
     JavaToolchainProvider toolchain =
-        checkNotNull(javaToolchainConfigTarget.getProvider(JavaToolchainProvider.class));
+        checkNotNull(JavaToolchainProvider.from(javaToolchainConfigTarget));
 
     return ImmutableList.<String>builder()
         .addAll(toolchain.getJavacOptions())

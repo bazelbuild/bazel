@@ -14,9 +14,9 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Container for a pending operation on the reverse deps set. We use subclasses to save 8 bytes of
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.util.Preconditions;
  * entry during this evaluation (and will thus need to be signaled when this entry finishes
  * evaluating).
  */
-abstract class KeyToConsolidate {
+public abstract class KeyToConsolidate {
   enum Op {
     /**
      * Assert that the reverse dep is already present in the set of reverse deps. If the entry is
@@ -58,7 +58,8 @@ abstract class KeyToConsolidate {
     REMOVE_OLD
   }
 
-  enum OpToStoreBare {
+  /** The operation {@link ReverseDepsUtility} should store bare in pending reverse dep ops. */
+  public enum OpToStoreBare {
     ADD(Op.ADD),
     CHECK(Op.CHECK);
 

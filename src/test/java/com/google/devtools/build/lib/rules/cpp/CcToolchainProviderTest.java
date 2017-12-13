@@ -20,6 +20,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -33,61 +34,71 @@ import org.junit.runners.JUnit4;
 public class CcToolchainProviderTest {
   @Test
   public void equalityIsObjectIdentity() throws Exception {
-    CcToolchainProvider a = new CcToolchainProvider(
-        null,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        null,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        null,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        null,
-        PathFragment.EMPTY_FRAGMENT,
-        CppCompilationContext.EMPTY,
-        false,
-        false,
-        ImmutableMap.<String, String>of(),
-        ImmutableList.<Artifact>of(),
-        NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
-        null,
-        ImmutableMap.<String, String>of(),
-        ImmutableList.<PathFragment>of(),
-        null);
+    CcToolchainProvider a =
+        new CcToolchainProvider(
+            ImmutableMap.of(),
+            null,
+            null,
+            null,
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            null,
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            null,
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            null,
+            PathFragment.EMPTY_FRAGMENT,
+            CppCompilationContext.EMPTY,
+            false,
+            false,
+            Variables.EMPTY,
+            ImmutableList.<Artifact>of(),
+            NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
+            null,
+            null,
+            ImmutableMap.<String, String>of(),
+            ImmutableList.<PathFragment>of(),
+            null);
 
-    CcToolchainProvider b = new CcToolchainProvider(
-        null,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        null,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        null,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        null,
-        PathFragment.EMPTY_FRAGMENT,
-        CppCompilationContext.EMPTY,
-        false,
-        false,
-        ImmutableMap.<String, String>of(),
-        ImmutableList.<Artifact>of(),
-        NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
-        null,
-        ImmutableMap.<String, String>of(),
-        ImmutableList.<PathFragment>of(),
-        null);
+    CcToolchainProvider b =
+        new CcToolchainProvider(
+            ImmutableMap.of(),
+            null,
+            null,
+            null,
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            null,
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            null,
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            null,
+            PathFragment.EMPTY_FRAGMENT,
+            CppCompilationContext.EMPTY,
+            false,
+            false,
+            Variables.EMPTY,
+            ImmutableList.<Artifact>of(),
+            NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
+            null,
+            null,
+            ImmutableMap.<String, String>of(),
+            ImmutableList.<PathFragment>of(),
+            null);
 
     new EqualsTester()
         .addEqualityGroup(a)

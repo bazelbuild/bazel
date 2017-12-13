@@ -22,6 +22,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,7 +40,6 @@ public class SplitterTest {
 
   @Test
   public void testAssign() {
-
     int size = 10;
 
     Collection<String> input;
@@ -63,9 +63,9 @@ public class SplitterTest {
       for (int j = 0; j < size; j++) {
         String path = "dir" + i + ARCHIVE_FILE_SEPARATOR + "file" + j + CLASS_SUFFIX;
         if (i == j) {
-          assertThat(output.get(path)).isEqualTo(0);
+          assertThat(output.get(path)).named(path).isEqualTo(0);
         } else {
-          assertThat(output.get(path)).isEqualTo(i + 1);
+          assertThat(output.get(path)).named(path).isEqualTo(i + 1);
         }
       }
     }
@@ -191,15 +191,15 @@ public class SplitterTest {
    * "number of shards", "number of packages", "package size".
    */
   private void comboRunner(int[][] params) {
-
     Collection<String> input;
     Map<String, Integer> output;
 
     for (int[] param : params) {
       input = genEntries(param[1], param[2]);
       output = runOne(param[0], input);
-      splitAsserts(param[0], param[1], param[2],
-          commonAsserts(param[0], param[1], param[2], input, output));
+      String name = Arrays.toString(param);
+      splitAsserts(name, param[0], param[1], param[2],
+          commonAsserts(name, param[0], param[1], param[2], input, output));
     }
   }
 
@@ -223,7 +223,7 @@ public class SplitterTest {
   }
 
   private int[] assertAndCountMappings(int shards, int packageSize,
-    Map<String, Integer> output) {
+    Map<String, Integer> output, boolean expectPackageBoundaryShards) {
     int[] counts = new int[shards + 1];
     String prevPath = null;
     int prev = -2;
@@ -236,11 +236,13 @@ public class SplitterTest {
         if (prev == -2) {
           assertThat(assignment).isEqualTo(0);
         } else if (prev > 0 && prev != assignment) {
-          String prevDir = prevPath.substring(0, prevPath.lastIndexOf(ARCHIVE_DIR_SUFFIX));
-          String dir = path.substring(0, path.lastIndexOf(ARCHIVE_DIR_SUFFIX));
           assertThat(assignment).isEqualTo(prev + 1); // shard index increasing
-          // package boundary, or partial package
-          assertThat(!prevDir.equals(dir) || counts[prev + 1] % packageSize != 0).isTrue();
+          if (expectPackageBoundaryShards) {
+            String prevDir = prevPath.substring(0, prevPath.lastIndexOf(ARCHIVE_DIR_SUFFIX));
+            String dir = path.substring(0, path.lastIndexOf(ARCHIVE_DIR_SUFFIX));
+            // package boundary, or full packages
+            assertThat(!prevDir.equals(dir) || counts[prev + 1] % packageSize != 0).isTrue();
+          }
         }
         prevPath = path;
       }
@@ -259,28 +261,28 @@ public class SplitterTest {
   /**
    * Verifies that packages have not been unnecessarily split.
    */
-  private void assertNoSplit(int packageSize, int[] counts) {
+  private void assertNoSplit(String name, int packageSize, int[] counts) {
     for (int i = 1; i < counts.length; i++) {
-      assertThat(counts[i] % packageSize).isEqualTo(0);
+      assertThat(counts[i]).named(name + " shard " + i).isAtLeast(0);
     }
   }
 
   /**
    * Verifies the presence of package-split in the tailing shards.
    */
-  private void assertHasSplit(int packageSize, int[] counts) {
+  private void assertHasSplit(String name, int packageSize, int[] counts) {
     for (int i = 1; i < counts.length - 1; i++) {
       if (counts[i + 1] <= 1) {
         continue;
       }
-      assertThat(counts[i] % packageSize).isEqualTo(0);
+      assertThat(counts[i]).named(name + " shard " + i).isAtMost(packageSize);
     }
   }
 
   /**
    * Verify the presence of tailing empty shards, if unavoidable.
    */
-  private void assertHasEmpty(int[] counts, boolean expectEmpty) {
+  private void assertHasEmpty(String name, int[] counts, boolean expectEmpty) {
     boolean hasEmpty = false;
     for (int i = 1; i < counts.length; i++) {
       if (counts[i] == 0) {
@@ -289,31 +291,42 @@ public class SplitterTest {
         assertThat(!hasEmpty || counts[i] == 0).isTrue();
       }
     }
-    assertThat(hasEmpty).isEqualTo(expectEmpty);
+    assertThat(hasEmpty).named(name).isEqualTo(expectEmpty);
   }
 
   /**
-   * Validates that each chard meets expected minimal and maximum size requirements,
+   * Validates that each shard meets expected minimal and maximum size requirements,
    * to ensure that shards are reasonably evenly sized.
    */
-  private void assertBalanced(int shards, int packageCount, int packageSize, int entries,
-      int[] counts) {
+  private void assertBalanced(String name, int shards, int packageCount, int packageSize,
+      int entries, int[] counts) {
     int classes = packageSize * packageCount;
     int noneClass = entries - counts[0] - classes;
     int idealSize = Math.max(1, classes / shards);
-    int superSize = Math.max(1, entries / shards);
-    int almostFull = Math.min(Math.min(10, (idealSize + 3) >> 2), (int) Math.log(shards));
-    int lowerBound =  idealSize -  almostFull;
-    int upperBound = superSize + Math.max(packageSize, (int) (Math.log(shards)) * 10);
+    int delta = Math.min(Math.min(10, (idealSize + 3) >> 2), (int) Math.log(shards));
+    int lowerBound = idealSize - delta;
+    int upperBound = idealSize + delta;
     for (int i = 1; i < counts.length; i++) {
       int adjusted = i == 1 ? counts[i] - noneClass : counts[i];
       if (i < shards && counts[i + 1] > 1) {
-        assertThat(counts[i]).isIn(Range.closed(packageSize, entries));
+        if (shards <= packageCount) {
+          // if there are fewer shards than packages, expect shards contain at least 1 full package
+          assertThat(counts[i]).named(name + " dense shard " + i)
+              .isIn(Range.closed(packageSize, entries));
+        } else {
+          assertThat(counts[i]).named(name + " sparse shard " + i)
+              .isIn(Range.closed(0, packageSize));
+        }
         if (noneClass == 0 && counts[0] == 0) {
-          assertThat(counts[i]).isIn(Range.closed(lowerBound, entries));
+          // Give some slack in minimal number of entries in a shard because Splitter recomputes
+          // boundaries for each shard, so our computed bounds can be off for later shards.
+          assertThat(counts[i]).named(name + " shard " + i)
+              .isIn(Range.closed(lowerBound - i, entries));
         }
       }
-      assertThat(adjusted).isIn(Range.closed(0, upperBound));
+      // Give some slack in maximum number of entries in a shard because Splitter recomputes
+      // boundaries for each shard, so our computed bounds can be off for later shards.
+      assertThat(adjusted).named(name + " shard " + i).isAtMost(upperBound + i);
     }
   }
 
@@ -321,25 +334,26 @@ public class SplitterTest {
    * Verifies that packages are only split as expected, and that no unexpected
    * empty shards are generated.
    */
-  private void splitAsserts(int shards, int packageCount, int packageSize, int[] counts) {
+  private void splitAsserts(String name, int shards, int packageCount, int packageSize,
+      int[] counts) {
     boolean emptyExpected = packageCount * packageSize < shards;
     boolean splitExpected = shards > packageCount;
     if (splitExpected) {
-      assertHasSplit(packageSize, counts);
+      assertHasSplit(name, packageSize, counts);
     } else {
-      assertNoSplit(packageSize, counts);
+      assertNoSplit(name, packageSize, counts);
     }
-    assertHasEmpty(counts, emptyExpected);
+    assertHasEmpty(name, counts, emptyExpected);
   }
 
   /**
    * Checks assert applicable to all tests.
    */
-  private int[] commonAsserts(int shards, int packageCount, int packageSize,
+  private int[] commonAsserts(String name, int shards, int packageCount, int packageSize,
       Collection<String> input, Map<String, Integer> output) {
     assertMaintainOrder(input, output);
-    int[] counts = assertAndCountMappings(shards, packageSize, output);
-    assertBalanced(shards, packageCount, packageSize, input.size(), counts);
+    int[] counts = assertAndCountMappings(shards, packageSize, output, packageCount <= shards);
+    assertBalanced(name, shards, packageCount, packageSize, input.size(), counts);
     return counts;
   }
 }

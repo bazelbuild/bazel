@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.ERROR;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.io.LineProcessor;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -25,10 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
@@ -112,71 +108,13 @@ public class SpawnInputExpander {
   void parseFilesetManifest(
       Map<PathFragment, ActionInput> inputMappings, Artifact manifest, String workspaceName)
           throws IOException {
-    Path file = manifest.getRoot().getPath().getRelative(
-        AnalysisUtils.getManifestPathFromFilesetPath(
-            manifest.getRootRelativePath()).getPathString());
-    FileSystemUtils.asByteSource(file).asCharSource(UTF_8)
-        .readLines(new ManifestLineProcessor(inputMappings, workspaceName, manifest.getExecPath()));
-  }
-
-  private final class ManifestLineProcessor implements LineProcessor<Object> {
-    private final Map<PathFragment, ActionInput> inputMap;
-    private final String workspaceName;
-    private final PathFragment targetPrefix;
-    private int lineNum = 0;
-
-    ManifestLineProcessor(
-        Map<PathFragment, ActionInput> inputMap,
-        String workspaceName,
-        PathFragment targetPrefix) {
-      this.inputMap = inputMap;
-      this.workspaceName = workspaceName;
-      this.targetPrefix = targetPrefix;
-    }
-
-    @Override
-    public boolean processLine(String line) throws IOException {
-      if (++lineNum % 2 == 0) {
-        // Digest line, skip.
-        return true;
-      }
-      if (line.isEmpty()) {
-        return true;
-      }
-
-      ActionInput artifact;
-      PathFragment location;
-      int pos = line.indexOf(' ');
-      if (pos == -1) {
-        location = PathFragment.create(line);
-        artifact = EMPTY_FILE;
-      } else {
-        String targetPath = line.substring(pos + 1);
-        if (targetPath.charAt(0) != '/') {
-          throw new IOException(String.format("runfiles target is not absolute: %s", targetPath));
-        }
-        artifact = targetPath.isEmpty() ? EMPTY_FILE : ActionInputHelper.fromPath(targetPath);
-
-        location = PathFragment.create(line.substring(0, pos));
-        if (!workspaceName.isEmpty()) {
-          if (!location.getSegment(0).equals(workspaceName)) {
-            throw new IOException(
-                String.format(
-                    "fileset manifest line must start with '%s': '%s'", workspaceName, location));
-          } else {
-            // Erase "<workspaceName>/".
-            location = location.subFragment(1, location.segmentCount());
-          }
-        }
-      }
-
-      addMapping(inputMap, targetPrefix.getRelative(location), artifact);
-      return true;
-    }
-
-    @Override
-    public Object getResult() {
-      return null; // Unused.
+    FilesetManifest filesetManifest =
+        FilesetManifest.parseManifestFile(
+            manifest, manifest.getRoot().getExecRoot(), workspaceName, ERROR);
+    for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
+      String value = mapping.getValue();
+      ActionInput artifact = value == null ? EMPTY_FILE : ActionInputHelper.fromPath(value);
+      addMapping(inputMappings, mapping.getKey(), artifact);
     }
   }
 

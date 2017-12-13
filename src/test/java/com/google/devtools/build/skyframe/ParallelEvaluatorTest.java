@@ -601,12 +601,9 @@ public class ParallelEvaluatorTest {
     SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addDependency(catastropheKey).setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result = eval(keepGoing, topKey, otherKey);
-    if (!keepGoing) {
-      ErrorInfo error = result.getError(topKey);
-      assertThat(error.getRootCauses()).containsExactly(catastropheKey);
-    } else {
-      assertThat(result.hasError()).isTrue();
-      assertThat(result.errorMap()).isEmpty();
+    ErrorInfo error = result.getError(topKey);
+    assertThat(error.getRootCauses()).containsExactly(catastropheKey);
+    if (keepGoing) {
       assertThat(result.getCatastrophe()).isSameAs(catastrophe);
     }
   }
@@ -1859,9 +1856,11 @@ public class ParallelEvaluatorTest {
               }
             });
 
-    MemoizingEvaluator aug = new InMemoryMemoizingEvaluator(
-        ImmutableMap.of(GraphTester.NODE_TYPE, tester.getFunction()), new RecordingDifferencer(),
-        progressReceiver);
+    MemoizingEvaluator aug =
+        new InMemoryMemoizingEvaluator(
+            ImmutableMap.of(GraphTester.NODE_TYPE, tester.getFunction()),
+            new SequencedRecordingDifferencer(),
+            progressReceiver);
     SequentialBuildDriver driver = new SequentialBuildDriver(aug);
 
     tester.getOrCreate("top1").setComputedValue(CONCATENATE)

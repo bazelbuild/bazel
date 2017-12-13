@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelMapConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
@@ -33,7 +33,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.TriState;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -71,6 +70,7 @@ public class JavaOptions extends FragmentOptions {
     name = "javabase",
     defaultValue = "@bazel_tools//tools/jdk:jdk",
     category = "version",
+    converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -78,7 +78,7 @@ public class JavaOptions extends FragmentOptions {
             + "java_runtime_suite which will be used to execute "
             + "external Java commands."
   )
-  public String javaBase;
+  public Label javaBase;
 
   @Option(
     name = "java_toolchain",
@@ -104,7 +104,8 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
     name = "host_javabase",
-    defaultValue = "@bazel_tools//tools/jdk:jdk",
+    defaultValue = "@bazel_tools//tools/jdk:host_jdk",
+    converter = LabelConverter.class,
     category = "version",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -112,7 +113,7 @@ public class JavaOptions extends FragmentOptions {
         "JAVABASE used for the host JDK. This is the java_runtime_suite which is used to execute "
             + "tools during a build."
   )
-  public String hostJavaBase;
+  public Label hostJavaBase;
 
   @Option(
     name = "javacopt",
@@ -232,8 +233,8 @@ public class JavaOptions extends FragmentOptions {
     defaultValue = "default",
     converter = StrictDepsConverter.class,
     category = "semantics",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "If true, checks that a Java target explicitly declares all directly used "
             + "targets as dependencies.",
@@ -461,7 +462,7 @@ public class JavaOptions extends FragmentOptions {
     name = "strict_deps_java_protos",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "When 'strict-deps' is on, .java files that depend on classes not declared in their rule's "
             + "'deps' fail to build. In other words, it's forbidden to depend on classes obtained "
@@ -495,6 +496,31 @@ public class JavaOptions extends FragmentOptions {
   public OneVersionEnforcementLevel enforceOneVersion;
 
   @Option(
+    name = "one_version_enforcement_on_java_tests",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "When enabled, and with experimental_one_version_enforcement set to a non-NONE value,"
+            + " enforce one version on java_test targets. This flag can be disabled to improve"
+            + " incremental test performance at the expense of missing potential one version"
+            + " violations."
+  )
+  public boolean enforceOneVersionOnJavaTests;
+
+  @Option(
+    name = "experimental_allow_runtime_deps_on_neverlink",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = { OptionEffectTag.BUILD_FILE_SEMANTICS },
+    metadataTags = { OptionMetadataTag.EXPERIMENTAL },
+    help =
+        "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
+            + " Java archives. The depot needs to be cleaned up to roll this out by default."
+  )
+  public boolean allowRuntimeDepsOnNeverLink;
+
+  @Option(
     name = "jplPropagateCcLinkParamsStore",
     defaultValue = "false",
     category = "rollout",
@@ -505,20 +531,26 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean jplPropagateCcLinkParamsStore;
 
+  // Plugins are built using the host config. To avoid cycles we just don't propagate
+  // this option to the host config. If one day we decide to use plugins when building
+  // host tools, we can improve this by (for example) creating a compiler configuration that is
+  // used only for building plugins.
   @Option(
-      name = "experimental_disable_absolute_javabase",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE}
+    name = "plugin",
+    converter = LabelListConverter.class,
+    allowMultiple = true,
+    defaultValue = "",
+    category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Plugins to use in the build. Currently works with java_plugin."
   )
-  public boolean disableAbsoluteJavabase;
+  public List<Label> pluginList;
 
   @Override
   public FragmentOptions getHost() {
     JavaOptions host = (JavaOptions) getDefault();
 
-    host.disableAbsoluteJavabase = disableAbsoluteJavabase;
     host.javaBase = hostJavaBase;
     host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
@@ -539,6 +571,9 @@ public class JavaOptions extends FragmentOptions {
     host.strictJavaDeps = strictJavaDeps;
 
     host.enforceOneVersion = enforceOneVersion;
+    // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
+    host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
+    host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
@@ -547,11 +582,8 @@ public class JavaOptions extends FragmentOptions {
 
   @Override
   public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
-    Set<Label> jdkLabels = new LinkedHashSet<>();
-    DefaultsPackage.parseAndAdd(jdkLabels, javaBase);
-    DefaultsPackage.parseAndAdd(jdkLabels, hostJavaBase);
     Map<String, Set<Label>> result = new HashMap<>();
-    result.put("JDK", jdkLabels);
+    result.put("JDK", ImmutableSet.of(javaBase, hostJavaBase));
     result.put("JAVA_TOOLCHAIN", ImmutableSet.of(javaToolchain));
 
     return result;

@@ -54,7 +54,8 @@ static bool HasSubstr(const string &s, const string &what) {
 class CustomOutputJar : public OutputJar {
  public:
   ~CustomOutputJar() override {}
-  void ExtraHandler(const CDH *cdh) override {
+  void ExtraHandler(const CDH *cdh,
+                    const std::string *input_jar_aux_label) override {
     auto file_name = cdh->file_name();
     auto file_name_length = cdh->file_name_length();
     if (file_name_length > 0 && file_name[file_name_length - 1] != '/' &&

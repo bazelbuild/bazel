@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -70,7 +70,7 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
   /** Constructor which configures a reporter with the specified handlers. */
   public Reporter(EventBus eventBus, EventHandler... handlers) {
     this.eventBus = eventBus;
-    for (EventHandler handler: handlers) {
+    for (EventHandler handler : handlers) {
       addHandler(handler);
     }
   }
@@ -103,7 +103,10 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
    */
   @Override
   public synchronized void handle(Event e) {
-    if (e.getKind() != EventKind.ERROR && e.getTag() != null && !showOutput(e.getTag())) {
+    if (e.getKind() != EventKind.ERROR
+        && e.getKind() != EventKind.DEBUG
+        && e.getTag() != null
+        && !showOutput(e.getTag())) {
       return;
     }
     for (EventHandler handler : handlers) {

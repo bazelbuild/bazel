@@ -68,6 +68,7 @@ public class ArtifactFactoryTest {
   private PathFragment alienRelative;
 
   private ArtifactFactory artifactFactory;
+  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
   public final void createFiles() throws Exception  {
@@ -98,7 +99,7 @@ public class ArtifactFactoryTest {
     packageRootMap.put(fooPackage, clientRoot);
     packageRootMap.put(barPackage, clientRoRoot);
     packageRootMap.put(alienPackage, alienRoot);
-    artifactFactory.setPackageRoots(packageRootMap);
+    artifactFactory.setPackageRoots(packageRootMap::get);
   }
 
   @Test
@@ -156,7 +157,7 @@ public class ArtifactFactoryTest {
     // references) be in a package.
     Map<PackageIdentifier, Root> packageRoots = ImmutableMap.of(
         PackageIdentifier.createInMainRepo(PathFragment.create("")), clientRoot);
-    artifactFactory.setPackageRoots(packageRoots);
+    artifactFactory.setPackageRoots(packageRoots::get);
     PathFragment outsideWorkspace = PathFragment.create("../foo");
     PathFragment insideWorkspace =
         PathFragment.create("../" + clientRoot.getPath().getBaseName() + "/foo");
@@ -194,7 +195,7 @@ public class ArtifactFactoryTest {
   public void testSetGeneratingActionIdempotenceNewActionGraph() throws Exception {
     Artifact a = artifactFactory.getDerivedArtifact(fooRelative, outRoot, NULL_ARTIFACT_OWNER);
     Artifact b = artifactFactory.getDerivedArtifact(barRelative, outRoot, NULL_ARTIFACT_OWNER);
-    MutableActionGraph actionGraph = new MapBasedActionGraph();
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     Action originalAction = new ActionsTestUtil.NullAction(NULL_ACTION_OWNER, a);
     actionGraph.registerAction(originalAction);
 

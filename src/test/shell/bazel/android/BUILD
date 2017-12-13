@@ -17,22 +17,76 @@ filegroup(
 # tools/android/android_sdk_repository_template.bzl and
 # src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_ndk_build_file_template.txt
 
+sh_library(
+    name = "android_helper",
+    srcs = ["android_helper.sh"],
+    data = ["sample.aar"],
+)
+
 sh_test(
     name = "android_integration_test",
-    size = "large",
+    size = "medium",
     srcs = ["android_integration_test.sh"],
     data = [
+        ":android_helper",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
 )
 
 sh_test(
+    name = "aar_integration_test",
+    size = "medium",
+    srcs = ["aar_integration_test.sh"],
+    data = [
+        ":android_helper",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+)
+
+sh_test(
+    name = "proguard_integration_test",
+    size = "medium",
+    srcs = ["proguard_integration_test.sh"],
+    data = [
+        ":android_helper",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+)
+
+sh_test(
+    name = "android_sdk_integration_test",
+    size = "medium",
+    srcs = ["android_sdk_integration_test.sh"],
+    data = [
+        ":android_helper",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+    shard_count = 3,
+)
+
+sh_test(
     name = "android_ndk_integration_test",
-    size = "large",
+    size = "medium",
     srcs = ["android_ndk_integration_test.sh"],
     data = [
+        ":android_helper",
         "//external:android_ndk_for_testing",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+    shard_count = 6,
+)
+
+sh_test(
+    name = "aidl_integration_test",
+    size = "medium",
+    srcs = ["aidl_integration_test.sh"],
+    data = [
+        ":android_helper",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
@@ -40,9 +94,10 @@ sh_test(
 
 sh_test(
     name = "desugarer_integration_test",
-    size = "large",
+    size = "medium",
     srcs = ["desugarer_integration_test.sh"],
     data = [
+        ":android_helper",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],

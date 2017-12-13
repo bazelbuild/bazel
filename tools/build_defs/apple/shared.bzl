@@ -74,10 +74,13 @@ def xcrun_env(ctx):
   """Returns the environment dictionary necessary to use xcrunwrapper."""
   platform = ctx.fragments.apple.single_arch_platform
 
-  action_env = ctx.fragments.apple.target_apple_env(platform) \
-      + ctx.fragments.apple.apple_host_system_env()
-
-  return action_env
+  if hasattr(apple_common, "apple_host_system_env"):
+    xcode_config =  ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    return (apple_common.target_apple_env(xcode_config, platform) +
+            apple_common.apple_host_system_env(xcode_config))
+  else:
+    return (ctx.fragments.apple.target_apple_env(platform) +
+            ctx.fragments.apple.apple_host_system_env())
 
 
 def xcrun_action(ctx, **kw):

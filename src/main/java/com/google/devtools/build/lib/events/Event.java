@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.events;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
@@ -66,6 +66,9 @@ public final class Event implements Serializable {
   }
 
   public Event withTag(String tag) {
+    if (Objects.equals(tag, this.tag)) {
+      return this;
+    }
     if (this.message != null) {
       return new Event(this.kind, this.location, this.message, tag);
     } else {

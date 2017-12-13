@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -28,9 +29,10 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
-import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
@@ -58,13 +60,13 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
   }
 
   @Override
-  public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+  public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    exec(spawn, actionExecutionContext, null);
+    return exec(spawn, actionExecutionContext, null);
   }
 
   @Override
-  public void exec(
+  public List<SpawnResult> exec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
@@ -82,20 +84,20 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     SpawnCache cache = actionExecutionContext.getContext(SpawnCache.class);
     // In production, the getContext method guarantees that we never get null back. However, our
     // integration tests don't set it up correctly, so cache may be null in testing.
-    if (cache == null || !Spawns.mayBeCached(spawn)) {
+    if (cache == null) {
       cache = SpawnCache.NO_CACHE;
     }
-    SpawnResult result;
+    SpawnResult spawnResult;
     try {
       try (CacheHandle cacheHandle = cache.lookup(spawn, policy)) {
         if (cacheHandle.hasResult()) {
-          result = Preconditions.checkNotNull(cacheHandle.getResult());
+          spawnResult = Preconditions.checkNotNull(cacheHandle.getResult());
         } else {
           // Actual execution.
-          result = spawnRunner.exec(spawn, policy);
+          spawnResult = spawnRunner.exec(spawn, policy);
           if (cacheHandle.willStore()) {
             cacheHandle.store(
-                result, listExistingOutputFiles(spawn, actionExecutionContext.getExecRoot()));
+                spawnResult, listExistingOutputFiles(spawn, actionExecutionContext.getExecRoot()));
           }
         }
       }
@@ -103,17 +105,20 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       throw new EnvironmentalExecException("Unexpected IO error.", e);
     }
 
-    if ((result.status() != Status.SUCCESS) || (result.exitCode() != 0)) {
+    if (spawnResult.status() != Status.SUCCESS) {
       String cwd = actionExecutionContext.getExecRoot().getPathString();
+      String resultMessage = spawnResult.getFailureMessage();
       String message =
-          CommandFailureUtils.describeCommandFailure(
-              actionExecutionContext.getVerboseFailures(),
-              spawn.getArguments(),
-              spawn.getEnvironment(),
-              cwd);
-      throw new SpawnExecException(
-          message, result, /*forciblyRunRemotely=*/false, /*catastrophe=*/false);
+          resultMessage != ""
+              ? resultMessage
+              : CommandFailureUtils.describeCommandFailure(
+                  actionExecutionContext.getVerboseFailures(),
+                  spawn.getArguments(),
+                  spawn.getEnvironment(),
+                  cwd);
+      throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/false);
     }
+    return ImmutableList.of(spawnResult);
   }
 
   private List<Path> listExistingOutputFiles(Spawn spawn, Path execRoot) {

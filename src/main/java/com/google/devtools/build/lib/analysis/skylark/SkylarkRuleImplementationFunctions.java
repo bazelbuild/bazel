@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -125,6 +125,7 @@ public class SkylarkRuleImplementationFunctions {
         positional = false,
         doc =
             "command line arguments of the action."
+                + "Must be a list of strings or actions.args() objects."
       ),
       @Param(
         name = "mnemonic",
@@ -188,7 +189,7 @@ public class SkylarkRuleImplementationFunctions {
         positional = false,
         doc =
             "information for scheduling the action. See "
-                + "<a href=\"/docs/be/common-definitions.html#common.tags\">tags</a> "
+                + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
                 + "for useful keys."
       ),
       @Param(
@@ -267,9 +268,9 @@ public class SkylarkRuleImplementationFunctions {
       };
 
   static void checkDeprecated(
-      String newApi, String oldApi, Location loc, SkylarkSemanticsOptions semantics)
+      String newApi, String oldApi, Location loc, SkylarkSemantics semantics)
       throws EvalException {
-    if (semantics.incompatibleNewActionsApi) {
+    if (semantics.incompatibleNewActionsApi()) {
       throw new EvalException(
           loc,
           "Use " + newApi + " instead of " + oldApi + ". \n"
@@ -317,10 +318,9 @@ public class SkylarkRuleImplementationFunctions {
             throws EvalException {
           ctx.checkMutable("expand_location");
           try {
-            return new LocationExpander(
+            return LocationExpander.withExecPaths(
                     ctx.getRuleContext(),
-                    makeLabelMap(targets.getContents(TransitiveInfoCollection.class, "targets")),
-                    false)
+                    makeLabelMap(targets.getContents(TransitiveInfoCollection.class, "targets")))
                 .expand(input);
           } catch (IllegalStateException ise) {
             throw new EvalException(loc, ise);
@@ -710,7 +710,8 @@ public class SkylarkRuleImplementationFunctions {
           String attribute =
               Type.STRING.convertOptional(attributeUnchecked, "attribute", ruleLabel);
           if (expandLocations) {
-            command = helper.resolveCommandAndExpandLabels(command, attribute, false, false);
+            command = helper.resolveCommandAndExpandLabels(
+                command, attribute, /*allowDataInLabel=*/false);
           }
           if (!EvalUtils.isNullOrNone(makeVariablesUnchecked)) {
             Map<String, String> makeVariables =
@@ -730,8 +731,8 @@ public class SkylarkRuleImplementationFunctions {
           List<String> argv =
               helper.buildCommandLine(command, inputs, SCRIPT_SUFFIX, executionRequirements);
           return Tuple.<Object>of(
-              new MutableList(inputs, env),
-              new MutableList(argv, env),
+              MutableList.copyOf(env, inputs),
+              MutableList.copyOf(env, argv),
               helper.getToolsRunfilesSuppliers());
         }
       };

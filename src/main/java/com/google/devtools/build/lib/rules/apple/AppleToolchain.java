@@ -22,12 +22,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -151,20 +148,13 @@ public class AppleToolchain {
     return sdkDir() + relativePath;
   }
 
-  /**
-   * The default label of the build-wide {@code xcode_config} configuration rule.
-   */
-  @Immutable
-  public static final class XcodeConfigLabel extends LateBoundLabel<BuildConfiguration> {
-    public XcodeConfigLabel(String toolsRepository) {
-      super(toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL,
-          AppleConfiguration.class);
-    }
-
-    @Override
-    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-      return configuration.getFragment(AppleConfiguration.class).getXcodeConfigLabel();
-    }
+  /** The default label of the build-wide {@code xcode_config} configuration rule. */
+  public static LateBoundDefault<?, Label> getXcodeConfigLabel(String toolsRepository) {
+    return LateBoundDefault.fromTargetConfiguration(
+        AppleConfiguration.class,
+        Label.parseAbsoluteUnchecked(
+            toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL),
+        (rule, attributes, appleConfig) -> appleConfig.getXcodeConfigLabel());
   }
 
   /**
@@ -180,11 +170,12 @@ public class AppleToolchain {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)
-              .allowedRuleClasses("xcode_config")
-              .checkConstraints()
-              .direct_compile_time_input()
-              .value(new XcodeConfigLabel(toolsRepository)))
+          .add(
+              attr(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)
+                  .allowedRuleClasses("xcode_config")
+                  .checkConstraints()
+                  .direct_compile_time_input()
+                  .value(getXcodeConfigLabel(toolsRepository)))
           .build();
     }
     @Override

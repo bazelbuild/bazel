@@ -8,9 +8,18 @@ filegroup(
 
 java_library(
     name = "query2",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "AbstractBlazeQueryEnvironment.java",
+            "FakeLoadTarget.java",
+        ],
+    ),
     deps = [
+        ":abstract-blaze-query-env",
+        ":fake-load-target",
         ":query-engine",
+        ":query-output",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
@@ -23,6 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -32,8 +42,9 @@ java_library(
     name = "query-output",
     srcs = glob(["output/*.java"]),
     deps = [
+        ":abstract-blaze-query-env",
+        ":fake-load-target",
         ":query-engine",
-        ":query2",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:util",
@@ -42,6 +53,35 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "abstract-blaze-query-env",
+    srcs = [
+        "AbstractBlazeQueryEnvironment.java",
+    ],
+    deps = [
+        ":query-engine",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "fake-load-target",
+    srcs = [
+        "FakeLoadTarget.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:util",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

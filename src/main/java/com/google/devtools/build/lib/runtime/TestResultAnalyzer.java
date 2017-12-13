@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -28,7 +30,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.util.ArrayList;
@@ -112,7 +113,15 @@ public class TestResultAnalyzer {
       }
     }
 
-    Preconditions.checkState(summaries.size() == testTargets.size());
+    int summarySize = summaries.size();
+    int testTargetsSize = testTargets.size();
+    Preconditions.checkState(
+        summarySize == testTargetsSize,
+        "Unequal sizes: %s vs %s (%s and %s)",
+        summarySize,
+        testTargetsSize,
+        summaries,
+        testTargets);
 
     notifier.notify(summaries, totalRun);
     // skipped targets are not in passCount since they have NO_STATUS
@@ -135,7 +144,7 @@ public class TestResultAnalyzer {
 
     // If already reported by the listener, no work remains for this target.
     TestSummary.Builder summary = listener.getCurrentSummary(testTarget);
-    Label testLabel = testTarget.getLabel();
+    Label testLabel = AliasProvider.getDependencyLabel(testTarget);
     Preconditions.checkNotNull(summary,
         "%s did not complete test filtering, but has a test result", testLabel);
     if (listener.targetReported(testTarget)) {
@@ -192,10 +201,6 @@ public class TestResultAnalyzer {
     Preconditions.checkNotNull(summaryBuilder);
     TestSummary existingSummary = Preconditions.checkNotNull(summaryBuilder.peek());
 
-    TransitiveInfoCollection target = existingSummary.getTarget();
-    Preconditions.checkNotNull(
-        target, "The existing TestSummary must be associated with a target");
-
     BlazeTestStatus status = existingSummary.getStatus();
     int numCached = existingSummary.numCached();
     int numLocalActionCached = existingSummary.numLocalActionCached();
@@ -215,6 +220,9 @@ public class TestResultAnalyzer {
     if (coverageData != null) {
       summaryBuilder.addCoverageFiles(Collections.singletonList(coverageData));
     }
+
+    TransitiveInfoCollection target = existingSummary.getTarget();
+    Preconditions.checkNotNull(target, "The existing TestSummary must be associated with a target");
 
     if (!executionOptions.runsPerTestDetectsFlakes) {
       status = aggregateStatus(status, result.getData().getStatus());
@@ -334,7 +342,7 @@ public class TestResultAnalyzer {
         StringBuilder builder = new StringBuilder(String.format(
             "%s: Test execution time (%.1fs excluding execution overhead) outside of "
             + "range for %s tests. Consider setting timeout=\"%s\"",
-            target.getLabel(),
+            AliasProvider.getDependencyLabel(target),
             maxTimeOfShard / 1000.0,
             specifiedTimeout.prettyPrint(),
             expectedTimeout));

@@ -27,10 +27,10 @@ public abstract class ApkProvider implements TransitiveInfoProvider {
   public static ApkProvider create(
       Artifact apk,
       Artifact unsignedApk,
-      @Nullable Artifact coverageMetdata,
+      @Nullable Artifact coverageMetadata,
       Artifact mergedManifest,
       Artifact keystore) {
-    return new AutoValue_ApkProvider(apk, unsignedApk, coverageMetdata, mergedManifest, keystore);
+    return new AutoValue_ApkProvider(apk, unsignedApk, coverageMetadata, mergedManifest, keystore);
   }
 
   /** Returns the APK file built in the transitive closure. */

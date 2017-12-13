@@ -2,9 +2,11 @@ package(default_visibility = ["//visibility:public"])
 
 # TODO(lberki): Remove this once java_toolchain_alias and java_runtime_alias are
 # in a Bazel release
-load("//tools/jdk:alias_rules.bzl", "java_runtime_alias", "java_toolchain_alias")
+load("//tools/jdk:alias_rules.bzl", "java_host_runtime_alias")
 
 java_runtime_alias(name = "current_java_runtime")
+
+java_host_runtime_alias(name = "current_host_java_runtime")
 
 java_toolchain_alias(name = "current_java_toolchain")
 
@@ -26,6 +28,15 @@ filegroup(
         ":jdk7": [":BUILD-jdk7"],
         "//conditions:default": [":BUILD"],
     }),
+)
+
+# This is necessary to get the *host* Java runtime. Depending on
+# //tools/jdk:current_java_runtime from an attribute with the host transition
+# does not work because the dependency is determined based on the configuration
+# *before* the transition.
+alias(
+    name = "java_runtime_alias",
+    actual = "//tools/jdk:current_java_runtime",
 )
 
 alias(
@@ -73,7 +84,10 @@ alias(
 # contains the appropriate platform-dependent file.
 filegroup(
     name = "ijar",
-    srcs = glob(["ijar/*"]),
+    srcs = select({
+        "//src/conditions:remote": ["//third_party/ijar:ijar"],
+        "//conditions:default": glob(["ijar/*"]),
+    }),
 )
 
 # On Windows, Java implementation of singlejar is used. We create a little
@@ -84,7 +98,10 @@ filegroup(
 # must be platform-independent.
 filegroup(
     name = "singlejar",
-    srcs = glob(["singlejar/*"]),
+    srcs = select({
+        "//src/conditions:remote": ["//src/tools/singlejar:singlejar"],
+        "//conditions:default": glob(["singlejar/*"]),
+    }),
 )
 
 filegroup(
@@ -149,6 +166,11 @@ alias(
 
 alias(
     name = "jdk",
+    actual = "@local_jdk//:jdk",
+)
+
+alias(
+    name = "host_jdk",
     actual = "@local_jdk//:jdk",
 )
 

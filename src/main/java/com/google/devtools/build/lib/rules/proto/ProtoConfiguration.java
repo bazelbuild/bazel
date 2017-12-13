@@ -98,7 +98,7 @@ public class ProtoConfiguration extends Fragment {
 
     @Option(
       name = "proto_toolchain_for_java",
-      defaultValue = "@com_google_protobuf_java//:java_toolchain",
+      defaultValue = "@com_google_protobuf//:java_toolchain",
       category = "flags",
       converter = BuildConfiguration.EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -109,7 +109,7 @@ public class ProtoConfiguration extends Fragment {
 
     @Option(
       name = "proto_toolchain_for_cc",
-      defaultValue = "@com_google_protobuf_cc//:cc_toolchain",
+      defaultValue = "@com_google_protobuf//:cc_toolchain",
       category = "flags",
       converter = BuildConfiguration.EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -123,8 +123,8 @@ public class ProtoConfiguration extends Fragment {
       defaultValue = "strict",
       converter = BuildConfiguration.StrictDepsConverter.class,
       category = "semantics",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, checks that a proto_library target explicitly declares all directly "

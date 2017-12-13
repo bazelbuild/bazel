@@ -62,9 +62,14 @@ public abstract class Expression extends ASTNode {
    */
   public final Object eval(Environment env) throws EvalException, InterruptedException {
     try {
-      return doEval(env);
-    } catch (EvalException ex) {
-      throw maybeTransformException(ex);
+      Callstack.push(this);
+      try {
+        return doEval(env);
+      } catch (EvalException ex) {
+        throw maybeTransformException(ex);
+      }
+    } finally {
+      Callstack.pop();
     }
   }
 

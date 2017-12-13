@@ -293,7 +293,8 @@ public class JacocoCoverageRunner {
 
   public static void main(String[] args) throws Exception {
     final String metadataFile = System.getenv("JACOCO_METADATA_JAR");
-    final boolean isNewImplementation = metadataFile.endsWith(".txt");
+    final boolean isNewImplementation =
+        metadataFile == null ? false : metadataFile.endsWith(".txt");
     final String javaRunfilesRoot = System.getenv("JACOCO_JAVA_RUNFILES_ROOT");
 
     final String coverageReportBase = System.getenv("JAVA_COVERAGE_FILE");
@@ -353,19 +354,22 @@ public class JacocoCoverageRunner {
                   }
 
                   File[] metadataJars;
-                  if (isNewImplementation) {
-                    List<String> metadataFiles = Files.readLines(new File(metadataFile), UTF_8);
-                    List<File> convertedMetadataFiles = new ArrayList<>();
-                    for (String metadataFile : metadataFiles) {
-                      convertedMetadataFiles.add(new File(javaRunfilesRoot + metadataFile));
+                  if (metadataFile != null) {
+                    if (isNewImplementation) {
+                      List<String> metadataFiles = Files.readLines(new File(metadataFile), UTF_8);
+                      List<File> convertedMetadataFiles = new ArrayList<>();
+                      for (String metadataFile : metadataFiles) {
+                        convertedMetadataFiles.add(new File(javaRunfilesRoot + metadataFile));
+                      }
+                      metadataJars = convertedMetadataFiles.toArray(new File[0]);
+                    } else {
+                      metadataJars = new File[] {new File(metadataFile)};
                     }
-                    metadataJars = convertedMetadataFiles.toArray(new File[0]);
-                  } else {
-                    metadataJars = new File[] {new File(metadataFile)};
-                  }
 
-                  new JacocoCoverageRunner(
-                      isNewImplementation, dataInputStream, coverageReport, metadataJars).create();
+                    new JacocoCoverageRunner(
+                            isNewImplementation, dataInputStream, coverageReport, metadataJars)
+                        .create();
+                  }
                 } catch (IOException e) {
                   e.printStackTrace();
                   Runtime.getRuntime().halt(1);

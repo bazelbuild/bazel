@@ -18,14 +18,14 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Class used for implementing whitelists using package groups.
@@ -44,13 +44,10 @@ public final class Whitelist {
    *
    * @param whitelistName The name of the whitelist. This has to comply with attribute naming
    *     standards and will be used as a suffix for the attribute name.
-   * @param packageGroupWhitelist Label for the package group with the whitelist.
    */
-  public static Attribute.Builder<Label> getAttributeFromWhitelistName(
-      String whitelistName, Label packageGroupWhitelist) {
+  public static Attribute.Builder<Label> getAttributeFromWhitelistName(String whitelistName) {
     String attributeName = getAttributeNameFromWhitelistName(whitelistName);
     return attr(attributeName, LABEL)
-        .value(packageGroupWhitelist)
         .cfg(HOST)
         .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class));
   }

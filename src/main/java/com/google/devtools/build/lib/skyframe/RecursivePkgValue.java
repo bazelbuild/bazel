@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -20,7 +21,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.LegacySkyKey;
@@ -70,7 +70,7 @@ public class RecursivePkgValue implements SkyValue {
    * A RecursivePkgKey is a tuple of a {@link RootedPath}, {@code rootedPath}, defining the
    * directory to recurse beneath in search of packages, and an {@link ImmutableSet} of {@link
    * PathFragment}s, {@code excludedPaths}, relative to {@code rootedPath.getRoot}, defining the
-   * set of subdirectories beneath {@code rootedPath} to skip.
+   * set of subdirectories strictly beneath {@code rootedPath} to skip.
    *
    * <p>Throws {@link IllegalArgumentException} if {@code excludedPaths} contains any paths that
    * are equal to {@code rootedPath} or that are not beneath {@code rootedPath}.

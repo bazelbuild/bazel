@@ -58,19 +58,10 @@ const char* SearchUnaryOption(const std::vector<std::string>& args,
                               const char* key);
 
 // Searches for 'key' in 'args' using GetNullaryOption.
-// Unlike SearchNullaryOptionEverywhere, arguments found after '--' are omitted
-// from the search.
+// Arguments found after '--' are omitted from the search.
 // Returns true iff key is a flag in args.
 bool SearchNullaryOption(const std::vector<std::string>& args,
                          const char* key);
-
-// Searches for 'key' in 'args' using GetNullaryOption.
-// Unlike SearchNullaryOption, arguments found after '--' are included in the
-// search.
-// Returns true iff key is a flag in args.
-bool SearchNullaryOptionEverywhere(const std::vector<std::string>& args,
-                                   const char* key);
-
 
 // Enable messages mostly of interest to developers.
 bool VerboseLogging();

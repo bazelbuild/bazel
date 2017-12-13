@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.server;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -140,9 +140,7 @@ class IdleServerTasks {
     try {
       totalPhysical = memInfo.getTotalKb();
       totalFree = memInfo.getFreeRamKb(); // See method javadoc.
-    } catch (IllegalArgumentException e) {
-      // Ugly capture of unchecked exception, similar to that in
-      // LocalHostCapacity.
+    } catch (ProcMeminfoParser.KeywordNotFoundException e) {
       LoggingUtil.logToRemote(Level.WARNING,
           "Could not read memInfo during idle query", e);
       return true;

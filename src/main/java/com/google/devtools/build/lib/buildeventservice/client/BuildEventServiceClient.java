@@ -62,7 +62,7 @@ public interface BuildEventServiceClient {
   /**
    * Closes the currently opened stream with error. This method does not block. Callers should block
    * on the Future returned by {@link #openStream(Function)} if in order to make sure that all
-   * ackCallback calls have been received.
+   * ackCallback calls have been received. This method is NOOP if the stream was already finished.
    */
   void abortStream(Status status);
 

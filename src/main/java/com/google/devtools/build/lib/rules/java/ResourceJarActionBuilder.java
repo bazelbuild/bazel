@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
@@ -88,9 +87,6 @@ public class ResourceJarActionBuilder {
     checkNotNull(javaToolchain, "javaToolchain must not be null");
 
     Artifact singleJar = javaToolchain.getSingleJar();
-    if (singleJar == null) {
-      singleJar = ruleContext.getPrerequisiteArtifact("$singlejar", Mode.HOST);
-    }
     SpawnAction.Builder builder = new SpawnAction.Builder();
     if (singleJar.getFilename().endsWith(".jar")) {
       builder

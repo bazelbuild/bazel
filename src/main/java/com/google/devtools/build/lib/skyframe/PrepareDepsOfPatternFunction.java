@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.BatchCallback.NullCallback;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -144,7 +144,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     public DepsOfPatternPreparer(Environment env, PathPackageLocator pkgPath) {
       this.env = env;
-      this.packageProvider = new EnvironmentBackedRecursivePackageProvider(env);
+      this.packageProvider = new EnvironmentBackedRecursivePackageProvider(env, pkgPath);
       this.pkgPath = pkgPath;
     }
 
@@ -239,10 +239,13 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         BatchCallback<Void, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
+      PathFragment directoryPathFragment = TargetPatternResolverUtil.getPathFragment(directory);
+      if (blacklistedSubdirectories.contains(directoryPathFragment)) {
+        return;
+      }
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(), excludedSubdirectories);
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
-      PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
       List<Path> roots = new ArrayList<>();
       if (repository.isMain()) {
         roots.addAll(pkgPath.getPathEntries());
@@ -262,7 +265,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       }
 
       for (Path root : roots) {
-        RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
+        RootedPath rootedPath = RootedPath.toRootedPath(root, directoryPathFragment);
         env.getValues(
             ImmutableList.of(
                 PrepareDepsOfTargetsUnderDirectoryValue.key(

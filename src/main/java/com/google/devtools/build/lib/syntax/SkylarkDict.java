@@ -68,7 +68,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     this.mutability = env == null ? Mutability.IMMUTABLE : env.mutability();
   }
 
-  private static final SkylarkDict<?, ?> EMPTY = of((Mutability) null);
+  private static final SkylarkDict<?, ?> EMPTY = withMutability(Mutability.IMMUTABLE);
 
   /** Returns an immutable empty dict. */
   // Safe because the empty singleton is immutable.
@@ -77,7 +77,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     return (SkylarkDict<K, V>) EMPTY;
   }
 
-  private static <K, V> SkylarkDict<K, V> of(@Nullable Mutability mutability) {
+  /** Returns an empty dict with the given {@link Mutability}. */
+  public static <K, V> SkylarkDict<K, V> withMutability(@Nullable Mutability mutability) {
     return new SkylarkDict<>(mutability);
   }
 
@@ -102,7 +103,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   @VisibleForTesting
   static <K, V> SkylarkDict<K, V> copyOf(
       @Nullable Mutability mutability, Map<? extends K, ? extends V> m) {
-    return SkylarkDict.<K, V>of(mutability).putAllUnsafe(m);
+    return SkylarkDict.<K, V>withMutability(mutability).putAllUnsafe(m);
   }
 
   /** @return a dict mutable in given environment only, with contents copied from given map */
@@ -111,32 +112,14 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     return SkylarkDict.<K, V>of(env).putAllUnsafe(m);
   }
 
-  /**
-   * Puts the given entry into the dict, without calling {@link #checkMutable}.
-   *
-   * <p><em>Warning:</em> This method should never be used by a caller that cares about respecting
-   * mutability restrictions. Such callers should instead use the safe {@link #put(K, V, Location,
-   * Mutability)} method below. This unsafe variant is only public in order to provide
-   * an "escape hatch" for when ordinary mutability restrictions are inapplicable, e.g. for
-   * constructing dicts from outside a Skylark environment and where it's impossible for multiple
-   * threads to observe the value at once.
-   */
-  public SkylarkDict<K, V> putUnsafe(K k, V v) {
+  /** Puts the given entry into the dict, without calling {@link #checkMutable}. */
+  private SkylarkDict<K, V> putUnsafe(K k, V v) {
     contents.put(k, v);
     return this;
   }
 
-  /**
-   * Puts all entries of the given map into the dict, without calling {@link #checkMutable}.
-   *
-   * <p><em>Warning:</em> This method should never be used by a caller that cares about respecting
-   * mutability restrictions. Such callers should instead use the safe {@link #putAll(Map,
-   * Location, Mutability)} method below. This unsafe variant is only public in order to provide
-   * an "escape hatch" for when ordinary mutability restrictions are inapplicable, e.g. for
-   * constructing dicts from outside a Skylark environment and where it's impossible for multiple
-   * threads to observe the value at once.
-   */
-  public <KK extends K, VV extends V> SkylarkDict<K, V> putAllUnsafe(Map<KK, VV> m) {
+  /** Puts all entries of the given map into the dict, without calling {@link #checkMutable}. */
+  private <KK extends K, VV extends V> SkylarkDict<K, V> putAllUnsafe(Map<KK, VV> m) {
     for (Map.Entry<KK, VV> e : m.entrySet()) {
       contents.put(e.getKey(), e.getValue());
     }

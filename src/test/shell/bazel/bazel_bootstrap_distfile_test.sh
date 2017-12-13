@@ -30,40 +30,19 @@ fi
 source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function log_progress() {
-  # TODO(laszlocsomor): remove this method after we fixed
-  # https://github.com/bazelbuild/bazel/issues/3618. I added this method only to
-  # catch that bug.
-  echo "DEBUG[$0 $(date)] test_bootstrap, $@"
-}
-
 function test_bootstrap()  {
     local olddir=$(pwd)
     WRKDIR=$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)
-    log_progress "WRKDIR=($WRKDIR)"
-    log_progress "TMPDIR=($TMPDIR)"
-    log_progress "TEST_TMPDIR=($TEST_TMPDIR)"
     mkdir -p "${WRKDIR}" || fail "Could not create workdir"
     trap "rm -rf \"$WRKDIR\"" EXIT
     cd "${WRKDIR}" || fail "Could not change to work directory"
-    unzip -q ${DISTFILE}
-    log_progress "unzipped DISTFILE=($DISTFILE)"
+    export SOURCE_DATE_EPOCH=1501234567
+    unzip -q "${DISTFILE}"
     find . -type f -exec chmod u+w {} \;
-    log_progress "running compile.sh"
     ./compile.sh || fail "Expected to be able to bootstrap bazel"
-    log_progress "done running compile.sh, WRKDIR contains this many files: $(find "$WRKDIR" -type f | wc -l)"
-    log_progress "running bazel info install_base"
-    # TODO(laszlocsomor): remove the "bazel info install_base" call at the same
-    # time as removing log_progress, i.e. after we fixed
-    # https://github.com/bazelbuild/bazel/issues/3618
-    ./output/bazel info install_base || fail "Generated bazel not working"
-    log_progress "done running bazel info install_base, WRKDIR contains this many files: $(find "$WRKDIR" -type f | wc -l)"
-    log_progress "running bazel info version"
-    ./output/bazel version || fail "Generated bazel not working"
-    log_progress "done running bazel version, WRKDIR contains this many files: $(find "$WRKDIR" -type f | wc -l)"
-    log_progress "running bazel shutdown"
+    ./output/bazel version > "${TEST_log}" || fail "Generated bazel not working"
     ./output/bazel shutdown
-    log_progress "done running bazel shutdown"
+    expect_log "${SOURCE_DATE_EPOCH}"
     cd "${olddir}"
 }
 

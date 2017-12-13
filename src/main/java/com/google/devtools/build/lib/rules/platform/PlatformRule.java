@@ -49,9 +49,11 @@ public class PlatformRule implements RuleDefinition {
                 .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id())))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(remote_execution_properties) -->
-        A key/value dict of values that will be sent to a remote execution platform.
+        A text proto (the Platform message from
+        https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto)
+        that will be sent to a remote execution platform.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING_DICT))
+        .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING))
 
         // Undocumented. Indicates that this platform should auto-configure the platform constraints
         // based on the current host OS and CPU settings.

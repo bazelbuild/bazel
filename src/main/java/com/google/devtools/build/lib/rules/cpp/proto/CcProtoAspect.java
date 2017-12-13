@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
@@ -31,16 +31,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
@@ -52,6 +49,7 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FeatureSpecification;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
@@ -70,21 +68,17 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
 
   private static final String PROTO_TOOLCHAIN_ATTR = ":aspect_cc_proto_toolchain";
 
-  private static final Attribute.LateBoundLabel<BuildConfiguration> PROTO_TOOLCHAIN_LABEL =
-      new Attribute.LateBoundLabel<BuildConfiguration>(
-          "@com_google_protobuf_cc//:cc_toolchain", ProtoConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(ProtoConfiguration.class).protoToolchainForCc();
-        }
-      };
+  private static final Attribute.LateBoundDefault<?, Label> PROTO_TOOLCHAIN_LABEL =
+      Attribute.LateBoundDefault.fromTargetConfiguration(
+          ProtoConfiguration.class,
+          Label.parseAbsoluteUnchecked("@com_google_protobuf//:cc_toolchain"),
+          (rule, attributes, protoConfig) -> protoConfig.protoToolchainForCc());
 
   private final CppSemantics cppSemantics;
-  private final Attribute.LateBoundLabel<BuildConfiguration> ccToolchainAttrValue;
+  private final Attribute.LateBoundDefault<?, Label> ccToolchainAttrValue;
 
   public CcProtoAspect(
-      CppSemantics cppSemantics,
-      Attribute.LateBoundLabel<BuildConfiguration> ccToolchainAttrValue) {
+      CppSemantics cppSemantics, Attribute.LateBoundDefault<?, Label> ccToolchainAttrValue) {
     this.cppSemantics = cppSemantics;
     this.ccToolchainAttrValue = ccToolchainAttrValue;
   }
@@ -125,7 +119,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
                     .value(ccToolchainAttrValue))
             .add(
                 attr(":lipo_context_collector", LABEL)
-                    .cfg(CppRuleClasses.LipoTransition.LIPO_COLLECTOR)
+                    .cfg(LipoContextCollectorTransition.INSTANCE)
                     .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
                     .skipPrereqValidatorCheck());
 
@@ -196,7 +190,9 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
       CcLibraryHelper.Info info = helper.build();
       ccLibraryProviders = info.getProviders();
       outputGroups = info.getOutputGroups();
-      info.addLinkingOutputsTo(filesBuilder);
+      // On Windows, dynamic library is not built by default, so don't add them to filesToBuild.
+      info.addLinkingOutputsTo(
+          filesBuilder, !featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
     }
 
     private boolean areSrcsBlacklisted() {
@@ -236,7 +232,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
       helper.enableCcNativeLibrariesProvider();
       // TODO(dougk): Configure output artifact with action_config
       // once proto compile action is configurable from the crosstool.
-      if (!ruleContext.getFragment(CppConfiguration.class).supportsDynamicLinker()) {
+      if (!ccToolchain(ruleContext).supportsDynamicLinker()) {
         helper.setCreateDynamicLibrary(false);
       }
       TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();

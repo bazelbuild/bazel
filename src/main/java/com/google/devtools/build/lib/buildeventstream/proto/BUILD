@@ -22,6 +22,7 @@ proto_library(
     name = "build_event_stream_proto",
     srcs = ["build_event_stream.proto"],
     deps = [
+        "//src/main/protobuf:command_line_proto",
         "//src/main/protobuf:invocation_policy_proto",
     ],
 )

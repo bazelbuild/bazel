@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
@@ -34,7 +36,6 @@ import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageP
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -45,6 +46,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -52,6 +54,12 @@ import javax.annotation.Nullable;
  * resolved Targets.
  */
 final class TargetPatternPhaseFunction implements SkyFunction {
+
+  private final AtomicReference<PathPackageLocator> pkgPath;
+
+  public TargetPatternPhaseFunction(AtomicReference<PathPackageLocator> pkgPath) {
+    this.pkgPath = pkgPath;
+  }
 
   @Override
   public TargetPatternPhaseValue compute(SkyKey key, Environment env) throws InterruptedException {
@@ -74,7 +82,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     // Determine targets to build:
-    ResolvedTargets<Target> targets = getTargetsToBuild(env, options);
+    ResolvedTargets<Target> targets = getTargetsToBuild(env, options, pkgPath.get());
 
     // If the --build_tests_only option was specified or we want to run tests, we need to determine
     // the list of targets to test. For that, we remove manual tests and apply the command-line
@@ -90,7 +98,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     Map<Label, SkyKey> testExpansionKeys = new LinkedHashMap<>();
     if (targets != null) {
       for (Target target : targets.getTargets()) {
-        if (TargetUtils.isTestSuiteRule(target)) {
+        if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
           Label label = target.getLabel();
           SkyKey testExpansionKey = TestSuiteExpansionValue.key(ImmutableSet.of(label));
           testExpansionKeys.put(label, testExpansionKey);
@@ -164,7 +172,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     boolean preExpansionError = targets.hasError();
     ResolvedTargets.Builder<Target> expandedTargetsBuilder = ResolvedTargets.builder();
     for (Target target : targets.getTargets()) {
-      if (TargetUtils.isTestSuiteRule(target)) {
+      if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
         SkyKey expansionKey =
             Preconditions.checkNotNull(testExpansionKeys.get(target.getLabel()));
         TestSuiteExpansionValue testExpansion =
@@ -197,7 +205,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * @param options the command-line arguments in structured form
    */
   private static ResolvedTargets<Target> getTargetsToBuild(
-      Environment env, TargetPatternPhaseKey options) throws InterruptedException {
+      Environment env, TargetPatternPhaseKey options, PathPackageLocator pkgPath)
+      throws InterruptedException {
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(
@@ -249,7 +258,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         .filter(TargetUtils.tagFilter(options.getBuildTargetFilter()))
         .build();
     if (options.getCompileOneDependency()) {
-      TargetProvider targetProvider = new EnvironmentBackedRecursivePackageProvider(env);
+      TargetProvider targetProvider = new EnvironmentBackedRecursivePackageProvider(env, pkgPath);
       try {
         return new CompileOneDependencyTransformer(targetProvider)
             .transformCompileOneDependency(env.getListener(), result);

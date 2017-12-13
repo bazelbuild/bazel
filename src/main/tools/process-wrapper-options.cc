@@ -45,6 +45,7 @@ static void Usage(char *program_name, const char *fmt, ...) {
       "before killing the child with SIGKILL\n"
       "  -o/--stdout <file>  redirect stdout to a file\n"
       "  -e/--stderr <file>  redirect stderr to a file\n"
+      "  -s/--stats <file>  if set, write stats in protobuf format to a file\n"
       "  -d/--debug  if set, debug info will be printed\n"
       "  --  command to run inside sandbox, followed by arguments\n");
   exit(EXIT_FAILURE);
@@ -58,14 +59,15 @@ static void ParseCommandLine(const std::vector<char *> &args) {
       {"kill_delay", required_argument, 0, 'k'},
       {"stdout", required_argument, 0, 'o'},
       {"stderr", required_argument, 0, 'e'},
+      {"stats", required_argument, 0, 's'},
       {"debug", no_argument, 0, 'd'},
       {0, 0, 0, 0}};
   extern char *optarg;
   extern int optind, optopt;
   int c;
 
-  while ((c = getopt_long(args.size(), args.data(), "+:t:k:o:e:d", long_options,
-                          nullptr)) != -1) {
+  while ((c = getopt_long(args.size(), args.data(), "+:t:k:o:e:s:d",
+                          long_options, nullptr)) != -1) {
     switch (c) {
       case 't':
         if (sscanf(optarg, "%lf", &opt.timeout_secs) != 1) {
@@ -91,6 +93,14 @@ static void ParseCommandLine(const std::vector<char *> &args) {
         } else {
           Usage(args.front(),
                 "Cannot redirect stderr (-e) to more than one destination.");
+        }
+        break;
+      case 's':
+        if (opt.stats_path.empty()) {
+          opt.stats_path.assign(optarg);
+        } else {
+          Usage(args.front(),
+                "Cannot write stats (-s) to more than one destination.");
         }
         break;
       case 'd':

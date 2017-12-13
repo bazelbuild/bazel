@@ -8,12 +8,24 @@ java_import(
 java_binary(
     name = "ResourceProcessorBusyBox",
     data = select({
-        "//src:windows": ["//src/main/native/windows:windows_jni.dll"],
-        "//src:windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
+        "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
+        "//src/conditions:windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": [],
     }),
     main_class = "com.google.devtools.build.android.ResourceProcessorBusyBox",
     runtime_deps = [
         ":all_android_tools",
+    ],
+)
+
+java_binary(
+    name = "ZipFilterAction",
+    # Memory consumption of SingleJar is about 250 bytes per entry in the output file. Unfortunately,
+    # the JVM tends to kill the process with an OOM long before we're at the limit. In the most
+    # recent example, 400 MB of memory was enough for about 500,000 entries.
+    jvm_flags = ["-Xmx1600m"],
+    main_class = "com.google.devtools.build.android.ZipFilterAction",
+    runtime_deps = [
+        ":all_android_tools"
     ],
 )

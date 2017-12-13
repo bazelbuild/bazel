@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.PackageIdentifierCodec;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;

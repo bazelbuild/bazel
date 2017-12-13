@@ -266,7 +266,8 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
       assertThat(e)
           .hasMessageThat()
           .contains(
-              "Flag value 'b' for flag 'test_list_converters' is not allowed by invocation policy");
+              "Flag value 'b' for option '--test_list_converters' is not allowed by invocation "
+                  + "policy");
     }
   }
 }

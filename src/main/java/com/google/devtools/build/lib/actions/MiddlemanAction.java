@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * An action that depends on a set of inputs and creates a single output file whenever it
@@ -51,13 +51,12 @@ public final class MiddlemanAction extends AbstractAction {
   }
 
   @Override
-  public final void execute(
-      ActionExecutionContext actionExecutionContext) {
+  public final ActionResult execute(ActionExecutionContext actionExecutionContext) {
     throw new IllegalStateException("MiddlemanAction should never be executed");
   }
 
   @Override
-  protected String computeKey() {
+  protected String computeKey(ActionKeyContext actionKeyContext) {
     // TODO(bazel-team): Need to take middlemanType into account here.
     // Only the set of inputs matters, and the dependency checker is
     // responsible for considering those.

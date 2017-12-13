@@ -38,6 +38,17 @@ java_binary(
     ],
 )
 
+java_binary(
+    name = "ZipFilterAction",
+    # Memory consumption of SingleJar is about 250 bytes per entry in the output file. Unfortunately,
+    # the JVM tends to kill the process with an OOM long before we're at the limit. In the most
+    # recent example, 400 MB of memory was enough for about 500,000 entries.
+    jvm_flags = ["-Xmx1600m"],
+    main_class = "com.google.devtools.build.android.ZipFilterAction",
+    visibility = ["//visibility:private"],
+    runtime_deps = [":android_builder_lib"],
+)
+
 java_library(
     name = "android_builder_lib",
     srcs = glob([
@@ -46,8 +57,12 @@ java_library(
         "aapt2/*.java",
     ]),
     deps = [
+        "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
+        "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/android/java/com/google/devtools/build/android/junctions",
+        "//src/tools/android/java/com/google/devtools/build/android/proto:format_java_pb",
+        "//src/tools/android/java/com/google/devtools/build/android/proto:resources_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_java_pb",
         "//src/tools/android/java/com/google/devtools/build/android/resources",
         "//third_party:android_common_25_0_0",
@@ -56,6 +71,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party/java/android_databinding:exec",
         "//third_party/java/aosp_gradle_core",
+        "//third_party/java/jcommander",
         "//third_party/protobuf:protobuf_java",
     ],
 )

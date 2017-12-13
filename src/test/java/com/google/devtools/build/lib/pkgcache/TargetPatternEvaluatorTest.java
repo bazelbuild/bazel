@@ -443,39 +443,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     runFindAllTargets("...:*");
   }
 
-  @Test
-  public void testFindAllRulesRecursivelyWithExperimental() throws Exception {
-    scratch.file("experimental/BUILD",
-        "cc_library(name = 'experimental', srcs = [ 'experimental.cc' ])");
-    assertThat(parseList("//..."))
-        .containsExactlyElementsIn(ImmutableSet.builder()
-            .addAll(rulesBeneathFoo)
-            .addAll(rulesBeneathOtherrules)
-            .addAll(rulesInTopLevelPackage)
-            .build());
-    assertNoEvents();
-  }
-
-  @Test
-  public void testFindAllRulesRecursivelyExperimental() throws Exception {
-    scratch.file("experimental/BUILD",
-        "cc_library(name = 'experimental', srcs = [ 'experimental.cc' ])");
-    assertThat(parseList("//experimental/..."))
-        .containsExactlyElementsIn(labels("//experimental:experimental"));
-    assertNoEvents();
-  }
-
-  @Test
-  public void testDefaultPackage() throws Exception {
-    scratch.file("experimental/BUILD",
-                "cc_library(name = 'experimental', srcs = [ 'experimental.cc' ])");
-    assertThat(parseIndividualTarget("//experimental").toString())
-        .isEqualTo("//experimental:experimental");
-    assertThat(parseIndividualTarget("experimental").toString())
-        .isEqualTo("//experimental:experimental");
-    assertNoEvents();
-  }
-
   /**
    * Test that the relative path label parsing behaves as stated in the target-syntax documentation.
    */
@@ -803,6 +770,28 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
         .containsExactlyElementsIn(allTestRules);
     assertThat(parseList(FILTER_TESTS, "test:all", "test/manual_test"))
         .containsExactlyElementsIn(allTestRules);
+  }
+
+  @Test
+  public void testTestSuiteExclusion() throws Exception {
+    // Test suites are expanded differently depending on if FILTER_TESTS is used. Those semantics
+    // are used for determining what tests are run (and for determining what targets are built
+    // only if --build_only_tests is set). Test suites are expanded for each target pattern
+    // in sequence, not the whole set of target patterns after all the inclusions and exclusions
+    // are processed. Test suites are expanded for inclusion test targets in all cases, but for
+    // exclusion test targets only for determining what tests should be run.
+    scratch.file(
+        "parent/test_suite/BUILD",
+        "test_suite(name = 'test_suite', tests = ['//parent/test:specific_test'])");
+    scratch.file("parent/test/BUILD", "cc_test(name = 'specific_test')");
+    assertThat(parseList("parent/...", "-parent/test_suite/..."))
+        .containsExactlyElementsIn(labels("//parent/test:specific_test"));
+    assertThat(parseList(FILTER_TESTS, "parent/...", "-parent/test_suite/...")).isEmpty();
+    assertThat(parseList("parent/test_suite:test_suite", "-parent/test:specific_test"))
+        .containsExactlyElementsIn(labels("//parent/test_suite:test_suite"));
+    assertThat(
+            parseList(FILTER_TESTS, "parent/test_suite:test_suite", "-parent/test:specific_test"))
+        .isEmpty();
   }
 
   /** Regression test for bug: "blaze test "no targets found" warning now fatal" */

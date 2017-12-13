@@ -208,8 +208,11 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
-    common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
-    common.addGenJarsProvider(builder, genClassJar, genSourceJar);
+
+    JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
+
+    common.addTransitiveInfoProviders(builder, javaInfoBuilder, filesToBuild, classJar);
+    common.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
@@ -221,18 +224,18 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         : JavaCommon.getTransitivePlugins(ruleContext);
 
     // java_library doesn't need to return JavaRunfilesProvider
-    JavaInfo javaInfo = JavaInfo.Builder.create()
+    JavaInfo javaInfo = javaInfoBuilder
         .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
         .addProvider(ProtoJavaApiInfoAspectProvider.class, protoAspectBuilder.build())
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        // TODO(bazel-team): this should only happen for java_plugin
         .addProvider(JavaPluginInfoProvider.class, pluginInfoProvider)
         .build();
 
     builder
         .addSkylarkTransitiveInfo(
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
-        .addProvider(ruleOutputJarsProvider)
         .addProvider(new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
         .addProvider(
             RunfilesProvider.simple(
@@ -240,14 +243,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .addProvider(new JavaNeverlinkInfoProvider(neverLink))
         .addProvider(transitiveCppDeps)
-        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addNativeDeclaredProvider(ccLinkParamsInfo)
         .addProvider(new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
         .addProvider(JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
-        // TODO(bazel-team): this should only happen for java_plugin
-        .addProvider(pluginInfoProvider)
         .addProvider(new ProguardSpecProvider(proguardSpecs))
-        .addProvider(sourceJarsProvider)
         .addNativeDeclaredProvider(javaInfo)
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, proguardSpecs);

@@ -16,7 +16,7 @@ package com.google.devtools.build.android;
 import com.android.builder.dependency.SymbolFileProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.android.aapt2.StaticLibrary;
+import com.google.devtools.build.android.aapt2.CompiledResources;
 import java.io.File;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -38,7 +38,7 @@ class DependencyAndroidData extends SerializedAndroidData {
   private static final Pattern VALID_REGEX = Pattern.compile(".*:.*:.+:.+(:.*){0,2}");
 
   public static final String EXPECTED_FORMAT =
-      "resources[#resources]:assets[#assets]:manifest:r.txt:static.library.ap_:symbols.bin";
+      "resources[#resources]:assets[#assets]:manifest:r.txt(:symbols.zip?):symbols.bin";
 
   public static DependencyAndroidData valueOf(String text) {
     return valueOf(text, FileSystems.getDefault());
@@ -55,13 +55,15 @@ class DependencyAndroidData extends SerializedAndroidData {
     Path rTxt = exists(fileSystem.getPath(parts[3]));
     ImmutableList<Path> assetDirs =
         parts[1].length() == 0 ? ImmutableList.<Path>of() : splitPaths(parts[1], fileSystem);
-    StaticLibrary staticLibrary = null;
+    CompiledResources compiledSymbols = null;
     Path symbolsBin = null;
 
-    if (parts.length == 6) { // contains symbols bin and static library
-      staticLibrary = StaticLibrary.from(exists(fileSystem.getPath(parts[4])), rTxt, assetDirs);
+    if (parts.length == 6) { // contains symbols bin and compiled symbols
+      compiledSymbols = CompiledResources.from(exists(fileSystem.getPath(parts[4])));
       symbolsBin = exists(fileSystem.getPath(parts[5]));
-    } else if (parts.length == 5) { // contains symbols bin
+    } else if (parts.length == 5) {
+      //This is either symbols bin or compiled symbols depending on "useCompiledResourcesForMerge"
+      compiledSymbols = CompiledResources.from(exists(fileSystem.getPath(parts[4])));
       symbolsBin = exists(fileSystem.getPath(parts[4]));
     }
 
@@ -72,12 +74,12 @@ class DependencyAndroidData extends SerializedAndroidData {
         exists(fileSystem.getPath(parts[2])),
         rTxt,
         symbolsBin,
-        staticLibrary);
+        compiledSymbols);
   }
 
   private final Path manifest;
   private final Path rTxt;
-  private final StaticLibrary staticLibrary;
+  private final CompiledResources compiledSymbols;
 
   public DependencyAndroidData(
       ImmutableList<Path> resourceDirs,
@@ -85,12 +87,12 @@ class DependencyAndroidData extends SerializedAndroidData {
       Path manifest,
       Path rTxt,
       Path symbols,
-      StaticLibrary staticLibrary) {
+      CompiledResources compiledSymbols) {
     // Use the manifest as a label for now.
     super(resourceDirs, assetDirs, manifest.toString(), symbols);
     this.manifest = manifest;
     this.rTxt = rTxt;
-    this.staticLibrary = staticLibrary;
+    this.compiledSymbols = compiledSymbols;
   }
 
   public SymbolFileProvider asSymbolFileProvider() {
@@ -127,8 +129,8 @@ class DependencyAndroidData extends SerializedAndroidData {
     };
   }
 
-  public StaticLibrary getStaticLibrary() {
-    return staticLibrary;
+  public CompiledResources getCompiledSymbols() {
+    return compiledSymbols;
   }
 
   @Override

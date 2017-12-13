@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.primitives.Booleans;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction.ExtraArgKind;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -178,6 +178,7 @@ public class SkylarkSignatureProcessor {
         // Note that this Skylark environment ignores command line flags.
         Environment env =
             Environment.builder(mutability)
+                .useDefaultSemantics()
                 .setGlobals(Environment.CONSTANTS_ONLY)
                 .setEventHandler(Environment.FAIL_FAST_HANDLER)
                 .build()
@@ -214,13 +215,20 @@ public class SkylarkSignatureProcessor {
   }
 
   /**
-   * Configure all BaseFunction-s in a class from their @SkylarkSignature annotations
-   * @param type a class containing BuiltinFunction fields that need be configured.
-   * This function is typically called in a static block to initialize a class,
-   * i.e. a class {@code Foo} containing @SkylarkSignature annotations would end with
-   * {@code static { SkylarkSignatureProcessor.configureSkylarkFunctions(Foo.class); }}
+   * Processes all {@link SkylarkSignature}-annotated fields in a class. This function should only
+   * be called once per class, and not concurrently.
+   *
+   * <p>This includes registering these fields as builtins using {@link Runtime}, and for {@link
+   * BaseFunction} instances, calling {@link BaseFunction#configure(SkylarkSignature)}. The fields
+   * will be picked up by reflection even if they are not public.
+   *
+   * <p>A class typically calls this function from within a static initializer block, passing itself
+   * as the {@code type}. E.g., A class {@code Foo} containing {@code @SkylarkSignature} annotations
+   * would end with {@code static { SkylarkSignatureProcessor.configureSkylarkFunctions(Foo.class);
+   * }}
    */
   public static void configureSkylarkFunctions(Class<?> type) {
+    Runtime.BuiltinRegistry builtins = Runtime.getBuiltinRegistry();
     for (Field field : type.getDeclaredFields()) {
       if (field.isAnnotationPresent(SkylarkSignature.class)) {
         // The annotated fields are often private, but we need access them.
@@ -231,6 +239,7 @@ public class SkylarkSignatureProcessor {
           value = Preconditions.checkNotNull(field.get(null),
               String.format(
                   "Error while trying to configure %s.%s: its value is null", type, field));
+          builtins.registerBuiltin(type, field.getName(), value);
           if (BaseFunction.class.isAssignableFrom(field.getType())) {
             BaseFunction function = (BaseFunction) value;
             if (!function.isConfigured()) {
@@ -239,8 +248,7 @@ public class SkylarkSignatureProcessor {
             Class<?> nameSpace = function.getObjectType();
             if (nameSpace != null) {
               Preconditions.checkState(!(function instanceof BuiltinFunction.Factory));
-              nameSpace = Runtime.getCanonicalRepresentation(nameSpace);
-              Runtime.registerFunction(nameSpace, function);
+              builtins.registerFunction(nameSpace, function);
             }
           }
         } catch (IllegalAccessException e) {

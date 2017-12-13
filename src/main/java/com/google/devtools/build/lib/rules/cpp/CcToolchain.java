@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -26,39 +27,45 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
-import com.google.devtools.build.lib.analysis.MakeVariableInfo;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.License;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Builder;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Implementation for the cc_toolchain rule.
@@ -67,6 +74,9 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
   /** Default attribute name where rules store the reference to cc_toolchain */
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
+
+  /** Default attribute name for the c++ toolchain type */
+  public static final String CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME = "$cc_toolchain_type";
 
   /**
    * This file (found under the sysroot) may be unconditionally included in every C/C++ compilation.
@@ -87,12 +97,93 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     }
   }
 
+  private static final String SYSROOT_START = "%sysroot%/";
+  private static final String WORKSPACE_START = "%workspace%/";
+  private static final String CROSSTOOL_START = "%crosstool_top%/";
+  private static final String PACKAGE_START = "%package(";
+  private static final String PACKAGE_END = ")%";
+
+  /**
+   * Resolve the given include directory.
+   *
+   * <p>If it starts with %sysroot%/, that part is replaced with the actual sysroot.
+   *
+   * <p>If it starts with %workspace%/, that part is replaced with the empty string (essentially
+   * making it relative to the build directory).
+   *
+   * <p>If it starts with %crosstool_top%/ or is any relative path, it is interpreted relative to
+   * the crosstool top. The use of assumed-crosstool-relative specifications is considered
+   * deprecated, and all such uses should eventually be replaced by "%crosstool_top%/".
+   *
+   * <p>If it is of the form %package(@repository//my/package)%/folder, then it is interpreted as
+   * the named folder in the appropriate package. All of the normal package syntax is supported. The
+   * /folder part is optional.
+   *
+   * <p>It is illegal if it starts with a % and does not match any of the above forms to avoid
+   * accidentally silently ignoring misspelled prefixes.
+   *
+   * <p>If it is absolute, it remains unchanged.
+   */
+  static PathFragment resolveIncludeDir(
+      String s, PathFragment sysroot, PathFragment crosstoolTopPathFragment)
+      throws InvalidConfigurationException {
+    PathFragment pathPrefix;
+    String pathString;
+    int packageEndIndex = s.indexOf(PACKAGE_END);
+    if (packageEndIndex != -1 && s.startsWith(PACKAGE_START)) {
+      String packageString = s.substring(PACKAGE_START.length(), packageEndIndex);
+      try {
+        pathPrefix = PackageIdentifier.parse(packageString).getSourceRoot();
+      } catch (LabelSyntaxException e) {
+        throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
+      }
+      int pathStartIndex = packageEndIndex + PACKAGE_END.length();
+      if (pathStartIndex + 1 < s.length()) {
+        if (s.charAt(pathStartIndex) != '/') {
+          throw new InvalidConfigurationException(
+              "The path in the package for '" + s + "' is not valid");
+        }
+        pathString = s.substring(pathStartIndex + 1, s.length());
+      } else {
+        pathString = "";
+      }
+    } else if (s.startsWith(SYSROOT_START)) {
+      if (sysroot == null) {
+        throw new InvalidConfigurationException(
+            "A %sysroot% prefix is only allowed if the " + "default_sysroot option is set");
+      }
+      pathPrefix = sysroot;
+      pathString = s.substring(SYSROOT_START.length(), s.length());
+    } else if (s.startsWith(WORKSPACE_START)) {
+      pathPrefix = PathFragment.EMPTY_FRAGMENT;
+      pathString = s.substring(WORKSPACE_START.length(), s.length());
+    } else {
+      pathPrefix = crosstoolTopPathFragment;
+      if (s.startsWith(CROSSTOOL_START)) {
+        pathString = s.substring(CROSSTOOL_START.length(), s.length());
+      } else if (s.startsWith("%")) {
+        throw new InvalidConfigurationException(
+            "The include path '" + s + "' has an " + "unrecognized %prefix%");
+      } else {
+        pathString = s;
+      }
+    }
+
+    PathFragment path = PathFragment.create(pathString);
+    if (!path.isNormalized()) {
+      throw new InvalidConfigurationException("The include path '" + s + "' is not normalized.");
+    }
+    return pathPrefix.getRelative(path);
+  }
+
   /*
    * This function checks the format of the input profile data and converts it to
    * the indexed format (.profdata) if necessary.
    */
   private Artifact convertLLVMRawProfileToIndexed(
-      Path fdoProfile, CppConfiguration cppConfiguration, RuleContext ruleContext)
+      Path fdoProfile,
+      CppToolchainInfo toolchainInfo,
+      RuleContext ruleContext)
       throws InterruptedException {
 
     Artifact profileArtifact =
@@ -124,7 +215,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
       // TODO(zhayu): find a way to avoid hard-coding cpu architecture here (b/65582760)
       String rawProfileFileName = "fdocontrolz_profile.profraw";
-      String cpu = cppConfiguration.getTargetCpu();
+      String cpu = toolchainInfo.getTargetCpu();
       if (!"k8".equals(cpu)) {
         rawProfileFileName = "fdocontrolz_profile-" + cpu + ".profraw";
       }
@@ -176,7 +267,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
               "Symlinking LLVM Raw Profile " + fdoProfile.getPathString()));
     }
 
-    if (cppConfiguration.getLLVMProfDataExecutable() == null) {
+    if (toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA) == null) {
       ruleContext.ruleError(
           "llvm-profdata not available with this crosstool, needed for profile conversion");
       return null;
@@ -189,7 +280,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             .addTransitiveInputs(getFiles(ruleContext, "all_files"))
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
-            .setExecutable(cppConfiguration.getLLVMProfDataExecutable())
+            .setExecutable(toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA))
             .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataAction")
             .addCommandLine(
@@ -217,6 +308,31 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
+    PlatformConfiguration platformConfig =
+        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
+
+    CToolchain toolchain = null;
+    if (platformConfig
+        .getEnabledToolchainTypes()
+        .contains(CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
+      toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration);
+    }
+
+    CppToolchainInfo toolchainInfo = null;
+    if (toolchain != null) {
+      try {
+        toolchainInfo =
+            new CppToolchainInfo(
+                toolchain,
+                cppConfiguration.getCrosstoolTopPathFragment(),
+                cppConfiguration.getCcToolchainRuleLabel());
+      } catch (InvalidConfigurationException e) {
+        ruleContext.throwWithRuleError(e.getMessage());
+      }
+    } else {
+      toolchainInfo = cppConfiguration.getCppToolchainInfo();
+    }
+
     Path fdoZip = ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT
         ? cppConfiguration.getFdoZip()
         : null;
@@ -225,7 +341,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             cppConfiguration.getLipoMode(),
             fdoZip,
             cppConfiguration.getFdoInstrument(),
-            cppConfiguration.isLLVMOptimizedFdo());
+            cppConfiguration.isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler()));
 
     SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     FdoSupportValue fdoSupport;
@@ -239,15 +355,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     if (skyframeEnv.valuesMissing()) {
       return null;
-    }
-
-    // This tries to convert LLVM profiles to the indexed format if necessary.
-    Artifact profileArtifact = null;
-    if (cppConfiguration.isLLVMOptimizedFdo()) {
-      profileArtifact = convertLLVMRawProfileToIndexed(fdoZip, cppConfiguration, ruleContext);
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
     }
 
     final Label label = ruleContext.getLabel();
@@ -267,10 +374,10 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     // Static runtime inputs.
     TransitiveInfoCollection staticRuntimeLibDep = selectDep(ruleContext, "static_runtime_libs",
-        cppConfiguration.getStaticRuntimeLibsLabel());
+        toolchainInfo.getStaticRuntimeLibsLabel());
     final NestedSet<Artifact> staticRuntimeLinkInputs;
     final Artifact staticRuntimeLinkMiddleman;
-    if (cppConfiguration.supportsEmbeddedRuntimes()) {
+    if (toolchainInfo.supportsEmbeddedRuntimes()) {
       staticRuntimeLinkInputs = staticRuntimeLibDep
           .getProvider(FileProvider.class)
           .getFilesToBuild();
@@ -294,19 +401,23 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     // Dynamic runtime inputs.
     TransitiveInfoCollection dynamicRuntimeLibDep = selectDep(ruleContext, "dynamic_runtime_libs",
-        cppConfiguration.getDynamicRuntimeLibsLabel());
+        toolchainInfo.getDynamicRuntimeLibsLabel());
     NestedSet<Artifact> dynamicRuntimeLinkSymlinks;
     List<Artifact> dynamicRuntimeLinkInputs = new ArrayList<>();
     Artifact dynamicRuntimeLinkMiddleman;
-    if (cppConfiguration.supportsEmbeddedRuntimes()) {
+    if (toolchainInfo.supportsEmbeddedRuntimes()) {
       NestedSetBuilder<Artifact> dynamicRuntimeLinkSymlinksBuilder = NestedSetBuilder.stableOrder();
       for (Artifact artifact : dynamicRuntimeLibDep
           .getProvider(FileProvider.class).getFilesToBuild()) {
         if (CppHelper.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
           dynamicRuntimeLinkInputs.add(artifact);
-          dynamicRuntimeLinkSymlinksBuilder.add(SolibSymlinkAction.getCppRuntimeSymlink(
-              ruleContext, artifact, runtimeSolibDirBase,
-              ruleContext.getConfiguration()));
+          dynamicRuntimeLinkSymlinksBuilder.add(
+              SolibSymlinkAction.getCppRuntimeSymlink(
+                  ruleContext,
+                  artifact,
+                  toolchainInfo.getSolibDirectory(),
+                  runtimeSolibDirBase,
+                  ruleContext.getConfiguration()));
         }
       }
       dynamicRuntimeLinkSymlinks = dynamicRuntimeLinkSymlinksBuilder.build();
@@ -320,6 +431,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
               ruleContext,
               purposePrefix + "dynamic_runtime_link",
               dynamicRuntimeLinkInputs,
+              toolchainInfo.getSolibDirectory(),
               runtimeSolibDirBase,
               ruleContext.getConfiguration());
       dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddlemanSet.isEmpty()
@@ -344,30 +456,49 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     NestedSetBuilder<Pair<String, String>> coverageEnvironment = NestedSetBuilder.compileOrder();
 
-    coverageEnvironment.add(Pair.of(
-        "COVERAGE_GCOV_PATH", cppConfiguration.getGcovExecutable().getPathString()));
-    if (cppConfiguration.getFdoInstrument() != null) {
-      coverageEnvironment.add(Pair.of(
-          "FDO_DIR", cppConfiguration.getFdoInstrument().getPathString()));
-    }
-
     NestedSet<Artifact> coverage = getOptionalFiles(ruleContext, "coverage_files");
     if (coverage.isEmpty()) {
       coverage = crosstool;
     }
 
-    PathFragment sysroot = calculateSysroot(ruleContext);
+    PathFragment sysroot = calculateSysroot(ruleContext, toolchainInfo.getDefaultSysroot());
 
-    ImmutableList<PathFragment> builtInIncludeDirectories = null;
-    try {
-      builtInIncludeDirectories = cppConfiguration.getBuiltInIncludeDirectories(sysroot);
-    } catch (InvalidConfigurationException e) {
-      ruleContext.ruleError(e.getMessage());
+    ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
+    for (String s : toolchainInfo.getRawBuiltInIncludeDirectories()) {
+      try {
+        builtInIncludeDirectoriesBuilder.add(
+            resolveIncludeDir(s, sysroot, toolchainInfo.getCrosstoolTopPathFragment()));
+      } catch (InvalidConfigurationException e) {
+        ruleContext.ruleError(e.getMessage());
+      }
+    }
+    ImmutableList<PathFragment> builtInIncludeDirectories =
+        builtInIncludeDirectoriesBuilder.build();
+
+    coverageEnvironment.add(
+        Pair.of(
+            "COVERAGE_GCOV_PATH", toolchainInfo.getToolPathFragment(Tool.GCOV).getPathString()));
+    if (cppConfiguration.getFdoInstrument() != null) {
+      coverageEnvironment.add(
+          Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument().getPathString()));
+    }
+
+    // This tries to convert LLVM profiles to the indexed format if necessary.
+    Artifact profileArtifact = null;
+    if (cppConfiguration.isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler())) {
+      profileArtifact =
+          convertLLVMRawProfileToIndexed(fdoZip, toolchainInfo, ruleContext);
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
     }
 
     CcToolchainProvider ccProvider =
         new CcToolchainProvider(
+            getToolchainForSkylark(toolchainInfo),
             cppConfiguration,
+            toolchainInfo,
+            cppConfiguration.getCrosstoolTopPathFragment(),
             crosstool,
             fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
             compile,
@@ -386,26 +517,29 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             context,
             supportsParamFiles,
             supportsHeaderParsing,
-            getBuildVariables(ruleContext),
+            getBuildVariables(ruleContext, toolchainInfo.getDefaultSysroot()),
             getBuiltinIncludes(ruleContext),
             coverageEnvironment.build(),
-            cppConfiguration.supportsInterfaceSharedObjects()
+            toolchainInfo.supportsInterfaceSharedObjects()
                 ? ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST)
+                : null,
+            ruleContext.attributes().has("$def_parser")
+                ? ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST)
                 : null,
             getEnvironment(ruleContext),
             builtInIncludeDirectories,
             sysroot);
 
-    MakeVariableInfo makeVariableInfo =
+    TemplateVariableInfo templateVariableInfo =
         createMakeVariableProvider(cppConfiguration, sysroot);
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(ccProvider)
-            .addNativeDeclaredProvider(makeVariableInfo)
+            .addNativeDeclaredProvider(templateVariableInfo)
             .addProvider(
                 fdoSupport.getFdoSupport().createFdoSupportProvider(ruleContext, profileArtifact))
-            .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build())
+            .setFilesToBuild(crosstool)
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
     // If output_license is specified on the cc_toolchain rule, override the transitive licenses
@@ -442,6 +576,59 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     }
 
     return builder.build();
+  }
+
+  private static String getSkylarkValueForTool(Tool tool, CppToolchainInfo cppToolchainInfo) {
+    PathFragment toolPath = cppToolchainInfo.getToolPathFragment(tool);
+    return toolPath != null ? toolPath.getPathString() : "";
+  }
+
+  private static ImmutableMap<String, Object> getToolchainForSkylark(
+      CppToolchainInfo cppToolchainInfo) {
+    return ImmutableMap.<String, Object>builder()
+        .put("objcopy_executable", getSkylarkValueForTool(Tool.OBJCOPY, cppToolchainInfo))
+        .put("compiler_executable", getSkylarkValueForTool(Tool.GCC, cppToolchainInfo))
+        .put("preprocessor_executable", getSkylarkValueForTool(Tool.CPP, cppToolchainInfo))
+        .put("nm_executable", getSkylarkValueForTool(Tool.NM, cppToolchainInfo))
+        .put("objdump_executable", getSkylarkValueForTool(Tool.OBJDUMP, cppToolchainInfo))
+        .put("ar_executable", getSkylarkValueForTool(Tool.AR, cppToolchainInfo))
+        .put("strip_executable", getSkylarkValueForTool(Tool.STRIP, cppToolchainInfo))
+        .put("ld_executable", getSkylarkValueForTool(Tool.LD, cppToolchainInfo))
+        .build();
+  }
+
+  private CToolchain getToolchainFromAttributes(
+      RuleContext ruleContext, CppConfiguration cppConfiguration) throws RuleErrorException {
+    if (ruleContext.attributes().get("cpu", Type.STRING).isEmpty()) {
+      ruleContext.throwWithRuleError("Using cc_toolchain target requires the attribute 'cpu' "
+          + "to be present");
+    }
+
+
+    String cpu = ruleContext.attributes().get("cpu", Type.STRING);
+    String compiler = ruleContext.attributes().get("compiler", Type.STRING);
+    if (compiler.isEmpty()) {
+      compiler = null;
+    }
+    String libc = ruleContext.attributes().get("libc", Type.STRING);
+    if (libc.isEmpty()) {
+      libc = null;
+    }
+    CrosstoolConfigurationIdentifier config =
+        new CrosstoolConfigurationIdentifier(cpu, compiler, libc);
+
+    try {
+      return CrosstoolConfigurationLoader.selectToolchain(
+          cppConfiguration.getCrosstoolFile().getProto(),
+          config,
+          cppConfiguration.getLipoMode(),
+          cppConfiguration.shouldConvertLipoToThinLto(),
+          cppConfiguration.getCpuTransformer());
+    } catch (InvalidConfigurationException e) {
+      ruleContext.throwWithRuleError(
+          String.format("Error while using cc_toolchain: %s", e.getMessage()));
+      return null;
+    }
   }
 
   private ImmutableList<Artifact> getBuiltinIncludes(RuleContext ruleContext) {
@@ -520,10 +707,10 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     TransitiveInfoCollection dep = context.getPrerequisite(attribute, Mode.HOST);
     return dep != null
         ? getFiles(context, attribute)
-        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+        : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
-  private MakeVariableInfo createMakeVariableProvider(
+  private TemplateVariableInfo createMakeVariableProvider(
       CppConfiguration cppConfiguration, PathFragment sysroot) {
 
     HashMap<String, String> makeVariables =
@@ -536,20 +723,40 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       ccFlags = ccFlags.isEmpty() ? sysrootFlag : ccFlags + " " + sysrootFlag;
       makeVariables.put(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, ccFlags);
     }
-    return new MakeVariableInfo(ImmutableMap.copyOf(makeVariables));
+    return new TemplateVariableInfo(ImmutableMap.copyOf(makeVariables));
   }
 
   /**
-   * Returns a map that should be templated into the crosstool as build variables. Is meant to
-   * be overridden by subclasses of CcToolchain.
+   * Returns {@link Variables} instance with build variables that only depend on the toolchain.
    *
    * @param ruleContext the rule context
+   * @param defaultSysroot the default sysroot
    * @throws RuleErrorException if there are configuration errors making it impossible to resolve
    *     certain build variables of this toolchain
    */
-  protected Map<String, String> getBuildVariables(RuleContext ruleContext)
+  private final Variables getBuildVariables(RuleContext ruleContext, PathFragment defaultSysroot)
       throws RuleErrorException {
-    return ImmutableMap.<String, String>of();
+    Variables.Builder variables = new Variables.Builder();
+
+    PathFragment sysroot = calculateSysroot(ruleContext, defaultSysroot);
+    if (sysroot != null) {
+      variables.addStringVariable(CppModel.SYSROOT_VARIABLE_NAME, sysroot.getPathString());
+    }
+
+    addBuildVariables(ruleContext, variables);
+
+    return variables.build();
+  }
+
+  /**
+   * Add local build variables from subclasses into {@link Variables} returned from {@link
+   * #getBuildVariables(RuleContext, PathFragment)}.
+   *
+   * <p>This method is meant to be overridden by subclasses of CcToolchain.
+   */
+  protected void addBuildVariables(RuleContext ruleContext, Builder variables)
+      throws RuleErrorException {
+    // To be overridden in subclasses.
   }
 
   /**
@@ -562,13 +769,11 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return ImmutableMap.<String, String>of();
   }
 
-  private PathFragment calculateSysroot(RuleContext ruleContext) {
+  private PathFragment calculateSysroot(RuleContext ruleContext, PathFragment defaultSysroot) {
 
     TransitiveInfoCollection sysrootTarget = ruleContext.getPrerequisite(":libc_top", Mode.TARGET);
     if (sysrootTarget == null) {
-      CppConfiguration cppConfiguration =
-          Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
-      return cppConfiguration.getDefaultSysroot();
+      return defaultSysroot;
     }
 
     return sysrootTarget.getLabel().getPackageFragment();

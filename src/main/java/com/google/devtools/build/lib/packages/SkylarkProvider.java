@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -37,6 +37,14 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
       FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
+
+  /**
+   * A map from provider fields to a continuous range of integers. This allows provider instances to
+   * store their values in an array rather than a map. {@code layout} will be null if the provider
+   * fields aren't known up front.
+   */
+  @Nullable
+  private final ImmutableMap<String, Integer> layout;
 
   @Nullable private SkylarkKey key;
   @Nullable private String errorMessageFormatForInstances;
@@ -58,6 +66,16 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
       String name,
       FunctionSignature.WithValues<Object, SkylarkType> signature, Location location) {
     super(name, signature, location);
+    if (signature.getSignature().getShape().hasKwArg()) {
+      layout = null;
+    } else {
+      ImmutableMap.Builder<String, Integer> layoutBuilder = ImmutableMap.builder();
+      int i = 0;
+      for (String field : signature.getSignature().getNames()) {
+        layoutBuilder.put(field, i++);
+      }
+      layout = layoutBuilder.build();
+    }
     this.errorMessageFormatForInstances = DEFAULT_ERROR_MESSAFE;
   }
 
@@ -74,21 +92,13 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
 
   @Override
   protected Info createInstanceFromSkylark(Object[] args, Location loc) throws EvalException {
-    if (signature.getSignature().getShape().hasKwArg()) {
+    if (layout == null) {
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];
-      return new SkylarkInfo(this, kwargs, loc);
+      return SkylarkInfo.fromMap(this, kwargs, loc);
     } else {
-      // todo(dslomov): implement shape sharing.
-      ImmutableList<String> names = signature.getSignature().getNames();
-      Preconditions.checkState(names.size() == args.length);
-      ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
-      for (int i = 0; i < args.length; i++) {
-        if (args[i] != null) {
-          fields.put(names.get(i), args[i]);
-        }
-      }
-      return new SkylarkInfo(this, fields.build(), loc);
+      // Note: This depends on the layout map using the same ordering as args.
+      return new SkylarkInfo.CompactSkylarkInfo(this, layout, args, loc);
     }
   }
 

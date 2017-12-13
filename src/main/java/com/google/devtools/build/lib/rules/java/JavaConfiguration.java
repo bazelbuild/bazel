@@ -45,13 +45,11 @@ import javax.annotation.Nullable;
 )
 public final class JavaConfiguration extends Fragment {
   /** Values for the --java_classpath option */
-  public static enum JavaClasspathMode {
+  public enum JavaClasspathMode {
     /** Use full transitive classpaths, the default behavior. */
     OFF,
     /** JavaBuilder computes the reduced classpath before invoking javac. */
     JAVABUILDER,
-    /** Blaze computes the reduced classpath before invoking JavaBuilder. */
-    BLAZE
   }
 
   /** Values for the --experimental_one_version_enforcement option */
@@ -72,9 +70,9 @@ public final class JavaConfiguration extends Fragment {
 
   /**
    * Values for the --java_optimization_mode option, which controls how Proguard is run over binary
-   * and test targets.  Note that for the moment this has no effect when building library targets.
+   * and test targets. Note that for the moment this has no effect when building library targets.
    */
-  public static enum JavaOptimizationMode {
+  public enum JavaOptimizationMode {
     /** Proguard is used iff top-level target has {@code proguard_specs} attribute. */
     LEGACY,
     /**
@@ -105,7 +103,7 @@ public final class JavaConfiguration extends Fragment {
 
     private final String proguardDirectives;
 
-    private JavaOptimizationMode(String... donts) {
+    JavaOptimizationMode(String... donts) {
       StringBuilder proguardDirectives = new StringBuilder();
       for (String dont : donts) {
         checkArgument(dont.startsWith("-dont"), "invalid Proguard directive: %s", dont);
@@ -150,6 +148,8 @@ public final class JavaConfiguration extends Fragment {
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
   private final OneVersionEnforcementLevel enforceOneVersion;
+  private final boolean enforceOneVersionOnJavaTests;
+  private final boolean allowRuntimeDepsOnNeverLink;
   private final JavaClasspathMode javaClasspath;
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
@@ -164,6 +164,7 @@ public final class JavaConfiguration extends Fragment {
   private final boolean explicitJavaTestDeps;
   private final boolean experimentalTestRunner;
   private final boolean jplPropagateCcLinkParamsStore;
+  private final ImmutableList<Label> pluginList;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean legacyBazelJavaTest;
@@ -193,6 +194,8 @@ public final class JavaConfiguration extends Fragment {
     this.legacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
+    this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
+    this.allowRuntimeDepsOnNeverLink = javaOptions.allowRuntimeDepsOnNeverLink;
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
     this.experimentalTestRunner = javaOptions.experimentalTestRunner;
     this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
@@ -218,6 +221,7 @@ public final class JavaConfiguration extends Fragment {
       optimizersBuilder.put(mnemonic, Optional.fromNullable(optimizer.getValue()));
     }
     this.bytecodeOptimizers = optimizersBuilder.build();
+    this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
   }
 
   @SkylarkCallable(name = "default_javac_flags", structField = true,
@@ -413,11 +417,23 @@ public final class JavaConfiguration extends Fragment {
     return enforceOneVersion;
   }
 
+  public boolean enforceOneVersionOnJavaTests() {
+    return enforceOneVersionOnJavaTests;
+  }
+
+  public boolean getAllowRuntimeDepsOnNeverLink() {
+    return allowRuntimeDepsOnNeverLink;
+  }
+
   public boolean strictDepsJavaProtos() {
     return strictDepsJavaProtos;
   }
 
   public boolean jplPropagateCcLinkParamsStore() {
     return jplPropagateCcLinkParamsStore;
+  }
+
+  public List<Label> getPlugins() {
+    return pluginList;
   }
 }

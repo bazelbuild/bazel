@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.server.signal;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 

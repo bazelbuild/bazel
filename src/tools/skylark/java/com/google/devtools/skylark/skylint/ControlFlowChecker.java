@@ -45,6 +45,9 @@ import javax.annotation.Nullable;
  */
 // TODO(skylark-team): Check for unreachable statements
 public class ControlFlowChecker extends SyntaxTreeVisitor {
+  private static final String MISSING_RETURN_VALUE_CATEGORY = "missing-return-value";
+  public static final String UNREACHABLE_STATEMENT_CATEGORY = "unreachable-statement";
+
   private final List<Issue> issues = new ArrayList<>();
 
   /**
@@ -75,7 +78,9 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
     boolean alreadyReported = false;
     for (Statement stmt : statements) {
       if (!cfi.reachable && !alreadyReported) {
-        issues.add(new Issue("unreachable statement", stmt.getLocation()));
+        issues.add(
+            Issue.create(
+                UNREACHABLE_STATEMENT_CATEGORY, "unreachable statement", stmt.getLocation()));
         alreadyReported = true;
       }
       visit(stmt);
@@ -156,12 +161,20 @@ public class ControlFlowChecker extends SyntaxTreeVisitor {
     super.visit(node);
     if (cfi.hasReturnWithValue && (!cfi.returnsAlwaysExplicitly || cfi.hasReturnWithoutValue)) {
       issues.add(
-          new Issue(
-              "some but not all execution paths of '" + node.getIdentifier() + "' return a value",
+          Issue.create(
+              MISSING_RETURN_VALUE_CATEGORY,
+              "some but not all execution paths of '"
+                  + node.getIdentifier()
+                  + "' return a value."
+                  + " If it is intentional, make it explicit using 'return None'."
+                  + " If you know these cannot happen,"
+                  + " add the statement `fail('unreachable')` to them."
+                  + " For more details, have a look at the documentation.",
               node.getLocation()));
       for (Wrapper<ReturnStatement> returnWrapper : cfi.returnStatementsWithoutValue) {
         issues.add(
-            new Issue(
+            Issue.create(
+                MISSING_RETURN_VALUE_CATEGORY,
                 "return value missing (you can `return None` if this is desired)",
                 unwrapReturn(returnWrapper).getLocation()));
       }

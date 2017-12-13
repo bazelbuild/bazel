@@ -25,7 +25,9 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
+import java.util.List;
 
 /**
  * A context for C++ compilation that calls into a {@link SpawnActionContext}.
@@ -45,7 +47,7 @@ public class SpawnGccStrategy implements CppCompileActionContext {
   }
 
   @Override
-  public CppCompileActionContext.Reply execWithReply(
+  public CppCompileActionResult execWithReply(
       CppCompileAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     if (action.getDotdFile() != null && action.getDotdFile().artifact() == null) {
@@ -53,22 +55,22 @@ public class SpawnGccStrategy implements CppCompileActionContext {
           + action.getPrimaryInput().getExecPathString());
     }
     Iterable<Artifact> inputs = Iterables.concat(action.getInputs(), action.getAdditionalInputs());
-    Spawn spawn =
-        new SimpleSpawn(
-            action,
-            ImmutableList.copyOf(action.getArguments()),
-            ImmutableMap.copyOf(action.getEnvironment()),
-            ImmutableMap.copyOf(action.getExecutionInfo()),
-            EmptyRunfilesSupplier.INSTANCE,
-            ImmutableList.copyOf(inputs),
-            /* tools= */ ImmutableList.of(),
-            /* filesetManifests= */ ImmutableList.of(),
-            action.getOutputs().asList(),
-            action.estimateResourceConsumptionLocal());
+    Spawn spawn = new SimpleSpawn(
+        action,
+        ImmutableList.copyOf(action.getArgv()),
+        ImmutableMap.copyOf(action.getEnvironment()),
+        ImmutableMap.copyOf(action.getExecutionInfo()),
+        EmptyRunfilesSupplier.INSTANCE,
+        ImmutableList.<Artifact>copyOf(inputs),
+        /*tools=*/ImmutableList.<Artifact>of(),
+        /*filesetManifests=*/ImmutableList.<Artifact>of(),
+        action.getOutputs().asList(),
+        action.estimateResourceConsumptionLocal());
 
-    actionExecutionContext
-        .getSpawnActionContext(action.getMnemonic())
-        .exec(spawn, actionExecutionContext);
-    return null;
+    List<SpawnResult> spawnResults =
+        actionExecutionContext
+            .getSpawnActionContext(action.getMnemonic())
+            .exec(spawn, actionExecutionContext);
+    return CppCompileActionResult.builder().setSpawnResults(spawnResults).build();
   }
 }

@@ -25,20 +25,20 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.MakeVariableExpander;
-import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -81,7 +81,7 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public String lookupMakeVariable(String var) throws ExpansionException {
+    public String lookupVariable(String var) throws ExpansionException {
       if (var.equals("SDKROOT")) {
         return "__BAZEL_XCODE_SDKROOT__";
       }
@@ -90,7 +90,7 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
       }
       // Intentionally do not call super, because we only want to allow these specific variables and
       // discard any that might be inherited from toolchains and other contexts.
-      throw new MakeVariableExpander.ExpansionException("$(" + var + ") not defined");
+      throw new ExpansionException("$(" + var + ") not defined");
     }
   }
 
@@ -118,7 +118,7 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
     Artifact outputArtifact =
         ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
 
-    registerActions(ruleContext, appleConfiguration, platform, outputArtifact);
+    registerActions(ruleContext, platform, outputArtifact);
 
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
@@ -148,7 +148,6 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
   /** Registers the actions that copy the stub binary to the target's output. */
   private static void registerActions(
       RuleContext ruleContext,
-      AppleConfiguration appleConfiguration,
       ApplePlatform platform,
       Artifact outputBinary)
       throws RuleErrorException {
@@ -160,7 +159,8 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
             .build();
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                XcodeConfigProvider.fromRuleContext(ruleContext), platform)
             .setExecutable(xcrunwrapper(ruleContext))
             .addCommandLine(copyCommandLine)
             .setMnemonic("CopyStubExecutable")
@@ -194,7 +194,8 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
           AppleStubBinaryRule.XCENV_BASED_PATH_ATTR, PATH_NOT_NORMALIZED_ERROR);
     }
 
-    return ruleContext.expandMakeVariables(
-        AppleStubBinaryRule.XCENV_BASED_PATH_ATTR, pathString, makeVariableContext);
+    return ruleContext
+        .getExpander(makeVariableContext)
+        .expand(AppleStubBinaryRule.XCENV_BASED_PATH_ATTR, pathString);
   }
 }

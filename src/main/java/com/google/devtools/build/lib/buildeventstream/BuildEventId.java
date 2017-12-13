@@ -88,11 +88,24 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setStarted(startedId).build());
   }
 
-  public static BuildEventId commandlineId() {
-    BuildEventStreamProtos.BuildEventId.CommandLineId commandLineId =
-        BuildEventStreamProtos.BuildEventId.CommandLineId.getDefaultInstance();
+  public static BuildEventId unstructuredCommandlineId() {
+    BuildEventStreamProtos.BuildEventId.UnstructuredCommandLineId commandLineId =
+        BuildEventStreamProtos.BuildEventId.UnstructuredCommandLineId.getDefaultInstance();
     return new BuildEventId(
-        BuildEventStreamProtos.BuildEventId.newBuilder().setCommandLine(commandLineId).build());
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setUnstructuredCommandLine(commandLineId)
+            .build());
+  }
+
+  public static BuildEventId structuredCommandlineId(String commandLineLabel) {
+    BuildEventStreamProtos.BuildEventId.StructuredCommandLineId commandLineId =
+        BuildEventStreamProtos.BuildEventId.StructuredCommandLineId.newBuilder()
+            .setCommandLineLabel(commandLineLabel)
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setStructuredCommandLine(commandLineId)
+            .build());
   }
 
   public static BuildEventId optionsParsedId() {
@@ -259,5 +272,13 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.BuildFinishedId.getDefaultInstance();
     return new BuildEventId(
         BuildEventStreamProtos.BuildEventId.newBuilder().setBuildFinished(finishedId).build());
+  }
+
+  public static BuildEventId buildToolLogs() {
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setBuildToolLogs(
+                BuildEventStreamProtos.BuildEventId.BuildToolLogsId.getDefaultInstance())
+            .build());
   }
 }

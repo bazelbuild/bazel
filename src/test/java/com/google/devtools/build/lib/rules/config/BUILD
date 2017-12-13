@@ -33,6 +33,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party:truth8",
     ],
 )
 
@@ -44,4 +45,21 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

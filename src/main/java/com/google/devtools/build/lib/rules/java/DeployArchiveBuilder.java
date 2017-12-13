@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -49,6 +49,9 @@ public class DeployArchiveBuilder {
    */
   private static final String SINGLEJAR_MAX_MEMORY = "-Xmx1600m";
 
+  private static final ResourceSet DEPLOY_ACTION_RESOURCE_SET =
+      ResourceSet.createWithRamCpuIo(/*memoryMb = */ 200.0, /*cpuUsage = */ .2, /*ioUsage=*/ .2);
+
   private final RuleContext ruleContext;
 
   private final IterablesChain.Builder<Artifact> runtimeJarsBuilder = IterablesChain.builder();
@@ -64,6 +67,9 @@ public class DeployArchiveBuilder {
   private ImmutableList<String> deployManifestLines = ImmutableList.of();
   @Nullable private Artifact launcher;
   @Nullable private Function<Artifact, Artifact> derivedJars = null;
+  private boolean checkDesugarDeps;
+  private OneVersionEnforcementLevel oneVersionEnforcementLevel = OneVersionEnforcementLevel.OFF;
+  @Nullable private Artifact oneVersionWhitelistArtifact;
 
   /**
    * Type of compression to apply to output archive.
@@ -164,6 +170,47 @@ public class DeployArchiveBuilder {
     return this;
   }
 
+  /** Whether singlejar should process META-INF/desugar_deps files and fail upon inconsistencies. */
+  public DeployArchiveBuilder setCheckDesugarDeps(boolean checkDesugarDeps) {
+    this.checkDesugarDeps = checkDesugarDeps;
+    return this;
+  }
+
+  /** Whether or not singlejar would attempt to enforce one version of java classes in the jar */
+  public DeployArchiveBuilder setOneVersionEnforcementLevel(
+      OneVersionEnforcementLevel oneVersionEnforcementLevel,
+      @Nullable Artifact oneVersionWhitelistArtifact) {
+    this.oneVersionEnforcementLevel = oneVersionEnforcementLevel;
+    this.oneVersionWhitelistArtifact = oneVersionWhitelistArtifact;
+    return this;
+  }
+
+  public static CustomCommandLine.Builder defaultSingleJarCommandLineWithoutOneVersion(
+      Artifact outputJar,
+      String javaMainClass,
+      ImmutableList<String> deployManifestLines,
+      Iterable<Artifact> buildInfoFiles,
+      ImmutableList<Artifact> classpathResources,
+      NestedSet<Artifact> runtimeClasspath,
+      boolean includeBuildData,
+      Compression compress,
+      Artifact launcher,
+      boolean usingNativeSinglejar) {
+    return defaultSingleJarCommandLine(
+        outputJar,
+        javaMainClass,
+        deployManifestLines,
+        buildInfoFiles,
+        classpathResources,
+        runtimeClasspath,
+        includeBuildData,
+        compress,
+        launcher,
+        usingNativeSinglejar,
+        OneVersionEnforcementLevel.OFF,
+        null);
+  }
+
   public static CustomCommandLine.Builder defaultSingleJarCommandLine(
       Artifact outputJar,
       String javaMainClass,
@@ -173,7 +220,10 @@ public class DeployArchiveBuilder {
       NestedSet<Artifact> runtimeClasspath,
       boolean includeBuildData,
       Compression compress,
-      Artifact launcher) {
+      Artifact launcher,
+      boolean usingNativeSinglejar,
+      OneVersionEnforcementLevel oneVersionEnforcementLevel,
+      @Nullable Artifact oneVersionWhitelistArtifact) {
 
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
@@ -204,7 +254,20 @@ public class DeployArchiveBuilder {
 
     args.addExecPaths("--classpath_resources", classpathResources);
     if (runtimeClasspath != null) {
-      args.addExecPaths("--sources", runtimeClasspath);
+      if (usingNativeSinglejar) {
+        args.addAll(
+            "--sources", OneVersionCheckActionBuilder.jarAndTargetVectorArg(runtimeClasspath));
+      } else {
+        args.addExecPaths("--sources", runtimeClasspath);
+      }
+    }
+    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF && usingNativeSinglejar) {
+      args.add("--enforce_one_version");
+      Preconditions.checkNotNull(oneVersionWhitelistArtifact);
+      args.addExecPath("--one_version_whitelist", oneVersionWhitelistArtifact);
+      if (oneVersionEnforcementLevel == OneVersionEnforcementLevel.WARNING) {
+        args.add("--succeed_on_found_violations");
+      }
     }
     return args;
   }
@@ -278,6 +341,15 @@ public class DeployArchiveBuilder {
       inputs.add(launcher);
     }
 
+    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
+      inputs.add(oneVersionWhitelistArtifact);
+    }
+    // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
+    // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
+    // the native singlejar is used on windows) remove support for the Java implementation
+    Artifact singlejar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+    boolean usingNativeSinglejar = !singlejar.getFilename().endsWith(".jar");
+
     CommandLine commandLine =
         semantics.buildSingleJarCommandLine(
             ruleContext.getConfiguration(),
@@ -289,23 +361,23 @@ public class DeployArchiveBuilder {
             runtimeClasspath.build(),
             includeBuildData,
             compression,
-            launcher);
+            launcher,
+            usingNativeSinglejar,
+            oneVersionEnforcementLevel,
+            oneVersionWhitelistArtifact);
+    if (checkDesugarDeps) {
+      commandLine = CommandLine.concat(commandLine, ImmutableList.of("--check_desugar_deps"));
+    }
 
     List<String> jvmArgs = ImmutableList.of(SINGLEJAR_MAX_MEMORY);
-    ResourceSet resourceSet =
-        ResourceSet.createWithRamCpuIo(/*memoryMb = */200.0, /*cpuUsage = */.2, /*ioUsage=*/.2);
 
-    // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
-    // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
-    // the native singlejar is used on windows) remove support for the Java implementation
-    Artifact singlejar = getSingleJar(ruleContext);
-    if (singlejar.getFilename().endsWith(".jar")) {
+    if (!usingNativeSinglejar) {
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .addTransitiveInputs(inputs.build())
               .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
               .addOutput(outputJar)
-              .setResources(resourceSet)
+              .setResources(DEPLOY_ACTION_RESOURCE_SET)
               .setJarExecutable(JavaCommon.getHostJavaExecutable(ruleContext), singlejar, jvmArgs)
               .addCommandLine(
                   commandLine,
@@ -319,7 +391,7 @@ public class DeployArchiveBuilder {
           new SpawnAction.Builder()
               .addTransitiveInputs(inputs.build())
               .addOutput(outputJar)
-              .setResources(resourceSet)
+              .setResources(DEPLOY_ACTION_RESOURCE_SET)
               .setExecutable(singlejar)
               .addCommandLine(
                   commandLine,
@@ -328,14 +400,5 @@ public class DeployArchiveBuilder {
               .setMnemonic("JavaDeployJar")
               .build(ruleContext));
     }
-  }
-
-  /** Returns the SingleJar deploy jar Artifact. */
-  private static Artifact getSingleJar(RuleContext ruleContext) {
-    Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
-    if (singleJar != null) {
-      return singleJar;
-    }
-    return ruleContext.getPrerequisiteArtifact("$singlejar", Mode.HOST);
   }
 }

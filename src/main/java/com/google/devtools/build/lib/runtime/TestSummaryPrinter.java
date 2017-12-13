@@ -42,7 +42,7 @@ public class TestSummaryPrinter {
       TestOutputFormat testOutput,
       AnsiTerminalPrinter printer) {
 
-    String testName = summary.getTarget().getLabel().toString();
+    String testName = summary.getLabel().toString();
     List<String> allLogs = new ArrayList<>();
     for (Path path : summary.getFailedLogs()) {
       allLogs.add(path.getPathString());
@@ -111,7 +111,7 @@ public class TestSummaryPrinter {
       return;
     }
     String message = getCacheMessage(summary) + statusString(summary.getStatus());
-    String targetName = summary.getTarget().getLabel().toString();
+    String targetName = summary.getLabel().toString();
     if (withConfigurationName) {
       targetName += " (" + summary.getTarget().getConfiguration().getMnemonic() + ")";
     }
@@ -240,7 +240,9 @@ public class TestSummaryPrinter {
     } else {
       // We previously used com.google.math for this, which added about 1 MB of deps to the total
       // size. If we re-introduce a dependency on that package, we could revert this change.
-      long min = summary.getTestTimes().get(0).longValue(), max = min, sum = 0;
+      long min = summary.getTestTimes().get(0).longValue();
+      long max = min;
+      long sum = 0;
       double sumOfSquares = 0.0;
       for (Long l : summary.getTestTimes()) {
         long value = l.longValue();

@@ -18,12 +18,14 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AliasProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -50,6 +52,14 @@ public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoPro
   /** Creates a new AndroidFeatureFlagSetProvider with the given flags. */
   public static AndroidFeatureFlagSetProvider create(Optional<? extends Map<Label, String>> flags) {
     return new AutoValue_AndroidFeatureFlagSetProvider(flags.transform(ImmutableMap::copyOf));
+  }
+
+  /**
+   * Constructs a definition for the attribute used to restrict access to feature flags. The
+   * whitelist will only be reached if the feature_flags attribute is explicitly set.
+   */
+  public static Attribute.Builder<Label> getWhitelistAttribute(RuleDefinitionEnvironment env) {
+    return ConfigFeatureFlag.getWhitelistAttribute(env, FEATURE_FLAG_ATTR);
   }
 
   /**

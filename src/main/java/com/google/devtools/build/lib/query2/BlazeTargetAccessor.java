@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -20,7 +21,6 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
-import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -150,9 +149,8 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
          throw new QueryException(e.getMessage());
        }
      }
-     for (PackageSpecification spec : packageGroupsVisibility.getDirectPackages()) {
-       packageSpecifications.add(new BlazeQueryVisibility(spec));
-     }
+      packageSpecifications.add(
+          new BlazeQueryVisibility(packageGroupsVisibility.getDirectPackages()));
      return;
    } else {
      throw new IllegalStateException("unknown visibility: " + ruleVisibility.getClass());
@@ -166,8 +164,6 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
       convertGroupVisibility((PackageGroup) queryEnvironment.getTarget(include),
           packageSpecifications);
     }
-    for (PackageSpecification spec : group.getPackageSpecifications()) {
-      packageSpecifications.add(new BlazeQueryVisibility(spec));
-    }
+    packageSpecifications.add(new BlazeQueryVisibility(group.getPackageSpecifications()));
   }
 }

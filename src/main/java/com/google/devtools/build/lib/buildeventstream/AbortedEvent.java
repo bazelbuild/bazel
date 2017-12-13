@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 /** A {@link BuildEvent} reporting an event not coming due to the build being aborted. */
@@ -26,12 +26,31 @@ public class AbortedEvent extends GenericBuildEvent {
   @Nullable private final Label label;
 
   public AbortedEvent(
-      BuildEventId id, BuildEventStreamProtos.Aborted.AbortReason reason, String description,
+      BuildEventId id,
+      Collection<BuildEventId> children,
+      BuildEventStreamProtos.Aborted.AbortReason reason,
+      String description,
       @Nullable Label label) {
-    super(id, ImmutableList.<BuildEventId>of());
+    super(id, children);
     this.reason = reason;
     this.description = description;
     this.label = label;
+  }
+
+  public AbortedEvent(
+      BuildEventId id,
+      BuildEventStreamProtos.Aborted.AbortReason reason,
+      String description,
+      @Nullable Label label) {
+    this(id, ImmutableList.<BuildEventId>of(), reason, description, label);
+  }
+
+  public AbortedEvent(
+      BuildEventId id,
+      Collection<BuildEventId> children,
+      BuildEventStreamProtos.Aborted.AbortReason reason,
+      String description) {
+    this(id, children, reason, description, null);
   }
 
   public AbortedEvent(

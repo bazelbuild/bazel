@@ -32,9 +32,11 @@ import javax.annotation.Nullable;
 final class FakeActionInputFileCache implements ActionInputFileCache {
   private final Path execRoot;
   private final BiMap<ActionInput, String> cas = HashBiMap.create();
+  private final DigestUtil digestUtil;
 
   FakeActionInputFileCache(Path execRoot) {
     this.execRoot = execRoot;
+    this.digestUtil = new DigestUtil(execRoot.getFileSystem().getDigestFunction());
   }
 
   @Override
@@ -70,7 +72,7 @@ final class FakeActionInputFileCache implements ActionInputFileCache {
     Path inputFile = execRoot.getRelative(input.getExecPath());
     FileSystemUtils.createDirectoryAndParents(inputFile.getParentDirectory());
     FileSystemUtils.writeContentAsLatin1(inputFile, content);
-    Digest digest = Digests.computeDigest(inputFile);
+    Digest digest = digestUtil.compute(inputFile);
     setDigest(input, digest.getHash());
     return digest;
   }

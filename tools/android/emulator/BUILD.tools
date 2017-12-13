@@ -22,9 +22,12 @@ alias(
     actual = "@androidsdk//:mksd",
 )
 
-alias(
+genrule(
     name = "empty_snapshot_fs",
-    actual = "@androidsdk//:empty_snapshot_fs",
+    srcs = ["snapshots.img.zip"],
+    outs = ["snapshots.img"],
+    tools = ["@bazel_tools//tools/zip:zipper"],
+    cmd = "$(location @bazel_tools//tools/zip:zipper) x $< -d $(@D)",
 )
 
 filegroup(

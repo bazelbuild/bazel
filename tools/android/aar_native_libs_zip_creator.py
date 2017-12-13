@@ -1,3 +1,4 @@
+# pylint: disable=g-direct-third-party-import
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,10 +20,12 @@ are converted from the AAR directory structure of /jni/<cpu>/foo.so to the APK
 directory structure of /lib/<cpu>/foo.so.
 """
 
+import os
 import re
 import sys
 import zipfile
 
+from tools.android import junction
 from third_party.py import gflags
 
 FLAGS = gflags.FLAGS
@@ -36,8 +39,7 @@ gflags.MarkFlagAsRequired("output_zip")
 
 
 class UnsupportedArchitectureException(Exception):
-  """Exception thrown when an AAR does not support the requested CPU.
-  """
+  """Exception thrown when an AAR does not support the requested CPU."""
   pass
 
 
@@ -55,15 +57,27 @@ def CreateNativeLibsZip(aar, cpu, native_libs_zip):
       native_libs_zip.writestr(new_filename, aar.read(lib))
 
 
-def main():
-  with zipfile.ZipFile(FLAGS.input_aar, "r") as input_aar:
-    with zipfile.ZipFile(FLAGS.output_zip, "w") as native_libs_zip:
+def Main(input_aar_path, output_zip_path, cpu, input_aar_path_for_error_msg):
+  with zipfile.ZipFile(input_aar_path, "r") as input_aar:
+    with zipfile.ZipFile(output_zip_path, "w") as native_libs_zip:
       try:
-        CreateNativeLibsZip(input_aar, FLAGS.cpu, native_libs_zip)
+        CreateNativeLibsZip(input_aar, cpu, native_libs_zip)
       except UnsupportedArchitectureException:
-        print ("AAR " + FLAGS.input_aar +
-               " missing native libs for requested architecture: " + FLAGS.cpu)
+        print("AAR " + input_aar_path_for_error_msg +
+              " missing native libs for requested architecture: " + cpu)
         sys.exit(1)
+
+
+def main():
+  if os.name == "nt":
+    with junction.TempJunction(os.path.dirname(FLAGS.input_aar)) as j_in:
+      with junction.TempJunction(os.path.dirname(FLAGS.output_zip)) as j_out:
+        Main(
+            os.path.join(j_in, os.path.basename(FLAGS.input_aar)),
+            os.path.join(j_out, os.path.basename(FLAGS.output_zip)), FLAGS.cpu,
+            FLAGS.input_aar)
+  else:
+    Main(FLAGS.input_aar, FLAGS.output_zip, FLAGS.cpu, FLAGS.input_aar)
 
 
 if __name__ == "__main__":

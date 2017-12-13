@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtraActionProvider;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
@@ -42,7 +44,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -87,16 +88,21 @@ public final class RuleConfiguredTargetBuilder {
       return null;
     }
 
+    NestedSetBuilder<Artifact> runfilesMiddlemenBuilder = NestedSetBuilder.stableOrder();
+    if (runfilesSupport != null) {
+      runfilesMiddlemenBuilder.add(runfilesSupport.getRunfilesMiddleman());
+      runfilesMiddlemenBuilder.addTransitive(runfilesSupport.getRunfiles().getExtraMiddlemen());
+    }
+    NestedSet<Artifact> runfilesMiddlemen = runfilesMiddlemenBuilder.build();
     FilesToRunProvider filesToRunProvider =
         new FilesToRunProvider(
-            buildFilesToRun(runfilesSupport, filesToBuild), runfilesSupport, executable);
+            buildFilesToRun(runfilesMiddlemen, filesToBuild), runfilesSupport, executable);
     addProvider(new FileProvider(filesToBuild));
     addProvider(filesToRunProvider);
 
     if (runfilesSupport != null) {
       // If a binary is built, build its runfiles, too
-      addOutputGroup(
-          OutputGroupProvider.HIDDEN_TOP_LEVEL, runfilesSupport.getRunfilesMiddleman());
+      addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, runfilesMiddlemen);
     } else if (providersBuilder.contains(RunfilesProvider.class)) {
       // If we don't have a RunfilesSupport (probably because this is not a binary rule), we still
       // want to build the files this rule contributes to runfiles of dependent rules so that we
@@ -141,15 +147,13 @@ public final class RuleConfiguredTargetBuilder {
 
   /**
    * Compute the artifacts to put into the {@link FilesToRunProvider} for this target. These are the
-   * filesToBuild, any artifacts added by the rule with {@link #addFilesToRun}, and the runfiles
-   * middleman if it exists.
+   * filesToBuild, any artifacts added by the rule with {@link #addFilesToRun}, and the runfiles'
+   * middlemen if they exists.
    */
   private NestedSet<Artifact> buildFilesToRun(
-      RunfilesSupport runfilesSupport, NestedSet<Artifact> filesToBuild) {
+      NestedSet<Artifact> runfilesMiddlemen, NestedSet<Artifact> filesToBuild) {
     filesToRunBuilder.addTransitive(filesToBuild);
-    if (runfilesSupport != null) {
-      filesToRunBuilder.add(runfilesSupport.getRunfilesMiddleman());
-    }
+    filesToRunBuilder.addTransitive(runfilesMiddlemen);
     return filesToRunBuilder.build();
   }
 

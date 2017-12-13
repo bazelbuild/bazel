@@ -28,8 +28,6 @@ public final class MockProtoSupport {
    */
   public static void setup(MockToolsConfig config) throws IOException {
     createNetProto2(config);
-    // TODO(ulfjack): Consider moving these elsewhere; it's not needed for most proto_library tests.
-    createJsPbPlugin(config);
     createJavascriptClosureProto2(config);
   }
 
@@ -129,8 +127,10 @@ public final class MockProtoSupport {
         "cc_library(name = 'grpc++_codegen_lib')");
     config.create("net/rpc/python/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "py_library(name = 'python_lite',",
-        "           srcs = [ 'pyrpc.py' ])");
+        "py_library(name = 'proto_python_api_1_stub',",
+        "           srcs = [ 'test_only_prefix_proto_python_api_1_stub.py' ])",
+        "py_library(name = 'proto_python_api_2_stub',",
+        "           srcs = [ 'test_only_prefix_proto_python_api_2_stub.py' ])");
     config.create("java/com/google/net/rpc/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "java_library(name = 'rpc',",
@@ -170,22 +170,11 @@ public final class MockProtoSupport {
         "package(default_visibility=['//visibility:public'])",
         "go_library(name = 'context',",
         "           srcs = [ 'context.go' ])");
-  }
-
-  /**
-   * Create a dummy "java/com/google/apps/jspb" package.
-   */
-  private static void createJsPbPlugin(MockToolsConfig config) throws IOException {
-    config.create("java/com/google/apps/jspb/BUILD",
+    config.create("third_party/py/six/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "java_binary(name = 'JsPbCodeGeneratorPlugin',",
-        "    srcs = ['jspb.java'])");
-    config.create(
-        "javascript/apps/jspb/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "js_library(name = 'message',",
-        "    srcs = ['message.js'],",
-        "    deps_mgmt = 'legacy')");
+        "licenses(['notice'])",
+        "py_library(name = 'six',",
+        "           srcs = [ '__init__.py' ])");
   }
 
   /**

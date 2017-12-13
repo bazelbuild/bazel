@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -33,9 +34,9 @@ public final class ExecutableSymlinkAction extends SymlinkAction {
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
-    Path inputPath = actionExecutionContext.getExecRoot().getRelative(getInputPath());
+    Path inputPath = getPrimaryInput().getPath();
     try {
       // Validate that input path is a file with the executable bit is set.
       if (!inputPath.isFile()) {
@@ -56,9 +57,11 @@ public final class ExecutableSymlinkAction extends SymlinkAction {
           + "' due to I/O error: " + e.getMessage(), e, this, false);
     }
 
-    super.execute(actionExecutionContext);
+    return super.execute(actionExecutionContext);
   }
 
   @Override
-  public String getMnemonic() { return "ExecutableSymlink"; }
+  public String getMnemonic() {
+    return "ExecutableSymlink";
+  }
 }

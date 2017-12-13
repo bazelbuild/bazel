@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.skyframe.CycleInfo;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
@@ -89,7 +88,7 @@ class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
   private SkyKey asTransitiveTargetKey(SkyKey key) {
     return IS_TRANSITIVE_TARGET_SKY_KEY.apply(key)
         ? key
-        : LegacySkyKey.create(TRANSITIVE_TARGET, ((ConfiguredTargetKey) key.argument()).getLabel());
+        : TransitiveTargetKey.of(((ConfiguredTargetKey) key.argument()).getLabel());
   }
 
   @Override
@@ -110,7 +109,7 @@ class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
     } else if (SkyFunctions.isSkyFunction(SkyFunctions.ASPECT).apply(key)) {
       return ((AspectKey) key.argument()).getLabel();
     } else if (SkyFunctions.isSkyFunction(TRANSITIVE_TARGET).apply(key)) {
-      return (Label) key.argument();
+      return ((TransitiveTargetKey) key).getLabel();
     } else {
       throw new UnsupportedOperationException();
     }

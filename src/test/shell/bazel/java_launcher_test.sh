@@ -62,14 +62,10 @@ EOF
   ${PRODUCT_NAME}-bin/$pkg/java/hello/hello >& "$TEST_log" || \
     fail "expected success"
   expect_log "Hello World!"
-  [ -e "${PRODUCT_NAME}-bin/$pkg/java/hello/hello-classpath.jar" ] && \
-    fail "did not expect to create classpath jar"
 
   ${PRODUCT_NAME}-bin/$pkg/java/hello/hello --classpath_limit=0 >& "$TEST_log" || \
     fail "expected success"
   expect_log "Hello World!"
-  [ -e "${PRODUCT_NAME}-bin/$pkg/java/hello/hello-classpath.jar" ] || \
-    fail "expected to create classpath jar"
 }
 
 run_suite "Java launcher tests"

@@ -36,7 +36,7 @@ flags package and use the aliases defined at the package level.
 
 import sys
 
-import _helpers
+from gflags import _helpers
 
 
 # TODO(vrusinov): use DISCLAIM_key_flags when it's moved out of __init__.

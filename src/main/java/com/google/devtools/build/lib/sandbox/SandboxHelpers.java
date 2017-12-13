@@ -20,14 +20,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
-import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
@@ -39,15 +37,6 @@ import java.util.TreeMap;
 
 /** Helper methods that are shared by the different sandboxing strategies in this package. */
 public final class SandboxHelpers {
-
-  static void fallbackToNonSandboxedExecution(
-      Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
-    StandaloneSpawnStrategy standaloneStrategy =
-        Preconditions.checkNotNull(
-            actionExecutionContext.getContext(StandaloneSpawnStrategy.class));
-    standaloneStrategy.exec(spawn, actionExecutionContext);
-  }
 
   /**
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
@@ -127,7 +116,7 @@ public final class SandboxHelpers {
 
   /**
    * Returns true if the build options are set in a way that requires network access for all
-   * actions. This is separate from {@link #shouldAllowNetwork(Spawn)} to avoid having to keep a
+   * actions. This is separate from {@link Spawns#requiresNetwork} to avoid having to keep a
    * reference to the full set of build options (and also for performance, since this only needs to
    * be checked once-per-build).
    */
@@ -139,16 +128,5 @@ public final class SandboxHelpers {
         .getOptions(TestConfiguration.TestOptions.class)
         .testArguments
         .contains("--wrapper_script_flag=--debug");
-  }
-
-  /** Returns true if this specific spawn requires network access. */
-  static boolean shouldAllowNetwork(Spawn spawn) {
-    // If the Spawn requests to block network access, do so.
-    if (spawn.getExecutionInfo().containsKey("block-network")) {
-      return false;
-    }
-
-    // Network access is allowed by default.
-    return true;
   }
 }

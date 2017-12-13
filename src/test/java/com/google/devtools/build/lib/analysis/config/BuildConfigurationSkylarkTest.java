@@ -41,7 +41,7 @@ public final class BuildConfigurationSkylarkTest extends BuildViewTestCase {
     scratch.file(
         "examples/config_skylark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('/examples/rule/config_test', 'test_rule')",
+        "load('//examples/rule:config_test.bzl', 'test_rule')",
         "test_rule(",
         "    name = 'my_target',",
         ")");

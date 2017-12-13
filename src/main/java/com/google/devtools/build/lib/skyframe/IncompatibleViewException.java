@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 
 /**
  * Thrown on {@link DiffAwareness#getDiff} to indicate that the given {@link DiffAwareness.View}s

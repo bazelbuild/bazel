@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
 /** Mocking support for platforms and toolchains. */
@@ -31,6 +33,26 @@ public class MockPlatformSupport {
         "platform(",
         "   name = 'host_platform',",
         "   host_platform = True,",
+        ")");
+  }
+
+  /** Adds a mock piii platform. */
+  public static void addMockPiiiPlatform(MockToolsConfig mockToolsConfig, Label crosstoolLabel)
+      throws Exception {
+    mockToolsConfig.create(
+        "mock_platform/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "constraint_setting(name = 'mock_setting')",
+        "constraint_value(name = 'mock_value', constraint_setting = ':mock_setting')",
+        "platform(",
+        "   name = 'mock-piii-platform',",
+        "   constraint_values = [':mock_value'],",
+        ")",
+        "toolchain(",
+        "   name = 'toolchain_cc-compiler-piii',",
+        "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "   toolchain = '" + crosstoolLabel.getRelative("cc-compiler-piii") + "',",
+        "   target_compatible_with = [':mock_value'],",
         ")");
   }
 }

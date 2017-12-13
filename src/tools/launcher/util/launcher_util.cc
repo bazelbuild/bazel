@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// For rand_s function, https://msdn.microsoft.com/en-us/library/sxtz2fa8.aspx
+#define _CRT_RAND_S
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -91,6 +93,10 @@ bool DoesDirectoryPathExist(const char* path) {
           (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 }
 
+bool DeleteFileByPath(const char* path) {
+  return DeleteFileW(AsAbsoluteWindowsPath(path).c_str());
+}
+
 string GetBinaryPathWithoutExtension(const string& binary) {
   if (binary.find(".exe", binary.size() - 4) != string::npos) {
     return binary.substr(0, binary.length() - 4);
@@ -102,7 +108,7 @@ string GetBinaryPathWithExtension(const string& binary) {
   return GetBinaryPathWithoutExtension(binary) + ".exe";
 }
 
-string GetEscapedArgument(const string& argument) {
+string GetEscapedArgument(const string& argument, bool escape_backslash) {
   ostringstream escaped_arg;
   bool has_space = argument.find_first_of(' ') != string::npos;
 
@@ -120,8 +126,8 @@ string GetEscapedArgument(const string& argument) {
         break;
 
       case '\\':
-        // Escape back slashes
-        escaped_arg << "\\\\";
+        // Escape back slashes if escape_backslash is true
+        escaped_arg << (escape_backslash ? "\\\\" : "\\");
         break;
 
       default:
@@ -150,6 +156,18 @@ bool GetEnv(const string& env_name, string* value) {
 
 bool SetEnv(const string& env_name, const string& value) {
   return SetEnvironmentVariableA(env_name.c_str(), value.c_str());
+}
+
+string GetRandomStr(size_t len) {
+  static const char alphabet[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  ostringstream rand_str;
+  unsigned int x;
+  for (size_t i = 0; i < len; i++) {
+    rand_s(&x);
+    rand_str << alphabet[x % strlen(alphabet)];
+  }
+  return rand_str.str();
 }
 
 }  // namespace launcher

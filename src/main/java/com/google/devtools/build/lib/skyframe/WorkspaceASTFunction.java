@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -65,8 +66,13 @@ public class WorkspaceASTFunction implements SkyFunction {
             Transience.PERSISTENT);
       }
       if (workspaceFileValue.exists()) {
-        ast = BuildFileAST.parseBuildFile(
-            ParserInputSource.create(repoWorkspace), ast.getStatements(), env.getListener());
+        byte[] bytes =
+            FileSystemUtils.readWithKnownFileSize(repoWorkspace, repoWorkspace.getFileSize());
+        ast =
+            BuildFileAST.parseBuildFile(
+                ParserInputSource.create(bytes, repoWorkspace.asFragment()),
+                ast.getStatements(),
+                env.getListener());
         if (ast.containsErrors()) {
           throw new WorkspaceASTFunctionException(
               new BuildFileContainsErrorsException(

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.profiler.chart;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.common.base.Preconditions;
 
 /**
  * A chart column. The column can be used to highlight a time-range.

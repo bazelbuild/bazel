@@ -1,33 +1,27 @@
 package org.checkerframework.dataflow.cfg.node;
 
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-
-import org.checkerframework.javacutil.TreeUtils;
-
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
+import org.checkerframework.javacutil.TreeUtils;
 
 /**
- * An assignment context for a node, which represents the place to which the
- * node with this context is 'assigned' to. An 'assignment' (as we use the term
- * here) can occur for Java assignments, method calls (for all the actual
- * parameters which get assigned to their formal parameters) or method return
- * statements.
+ * An assignment context for a node, which represents the place to which the node with this context
+ * is 'assigned' to. An 'assignment' (as we use the term here) can occur for Java assignments,
+ * method calls (for all the actual parameters which get assigned to their formal parameters) or
+ * method return statements.
  *
- * <p>
- * The main use of {@link AssignmentContext} is to be able to get the declared
- * type of the left-hand side of the assignment for proper type-refinement.
+ * <p>The main use of {@link AssignmentContext} is to be able to get the declared type of the
+ * left-hand side of the assignment for proper type-refinement.
  *
  * @author Stefan Heule
  */
 public abstract class AssignmentContext {
 
-    /**
-     * An assignment context for an assignment 'lhs = rhs'.
-     */
+    /** An assignment context for an assignment 'lhs = rhs'. */
     public static class AssignmentLhsContext extends AssignmentContext {
 
         protected final Node node;
@@ -57,9 +51,7 @@ public abstract class AssignmentContext {
         }
     }
 
-    /**
-     * An assignment context for a method parameter.
-     */
+    /** An assignment context for a method parameter. */
     public static class MethodParameterContext extends AssignmentContext {
 
         protected final ExecutableElement method;
@@ -83,9 +75,7 @@ public abstract class AssignmentContext {
         }
     }
 
-    /**
-     * An assignment context for method return statements.
-     */
+    /** An assignment context for method return statements. */
     public static class MethodReturnContext extends AssignmentContext {
 
         protected final ExecutableElement method;
@@ -107,9 +97,7 @@ public abstract class AssignmentContext {
         }
     }
 
-    /**
-     * An assignment context for lambda return statements.
-     */
+    /** An assignment context for lambda return statements. */
     public static class LambdaReturnContext extends AssignmentContext {
 
         protected final ExecutableElement method;
@@ -131,9 +119,7 @@ public abstract class AssignmentContext {
         }
     }
 
-    /**
-     * Returns an {@link Element} that has the type of this assignment context.
-     */
+    /** Returns an {@link Element} that has the type of this assignment context. */
     public abstract Element getElementForType();
 
     public abstract Tree getContextTree();

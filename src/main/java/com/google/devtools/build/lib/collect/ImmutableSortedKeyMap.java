@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.collect;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.AbstractCollection;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;

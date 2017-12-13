@@ -136,8 +136,8 @@ public class NewHttpArchiveRule implements RuleDefinition {
 <p>Downloads a compressed archive file, decompresses it, and creates a Bazel repository by
 combining the archive with the provided BUILD file.</p>
 
-<p>It supports Zip-formatted archives (with the .zip extension) and
-tarballs (.tar.gz and .tgz extensions).</p>
+<p>It supports Zip-formatted archives and tarballs. The full set of extensions supported is
+.zip, .jar, .war, .tar.gz, .tgz, .tar.xz, or .tar.bz2.</p>
 
 <h4 id="new_http_archive_examples">Examples</h4>
 

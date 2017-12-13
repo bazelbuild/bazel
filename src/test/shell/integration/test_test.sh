@@ -101,4 +101,59 @@ EOF
     expect_log 'were skipped'
 }
 
+# Regression test for b/67463263: Tests that spawn subprocesses must not block
+# if those subprocesses never finish. If this test fails, because the "my_test"
+# test is timing out, it means that Bazel is waiting for the "sleep" to finish,
+# which it shouldn't.
+function test_process_spawned_by_test_doesnt_block_test_from_completing() {
+  mkdir -p dir
+
+  cat > dir/BUILD <<'EOF'
+java_test(
+    name = "my_test",
+    main_class = "MyTest",
+    srcs = ["MyTest.java"],
+    timeout = "short",
+    use_testrunner = 0,
+)
+EOF
+  cat > dir/MyTest.java <<'EOF'
+public class MyTest {
+  public static void main(String[] args) throws Exception {
+    new ProcessBuilder("sleep", "300").inheritIO().start();
+  }
+}
+EOF
+
+  bazel test //dir:my_test &> $TEST_log || fail "expected test to pass"
+}
+
+function test_test_suite_non_expansion() {
+  mkdir -p dir
+  cat > dir/BUILD <<'EOF'
+sh_test(name = 'test_a',
+        srcs = [':a.sh'],
+)
+
+sh_test(name = 'test_b',
+        srcs = [':b.sh'],
+)
+
+test_suite(name = 'suite',
+)
+EOF
+  cat > dir/a.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+
+  cat > dir/b.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod +x dir/a.sh dir/b.sh
+  bazel test --noexpand_test_suites //dir:suite &> $TEST_log || fail "expected test to pass"
+  expect_log '//dir:test_a'
+  expect_log '//dir:test_b'
+}
 run_suite "test tests"

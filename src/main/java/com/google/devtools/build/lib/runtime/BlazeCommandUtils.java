@@ -17,11 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -41,17 +40,15 @@ public class BlazeCommandUtils {
           BlazeServerStartupOptions.class,
           HostJvmStartupOptions.class);
 
-  /**
-   * The set of option-classes that are common to all Blaze commands.
-   */
+  /** The set of option-classes that are common to all Blaze commands. */
   private static final ImmutableList<Class<? extends OptionsBase>> COMMON_COMMAND_OPTIONS =
       ImmutableList.of(
           BlazeCommandEventHandler.Options.class,
           CommonCommandOptions.class,
+          ClientOptions.class,
           // Skylark options aren't applicable to all commands, but making them a common option
           // allows users to put them in the common section of the bazelrc. See issue #3538.
           SkylarkSemanticsOptions.class);
-
 
   private BlazeCommandUtils() {}
 
@@ -114,21 +111,42 @@ public class BlazeCommandUtils {
    * Returns the expansion of the specified help topic.
    *
    * @param topic the name of the help topic; used in %{command} expansion.
-   * @param help the text template of the help message. Certain %{x} variables
-   *        will be expanded. A prefix of "resource:" means use the .jar
-   *        resource of that name.
-   * @param categoryDescriptions a mapping from option category names to
-   *        descriptions, passed to {@link OptionsParser#describeOptions}.
-   * @param helpVerbosity a tri-state verbosity option selecting between just
-   *        names, names and syntax, and full description.
+   * @param help the text template of the help message. Certain %{x} variables will be expanded. A
+   *     prefix of "resource:" means use the .jar resource of that name.
+   * @param categoryDescriptions a mapping from option category names to descriptions, passed to
+   *     {@link OptionsParser#describeOptionsWithDeprecatedCategories}.
+   * @param helpVerbosity a tri-state verbosity option selecting between just names, names and
+   *     syntax, and full description.
    * @param productName the product name
    */
-  public static String expandHelpTopic(String topic, String help,
+  public static final String expandHelpTopic(
+      String topic,
+      String help,
       Class<? extends BlazeCommand> commandClass,
       Collection<Class<? extends OptionsBase>> options,
       Map<String, String> categoryDescriptions,
       OptionsParser.HelpVerbosity helpVerbosity,
       String productName) {
+    return expandHelpTopic(
+        topic,
+        help,
+        commandClass,
+        options,
+        categoryDescriptions,
+        helpVerbosity,
+        productName,
+        false);
+  }
+
+  public static final String expandHelpTopic(
+      String topic,
+      String help,
+      Class<? extends BlazeCommand> commandClass,
+      Collection<Class<? extends OptionsBase>> options,
+      Map<String, String> categoryDescriptions,
+      OptionsParser.HelpVerbosity helpVerbosity,
+      String productName,
+      boolean useNewCategoryEnum) {
     OptionsParser parser = OptionsParser.newOptionsParser(options);
 
     String template;
@@ -137,8 +155,12 @@ public class BlazeCommandUtils {
       try {
         template = ResourceFileLoader.loadResource(commandClass, resourceName);
       } catch (IOException e) {
-        throw new IllegalStateException("failed to load help resource '" + resourceName
-                                        + "' due to I/O error: " + e.getMessage(), e);
+        throw new IllegalStateException(
+            "failed to load help resource '"
+                + resourceName
+                + "' due to I/O error: "
+                + e.getMessage(),
+            e);
       }
     } else {
       template = help;
@@ -148,10 +170,16 @@ public class BlazeCommandUtils {
       throw new IllegalStateException("Help template for '" + topic + "' omits %{options}!");
     }
 
-    String optionStr =
-        parser
-            .describeOptions(categoryDescriptions, helpVerbosity)
-            .replace("%{product}", productName);
+    String optionStr;
+    if (useNewCategoryEnum) {
+      optionStr =
+          parser.describeOptions(productName, helpVerbosity).replace("%{product}", productName);
+    } else {
+      optionStr =
+          parser
+              .describeOptionsWithDeprecatedCategories(categoryDescriptions, helpVerbosity)
+              .replace("%{product}", productName);
+    }
     return template
             .replace("%{product}", productName)
             .replace("%{command}", topic)
@@ -166,10 +194,10 @@ public class BlazeCommandUtils {
   /**
    * The help page for this command.
    *
-   * @param categoryDescriptions a mapping from option category names to
-   *        descriptions, passed to {@link OptionsParser#describeOptions}.
-   * @param verbosity a tri-state verbosity option selecting between just names,
-   *        names and syntax, and full description.
+   * @param categoryDescriptions a mapping from option category names to descriptions, passed to
+   *     {@link OptionsParser#describeOptionsWithDeprecatedCategories}.
+   * @param verbosity a tri-state verbosity option selecting between just names, names and syntax,
+   *     and full description.
    */
   public static String getUsage(
       Class<? extends BlazeCommand> commandClass,
@@ -177,7 +205,8 @@ public class BlazeCommandUtils {
       OptionsParser.HelpVerbosity verbosity,
       Iterable<BlazeModule> blazeModules,
       ConfiguredRuleClassProvider ruleClassProvider,
-      String productName) {
+      String productName,
+      boolean useNewCategoryEnum) {
     Command commandAnnotation = commandClass.getAnnotation(Command.class);
     return BlazeCommandUtils.expandHelpTopic(
         commandAnnotation.name(),
@@ -186,6 +215,7 @@ public class BlazeCommandUtils {
         BlazeCommandUtils.getOptions(commandClass, blazeModules, ruleClassProvider),
         categoryDescriptions,
         verbosity,
-        productName);
+        productName,
+        useNewCategoryEnum);
   }
 }

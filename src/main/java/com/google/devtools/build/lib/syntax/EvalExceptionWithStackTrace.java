@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Objects;
@@ -110,16 +110,22 @@ public class EvalExceptionWithStackTrace extends EvalException {
     addStackFrame(funcallDescription, location, false);
   }
 
-  /**
-   * Adds a line for the given frame.
-   */
+  /** Adds a line for the given frame. */
   private void addStackFrame(String label, Location location, boolean canPrint) {
-    // We have to watch out for duplicate since ExpressionStatements add themselves twice:
-    // Statement#exec() calls Expression#eval(), both of which call this method.
+    // TODO(bazel-team): This check was originally created to weed out duplicates in case the same
+    // node is added twice, but it's not clear if that is still a possibility. In any case, it would
+    // be better to eliminate the check and not create unwanted duplicates in the first place.
+    //
+    // The check is problematic because it suppresses tracebacks in the REPL, where line numbers
+    // can be reset within a single session.
     if (mostRecentElement != null && isSameLocation(location, mostRecentElement.getLocation())) {
       return;
     }
     mostRecentElement = new StackFrame(label, location, mostRecentElement, canPrint);
+  }
+
+  private void addStackFrame(String label, Location location)   {
+    addStackFrame(label, location, true);
   }
 
   /**
@@ -134,10 +140,6 @@ public class EvalExceptionWithStackTrace extends EvalException {
     } catch (NullPointerException ex) {
       return first == second;
     }
-  }
-
-  private void addStackFrame(String label, Location location)   {
-    addStackFrame(label, location, true);
   }
 
   /**

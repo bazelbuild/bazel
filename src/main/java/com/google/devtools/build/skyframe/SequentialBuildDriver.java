@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.common.options.OptionsClassProvider;
 import javax.annotation.Nullable;
 
@@ -59,8 +59,8 @@ public class SequentialBuildDriver implements BuildDriver {
 
   @Nullable
   @Override
-  public SkyValue getExistingValueForTesting(SkyKey key) {
-    return memoizingEvaluator.getExistingValueForTesting(key);
+  public SkyValue getExistingValueForTesting(SkyKey key) throws InterruptedException {
+    return memoizingEvaluator.getExistingValue(key);
   }
 
   @Nullable
@@ -71,7 +71,7 @@ public class SequentialBuildDriver implements BuildDriver {
 
   @Nullable
   @Override
-  public NodeEntry getEntryForTesting(SkyKey key) {
+  public NodeEntry getEntryForTesting(SkyKey key) throws InterruptedException {
     return memoizingEvaluator.getExistingEntryForTesting(key);
   }
 }

@@ -22,23 +22,39 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.MakeVariableInfo;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 
 /**
  * Rule definition for compiler definition.
  */
 public final class CcToolchainRule implements RuleDefinition {
+
+  /**
+   * The label points to the Windows object file parser. In bazel, it should be
+   * //tools/def_parser:def_parser, otherwise it should be null.
+   *
+   * <p>TODO(pcloudy): Remove this after Bazel rule definitions are not used internally anymore.
+   * Related bug b/63658220
+   */
+  private final String defParserLabel;
+
+  public CcToolchainRule(String defParser) {
+    this.defParserLabel = defParser;
+  }
+
+  public CcToolchainRule() {
+    this.defParserLabel = null;
+  }
 
   /**
    * Determines if the given target is a cc_toolchain or one of its subclasses. New subclasses
@@ -49,23 +65,30 @@ public final class CcToolchainRule implements RuleDefinition {
     return ruleClass.endsWith("cc_toolchain");
   }
 
-  private static final LateBoundLabel<BuildConfiguration> LIBC_TOP =
-      new LateBoundLabel<BuildConfiguration>(CppConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getSysrootLabel();
-        }
-      };
+  private static final LateBoundDefault<?, Label> LIBC_TOP =
+      LateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> cppConfig.getSysrootLabel());
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     final Label zipper = env.getToolsLabel("//tools/zip:zipper");
+    if (defParserLabel != null) {
+      builder.add(
+          attr("$def_parser", LABEL)
+              .cfg(HOST)
+              .singleArtifact()
+              .value(env.getLabel(defParserLabel)));
+    }
     return builder
         .setUndocumented()
-        .requiresConfigurationFragments(CppConfiguration.class)
-        .advertiseProvider(MakeVariableInfo.class)
+        .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
+        .advertiseProvider(TemplateVariableInfo.class)
         .add(attr("output_licenses", LICENSE))
         .add(attr("cpu", STRING).mandatory())
+        .add(attr("compiler", STRING))
+        .add(attr("libc", STRING))
         .add(attr("all_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
         .add(attr("compiler_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
         .add(attr("strip_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
@@ -89,27 +112,23 @@ public final class CcToolchainRule implements RuleDefinition {
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
         .add(
+            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
+                .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
+        .add(
             attr(":zipper", LABEL)
                 .cfg(HOST)
                 .singleArtifact()
                 .value(
-                    new LateBoundLabel<BuildConfiguration>() {
-                      @Override
-                      public Label resolve(
-                          Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-                        CppConfiguration cppConfiguration =
-                            configuration.getFragment(CppConfiguration.class);
-                        if (cppConfiguration.isLLVMOptimizedFdo()) {
-                          return zipper;
-                        } else {
-                          return null;
-                        }
-                      }
-                    }))
+                    LateBoundDefault.fromTargetConfiguration(
+                        CppConfiguration.class,
+                        null,
+                        // TODO(b/69547565): Remove call to isLLVMOptimizedFdo
+                        (rule, attributes, cppConfig) ->
+                            cppConfig.isLLVMOptimizedFdo() ? zipper : null)))
         .add(attr(":libc_top", LABEL).value(LIBC_TOP))
         .add(
             attr(":lipo_context_collector", LABEL)
-                .cfg(LipoTransition.LIPO_COLLECTOR)
+                .cfg(LipoContextCollectorTransition.INSTANCE)
                 .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
                 .skipPrereqValidatorCheck())
         .build();

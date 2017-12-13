@@ -50,8 +50,8 @@ java_library(
 java_test(
     name = "SkyframeTests",
     srcs = select({
-        "//src:darwin": glob(["*.java"]),
-        "//src:darwin_x86_64": glob(["*.java"]),
+        "//src/conditions:darwin": glob(["*.java"]),
+        "//src/conditions:darwin_x86_64": glob(["*.java"]),
         "//conditions:default": glob(
             ["*.java"],
             exclude = ["MacOSXFsEventsDiffAwarenessTest.java"],
@@ -82,12 +82,14 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:action_cache_java_proto",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:testutil",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
@@ -95,4 +97,23 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
     ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/packages:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:all_windows_tests",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

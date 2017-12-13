@@ -102,11 +102,11 @@ EOF
   expect_log "Tra-la!"
 }
 
-function test_maven_jar_with_classifier_skylark() {
+function DISABLEDtest_maven_jar_with_classifier_skylark() {
   setup_zoo
   version="1.21"
-  packaging = "jar"
-  classifier = "sources"
+  packaging="jar"
+  classifier="sources"
   serve_artifact com.example.carnivore carnivore $version $packaging $classifier
   setup_local_maven_settings_xml "http://localhost:$fileserver_port"
 
@@ -150,8 +150,8 @@ EOF
 
 function test_maven_aar_skylark() {
   setup_android_sdk_support
-  if [ -z "$ANDROID_NDK_API_LEVEL" ] || [ -z "$ANDROID_SDK_API_LEVEL" ]; then
-    fail "This test cannot run without Android repositories set up," \
+  if [[ ! -d "${TEST_SRCDIR}/androidsdk" ]]; then
+    fail "This test cannot run without android_sdk_repository set up," \
       "see the WORKSPACE file for instructions"
   fi
   setup_android_binary
@@ -164,6 +164,13 @@ maven_aar(
     artifact = "com.example.carnivore:herbivore:1.21",
     sha1 = "$sha1",
     settings = "//:$local_maven_settings_xml",
+    deps = ["@herbivore2//aar"],
+)
+maven_aar(
+    name = "herbivore2",
+    artifact = "com.example.carnivore:herbivore:1.21",
+    sha1 = "$sha1",
+    settings = "//:$local_maven_settings_xml",
 )
 EOF
   bazel build //java/com/app || fail "Expected build to succeed"
@@ -171,6 +178,9 @@ EOF
   expect_log_once "res/layout/my_view.xml"
   unzip -l bazel-bin/java/com/app/app_deploy.jar > $TEST_log
   expect_log_once "com/herbivore/Stegosaurus.class"
+  bazel query 'deps(//java/com/app)' >& $TEST_log
+  expect_log "@herbivore//aar:aar"
+  expect_log "@herbivore2//aar:aar"
 }
 
 # Same as test_maven_jar, except omit sha1 implying "we don't care".

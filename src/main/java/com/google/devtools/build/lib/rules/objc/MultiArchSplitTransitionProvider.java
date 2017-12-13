@@ -26,8 +26,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -36,13 +35,16 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * {@link SplitTransitionProvider} implementation for multi-architecture apple rules which can
  * accept different apple platform types (such as ios or watchos).
  */
-public class MultiArchSplitTransitionProvider implements SplitTransitionProvider {
+public class MultiArchSplitTransitionProvider implements SplitTransitionProvider, SkylarkValue {
 
   @VisibleForTesting
   static final String UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT =
@@ -123,8 +125,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
   }
 
   @Override
-  public SplitTransition<?> apply(Rule fromRule) {
-    NonconfigurableAttributeMapper attrMapper = NonconfigurableAttributeMapper.of(fromRule);
+  public SplitTransition<?> apply(AttributeMap attrMapper) {
     String platformTypeString = attrMapper.get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
     String minimumOsVersionString = attrMapper.get(PlatformRule.MINIMUM_OS_VERSION, STRING);
     PlatformType platformType;
@@ -146,6 +147,16 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
     }
 
     return new AppleBinaryTransition(platformType, minimumOsVersion);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("apple_common.multi_arch_split");
   }
 
   /**
@@ -172,17 +183,30 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
       ConfigurationDistinguisher configurationDistinguisher;
       switch (platformType) {
         case IOS:
+          configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_IOS;
+          actualMinimumOsVersion =
+              minimumOsVersion.isPresent()
+                  ? minimumOsVersion.get()
+                  : buildOptions.get(AppleCommandLineOptions.class).iosMinimumOs;
           cpus = buildOptions.get(AppleCommandLineOptions.class).iosMultiCpus;
           if (cpus.isEmpty()) {
             cpus =
                 ImmutableList.of(
                     AppleConfiguration.iosCpuFromCpu(buildOptions.get(Options.class).cpu));
           }
-          configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_IOS;
-          actualMinimumOsVersion =
-              minimumOsVersion.isPresent()
-                  ? minimumOsVersion.get()
-                  : buildOptions.get(AppleCommandLineOptions.class).iosMinimumOs;
+          if (actualMinimumOsVersion != null
+              && actualMinimumOsVersion.compareTo(DottedVersion.fromString("11.0")) >= 0) {
+            List<String> non32BitCpus =
+                cpus.stream()
+                    .filter(cpu -> !ApplePlatform.is32Bit(PlatformType.IOS, cpu))
+                    .collect(Collectors.toList());
+            if (!non32BitCpus.isEmpty()) {
+              // TODO(b/65969900): Throw an exception here. Ideally, there would be an applicable
+              // exception to throw during configuration creation, but instead this validation needs
+              // to be deferred to later.
+              cpus = non32BitCpus;
+            }
+          }
           break;
         case WATCHOS:
           cpus = buildOptions.get(AppleCommandLineOptions.class).watchosCpus;
@@ -228,7 +252,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
         // to decide architecture.
         // TODO(b/29355778, b/28403953): Use a crosstool for any apple rule. Deprecate ios_cpu.
         appleCommandLineOptions.iosCpu = cpu;
-  
+
         if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
           // Only set the (CC-compilation) CPU for dependencies if explicitly required by the user.
           // This helps users of the iOS rules who do not depend on CC rules as these CPU values

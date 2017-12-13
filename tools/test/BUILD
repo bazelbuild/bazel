@@ -24,6 +24,7 @@ java_test(
     deps = [
         ":LcovMergerTestUtils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
         "//third_party:truth",

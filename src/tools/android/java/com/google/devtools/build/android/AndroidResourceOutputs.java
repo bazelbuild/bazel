@@ -132,7 +132,7 @@ public class AndroidResourceOutputs {
     }
 
     @Override
-    protected void writeFileEntry(Path file) throws IOException {
+    protected void writeEntry(Path file) throws IOException {
       Path filename = file.getFileName();
       String name = filename.toString();
       if (name.endsWith(".class")) {
@@ -192,7 +192,7 @@ public class AndroidResourceOutputs {
     }
 
     @Override
-    protected void writeFileEntry(Path file) throws IOException {
+    protected void writeEntry(Path file) throws IOException {
       if (file.getFileName().endsWith("R.java")) {
         byte[] content = Files.readAllBytes(file);
         if (staticIds) {
@@ -205,11 +205,25 @@ public class AndroidResourceOutputs {
     }
   }
 
+  /** A FileVisitor that will add all files and dirents to be stored in a zip archive. */
+  static final class ZipBuilderVisitorWithDirectories extends ZipBuilderVisitor {
+    ZipBuilderVisitorWithDirectories(ZipBuilder zipBuilder, Path root, String directory) {
+      super(zipBuilder, root, directory);
+    }
+
+    @Override
+    public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
+      paths.add(dir);
+      return FileVisitResult.CONTINUE;
+    }
+
+  }
+
   /** A FileVisitor that will add all files to be stored in a zip archive. */
   static class ZipBuilderVisitor extends SimpleFileVisitor<Path> {
 
     protected final String directoryPrefix;
-    private final Collection<Path> paths = new ArrayList<>();
+    protected final Collection<Path> paths = new ArrayList<>();
     protected final Path root;
     private int storageMethod = ZipEntry.STORED;
     private ZipBuilder zipBuilder;
@@ -223,6 +237,15 @@ public class AndroidResourceOutputs {
     protected void addEntry(Path file, byte[] content) throws IOException {
       Preconditions.checkArgument(file.startsWith(root), "%s does not start with %s", file, root);
       zipBuilder.addEntry(directoryPrefix + root.relativize(file), content, storageMethod);
+    }
+
+    protected void addDirEntry(Path file) throws IOException {
+      Preconditions.checkArgument(file.startsWith(root), "%s does not start with %s", file, root);
+      String entryName = directoryPrefix + root.relativize(file);
+      if (!entryName.endsWith("/")) {
+        entryName += "/";
+      }
+      zipBuilder.addEntry(entryName, new byte[0], storageMethod);
     }
 
     public void setCompress(boolean compress) {
@@ -242,13 +265,17 @@ public class AndroidResourceOutputs {
      */
     void writeEntries() throws IOException {
       for (Path path : Ordering.natural().immutableSortedCopy(paths)) {
-        writeFileEntry(path);
+        writeEntry(path);
       }
     }
 
-    protected void writeFileEntry(Path file) throws IOException {
-      byte[] content = Files.readAllBytes(file);
-      addEntry(file, content);
+    protected void writeEntry(Path file) throws IOException {
+      if (Files.isDirectory(file)) {
+        addDirEntry(file);
+      } else {
+        byte[] content = Files.readAllBytes(file);
+        addEntry(file, content);
+      }
     }
   }
 
@@ -335,33 +362,6 @@ public class AndroidResourceOutputs {
       Files.setLastModifiedTime(archive, FileTime.fromMillis(0L));
     } catch (IOException e) {
       throw new RuntimeException(e);
-    }
-  }
-
-  /**
-   * Creates a zip file containing the provided android resources and assets.
-   *
-   * @param resourcesRoot The root containing android resources to be written.
-   * @param assetsRoot The root containing android assets to be written.
-   * @param output The path to write the zip file
-   * @param compress Whether or not to compress the content
-   * @throws IOException
-   */
-  public static void createResourcesZip(
-      Path resourcesRoot, Path assetsRoot, Path output, boolean compress) throws IOException {
-    try (final ZipBuilder zip = ZipBuilder.createFor(output)) {
-      if (Files.exists(resourcesRoot)) {
-        ZipBuilderVisitor visitor = new ZipBuilderVisitor(zip, resourcesRoot, "res");
-        visitor.setCompress(compress);
-        Files.walkFileTree(resourcesRoot, visitor);
-        visitor.writeEntries();
-      }
-      if (Files.exists(assetsRoot)) {
-        ZipBuilderVisitor visitor = new ZipBuilderVisitor(zip, assetsRoot, "assets");
-        visitor.setCompress(compress);
-        Files.walkFileTree(assetsRoot, visitor);
-        visitor.writeEntries();
-      }
     }
   }
 

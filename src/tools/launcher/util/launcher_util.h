@@ -43,9 +43,10 @@ std::string GetBinaryPathWithExtension(const std::string& binary);
 // Escape a command line argument.
 //
 // If the argument has space, then we quote it.
-// Escape \ to \\
 // Escape " to \"
-std::string GetEscapedArgument(const std::string& argument);
+// Escape \ to \\ if escape_backslash is true
+std::string GetEscapedArgument(const std::string& argument,
+                               bool escape_backslash);
 
 // Convert a path to an absolute Windows path with \\?\ prefix.
 // This method will print an error and exit if it cannot convert the path.
@@ -57,6 +58,9 @@ bool DoesFilePathExist(const char* path);
 // Check if a directory exists at a given path.
 bool DoesDirectoryPathExist(const char* path);
 
+// Delete a file at a given path.
+bool DeleteFileByPath(const char* path);
+
 // Get the value of a specific environment variable
 //
 // Return true if succeeded and the result is stored in buffer.
@@ -67,6 +71,10 @@ bool GetEnv(const std::string& env_name, std::string* buffer);
 //
 // Return true if succeeded, otherwise false.
 bool SetEnv(const std::string& env_name, const std::string& value);
+
+// Return a random string with a given length.
+// The string consists of a-zA-Z0-9
+std::string GetRandomStr(size_t len);
 
 }  // namespace launcher
 }  // namespace bazel

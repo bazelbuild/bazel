@@ -16,14 +16,22 @@ package com.google.devtools.skylark.skylint;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.syntax.AssignmentStatement;
+import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ExpressionStatement;
+import com.google.devtools.build.lib.syntax.FunctionDefStatement;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
+import java.util.AbstractMap;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -32,19 +40,94 @@ import javax.annotation.Nullable;
 public final class DocstringUtils {
   private DocstringUtils() {}
 
-  @Nullable
-  static StringLiteral extractDocstring(List<Statement> statements) {
-    if (statements.isEmpty()) {
-      return null;
+  /**
+   * Collect all docstrings in the AST and store them in a map: name -> docstring.
+   *
+   * <p>Note that local variables can't have docstrings.
+   *
+   * @param ast the AST to traverse
+   * @return a map from identifier names to their docstring; if there is a file-level docstring, its
+   *     key is "".
+   */
+  static ImmutableMap<String, StringLiteral> collectDocstringLiterals(BuildFileAST ast) {
+    ImmutableMap.Builder<String, StringLiteral> nameToDocstringLiteral = ImmutableMap.builder();
+    Statement previousStatement = null;
+    for (Statement currentStatement : ast.getStatements()) {
+      Entry<String, StringLiteral> entry = getNameAndDocstring(previousStatement, currentStatement);
+      if (entry != null) {
+        nameToDocstringLiteral.put(entry);
+      }
+      previousStatement = currentStatement;
     }
-    Statement statement = statements.get(0);
-    if (statement instanceof ExpressionStatement) {
-      Expression expr = ((ExpressionStatement) statement).getExpression();
+    return nameToDocstringLiteral.build();
+  }
+
+  @Nullable
+  private static Entry<String, StringLiteral> getNameAndDocstring(
+      @Nullable Statement previousStatement, Statement currentStatement) {
+    // function docstring:
+    if (currentStatement instanceof FunctionDefStatement) {
+      StringLiteral docstring =
+          extractDocstring(((FunctionDefStatement) currentStatement).getStatements());
+      if (docstring != null) {
+        return new AbstractMap.SimpleEntry<>(
+            ((FunctionDefStatement) currentStatement).getIdentifier().getName(), docstring);
+      }
+    } else {
+      StringLiteral docstring = getStringLiteral(currentStatement);
+      if (docstring != null) {
+        if (previousStatement == null) {
+          // file docstring:
+          return new SimpleEntry<>("", docstring);
+        } else {
+          // variable docstring:
+          String variable = getAssignedVariableName(previousStatement);
+          if (variable != null) {
+            return new SimpleEntry<>(variable, docstring);
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /** If the statement is an assignment to one variable, returns its name, or otherwise null. */
+  @Nullable
+  static String getAssignedVariableName(@Nullable Statement stmt) {
+    if (stmt instanceof AssignmentStatement) {
+      Expression lhs = ((AssignmentStatement) stmt).getLValue().getExpression();
+      if (lhs instanceof Identifier) {
+        return ((Identifier) lhs).getName();
+      }
+    }
+    return null;
+  }
+
+  /** If the statement is a string literal, returns it, or otherwise null. */
+  @Nullable
+  static StringLiteral getStringLiteral(Statement stmt) {
+    if (stmt instanceof ExpressionStatement) {
+      Expression expr = ((ExpressionStatement) stmt).getExpression();
       if (expr instanceof StringLiteral) {
         return (StringLiteral) expr;
       }
     }
     return null;
+  }
+
+  /** Takes a function body and returns the docstring literal, if present. */
+  @Nullable
+  static StringLiteral extractDocstring(List<Statement> statements) {
+    if (statements.isEmpty()) {
+      return null;
+    }
+    return getStringLiteral(statements.get(0));
+  }
+
+  /** Parses a docstring from a string literal and appends any new errors to the given list. */
+  static DocstringInfo parseDocstring(StringLiteral docstring, List<DocstringParseError> errors) {
+    int indentation = docstring.getLocation().getStartLineAndColumn().getColumn() - 1;
+    return parseDocstring(docstring.getValue(), indentation, errors);
   }
 
   /**
@@ -61,15 +144,17 @@ public final class DocstringUtils {
    * to document these parameters as follows:
    *
    * Args:
-   *   parameter1: description of the first parameter
+   *   parameter1: description of the first parameter. Each parameter line
+   *     should be indented by one, preferably two, spaces (as here).
    *   parameter2: description of the second
-   *     parameter that spans two lines. Each additional line
-   *     must be indented by (at least) two spaces
+   *     parameter that spans two lines. Each additional line should have a
+   *     hanging indentation of at least one, preferably two, additional spaces (as here).
    *   another_parameter (unused, mutable): a parameter may be followed
    *     by additional attributes in parentheses
    *
    * Returns:
    *   Description of the return value.
+   *   Should be indented by at least one, preferably two spaces (as here)
    *   Can span multiple lines.
    * """
    * }</pre>
@@ -88,16 +173,27 @@ public final class DocstringUtils {
   }
 
   static class DocstringInfo {
+    /** The one-line summary at the start of the docstring. */
     final String summary;
+    /** Documentation of function parameters from the 'Args:' section. */
     final List<ParameterDoc> parameters;
+    /** Documentation of the return value from the 'Returns:' section, or empty if there is none. */
     final String returns;
+    /** Deprecation warning from the 'Deprecated:' section, or empty if there is none. */
+    final String deprecated;
+    /** Rest of the docstring that is not part of any of the special sections above. */
     final String longDescription;
 
     public DocstringInfo(
-        String summary, List<ParameterDoc> parameters, String returns, String longDescription) {
+        String summary,
+        List<ParameterDoc> parameters,
+        String returns,
+        String deprecated,
+        String longDescription) {
       this.summary = summary;
       this.parameters = ImmutableList.copyOf(parameters);
       this.returns = returns;
+      this.deprecated = deprecated;
       this.longDescription = longDescription;
     }
 
@@ -120,12 +216,33 @@ public final class DocstringUtils {
 
   private static class DocstringParser {
     private final String docstring;
+    /** Start offset of the current line. */
     private int startOfLineOffset = 0;
-    private int endOfLineOffset = -1;
+    /** End offset of the current line. */
+    private int endOfLineOffset = 0;
+    /** Current line number within the docstring. */
     private int lineNumber = 0;
+    /**
+     * The indentation of the doctring literal in the source file.
+     *
+     * <p>Every line except the first one must be indented by at least that many spaces.
+     */
     private int baselineIndentation = 0;
+    /** Whether there was a blank line before the current line. */
     private boolean blankLineBefore = false;
+    /** Whether we've seen a special section, e.g. 'Args:', already. */
+    private boolean specialSectionsStarted = false;
+    /** List of all parsed lines in the docstring so far, including all indentation. */
+    private ArrayList<String> originalLines = new ArrayList<>();
+    /**
+     * The current line in the docstring with the baseline indentation removed.
+     *
+     * <p>If the indentation of a docstring line is less than the expected {@link
+     * #baselineIndentation}, only the existing indentation is stripped; none of the remaining
+     * characters are cut off.
+     */
     private String line = "";
+    /** Errors that occurred so far. */
     private final List<DocstringParseError> errors = new ArrayList<>();
 
     DocstringParser(String docstring, int indentation) {
@@ -135,24 +252,47 @@ public final class DocstringUtils {
       this.baselineIndentation = indentation;
     }
 
-    boolean nextLine() {
+    /**
+     * Move on to the next line and update the parser's internal state accordingly.
+     *
+     * @return whether there are lines remaining to be parsed
+     */
+    private boolean nextLine() {
       if (startOfLineOffset >= docstring.length()) {
         return false;
       }
-      blankLineBefore = line.isEmpty();
-      lineNumber++;
-      startOfLineOffset = endOfLineOffset + 1;
+      blankLineBefore = line.trim().isEmpty();
+      startOfLineOffset = endOfLineOffset;
       if (startOfLineOffset >= docstring.length()) {
+        // Previous line was the last; previous line had no trailing newline character.
         line = "";
         return false;
       }
+      // If not the first line, advance start past the newline character. In the case where there is
+      // no more content, then the previous line was the second-to-last line and this last line is
+      // empty.
+      if (docstring.charAt(startOfLineOffset) == '\n') {
+        startOfLineOffset += 1;
+      }
+      lineNumber++;
       endOfLineOffset = docstring.indexOf('\n', startOfLineOffset);
       if (endOfLineOffset < 0) {
         endOfLineOffset = docstring.length();
       }
-      line = docstring.substring(startOfLineOffset, endOfLineOffset);
-      int indentation = getIndentation(line);
-      if (!line.isEmpty()) {
+      String originalLine = docstring.substring(startOfLineOffset, endOfLineOffset);
+      originalLines.add(originalLine);
+      int indentation = getIndentation(originalLine);
+      if (endOfLineOffset == docstring.length() && startOfLineOffset != 0) {
+        if (!originalLine.trim().isEmpty()) {
+          error("closing docstring quote should be on its own line, indented the same as the "
+              + "opening quote");
+        } else if (indentation != baselineIndentation) {
+          error("closing docstring quote should be indented the same as the opening quote");
+        }
+      }
+      if (originalLine.trim().isEmpty()) {
+        line = "";
+      } else {
         if (indentation < baselineIndentation) {
           error(
               "line indented too little (here: "
@@ -164,9 +304,19 @@ public final class DocstringUtils {
         } else {
           startOfLineOffset += baselineIndentation;
         }
+        line = docstring.substring(startOfLineOffset, endOfLineOffset);
       }
-      line = docstring.substring(startOfLineOffset, endOfLineOffset);
       return true;
+    }
+
+    /**
+     * Returns whether the current line is the last one in the docstring.
+     *
+     * <p>It is possible for both this function and {@link #eof} to return true if all content has
+     * been exhausted, or if the last line is empty.
+     */
+    private boolean onLastLine() {
+      return endOfLineOffset >= docstring.length();
     }
 
     private boolean eof() {
@@ -181,14 +331,19 @@ public final class DocstringUtils {
       return index;
     }
 
-    void error(String message) {
-      errors.add(new DocstringParseError(message, lineNumber));
+    private void error(String message) {
+      error(this.lineNumber, message);
+    }
+
+    private void error(int lineNumber, String message) {
+      errors.add(new DocstringParseError(message, lineNumber, originalLines.get(lineNumber - 1)));
     }
 
     DocstringInfo parse() {
       String summary = line;
+      String nonStandardDeprecation = checkForNonStandardDeprecation(line);
       if (!nextLine()) {
-        return new DocstringInfo(summary, Collections.emptyList(), "", "");
+        return new DocstringInfo(summary, Collections.emptyList(), "", nonStandardDeprecation, "");
       }
       if (!line.isEmpty()) {
         error("the one-line summary should be followed by a blank line");
@@ -198,35 +353,79 @@ public final class DocstringUtils {
       List<String> longDescriptionLines = new ArrayList<>();
       List<ParameterDoc> params = new ArrayList<>();
       String returns = "";
+      String deprecated = "";
+      boolean descriptionBodyAfterSpecialSectionsReported = false;
       while (!eof()) {
         switch (line) {
           case "Args:":
-            if (!blankLineBefore) {
-              error("section should be preceded by a blank line");
-            }
-            if (!params.isEmpty()) {
-              error("parameters were already documented before");
-            }
+            checkSectionStart(!params.isEmpty());
             if (!returns.isEmpty()) {
-              error("parameters should be documented before the return value");
+              error("'Args:' section should go before the 'Returns:' section");
+            }
+            if (!deprecated.isEmpty()) {
+              error("'Args:' section should go before the 'Deprecated:' section");
             }
             params.addAll(parseParameters());
             break;
           case "Returns:":
-            if (!blankLineBefore) {
-              error("section should be preceded by a blank line");
-            }
-            if (!returns.isEmpty()) {
-              error("return value was already documented before");
+            checkSectionStart(!returns.isEmpty());
+            if (!deprecated.isEmpty()) {
+              error("'Returns:' section should go before the 'Deprecated:' section");
             }
             returns = parseSectionAfterHeading();
             break;
+          case "Deprecated:":
+            checkSectionStart(!deprecated.isEmpty());
+            deprecated = parseSectionAfterHeading();
+            break;
           default:
-            longDescriptionLines.add(line);
+            if (specialSectionsStarted && !descriptionBodyAfterSpecialSectionsReported) {
+              error("description body should go before the special sections");
+              descriptionBodyAfterSpecialSectionsReported = true;
+            }
+            if (deprecated.isEmpty() && nonStandardDeprecation.isEmpty()) {
+              nonStandardDeprecation = checkForNonStandardDeprecation(line);
+            }
+            if (line.startsWith("Returns: ")) {
+              error(
+                  "the return value should be documented in a section, like this:\n\n"
+                      + "Returns:\n"
+                      + "  <documentation here>\n\n"
+                      + "For more details, please have a look at the documentation.");
+            }
+            if (!(onLastLine() && line.trim().isEmpty())) {
+              longDescriptionLines.add(line);
+            }
             nextLine();
         }
       }
-      return new DocstringInfo(summary, params, returns, String.join("\n", longDescriptionLines));
+      if (deprecated.isEmpty()) {
+        deprecated = nonStandardDeprecation;
+      }
+      return new DocstringInfo(
+          summary, params, returns, deprecated, String.join("\n", longDescriptionLines));
+    }
+
+    private void checkSectionStart(boolean duplicateSection) {
+      specialSectionsStarted = true;
+      if (!blankLineBefore) {
+        error("section should be preceded by a blank line");
+      }
+      if (duplicateSection) {
+        error("duplicate '" + line + "' section");
+      }
+    }
+
+    private String checkForNonStandardDeprecation(String line) {
+      if (line.toLowerCase().startsWith("deprecated:") || line.contains("DEPRECATED")) {
+        error(
+            "use a 'Deprecated:' section for deprecations, similar to a 'Returns:' section:\n\n"
+                + "Deprecated:\n"
+                + "  <reason and alternative>\n\n"
+                + "For more details, please have a look at the documentation.");
+        return line;
+      }
+      return "";
     }
 
     private static final Pattern paramLineMatcher =
@@ -236,31 +435,42 @@ public final class DocstringUtils {
     private static final Pattern attributesSeparator = Pattern.compile("\\s*,\\s*");
 
     private List<ParameterDoc> parseParameters() {
+      int sectionLineNumber = lineNumber;
       nextLine();
       List<ParameterDoc> params = new ArrayList<>();
+      int expectedParamLineIndentation = -1;
       while (!eof()) {
         if (line.isEmpty()) {
           nextLine();
           continue;
         }
-        if (getIndentation(line) == 0) {
+        int actualIndentation = getIndentation(line);
+        if (actualIndentation == 0) {
           if (!blankLineBefore) {
             error("end of 'Args' section without blank line");
           }
           break;
         }
         String trimmedLine;
-        if (getIndentation(line) < 2) {
-          error(
-              "parameter lines have to be indented by two spaces"
-                  + " (relative to the left margin of the docstring)");
-          trimmedLine = line.substring(getIndentation(line));
-        } else {
-          trimmedLine = line.substring(2);
+        if (expectedParamLineIndentation == -1) {
+          expectedParamLineIndentation = actualIndentation;
         }
+        if (expectedParamLineIndentation != actualIndentation) {
+          error(
+              "inconsistent indentation of parameter lines (before: "
+                  + expectedParamLineIndentation
+                  + "; here: "
+                  + actualIndentation
+                  + " spaces)");
+        }
+        int paramLineNumber = lineNumber;
+        trimmedLine = line.substring(actualIndentation);
         Matcher matcher = paramLineMatcher.matcher(trimmedLine);
         if (!matcher.matches()) {
-          error("invalid parameter documentation");
+          error(
+              "invalid parameter documentation"
+                  + " (expected format: \"parameter_name: documentation\")."
+                  + "For more details, please have a look at the documentation.");
           nextLine();
           continue;
         }
@@ -271,39 +481,40 @@ public final class DocstringUtils {
             attributesString == null
                 ? Collections.emptyList()
                 : Arrays.asList(attributesSeparator.split(attributesString));
-        parseContinuedParamDescription(description);
-        params.add(new ParameterDoc(parameterName, attributes, description.toString().trim()));
+        parseContinuedParamDescription(actualIndentation, description);
+        String parameterDescription = description.toString().trim();
+        if (parameterDescription.isEmpty()) {
+          error(paramLineNumber, "empty parameter description for '" + parameterName + "'");
+        }
+        params.add(new ParameterDoc(parameterName, attributes, parameterDescription));
+      }
+      if (params.isEmpty()) {
+        error(sectionLineNumber, "section is empty or badly formatted");
       }
       return params;
     }
 
     /** Parses additional lines that can come after "param: foo" in an 'Args' section. */
-    private void parseContinuedParamDescription(StringBuilder description) {
+    private void parseContinuedParamDescription(
+        int baselineIndentation, StringBuilder description) {
       while (nextLine()) {
         if (line.isEmpty()) {
           description.append('\n');
           continue;
         }
-        if (getIndentation(line) <= 2) {
+        if (getIndentation(line) <= baselineIndentation) {
           break;
         }
-        String trimmedLine;
-        if (getIndentation(line) < 4) {
-          error(
-              "continued parameter lines have to be indented by four spaces"
-                  + " (relative to the left margin of the docstring)");
-          trimmedLine = line.substring(getIndentation(line));
-        } else {
-          trimmedLine = line.substring(4);
-        }
+        String trimmedLine = line.substring(baselineIndentation);
         description.append('\n');
         description.append(trimmedLine);
       }
     }
 
     private String parseSectionAfterHeading() {
+      int sectionLineNumber = lineNumber;
       nextLine();
-      StringBuilder returns = new StringBuilder();
+      StringBuilder contents = new StringBuilder();
       boolean firstLine = true;
       while (!eof()) {
         String trimmedLine;
@@ -325,28 +536,34 @@ public final class DocstringUtils {
           }
         }
         if (!firstLine) {
-          returns.append('\n');
+          contents.append('\n');
         }
-        returns.append(trimmedLine);
+        contents.append(trimmedLine);
         nextLine();
         firstLine = false;
       }
-      return returns.toString().trim();
+      String result = contents.toString().trim();
+      if (result.isEmpty()) {
+        error(sectionLineNumber, "section is empty");
+      }
+      return result;
     }
   }
 
   static class DocstringParseError {
     final String message;
     final int lineNumber;
+    final String line;
 
-    public DocstringParseError(String message, int lineNumber) {
+    public DocstringParseError(String message, int lineNumber, String line) {
       this.message = message;
       this.lineNumber = lineNumber;
+      this.line = line;
     }
 
     @Override
     public String toString() {
-      return ":" + lineNumber + ": " + message;
+      return lineNumber + ": " + message;
     }
   }
 }

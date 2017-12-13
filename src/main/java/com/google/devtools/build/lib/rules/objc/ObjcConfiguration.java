@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -24,11 +24,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.util.Preconditions;
 import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
@@ -71,7 +69,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean debugWithGlibcxx;
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
-  private final ObjcCrosstoolMode objcCrosstoolMode;
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean experimentalHeaderThinning;
@@ -79,8 +76,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final Label objcHeaderScannerTool;
   private final Label appleSdk;
 
-  ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
-      @Nullable BlazeDirectories directories) {
+  ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options) {
     this.iosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
     this.iosSimulatorVersion =
@@ -105,7 +101,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
-    this.objcCrosstoolMode = objcOptions.objcCrosstoolMode;
     this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.dotdPruningPlan =
         objcOptions.useDotdPruning
@@ -290,14 +285,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       + "application.")
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
-  }
-
-  /**
-   * Returns an {@link ObjcCrosstoolMode} that specifies the circumstances under which a
-   * CROSSTOOL is used for objc in this configuration.
-   */
-  public ObjcCrosstoolMode getObjcCrosstoolMode() {
-    return objcCrosstoolMode;
   }
 
   /** Returns true if apple_binary targets should generate and link Objc protos. */

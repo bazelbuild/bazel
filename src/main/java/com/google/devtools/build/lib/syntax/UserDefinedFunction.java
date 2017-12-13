@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -37,8 +36,7 @@ public class UserDefinedFunction extends BaseFunction {
       Location loc,
       FunctionSignature.WithValues<Object, SkylarkType> signature,
       ImmutableList<Statement> statements,
-      Environment.Frame definitionGlobals)
-      throws EvalException {
+      Environment.Frame definitionGlobals) {
     super(name, signature, loc);
     this.statements = statements;
     this.definitionGlobals = definitionGlobals;
@@ -58,10 +56,10 @@ public class UserDefinedFunction extends BaseFunction {
     if (env.mutability().isFrozen()) {
       throw new EvalException(getLocation(), "Trying to call in frozen environment");
     }
-    if (env.getStackTrace().contains(this)) {
+    if (env.isRecursiveCall(this)) {
       throw new EvalException(getLocation(),
           String.format("Recursion was detected when calling '%s' from '%s'",
-              getName(), Iterables.getLast(env.getStackTrace()).getName()));
+              getName(), env.getCurrentFunction().getName()));
     }
 
     Profiler.instance().startTask(ProfilerTask.SKYLARK_USER_FN, getName());

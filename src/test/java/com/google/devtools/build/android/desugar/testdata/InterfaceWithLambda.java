@@ -14,12 +14,14 @@
 package com.google.devtools.build.android.desugar.testdata;
 
 import com.google.common.collect.ImmutableList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public interface InterfaceWithLambda {
   String ZERO = String.valueOf(0);
-  ImmutableList<String> DIGITS =
+  List<String> DIGITS =
       ImmutableList.of(0, 1)
           .stream()
           .map(i -> i == 0 ? ZERO : String.valueOf(i))
-          .collect(ImmutableList.toImmutableList());
+          .collect(Collectors.toList());
 }

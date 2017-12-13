@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -29,15 +29,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -45,15 +44,14 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -72,28 +70,24 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
   public static final String PROTO_TOOLCHAIN_ATTR = ":aspect_proto_toolchain_for_javalite";
 
-  public static Attribute.LateBoundLabel<BuildConfiguration> getProtoToolchainLabel(
-      String defaultValue) {
-    return new Attribute.LateBoundLabel<BuildConfiguration>(
-        defaultValue, ProtoConfiguration.class) {
-      @Override
-      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-        return configuration.getFragment(ProtoConfiguration.class).protoToolchainForJavaLite();
-      }
-    };
+  public static LateBoundDefault<?, Label> getProtoToolchainLabel(String defaultValue) {
+    return LateBoundDefault.fromTargetConfiguration(
+        ProtoConfiguration.class,
+        Label.parseAbsoluteUnchecked(defaultValue),
+        (rule, attributes, protoConfig) -> protoConfig.protoToolchainForJavaLite());
   }
 
   private final JavaSemantics javaSemantics;
 
   @Nullable private final String jacocoLabel;
   private final String defaultProtoToolchainLabel;
-  private final LateBoundLabel<BuildConfiguration> hostJdkAttribute;
+  private final LateBoundDefault<?, Label> hostJdkAttribute;
 
   public JavaLiteProtoAspect(
       JavaSemantics javaSemantics,
       @Nullable String jacocoLabel,
       String defaultProtoToolchainLabel,
-      LateBoundLabel<BuildConfiguration> hostJdkAttribute) {
+      LateBoundDefault<?, Label> hostJdkAttribute) {
     this.javaSemantics = javaSemantics;
     this.jacocoLabel = jacocoLabel;
     this.defaultProtoToolchainLabel = defaultProtoToolchainLabel;
@@ -263,18 +257,21 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
               .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext));
       helper.addDep(dependencyCompilationArgs).setCompilationStrictDepsMode(StrictDepsMode.OFF);
       for (TransitiveInfoCollection t : getProtoRuntimeDeps()) {
-        JavaCompilationArgsProvider provider = t.getProvider(JavaCompilationArgsProvider.class);
+        JavaCompilationArgsProvider provider =
+            JavaInfo.getProvider(JavaCompilationArgsProvider.class, t);
         if (provider != null) {
           helper.addDep(provider);
         }
       }
 
-      JavaCompilationArtifacts artifacts =
-          helper.build(
-              javaSemantics,
-              JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
-              JavaHelper.getHostJavabaseInputs(ruleContext),
-              JavaCompilationHelper.getInstrumentationJars(ruleContext));
+      JavaCompilationArtifacts artifacts = helper.build(
+          javaSemantics,
+          JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+          JavaHelper.getHostJavabaseTarget(ruleContext),
+          JavaCompilationHelper.getInstrumentationJars(ruleContext),
+          JavaRuleOutputJarsProvider.builder(),
+          /*createOutputSourceJar*/false,
+          /*outputSourceJar=*/ null);
       return helper.buildCompilationArgsProvider(artifacts, true /* isReportedAsStrict */);
     }
 

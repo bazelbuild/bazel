@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.CONTAINS_JAVA_PROVIDER;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
@@ -30,7 +31,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -46,8 +46,8 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -75,14 +75,6 @@ public class BazelJavaRuleClasses {
           JavaSemantics.JAVA_LIBRARY_CLASS_JAR,
           JavaSemantics.JAVA_LIBRARY_SOURCE_JAR);
 
-  /**
-   * Meant to be an element of {@code mandatoryProvidersLists} in order to accept rules providing
-   * a {@link JavaInfo} through an attribute. Other providers can be included in
-   * {@code mandatoryProvidersLists} as well.
-   */
-  public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_JAVA_PROVIDER =
-      ImmutableList.of(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()));
-
   public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_CC_LINK_PARAMS =
       ImmutableList.of(
           SkylarkProviderIdentifier.forKey(CcLinkParamsInfo.PROVIDER.getKey()));
@@ -93,35 +85,6 @@ public class BazelJavaRuleClasses {
    */
   public static final ImmutableList<ImmutableList<SkylarkProviderIdentifier>>
       MANDATORY_JAVA_PROVIDER_ONLY = ImmutableList.of(CONTAINS_JAVA_PROVIDER);
-
-
-  /**
-   * Common attributes for rules that depend on ijar.
-   */
-  public static final class IjarBaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr(":java_toolchain", LABEL)
-                  .useOutputLicenses()
-                  .mandatoryNativeProviders(
-                      ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
-                          JavaToolchainProvider.class))
-                  .value(JavaSemantics.JAVA_TOOLCHAIN))
-          .setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE)
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$ijar_base_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
 
   /**
    * Common attributes for Java rules.

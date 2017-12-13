@@ -25,13 +25,13 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultL
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelCodec;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
-import com.google.devtools.build.lib.skyframe.serialization.FastStringCodec;
-import com.google.devtools.build.lib.skyframe.serialization.LabelCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -47,9 +47,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Command-line options for building for Apple platforms.
- */
+/** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
@@ -57,11 +55,24 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "false",
     category = "experimental",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags =  { OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS },
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
     help = "Whether Apple rules must have a mandatory minimum_os_version attribute."
   )
   // TODO(b/37096178): This flag should be default-on and then be removed.
   public boolean mandatoryMinimumVersion;
+
+  @Option(
+    name = "experimental_objc_provider_from_linked",
+    defaultValue = "true",
+    category = "experimental",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+    help =
+        "Whether Apple rules which control linking should propagate objc provider at the top "
+            + "level"
+  )
+  // TODO(b/32411441): This flag should be default-off and then be removed.
+  public boolean objcProviderFromLinked;
 
   @Option(
     name = "xcode_version",
@@ -169,19 +180,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
-  /**
-   * The default watchos CPU value.
-   */
+  /** The default watchos CPU value. */
   public static final String DEFAULT_WATCHOS_CPU = "i386";
 
-  /**
-   * The default tvOS CPU value.
-   */
+  /** The default tvOS CPU value. */
   public static final String DEFAULT_TVOS_CPU = "x86_64";
 
-  /**
-   * The default macOS CPU value.
-   */
+  /** The default macOS CPU value. */
   public static final String DEFAULT_MACOS_CPU = "x86_64";
 
   @Option(
@@ -319,7 +324,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
    * changed from the default using the {@code xcode_version_config} build flag.
    */
   // TODO(cparsons): Update all callers to reference the actual xcode_version_config flag value.
-  static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
+  @VisibleForTesting
+  public static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
 
   /** Converter for --default_ios_provisioning_profile. */
   public static class DefaultProvisioningProfileConverter extends DefaultLabelConverter {
@@ -328,17 +334,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
   }
 
+  // TODO(b/68330014): Deprecate and remove this flag.
   @Option(
     name = "xcode_toolchain",
     defaultValue = "null",
     category = "flags",
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.ACTION_OPTIONS},
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help =
         "The identifier of an Xcode toolchain to use for builds. Currently only the toolchains "
-            + "that ship with Xcode are supported. For example, in addition to the default "
-            + "toolchain Xcode 8 has 'com.apple.dt.toolchain.Swift_2_3' which can be used for "
-            + "building legacy Swift code."
+            + "that ship with Xcode are supported."
   )
   public String xcodeToolchain;
 
@@ -375,11 +380,27 @@ public class AppleCommandLineOptions extends FragmentOptions {
   )
   public boolean targetUsesAppleCrosstool;
 
+  /** Returns whether the minimum OS version is explicitly set for the current platform. */
+  public DottedVersion getMinimumOsVersion() {
+    switch (applePlatformType) {
+      case IOS:
+        return iosMinimumOs;
+      case MACOS:
+        return macosMinimumOs;
+      case TVOS:
+        return tvosMinimumOs;
+      case WATCHOS:
+        return watchosMinimumOs;
+      default:
+        throw new IllegalStateException();
+    }
+  }
+
   /**
    * Returns the architecture implied by these options.
    *
-   * <p> In contexts in which a configuration instance is present, prefer
-   * {@link AppleConfiguration#getSingleArchitecture}.
+   * <p>In contexts in which a configuration instance is present, prefer {@link
+   * AppleConfiguration#getSingleArchitecture}.
    */
   public String getSingleArchitecture() {
     if (!Strings.isNullOrEmpty(appleSplitCpu)) {
@@ -415,12 +436,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @SkylarkModule(
     name = "apple_bitcode_mode",
     category = SkylarkModuleCategory.NONE,
-    doc = "The Bitcode mode to use when compiling Objective-C and Swift code on Apple platforms. "
-        + "Possible values are:<br><ul>"
-        + "<li><code>'none'</code></li>"
-        + "<li><code>'embedded'</code></li>"
-        + "<li><code>'embedded_markers'</code></li>"
-        + "</ul>"
+    doc =
+        "The Bitcode mode to use when compiling Objective-C and Swift code on Apple platforms. "
+            + "Possible values are:<br><ul>"
+            + "<li><code>'none'</code></li>"
+            + "<li><code>'embedded'</code></li>"
+            + "<li><code>'embedded_markers'</code></li>"
+            + "</ul>"
   )
   @Immutable
   public enum AppleBitcodeMode implements SkylarkValue {
@@ -463,16 +485,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
 
     /**
-     * Returns the flags that should be added to compile and link actions to use this
-     * bitcode setting.
+     * Returns the flags that should be added to compile and link actions to use this bitcode
+     * setting.
      */
     public ImmutableList<String> getCompileAndLinkFlags() {
       return clangFlags;
     }
 
-    /**
-     * Converts to {@link AppleBitcodeMode}.
-     */
+    /** Converts to {@link AppleBitcodeMode}. */
     public static class Converter extends EnumConverter<AppleBitcodeMode> {
       public Converter() {
         super(AppleBitcodeMode.class, "apple bitcode mode");
@@ -504,7 +524,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   void serialize(CodedOutputStream out) throws IOException, SerializationException {
     out.writeBoolNoTag(mandatoryMinimumVersion);
-    serializeNullable(xcodeVersion, out, FastStringCodec.INSTANCE);
+    out.writeBoolNoTag(objcProviderFromLinked);
+    serializeNullable(xcodeVersion, out, StringCodecs.asciiOptimized());
     serializeNullable(iosSdkVersion, out, DottedVersion.CODEC);
     serializeNullable(watchOsSdkVersion, out, DottedVersion.CODEC);
     serializeNullable(tvOsSdkVersion, out, DottedVersion.CODEC);
@@ -513,10 +534,10 @@ public class AppleCommandLineOptions extends FragmentOptions {
     serializeNullable(watchosMinimumOs, out, DottedVersion.CODEC);
     serializeNullable(tvosMinimumOs, out, DottedVersion.CODEC);
     serializeNullable(macosMinimumOs, out, DottedVersion.CODEC);
-    FastStringCodec.INSTANCE.serialize(iosCpu, out);
+    StringCodecs.asciiOptimized().serialize(iosCpu, out);
     LabelCodec.INSTANCE.serialize(appleCrosstoolTop, out);
     PlatformType.CODEC.serialize(applePlatformType, out);
-    FastStringCodec.INSTANCE.serialize(appleSplitCpu, out);
+    StringCodecs.asciiOptimized().serialize(appleSplitCpu, out);
     ConfigurationDistinguisher.CODEC.serialize(configurationDistinguisher, out);
     STRING_LIST_CODEC.serialize((ImmutableList<String>) iosMultiCpus, out);
     STRING_LIST_CODEC.serialize((ImmutableList<String>) watchosCpus, out);
@@ -524,7 +545,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     STRING_LIST_CODEC.serialize((ImmutableList<String>) macosCpus, out);
     LabelCodec.INSTANCE.serialize(defaultProvisioningProfile, out);
     LabelCodec.INSTANCE.serialize(xcodeVersionConfig, out);
-    serializeNullable(xcodeToolchain, out, FastStringCodec.INSTANCE);
+    serializeNullable(xcodeToolchain, out, StringCodecs.asciiOptimized());
     AppleBitcodeMode.CODEC.serialize(appleBitcodeMode, out);
     out.writeBoolNoTag(enableAppleCrosstoolTransition);
     out.writeBoolNoTag(targetUsesAppleCrosstool);
@@ -534,7 +555,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
       throws IOException, SerializationException {
     AppleCommandLineOptions result = new AppleCommandLineOptions();
     result.mandatoryMinimumVersion = in.readBool();
-    result.xcodeVersion = deserializeNullable(in, FastStringCodec.INSTANCE);
+    result.objcProviderFromLinked = in.readBool();
+    result.xcodeVersion = deserializeNullable(in, StringCodecs.asciiOptimized());
     result.iosSdkVersion = deserializeNullable(in, DottedVersion.CODEC);
     result.watchOsSdkVersion = deserializeNullable(in, DottedVersion.CODEC);
     result.tvOsSdkVersion = deserializeNullable(in, DottedVersion.CODEC);
@@ -543,10 +565,10 @@ public class AppleCommandLineOptions extends FragmentOptions {
     result.watchosMinimumOs = deserializeNullable(in, DottedVersion.CODEC);
     result.tvosMinimumOs = deserializeNullable(in, DottedVersion.CODEC);
     result.macosMinimumOs = deserializeNullable(in, DottedVersion.CODEC);
-    result.iosCpu = FastStringCodec.INSTANCE.deserialize(in);
+    result.iosCpu = StringCodecs.asciiOptimized().deserialize(in);
     result.appleCrosstoolTop = LabelCodec.INSTANCE.deserialize(in);
     result.applePlatformType = PlatformType.CODEC.deserialize(in);
-    result.appleSplitCpu = FastStringCodec.INSTANCE.deserialize(in);
+    result.appleSplitCpu = StringCodecs.asciiOptimized().deserialize(in);
     result.configurationDistinguisher = ConfigurationDistinguisher.CODEC.deserialize(in);
     result.iosMultiCpus = STRING_LIST_CODEC.deserialize(in);
     result.watchosCpus = STRING_LIST_CODEC.deserialize(in);
@@ -554,7 +576,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     result.macosCpus = STRING_LIST_CODEC.deserialize(in);
     result.defaultProvisioningProfile = LabelCodec.INSTANCE.deserialize(in);
     result.xcodeVersionConfig = LabelCodec.INSTANCE.deserialize(in);
-    result.xcodeToolchain = deserializeNullable(in, FastStringCodec.INSTANCE);
+    result.xcodeToolchain = deserializeNullable(in, StringCodecs.asciiOptimized());
     result.appleBitcodeMode = AppleBitcodeMode.CODEC.deserialize(in);
     result.enableAppleCrosstoolTransition = in.readBool();
     result.targetUsesAppleCrosstool = in.readBool();
@@ -570,8 +592,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   }
 
   /** Flag converter for {@link PlatformType}. */
-  public static final class PlatformTypeConverter
-      extends EnumConverter<PlatformType> {
+  public static final class PlatformTypeConverter extends EnumConverter<PlatformType> {
     public PlatformTypeConverter() {
       super(PlatformType.class, "Apple platform type");
     }

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -31,7 +33,7 @@ public final class RemoteOptions extends OptionsBase {
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "A base URL for a RESTful cache server for storing build artifacts."
+        "A base URL for a RESTful cache server for storing build artifacts. "
             + "It has to support PUT, GET, and HEAD requests."
   )
   public String remoteRestCache;
@@ -45,38 +47,6 @@ public final class RemoteOptions extends OptionsBase {
     help = "Size of the HTTP pool for making requests to the REST cache."
   )
   public int restCachePoolSize;
-
-  @Option(
-    name = "hazelcast_node",
-    defaultValue = "null",
-    category = "remote",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "A comma separated list of hostnames of hazelcast nodes."
-  )
-  public String hazelcastNode;
-
-  @Option(
-    name = "hazelcast_client_config",
-    defaultValue = "null",
-    category = "remote",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "A file path to a hazelcast client config XML file."
-  )
-  public String hazelcastClientConfig;
-
-  @Option(
-    name = "hazelcast_standalone_listen_port",
-    defaultValue = "0",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Runs an embedded hazelcast server that listens to this port. The server does not join"
-            + " any cluster. This is useful for testing."
-  )
-  public int hazelcastStandaloneListenPort;
 
   @Option(
     name = "remote_executor",
@@ -228,6 +198,28 @@ public final class RemoteOptions extends OptionsBase {
         + "Enabling this flag makes Bazel ignore any setting for remote_executor."
   )
   public boolean experimentalRemoteSpawnCache;
+
+  // TODO(davido): Find a better place for this and the next option.
+  @Option(
+    name = "experimental_local_disk_cache",
+    defaultValue = "false",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Whether to use the experimental local disk cache."
+  )
+  public boolean experimentalLocalDiskCache;
+
+  @Option(
+    name = "experimental_local_disk_cache_path",
+    defaultValue = "null",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    converter = OptionsUtils.PathFragmentConverter.class,
+    help = "A file path to a local disk cache."
+  )
+  public PathFragment experimentalLocalDiskCachePath;
 
   public Platform parseRemotePlatformOverride() {
     if (experimentalRemotePlatformOverride != null) {

@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -67,7 +69,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
   @Before
   public final void createExecutor() throws Exception {
-    executor = new DummyExecutor(rootDirectory);
+    executor = new DummyExecutor(fileSystem, rootDirectory);
   }
 
   private static final class TrackingEvaluationProgressReceiver
@@ -175,7 +177,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    public void execute(ActionExecutionContext actionExecutionContext)
+    public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException, InterruptedException {
       executionCounter.incrementAndGet();
 
@@ -197,6 +199,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       } catch (IOException e) {
         throw new ActionExecutionException(e, this, false);
       }
+      return ActionResult.EMPTY;
     }
 
     @Override
@@ -205,7 +208,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    protected String computeKey() {
+    protected String computeKey(ActionKeyContext actionKeyContext) {
       return getPrimaryOutput().getExecPathString() + executionCounter.get();
     }
   }
@@ -649,7 +652,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    protected String computeKey() {
+    protected String computeKey(ActionKeyContext actionKeyContext) {
       return new Fingerprint().addInt(42).hexDigestAndReset();
     }
   }
@@ -756,9 +759,10 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     registerAction(
         new SingleOutputAction(null, genFile1) {
           @Override
-          public void execute(ActionExecutionContext actionExecutionContext)
+          public ActionResult execute(ActionExecutionContext actionExecutionContext)
               throws ActionExecutionException, InterruptedException {
             writeOutput(null, "gen1");
+            return ActionResult.EMPTY;
           }
         });
 
@@ -770,9 +774,10 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
           }
 
           @Override
-          public void execute(ActionExecutionContext actionExecutionContext)
+          public ActionResult execute(ActionExecutionContext actionExecutionContext)
               throws ActionExecutionException, InterruptedException {
             writeOutput(readInput(), "gen2");
+            return ActionResult.EMPTY;
           }
         });
 

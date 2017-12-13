@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -103,10 +103,12 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
   abstract TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException;
 
+  abstract Label argumentFromKey(SkyKey key);
+
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws TransitiveBaseTraversalFunctionException, InterruptedException {
-    Label label = (Label) key.argument();
+    Label label = argumentFromKey(key);
     LoadTargetResults loadTargetResults;
     try {
       loadTargetResults = loadTarget(env, label);
@@ -153,7 +155,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(((Label) skyKey.argument()));
+    return Label.print(argumentFromKey(skyKey));
   }
 
   /**
@@ -173,7 +175,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
           new HashMap<>(depMap.size());
       for (Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
           depMap.entrySet()) {
-        labelDepMap.put((Label) entry.getKey().argument(), entry.getValue());
+        labelDepMap.put(argumentFromKey(entry.getKey()), entry.getValue());
       }
 
       Multimap<Attribute, Label> transitions =

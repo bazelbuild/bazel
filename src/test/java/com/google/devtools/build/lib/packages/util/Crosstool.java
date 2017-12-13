@@ -139,6 +139,8 @@ final class Crosstool {
                   "    output_licenses = ['unencumbered'],",
                   addModuleMap ? "    module_map = 'crosstool.cppmap'," : "",
                   "    cpu = '" + arch + "',",
+                  "    compiler = 'gcc-4.4.0',",
+                  "    libc = 'glibc-2.3.6-grte',",
                   "    compiler_files = 'compile-" + arch + "',",
                   "    dwp_files = 'dwp-" + arch + "',",
                   "    linker_files = 'link-" + arch + "',",

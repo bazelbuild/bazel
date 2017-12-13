@@ -17,6 +17,7 @@ import com.google.devtools.build.android.AndroidResourceOutputs;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import javax.annotation.Nullable;
 
 /** Represents the packaged, flattened resources. */
 public class PackagedResources {
@@ -26,19 +27,43 @@ public class PackagedResources {
   private final Path proguardConfig;
   private final Path mainDexProguard;
   private final Path javaSourceDirectory;
+  private final Path resourceIds;
 
   private PackagedResources(
-      Path apk, Path rTxt, Path proguardConfig, Path mainDexProguard, Path javaSourceDirectory) {
+      Path apk,
+      Path rTxt,
+      Path proguardConfig,
+      Path mainDexProguard,
+      Path javaSourceDirectory,
+      Path resourceIds) {
     this.apk = apk;
     this.rTxt = rTxt;
     this.proguardConfig = proguardConfig;
     this.mainDexProguard = mainDexProguard;
     this.javaSourceDirectory = javaSourceDirectory;
+    this.resourceIds = resourceIds;
+  }
+
+  public static PackagedResources of(
+      Path outPath,
+      Path rTxt,
+      Path proguardConfig,
+      Path mainDexProguard,
+      Path javaSourceDirectory,
+      Path resourceIds)
+      throws IOException {
+    return new PackagedResources(
+        outPath, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory, resourceIds);
   }
 
   public PackagedResources copyPackageTo(Path packagePath) throws IOException {
-    return new PackagedResources(
-        copy(apk, packagePath), rTxt, proguardConfig, mainDexProguard, javaSourceDirectory);
+    return of(
+        copy(apk, packagePath),
+        rTxt,
+        proguardConfig,
+        mainDexProguard,
+        javaSourceDirectory,
+        resourceIds);
   }
 
   public PackagedResources copyRTxtTo(Path rOutput) throws IOException {
@@ -46,7 +71,12 @@ public class PackagedResources {
       return this;
     }
     return new PackagedResources(
-        apk, copy(rTxt, rOutput), proguardConfig, mainDexProguard, javaSourceDirectory);
+        apk,
+        copy(rTxt, rOutput),
+        proguardConfig,
+        mainDexProguard,
+        javaSourceDirectory,
+        resourceIds);
   }
 
   private Path copy(Path from, Path out) throws IOException {
@@ -59,8 +89,13 @@ public class PackagedResources {
     if (proguardOut == null) {
       return this;
     }
-    return new PackagedResources(
-        apk, rTxt, copy(proguardConfig, proguardOut), mainDexProguard, javaSourceDirectory);
+    return of(
+        apk,
+        rTxt,
+        copy(proguardConfig, proguardOut),
+        mainDexProguard,
+        javaSourceDirectory,
+        resourceIds);
   }
 
   public PackagedResources copyMainDexProguardTo(Path mainDexProguardOut) throws IOException {
@@ -68,21 +103,23 @@ public class PackagedResources {
       return this;
     }
     return of(
-        apk, rTxt, proguardConfig, copy(mainDexProguard, mainDexProguardOut), javaSourceDirectory);
+        apk,
+        rTxt,
+        proguardConfig,
+        copy(mainDexProguard, mainDexProguardOut),
+        javaSourceDirectory,
+        resourceIds);
   }
 
-  public PackagedResources createSourceJar(Path sourceJarPath) throws IOException {
+  public PackagedResources createSourceJar(@Nullable Path sourceJarPath) throws IOException {
     if (sourceJarPath == null) {
       return this;
     }
     AndroidResourceOutputs.createSrcJar(javaSourceDirectory, sourceJarPath, false);
-    return of(apk, rTxt, proguardConfig, mainDexProguard, sourceJarPath);
+    return of(apk, rTxt, proguardConfig, mainDexProguard, sourceJarPath, resourceIds);
   }
 
-  public static PackagedResources of(
-      Path outPath, Path rTxt, Path proguardConfig, Path mainDexProguard, Path javaSourceDirectory)
-      throws IOException {
-    return new PackagedResources(
-        outPath, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory);
+  public Path resourceIds() {
+    return resourceIds;
   }
 }

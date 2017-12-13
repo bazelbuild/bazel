@@ -2,14 +2,22 @@
 layout: documentation
 title: Extensions - Overview
 ---
+
 # Language
 
+<!-- [TOC] -->
+
+The page is an overview of Skylark, the language used in Bazel. This should be
+enough to get you started, but you may be interested in a more complete
+[specification of Skylark](spec.md). For a complete list of functions and
+types, please check the [API reference](lib/skylark-overview.html).
 
 ## Syntax
 
 The extension language, Skylark, is a superset of the
 [Core Build Language](../build-ref.html#core_build_language)
 and its syntax is a subset of Python.
+
 It is designed to be simple, thread-safe and integrated with the
 BUILD language. It is not a general-purpose language and most Python
 features are not included.

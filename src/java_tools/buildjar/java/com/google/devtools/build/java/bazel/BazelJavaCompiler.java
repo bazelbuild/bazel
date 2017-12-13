@@ -63,19 +63,27 @@ public class BazelJavaCompiler {
 
   private static final Class<? extends JavaCompiler> JAVA_COMPILER_CLASS = getJavaCompilerClass();
 
+  /**
+   * We use the platform classloader (on JDK 9) or bootstrap classloader (on JDK 8) as the parent
+   * classloader instead of the default "system" class loader; we intentionally do not consult the
+   * classpath. This way the class path is not polluted, we reduce the risk of having multiple
+   * langtools on the classpath, and langtools.jar is only opened if this method is called. And this
+   * will reduce problems for automated java dependency analysis, which other teams are trying to
+   * do.
+   */
   private static class LangtoolsClassLoader extends URLClassLoader {
 
     public LangtoolsClassLoader() throws MalformedURLException {
-      super(
-          new URL[] {getLangtoolsJar().toURI().toURL()},
-          // We use the bootstrap classloader (null) as the parent classloader
-          // instead of the default "system" class loader; we intentionally do
-          // not consult the classpath. This way the class path is not
-          // polluted, we reduce the risk of having multiple langtools on the
-          // classpath, and langtools.jar is only opened if this method is
-          // called.  And this will reduce problems for automated java
-          // dependency analysis, which other teams are trying to do.
-          null);
+      super(new URL[] {getLangtoolsJar().toURI().toURL()}, getPlatformClassLoader());
+    }
+
+    private static ClassLoader getPlatformClassLoader() {
+      try {
+        return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
+      } catch (ReflectiveOperationException e) {
+        // Java 8
+        return null;
+      }
     }
   }
 

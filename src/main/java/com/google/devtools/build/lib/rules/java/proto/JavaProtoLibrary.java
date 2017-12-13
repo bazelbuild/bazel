@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
 import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.constructJcapFromAspectDeps;
@@ -52,9 +52,11 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
     JavaCompilationArgsProvider dependencyArgsProviders =
         constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
 
+    // We assume that the runtime jars will not have conflicting artifacts
+    // with the same root relative path
     Runfiles runfiles =
         new Runfiles.Builder(ruleContext.getWorkspaceName())
-            .addArtifacts(
+            .addTransitiveArtifactsWrappedInStableOrder(
                 dependencyArgsProviders.getRecursiveJavaCompilationArgs().getRuntimeJars())
             .build();
 
@@ -95,10 +97,6 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
             .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
             .addOutputGroup(
                 OutputGroupProvider.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-            .addProvider(dependencyArgsProviders)
-            .addProvider(sourceJarsProvider)
-            .addProvider(javaRunfilesProvider)
-            .addProvider(JavaRuleOutputJarsProvider.EMPTY)
             .addNativeDeclaredProvider(javaInfo);
 
     if (ruleContext.getFragment(JavaConfiguration.class).jplPropagateCcLinkParamsStore()) {

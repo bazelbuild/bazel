@@ -3,6 +3,7 @@ package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//third_party/allocation_instrumenter:srcs",
         "//third_party/css/bootstrap:srcs",
         "//third_party/css/font_awesome:srcs",
         "//third_party/ijar:srcs",
@@ -16,14 +17,17 @@ filegroup(
         "//third_party/java/jacoco:srcs",
         "//third_party/java/jarjar:srcs",
         "//third_party/java/javapoet:srcs",
+        "//third_party/java/jcommander:srcs",
         "//third_party/java/jopt-simple:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/jdk/javabuilder:srcs",
+        "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
         "//third_party/protobuf:srcs",
+        "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/gflags:srcs",
         "//third_party/py/mock:srcs",
@@ -32,6 +36,7 @@ filegroup(
         "//third_party/nanopb:srcs",
         "//third_party/googleapis:srcs",
         "//third_party/def_parser:srcs",
+        "//third_party/pprof:srcs",
     ],
 )
 
@@ -163,30 +168,35 @@ java_import(
 
 java_import(
     name = "asm",
-    jars = ["asm/asm-5.1.jar"],
+    jars = ["asm/asm-6.0.jar"],
+    srcjar = "asm/asm-6.0-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-5.1.jar"],
+    jars = ["asm/asm-analysis-6.0.jar"],
+    srcjar = "asm/asm-analysis-6.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-5.1.jar"],
+    jars = ["asm/asm-commons-6.0.jar"],
+    srcjar = "asm/asm-commons-6.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-5.1.jar"],
+    jars = ["asm/asm-tree-6.0.jar"],
+    srcjar = "asm/asm-tree-6.0-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-5.1.jar"],
+    jars = ["asm/asm-util-6.0.jar"],
+    srcjar = "asm/asm-util-6.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -287,6 +297,11 @@ java_import(
 )
 
 java_import(
+    name = "compile_testing",
+    jars = ["compile_testing/compile-testing-0.13.jar"],
+)
+
+java_import(
     name = "gson",
     jars = ["gson/gson-2.2.4.jar"],
 )
@@ -308,10 +323,10 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_check_api-2.1.1.jar",
-        "error_prone/error_prone_core-2.1.1.jar",
-        "error_prone/error_prone_annotations-2.1.1.jar",
-        "error_prone/error_prone_annotation-2.1.1.jar",
+        "error_prone/error_prone_check_api-2.1.3.jar",
+        "error_prone/error_prone_core-2.1.3.jar",
+        "error_prone/error_prone_annotations-2.1.3.jar",
+        "error_prone/error_prone_annotation-2.1.3.jar",
     ],
     deps = [
         ":auto_common",
@@ -351,11 +366,11 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "auto/auto-common-0.3.jar",
-        "error_prone/error_prone_annotation-2.1.1.jar",
-        "error_prone/error_prone_annotations-2.1.1.jar",
-        "error_prone/error_prone_check_api-2.1.1.jar",
-        "error_prone/error_prone_core-2.1.1.jar",
-        "guava/guava-21.0.jar",
+        "error_prone/error_prone_annotation-2.1.3.jar",
+        "error_prone/error_prone_annotations-2.1.3.jar",
+        "error_prone/error_prone_check_api-2.1.3.jar",
+        "error_prone/error_prone_core-2.1.3.jar",
+        "guava/guava-23.1-jre.jar",
         "hungarian_algorithm/software-and-algorithms-1.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
@@ -368,10 +383,10 @@ filegroup(
 java_import(
     name = "guava",
     jars = [
-        "error_prone/error_prone_annotations-2.1.1.jar",
+        "error_prone/error_prone_annotations-2.1.3.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
-        "guava/guava-21.0.jar",
+        "guava/guava-23.1-jre.jar",
     ],
 )
 
@@ -385,14 +400,14 @@ java_import(
 java_import(
     name = "opencensus-api",
     jars = [
-        "opencensus/opencensus-api-0.5.1.jar",
+        "opencensus/opencensus-api-0.6.0.jar",
     ],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-21.0.jar"],
+    srcs = ["guava/guava-23.1-jre.jar"],
 )
 
 java_import(
@@ -403,11 +418,6 @@ java_import(
 java_import(
     name = "jimfs",
     jars = ["jimfs/jimfs-1.1.jar"],
-)
-
-java_import(
-    name = "joda_time",
-    jars = ["joda_time/joda-time-2.3.jar"],
 )
 
 java_import(
@@ -448,12 +458,12 @@ java_import(
 
 java_import(
     name = "netty",
-    jars = ["netty/netty-all-4.1.14.Final.jar"],
+    jars = ["netty/netty-all-4.1.16.Final.jar"],
 )
 
 java_import(
     name = "netty_tcnative",
-    jars = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.5.Final.jar"],
+    jars = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.6.Final.jar"],
 )
 
 java_import(
@@ -484,11 +494,17 @@ java_import(
     jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
 )
 
+# For bootstrapping JavaBuilder
+filegroup(
+    name = "tomcat_annotations_api-jars",
+    srcs = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+)
+
 # Testing
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-21.0.jar"],
+    jars = ["guava/guava-testlib-23.1-jre.jar"],
 )
 
 java_import(
@@ -506,12 +522,17 @@ java_import(
 
 java_import(
     name = "turbine",
-    jars = ["turbine/turbine-0.1-20170828.jar"],
+    jars = ["turbine/turbine-0.1-20171205.jar"],
 )
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.32.jar"],
+    jars = ["truth/truth-0.36.jar"],
+)
+
+java_import(
+    name = "truth8",
+    jars = ["truth8/truth-java8-extension-0.36.jar"],
 )
 
 java_import(
@@ -598,4 +619,12 @@ config_setting(
 config_setting(
     name = "ppc",
     values = {"host_cpu": "ppc"},
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        "//third_party/def_parser:windows_tests",
+    ],
+    visibility = ["//src:__pkg__"],
 )

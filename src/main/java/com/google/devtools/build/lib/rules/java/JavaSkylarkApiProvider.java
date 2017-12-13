@@ -72,9 +72,9 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
   @Nullable
   private <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     if (transitiveInfoProviderMap != null) {
-      return transitiveInfoProviderMap.getProvider(provider);
+      return JavaInfo.getProvider(provider, transitiveInfoProviderMap);
     }
-    return getInfo().getProvider(provider);
+    return JavaInfo.getProvider(provider, getInfo());
   }
 
   @SkylarkCallable(

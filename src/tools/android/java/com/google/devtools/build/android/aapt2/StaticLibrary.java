@@ -16,6 +16,7 @@ package com.google.devtools.build.android.aapt2;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.io.IOException;
@@ -134,6 +135,7 @@ public class StaticLibrary {
     return libraries
         .stream()
         .map(StaticLibrary::asAssetPathStrings)
+        .filter(Predicates.isNull())
         .flatMap(List::stream)
         .map(Object::toString)
         .collect(toImmutableList());

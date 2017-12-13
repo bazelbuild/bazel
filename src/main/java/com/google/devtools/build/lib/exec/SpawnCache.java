@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.Closeable;
@@ -166,6 +167,8 @@ public interface SpawnCache extends ActionContext {
    * has no result, but uploads the results of the execution to the cache. The reason for a callback
    * object is for the cache to store expensive intermediate values (such as the cache key) that are
    * needed both for the lookup and the subsequent store operation.
+   *
+   * <p>The lookup must not succeed for non-cachable spawns. See {@link Spawns#mayBeCached()}.
    *
    * <p>Note that cache stores may be disabled, in which case the returned {@link CacheHandle}
    * instance's {@link CacheHandle#store} is a no-op.

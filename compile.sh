@@ -22,25 +22,29 @@
 
 set -o errexit
 
-# Correct PATH on Windows, to avoid using "FIND.EXE" instead of "/usr/bin/find"
-# etc, leading to confusing errors.
-export BAZEL_OLD_PATH=$PATH
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  # Check that the PATH is set up correctly by attempting to locate `[`.
-  # This ensures that `which` is installed correctly and can succeed, while
-  # also avoids accidentally locating a tool that exists in plain Windows too
-  # (like "find" for "FIND.EXE").
-  which [ >&/dev/null || export PATH="/bin:/usr/bin:$PATH"
-esac
-
 # Check that the bintools can be found, otherwise we would see very confusing
 # error messages.
+# For example on Windows we would find "FIND.EXE" instead of "/usr/bin/find"
+# when running "find".
 hash tr >&/dev/null || {
   echo >&2 "ERROR: cannot locate GNU coreutils; check your PATH."
-  echo >&2 "       (You may need to run 'export PATH=/bin:/usr/bin:\$PATH)'"
+  echo >&2 "       You may need to run the following command:"
+  echo >&2 "         export PATH=\"/bin:/usr/bin:\$PATH\""
   exit 1
 }
+
+# Ensure Python is on the PATH on Windows,otherwise we would see
+# "LAUNCHER ERROR" messages from py_binary exe launchers.
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  which python.exe >&/dev/null || {
+    echo >&2 "ERROR: cannot locate python.exe; check your PATH."
+    echo >&2 "       You may need to run the following command, or something"
+    echo >&2 "       similar, depending on where you installed Python:"
+    echo >&2 "         export PATH=\"/c/Python27:\$PATH\""
+    exit 1
+  }
+esac
 
 cd "$(dirname "$0")"
 
@@ -84,8 +88,8 @@ log "Building output/bazel"
 # We set host and target platform directly since the defaults in @bazel_tools
 # have not yet been generated.
 bazel_build "src:bazel${EXE_EXT}" \
-  --experimental_host_platform=//tools/platforms:host_platform \
-  --experimental_platforms=//tools/platforms:target_platform \
+  --host_platform=//tools/platforms:host_platform \
+  --platforms=//tools/platforms:target_platform \
   || fail "Could not build Bazel"
 bazel_bin_path="$(get_bazel_bin_path)/src/bazel${EXE_EXT}"
 [ -e "$bazel_bin_path" ] \

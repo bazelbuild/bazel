@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -127,8 +128,10 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
 
     // Multiple actions in the same configured target need to have different names for the artifact
     // that might be created here, so we append something that should be unique for each action.
-    String actionUniquifier = actionToShadow.getPrimaryOutput().getExecPath().getBaseName() + "."
-        + actionToShadow.getKey();
+    String actionUniquifier =
+        actionToShadow.getPrimaryOutput().getExecPath().getBaseName()
+            + "."
+            + actionToShadow.getKey(owningRule.getActionKeyContext());
     List<String> argv = commandHelper.buildCommandLine(command, extraActionInputs,
         "." + actionUniquifier + ".extra_action_script.sh", executionInfo);
 
@@ -188,7 +191,8 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
    */
   private Artifact getExtraActionOutputArtifact(
       RuleContext ruleContext, Action action, String template) {
-    String actionId = getActionId(ruleContext.getActionOwner(), action);
+    String actionId =
+        getActionId(ruleContext.getActionKeyContext(), ruleContext.getActionOwner(), action);
 
     template = template.replace("$(ACTION_ID)", actionId);
     template = template.replace("$(OWNER_LABEL_DIGEST)", getOwnerDigest(ruleContext));
@@ -224,14 +228,14 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   /**
    * Creates a unique id for the action shadowed by this extra_action.
    *
-   * We need to have a unique id for the extra_action to use. We build this
-   * from the owner's  label and the shadowed action id (which is only
-   * guaranteed to be unique per target). Together with the subfolder
-   * matching the original target's package name, we believe this is enough
-   * of a uniqueness guarantee.
+   * <p>We need to have a unique id for the extra_action to use. We build this from the owner's
+   * label and the shadowed action id (which is only guaranteed to be unique per target). Together
+   * with the subfolder matching the original target's package name, we believe this is enough of a
+   * uniqueness guarantee.
    */
   @VisibleForTesting
-  public static String getActionId(ActionOwner owner, Action action) {
+  public static String getActionId(
+      ActionKeyContext actionKeyContext, ActionOwner owner, Action action) {
     Fingerprint f = new Fingerprint();
     f.addString(owner.getLabel().toString());
     ImmutableList<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
@@ -239,7 +243,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     for (AspectDescriptor aspectDescriptor : aspectDescriptors) {
       f.addString(aspectDescriptor.getDescription());
     }
-    f.addString(action.getKey());
+    f.addString(action.getKey(actionKeyContext));
     return f.hexDigestAndReset();
   }
 }

@@ -19,21 +19,21 @@ import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
+import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -46,51 +46,48 @@ class OptionsParserImpl {
   private final OptionsData optionsData;
 
   /**
-   * We store the results of parsing the arguments in here. It'll look like
+   * We store the results of option parsing in here - since there can only be one value per option
+   * field, this is where the different instances of an option have been combined and the final
+   * value is tracked. It'll look like
    *
    * <pre>
    *   OptionDefinition("--host") -> "www.google.com"
    *   OptionDefinition("--port") -> 80
    * </pre>
    *
-   * This map is modified by repeated calls to {@link #parse(OptionPriority,Function,List)}.
+   * This map is modified by repeated calls to {@link #parse(OptionPriority.PriorityCategory,
+   * Function,List)}.
    */
-  private final Map<OptionDefinition, OptionValueDescription> parsedValues = new HashMap<>();
+  private final Map<OptionDefinition, OptionValueDescription> optionValues = new HashMap<>();
 
   /**
-   * We store the pre-parsed, explicit options for each priority in here.
-   * We use partially preparsed options, which can be different from the original
-   * representation, e.g. "--nofoo" becomes "--foo=0".
+   * Explicit option tracking, tracking each option as it was provided, after they have been parsed.
+   *
+   * <p>The value is unconverted, still the string as it was read from the input, or partially
+   * altered in cases where the flag was set by non {@code --flag=value} forms; e.g. {@code --nofoo}
+   * becomes {@code --foo=0}.
    */
-  private final List<UnparsedOptionValueDescription> unparsedValues = new ArrayList<>();
-
-  /**
-   * Unparsed values for use with the canonicalize command are stored separately from unparsedValues
-   * so that invocation policy can modify the values for canonicalization (e.g. override
-   * user-specified values with default values) without corrupting the data used to represent the
-   * user's original invocation for {@link #asListOfExplicitOptions()} and {@link
-   * #asListOfUnparsedOptions()}. A LinkedHashMultimap is used so that canonicalization happens in
-   * the correct order and multiple values can be stored for flags that allow multiple values.
-   */
-  private final Multimap<OptionDefinition, UnparsedOptionValueDescription> canonicalizeValues =
-      LinkedHashMultimap.create();
+  private final List<ParsedOptionDescription> parsedOptions = new ArrayList<>();
 
   private final List<String> warnings = new ArrayList<>();
 
+  /**
+   * Since parse() expects multiple calls to it with the same {@link PriorityCategory} to be treated
+   * as though the args in the later call have higher priority over the earlier calls, we need to
+   * track the high water mark of option priority at each category. Each call to parse will start at
+   * this level.
+   */
+  private final Map<PriorityCategory, OptionPriority> nextPriorityPerPriorityCategory =
+      Stream.of(PriorityCategory.values())
+          .collect(Collectors.toMap(p -> p, OptionPriority::lowestOptionPriorityAtCategory));
+
   private boolean allowSingleDashLongOptions = false;
 
-  private ArgsPreProcessor argsPreProcessor =
-      new ArgsPreProcessor() {
-        @Override
-        public List<String> preProcess(List<String> args) throws OptionsParsingException {
-          return args;
-        }
-      };
+  private ArgsPreProcessor argsPreProcessor = args -> args;
 
-  /**
-   * Create a new parser object
-   */
+  /** Create a new parser object. Do not accept a null OptionsData object. */
   OptionsParserImpl(OptionsData optionsData) {
+    Preconditions.checkNotNull(optionsData);
     this.optionsData = optionsData;
   }
 
@@ -111,75 +108,56 @@ class OptionsParserImpl {
     this.argsPreProcessor = Preconditions.checkNotNull(preProcessor);
   }
 
-  /**
-   * Implements {@link OptionsParser#asListOfUnparsedOptions()}.
-   */
-  List<UnparsedOptionValueDescription> asListOfUnparsedOptions() {
-    return unparsedValues
+  /** Implements {@link OptionsParser#asCompleteListOfParsedOptions()}. */
+  List<ParsedOptionDescription> asCompleteListOfParsedOptions() {
+    return parsedOptions
         .stream()
         // It is vital that this sort is stable so that options on the same priority are not
         // reordered.
-        .sorted(comparing(UnparsedOptionValueDescription::getPriority))
+        .sorted(comparing(ParsedOptionDescription::getPriority))
         .collect(toCollection(ArrayList::new));
   }
 
-  /**
-   * Implements {@link OptionsParser#asListOfExplicitOptions()}.
-   */
-  List<UnparsedOptionValueDescription> asListOfExplicitOptions() {
-    return unparsedValues
+  /** Implements {@link OptionsParser#asListOfExplicitOptions()}. */
+  List<ParsedOptionDescription> asListOfExplicitOptions() {
+    return parsedOptions
         .stream()
-        .filter(UnparsedOptionValueDescription::isExplicit)
+        .filter(ParsedOptionDescription::isExplicit)
         // It is vital that this sort is stable so that options on the same priority are not
         // reordered.
-        .sorted(comparing(UnparsedOptionValueDescription::getPriority))
+        .sorted(comparing(ParsedOptionDescription::getPriority))
         .collect(toCollection(ArrayList::new));
   }
 
-  /**
-   * Implements {@link OptionsParser#canonicalize}.
-   */
+  /** Implements {@link OptionsParser#canonicalize}. */
   List<String> asCanonicalizedList() {
-    return canonicalizeValues
-        .values()
+    return asCanonicalizedListOfParsedOptions()
         .stream()
-        // Sort implicit requirement options to the end, keeping their existing order, and sort
-        // the other options alphabetically.
-        .sorted(
-            (v1, v2) -> {
-              if (v1.isImplicitRequirement()) {
-                return v2.isImplicitRequirement() ? 0 : 1;
-              }
-              if (v2.isImplicitRequirement()) {
-                return -1;
-              }
-              return v1.getOptionDefinition()
-                  .getOptionName()
-                  .compareTo(v2.getOptionDefinition().getOptionName());
-            })
-        // Ignore expansion options.
-        .filter(value -> !value.isExpansion())
-        .map(
-            value ->
-                "--"
-                    + value.getOptionDefinition().getOptionName()
-                    + "="
-                    + value.getUnconvertedValue())
-        .collect(toCollection(ArrayList::new));
+        .map(ParsedOptionDescription::getDeprecatedCanonicalForm)
+        .collect(ImmutableList.toImmutableList());
   }
 
-  /**
-   * Implements {@link OptionsParser#asListOfEffectiveOptions()}.
-   */
+  /** Implements {@link OptionsParser#canonicalize}. */
+  List<ParsedOptionDescription> asCanonicalizedListOfParsedOptions() {
+    return optionValues
+        .keySet()
+        .stream()
+        .sorted()
+        .map(optionDefinition -> optionValues.get(optionDefinition).getCanonicalInstances())
+        .flatMap(Collection::stream)
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  /** Implements {@link OptionsParser#asListOfOptionValues()}. */
   List<OptionValueDescription> asListOfEffectiveOptions() {
     List<OptionValueDescription> result = new ArrayList<>();
     for (Map.Entry<String, OptionDefinition> mapEntry : optionsData.getAllOptionDefinitions()) {
       OptionDefinition optionDefinition = mapEntry.getValue();
-      OptionValueDescription entry = parsedValues.get(optionDefinition);
-      if (entry == null) {
-        result.add(OptionValueDescription.newDefaultValue(optionDefinition));
+      OptionValueDescription optionValue = optionValues.get(optionDefinition);
+      if (optionValue == null) {
+        result.add(OptionValueDescription.getDefaultOptionValue(optionDefinition));
       } else {
-        result.add(entry);
+        result.add(optionValue);
       }
     }
     return result;
@@ -194,129 +172,15 @@ class OptionsParserImpl {
   }
 
   private void addDeprecationWarning(String optionName, String warning) {
-    warnings.add("Option '" + optionName + "' is deprecated"
-        + (warning.isEmpty() ? "" : ": " + warning));
+    warnings.add(
+        String.format(
+            "Option '%s' is deprecated%s", optionName, (warning.isEmpty() ? "" : ": " + warning)));
   }
 
-  // Warnings should not end with a '.' because the internal reporter adds one automatically.
-  private void setValue(
-      UnparsedOptionValueDescription optionValue,
-      OptionDefinition implicitDependant,
-      OptionDefinition expandedFrom)
-      throws OptionsParsingException {
-    OptionDefinition optionDefinition = optionValue.getOptionDefinition();
-    Preconditions.checkArgument(!optionDefinition.allowsMultiple());
-    Object convertedValue = optionValue.getConvertedValue();
-    OptionValueDescription entry = parsedValues.get(optionValue.getOptionDefinition());
-    if (entry != null) {
-      // Override existing option if the new value has higher or equal priority.
-      if (optionValue.getPriority().compareTo(entry.getPriority()) >= 0) {
-        // Output warnings:
-        if ((implicitDependant != null) && (entry.getImplicitDependant() != null)) {
-          if (!implicitDependant.equals(entry.getImplicitDependant())) {
-            warnings.add(
-                "Option '"
-                    + optionDefinition.getOptionName()
-                    + "' is implicitly defined by both option '"
-                    + entry.getImplicitDependant().getOptionName()
-                    + "' and option '"
-                    + implicitDependant.getOptionName()
-                    + "'");
-          }
-        } else if ((implicitDependant != null)
-            && optionValue.getPriority().equals(entry.getPriority())) {
-          warnings.add(
-              "Option '"
-                  + optionDefinition.getOptionName()
-                  + "' is implicitly defined by option '"
-                  + implicitDependant.getOptionName()
-                  + "'; the implicitly set value overrides the previous one");
-        } else if (entry.getImplicitDependant() != null) {
-          warnings.add(
-              "A new value for option '"
-                  + optionDefinition.getOptionName()
-                  + "' overrides a previous implicit setting of that option by option '"
-                  + entry.getImplicitDependant().getOptionName()
-                  + "'");
-        } else if ((optionValue.getPriority() == entry.getPriority())
-            && ((entry.getExpansionParent() == null) && (expandedFrom != null))) {
-          // Create a warning if an expansion option overrides an explicit option:
-          warnings.add(
-              "The option '"
-                  + expandedFrom.getOptionName()
-                  + "' was expanded and now overrides a "
-                  + "previous explicitly specified option '"
-                  + optionDefinition.getOptionName()
-                  + "'");
-        } else if ((entry.getExpansionParent() != null) && (expandedFrom != null)) {
-          warnings.add(
-              "The option '"
-                  + optionDefinition.getOptionName()
-                  + "' was expanded to from both options '"
-                  + entry.getExpansionParent().getOptionName()
-                  + "' and '"
-                  + expandedFrom.getOptionName()
-                  + "'");
-        }
-
-        // Record the new value:
-        parsedValues.put(
-            optionDefinition,
-            OptionValueDescription.newOptionValue(
-                optionDefinition,
-                null,
-                convertedValue,
-                optionValue.getPriority(),
-                optionValue.getSource(),
-                implicitDependant,
-                expandedFrom));
-      }
-    } else {
-      parsedValues.put(
-          optionDefinition,
-          OptionValueDescription.newOptionValue(
-              optionDefinition,
-              null,
-              convertedValue,
-              optionValue.getPriority(),
-              optionValue.getSource(),
-              implicitDependant,
-              expandedFrom));
-      maybeAddDeprecationWarning(optionDefinition);
-    }
-  }
-
-  private void addListValue(
-      UnparsedOptionValueDescription optionValue,
-      OptionDefinition implicitDependant,
-      OptionDefinition expandedFrom)
-      throws OptionsParsingException {
-    OptionDefinition optionDefinition = optionValue.getOptionDefinition();
-    Preconditions.checkArgument(optionDefinition.allowsMultiple());
-
-    OptionValueDescription entry = parsedValues.get(optionDefinition);
-    if (entry == null) {
-      entry =
-          OptionValueDescription.newOptionValue(
-              optionDefinition,
-              /* originalValueString */ null,
-              ArrayListMultimap.create(),
-              optionValue.getPriority(),
-              optionValue.getSource(),
-              implicitDependant,
-              expandedFrom);
-      parsedValues.put(optionDefinition, entry);
-      maybeAddDeprecationWarning(optionDefinition);
-    }
-    Object convertedValue = optionValue.getConvertedValue();
-    entry.addValue(optionValue.getPriority(), convertedValue);
-  }
 
   OptionValueDescription clearValue(OptionDefinition optionDefinition)
       throws OptionsParsingException {
-    // Actually remove the value from various lists tracking effective options.
-    canonicalizeValues.removeAll(optionDefinition);
-    return parsedValues.remove(optionDefinition);
+    return optionValues.remove(optionDefinition);
   }
 
   OptionValueDescription getOptionValueDescription(String name) {
@@ -324,75 +188,62 @@ class OptionsParserImpl {
     if (optionDefinition == null) {
       throw new IllegalArgumentException("No such option '" + name + "'");
     }
-    return parsedValues.get(optionDefinition);
+    return optionValues.get(optionDefinition);
   }
 
-  OptionDescription getOptionDescription(String name, OptionPriority priority, String source)
-      throws OptionsParsingException {
+  OptionDescription getOptionDescription(String name) throws OptionsParsingException {
     OptionDefinition optionDefinition = optionsData.getOptionDefinitionFromName(name);
     if (optionDefinition == null) {
       return null;
     }
-
-    return new OptionDescription(
-        optionDefinition,
-        optionsData.getExpansionDataForField(optionDefinition),
-        getImplicitDependantDescriptions(
-            ImmutableList.copyOf(optionDefinition.getImplicitRequirements()),
-            optionDefinition,
-            priority,
-            source));
-  }
-
-  /** @return A list of the descriptions corresponding to the implicit dependant flags passed in. */
-  private ImmutableList<UnparsedOptionValueDescription> getImplicitDependantDescriptions(
-      ImmutableList<String> options,
-      OptionDefinition implicitDependant,
-      OptionPriority priority,
-      String source)
-      throws OptionsParsingException {
-    ImmutableList.Builder<UnparsedOptionValueDescription> builder = ImmutableList.builder();
-    Iterator<String> optionsIterator = options.iterator();
-
-    Function<OptionDefinition, String> sourceFunction =
-        o ->
-            String.format(
-                "implicitely required for option %s (source: %s)",
-                implicitDependant.getOptionName(), source);
-    while (optionsIterator.hasNext()) {
-      String unparsedFlagExpression = optionsIterator.next();
-      UnparsedOptionValueDescription unparsedOption =
-          identifyOptionAndPossibleArgument(
-              unparsedFlagExpression, optionsIterator, priority, sourceFunction, false);
-      builder.add(unparsedOption);
-    }
-    return builder.build();
+    return new OptionDescription(optionDefinition, optionsData);
   }
 
   /**
-   * @return A list of the descriptions corresponding to options expanded from the flag for the
-   *     given value. These descriptions are are divorced from the command line - there is no
-   *     correct priority or source for these, as they are not actually set values. The value itself
-   *     is also a string, no conversion has taken place.
+   * Implementation of {@link OptionsParser#getExpansionValueDescriptions(OptionDefinition,
+   * OptionInstanceOrigin)}
    */
-  ImmutableList<UnparsedOptionValueDescription> getExpansionOptionValueDescriptions(
-      OptionDefinition expansionFlag,
-      @Nullable String flagValue,
-      OptionPriority priority,
-      String source)
+  ImmutableList<ParsedOptionDescription> getExpansionValueDescriptions(
+      OptionDefinition expansionFlag, OptionInstanceOrigin originOfExpansionFlag)
       throws OptionsParsingException {
-    ImmutableList.Builder<UnparsedOptionValueDescription> builder = ImmutableList.builder();
+    ImmutableList.Builder<ParsedOptionDescription> builder = ImmutableList.builder();
+    OptionInstanceOrigin originOfSubflags;
+    ImmutableList<String> options;
+    if (expansionFlag.hasImplicitRequirements()) {
+      options = ImmutableList.copyOf(expansionFlag.getImplicitRequirements());
+      originOfSubflags =
+          new OptionInstanceOrigin(
+              originOfExpansionFlag.getPriority(),
+              String.format(
+                  "implicitly required by %s (source: %s)",
+                  expansionFlag, originOfExpansionFlag.getSource()),
+              expansionFlag,
+              null);
+    } else if (expansionFlag.isExpansionOption()) {
+      options = optionsData.getEvaluatedExpansion(expansionFlag);
+      originOfSubflags =
+          new OptionInstanceOrigin(
+              originOfExpansionFlag.getPriority(),
+              String.format(
+                  "expanded by %s (source: %s)", expansionFlag, originOfExpansionFlag.getSource()),
+              null,
+              expansionFlag);
+    } else {
+      return ImmutableList.of();
+    }
 
-    ImmutableList<String> options = optionsData.getEvaluatedExpansion(expansionFlag, flagValue);
     Iterator<String> optionsIterator = options.iterator();
-    Function<OptionDefinition, String> sourceFunction =
-        o -> String.format("expanded from %s (source: %s)", expansionFlag.getOptionName(), source);
     while (optionsIterator.hasNext()) {
       String unparsedFlagExpression = optionsIterator.next();
-      UnparsedOptionValueDescription unparsedOption =
+      ParsedOptionDescription parsedOption =
           identifyOptionAndPossibleArgument(
-              unparsedFlagExpression, optionsIterator, priority, sourceFunction, false);
-      builder.add(unparsedOption);
+              unparsedFlagExpression,
+              optionsIterator,
+              originOfSubflags.getPriority(),
+              o -> originOfSubflags.getSource(),
+              originOfSubflags.getImplicitDependent(),
+              originOfSubflags.getExpandedFrom());
+      builder.add(parsedOption);
     }
     return builder.build();
   }
@@ -402,18 +253,44 @@ class OptionsParserImpl {
     if (optionDefinition == null) {
       throw new IllegalArgumentException("No such option '" + name + "'");
     }
-    return parsedValues.get(optionDefinition) != null;
+    return optionValues.get(optionDefinition) != null;
   }
 
   /**
    * Parses the args, and returns what it doesn't parse. May be called multiple times, and may be
-   * called recursively. In each call, there may be no duplicates, but separate calls may contain
-   * intersecting sets of options; in that case, the arg seen last takes precedence.
+   * called recursively. The option's definition dictates how it reacts to multiple settings. By
+   * default, the arg seen last at the highest priority takes precedence, overriding the early
+   * values. Options that accumulate multiple values will track them in priority and appearance
+   * order.
    */
   List<String> parse(
+      PriorityCategory priorityCat,
+      Function<OptionDefinition, String> sourceFunction,
+      List<String> args)
+      throws OptionsParsingException {
+    ResidueAndPriority residueAndPriority =
+        parse(nextPriorityPerPriorityCategory.get(priorityCat), sourceFunction, null, null, args);
+    nextPriorityPerPriorityCategory.put(priorityCat, residueAndPriority.nextPriority);
+    return residueAndPriority.residue;
+  }
+
+  private static final class ResidueAndPriority {
+    List<String> residue;
+    OptionPriority nextPriority;
+
+    public ResidueAndPriority(List<String> residue, OptionPriority nextPriority) {
+      this.residue = residue;
+      this.nextPriority = nextPriority;
+    }
+  }
+
+  /** Parses the args at the fixed priority. */
+  List<String> parseOptionsFixedAtSpecificPriority(
       OptionPriority priority, Function<OptionDefinition, String> sourceFunction, List<String> args)
       throws OptionsParsingException {
-    return parse(priority, sourceFunction, null, null, args);
+    ResidueAndPriority residueAndPriority =
+        parse(OptionPriority.getLockedPriority(priority), sourceFunction, null, null, args);
+    return residueAndPriority.residue;
   }
 
   /**
@@ -421,19 +298,17 @@ class OptionsParserImpl {
    * called recursively. Calls may contain intersecting sets of options; in that case, the arg seen
    * last takes precedence.
    *
-   * <p>The method uses the invariant that if an option has neither an implicit dependent nor an
-   * expanded from value, then it must have been explicitly set.
+   * <p>The method treats options that have neither an implicitDependent nor an expandedFrom value
+   * as explicitly set.
    */
-  private List<String> parse(
+  private ResidueAndPriority parse(
       OptionPriority priority,
       Function<OptionDefinition, String> sourceFunction,
       OptionDefinition implicitDependent,
       OptionDefinition expandedFrom,
       List<String> args)
       throws OptionsParsingException {
-    boolean isExplicit = expandedFrom == null && implicitDependent == null;
     List<String> unparsedArgs = new ArrayList<>();
-    LinkedHashMap<OptionDefinition, List<String>> implicitRequirements = new LinkedHashMap<>();
 
     Iterator<String> argsIterator = argsPreProcessor.preProcess(args).iterator();
     while (argsIterator.hasNext()) {
@@ -449,140 +324,130 @@ class OptionsParserImpl {
         break;
       }
 
-      UnparsedOptionValueDescription unparsedOption =
+      ParsedOptionDescription parsedOption =
           identifyOptionAndPossibleArgument(
-              arg, argsIterator, priority, sourceFunction, isExplicit);
-      OptionDefinition optionDefinition = unparsedOption.getOptionDefinition();
-      @Nullable String unconvertedValue = unparsedOption.getUnconvertedValue();
-
-      if (optionDefinition.isWrapperOption()) {
-        if (unconvertedValue.startsWith("-")) {
-          String sourceMessage =
-              "Unwrapped from wrapper option --" + optionDefinition.getOptionName();
-          List<String> unparsed =
-              parse(
-                  priority,
-                  o -> sourceMessage,
-                  null, // implicitDependent
-                  null, // expandedFrom
-                  ImmutableList.of(unconvertedValue));
-
-          if (!unparsed.isEmpty()) {
-            throw new OptionsParsingException(
-                "Unparsed options remain after unwrapping "
-                    + arg
-                    + ": "
-                    + Joiner.on(' ').join(unparsed));
-          }
-
-          // Don't process implicitRequirements or expansions for wrapper options. In particular,
-          // don't record this option in unparsedValues, so that only the wrapped option shows
-          // up in canonicalized options.
-          continue;
-
-        } else {
-          throw new OptionsParsingException(
-              "Invalid --"
-                  + optionDefinition.getOptionName()
-                  + " value format. "
-                  + "You may have meant --"
-                  + optionDefinition.getOptionName()
-                  + "=--"
-                  + unconvertedValue);
-        }
-      }
-
-      if (implicitDependent == null) {
-        // Log explicit options and expanded options in the order they are parsed (can be sorted
-        // later). Also remember whether they were expanded or not. This information is needed to
-        // correctly canonicalize flags.
-        unparsedValues.add(unparsedOption);
-        if (optionDefinition.allowsMultiple()) {
-          canonicalizeValues.put(optionDefinition, unparsedOption);
-        } else {
-          canonicalizeValues.replaceValues(optionDefinition, ImmutableList.of(unparsedOption));
-        }
-      }
-
-      // Handle expansion options.
-      if (optionDefinition.isExpansionOption()) {
-        ImmutableList<String> expansion =
-            optionsData.getEvaluatedExpansion(optionDefinition, unconvertedValue);
-
-        String sourceMessage =
-            "expanded from option --"
-                + optionDefinition.getOptionName()
-                + " from "
-                + sourceFunction.apply(optionDefinition);
-        Function<OptionDefinition, String> expansionSourceFunction = o -> sourceMessage;
-        maybeAddDeprecationWarning(optionDefinition);
-        List<String> unparsed =
-            parse(priority, expansionSourceFunction, null, optionDefinition, expansion);
-        if (!unparsed.isEmpty()) {
-          // Throw an assertion, because this indicates an error in the definition of this
-          // option's expansion, not with the input as provided by the user.
-          throw new AssertionError(
-              "Unparsed options remain after parsing expansion of "
-                  + arg
-                  + ": "
-                  + Joiner.on(' ').join(unparsed));
-        }
-      } else {
-        // ...but allow duplicates of single-use options across separate calls to
-        // parse(); latest wins:
-        if (!optionDefinition.allowsMultiple()) {
-          setValue(unparsedOption, implicitDependent, expandedFrom);
-        } else {
-          // But if it's a multiple-use option, then accumulate the values, in the order in which
-          // they were seen.
-          addListValue(unparsedOption, implicitDependent, expandedFrom);
-        }
-      }
-
-      // Collect any implicit requirements.
-      if (optionDefinition.getImplicitRequirements().length > 0) {
-        implicitRequirements.put(
-            optionDefinition, Arrays.asList(optionDefinition.getImplicitRequirements()));
-      }
+              arg, argsIterator, priority, sourceFunction, implicitDependent, expandedFrom);
+      handleNewParsedOption(parsedOption);
+      priority = OptionPriority.nextOptionPriority(priority);
     }
 
-    // Now parse any implicit requirements that were collected.
-    // TODO(bazel-team): this should happen when the option is encountered.
-    if (!implicitRequirements.isEmpty()) {
-      for (Map.Entry<OptionDefinition, List<String>> entry : implicitRequirements.entrySet()) {
-        String sourceMessage =
-            "implicit requirement of option --"
-                + entry.getKey()
-                + " from "
-                + sourceFunction.apply(entry.getKey());
-        Function<OptionDefinition, String> requirementSourceFunction = o -> sourceMessage;
-
-        List<String> unparsed = parse(priority, requirementSourceFunction, entry.getKey(), null,
-            entry.getValue());
-        if (!unparsed.isEmpty()) {
-          // Throw an assertion, because this indicates an error in the code that specified in the
-          // implicit requirements for the option(s).
-          throw new AssertionError("Unparsed options remain after parsing implicit options: "
-              + Joiner.on(' ').join(unparsed));
-        }
-      }
+    // Go through the final values and make sure they are valid values for their option. Unlike any
+    // checks that happened above, this also checks that flags that were not set have a valid
+    // default value. getValue() will throw if the value is invalid.
+    for (OptionValueDescription valueDescription : asListOfEffectiveOptions()) {
+      valueDescription.getValue();
     }
 
-    return unparsedArgs;
+    return new ResidueAndPriority(unparsedArgs, priority);
   }
 
-  private UnparsedOptionValueDescription identifyOptionAndPossibleArgument(
+  /**
+   * Implementation of {@link OptionsParser#addOptionValueAtSpecificPriority(OptionInstanceOrigin,
+   * OptionDefinition, String)}
+   */
+  void addOptionValueAtSpecificPriority(
+      OptionInstanceOrigin origin, OptionDefinition option, String unconvertedValue)
+      throws OptionsParsingException {
+    Preconditions.checkNotNull(option);
+    Preconditions.checkNotNull(
+        unconvertedValue,
+        "Cannot set %s to a null value. Pass \"\" if an empty value is required.",
+        option);
+    Preconditions.checkNotNull(
+        origin,
+        "Cannot assign value \'%s\' to %s without a clear origin for this value.",
+        unconvertedValue,
+        option);
+    PriorityCategory priorityCategory = origin.getPriority().getPriorityCategory();
+    boolean isNotDefault = priorityCategory != OptionPriority.PriorityCategory.DEFAULT;
+    Preconditions.checkArgument(
+        isNotDefault,
+        "Attempt to assign value \'%s\' to %s at priority %s failed. Cannot set options at "
+            + "default priority - by definition, that means the option is unset.",
+        unconvertedValue,
+        option,
+        priorityCategory);
+
+    handleNewParsedOption(
+        new ParsedOptionDescription(
+            option,
+            String.format("--%s=%s", option.getOptionName(), unconvertedValue),
+            unconvertedValue,
+            origin));
+  }
+
+  /** Takes care of tracking the parsed option's value in relation to other options. */
+  private void handleNewParsedOption(ParsedOptionDescription parsedOption)
+      throws OptionsParsingException {
+    OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
+    // All options can be deprecated; check and warn before doing any option-type specific work.
+    maybeAddDeprecationWarning(optionDefinition);
+    // Track the value, before any remaining option-type specific work that is done outside of
+    // the OptionValueDescription.
+    OptionValueDescription entry =
+        optionValues.computeIfAbsent(
+            optionDefinition,
+            def -> OptionValueDescription.createOptionValueDescription(def, optionsData));
+    ExpansionBundle expansionBundle = entry.addOptionInstance(parsedOption, warnings);
+    @Nullable String unconvertedValue = parsedOption.getUnconvertedValue();
+
+    // There are 3 types of flags that expand to other flag values. Expansion flags are the
+    // accepted way to do this, but two legacy features remain: implicit requirements and wrapper
+    // options. We rely on the OptionProcessor compile-time check's guarantee that no option sets
+    // multiple of these behaviors. (In Bazel, --config is another such flag, but that expansion
+    // is not controlled within the options parser, so we ignore it here)
+
+    // As much as possible, we want the behaviors of these different types of flags to be
+    // identical, as this minimizes the number of edge cases, but we do not yet track these values
+    // in the same way. Wrapper options are replaced by their value and implicit requirements are
+    // hidden from the reported lists of parsed options.
+    if (parsedOption.getImplicitDependent() == null && !optionDefinition.isWrapperOption()) {
+      // Log explicit options and expanded options in the order they are parsed (can be sorted
+      // later). This information is needed to correctly canonicalize flags.
+      parsedOptions.add(parsedOption);
+    }
+
+    if (expansionBundle != null) {
+      ResidueAndPriority residueAndPriority =
+          parse(
+              OptionPriority.getLockedPriority(parsedOption.getPriority()),
+              o -> expansionBundle.sourceOfExpansionArgs,
+              optionDefinition.hasImplicitRequirements() ? optionDefinition : null,
+              optionDefinition.isExpansionOption() ? optionDefinition : null,
+              expansionBundle.expansionArgs);
+      if (!residueAndPriority.residue.isEmpty()) {
+        if (optionDefinition.isWrapperOption()) {
+          throw new OptionsParsingException(
+              "Unparsed options remain after unwrapping "
+                  + unconvertedValue
+                  + ": "
+                  + Joiner.on(' ').join(residueAndPriority.residue));
+        } else {
+          // Throw an assertion here, because this indicates an error in the definition of this
+          // option's expansion or requirements, not with the input as provided by the user.
+          throw new AssertionError(
+              "Unparsed options remain after processing "
+                  + unconvertedValue
+                  + ": "
+                  + Joiner.on(' ').join(residueAndPriority.residue));
+        }
+      }
+    }
+  }
+
+  private ParsedOptionDescription identifyOptionAndPossibleArgument(
       String arg,
       Iterator<String> nextArgs,
       OptionPriority priority,
       Function<OptionDefinition, String> sourceFunction,
-      boolean explicit)
+      OptionDefinition implicitDependent,
+      OptionDefinition expandedFrom)
       throws OptionsParsingException {
 
     // Store the way this option was parsed on the command line.
     StringBuilder commandLineForm = new StringBuilder();
     commandLineForm.append(arg);
-    String unparsedValue = null;
+    String unconvertedValue = null;
     OptionDefinition optionDefinition;
     boolean booleanValue = true;
 
@@ -604,7 +469,7 @@ class OptionsParserImpl {
       if (name.trim().isEmpty()) {
         throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
       }
-      unparsedValue = equalsAt == -1 ? null : arg.substring(equalsAt + 1);
+      unconvertedValue = equalsAt == -1 ? null : arg.substring(equalsAt + 1);
       optionDefinition = optionsData.getOptionDefinitionFromName(name);
 
       // Look for a "no"-prefixed option name: "no<optionName>".
@@ -618,12 +483,12 @@ class OptionsParserImpl {
             throw new OptionsParsingException(
                 "Illegal use of 'no' prefix on non-boolean option: " + arg, arg);
           }
-          if (unparsedValue != null) {
+          if (unconvertedValue != null) {
             throw new OptionsParsingException(
                 "Unexpected value after boolean option: " + arg, arg);
           }
           // "no<optionname>" signifies a boolean option w/ false value
-          unparsedValue = "0";
+          unconvertedValue = "0";
         }
       }
     } else {
@@ -637,29 +502,28 @@ class OptionsParserImpl {
       throw new OptionsParsingException("Unrecognized option: " + arg, arg);
     }
 
-    if (unparsedValue == null) {
+    if (unconvertedValue == null) {
       // Special-case boolean to supply value based on presence of "no" prefix.
       if (optionDefinition.usesBooleanValueSyntax()) {
-        unparsedValue = booleanValue ? "1" : "0";
+        unconvertedValue = booleanValue ? "1" : "0";
       } else if (optionDefinition.getType().equals(Void.class)
           && !optionDefinition.isWrapperOption()) {
         // This is expected, Void type options have no args (unless they're wrapper options).
       } else if (nextArgs.hasNext()) {
         // "--flag value" form
-        unparsedValue = nextArgs.next();
-        commandLineForm.append(" ").append(unparsedValue);
+        unconvertedValue = nextArgs.next();
+        commandLineForm.append(" ").append(unconvertedValue);
       } else {
         throw new OptionsParsingException("Expected value after " + arg);
       }
     }
 
-    return new UnparsedOptionValueDescription(
+    return new ParsedOptionDescription(
         optionDefinition,
         commandLineForm.toString(),
-        unparsedValue,
-        priority,
-        sourceFunction.apply(optionDefinition),
-        explicit);
+        unconvertedValue,
+        new OptionInstanceOrigin(
+            priority, sourceFunction.apply(optionDefinition), implicitDependent, expandedFrom));
   }
 
   /**
@@ -682,16 +546,22 @@ class OptionsParserImpl {
     for (OptionDefinition optionDefinition :
         OptionsData.getAllOptionDefinitionsForClass(optionsClass)) {
       Object value;
-      OptionValueDescription entry = parsedValues.get(optionDefinition);
-      if (entry == null) {
+      OptionValueDescription optionValue = optionValues.get(optionDefinition);
+      if (optionValue == null) {
         value = optionDefinition.getDefaultValue();
       } else {
-        value = entry.getValue();
+        value = optionValue.getValue();
       }
       try {
         optionDefinition.getField().set(optionsInstance, value);
+      } catch (IllegalArgumentException e) {
+        throw new IllegalStateException(
+            String.format("Unable to set %s to value '%s'.", optionDefinition, value), e);
       } catch (IllegalAccessException e) {
-        throw new IllegalStateException(e);
+        throw new IllegalStateException(
+            "Could not set the field due to access issues. This is impossible, as the "
+                + "OptionProcessor checks that all options are non-final public fields.",
+            e);
       }
     }
     return optionsInstance;

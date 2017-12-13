@@ -176,6 +176,9 @@ EOF
   expect_log '1 test passes.$'
 }
 
+# This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
+# this environment and cause --experimental_ui to be turned on, which causes
+# this test to fail. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_run_under_path() {
   mkdir -p testing || fail "mkdir testing failed"
   echo "sh_test(name='t1', srcs=['t1.sh'])" > testing/BUILD
@@ -193,7 +196,7 @@ EOF
   chmod u+x scripts/hello
 
   # We don't just use the local PATH, but use the test's PATH, which is more restrictive.
-  PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
+  PATH=$PATH:$PWD/scripts bazel --nomaster_bazelrc test //testing:t1 -s --run_under=hello \
     --test_output=all >& $TEST_log && fail "Expected failure"
 
   # We need to forward the PATH to make it work.
@@ -448,6 +451,9 @@ EOF
   expect_log 'FAILED.*com\.example\.myproject\.Fail\.testFail'
 }
 
+# This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
+# this environment and cause --experimental_ui to be turned on, which causes
+# this test to fail. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
   cat >BUILD <<EOF
 sh_test(name = "flaky", flaky = True, srcs = ["flaky.sh"])
@@ -478,7 +484,8 @@ EOF
   chmod +x true.sh flaky.sh false.sh
 
   # We do not use sandboxing so we can trick to be deterministically flaky
-  bazel test --spawn_strategy=standalone //:flaky &> $TEST_log \
+  # TODO(b/37617303): make test UI-independent
+  bazel --nomaster_bazelrc test --noexperimental_ui --noexperimental_skyframe_target_pattern_evaluator --spawn_strategy=standalone //:flaky &> $TEST_log \
       || fail "//:flaky should have passed with flaky support"
   [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
 
@@ -491,7 +498,8 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  bazel test //:pass &> $TEST_log \
+  # TODO(b/37617303): make test UI-independent
+  bazel --nomaster_bazelrc test --noexperimental_ui --noexperimental_skyframe_target_pattern_evaluator //:pass &> $TEST_log \
       || fail "//:pass should have passed"
   expect_log_once "PASS: //:pass"
   expect_log_once PASSED
@@ -500,7 +508,8 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  bazel test //:fail &> $TEST_log \
+  # TODO(b/37617303): make test UI-independent
+  bazel --nomaster_bazelrc test --noexperimental_ui --noexperimental_skyframe_target_pattern_evaluator //:fail &> $TEST_log \
       && fail "//:fail should have failed" \
       || true
   expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
@@ -511,6 +520,122 @@ EOF
   assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)
   cat bazel-testlogs/fail/test.log &> $TEST_log
   assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test.log)"
+}
+
+function test_undeclared_outputs_are_zipped_and_manifest_exists() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+echo "some text" > "$TEST_UNDECLARED_OUTPUTS_DIR/text.txt"
+echo "<!DOCTYPE html>" > "$TEST_UNDECLARED_OUTPUTS_DIR/fake.html"
+echo "pass"
+exit 0
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  # Newlines are useful around diffs. This helps us get them in bash strings.
+  N=$'\n'
+
+  # Check that the undeclared outputs zip file exists.
+  outputs_zip=bazel-testlogs/dir/test/test.outputs/outputs.zip
+  [ -s $outputs_zip ] || fail "$outputs_zip was not present after test"
+
+  # Check the contents of the zip file.
+  unzip -q "$outputs_zip" -d unzipped_outputs || fail "failed to unzip $outputs_zip"
+  cat > expected_text <<EOF
+some text
+EOF
+diff "unzipped_outputs/text.txt" expected_text > d || fail "unzipped_outputs/text.txt differs from expected:$N$(cat d)$N"
+  cat > expected_html <<EOF
+<!DOCTYPE html>
+EOF
+diff expected_html "unzipped_outputs/fake.html" > d || fail "unzipped_outputs/fake.html differs from expected:$N$(cat d)$N"
+
+  # Check that the undeclared outputs manifest exists and that it has the
+  # correct contents.
+  outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
+  [ -s $outputs_manifest ] || fail "$outputs_manifest was not present after test"
+  cat > expected_manifest <<EOF
+fake.html	16	text/html
+text.txt	10	text/plain
+EOF
+diff expected_manifest "$outputs_manifest" > d || fail "$outputs_manifest differs from expected:$N$(cat d)$N"
+}
+
+function test_undeclared_outputs_annotations_are_added() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+echo "an annotation" > "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR/1.part"
+echo "another annotation" > "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR/2.part"
+echo "pass"
+exit 0
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  # Newlines are useful around diffs. This helps us get them in bash strings.
+  N=$'\n'
+
+  # Check that the undeclared outputs manifest exists and that it has the
+  # correct contents.
+  annotations=bazel-testlogs/dir/test/test.outputs_manifest/ANNOTATIONS
+  [ -s $annotations ] || fail "$annotations was not present after test"
+  cat > expected_annotations <<EOF
+an annotation
+another annotation
+EOF
+diff expected_annotations "$annotations" > d || fail "$annotations differs from expected:$N$(cat d)$N"
+}
+
+function test_no_zip_annotation_manifest_when_no_undeclared_outputs() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+echo "pass"
+exit 0
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  # Check that the undeclared outputs directory doesn't exist.
+  outputs_dir=bazel-testlogs/dir/test/test.outputs/
+  [ ! -d $outputs_dir ] || fail "$outputs_dir was present after test"
+
+  # Check that the undeclared outputs manifest directory doesn't exist.
+  outputs_manifest_dir=bazel-testlogs/dir/test/test.outputs_manifest/
+  [ ! -d $outputs_manifest_dir ] || fail "$outputs_manifest_dir was present after test"
 }
 
 run_suite "bazel test tests"

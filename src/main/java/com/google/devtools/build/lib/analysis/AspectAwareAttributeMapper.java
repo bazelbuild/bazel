@@ -17,23 +17,24 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
 
 /**
- * An {@link AttributeMap} that supports attribute type queries on both a rule
- * and its aspects and attribute value queries on the rule.
+ * An {@link AttributeMap} that supports attribute type queries on both a rule and its aspects and
+ * attribute value queries on the rule.
  *
- * <p>An attribute type query is anything accessible from {@link Attribute} (i.e.
- * anything about how the attribute is integrated into the {@link RuleClass}). An
- * attribute value query is anything related to the actual value an attribute takes.
+ * <p>An attribute type query is anything accessible from {@link Attribute} (i.e. anything about how
+ * the attribute is integrated into the {@link RuleClass}). An attribute value query is anything
+ * related to the actual value an attribute takes.
  *
- * <p>For example, given {@code deps = [":adep"]}, checking that {@code deps} exists
- * or that it's type is {@link BuildType.LABEL_LIST} are type queries. Checking that
- * its value is explicitly set in the BUILD File or that its value
- * {@code [":adep"]} are value queries..
+ * <p>For example, given {@code deps = [":adep"]}, checking that {@code deps} exists or that it's
+ * type is {@link com.google.devtools.build.lib.packages.BuildType#LABEL_LIST} are type queries.
+ * Checking that its value is explicitly set in the BUILD File or that its value {@code [":adep"]}
+ * are value queries..
  *
  * <p>Value queries on aspect attributes trigger {@link UnsupportedOperationException}.
  */
@@ -165,6 +166,15 @@ class AspectAwareAttributeMapper implements AttributeMap {
     } else {
       return aspectAttributes.containsKey(attrName)
           && aspectAttributes.get(attrName).getType() == type;
+    }
+  }
+
+  @Override
+  public Location getAttributeLocation(String attrName) {
+    if (ruleAttributes.has(attrName)) {
+      return ruleAttributes.getAttributeLocation(attrName);
+    } else {
+      return Location.BUILTIN;
     }
   }
 }

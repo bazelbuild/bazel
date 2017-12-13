@@ -30,6 +30,7 @@ java_test(
         "-Dfortest.simulated.android.sdk_int=18",
         "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
     ],
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTest",
     deps = [
         ":throwable_extension_test_utility",
@@ -51,6 +52,7 @@ java_test(
         "-Dcom.google.devtools.build.android.desugar.runtime.twr_disable_mimic=true",
         "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$NullDesugaringStrategy'",
     ],
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTest",
     deps = [
         ":throwable_extension_test_utility",
@@ -71,6 +73,7 @@ java_test(
         "-Dfortest.simulated.android.sdk_int=19",
         "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
     ],
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTest",
     deps = [
         ":throwable_extension_test_utility",
@@ -95,4 +98,21 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
     ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/android/desugar:__pkg__"],
 )

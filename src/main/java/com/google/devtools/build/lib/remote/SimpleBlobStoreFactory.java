@@ -14,86 +14,54 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.RestBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
-import com.hazelcast.client.HazelcastClient;
-import com.hazelcast.client.config.ClientConfig;
-import com.hazelcast.client.config.ClientNetworkConfig;
-import com.hazelcast.client.config.XmlClientConfigBuilder;
-import com.hazelcast.config.Config;
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 /**
  * A factory class for providing a {@link SimpleBlobStore} to be used with {@link
- * SimpleBlobStoreActionCache}. Currently implemented with Hazelcast or REST.
+ * SimpleBlobStoreActionCache}. Currently implemented with REST or local.
  */
 public final class SimpleBlobStoreFactory {
 
-  private static final String HAZELCAST_CACHE_NAME = "hazelcast-build-cache";
-
   private SimpleBlobStoreFactory() {}
 
-  /** Construct a {@link SimpleBlobStore} using Hazelcast's version of {@link ConcurrentMap} */
-  public static SimpleBlobStore createHazelcast(RemoteOptions options) {
-    HazelcastInstance instance;
-    if (options.hazelcastClientConfig != null) {
-      try {
-        ClientConfig config = new XmlClientConfigBuilder(options.hazelcastClientConfig).build();
-        instance = HazelcastClient.newHazelcastClient(config);
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    } else if (options.hazelcastNode != null) {
-      // If --hazelcast_node is specified then create a client instance.
-      ClientConfig config = new ClientConfig();
-      ClientNetworkConfig net = config.getNetworkConfig();
-      net.addAddress(options.hazelcastNode.split(","));
-      instance = HazelcastClient.newHazelcastClient(config);
-    } else if (options.hazelcastStandaloneListenPort != 0) {
-      Config config = new Config();
-      config
-          .getNetworkConfig()
-          .setPort(options.hazelcastStandaloneListenPort)
-          .getJoin()
-          .getMulticastConfig()
-          .setEnabled(false);
-      instance = Hazelcast.newHazelcastInstance(config);
-    } else {
-      // Otherwise create a default instance. This is going to look at
-      // -Dhazelcast.config=some-hazelcast.xml for configuration.
-      instance = Hazelcast.newHazelcastInstance();
-    }
-    return new ConcurrentMapBlobStore(instance.<String, byte[]>getMap(HAZELCAST_CACHE_NAME));
-  }
-
   public static SimpleBlobStore createRest(RemoteOptions options) throws IOException {
-    return new RestBlobStore(options.remoteRestCache, options.restCachePoolSize);
+    return new RestBlobStore(options.remoteRestCache, options.restCachePoolSize,
+        (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout));
   }
 
-  public static SimpleBlobStore create(RemoteOptions options) throws IOException {
-    if (isHazelcastOptions(options)) {
-      return createHazelcast(options);
-    }
+  public static SimpleBlobStore createLocalDisk(RemoteOptions options, Path workingDirectory)
+      throws IOException {
+    return new OnDiskBlobStore(
+        workingDirectory.getRelative(checkNotNull(options.experimentalLocalDiskCachePath)));
+  }
+
+  public static SimpleBlobStore create(RemoteOptions options, @Nullable Path workingDirectory)
+      throws IOException {
     if (isRestUrlOptions(options)) {
       return createRest(options);
     }
+    if (workingDirectory != null && isLocalDiskCache(options)) {
+      return createLocalDisk(options, workingDirectory);
+    }
     throw new IllegalArgumentException(
         "Unrecognized concurrent map RemoteOptions: must specify "
-            + "either Hazelcast or Rest URL options.");
+            + "either Rest URL, or local cache options.");
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return isHazelcastOptions(options) || isRestUrlOptions(options);
+    return isRestUrlOptions(options) || isLocalDiskCache(options);
   }
 
-  private static boolean isHazelcastOptions(RemoteOptions options) {
-    return options.hazelcastNode != null
-        || options.hazelcastClientConfig != null
-        || options.hazelcastStandaloneListenPort != 0;
+  public static boolean isLocalDiskCache(RemoteOptions options) {
+    return options.experimentalLocalDiskCache;
   }
 
   private static boolean isRestUrlOptions(RemoteOptions options) {

@@ -127,9 +127,17 @@ message CToolchain {
   }
 
   // A set of features; used to support logical 'and' when specifying feature
-  // requirements in FlagSet and Feature.
+  // requirements in Feature.
   message FeatureSet {
     repeated string feature = 1;
+  }
+
+  // A set of positive and negative features. This stanza will
+  // evaluate to true when every 'feature' is enabled, and every
+  // 'not_feature' is not enabled.
+  message WithFeatureSet {
+    repeated string feature = 1;
+    repeated string not_feature = 2;
   }
 
   // A set of flags that are expanded in the command line for specific actions.
@@ -142,12 +150,13 @@ message CToolchain {
     repeated FlagGroup flag_group = 2;
 
     // A list of feature sets defining when this flag set gets applied.  The
-    // flag set will be applied when any of the feature sets fully apply, that
-    // is, when all features of the feature set are enabled.
+    // flag set will be applied when any one of the feature sets evaluate to
+    // true. (That is, when when every 'feature' is enabled, and every
+    // 'not_feature' is not enabled.)
     //
     // If 'with_feature' is omitted, the flag set will be applied
     // unconditionally for every action specified.
-    repeated FeatureSet with_feature = 3;
+    repeated WithFeatureSet with_feature = 3;
 
     // A list of build variables that this feature set needs, but which are
     // allowed to not be set. If any of the build variables listed is not
@@ -171,12 +180,13 @@ message CToolchain {
     repeated EnvEntry env_entry = 2;
 
     // A list of feature sets defining when this env set gets applied.  The
-    // env set will be applied when any of the feature sets fully apply, that
-    // is, when all features of the feature set are enabled.
+    // env set will be applied when any one of the feature sets evaluate to
+    // true. (That is, when when every 'feature' is enabled, and every
+    // 'not_feature' is not enabled.)
     //
     // If 'with_feature' is omitted, the env set will be applied
     // unconditionally for every action specified.
-    repeated FeatureSet with_feature = 3;
+    repeated WithFeatureSet with_feature = 3;
   }
 
   // Contains all flag specifications for one feature.
@@ -235,10 +245,14 @@ message CToolchain {
     // Path to the tool, relative to the location of the crosstool.
     required string tool_path = 1;
 
-    // A feature set defining when this tool is applicable.  If this attribute
-    // is left out, the Tool will be assumed to apply for any feature
+    // A list of feature sets defining when this tool is applicable.  The tool
+    // will used when any one of the feature sets evaluate to true. (That is,
+    // when when every 'feature' is enabled, and every 'not_feature' is not
+    // enabled.)
+    //
+    // If 'with_feature' is omitted, the tool will apply for any feature
     // configuration.
-    optional FeatureSet with_feature = 2;
+    repeated WithFeatureSet with_feature = 2;
 
     // Requirements on the execution environment for the execution of this tool,
     // to be passed as out-of-band "hints" to the execution backend.
@@ -269,7 +283,7 @@ message CToolchain {
   // Action config activation occurs by the same semantics as features: a
   // feature can 'require' or 'imply' an action config in the same way that it
   // would another feature.
-  // Next ID: 8
+  // Next ID: 9
   message ActionConfig {
     // The name other features will use to activate this action config.  Can
     // be the same as action_name.
@@ -278,6 +292,11 @@ message CToolchain {
     // The name of the blaze action that this config applies to, ex. 'c-compile'
     // or 'c-module-compile'.
     required string action_name = 2;
+
+    // If 'true', this feature is enabled unless a rule type explicitly marks it
+    // as unsupported.  Such action_configs cannot be turned off from within a
+    // BUILD file or the command line.
+    optional bool enabled = 8;
 
     // The tool applied to the action will be the first Tool with a feature
     // set that matches the feature configuration.  An error will be thrown

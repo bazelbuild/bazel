@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;

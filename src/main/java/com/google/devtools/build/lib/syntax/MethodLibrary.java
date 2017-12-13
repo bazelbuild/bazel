@@ -33,9 +33,9 @@ import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -374,7 +374,7 @@ public class MethodLibrary {
       maxSplits = Integer.MAX_VALUE;
     }
 
-    LinkedList<String> result = new LinkedList<>();
+    ArrayDeque<String> result = new ArrayDeque<>();
     String[] parts = input.split(Pattern.quote(separator), -1);
     int sepLen = separator.length();
     int remainingLength = input.length();
@@ -396,7 +396,7 @@ public class MethodLibrary {
       result.addFirst(input.substring(0, remainingLength));
     }
 
-    return new MutableList<>(result, env);
+    return MutableList.copyOf(env, result);
   }
 
   @SkylarkSignature(name = "partition", objectType = StringModule.class,
@@ -951,8 +951,7 @@ public class MethodLibrary {
           defaultValue = "{}",
           doc = "Dictionary of arguments."
         ),
-    useLocation = true,
-    useEnvironment = true
+    useLocation = true
   )
   private static final BuiltinFunction format =
       new BuiltinFunction("format") {
@@ -961,10 +960,9 @@ public class MethodLibrary {
             String self,
             SkylarkList<Object> args,
             SkylarkDict<?, ?> kwargs,
-            Location loc,
-            Environment env)
+            Location loc)
             throws EvalException {
-          return new FormatParser(env, loc)
+          return new FormatParser(loc)
               .format(
                   self,
                   args.getImmutableList(),
@@ -1134,9 +1132,9 @@ public class MethodLibrary {
         public MutableList<?> invoke(Object self, Location loc, Environment env)
             throws EvalException {
           try {
-            return new MutableList<>(
-                EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc, env)),
-                env);
+            return MutableList.copyOf(
+                env,
+                EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc, env)));
           } catch (EvalUtils.ComparisonException e) {
             throw new EvalException(loc, e);
           }
@@ -1172,11 +1170,11 @@ public class MethodLibrary {
             throw new EvalException(
                 loc, "Argument to reversed() must be a sequence, not a depset.");
           }
-          LinkedList<Object> tmpList = new LinkedList<>();
+          ArrayDeque<Object> tmpList = new ArrayDeque<>();
           for (Object element : EvalUtils.toIterable(sequence, loc, env)) {
             tmpList.addFirst(element);
           }
-          return new MutableList<>(tmpList, env);
+          return MutableList.copyOf(env, tmpList);
         }
       };
 
@@ -1500,7 +1498,7 @@ public class MethodLibrary {
   private static final BuiltinFunction values =
       new BuiltinFunction("values") {
         public MutableList<?> invoke(SkylarkDict<?, ?> self, Environment env) throws EvalException {
-          return new MutableList<>(self.values(), env);
+          return MutableList.copyOf(env, self.values());
         }
       };
 
@@ -1519,11 +1517,11 @@ public class MethodLibrary {
   private static final BuiltinFunction items =
       new BuiltinFunction("items") {
         public MutableList<?> invoke(SkylarkDict<?, ?> self, Environment env) throws EvalException {
-          List<Object> list = Lists.newArrayListWithCapacity(self.size());
+          ArrayList<Object> list = Lists.newArrayListWithCapacity(self.size());
           for (Map.Entry<?, ?> entries : self.entrySet()) {
             list.add(Tuple.of(entries.getKey(), entries.getValue()));
           }
-          return new MutableList<>(list, env);
+          return MutableList.wrapUnsafe(env, list);
         }
       };
 
@@ -1541,11 +1539,11 @@ public class MethodLibrary {
     @SuppressWarnings("unchecked")
     public MutableList<?> invoke(SkylarkDict<?, ?> self,
         Environment env) throws EvalException {
-      List<Object> list = Lists.newArrayListWithCapacity(self.size());
+      ArrayList<Object> list = Lists.newArrayListWithCapacity(self.size());
       for (Map.Entry<?, ?> entries : self.entrySet()) {
         list.add(entries.getKey());
       }
-      return new MutableList(list, env);
+      return MutableList.wrapUnsafe(env, list);
     }
   };
 
@@ -1601,7 +1599,7 @@ public class MethodLibrary {
   private static final BuiltinFunction list =
       new BuiltinFunction("list") {
         public MutableList<?> invoke(Object x, Location loc, Environment env) throws EvalException {
-          return new MutableList<>(EvalUtils.toCollection(x, loc, env), env);
+          return MutableList.copyOf(env, EvalUtils.toCollection(x, loc, env));
         }
       };
 
@@ -1616,7 +1614,8 @@ public class MethodLibrary {
   private static final BuiltinFunction len =
       new BuiltinFunction("len") {
         public Integer invoke(Object x, Location loc, Environment env) throws EvalException {
-          if (env.getSemantics().incompatibleDepsetIsNotIterable && x instanceof SkylarkNestedSet) {
+          if (env.getSemantics().incompatibleDepsetIsNotIterable()
+              && x instanceof SkylarkNestedSet) {
             throw new EvalException(
                 loc,
                 EvalUtils.getDataTypeName(x)
@@ -1639,13 +1638,12 @@ public class MethodLibrary {
         "Converts any object to string. This is useful for debugging."
             + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
             + "str(8) == \"8\"</pre>",
-    parameters = {@Param(name = "x", doc = "The object to convert.")},
-    useEnvironment = true
+    parameters = {@Param(name = "x", doc = "The object to convert.")}
   )
   private static final BuiltinFunction str =
       new BuiltinFunction("str") {
-        public String invoke(Object x, Environment env) {
-          return Printer.getPrinter(env).str(x).toString();
+        public String invoke(Object x) {
+          return Printer.str(x);
         }
       };
 
@@ -1655,13 +1653,12 @@ public class MethodLibrary {
     doc =
         "Converts any object to a string representation. This is useful for debugging.<br>"
             + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-    parameters = {@Param(name = "x", doc = "The object to convert.")},
-    useEnvironment = true
+    parameters = {@Param(name = "x", doc = "The object to convert.")}
   )
   private static final BuiltinFunction repr =
       new BuiltinFunction("repr") {
-        public String invoke(Object x, Environment env) {
-          return Printer.getPrinter(env).repr(x).toString();
+        public String invoke(Object x) {
+          return Printer.repr(x);
         }
       };
 
@@ -1866,12 +1863,12 @@ public class MethodLibrary {
       new BuiltinFunction("enumerate") {
         public MutableList<?> invoke(SkylarkList<?> input, Environment env) throws EvalException {
           int count = 0;
-          List<SkylarkList<?>> result = Lists.newArrayList();
+          ArrayList<SkylarkList<?>> result = new ArrayList<>(input.size());
           for (Object obj : input) {
             result.add(Tuple.of(count, obj));
             count++;
           }
-          return new MutableList<>(result, env);
+          return MutableList.wrapUnsafe(env, result);
         }
       };
 
@@ -1949,23 +1946,19 @@ public class MethodLibrary {
           if (step == 0) {
             throw new EvalException(loc, "step cannot be 0");
           }
-          ArrayList<Integer> result = Lists.newArrayList();
+          ArrayList<Integer> result = new ArrayList<>(Math.abs((stop - start) / step));
           if (step > 0) {
-            int size = (stop - start) / step;
-            result.ensureCapacity(size);
             while (start < stop) {
               result.add(start);
               start += step;
             }
           } else {
-            int size = (start - stop) / step;
-            result.ensureCapacity(size);
             while (start > stop) {
               result.add(start);
               start += step;
             }
           }
-          return new MutableList<>(result, env);
+          return MutableList.wrapUnsafe(env, result);
         }
       };
 
@@ -2049,7 +2042,7 @@ public class MethodLibrary {
    * Returns whether the given object has a method with the given name.
    */
   private static boolean hasMethod(Object obj, String name) throws EvalException {
-    if (Runtime.getFunctionNames(obj.getClass()).contains(name)) {
+    if (Runtime.getBuiltinRegistry().getFunctionNames(obj.getClass()).contains(name)) {
       return true;
     }
 
@@ -2075,9 +2068,9 @@ public class MethodLibrary {
           if (object instanceof ClassObject) {
             fields.addAll(((ClassObject) object).getKeys());
           }
-          fields.addAll(Runtime.getFunctionNames(object.getClass()));
+          fields.addAll(Runtime.getBuiltinRegistry().getFunctionNames(object.getClass()));
           fields.addAll(FuncallExpression.getMethodNames(object.getClass()));
-          return new MutableList<>(fields, env);
+          return MutableList.copyOf(env, fields);
         }
       };
 
@@ -2146,18 +2139,17 @@ public class MethodLibrary {
         public Runtime.NoneType invoke(
             String sep, SkylarkList<?> starargs, Location loc, Environment env)
             throws EvalException {
-          String msg =
-              starargs
-                  .stream()
-                  .map((Object o) -> Printer.getPrinter(env).str(o).toString())
-                  .collect(joining(sep));
+          String msg = starargs.stream().map(Printer::str).collect(joining(sep));
           // As part of the integration test "skylark_flag_test.sh", if the
           // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
           // the output.
-          if (env.getSemantics().internalSkylarkFlagTestCanary) {
+          if (env.getSemantics().internalSkylarkFlagTestCanary()) {
             msg += "<== skylark flag test ==>";
           }
-          env.handleEvent(Event.debug(loc, msg));
+          env.handleEvent(
+              env.getSemantics().incompatibleShowAllPrintMessages()
+                  ? Event.debug(loc, msg)
+                  : Event.warn(loc, msg));
           return Runtime.NONE;
         }
       };
@@ -2187,7 +2179,7 @@ public class MethodLibrary {
           for (int i = 0; i < args.size(); i++) {
             iterators[i] = EvalUtils.toIterable(args.get(i), loc, env).iterator();
           }
-          List<Tuple<?>> result = new ArrayList<>();
+          ArrayList<Tuple<?>> result = new ArrayList<>();
           boolean allHasNext;
           do {
             allHasNext = !args.isEmpty();
@@ -2203,7 +2195,7 @@ public class MethodLibrary {
               result.add(Tuple.copyOf(elem));
             }
           } while (allHasNext);
-          return new MutableList<>(result, env);
+          return MutableList.wrapUnsafe(env, result);
         }
       };
 

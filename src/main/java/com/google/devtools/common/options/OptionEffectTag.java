@@ -139,8 +139,12 @@ public enum OptionEffectTag {
 
   /**
    * This option is used to change command line arguments of one or more actions during the build.
+   *
+   * <p>Even though many options implicitly change command line arguments because they change
+   * configured target analysis, this setting is intended for options specifically meant for
+   * for that purpose.
    */
-  ACTION_OPTIONS(13),
+  ACTION_COMMAND_LINES(13),
 
   /** This option is used to change the testrunner environment of the build. */
   TEST_RUNNER(14);

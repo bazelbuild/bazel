@@ -26,8 +26,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibrary;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 
@@ -60,7 +61,7 @@ public class BazelJavaProtoLibraryRule implements RuleDefinition {
                 .allowedFileTypes()
                 .aspect(javaProtoAspect, aspectParameters))
         .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
-        .advertiseProvider(JavaCompilationArgsProvider.class)
+        .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }
 

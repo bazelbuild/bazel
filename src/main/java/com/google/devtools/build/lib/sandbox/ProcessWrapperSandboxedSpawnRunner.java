@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -31,7 +32,7 @@ import java.util.Map;
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   public static boolean isSupported(CommandEnvironment cmdEnv) {
-    return OS.isPosixCompatible() && ProcessWrapperRunner.isSupported(cmdEnv);
+    return OS.isPosixCompatible() && ProcessWrapperUtil.isSupported(cmdEnv);
   }
 
   private final Path execRoot;
@@ -49,10 +50,11 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     this.execRoot = cmdEnv.getExecRoot();
     this.productName = productName;
     this.timeoutGraceSeconds = timeoutGraceSeconds;
-    this.processWrapper = ProcessWrapperRunner.getProcessWrapper(cmdEnv);
-    this.localEnvProvider = OS.getCurrent() == OS.DARWIN
-        ? new XCodeLocalEnvProvider()
-        : LocalEnvProvider.UNMODIFIED;
+    this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
+    this.localEnvProvider =
+        OS.getCurrent() == OS.DARWIN
+            ? new XCodeLocalEnvProvider()
+            : LocalEnvProvider.ADD_TEMP_POSIX;
   }
 
   @Override
@@ -62,22 +64,32 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
+    // Each sandboxed action runs in its own execroot, so we don't need to make the temp directory's
+    // name unique (like we have to with standalone execution strategy).
+    Path tmpDir = sandboxExecRoot.getRelative("tmp");
+
     Duration timeout = policy.getTimeout();
     List<String> arguments =
-        ProcessWrapperRunner.getCommandLine(
-            processWrapper, spawn.getArguments(), timeout, timeoutGraceSeconds);
+        ProcessWrapperUtil.commandLineBuilder()
+            .setProcessWrapperPath(processWrapper.getPathString())
+            .setCommandArguments(spawn.getArguments())
+            .setTimeout(timeout)
+            .setKillDelay(Duration.ofSeconds(timeoutGraceSeconds))
+            .build();
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName);
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 
-    SandboxedSpawn sandbox = new SymlinkedSandboxedSpawn(
-        sandboxPath,
-        sandboxExecRoot,
-        arguments,
-        environment,
-        SandboxHelpers.getInputFiles(spawn, policy, execRoot),
-        SandboxHelpers.getOutputFiles(spawn),
-        getWritableDirs(sandboxExecRoot, spawn.getEnvironment()));
-    return runSpawn(spawn, sandbox, policy, execRoot, timeout);
+    SandboxedSpawn sandbox =
+        new SymlinkedSandboxedSpawn(
+            sandboxPath,
+            sandboxExecRoot,
+            arguments,
+            environment,
+            SandboxHelpers.getInputFiles(spawn, policy, execRoot),
+            SandboxHelpers.getOutputFiles(spawn),
+            getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), tmpDir));
+
+    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout);
   }
 
   @Override

@@ -26,7 +26,7 @@ message CommandLine {
   // In particular, a single invocation may wish to report both the literal and
   // canonical command lines, and this label would be used to differentiate
   // between both versions. This is a string for flexibility.
-  string label = 1;
+  string command_line_label = 1;
 
   // A Bazel command line is made of distinct parts. For example,
   //    `bazel --nomaster_bazelrc test --nocache_test_results //foo:aTest`

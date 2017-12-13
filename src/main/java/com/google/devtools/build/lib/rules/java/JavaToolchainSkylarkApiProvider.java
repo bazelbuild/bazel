@@ -39,7 +39,7 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider {
   )
   public String getSourceVersion() {
     JavaToolchainProvider javaToolchainProvider =
-        getInfo().getProvider(JavaToolchainProvider.class);
+        JavaToolchainProvider.from(getInfo());
     return javaToolchainProvider.getSourceVersion();
   }
 
@@ -51,7 +51,7 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider {
   )
   public String getTargetVersion() {
     JavaToolchainProvider javaToolchainProvider =
-        getInfo().getProvider(JavaToolchainProvider.class);
+        JavaToolchainProvider.from(getInfo());
     return javaToolchainProvider.getTargetVersion();
   }
 
@@ -63,7 +63,7 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider {
   )
   public Artifact getJavacJar() {
     JavaToolchainProvider javaToolchainProvider =
-        getInfo().getProvider(JavaToolchainProvider.class);
+        JavaToolchainProvider.from(getInfo());
     return javaToolchainProvider.getJavac();
   }
 

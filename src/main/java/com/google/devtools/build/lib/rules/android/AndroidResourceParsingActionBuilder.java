@@ -22,12 +22,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -146,7 +146,7 @@ public class AndroidResourceParsingActionBuilder {
     builder.addExecPath("--output", output);
 
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
-    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.UNQUOTED);
+    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED);
     // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
     // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
     // semantics are very complicated (more so than in Bash), so let's just always use a parameter
@@ -199,9 +199,7 @@ public class AndroidResourceParsingActionBuilder {
               .useDefaultShellEnvironment()
               .addTransitiveInputs(inputs.build())
               .addOutputs(ImmutableList.copyOf(outs))
-              .addCommandLine(
-                  flatFileBuilder.build(),
-                  ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
+              .addCommandLine(flatFileBuilder.build(), paramFileInfo.build())
               .setExecutable(
                   ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
               .setProgressMessage("Compiling Android resources for %s", ruleContext.getLabel())

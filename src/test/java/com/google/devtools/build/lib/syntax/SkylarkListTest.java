@@ -17,9 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import java.util.ArrayList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -274,5 +276,30 @@ public class SkylarkListTest extends EvaluationTestCase {
     } catch (EvalException e) {
       assertThat(e).hasMessage("trying to mutate a frozen object");
     }
+  }
+
+  @Test
+  public void testCopyOfTakesCopy() throws EvalException {
+    ArrayList<String> copyFrom = Lists.newArrayList("hi");
+    Mutability mutability = Mutability.create("test");
+    MutableList<String> mutableList = MutableList.copyOf(mutability, copyFrom);
+    copyFrom.add("added1");
+    mutableList.add("added2", /*loc=*/ null, mutability);
+
+    assertThat(copyFrom).containsExactly("hi", "added1").inOrder();
+    assertThat(mutableList).containsExactly("hi", "added2").inOrder();
+  }
+
+  @Test
+  public void testWrapUnsafeTakesOwnershipOfPassedArrayList() throws EvalException {
+    ArrayList<String> wrapped = Lists.newArrayList("hi");
+    Mutability mutability = Mutability.create("test");
+    MutableList<String> mutableList = MutableList.wrapUnsafe(mutability, wrapped);
+
+    // Big no-no, but we're proving a point.
+    wrapped.add("added1");
+    mutableList.add("added2", /*loc=*/ null, mutability);
+    assertThat(wrapped).containsExactly("hi", "added1", "added2").inOrder();
+    assertThat(mutableList).containsExactly("hi", "added1", "added2").inOrder();
   }
 }

@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
@@ -123,10 +125,10 @@ public class JavaHeaderCompileAction extends SpawnAction {
   }
 
   @Override
-  protected String computeKey() {
+  protected String computeKey(ActionKeyContext actionKeyContext) {
     Fingerprint f = new Fingerprint().addString(GUID);
     try {
-      f.addString(super.computeKey());
+      f.addString(super.computeKey(actionKeyContext));
       f.addStrings(directCommandLine.arguments());
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("JavaHeaderCompileAction command line expansion cannot fail");
@@ -135,16 +137,18 @@ public class JavaHeaderCompileAction extends SpawnAction {
   }
 
   @Override
-  protected void internalExecute(ActionExecutionContext actionExecutionContext)
+  protected List<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     SpawnActionContext context = getContext(actionExecutionContext);
     try {
-      context.exec(getDirectSpawn(), actionExecutionContext);
+      return context.exec(getDirectSpawn(), actionExecutionContext);
     } catch (ExecException e) {
       // if the direct input spawn failed, try again with transitive inputs to produce better
       // better messages
       try {
-        context.exec(getSpawn(actionExecutionContext.getClientEnv()), actionExecutionContext);
+        return context.exec(
+            getSpawn(actionExecutionContext.getClientEnv()),
+            actionExecutionContext);
       } catch (CommandLineExpansionException commandLineExpansionException) {
         throw new UserExecException(commandLineExpansionException);
       }

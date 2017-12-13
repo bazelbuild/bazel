@@ -35,130 +35,208 @@ public final class OptionsUsageTest {
     data = OptionsParser.getOptionsDataInternal(TestOptions.class);
   }
 
-  private String getHtmlUsage(String fieldName) {
+  private String getHtmlUsageWithoutTags(String fieldName) {
     StringBuilder builder = new StringBuilder();
     OptionsUsage.getUsageHtml(
-        data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data);
+        data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data, false);
     return builder.toString();
   }
 
-  private String getTerminalUsage(String fieldName, HelpVerbosity verbosity) {
+  private String getHtmlUsageWithTags(String fieldName) {
     StringBuilder builder = new StringBuilder();
-    OptionsUsage.getUsage(data.getOptionDefinitionFromName(fieldName), builder, verbosity, data);
+    OptionsUsage.getUsageHtml(
+        data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data, true);
+    return builder.toString();
+  }
+
+  private String getTerminalUsageWithoutTags(String fieldName, HelpVerbosity verbosity) {
+    StringBuilder builder = new StringBuilder();
+    OptionsUsage.getUsage(
+        data.getOptionDefinitionFromName(fieldName), builder, verbosity, data, false);
+    return builder.toString();
+  }
+
+  /**
+   * Tests the future behavior of the options usage output. For short & medium verbosity, this
+   * should be the same as the current default
+   */
+  private String getTerminalUsageWithTags(String fieldName, HelpVerbosity verbosity) {
+    StringBuilder builder = new StringBuilder();
+    OptionsUsage.getUsage(
+        data.getOptionDefinitionFromName(fieldName), builder, verbosity, data, true);
     return builder.toString();
   }
 
   @Test
   public void stringValue_shortTerminalOutput() {
-    assertThat(getTerminalUsage("test_string", HelpVerbosity.SHORT)).isEqualTo("  --test_string\n");
+    assertThat(getTerminalUsageWithoutTags("test_string", HelpVerbosity.SHORT))
+        .isEqualTo("  --test_string\n");
+    assertThat(getTerminalUsageWithoutTags("test_string", HelpVerbosity.SHORT))
+        .isEqualTo(getTerminalUsageWithTags("test_string", HelpVerbosity.SHORT));
   }
 
   @Test
   public void stringValue_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("test_string", HelpVerbosity.MEDIUM))
+    assertThat(getTerminalUsageWithoutTags("test_string", HelpVerbosity.MEDIUM))
         .isEqualTo("  --test_string (a string; default: \"test string default\")\n");
+    assertThat(getTerminalUsageWithoutTags("test_string", HelpVerbosity.MEDIUM))
+        .isEqualTo(getTerminalUsageWithTags("test_string", HelpVerbosity.MEDIUM));
   }
 
   @Test
   public void stringValue_longTerminalOutput() {
-    assertThat(getTerminalUsage("test_string", HelpVerbosity.LONG))
+    assertThat(getTerminalUsageWithoutTags("test_string", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_string (a string; default: \"test string default\")\n"
                 + "    a string-valued option to test simple option operations\n");
+    assertThat(getTerminalUsageWithTags("test_string", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --test_string (a string; default: \"test string default\")\n"
+                + "    a string-valued option to test simple option operations\n"
+                + "      Tags: no_op\n");
   }
 
   @Test
   public void stringValue_htmlOutput() {
-    assertThat(getHtmlUsage("test_string"))
+    assertThat(getHtmlUsageWithoutTags("test_string"))
         .isEqualTo(
             "<dt><code><a name=\"flag--test_string\"></a>"
                 + "--test_string=&lt;a string&gt</code> default: \"test string default\"</dt>\n"
                 + "<dd>\n"
                 + "a string-valued option to test simple option operations\n"
                 + "</dd>\n");
+    assertThat(getHtmlUsageWithTags("test_string"))
+        .isEqualTo(
+            "<dt><code><a name=\"flag--test_string\"></a>"
+                + "--test_string=&lt;a string&gt</code> default: \"test string default\"</dt>\n"
+                + "<dd>\n"
+                + "a string-valued option to test simple option operations\n"
+                + "<br>Tags: \n"
+                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
+                + "</dd>\n");
   }
 
   @Test
   public void intValue_shortTerminalOutput() {
-    assertThat(getTerminalUsage("expanded_c", HelpVerbosity.SHORT)).isEqualTo("  --expanded_c\n");
+    assertThat(getTerminalUsageWithoutTags("expanded_c", HelpVerbosity.SHORT))
+        .isEqualTo("  --expanded_c\n");
+    assertThat(getTerminalUsageWithoutTags("expanded_c", HelpVerbosity.SHORT))
+        .isEqualTo(getTerminalUsageWithTags("expanded_c", HelpVerbosity.SHORT));
   }
 
   @Test
   public void intValue_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("expanded_c", HelpVerbosity.MEDIUM))
+    assertThat(getTerminalUsageWithoutTags("expanded_c", HelpVerbosity.MEDIUM))
         .isEqualTo("  --expanded_c (an integer; default: \"12\")\n");
+    assertThat(getTerminalUsageWithoutTags("expanded_c", HelpVerbosity.MEDIUM))
+        .isEqualTo(getTerminalUsageWithTags("expanded_c", HelpVerbosity.MEDIUM));
   }
 
   @Test
   public void intValue_longTerminalOutput() {
-    assertThat(getTerminalUsage("expanded_c", HelpVerbosity.LONG))
+    assertThat(getTerminalUsageWithoutTags("expanded_c", HelpVerbosity.LONG))
         .isEqualTo(
             "  --expanded_c (an integer; default: \"12\")\n"
                 + "    an int-value'd flag used to test expansion logic\n");
+    assertThat(getTerminalUsageWithTags("expanded_c", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --expanded_c (an integer; default: \"12\")\n"
+                + "    an int-value'd flag used to test expansion logic\n"
+                + "      Tags: no_op\n");
   }
 
   @Test
   public void intValue_htmlOutput() {
-    assertThat(getHtmlUsage("expanded_c"))
+    assertThat(getHtmlUsageWithoutTags("expanded_c"))
         .isEqualTo(
             "<dt><code><a name=\"flag--expanded_c\"></a>"
                 + "--expanded_c=&lt;an integer&gt</code> default: \"12\"</dt>\n"
                 + "<dd>\n"
                 + "an int-value&#39;d flag used to test expansion logic\n"
                 + "</dd>\n");
-  }
-
-  @Test
-  public void booleanValue_shortTerminalOutput() {
-    assertThat(getTerminalUsage("expanded_a", HelpVerbosity.SHORT))
-        .isEqualTo("  --[no]expanded_a\n");
-  }
-
-  @Test
-  public void booleanValue_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("expanded_a", HelpVerbosity.MEDIUM))
-        .isEqualTo("  --[no]expanded_a (a boolean; default: \"true\")\n");
-  }
-
-  @Test
-  public void booleanValue_longTerminalOutput() {
-    assertThat(getTerminalUsage("expanded_a", HelpVerbosity.LONG))
-        .isEqualTo("  --[no]expanded_a (a boolean; default: \"true\")\n");
-  }
-
-  @Test
-  public void booleanValue_htmlOutput() {
-    assertThat(getHtmlUsage("expanded_a"))
+    assertThat(getHtmlUsageWithTags("expanded_c"))
         .isEqualTo(
-            "<dt><code><a name=\"flag--expanded_a\"></a>"
-                + "--[no]expanded_a</code> default: \"true\"</dt>\n"
+            "<dt><code><a name=\"flag--expanded_c\"></a>"
+                + "--expanded_c=&lt;an integer&gt</code> default: \"12\"</dt>\n"
                 + "<dd>\n"
+                + "an int-value&#39;d flag used to test expansion logic\n"
+                + "<br>Tags: \n"
+                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
 
   @Test
+  public void booleanValue_shortTerminalOutput() {
+    assertThat(getTerminalUsageWithoutTags("expanded_a", HelpVerbosity.SHORT))
+        .isEqualTo("  --[no]expanded_a\n");
+    assertThat(getTerminalUsageWithoutTags("expanded_a", HelpVerbosity.SHORT))
+        .isEqualTo(getTerminalUsageWithTags("expanded_a", HelpVerbosity.SHORT));
+  }
+
+  @Test
+  public void booleanValue_mediumTerminalOutput() {
+    assertThat(getTerminalUsageWithoutTags("expanded_a", HelpVerbosity.MEDIUM))
+        .isEqualTo("  --[no]expanded_a (a boolean; default: \"true\")\n");
+    assertThat(getTerminalUsageWithoutTags("expanded_a", HelpVerbosity.MEDIUM))
+        .isEqualTo(getTerminalUsageWithTags("expanded_a", HelpVerbosity.MEDIUM));
+  }
+
+  @Test
+  public void booleanValue_longTerminalOutput() {
+    assertThat(getTerminalUsageWithoutTags("expanded_a", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --[no]expanded_a (a boolean; default: \"true\")\n"
+                + "    A boolean flag with unknown effect to test tagless usage text.\n");
+    // This flag has no useful tags, to verify that the tag line is omitted, so the usage line
+    // should be the same in both tag and tag-free world.
+    assertThat(getTerminalUsageWithoutTags("expanded_a", HelpVerbosity.LONG))
+        .isEqualTo(getTerminalUsageWithTags("expanded_a", HelpVerbosity.LONG));
+  }
+
+  @Test
+  public void booleanValue_htmlOutput() {
+    assertThat(getHtmlUsageWithoutTags("expanded_a"))
+        .isEqualTo(
+            "<dt><code><a name=\"flag--expanded_a\"></a>"
+                + "--[no]expanded_a</code> default: \"true\"</dt>\n"
+                + "<dd>\n"
+                + "A boolean flag with unknown effect to test tagless usage text.\n"
+                + "</dd>\n");
+    assertThat(getHtmlUsageWithoutTags("expanded_a")).isEqualTo(getHtmlUsageWithTags("expanded_a"));
+  }
+
+  @Test
   public void multipleValue_shortTerminalOutput() {
-    assertThat(getTerminalUsage("test_multiple_string", HelpVerbosity.SHORT))
+    assertThat(getTerminalUsageWithoutTags("test_multiple_string", HelpVerbosity.SHORT))
         .isEqualTo("  --test_multiple_string\n");
+    assertThat(getTerminalUsageWithoutTags("test_multiple_string", HelpVerbosity.SHORT))
+        .isEqualTo(getTerminalUsageWithTags("test_multiple_string", HelpVerbosity.SHORT));
   }
 
   @Test
   public void multipleValue_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("test_multiple_string", HelpVerbosity.MEDIUM))
+    assertThat(getTerminalUsageWithoutTags("test_multiple_string", HelpVerbosity.MEDIUM))
         .isEqualTo("  --test_multiple_string (a string; may be used multiple times)\n");
+    assertThat(getTerminalUsageWithoutTags("test_multiple_string", HelpVerbosity.MEDIUM))
+        .isEqualTo(getTerminalUsageWithTags("test_multiple_string", HelpVerbosity.MEDIUM));
   }
 
   @Test
   public void multipleValue_longTerminalOutput() {
-    assertThat(getTerminalUsage("test_multiple_string", HelpVerbosity.LONG))
+    assertThat(getTerminalUsageWithoutTags("test_multiple_string", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_multiple_string (a string; may be used multiple times)\n"
                 + "    a repeatable string-valued flag with its own unhelpful help text\n");
+    assertThat(getTerminalUsageWithTags("test_multiple_string", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --test_multiple_string (a string; may be used multiple times)\n"
+                + "    a repeatable string-valued flag with its own unhelpful help text\n"
+                + "      Tags: no_op\n");
   }
 
   @Test
   public void multipleValue_htmlOutput() {
-    assertThat(getHtmlUsage("test_multiple_string"))
+    assertThat(getHtmlUsageWithoutTags("test_multiple_string"))
         .isEqualTo(
             "<dt><code><a name=\"flag--test_multiple_string\"></a>"
                 + "--test_multiple_string=&lt;a string&gt</code> "
@@ -166,32 +244,52 @@ public final class OptionsUsageTest {
                 + "<dd>\n"
                 + "a repeatable string-valued flag with its own unhelpful help text\n"
                 + "</dd>\n");
+    assertThat(getHtmlUsageWithTags("test_multiple_string"))
+        .isEqualTo(
+            "<dt><code><a name=\"flag--test_multiple_string\"></a>"
+                + "--test_multiple_string=&lt;a string&gt</code> "
+                + "multiple uses are accumulated</dt>\n"
+                + "<dd>\n"
+                + "a repeatable string-valued flag with its own unhelpful help text\n"
+                + "<br>Tags: \n"
+                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
+                + "</dd>\n");
   }
 
   @Test
   public void customConverterValue_shortTerminalOutput() {
-    assertThat(getTerminalUsage("test_list_converters", HelpVerbosity.SHORT))
+    assertThat(getTerminalUsageWithoutTags("test_list_converters", HelpVerbosity.SHORT))
         .isEqualTo("  --test_list_converters\n");
+    assertThat(getTerminalUsageWithoutTags("test_list_converters", HelpVerbosity.SHORT))
+        .isEqualTo(getTerminalUsageWithTags("test_list_converters", HelpVerbosity.SHORT));
   }
 
   @Test
   public void customConverterValue_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("test_list_converters", HelpVerbosity.MEDIUM))
+    assertThat(getTerminalUsageWithoutTags("test_list_converters", HelpVerbosity.MEDIUM))
         .isEqualTo("  --test_list_converters (a list of strings; may be used multiple times)\n");
+    assertThat(getTerminalUsageWithoutTags("test_list_converters", HelpVerbosity.MEDIUM))
+        .isEqualTo(getTerminalUsageWithTags("test_list_converters", HelpVerbosity.MEDIUM));
   }
 
   @Test
   public void customConverterValue_longTerminalOutput() {
-    assertThat(getTerminalUsage("test_list_converters", HelpVerbosity.LONG))
+    assertThat(getTerminalUsageWithoutTags("test_list_converters", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_list_converters (a list of strings; may be used multiple times)\n"
                 + "    a repeatable flag that accepts lists, but doesn't want to have lists of \n"
                 + "    lists as a final type\n");
+    assertThat(getTerminalUsageWithTags("test_list_converters", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --test_list_converters (a list of strings; may be used multiple times)\n"
+                + "    a repeatable flag that accepts lists, but doesn't want to have lists of \n"
+                + "    lists as a final type\n"
+                + "      Tags: no_op\n");
   }
 
   @Test
   public void customConverterValue_htmlOutput() {
-    assertThat(getHtmlUsage("test_list_converters"))
+    assertThat(getHtmlUsageWithoutTags("test_list_converters"))
         .isEqualTo(
             "<dt><code><a name=\"flag--test_list_converters\"></a>"
                 + "--test_list_converters=&lt;a list of strings&gt</code> "
@@ -200,33 +298,55 @@ public final class OptionsUsageTest {
                 + "a repeatable flag that accepts lists, but doesn&#39;t want to have lists of \n"
                 + "lists as a final type\n"
                 + "</dd>\n");
+    assertThat(getHtmlUsageWithTags("test_list_converters"))
+        .isEqualTo(
+            "<dt><code><a name=\"flag--test_list_converters\"></a>"
+                + "--test_list_converters=&lt;a list of strings&gt</code> "
+                + "multiple uses are accumulated</dt>\n"
+                + "<dd>\n"
+                + "a repeatable flag that accepts lists, but doesn&#39;t want to have lists of \n"
+                + "lists as a final type\n"
+                + "<br>Tags: \n"
+                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
+                + "</dd>\n");
   }
 
   @Test
   public void staticExpansionOption_shortTerminalOutput() {
-    assertThat(getTerminalUsage("test_expansion", HelpVerbosity.SHORT))
+    assertThat(getTerminalUsageWithoutTags("test_expansion", HelpVerbosity.SHORT))
         .isEqualTo("  --test_expansion\n");
+    assertThat(getTerminalUsageWithoutTags("test_expansion", HelpVerbosity.SHORT))
+        .isEqualTo(getTerminalUsageWithTags("test_expansion", HelpVerbosity.SHORT));
   }
 
   @Test
   public void staticExpansionOption_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("test_expansion", HelpVerbosity.MEDIUM))
+    assertThat(getTerminalUsageWithoutTags("test_expansion", HelpVerbosity.MEDIUM))
         .isEqualTo("  --test_expansion\n");
+    assertThat(getTerminalUsageWithoutTags("test_expansion", HelpVerbosity.MEDIUM))
+        .isEqualTo(getTerminalUsageWithTags("test_expansion", HelpVerbosity.MEDIUM));
   }
 
   @Test
   public void staticExpansionOption_longTerminalOutput() {
-    assertThat(getTerminalUsage("test_expansion", HelpVerbosity.LONG))
+    assertThat(getTerminalUsageWithoutTags("test_expansion", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_expansion\n"
                 + "    this expands to an alphabet soup.\n"
                 + "      Expands to: --noexpanded_a --expanded_b=false --expanded_c 42 --\n"
                 + "      expanded_d bar \n");
+    assertThat(getTerminalUsageWithTags("test_expansion", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --test_expansion\n"
+                + "    this expands to an alphabet soup.\n"
+                + "      Expands to: --noexpanded_a --expanded_b=false --expanded_c 42 --\n"
+                + "      expanded_d bar \n"
+                + "      Tags: no_op\n");
   }
 
   @Test
   public void staticExpansionOption_htmlOutput() {
-    assertThat(getHtmlUsage("test_expansion"))
+    assertThat(getHtmlUsageWithoutTags("test_expansion"))
         .isEqualTo(
             "<dt><code><a name=\"flag--test_expansion\"></a>"
                 + "--test_expansion</code></dt>\n"
@@ -241,33 +361,68 @@ public final class OptionsUsageTest {
                 + "&nbsp;&nbsp;<code>--expanded_d</code><br/>\n"
                 + "&nbsp;&nbsp;<code>bar</code><br/>\n"
                 + "</dd>\n");
+    assertThat(getHtmlUsageWithTags("test_expansion"))
+        .isEqualTo(
+            "<dt><code><a name=\"flag--test_expansion\"></a>"
+                + "--test_expansion</code></dt>\n"
+                + "<dd>\n"
+                + "this expands to an alphabet soup.\n"
+                + "<br/>\n"
+                + "Expands to:<br/>\n"
+                + "&nbsp;&nbsp;<code>--noexpanded_a</code><br/>\n"
+                + "&nbsp;&nbsp;<code>--expanded_b=false</code><br/>\n"
+                + "&nbsp;&nbsp;<code>--expanded_c</code><br/>\n"
+                + "&nbsp;&nbsp;<code>42</code><br/>\n"
+                + "&nbsp;&nbsp;<code>--expanded_d</code><br/>\n"
+                + "&nbsp;&nbsp;<code>bar</code><br/>\n"
+                + "<br>Tags: \n"
+                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
+                + "</dd>\n");
   }
 
   @Test
   public void recursiveExpansionOption_shortTerminalOutput() {
-    assertThat(getTerminalUsage("test_recursive_expansion_top_level", HelpVerbosity.SHORT))
+    assertThat(
+            getTerminalUsageWithoutTags("test_recursive_expansion_top_level", HelpVerbosity.SHORT))
         .isEqualTo("  --test_recursive_expansion_top_level\n");
+    assertThat(
+            getTerminalUsageWithoutTags("test_recursive_expansion_top_level", HelpVerbosity.SHORT))
+        .isEqualTo(
+            getTerminalUsageWithTags("test_recursive_expansion_top_level", HelpVerbosity.SHORT));
   }
 
   @Test
   public void recursiveExpansionOption_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("test_recursive_expansion_top_level", HelpVerbosity.MEDIUM))
+    assertThat(
+            getTerminalUsageWithoutTags("test_recursive_expansion_top_level", HelpVerbosity.MEDIUM))
         .isEqualTo("  --test_recursive_expansion_top_level\n");
+    assertThat(
+            getTerminalUsageWithoutTags("test_recursive_expansion_top_level", HelpVerbosity.MEDIUM))
+        .isEqualTo(
+            getTerminalUsageWithTags("test_recursive_expansion_top_level", HelpVerbosity.MEDIUM));
   }
 
   @Test
   public void recursiveExpansionOption_longTerminalOutput() {
-    assertThat(getTerminalUsage("test_recursive_expansion_top_level", HelpVerbosity.LONG))
+    assertThat(
+            getTerminalUsageWithoutTags("test_recursive_expansion_top_level", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_recursive_expansion_top_level\n"
                 + "    Lets the children do all the work.\n"
                 + "      Expands to: --test_recursive_expansion_middle1 --\n"
                 + "      test_recursive_expansion_middle2 \n");
+    assertThat(getTerminalUsageWithTags("test_recursive_expansion_top_level", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --test_recursive_expansion_top_level\n"
+                + "    Lets the children do all the work.\n"
+                + "      Expands to: --test_recursive_expansion_middle1 --\n"
+                + "      test_recursive_expansion_middle2 \n"
+                + "      Tags: no_op\n");
   }
 
   @Test
   public void recursiveExpansionOption_htmlOutput() {
-    assertThat(getHtmlUsage("test_recursive_expansion_top_level"))
+    assertThat(getHtmlUsageWithoutTags("test_recursive_expansion_top_level"))
         .isEqualTo(
             "<dt><code><a name=\"flag--test_recursive_expansion_top_level\"></a>"
                 + "--test_recursive_expansion_top_level</code></dt>\n"
@@ -278,33 +433,57 @@ public final class OptionsUsageTest {
                 + "&nbsp;&nbsp;<code>--test_recursive_expansion_middle1</code><br/>\n"
                 + "&nbsp;&nbsp;<code>--test_recursive_expansion_middle2</code><br/>\n"
                 + "</dd>\n");
+    assertThat(getHtmlUsageWithTags("test_recursive_expansion_top_level"))
+        .isEqualTo(
+            "<dt><code><a name=\"flag--test_recursive_expansion_top_level\"></a>"
+                + "--test_recursive_expansion_top_level</code></dt>\n"
+                + "<dd>\n"
+                + "Lets the children do all the work.\n"
+                + "<br/>\n"
+                + "Expands to:<br/>\n"
+                + "&nbsp;&nbsp;<code>--test_recursive_expansion_middle1</code><br/>\n"
+                + "&nbsp;&nbsp;<code>--test_recursive_expansion_middle2</code><br/>\n"
+                + "<br>Tags: \n"
+                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
+                + "</dd>\n");
   }
 
   @Test
   public void expansionToMultipleValue_shortTerminalOutput() {
-    assertThat(getTerminalUsage("test_expansion_to_repeatable", HelpVerbosity.SHORT))
+    assertThat(getTerminalUsageWithoutTags("test_expansion_to_repeatable", HelpVerbosity.SHORT))
         .isEqualTo("  --test_expansion_to_repeatable\n");
+    assertThat(getTerminalUsageWithoutTags("test_expansion_to_repeatable", HelpVerbosity.SHORT))
+        .isEqualTo(getTerminalUsageWithTags("test_expansion_to_repeatable", HelpVerbosity.SHORT));
   }
 
   @Test
   public void expansionToMultipleValue_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("test_expansion_to_repeatable", HelpVerbosity.MEDIUM))
+    assertThat(getTerminalUsageWithoutTags("test_expansion_to_repeatable", HelpVerbosity.MEDIUM))
         .isEqualTo("  --test_expansion_to_repeatable\n");
+    assertThat(getTerminalUsageWithoutTags("test_expansion_to_repeatable", HelpVerbosity.MEDIUM))
+        .isEqualTo(getTerminalUsageWithTags("test_expansion_to_repeatable", HelpVerbosity.MEDIUM));
   }
 
   @Test
   public void expansionToMultipleValue_longTerminalOutput() {
-    assertThat(getTerminalUsage("test_expansion_to_repeatable", HelpVerbosity.LONG))
+    assertThat(getTerminalUsageWithoutTags("test_expansion_to_repeatable", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_expansion_to_repeatable\n"
                 + "    Go forth and multiply, they said.\n"
                 + "      Expands to: --test_multiple_string=expandedFirstValue --\n"
                 + "      test_multiple_string=expandedSecondValue \n");
+    assertThat(getTerminalUsageWithTags("test_expansion_to_repeatable", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --test_expansion_to_repeatable\n"
+                + "    Go forth and multiply, they said.\n"
+                + "      Expands to: --test_multiple_string=expandedFirstValue --\n"
+                + "      test_multiple_string=expandedSecondValue \n"
+                + "      Tags: no_op\n");
   }
 
   @Test
   public void expansionToMultipleValue_htmlOutput() {
-    assertThat(getHtmlUsage("test_expansion_to_repeatable"))
+    assertThat(getHtmlUsageWithoutTags("test_expansion_to_repeatable"))
         .isEqualTo(
             "<dt><code><a name=\"flag--test_expansion_to_repeatable\"></a>"
                 + "--test_expansion_to_repeatable</code></dt>\n"
@@ -315,33 +494,57 @@ public final class OptionsUsageTest {
                 + "&nbsp;&nbsp;<code>--test_multiple_string=expandedFirstValue</code><br/>\n"
                 + "&nbsp;&nbsp;<code>--test_multiple_string=expandedSecondValue</code><br/>\n"
                 + "</dd>\n");
+    assertThat(getHtmlUsageWithTags("test_expansion_to_repeatable"))
+        .isEqualTo(
+            "<dt><code><a name=\"flag--test_expansion_to_repeatable\"></a>"
+                + "--test_expansion_to_repeatable</code></dt>\n"
+                + "<dd>\n"
+                + "Go forth and multiply, they said.\n"
+                + "<br/>\n"
+                + "Expands to:<br/>\n"
+                + "&nbsp;&nbsp;<code>--test_multiple_string=expandedFirstValue</code><br/>\n"
+                + "&nbsp;&nbsp;<code>--test_multiple_string=expandedSecondValue</code><br/>\n"
+                + "<br>Tags: \n"
+                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
+                + "</dd>\n");
   }
 
   @Test
   public void implicitRequirementOption_shortTerminalOutput() {
-    assertThat(getTerminalUsage("test_implicit_requirement", HelpVerbosity.SHORT))
+    assertThat(getTerminalUsageWithoutTags("test_implicit_requirement", HelpVerbosity.SHORT))
         .isEqualTo("  --test_implicit_requirement\n");
+    assertThat(getTerminalUsageWithoutTags("test_implicit_requirement", HelpVerbosity.SHORT))
+        .isEqualTo(getTerminalUsageWithTags("test_implicit_requirement", HelpVerbosity.SHORT));
   }
 
   @Test
   public void implicitRequirementOption_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("test_implicit_requirement", HelpVerbosity.MEDIUM))
+    assertThat(getTerminalUsageWithoutTags("test_implicit_requirement", HelpVerbosity.MEDIUM))
         .isEqualTo("  --test_implicit_requirement (a string; default: \"direct implicit\")\n");
+    assertThat(getTerminalUsageWithoutTags("test_implicit_requirement", HelpVerbosity.MEDIUM))
+        .isEqualTo(getTerminalUsageWithTags("test_implicit_requirement", HelpVerbosity.MEDIUM));
   }
 
   @Test
   public void implicitRequirementOption_longTerminalOutput() {
-    assertThat(getTerminalUsage("test_implicit_requirement", HelpVerbosity.LONG))
+    assertThat(getTerminalUsageWithoutTags("test_implicit_requirement", HelpVerbosity.LONG))
         .isEqualTo(
             "  --test_implicit_requirement (a string; default: \"direct implicit\")\n"
                 + "    this option really needs that other one, isolation of purpose has failed.\n"
                 + "      Using this option will also add: --implicit_requirement_a=implicit \n"
                 + "      requirement, required \n");
+    assertThat(getTerminalUsageWithTags("test_implicit_requirement", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --test_implicit_requirement (a string; default: \"direct implicit\")\n"
+                + "    this option really needs that other one, isolation of purpose has failed.\n"
+                + "      Using this option will also add: --implicit_requirement_a=implicit \n"
+                + "      requirement, required \n"
+                + "      Tags: no_op\n");
   }
 
   @Test
   public void implicitRequirementOption_htmlOutput() {
-    assertThat(getHtmlUsage("test_implicit_requirement"))
+    assertThat(getHtmlUsageWithoutTags("test_implicit_requirement"))
         .isEqualTo(
             "<dt><code><a name=\"flag--test_implicit_requirement\"></a>"
                 + "--test_implicit_requirement=&lt;a string&gt</code> "
@@ -349,66 +552,52 @@ public final class OptionsUsageTest {
                 + "<dd>\n"
                 + "this option really needs that other one, isolation of purpose has failed.\n"
                 + "</dd>\n");
-  }
-
-  @Test
-  public void expansionFunctionOptionThatReadsUserValue_shortTerminalOutput() {
-    assertThat(getTerminalUsage("test_expansion_function", HelpVerbosity.SHORT))
-        .isEqualTo("  --test_expansion_function\n");
-  }
-
-  @Test
-  public void expansionFunctionOptionThatReadsUserValue_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("test_expansion_function", HelpVerbosity.MEDIUM))
-        .isEqualTo("  --test_expansion_function\n");
-  }
-
-  @Test
-  public void expansionFunctionOptionThatReadsUserValue_longTerminalOutput() {
-    assertThat(getTerminalUsage("test_expansion_function", HelpVerbosity.LONG))
+    assertThat(getHtmlUsageWithTags("test_implicit_requirement"))
         .isEqualTo(
-            "  --test_expansion_function\n"
-                + "    this is for testing expansion-by-function functionality.\n"
-                + "      Expands to unknown options.\n");
-  }
-
-  @Test
-  public void expansionFunctionOptionThatReadsUserValue_htmlOutput() {
-    assertThat(getHtmlUsage("test_expansion_function"))
-        .isEqualTo(
-            "<dt><code><a name=\"flag--test_expansion_function\"></a>"
-                + "--test_expansion_function</code></dt>\n"
+            "<dt><code><a name=\"flag--test_implicit_requirement\"></a>"
+                + "--test_implicit_requirement=&lt;a string&gt</code> "
+                + "default: \"direct implicit\"</dt>\n"
                 + "<dd>\n"
-                + "this is for testing expansion-by-function functionality.\n"
-                + "<br/>\n"
-                + "Expands to unknown options.<br/>\n"
+                + "this option really needs that other one, isolation of purpose has failed.\n"
+                + "<br>Tags: \n"
+                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
 
   @Test
   public void expansionFunctionOptionThatExpandsBasedOnOtherLoadedOptions_shortTerminalOutput() {
-    assertThat(getTerminalUsage("prefix_expansion", HelpVerbosity.SHORT))
+    assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.SHORT))
         .isEqualTo("  --prefix_expansion\n");
+    assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.SHORT))
+        .isEqualTo(getTerminalUsageWithTags("prefix_expansion", HelpVerbosity.SHORT));
   }
 
   @Test
   public void expansionFunctionOptionThatExpandsBasedOnOtherLoadedOptions_mediumTerminalOutput() {
-    assertThat(getTerminalUsage("prefix_expansion", HelpVerbosity.MEDIUM))
+    assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.MEDIUM))
         .isEqualTo("  --prefix_expansion\n");
+    assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.MEDIUM))
+        .isEqualTo(getTerminalUsageWithTags("prefix_expansion", HelpVerbosity.MEDIUM));
   }
 
   @Test
   public void expansionFunctionOptionThatExpandsBasedOnOtherLoadedOptions_longTerminalOutput() {
-    assertThat(getTerminalUsage("prefix_expansion", HelpVerbosity.LONG))
+    assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.LONG))
         .isEqualTo(
             "  --prefix_expansion\n"
                 + "    Expands to all options with a specific prefix.\n"
                 + "      Expands to: --specialexp_bar --specialexp_foo \n");
+    assertThat(getTerminalUsageWithTags("prefix_expansion", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --prefix_expansion\n"
+                + "    Expands to all options with a specific prefix.\n"
+                + "      Expands to: --specialexp_bar --specialexp_foo \n"
+                + "      Tags: no_op\n");
   }
 
   @Test
   public void expansionFunctionOptionThatExpandsBasedOnOtherLoadedOptions_htmlOutput() {
-    assertThat(getHtmlUsage("prefix_expansion"))
+    assertThat(getHtmlUsageWithoutTags("prefix_expansion"))
         .isEqualTo(
             "<dt><code><a name=\"flag--prefix_expansion\"></a>"
                 + "--prefix_expansion</code></dt>\n"
@@ -418,6 +607,82 @@ public final class OptionsUsageTest {
                 + "Expands to:<br/>\n"
                 + "&nbsp;&nbsp;<code>--specialexp_bar</code><br/>\n"
                 + "&nbsp;&nbsp;<code>--specialexp_foo</code><br/>\n"
+                + "</dd>\n");
+    assertThat(getHtmlUsageWithTags("prefix_expansion"))
+        .isEqualTo(
+            "<dt><code><a name=\"flag--prefix_expansion\"></a>"
+                + "--prefix_expansion</code></dt>\n"
+                + "<dd>\n"
+                + "Expands to all options with a specific prefix.\n"
+                + "<br/>\n"
+                + "Expands to:<br/>\n"
+                + "&nbsp;&nbsp;<code>--specialexp_bar</code><br/>\n"
+                + "&nbsp;&nbsp;<code>--specialexp_foo</code><br/>\n"
+                + "<br>Tags: \n"
+                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
+                + "</dd>\n");
+  }
+
+  @Test
+  public void tagHeavyExpansionOption_shortTerminalOutput() {
+    assertThat(getTerminalUsageWithoutTags("test_void_expansion_function", HelpVerbosity.SHORT))
+        .isEqualTo("  --test_void_expansion_function\n");
+    assertThat(getTerminalUsageWithoutTags("test_void_expansion_function", HelpVerbosity.SHORT))
+        .isEqualTo(getTerminalUsageWithTags("test_void_expansion_function", HelpVerbosity.SHORT));
+  }
+
+  @Test
+  public void tagHeavyExpansionOption_mediumTerminalOutput() {
+    assertThat(getTerminalUsageWithoutTags("test_void_expansion_function", HelpVerbosity.MEDIUM))
+        .isEqualTo("  --test_void_expansion_function\n");
+    assertThat(getTerminalUsageWithoutTags("test_void_expansion_function", HelpVerbosity.MEDIUM))
+        .isEqualTo(getTerminalUsageWithTags("test_void_expansion_function", HelpVerbosity.MEDIUM));
+  }
+
+  @Test
+  public void tagHeavyExpansionOption_longTerminalOutput() {
+    assertThat(getTerminalUsageWithoutTags("test_void_expansion_function", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --test_void_expansion_function\n"
+                + "    Listing a ton of random tags to test the usage output.\n"
+                + "      Expands to: --expanded_d void expanded \n");
+    assertThat(getTerminalUsageWithTags("test_void_expansion_function", HelpVerbosity.LONG))
+        .isEqualTo(
+            "  --test_void_expansion_function\n"
+                + "    Listing a ton of random tags to test the usage output.\n"
+                + "      Expands to: --expanded_d void expanded \n"
+                + "      Tags: action_command_lines, test_runner, terminal_output, experimental\n");
+  }
+
+  @Test
+  public void tagHeavyExpansionOption_htmlOutput() {
+    assertThat(getHtmlUsageWithoutTags("test_void_expansion_function"))
+        .isEqualTo(
+            "<dt><code><a name=\"flag--test_void_expansion_function\"></a>"
+                + "--test_void_expansion_function</code></dt>\n"
+                + "<dd>\n"
+                + "Listing a ton of random tags to test the usage output.\n"
+                + "<br/>\n"
+                + "Expands to:<br/>\n"
+                + "&nbsp;&nbsp;<code>--expanded_d</code><br/>\n"
+                + "&nbsp;&nbsp;<code>void expanded</code><br/>\n"
+                + "</dd>\n");
+    assertThat(getHtmlUsageWithTags("test_void_expansion_function"))
+        .isEqualTo(
+            "<dt><code><a name=\"flag--test_void_expansion_function\"></a>"
+                + "--test_void_expansion_function</code></dt>\n"
+                + "<dd>\n"
+                + "Listing a ton of random tags to test the usage output.\n"
+                + "<br/>\n"
+                + "Expands to:<br/>\n"
+                + "&nbsp;&nbsp;<code>--expanded_d</code><br/>\n"
+                + "&nbsp;&nbsp;<code>void expanded</code><br/>\n"
+                + "<br>Tags: \n"
+                + "<a href=\"#effect_tag_ACTION_COMMAND_LINES\"><code>action_command_lines</code>"
+                + "</a>, "
+                + "<a href=\"#effect_tag_TEST_RUNNER\"><code>test_runner</code></a>, "
+                + "<a href=\"#effect_tag_TERMINAL_OUTPUT\"><code>terminal_output</code></a>, "
+                + "<a href=\"#metadata_tag_EXPERIMENTAL\"><code>experimental</code></a>"
                 + "</dd>\n");
   }
 }

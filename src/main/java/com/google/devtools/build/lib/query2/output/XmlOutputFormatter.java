@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
+import com.google.devtools.build.lib.query2.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
@@ -213,7 +213,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
           envGroup.getDefaults());
       defaults.setAttribute("name", "defaults");
       elem.appendChild(defaults);
-    } else if (target instanceof FakeSubincludeTarget) {
+    } else if (target instanceof FakeLoadTarget) {
       elem = doc.createElement("source-file");
     } else {
       throw new IllegalArgumentException(target.toString());

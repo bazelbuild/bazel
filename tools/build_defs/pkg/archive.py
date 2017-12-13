@@ -14,6 +14,7 @@
 """Archive manipulation library for the Docker rules."""
 
 # pylint: disable=g-import-not-at-top
+import gzip
 import os
 try:
   from StringIO import StringIO
@@ -105,16 +106,21 @@ class TarFileWriter(object):
     pass
 
   def __init__(self, name, compression=''):
-    if compression in ['tgz', 'gz']:
-      mode = 'w:gz'
-    elif compression in ['bzip2', 'bz2']:
+    if compression in ['bzip2', 'bz2']:
       mode = 'w:bz2'
     else:
       mode = 'w:'
+    self.gz = compression in ['tgz', 'gz']
     # Support xz compression through xz... until we can use Py3
     self.xz = compression in ['xz', 'lzma']
     self.name = name
-    self.tar = tarfile.open(name=name, mode=mode)
+    self.fileobj = None
+    if self.gz:
+      # The Tarfile class doesn't allow us to specify gzip's mtime attribute.
+      # Instead, we manually re-implement gzopen from tarfile.py and set mtime.
+      self.fileobj = gzip.GzipFile(
+          filename=name, mode='w', compresslevel=9, mtime=0)
+    self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj)
     self.members = set([])
     self.directories = set([])
 
@@ -383,6 +389,9 @@ class TarFileWriter(object):
       TarFileWriter.Error: if an error happens when compressing the output file.
     """
     self.tar.close()
+    # Close the gzip file object if necessary.
+    if self.fileobj:
+      self.fileobj.close()
     if self.xz:
       # Support xz compression through xz... until we can use Py3
       if subprocess.call('which xz', shell=True, stdout=subprocess.PIPE):

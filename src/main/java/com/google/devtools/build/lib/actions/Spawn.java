@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * An object representing a subprocess to be invoked, including its command and
@@ -25,17 +27,6 @@ import java.util.Collection;
  * of files it is expected to read and write.
  */
 public interface Spawn {
-
-  /**
-   * Returns true iff this command may be executed remotely.
-   */
-  boolean isRemotable();
-
-  /**
-   * Returns true iff this command should be executed without a sandbox.
-   */
-  boolean hasNoSandbox();
-
   /**
    * Out-of-band data for this spawn. This can be used to signal hints (hardware requirements,
    * local vs. remote) to the execution subsystem.
@@ -118,4 +109,7 @@ public interface Spawn {
    * Returns a mnemonic (string constant) for this kind of spawn.
    */
   String getMnemonic();
+
+  @Nullable
+  PlatformInfo getExecutionPlatform();
 }

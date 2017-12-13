@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -26,8 +27,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
-import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -67,7 +66,8 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     }
 
     @Override
-    public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions() {
+    public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
+        BlazeDirectories directories) {
       // Add both the local repository and the skylark repository functions
       // The RepositoryCache mock injected with the SkylarkRepositoryFunction
       HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
@@ -79,15 +79,16 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
       RepositoryDelegatorFunction function =
           new RepositoryDelegatorFunction(
-              repositoryHandlers, skylarkRepositoryFunction, new AtomicBoolean(true));
-      function.setClientEnvironment(ImmutableMap.<String, String>of());
+              repositoryHandlers,
+              skylarkRepositoryFunction,
+              new AtomicBoolean(true),
+              ImmutableMap::of,
+              directories);
       return ImmutableMap.of(
           SkyFunctions.REPOSITORY_DIRECTORY,
           function,
           SkyFunctions.REPOSITORY,
-          new RepositoryLoaderFunction(),
-          FdoSupportValue.SKYFUNCTION,
-          new FdoSupportFunction());
+          new RepositoryLoaderFunction());
     }
   }
 

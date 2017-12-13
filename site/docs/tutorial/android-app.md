@@ -3,7 +3,7 @@ layout: documentation
 title: Build Tutorial - Android
 ---
 
-Introduction to Bazel: Build an Android App
+Introduction to Bazel: Building an Android App
 ==========
 
 In this tutorial, you will learn how to build a simple Android app. You'll do

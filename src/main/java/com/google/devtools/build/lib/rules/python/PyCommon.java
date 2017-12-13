@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -27,11 +28,11 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
@@ -52,7 +53,6 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.util.ArrayList;
@@ -96,7 +96,7 @@ public final class PyCommon {
 
   public void initCommon(PythonVersion defaultVersion) {
     this.sourcesVersion = getPythonVersionAttr(
-        ruleContext, "srcs_version", PythonVersion.getAllValues());
+        ruleContext, "srcs_version", PythonVersion.getAllVersions());
 
     this.version = ruleContext.getFragment(PythonConfiguration.class)
         .getPythonVersion(defaultVersion);
@@ -135,7 +135,7 @@ public final class PyCommon {
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().addAll(srcs).add(executable);
 
-    if (ruleContext.getConfiguration().buildPythonZip()) {
+    if (ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       filesToBuildBuilder.add(getPythonZipArtifact(executable));
     }
 
@@ -204,10 +204,11 @@ public final class PyCommon {
     if (version != null) {
       return version;
     }
+    // Should already have been disallowed in the rule.
     ruleContext.attributeError(attrName,
         "'" + stringAttr + "' is not a valid value. Expected one of: " + Joiner.on(", ")
             .join(allowed));
-    return PythonVersion.defaultValue();
+    return PythonVersion.defaultTargetPythonVersion();
   }
 
   /**
@@ -399,14 +400,11 @@ public final class PyCommon {
    */
   private void checkSourceIsCompatible(PythonVersion targetVersion, PythonVersion sourceVersion,
                                           Label source) {
-    if (targetVersion == PythonVersion.PY2 || targetVersion == PythonVersion.PY2AND3) {
-      if (sourceVersion == PythonVersion.PY3ONLY) {
-        ruleContext.ruleError("Rule '" + source
-                  + "' can only be used with Python 3, and cannot be converted to Python 2");
-      } else if (sourceVersion == PythonVersion.PY3) {
-        ruleContext.ruleError("Rule '" + source
-                  + "' need to be converted to Python 2 (not yet implemented)");
-      }
+    // Treat PY3 as PY3ONLY: we'll never implement 3to2.
+    if ((targetVersion == PythonVersion.PY2 || targetVersion == PythonVersion.PY2AND3)
+        && (sourceVersion == PythonVersion.PY3 || sourceVersion == PythonVersion.PY3ONLY)) {
+      ruleContext.ruleError("Rule '" + source
+          + "' can only be used with Python 3, and cannot be converted to Python 2");
     }
     if ((targetVersion == PythonVersion.PY3 || targetVersion == PythonVersion.PY2AND3)
         && sourceVersion == PythonVersion.PY2ONLY) {

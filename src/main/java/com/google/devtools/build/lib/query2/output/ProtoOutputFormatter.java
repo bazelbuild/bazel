@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.graph.Digraph;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -38,7 +39,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
+import com.google.devtools.build.lib.query2.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
@@ -83,6 +84,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   private boolean relativeLocations = false;
   protected boolean includeDefaultValues = true;
+  private boolean flattenSelects = true;
 
   protected void setDependencyFilter(QueryOptions options) {
     this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
@@ -98,6 +100,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     super.setOptions(options, aspectResolver);
     this.relativeLocations = options.relativeLocations;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
+    this.flattenSelects = options.protoFlattenSelects;
   }
 
   @Override
@@ -168,17 +171,23 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         rulePb.setLocation(location);
       }
       Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
+      AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
       for (Attribute attr : rule.getAttributes()) {
         if ((!includeDefaultValues && !rule.isAttributeValueExplicitlySpecified(attr))
             || !includeAttribute(rule, attr)) {
           continue;
         }
-        Object flattenedAttributeValue =
-            flattenAttributeValues(attr.getType(), getPossibleAttributeValues(rule, attr));
+        Object attributeValue;
+        if (flattenSelects || !attributeMapper.isConfigurable(attr.getName())) {
+          attributeValue =
+              flattenAttributeValues(attr.getType(), getPossibleAttributeValues(rule, attr));
+        } else {
+          attributeValue = attributeMapper.getSelectorList(attr.getName(), attr.getType());
+        }
         Build.Attribute serializedAttribute =
             AttributeFormatter.getAttributeProto(
                 attr,
-                flattenedAttributeValue,
+                attributeValue,
                 rule.isAttributeValueExplicitlySpecified(attr),
                 /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
         rulePb.addAttribute(serializedAttribute);
@@ -298,7 +307,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
       targetPb.setType(SOURCE_FILE);
       targetPb.setSourceFile(input);
-    } else if (target instanceof FakeSubincludeTarget) {
+    } else if (target instanceof FakeLoadTarget) {
       Label label = target.getLabel();
       SourceFile.Builder input = SourceFile.newBuilder()
                                            .setName(label.toString());

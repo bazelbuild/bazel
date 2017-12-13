@@ -40,11 +40,9 @@ import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -73,35 +71,32 @@ public class BaseRuleClasses {
         }
       };
 
+  // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /**
    * Implementation for the :action_listener attribute.
+   *
+   * <p>action_listeners are special rules; they tell the build system to add extra_actions to
+   * existing rules. As such they need an edge to every ConfiguredTarget with the limitation that
+   * they only run on the target configuration and should not operate on action_listeners and
+   * extra_actions themselves (to avoid cycles).
    */
   @VisibleForTesting
-  static final LateBoundLabelList<BuildConfiguration> ACTION_LISTENER =
-      new LateBoundLabelList<BuildConfiguration>() {
-    @Override
-    public List<Label> resolve(Rule rule, AttributeMap attributes,
-        BuildConfiguration configuration) {
-      // action_listeners are special rules; they tell the build system to add extra_actions to
-      // existing rules. As such they need an edge to every ConfiguredTarget with the limitation
-      // that they only run on the target configuration and should not operate on action_listeners
-      // and extra_actions themselves (to avoid cycles).
-      return configuration.getActionListeners();
-    }
-  };
+  static final LateBoundDefault<?, List<Label>> ACTION_LISTENER =
+      LateBoundDefault.fromTargetConfiguration(
+          BuildConfiguration.class,
+          ImmutableList.of(),
+          (rule, attributes, configuration) -> configuration.getActionListeners());
 
-  /**
-   * Implementation for the :run_under attribute.
-   */
-  public static final LateBoundLabel<BuildConfiguration> RUN_UNDER =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          RunUnder runUnder = configuration.getRunUnder();
-          return runUnder == null ? null : runUnder.getLabel();
-        }
-      };
+  // TODO(b/65746853): provide a way to do this without passing the entire configuration
+  /** Implementation for the :run_under attribute. */
+  public static final LateBoundDefault<?, Label> RUN_UNDER =
+      LateBoundDefault.fromTargetConfiguration(
+          BuildConfiguration.class,
+          null,
+          (rule, attributes, configuration) -> {
+            RunUnder runUnder = configuration.getRunUnder();
+            return runUnder != null ? runUnder.getLabel() : null;
+          });
 
   /**
    * A base rule for all test rules.
@@ -315,7 +310,7 @@ public class BaseRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("toolchains", LABEL_LIST)
               .allowedFileTypes(FileTypeSet.NO_FILE)
-              .mandatoryProviders(ImmutableList.of(MakeVariableInfo.PROVIDER.id())))
+              .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id())))
           .build();
     }
 

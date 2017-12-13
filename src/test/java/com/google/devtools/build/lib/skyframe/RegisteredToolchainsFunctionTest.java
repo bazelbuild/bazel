@@ -19,15 +19,10 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
-import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
-import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,17 +30,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link RegisteredToolchainsFunction} and {@link RegisteredToolchainsValue}. */
 @RunWith(JUnit4.class)
 public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
-
-  private EvaluationResult<RegisteredToolchainsValue> requestToolchainsFromSkyframe(
-      SkyKey toolchainsKey) throws InterruptedException {
-    try {
-      getSkyframeExecutor().getSkyframeBuildView().enableAnalysis(true);
-      return SkyframeExecutorTestUtils.evaluate(
-          getSkyframeExecutor(), toolchainsKey, /*keepGoing=*/ false, reporter);
-    } finally {
-      getSkyframeExecutor().getSkyframeBuildView().enableAnalysis(false);
-    }
-  }
 
   @Test
   public void testRegisteredToolchains() throws Exception {
@@ -57,26 +41,20 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result).hasEntryThat(toolchainsKey).isNotNull();
 
     RegisteredToolchainsValue value = result.get(toolchainsKey);
-    // We have two registered toolchains, and one default for c++
-    assertThat(value.registeredToolchains()).hasSize(3);
+    // We have two registered toolchains, and two default for c++
+    assertThat(value.registeredToolchains()).hasSize(4);
 
-    DeclaredToolchainInfo registeredToolchain1 = value.registeredToolchains().get(1);
-    assertThat(registeredToolchain1).isNotNull();
+    assertThat(value.registeredToolchains().stream().anyMatch(toolchain ->
+        (toolchain.toolchainType().equals(testToolchainType))
+            && toolchain.execConstraints().contains(linuxConstraint)
+            && toolchain.targetConstraints().contains(macConstraint)
+            && toolchain.toolchainLabel().equals(makeLabel("//toolchain:test_toolchain_1")))).isTrue();
 
-    assertThat(registeredToolchain1.toolchainType()).isEqualTo(testToolchainType);
-    assertThat(registeredToolchain1.execConstraints()).containsExactly(linuxConstraint);
-    assertThat(registeredToolchain1.targetConstraints()).containsExactly(macConstraint);
-    assertThat(registeredToolchain1.toolchainLabel())
-        .isEqualTo(makeLabel("//toolchain:test_toolchain_1"));
-
-    DeclaredToolchainInfo registeredToolchain2 = value.registeredToolchains().get(2);
-    assertThat(registeredToolchain2).isNotNull();
-
-    assertThat(registeredToolchain2.toolchainType()).isEqualTo(testToolchainType);
-    assertThat(registeredToolchain2.execConstraints()).containsExactly(macConstraint);
-    assertThat(registeredToolchain2.targetConstraints()).containsExactly(linuxConstraint);
-    assertThat(registeredToolchain2.toolchainLabel())
-        .isEqualTo(makeLabel("//toolchain:test_toolchain_2"));
+    assertThat(value.registeredToolchains().stream().anyMatch(toolchain ->
+        (toolchain.toolchainType().equals(testToolchainType))
+            && toolchain.execConstraints().contains(macConstraint)
+            && toolchain.targetConstraints().contains(linuxConstraint)
+            && toolchain.toolchainLabel().equals(makeLabel("//toolchain:test_toolchain_2")))).isTrue();
   }
 
   @Test
@@ -89,8 +67,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         "toolchain(",
         "    name = 'extra_toolchain',",
         "    toolchain_type = '//toolchain:test_toolchain',",
-        "    exec_compatible_with = ['//constraint:linux'],",
-        "    target_compatible_with = ['//constraint:linux'],",
+        "    exec_compatible_with = ['//constraints:linux'],",
+        "    target_compatible_with = ['//constraints:linux'],",
         "    toolchain = ':extra_toolchain_impl')",
         "test_toolchain(",
         "  name='extra_toolchain_impl',",
@@ -106,7 +84,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
     // Verify that the target registered with the extra_toolchains flag is first in the list.
     assertToolchainLabels(result.get(toolchainsKey))
-        .containsExactly(
+        .containsAllOf(
             makeLabel("//extra:extra_toolchain_impl"), makeLabel("//toolchain:test_toolchain_1"))
         .inOrder();
   }
@@ -173,21 +151,5 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain1)),
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain2)),
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain2, toolchain1)));
-  }
-
-  private static IterableSubject assertToolchainLabels(
-      RegisteredToolchainsValue registeredToolchainsValue) {
-    assertThat(registeredToolchainsValue).isNotNull();
-    ImmutableList<DeclaredToolchainInfo> declaredToolchains =
-        registeredToolchainsValue.registeredToolchains();
-    List<Label> labels = collectToolchainLabels(declaredToolchains);
-    return assertThat(labels);
-  }
-
-  private static List<Label> collectToolchainLabels(List<DeclaredToolchainInfo> toolchains) {
-    return toolchains
-        .stream()
-        .map((toolchain -> toolchain.toolchainLabel()))
-        .collect(Collectors.toList());
   }
 }

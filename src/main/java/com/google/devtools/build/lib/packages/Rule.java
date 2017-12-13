@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.BinaryPredicate;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -549,7 +549,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
       throws InterruptedException {
     try {
       RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
-      for (String out : implicitOutputsFunction.getImplicitOutputs(attributeMap)) {
+      for (String out : implicitOutputsFunction.getImplicitOutputs(eventHandler, attributeMap)) {
         Label label;
         if (performChecks) {
           try {

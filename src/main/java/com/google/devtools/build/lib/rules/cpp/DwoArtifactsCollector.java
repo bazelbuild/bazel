@@ -13,14 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Provides generic functionality for collecting the .dwo artifacts produced by any target
@@ -41,7 +40,6 @@ public class DwoArtifactsCollector {
 
   /** Instantiates a "real" collector on meaningful data. */
   private DwoArtifactsCollector(
-      RuleContext ruleContext,
       CcCompilationOutputs compilationOutputs,
       Iterable<TransitiveInfoCollection> deps,
       boolean generateDwo,
@@ -61,14 +59,13 @@ public class DwoArtifactsCollector {
     picDwoBuilder.addAll(compilationOutputs.getPicDwoFiles());
 
     // If we are generating .dwo, add any generated for LtoBackendArtifacts.
-    if (generateDwo) {
+    if (generateDwo && ltoBackendArtifacts != null) {
       for (LtoBackendArtifacts ltoBackendArtifact : ltoBackendArtifacts) {
-        Artifact objectFile = ltoBackendArtifact.getObjectFile();
+        Artifact dwoFile = ltoBackendArtifact.getDwoFile();
         if (ltoBackendArtifactsUsePic) {
-          picDwoBuilder.add(
-              ruleContext.getRelatedArtifact(objectFile.getRootRelativePath(), ".dwo"));
+          picDwoBuilder.add(dwoFile);
         } else {
-          dwoBuilder.add(ruleContext.getRelatedArtifact(objectFile.getRootRelativePath(), ".dwo"));
+          dwoBuilder.add(dwoFile);
         }
       }
     }
@@ -100,14 +97,12 @@ public class DwoArtifactsCollector {
    * @param deps which of the target's transitive info collections should be visited
    */
   public static DwoArtifactsCollector transitiveCollector(
-      RuleContext ruleContext,
       CcCompilationOutputs compilationOutputs,
       Iterable<TransitiveInfoCollection> deps,
       boolean generateDwo,
       boolean ltoBackendArtifactsUsePic,
       Iterable<LtoBackendArtifacts> ltoBackendArtifacts) {
     return new DwoArtifactsCollector(
-        ruleContext,
         compilationOutputs,
         deps,
         generateDwo,
@@ -121,13 +116,11 @@ public class DwoArtifactsCollector {
    * @param compilationOutputs the output compilation context for the owning target
    */
   public static DwoArtifactsCollector directCollector(
-      RuleContext ruleContext,
       CcCompilationOutputs compilationOutputs,
       boolean generateDwo,
       boolean ltoBackendArtifactsUsePic,
       Iterable<LtoBackendArtifacts> ltoBackendArtifacts) {
     return new DwoArtifactsCollector(
-        ruleContext,
         compilationOutputs,
         ImmutableList.<TransitiveInfoCollection>of(),
         generateDwo,

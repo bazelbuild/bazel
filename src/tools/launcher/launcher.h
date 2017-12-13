@@ -64,6 +64,7 @@ class BinaryLauncherBase {
   // exectuable: the binary to be executed.
   // arguments:  the command line arguments to be passed to the exectuable,
   //             it doesn't include the exectuable itself.
+  //             The arguments are expected to be quoted if having spaces.
   ExitCode LaunchProcess(const std::string& executable,
                          const std::vector<std::string>& arguments) const;
 

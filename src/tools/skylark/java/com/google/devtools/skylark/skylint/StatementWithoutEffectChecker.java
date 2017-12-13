@@ -21,13 +21,14 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import com.google.devtools.build.lib.syntax.ListComprehension;
 import com.google.devtools.build.lib.syntax.Statement;
-import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Checks for statements that have no effect. */
 public class StatementWithoutEffectChecker extends SyntaxTreeVisitor {
+  private static final String NO_EFFECT_CATEGORY = "no-effect";
+
   private final List<Issue> issues = new ArrayList<>();
   private boolean hasEffect = false;
   private boolean topLevel = true;
@@ -40,27 +41,30 @@ public class StatementWithoutEffectChecker extends SyntaxTreeVisitor {
 
   @Override
   public void visit(BuildFileAST ast) {
-    checkStatementsExceptDocstring(ast.getStatements());
+    checkStatementsExceptDocstrings(ast.getStatements(), /*allowVariableDocstrings=*/ true);
   }
 
   @Override
   public void visit(FunctionDefStatement node) {
     topLevel = false;
-    checkStatementsExceptDocstring(node.getStatements());
+    checkStatementsExceptDocstrings(node.getStatements(), /*allowVariableDocstrings=*/ false);
     topLevel = true;
   }
 
-  private void checkStatementsExceptDocstring(List<Statement> stmts) {
-    if (stmts.isEmpty()) {
-      return;
-    }
-    Statement firstStatement = stmts.get(0);
-    // skip docstrings
-    boolean skipFirstStatement =
-        firstStatement instanceof ExpressionStatement
-            && ((ExpressionStatement) firstStatement).getExpression() instanceof StringLiteral;
-    for (int i = skipFirstStatement ? 1 : 0; i < stmts.size(); i++) {
-      visit(stmts.get(i));
+  private void checkStatementsExceptDocstrings(
+      List<Statement> stmts, boolean allowVariableDocstrings) {
+    Statement prev = null;
+    for (Statement cur : stmts) {
+      boolean isStringLiteral = DocstringUtils.getStringLiteral(cur) != null;
+      boolean isVariableDocstring =
+          allowVariableDocstrings
+              && isStringLiteral
+              && DocstringUtils.getAssignedVariableName(prev) != null;
+      boolean isDocstringAtTop = isStringLiteral && prev == null;
+      if (!isVariableDocstring && !isDocstringAtTop) {
+        visit(cur);
+      }
+      prev = cur;
     }
   }
 
@@ -77,7 +81,11 @@ public class StatementWithoutEffectChecker extends SyntaxTreeVisitor {
       // list]
       return;
     }
-    issues.add(new Issue("expression result not used", node.getLocation()));
+    String message = "expression result not used";
+    if (expr instanceof ListComprehension && !topLevel) {
+      message += ". Use a for-loop instead of a list comprehension.";
+    }
+    issues.add(Issue.create(NO_EFFECT_CATEGORY, message, node.getLocation()));
   }
 
   @Override

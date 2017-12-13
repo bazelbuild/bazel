@@ -69,15 +69,6 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     public String embedLabel;
 
     @Option(
-      name = "experimental_embed_timestamp_epoch",
-      defaultValue = "-1",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Alternative timestamp to be used in stamping the binary"
-    )
-    public long embedTimestampEpoch;
-
-    @Option(
       name = "workspace_status_command",
       defaultValue = "",
       category = "misc",

@@ -15,11 +15,17 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelCodec;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValueCodec;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Tests for {@link PrecomputedValueCodec}. */
+@RunWith(JUnit4.class)
 public class PrecomputedValueCodecTest extends AbstractObjectCodecTest<PrecomputedValue> {
   public PrecomputedValueCodecTest() {
     super(
@@ -28,7 +34,7 @@ public class PrecomputedValueCodecTest extends AbstractObjectCodecTest<Precomput
                 ObjectCodecs.newBuilder()
                     .asClassKeyedBuilder()
                     // Note no PathFragmentCodec.
-                    .add(String.class, new FastStringCodec())
+                    .add(String.class, StringCodecs.asciiOptimized())
                     .add(Label.class, LabelCodec.INSTANCE)
                     .build()),
         new PrecomputedValue(PathFragment.create("java serializable 1")),

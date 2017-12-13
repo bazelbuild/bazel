@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import javax.annotation.Nullable;

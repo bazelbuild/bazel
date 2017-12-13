@@ -22,8 +22,8 @@
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source ${CURRENT_DIR}/bazel_sandboxing_test_utils.sh \
-  || { echo "bazel_sandboxing_test_utils.sh not found!" >&2; exit 1; }
+source ${CURRENT_DIR}/../sandboxing_test_utils.sh \
+  || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
 source ${CURRENT_DIR}/remote_helpers.sh \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
@@ -115,7 +115,7 @@ genrule(
   tags = [ "local" ],
 )
 
-load('/examples/genrule/skylark', 'skylark_breaks1')
+load('//examples/genrule:skylark.bzl', 'skylark_breaks1')
 
 skylark_breaks1(
   name = "skylark_breaks1",
@@ -544,8 +544,35 @@ EOF
   expect_log "Executing genrule //:test failed:"
 }
 
-# TODO(xingao) Disabled due to https://github.com/bazelbuild/bazel/issues/2760
-function DISABLED_test_sandbox_mount_customized_path () {
+function test_sandbox_debug() {
+  cat > BUILD <<'EOF'
+genrule(
+  name = "broken",
+  outs = ["bla.txt"],
+  cmd = "exit 1",
+)
+EOF
+  bazel build --verbose_failures :broken &> $TEST_log \
+    && fail "build should have failed" || true
+  expect_log "Use --sandbox_debug to see verbose messages from the sandbox"
+  expect_log "Executing genrule //:broken failed"
+
+  bazel build --verbose_failures --sandbox_debug :broken &> $TEST_log \
+    && fail "build should have failed" || true
+  expect_log "Executing genrule //:broken failed"
+  expect_not_log "Use --sandbox_debug to see verbose messages from the sandbox"
+  # This will appear a lot in the sandbox failure details.
+  expect_log "bazel-sandbox"
+}
+
+function test_sandbox_mount_customized_path () {
+
+  if ! [ "${PLATFORM-}" = "linux" -a \
+    "$(cat /dev/null /etc/*release | grep 'DISTRIB_CODENAME=' | sed 's/^.*=//')" = "trusty" ]; then
+    echo "Skipping test: the toolchain used in this test is only supported on trusty."
+    return 0
+  fi
+
   # Create BUILD file
   cat > BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
@@ -579,11 +606,13 @@ EOF
   target_folder="${target_root}/x86_64-unknown-linux-gnu/sysroot/lib64"
   target="${target_folder}/ld-2.19.so"
 
-  # Download the toolchain package and unpack it.
-  wget -q https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz
+  # Unpack the toolchain.
   mkdir downloaded_toolchain
-  tar -xf mount_path_toolchain.tar.gz -C ./downloaded_toolchain
+  tar -xf ${TEST_SRCDIR}/mount_path_toolchain/file/mount_path_toolchain.tar.gz -C ./downloaded_toolchain
   chmod -R 0755 downloaded_toolchain
+
+  # Create an empty WORKSPACE file for the local repository.
+  touch downloaded_toolchain/WORKSPACE
 
   # Replace the target_root_placeholder with the actual target_root
   sed -i "s|target_root_placeholder|$target_root|g" downloaded_toolchain/CROSSTOOL

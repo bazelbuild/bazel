@@ -23,6 +23,9 @@ import com.google.devtools.build.android.desugar.testdata.java8.ConcreteDefaultI
 import com.google.devtools.build.android.desugar.testdata.java8.ConcreteOverridesDefaultWithLambda;
 import com.google.devtools.build.android.desugar.testdata.java8.DefaultInterfaceMethodWithStaticInitializer;
 import com.google.devtools.build.android.desugar.testdata.java8.DefaultInterfaceWithBridges;
+import com.google.devtools.build.android.desugar.testdata.java8.DefaultMethodFromSeparateJava8Target;
+import com.google.devtools.build.android.desugar.testdata.java8.DefaultMethodFromSeparateJava8TargetOverridden;
+import com.google.devtools.build.android.desugar.testdata.java8.DefaultMethodTransitivelyFromSeparateJava8Target;
 import com.google.devtools.build.android.desugar.testdata.java8.FunctionWithDefaultMethod;
 import com.google.devtools.build.android.desugar.testdata.java8.FunctionalInterfaceWithInitializerAndDefaultMethods;
 import com.google.devtools.build.android.desugar.testdata.java8.GenericDefaultInterfaceWithLambda;
@@ -108,6 +111,12 @@ public class DesugarJava8FunctionalTest extends DesugarFunctionalTest {
     List<String> dest =
         methodrefUse.lambdaCallsDefaultMethod(ImmutableList.of("Sergey", "Larry", "Alex"));
     assertThat(dest).containsExactly("Sergey");
+  }
+
+  @Test
+  public void testBootclasspathMethodInvocations() {
+    InterfaceMethod concrete = new InterfaceMethod.Concrete();
+    assertThat(concrete.defaultInvokingBootclasspathMethods("Larry")).isEqualTo("Larry");
   }
 
   @Test
@@ -393,5 +402,17 @@ public class DesugarJava8FunctionalTest extends DesugarFunctionalTest {
               DefaultInterfaceMethodWithStaticInitializer.TestInterfaceSetThree
                   .getExpectedInitializationOrder());
     }
+  }
+
+  /**
+   * Tests that default methods on the classpath are correctly handled. We'll also verify the
+   * metadata that's emitted for this case to make sure the binary-wide double-check for correct
+   * desugaring of default and static interface methods keeps working (b/65645388).
+   */
+  @Test
+  public void testDefaultMethodsInSeparateTarget() {
+    assertThat(new DefaultMethodFromSeparateJava8Target().dflt()).isEqualTo("dflt");
+    assertThat(new DefaultMethodTransitivelyFromSeparateJava8Target().dflt()).isEqualTo("dflt");
+    assertThat(new DefaultMethodFromSeparateJava8TargetOverridden().dflt()).isEqualTo("override");
   }
 }

@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.skyframe.packages;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -29,7 +31,6 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -56,7 +57,12 @@ public class BazelPackageLoader extends AbstractPackageLoader {
             SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
             new LocalRepositoryLookupFunction(),
             SkyFunctions.REPOSITORY_DIRECTORY,
-            new RepositoryDelegatorFunction(repositoryHandlers, null, new AtomicBoolean(true)),
+            new RepositoryDelegatorFunction(
+                repositoryHandlers,
+                null,
+                new AtomicBoolean(true),
+                ImmutableMap::of,
+                builder.directories),
             SkyFunctions.REPOSITORY,
             new RepositoryLoaderFunction()));
 
@@ -71,23 +77,26 @@ public class BazelPackageLoader extends AbstractPackageLoader {
 
   /** Builder for {@link BazelPackageLoader} instances. */
   public static class Builder extends AbstractPackageLoader.Builder {
+    private static final ConfiguredRuleClassProvider DEFAULT_RULE_CLASS_PROVIDER =
+        BazelRuleClassProvider.create();
+
     private Builder(Path workspaceDir) {
       super(workspaceDir);
     }
 
     @Override
-    public BazelPackageLoader build() {
+    public BazelPackageLoader buildImpl() {
       return new BazelPackageLoader(this);
     }
 
     @Override
     protected RuleClassProvider getDefaultRuleClassProvider() {
-      return BazelRuleClassProvider.create();
+      return DEFAULT_RULE_CLASS_PROVIDER;
     }
 
     @Override
     protected String getDefaultDefaultPackageContents() {
-      return BazelRuleClassProvider.create().getDefaultsPackageContent(
+      return DEFAULT_RULE_CLASS_PROVIDER.getDefaultsPackageContent(
           InvocationPolicy.getDefaultInstance());
     }
   }

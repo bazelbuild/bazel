@@ -30,7 +30,7 @@ final class StripVerifyingVisitor extends ClassVisitor {
   private String className;
 
   public StripVerifyingVisitor() {
-    super(Opcodes.ASM5);
+    super(Opcodes.ASM6);
   }
 
   @Override public void visit(
@@ -109,7 +109,7 @@ final class StripVerifyingVisitor extends ClassVisitor {
     private final String fieldName;
 
     StripVerifyingFieldVisitor(List<String> errors, String className, String fieldName) {
-      super(Opcodes.ASM5);
+      super(Opcodes.ASM6);
       this.errors = errors;
       this.className = className;
       this.fieldName = fieldName;
@@ -135,7 +135,7 @@ final class StripVerifyingVisitor extends ClassVisitor {
     private final String methodName;
 
     StripVerifyingMethodVisitor(List<String> errors, String className, String methodName) {
-      super(Opcodes.ASM5);
+      super(Opcodes.ASM6);
       this.errors = errors;
       this.className = className;
       this.methodName = methodName;

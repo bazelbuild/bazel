@@ -27,11 +27,13 @@ import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConver
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -137,9 +139,11 @@ public class AarGeneratorAction {
 
   public static void main(String[] args) {
     Stopwatch timer = Stopwatch.createStarted();
-    AarGeneratorOptions options =
-        Options.parseAndExitUponError(AarGeneratorOptions.class, /*allowResidue=*/ true, args)
-            .getOptions();
+    OptionsParser optionsParser = OptionsParser.newOptionsParser(AarGeneratorOptions.class);
+    optionsParser.enableParamsFileSupport(
+        new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    optionsParser.parseAndExitUponError(args);
+    AarGeneratorOptions options = optionsParser.getOptions(AarGeneratorOptions.class);
 
     checkFlags(options);
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.protobuf.TextFormat;
+import com.google.protobuf.TextFormat.ParseException;
 import java.io.IOException;
 
 /**
@@ -353,6 +355,9 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
+      "" + "feature {  name: 'thin_lto_linkstatic_tests_use_shared_nonlto_backends'}";
+
   public static final String AUTO_FDO_CONFIGURATION =
       ""
           + "feature {"
@@ -404,6 +409,17 @@ public abstract class MockCcSupport {
           + "      flag: 'per_object_debug_info_option'"
           + "    }"
           + "  }"
+          + "}";
+
+  public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION =
+      "" + "feature { " + "  name: 'copy_dynamic_libraries_to_binary'" + "}";
+
+  public static final String TARGETS_WINDOWS_CONFIGURATION =
+      ""
+          + "feature {"
+          + "   name: 'targets_windows'"
+          + "   implies: 'copy_dynamic_libraries_to_binary'"
+          + "   enabled: true"
           + "}";
 
   public static final String STATIC_LINK_TWEAKED_CONFIGURATION =
@@ -485,6 +501,29 @@ public abstract class MockCcSupport {
       toolchainBuilder.mergeFrom(toolchain);
     }
     return TextFormat.printToString(builder.build());
+  }
+
+  /** Applies the given function to the first toolchain that applies to the given cpu. */
+  public static String applyToToolchain(
+      String original,
+      String targetCpu,
+      Function<CToolchain.Builder, CToolchain.Builder> transformation)
+      throws ParseException {
+    CrosstoolConfig.CrosstoolRelease.Builder crosstoolBuilder =
+        CrosstoolConfig.CrosstoolRelease.newBuilder();
+    TextFormat.merge(original, crosstoolBuilder);
+    for (int i = 0; i < crosstoolBuilder.getToolchainCount(); i++) {
+      if (crosstoolBuilder.getToolchain(i).getTargetCpu().equals(targetCpu)) {
+        CToolchain.Builder toolchainBuilder =
+            CToolchain.newBuilder(crosstoolBuilder.getToolchain(i));
+        transformation.apply(toolchainBuilder);
+        crosstoolBuilder.removeToolchain(i);
+        crosstoolBuilder.addToolchain(toolchainBuilder.build());
+        break;
+      }
+    }
+
+    return TextFormat.printToString(crosstoolBuilder.build());
   }
 
   public static String addOptionalDefaultCoptsToCrosstool(String original)

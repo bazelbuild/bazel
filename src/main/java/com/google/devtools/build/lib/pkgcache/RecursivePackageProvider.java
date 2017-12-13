@@ -38,9 +38,10 @@ public interface RecursivePackageProvider extends PackageProvider {
    *     and non-excluded directories beneath it will be reported here
    * @param directory a {@link RootedPath} specifying the directory to search
    * @param blacklistedSubdirectories a set of {@link PathFragment}s, all of which are beneath
-   *     {@code directory}, specifying transitive subdirectories to that have been blacklisted
+   *     {@code directory} (not necessarily strictly), specifying transitive subdirectories that
+   *     have been blacklisted
    * @param excludedSubdirectories a set of {@link PathFragment}s, all of which are beneath {@code
-   *     directory}, specifying transitive subdirectories to exclude
+   *     directory} (not necessarily strictly), specifying transitive subdirectories to exclude
    */
   Iterable<PathFragment> getPackagesUnderDirectory(
       ExtendedEventHandler eventHandler,

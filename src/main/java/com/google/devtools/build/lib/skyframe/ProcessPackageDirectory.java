@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -22,8 +23,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path;
@@ -194,10 +193,6 @@ public class ProcessPackageDirectory {
         continue;
       }
       String basename = dirent.getName();
-      if (rootRelativePath.equals(PathFragment.EMPTY_FRAGMENT)
-          && PathPackageLocator.DEFAULT_TOP_LEVEL_EXCLUDES.contains(basename)) {
-        continue;
-      }
       PathFragment subdirectory = rootRelativePath.getRelative(basename);
       if (subdirectory.equals(Label.EXTERNAL_PACKAGE_NAME)) {
         // Not a real package.
@@ -237,7 +232,7 @@ public class ProcessPackageDirectory {
   private static ProcessPackageDirectoryResult reportErrorAndReturn(
       String errorPrefix, Exception e, PathFragment rootRelativePath, EventHandler handler) {
     handler.handle(
-        Event.warn(errorPrefix + ", for " + rootRelativePath + ", skipping: " + e.getMessage()));
+        Event.error(errorPrefix + ", for " + rootRelativePath + ", skipping: " + e.getMessage()));
     return ProcessPackageDirectoryResult.EMPTY_RESULT;
   }
 

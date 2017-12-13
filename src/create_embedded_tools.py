@@ -45,6 +45,7 @@ output_paths = [
     ('*Runner_deploy.jar', lambda x: 'tools/jdk/TestRunner_deploy.jar'),
     ('*singlejar', lambda x: 'tools/jdk/singlejar/singlejar'),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
+    ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
     ('*ijar.exe', lambda x: 'tools/jdk/ijar/ijar.exe'),
     ('*ijar', lambda x: 'tools/jdk/ijar/ijar'),
     ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),

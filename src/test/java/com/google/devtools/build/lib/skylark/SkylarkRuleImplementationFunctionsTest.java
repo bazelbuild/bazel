@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
@@ -56,9 +58,9 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -171,7 +173,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
       setupSkylarkFunction(line);
       fail();
     } catch (EvalException e) {
-      assertThat(e).hasMessage(errorMsg);
+      assertThat(e).hasMessageThat().isEqualTo(errorMsg);
     }
   }
 
@@ -297,7 +299,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionArgumentsBadExecutable() throws Exception {
     checkErrorContains(
         createRuleContext("//foo:foo"),
-        "expected file or string for executable but got int instead",
+        "Cannot convert parameter 'executable' to type File or string, in method "
+            + "run(list inputs, list outputs, list arguments, int executable) of 'actions'",
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -459,7 +462,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('/test/empty', 'empty_action_rule')",
+        "load('//test:empty.bzl', 'empty_action_rule')",
         "empty_action_rule(name = 'my_empty_action',",
         "                srcs = ['foo.in', 'other_foo.in'])",
         "action_listener(name = 'listener',",
@@ -503,6 +506,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "in genrule rule //foo:bar: label '//foo:abc' in $(locations) expression "
             + "is not a declared prerequisite of this rule",
         "ruleContext.expand_location('$(locations :abc)')");
+  }
+
+  /** Regression test to check that expand_location allows ${var} and $$. */
+  @Test
+  public void testExpandLocationWithDollarSignsAndCurlys() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:bar");
+    assertThat((String)
+        evalRuleContextCode(
+            ruleContext, "ruleContext.expand_location('${abc} $(echo) $$ $')"))
+        .isEqualTo("${abc} $(echo) $$ $");
   }
 
   /**
@@ -623,8 +636,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "Cannot convert parameter 'content' to type string, in method "
-            + "write(File output, int content, bool is_executable) of 'actions'",
+        "Cannot convert parameter 'content' to type string or Args",
         "ruleContext.actions.write(",
         "  output = ruleContext.files.srcs[0],",
         "  content = 1,",
@@ -658,9 +670,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
    * usually write those files using UTF-8 encoding. Currently, the string-valued 'substitutions'
    * parameter of the template_action function contains a hack that assumes its input is a UTF-8
    * encoded string which has been ingested as Latin 1. The hack converts the string to its
-   * "correct" UTF-8 value. Once {@link com.google.devtools.build.lib.syntax.ParserInputSource#create(com.google.devtools.build.lib.vfs.Path)}
-   * parses files using UTF-8 and the hack for the substituations parameter is removed, this test
-   * will fail.
+   * "correct" UTF-8 value. Once {@link
+   * com.google.devtools.build.lib.syntax.ParserInputSource#create(byte[],
+   * com.google.devtools.build.lib.vfs.PathFragment)} parses files using UTF-8 and the hack for the
+   * substituations parameter is removed, this test will fail.
    */
   @Test
   public void testCreateTemplateActionWithWrongEncoding() throws Exception {
@@ -1550,11 +1563,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testDefinedMakeVariable() throws Exception {
+    useConfiguration("--define=FOO=bar");
     SkylarkRuleContext ctx = createRuleContext("//foo:baz");
-    String java = (String) evalRuleContextCode(ctx, "ruleContext.var['JAVA']");
-    // Get the last path segment
-    java = java.substring(java.lastIndexOf('/'));
-    assertThat(java).isEqualTo("/java" + OsUtils.executableExtension());
+    String foo = (String) evalRuleContextCode(ctx, "ruleContext.var['FOO']");
+    assertThat(foo).isEqualTo("bar");
   }
 
   @Test
@@ -1660,7 +1672,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('/test/glob', 'glob_rule')",
+        "load('//test:glob.bzl', 'glob_rule')",
         "glob_rule(name = 'my_glob',",
         "  srcs = ['foo.bar', 'other_foo.bar'])");
     reporter.removeHandler(failFastHandler);
@@ -1707,7 +1719,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     scratch.file("test/b.bar", "b");
     scratch.file(
         "test/BUILD",
-        "load('/test/glob', 'glob_rule')",
+        "load('//test:glob.bzl', 'glob_rule')",
         "glob_rule(name = 'my_glob', srcs = glob(['*.bar']))");
     ConfiguredTarget ct = getConfiguredTarget("//test:my_glob");
     assertThat(ct).isNotNull();
@@ -1729,7 +1741,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     );
     scratch.file(
         "test/BUILD",
-        "load('/test/rule', 'silly_rule')",
+        "load('//test:rule.bzl', 'silly_rule')",
         "silly_rule(name = 'silly')");
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
@@ -1737,7 +1749,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     getConfiguredTarget("//test:silly");
   }
 
-  @Ignore
   @Test
   public void testLazyArgs() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
@@ -1760,7 +1771,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
-        "  arguments = args,",
+        "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
         ")");
     SpawnAction action =
@@ -1792,7 +1803,93 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         .inOrder();
   }
 
-  @Ignore
+  @Test
+  public void testMultipleLazyArgsMixedWithStrings() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "foo_args = ruleContext.actions.args()",
+        "foo_args.add('--foo')",
+        "bar_args = ruleContext.actions.args()",
+        "bar_args.add('--bar')",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = ['hello', foo_args, 'world', bar_args, 'works'],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly("foo/t.exe", "hello", "--foo", "world", "--bar", "works")
+        .inOrder();
+  }
+
+  @Test
+  public void testLazyArgsWithParamFile() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "foo_args = ruleContext.actions.args()",
+        "foo_args.add('--foo')",
+        "foo_args.use_param_file('--file=%s', use_always=True)",
+        "output=ruleContext.actions.declare_file('out')",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = [output],",
+        "  arguments = [foo_args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+    List<ActionAnalysisMetadata> actions =
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions();
+    assertThat(actions.stream().anyMatch(a -> a instanceof ParameterFileWriteAction)).isTrue();
+    SpawnAction action =
+        (SpawnAction) actions.stream().filter(a -> a instanceof SpawnAction).findAny().get();
+    // Assert that there is a file argument. Don't bother matching the exact string
+    assertThat(action.getArguments().stream().anyMatch(arg -> arg.matches("--file=.*"))).isTrue();
+  }
+
+  @Test
+  public void testWriteArgsToParamFile() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "args = ruleContext.actions.args()",
+        "args.add('--foo')",
+        "output=ruleContext.actions.declare_file('out')",
+        "ruleContext.actions.write(",
+        "  output=output,",
+        "  content=args,",
+        ")");
+    List<ActionAnalysisMetadata> actions =
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions();
+    Optional<ActionAnalysisMetadata> action =
+        actions.stream().filter(a -> a instanceof ParameterFileWriteAction).findFirst();
+    assertThat(action.isPresent()).isTrue();
+    ParameterFileWriteAction paramAction = (ParameterFileWriteAction) action.get();
+    assertThat(paramAction.getContents()).containsExactly("--foo");
+  }
+
+  @Test
+  public void testLazyArgsWithParamFileInvalidFormatString() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    checkError(
+        ruleContext,
+        "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"",
+        "args = ruleContext.actions.args()\n" + "args.use_param_file('--file=')");
+  }
+
+  @Test
+  public void testLazyArgsWithParamFileInvalidFormat() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    checkError(
+        ruleContext,
+        "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"",
+        "args = ruleContext.actions.args()\n" + "args.set_param_file_format('illegal')");
+  }
+
   @Test
   public void testScalarJoinWithErrorMessage() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
@@ -1802,7 +1899,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "args = ruleContext.actions.args()\n" + "args.add(1, join_with=':')");
   }
 
-  @Ignore
   @Test
   public void testScalarBeforeEachErrorMessage() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
@@ -1812,7 +1908,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "args = ruleContext.actions.args()\n" + "args.add(1, before_each='illegal')");
   }
 
-  @Ignore
   @Test
   public void testLazyArgIllegalFormatString() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
@@ -1823,7 +1918,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
-        "  arguments = args,",
+        "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
         ")");
     SpawnAction action =
@@ -1838,7 +1933,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
   }
 
-  @Ignore
   @Test
   public void testLazyArgBadMapFn() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
@@ -1850,7 +1944,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
-        "  arguments = args,",
+        "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
         ")");
     SpawnAction action =
@@ -1865,7 +1959,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
   }
 
-  @Ignore
   @Test
   public void testLazyArgMapFnReturnsWrongType() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
@@ -1877,7 +1970,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
-        "  arguments = args,",
+        "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
         ")");
     SpawnAction action =
@@ -1892,7 +1985,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
   }
 
-  @Ignore
   @Test
   public void createShellWithLazyArgs() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
@@ -1903,7 +1995,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
-        "  arguments = args,",
+        "  arguments = [args],",
         "  mnemonic = 'DummyMnemonic',",
         "  command = 'dummy_command',",
         "  progress_message = 'dummy_message',",
@@ -1917,6 +2009,170 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     // the dummy empty string is inserted followed by '--foo'
     assertThat(args.get(args.size() - 2)).isEmpty();
     assertThat(Iterables.getLast(args)).isEqualTo("--foo");
+  }
+
+  @Test
+  public void testLazyArgsObjectImmutability() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
+        "dep_rule(name = 'dep')",
+        "main_rule(name = 'main', deps = [':dep'])");
+    scratch.file(
+        "test/rules.bzl",
+        "def _main_impl(ctx):",
+        "  dep = ctx.attr.deps[0]",
+        "  args = dep.dep_arg",
+        "  args.add('hello')",
+        "main_rule = rule(",
+        "  implementation = _main_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  outputs = {'file': 'output.txt'},",
+        ")",
+        "def _dep_impl(ctx):",
+        "  args = ctx.actions.args()",
+        "  return struct(dep_arg = args)",
+        "dep_rule = rule(implementation = _dep_impl)");
+    try {
+      getConfiguredTarget("//test:main");
+      fail("Should have been unable to mutate frozen args object");
+    } catch (AssertionError e) {
+      assertThat(e).hasMessageThat().contains("cannot modify frozen value");
+    }
+  }
+
+  @Test
+  public void testConfigurationField_invalidFragment() throws Exception {
+    scratch.file("test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  return struct()",
+
+        "main_rule = rule(implementation = _impl,",
+        "    attrs = { '_myattr': attr.label(",
+        "        default = configuration_field(",
+        "        fragment = 'notarealfragment', name = 'method_name')),",
+        "    },",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load('//test:main_rule.bzl', 'main_rule')",
+        "main_rule(name='main')");
+
+    AssertionError expected =
+        expectThrows(AssertionError.class,
+            () -> getConfiguredTarget("//test:main"));
+
+    assertThat(expected).hasMessageThat()
+        .contains("invalid configuration fragment name 'notarealfragment'");
+  }
+
+  @Test
+  public void testConfigurationField_doesNotChangeFragmentAccess() throws Exception {
+    scratch.file("test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  return struct(platform = ctx.fragments.apple.single_arch_platform)",
+
+        "main_rule = rule(implementation = _impl,",
+        "    attrs = { '_myattr': attr.label(",
+        "        default = configuration_field(",
+        "        fragment = 'apple', name = 'xcode_config_label')),",
+        "    },",
+        "    fragments = [],",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load('//test:main_rule.bzl', 'main_rule')",
+        "main_rule(name='main')");
+
+    AssertionError expected =
+        expectThrows(AssertionError.class,
+            () -> getConfiguredTarget("//test:main"));
+
+    assertThat(expected).hasMessageThat()
+        .contains("has to declare 'apple' as a required fragment in target configuration");
+  }
+
+  @Test
+  public void testConfigurationField_invalidFieldName() throws Exception {
+    scratch.file("test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  return struct()",
+
+        "main_rule = rule(implementation = _impl,",
+        "    attrs = { '_myattr': attr.label(",
+        "        default = configuration_field(",
+        "        fragment = 'apple', name = 'notarealfield')),",
+        "    },",
+        "    fragments = ['apple'],",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load('//test:main_rule.bzl', 'main_rule')",
+        "main_rule(name='main')");
+
+    AssertionError expected =
+        expectThrows(AssertionError.class,
+            () -> getConfiguredTarget("//test:main"));
+
+    assertThat(expected).hasMessageThat()
+        .contains("invalid configuration field name 'notarealfield' on fragment 'apple'");
+  }
+
+  // Verifies that configuration_field can only be used on 'private' attributes.
+  @Test
+  public void testConfigurationField_invalidVisibility() throws Exception {
+    scratch.file("test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  return struct()",
+
+        "main_rule = rule(implementation = _impl,",
+        "    attrs = { 'myattr': attr.label(",
+        "        default = configuration_field(",
+        "        fragment = 'apple', name = 'xcode_config_label')),",
+        "    },",
+        "    fragments = ['apple'],",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load('//test:main_rule.bzl', 'main_rule')",
+        "main_rule(name='main')");
+
+    AssertionError expected =
+        expectThrows(AssertionError.class,
+            () -> getConfiguredTarget("//test:main"));
+
+    assertThat(expected).hasMessageThat()
+        .contains("When an attribute value is a function, "
+            + "the attribute must be private (i.e. start with '_')");
+  }
+
+  // Verifies that configuration_field can only be used on 'label' attributes.
+  @Test
+  public void testConfigurationField_invalidAttributeType() throws Exception {
+    scratch.file("test/main_rule.bzl",
+        "def _impl(ctx):",
+        "  return struct()",
+
+        "main_rule = rule(implementation = _impl,",
+        "    attrs = { '_myattr': attr.int(",
+        "        default = configuration_field(",
+        "        fragment = 'apple', name = 'xcode_config_label')),",
+        "    },",
+        "    fragments = ['apple'],",
+        ")");
+
+    scratch.file("test/BUILD",
+        "load('//test:main_rule.bzl', 'main_rule')",
+        "main_rule(name='main')");
+
+    AssertionError expected =
+        expectThrows(AssertionError.class,
+            () -> getConfiguredTarget("//test:main"));
+
+    assertThat(expected).hasMessageThat()
+        .contains("argument 'default' has type 'SkylarkLateBoundDefault', but should be 'int'");
   }
 
   private void setupThrowFunction(BuiltinFunction func) throws Exception {

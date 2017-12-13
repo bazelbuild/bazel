@@ -1,3 +1,17 @@
+# Copyright 2016 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -76,15 +90,22 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
-toolchain_type(name = "toolchain_type")
+filegroup(name = "toolchain_type")
 
 # A dummy toolchain is necessary to satisfy toolchain resolution until platforms
 # are used in c++ by default.
 # TODO(b/64754003): Remove once platforms are used in c++ by default.
 toolchain(
-    name = "dummy_cc_toolchain",
+    name = "dummy_cc_toolchain_type",
     toolchain = "dummy_cc_toolchain_impl",
     toolchain_type = ":toolchain_type",
+)
+
+filegroup(name = "toolchain_category")
+toolchain(
+    name = "dummy_cc_toolchain",
+    toolchain = "dummy_cc_toolchain_impl",
+    toolchain_type = ":toolchain_category",
 )
 
 load(":dummy_toolchain.bzl", "dummy_toolchain")

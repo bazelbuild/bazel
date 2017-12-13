@@ -195,6 +195,12 @@ public class VanillaJavaBuilder implements Closeable {
     }
 
     for (Diagnostic<? extends JavaFileObject> diagnostic : diagnosticCollector.getDiagnostics()) {
+      String code = diagnostic.getCode();
+      if (code.startsWith("compiler.note.deprecated")
+          || code.startsWith("compiler.note.unchecked")
+          || code.equals("compiler.warn.sun.proprietary")) {
+        continue;
+      }
       StringBuilder message = new StringBuilder();
       if (diagnostic.getSource() != null) {
         message.append(diagnostic.getSource().getName());

@@ -18,11 +18,15 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
@@ -42,8 +46,14 @@ public class JarCreator extends JarHelper {
   private String manifestFile;
   private String mainClass;
 
+  /** @deprecated use {@link JarCreator(Path)} instead */
+  @Deprecated
   public JarCreator(String fileName) {
-    super(fileName);
+    this(Paths.get(fileName));
+  }
+
+  public JarCreator(Path path) {
+    super(path);
   }
 
   /**
@@ -80,34 +90,70 @@ public class JarCreator extends JarHelper {
     return addEntry(entryName, Paths.get(fileName));
   }
 
+  /** @deprecated prefer {@link #addDirectory(Path)} */
+  @Deprecated
+  public void addDirectory(String directory) {
+    addDirectory(Paths.get(directory));
+  }
+
+  /** @deprecated prefer {@link #addDirectory(Path)} */
+  @Deprecated
+  public void addDirectory(File directory) {
+    addDirectory(directory.toPath());
+  }
+
   /**
    * Adds the contents of a directory to the Jar file. All files below this directory will be added
    * to the Jar file using the name relative to the directory as the name for the Jar entry.
    *
    * @param directory the directory to add to the jar
    */
-  public void addDirectory(String directory) {
-    addDirectory(null, new File(directory));
-  }
+  public void addDirectory(Path directory) {
+    if (!Files.exists(directory)) {
+      throw new IllegalArgumentException("directory does not exist: " + directory);
+    }
+    try {
+      Files.walkFileTree(
+          directory,
+          new SimpleFileVisitor<Path>() {
 
-  /**
-   * Adds the contents of a directory to the Jar file. All files below this directory will be added
-   * to the Jar file using the prefix and the name relative to the directory as the name for the Jar
-   * entry. Always uses '/' as the separator char for the Jar entries.
-   *
-   * @param prefix the prefix to prepend to every Jar entry name found below the directory
-   * @param directory the directory to add to the Jar
-   */
-  private void addDirectory(String prefix, File directory) {
-    File[] files = directory.listFiles();
-    if (files != null) {
-      for (File file : files) {
-        String entryName = prefix != null ? prefix + "/" + file.getName() : file.getName();
-        jarEntries.put(entryName, file.toPath());
-        if (file.isDirectory()) {
-          addDirectory(entryName, file);
-        }
-      }
+            @Override
+            public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs)
+                throws IOException {
+              if (!path.equals(directory)) {
+                // For consistency with legacy behaviour, include entries for directories except for
+                // the root.
+                addEntry(path, /* isDirectory= */ true);
+              }
+              return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+                throws IOException {
+              addEntry(path, /* isDirectory= */ false);
+              return FileVisitResult.CONTINUE;
+            }
+
+            void addEntry(Path path, boolean isDirectory) {
+              StringBuilder sb = new StringBuilder();
+              boolean first = true;
+              for (Path entry : directory.relativize(path)) {
+                if (!first) {
+                  // use `/` as the directory separator for jar paths, even on Windows
+                  sb.append('/');
+                }
+                sb.append(entry.getFileName());
+                first = false;
+              }
+              if (isDirectory) {
+                sb.append('/');
+              }
+              jarEntries.put(sb.toString(), path);
+            }
+          });
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
     }
   }
 
@@ -147,13 +193,16 @@ public class JarCreator extends JarHelper {
   }
 
   private byte[] manifestContent() throws IOException {
-    Manifest manifest;
     if (manifestFile != null) {
-      FileInputStream in = new FileInputStream(manifestFile);
-      manifest = new Manifest(in);
+      try (FileInputStream in = new FileInputStream(manifestFile)) {
+        return manifestContentImpl(new Manifest(in));
+      }
     } else {
-      manifest = new Manifest();
+      return manifestContentImpl(new Manifest());
     }
+  }
+
+  private byte[] manifestContentImpl(Manifest manifest) throws IOException {
     Attributes attributes = manifest.getMainAttributes();
     attributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
     Attributes.Name createdBy = new Attributes.Name("Created-By");
@@ -174,7 +223,7 @@ public class JarCreator extends JarHelper {
    * @throws IOException if the Jar cannot be written or any of the entries cannot be read.
    */
   public void execute() throws IOException {
-    try (OutputStream os = new FileOutputStream(jarFile);
+    try (OutputStream os = Files.newOutputStream(jarPath);
         BufferedOutputStream bos = new BufferedOutputStream(os);
         JarOutputStream out = new JarOutputStream(bos)) {
 

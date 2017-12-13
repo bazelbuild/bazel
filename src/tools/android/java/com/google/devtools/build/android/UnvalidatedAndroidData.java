@@ -141,8 +141,7 @@ class UnvalidatedAndroidData extends UnvalidatedAndroidDirectories {
               false));
     }
 
-    AndroidResourceOutputs.archiveDirectory(
-        metadataWorkingDirectory, dataBindingOut);
+    AndroidResourceOutputs.archiveDirectory(metadataWorkingDirectory, dataBindingOut);
 
     return new UnvalidatedAndroidData(ImmutableList.copyOf(processed), assetDirs, manifest) {
       @Override

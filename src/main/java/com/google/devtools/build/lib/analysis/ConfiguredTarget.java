@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -57,4 +59,23 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
   @Override
   @Nullable
   BuildConfiguration getConfiguration();
+
+  /**
+   * Returns keys for a legacy Skylark provider.
+   *
+   * Overrides {@link ClassObject#getKeys()}, but does not allow {@link EvalException} to
+   * be thrown.
+   */
+  @Override
+  ImmutableCollection<String> getKeys();
+
+  /**
+   * Returns a legacy Skylark provider.
+   *
+   * Overrides {@link ClassObject#getValue(String)}, but does not allow EvalException to
+   * be thrown.
+   */
+  @Nullable
+  @Override
+  Object getValue(String name);
 }

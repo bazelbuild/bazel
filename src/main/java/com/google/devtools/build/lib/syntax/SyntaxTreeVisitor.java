@@ -141,6 +141,8 @@ public class SyntaxTreeVisitor {
     visitBlock(node.getStatements());
   }
 
+  public void visit(PassStatement node) {}
+
   public void visit(ReturnStatement node) {
     if (node.getReturnExpression() != null) {
       visit(node.getReturnExpression());

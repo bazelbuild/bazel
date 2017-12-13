@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
@@ -50,14 +51,14 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsClassProvider;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -232,12 +233,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public void addWorkspaceFilePrefix(String contents) {
+    public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
+      return this;
     }
 
-    public void addWorkspaceFileSuffix(String contents) {
+    public Builder addWorkspaceFileSuffix(String contents) {
       defaultWorkspaceFileSuffix.append(contents);
+      return this;
     }
 
     public Builder setPrelude(String preludeLabelString) {
@@ -297,6 +300,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
      * between option classes, factories, and fragments, such that the factory depends only on the
      * options class and creates the fragment. This method provides a convenient way of adding both
      * the options class and the factory in a single call.
+     *
+     * <p>Note that configuration fragments annotated with a Skylark name must have a unique
+     * name; no two different configuration fragments can share the same name.
      */
     public Builder addConfig(
         Class<? extends FragmentOptions> options, ConfigurationFragmentFactory factory) {
@@ -313,6 +319,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    /**
+     * Adds a configuration fragment factory.
+     *
+     * <p>Note that configuration fragments annotated with a Skylark name must have a unique
+     * name; no two different configuration fragments can share the same name.
+     */
     public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
       configurationFragmentFactories.add(factory);
       return this;
@@ -375,7 +387,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           "addRuleDefinition(new %s()) should be called before build()", definitionClass.getName());
 
       RuleDefinition.Metadata metadata = instance.getMetadata();
-      checkArgument(ruleClassMap.get(metadata.name()) == null, metadata.name());
+      checkArgument(
+          ruleClassMap.get(metadata.name()) == null,
+          "The rule " + metadata.name() + " was committed already, use another name");
 
       List<Class<? extends RuleDefinition>> ancestors = metadata.ancestors();
 
@@ -548,6 +562,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final Environment.Frame globals;
 
+  private final ImmutableMap<String, Class<?>> configurationFragmentMap;
+
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
       String runfilesPrefix,
@@ -580,6 +596,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
+    this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -688,7 +705,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Environment env = createSkylarkRuleClassEnvironment(
           mutability,
           SkylarkModules.getGlobals(modules),
-          Options.getDefaults(SkylarkSemanticsOptions.class),
+          SkylarkSemantics.DEFAULT_SEMANTICS,
           /*eventHandler=*/ null,
           /*astFileContentHashCode=*/ null,
           /*importMap=*/ null);
@@ -699,10 +716,23 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
   }
 
+  private static ImmutableMap<String, Class<?>> createFragmentMap(
+      Iterable<ConfigurationFragmentFactory> configurationFragmentFactories) {
+    ImmutableMap.Builder<String, Class<?>> mapBuilder = ImmutableMap.builder();
+    for (ConfigurationFragmentFactory fragmentFactory : configurationFragmentFactories) {
+      Class<? extends Fragment> fragmentClass = fragmentFactory.creates();
+      String fragmentName = SkylarkModule.Resolver.resolveName(fragmentClass);
+      if (fragmentName != null) {
+        mapBuilder.put(fragmentName, fragmentClass);
+      }
+    }
+    return mapBuilder.build();
+  }
+
   private Environment createSkylarkRuleClassEnvironment(
       Mutability mutability,
       Environment.Frame globals,
-      SkylarkSemanticsOptions skylarkSemantics,
+      SkylarkSemantics skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap) {
@@ -716,6 +746,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
             .setPhase(Phase.LOADING)
             .build();
     SkylarkUtils.setToolsRepository(env, toolsRepository);
+    SkylarkUtils.setFragmentMap(env, configurationFragmentMap);
     return env;
   }
 
@@ -723,7 +754,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public Environment createSkylarkRuleClassEnvironment(
       Label extensionLabel,
       Mutability mutability,
-      SkylarkSemanticsOptions skylarkSemantics,
+      SkylarkSemantics skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap) {
@@ -744,6 +775,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Override
   public String getDefaultWorkspaceSuffix() {
     return defaultWorkspaceFileSuffix;
+  }
+
+  @Override
+  public Map<String, Class<?>> getConfigurationFragmentMap() {
+    return configurationFragmentMap;
   }
 
   /**

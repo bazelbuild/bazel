@@ -44,9 +44,9 @@ from xml.dom import minidom
 
 import six
 
-import _helpers
-import exceptions
-import flag as _flag
+from gflags import _helpers
+from gflags import exceptions
+from gflags import flag as _flag
 
 # Add flagvalues module to disclaimed module ids.
 _helpers.disclaim_module_ids.add(id(sys.modules[__name__]))
@@ -1256,6 +1256,32 @@ class FlagValues(object):
       outfile.write(
           doc.toprettyxml(indent='  ', encoding='utf-8').decode('utf-8'))
     outfile.flush()
+
+  # New PEP8 style functions.
+  def set_gnu_getopt(self, gnu_getopt=True):
+    self.UseGnuGetOpt(gnu_getopt)
+
+  is_gnu_getopt = IsGnuGetOpt
+  flags_by_module_dict = FlagsByModuleDict
+  flags_by_module_id_dict = FlagsByModuleIdDict
+  key_flags_by_module_dict = KeyFlagsByModuleDict
+  register_key_flag_for_module = _RegisterKeyFlagForModule
+  find_module_defining_flag = FindModuleDefiningFlag
+  find_module_id_defining_flag = FindModuleIdDefiningFlag
+  append_flag_values = AppendFlagValues
+  remove_flag_values = RemoveFlagValues
+  set_default = SetDefault
+  is_parsed = IsParsed
+  mark_as_parsed = MarkAsParsed
+  flag_values_dict = FlagValuesDict
+  module_help = ModuleHelp
+  main_module_help = MainModuleHelp
+  read_flags_from_files = ReadFlagsFromFiles
+  flags_into_string = FlagsIntoString
+  append_flags_into_file = AppendFlagsIntoFile
+  write_help_in_xml_format = WriteHelpInXMLFormat
+  get_key_flags_for_module = _GetKeyFlagsForModule
+  unparse_flags = Reset
 
 
 _helpers.SPECIAL_FLAGS = FlagValues()

@@ -370,7 +370,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "proto/BUILD",
-        "load('/proto/extensions', 'custom_rule')",
+        "load('//proto:extensions.bzl', 'custom_rule')",
         "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
         "      'java_lite_proto_library')",
         "proto_library(",
