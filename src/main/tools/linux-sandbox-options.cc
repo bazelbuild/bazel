@@ -65,6 +65,7 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "mounted readonly.\n"
           "    The -M option specifies which directory to mount, the -m option "
           "specifies where to\n"
+          "  -S <file>  if set, write stats in protobuf format to a file\n"
           "  -H  if set, make hostname in the sandbox equal to 'localhost'\n"
           "  -N  if set, a new network namespace will be created\n"
           "  -R  if set, make the uid/gid be root\n"
@@ -90,8 +91,8 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   int c;
   bool source_specified = false;
 
-  while ((c = getopt(args->size(), args->data(), ":W:T:t:l:L:w:e:M:m:HNRUD")) !=
-         -1) {
+  while ((c = getopt(args->size(), args->data(),
+                     ":W:T:t:l:L:w:e:M:m:S:HNRUD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'W':
@@ -155,6 +156,14 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         opt.bind_mount_targets.pop_back();
         opt.bind_mount_targets.emplace_back(optarg);
         source_specified = false;
+        break;
+      case 'S':
+        if (opt.stats_path.empty()) {
+          opt.stats_path.assign(optarg);
+        } else {
+          Usage(args->front(),
+                "Cannot write stats to more than one destination.");
+        }
         break;
       case 'H':
         opt.fake_hostname = true;

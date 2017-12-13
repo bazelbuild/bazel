@@ -20,11 +20,10 @@ set -euo pipefail
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/execution_statistics_utils.sh" \
+  || { echo "execution_statistics_utils.sh not found!" >&2; exit 1; }
 
 enable_errexit
-
-readonly STATS_PROTO_PATH="${CURRENT_DIR}/../../../main/protobuf/execution_statistics.proto"
-readonly STATS_PROTO_DIR="$(cd "$(dirname "${STATS_PROTO_PATH}")" && pwd)"
 
 readonly CPU_TIME_SPENDER="${CURRENT_DIR}/../../../test/shell/integration/spend_cpu_time"
 
@@ -118,70 +117,48 @@ function test_execvp_error_message() {
   assert_contains "\"execvp(/bin/notexisting, ...)\": No such file or directory" "$ERR"
 }
 
-function check_execution_time_for_command() {
-  local user_time_low="$1"; shift 1
-  local user_time_high="$1"; shift 1
-  local sys_time_low="$1"; shift 1
-  local sys_time_high="$1"; shift 1
+function assert_process_wrapper_exec_time() {
+  local user_time_low="$1"; shift
+  local user_time_high="$1"; shift
+  local sys_time_low="$1"; shift
+  local sys_time_high="$1"; shift
 
-  local stats_out_path="${OUT_DIR}/statsfile"
-  local stats_out_decoded_path="${OUT_DIR}/statsfile.decoded"
+  local local_tmp="$(mktemp -d "${OUT_DIR}/assert_process_wrapper_timeXXXXXX")"
+  local stdout_path="${local_tmp}/stdout"
+  local stderr_path="${local_tmp}/stderr"
+  local stats_out_path="${local_tmp}/statsfile"
+  local stats_out_decoded_path="${local_tmp}/statsfile.decoded"
 
   # Wrapped process will be terminated after 100 seconds if not self terminated.
   local code=0
-  "${process_wrapper}" --timeout=100 --kill_delay=2 --stdout="${OUT}" \
-      --stderr="${ERR}" --stats="${stats_out_path}" \
-      "$@" &> "${TEST_log}" || code="$?"
+  "${process_wrapper}" \
+      --timeout=100 \
+      --kill_delay=2 \
+      --stdout="${stdout_path}" \
+      --stderr="${stderr_path}" \
+      --stats="${stats_out_path}" \
+      "${CPU_TIME_SPENDER}" "${user_time_low}" "${sys_time_low}" \
+      &> "${TEST_log}" || code="$?"
   assert_equals 0 "${code}"
 
-  if [ ! -e "${stats_out_path}" ]; then
-    fail "Stats file not found: '${stats_out_path}'"
-  fi
-
-  "${protoc_compiler}" --proto_path="${STATS_PROTO_DIR}" \
-      --decode tools.protos.ExecutionStatistics execution_statistics.proto \
-      < "${stats_out_path}" > "${stats_out_decoded_path}"
-
-  if [ ! -e "${stats_out_decoded_path}" ]; then
-    fail "Decoded stats file not found: '${stats_out_decoded_path}'"
-  fi
-
-  local utime=0
-  if grep -q utime_sec "${stats_out_decoded_path}"; then
-    utime="$(grep utime_sec ${stats_out_decoded_path} | cut -f2 -d':' | \
-      tr -dc '0-9')"
-  fi
-
-  local stime=0
-  if grep -q stime_sec "${stats_out_decoded_path}"; then
-    stime="$(grep stime_sec ${stats_out_decoded_path} | cut -f2 -d':' | \
-      tr -dc '0-9')"
-  fi
-
-  if ! [ ${utime} -ge ${user_time_low} -a ${utime} -le ${user_time_high} ]; then
-    fail "reported utime of '${utime}' is out of expected range"
-  fi
-  if ! [ ${stime} -ge ${sys_time_low} -a ${stime} -le ${sys_time_high} ]; then
-    fail "reported stime of '${stime}' is out of expected range"
-  fi
+  assert_execution_time_in_range \
+      "${user_time_low}" \
+      "${user_time_high}" \
+      "${sys_time_low}" \
+      "${sys_time_high}" \
+      "${stats_out_path}"
 }
 
 function test_stats_high_user_time() {
-  # Tested with blaze test --runs_per_test 1000 on November 28, 2017.
-  check_execution_time_for_command 10 11 0 1 \
-      "${CPU_TIME_SPENDER}" 10 0
+  assert_process_wrapper_exec_time 10 11 0 1
 }
 
 function test_stats_high_system_time() {
-  # Tested with blaze test --runs_per_test 1000 on November 28, 2017.
-  check_execution_time_for_command 0 1 10 11 \
-      "${CPU_TIME_SPENDER}" 0 10
+  assert_process_wrapper_exec_time 0 1 10 11
 }
 
 function test_stats_high_user_time_and_high_system_time() {
-  # Tested with blaze test --runs_per_test 1000 on November 28, 2017.
-  check_execution_time_for_command 10 11 10 11 \
-      "${CPU_TIME_SPENDER}" 10 10
+  assert_process_wrapper_exec_time 10 11 10 11
 }
 
 run_suite "process-wrapper"

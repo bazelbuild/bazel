@@ -296,6 +296,7 @@ sh_test(
     size = "medium",
     srcs = ["process-wrapper_test.sh"],
     data = [
+        ":execution_statistics_utils.sh",
         ":spend_cpu_time",
         ":test-deps",
         "//src/main/protobuf:execution_statistics.proto",
@@ -308,8 +309,12 @@ sh_test(
     size = "large",
     srcs = ["linux-sandbox_test.sh"],
     data = [
+        ":execution_statistics_utils.sh",
+        ":spend_cpu_time",
         ":test-deps",
+        "//src/main/protobuf:execution_statistics.proto",
         "//src/test/shell:sandboxing_test_utils.sh",
+        "//third_party/protobuf:protoc",
     ],
 )
 

@@ -25,6 +25,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 source "${CURRENT_DIR}/../sandboxing_test_utils.sh" \
   || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/execution_statistics_utils.sh" \
+  || { echo "execution_statistics_utils.sh not found!" >&2; exit 1; }
 
 enable_errexit
 
@@ -33,6 +35,8 @@ readonly OUT="${OUT_DIR}/outfile"
 readonly ERR="${OUT_DIR}/errfile"
 readonly SANDBOX_DIR="${OUT_DIR}/sandbox"
 readonly MOUNT_TARGET_ROOT="${TEST_TMPDIR}/targets"
+
+readonly CPU_TIME_SPENDER="${CURRENT_DIR}/../../../test/shell/integration/spend_cpu_time"
 
 SANDBOX_DEFAULT_OPTS="-W $SANDBOX_DIR"
 
@@ -53,7 +57,7 @@ function test_execvp_error_message_contains_path() {
 
 function test_default_user_is_current_user() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /usr/bin/id &> $TEST_log || fail
-  local current_uid_number=$(id -u)
+  local current_uid_number="$(id -u)"
   # Expecting something like: uid=485038(ruperts) ...
   expect_log "uid=${current_uid_number}("
 }
@@ -217,6 +221,55 @@ function test_dev_shm_is_writable() {
   # /dev/shm is often a symlink to /run/shm, thus we use readlink to get the canonical path.
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -w "$(readlink -f /dev/shm)" -- /bin/bash -c "rm -f $(mktemp --tmpdir=/dev/shm)" \
     &> $TEST_log || fail
+}
+
+function assert_linux_sandbox_exec_time() {
+  local user_time_low="$1"; shift
+  local user_time_high="$1"; shift
+  local sys_time_low="$1"; shift
+  local sys_time_high="$1"; shift
+
+  local local_tmp="$(mktemp -d "${OUT_DIR}/assert_linux_sandbox_exec_timeXXXX")"
+  local stdout_path="${local_tmp}/stdout"
+  local stderr_path="${local_tmp}/stderr"
+  local stats_out_path="${local_tmp}/statsfile"
+  local stats_out_decoded_path="${local_tmp}/statsfile.decoded"
+
+  cp "${CPU_TIME_SPENDER}" "${SANDBOX_DIR}"
+  local cpu_time_spender_sandbox_path="${SANDBOX_DIR}/spend_cpu_time"
+
+  # Sandboxed process will be terminated after 100 seconds if not already dead.
+  local code=0
+  "${linux_sandbox}" \
+      -W "${SANDBOX_DIR}" \
+      -T 100 \
+      -t 2 \
+      -l "${stdout_path}" \
+      -L "${stderr_path}" \
+      -S "${stats_out_path}" \
+      -- \
+      "${cpu_time_spender_sandbox_path}" "${user_time_low}" "${sys_time_low}" \
+      &> "${TEST_log}" || code="$?"
+  assert_equals 0 "${code}"
+
+  assert_execution_time_in_range \
+      "${user_time_low}" \
+      "${user_time_high}" \
+      "${sys_time_low}" \
+      "${sys_time_high}" \
+      "${stats_out_path}"
+}
+
+function test_stats_high_user_time() {
+  assert_linux_sandbox_exec_time 10 11 0 1
+}
+
+function test_stats_high_system_time() {
+  assert_linux_sandbox_exec_time 0 1 10 11
+}
+
+function test_stats_high_user_time_and_high_system_time() {
+  assert_linux_sandbox_exec_time 10 11 10 11
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

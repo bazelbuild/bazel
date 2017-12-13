@@ -40,6 +40,8 @@ struct Options {
   std::vector<std::string> bind_mount_sources;
   // Target of files or directories to explicitly bind mount in the sandbox (-m)
   std::vector<std::string> bind_mount_targets;
+  // Where to write stats, in protobuf format (-S)
+  std::string stats_path;
   // Set the hostname inside the sandbox to 'localhost' (-H)
   bool fake_hostname;
   // Create a new network namespace (-N)
