@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.exec.local;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.Matchers.any;
@@ -69,7 +68,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.function.LongSupplier;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Filter;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -86,6 +85,45 @@ import org.mockito.ArgumentMatcher;
 public class LocalSpawnRunnerTest {
   private static final boolean USE_WRAPPER = true;
   private static final boolean NO_WRAPPER = false;
+
+  private static class TestedLocalSpawnRunner extends LocalSpawnRunner {
+    public TestedLocalSpawnRunner(
+        Path execRoot,
+        LocalExecutionOptions localExecutionOptions,
+        ResourceManager resourceManager,
+        boolean useProcessWrapper,
+        OS localOs,
+        String productName,
+        LocalEnvProvider localEnvProvider) {
+      super(
+          execRoot,
+          localExecutionOptions,
+          resourceManager,
+          useProcessWrapper,
+          localOs,
+          productName,
+          localEnvProvider);
+    }
+
+    // Rigged to act on supplied filesystem (e.g. InMemoryFileSystem) for testing purposes
+    // TODO(b/70572634): Update FileSystem abstraction to support createTempDirectory() from
+    // the java.nio.file.Files package.
+    @Override
+    protected Path createActionTemp(Path execRoot) throws IOException {
+      Path tempDirPath;
+      do {
+        String idStr =
+            Long.toHexString(Thread.currentThread().getId())
+                + "_"
+                + Long.toHexString(ThreadLocalRandom.current().nextLong());
+        tempDirPath = execRoot.getRelative("tmp" + idStr);
+      } while (tempDirPath.exists());
+      if (!tempDirPath.createDirectory()) {
+        throw new IOException(String.format("Could not create temp directory '%s'", tempDirPath));
+      }
+      return tempDirPath;
+    }
+  }
 
   private static class FinishedSubprocess implements Subprocess {
     private final int exitCode;
@@ -222,7 +260,7 @@ public class LocalSpawnRunnerTest {
 
   @Before
   public final void suppressLogging() {
-    logger = Logger.getLogger(LocalSpawnRunner.class.getName());
+    logger = Logger.getLogger(TestedLocalSpawnRunner.class.getName());
     logger.setFilter(new Filter() {
       @Override
       public boolean isLoggable(LogRecord record) {
@@ -266,9 +304,15 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, USE_WRAPPER, OS.LINUX,
-        "product-name", LocalEnvProvider.UNMODIFIED);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            fs.getPath("/execroot"),
+            options,
+            resourceManager,
+            USE_WRAPPER,
+            OS.LINUX,
+            "product-name",
+            LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
@@ -315,9 +359,15 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, NO_WRAPPER, OS.LINUX,
-        "product-name", LocalEnvProvider.UNMODIFIED);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            fs.getPath("/execroot"),
+            options,
+            resourceManager,
+            NO_WRAPPER,
+            OS.LINUX,
+            "product-name",
+            LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
@@ -354,9 +404,15 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, USE_WRAPPER, OS.LINUX,
-        "product-name", LocalEnvProvider.UNMODIFIED);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            fs.getPath("/execroot"),
+            options,
+            resourceManager,
+            USE_WRAPPER,
+            OS.LINUX,
+            "product-name",
+            LocalEnvProvider.UNMODIFIED);
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -394,9 +450,15 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, USE_WRAPPER, OS.LINUX,
-        "product-name", LocalEnvProvider.UNMODIFIED);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            fs.getPath("/execroot"),
+            options,
+            resourceManager,
+            USE_WRAPPER,
+            OS.LINUX,
+            "product-name",
+            LocalEnvProvider.UNMODIFIED);
 
     assertThat(fs.getPath("/out").createDirectory()).isTrue();
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
@@ -424,9 +486,15 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.allowedLocalAction = Pattern.compile("none");
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, USE_WRAPPER, OS.LINUX,
-        "product-name", LocalEnvProvider.UNMODIFIED);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            fs.getPath("/execroot"),
+            options,
+            resourceManager,
+            USE_WRAPPER,
+            OS.LINUX,
+            "product-name",
+            LocalEnvProvider.UNMODIFIED);
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr();
@@ -469,9 +537,15 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, USE_WRAPPER, OS.LINUX,
-        "product-name", LocalEnvProvider.UNMODIFIED);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            fs.getPath("/execroot"),
+            options,
+            resourceManager,
+            USE_WRAPPER,
+            OS.LINUX,
+            "product-name",
+            LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
@@ -495,9 +569,15 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, USE_WRAPPER, OS.LINUX,
-        "product-name", LocalEnvProvider.UNMODIFIED);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            fs.getPath("/execroot"),
+            options,
+            resourceManager,
+            USE_WRAPPER,
+            OS.LINUX,
+            "product-name",
+            LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
@@ -516,9 +596,15 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, USE_WRAPPER, OS.LINUX,
-        "product-name", LocalEnvProvider.UNMODIFIED);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            fs.getPath("/execroot"),
+            options,
+            resourceManager,
+            USE_WRAPPER,
+            OS.LINUX,
+            "product-name",
+            LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
@@ -541,9 +627,15 @@ public class LocalSpawnRunnerTest {
     LocalEnvProvider localEnvProvider = mock(LocalEnvProvider.class);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, USE_WRAPPER, OS.LINUX,
-        "product-name", localEnvProvider);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            fs.getPath("/execroot"),
+            options,
+            resourceManager,
+            USE_WRAPPER,
+            OS.LINUX,
+            "product-name",
+            localEnvProvider);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
@@ -586,9 +678,15 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 654;
-    LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), options, resourceManager, USE_WRAPPER, OS.WINDOWS,
-        "product-name", LocalEnvProvider.UNMODIFIED);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            fs.getPath("/execroot"),
+            options,
+            resourceManager,
+            USE_WRAPPER,
+            OS.WINDOWS,
+            "product-name",
+            LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionPolicyForTesting policy = new SpawnExecutionPolicyForTesting(fileOutErr);
@@ -609,47 +707,6 @@ public class LocalSpawnRunnerTest {
                 "--stderr=/out/stderr",
                 "/bin/echo",
                 "Hi!"));
-  }
-
-  @Test
-  public void testCreateActionTemp_exceptionIfUnableToCreateDir() throws IOException {
-    FileSystem fs = setupEnvironmentForFakeExecution();
-
-    Path execRoot = fs.getPath("/execroot");
-    assertThat(execRoot.createDirectory()).isTrue();
-    assertThat(execRoot.exists()).isTrue();
-    execRoot.setWritable(false);
-
-    assertThrows(IOException.class, () -> LocalSpawnRunner.createActionTemp(execRoot, () -> 0));
-  }
-
-  @Test
-  public void testCreateActionTemp_retriesIfNameClashes() throws IOException {
-    FileSystem fs = setupEnvironmentForFakeExecution();
-
-    Path execRoot = fs.getPath("/execroot");
-    assertThat(execRoot.createDirectory()).isTrue();
-    assertThat(execRoot.exists()).isTrue();
-
-    Path tempPath1 = LocalSpawnRunner.createActionTemp(execRoot, () -> 0);
-    Path tempPath2 = LocalSpawnRunner.createActionTemp(execRoot, new IncreasingSequenceSupplier(0));
-
-    assertThat(tempPath1).isNotEqualTo(tempPath2);
-    assertThat(tempPath1.exists()).isTrue();
-    assertThat(tempPath2.exists()).isTrue();
-  }
-
-  private static class IncreasingSequenceSupplier implements LongSupplier {
-    private long currentElement;
-
-    public IncreasingSequenceSupplier(long startingElement) {
-      this.currentElement = startingElement;
-    }
-
-    @Override
-    public long getAsLong() {
-      return this.currentElement++;
-    }
   }
 
   /**

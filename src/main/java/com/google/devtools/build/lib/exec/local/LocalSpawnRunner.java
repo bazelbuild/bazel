@@ -18,7 +18,6 @@ import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 import static java.util.logging.Level.WARNING;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
@@ -50,8 +49,6 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.LongSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -61,7 +58,7 @@ import javax.annotation.Nullable;
  * completion.
  */
 @ThreadSafe
-public final class LocalSpawnRunner implements SpawnRunner {
+public class LocalSpawnRunner implements SpawnRunner {
   private static final Joiner SPACE_JOINER = Joiner.on(' ');
   private static final String UNHANDLED_EXCEPTION_MSG = "Unhandled exception running a local spawn";
   private static final int LOCAL_EXEC_ERROR = -1;
@@ -83,7 +80,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
   private final LocalEnvProvider localEnvProvider;
 
   // TODO(b/62588075): Move this logic to ProcessWrapperUtil?
-  private static Path getProcessWrapper(Path execRoot, OS localOs) {
+  protected static Path getProcessWrapper(Path execRoot, OS localOs) {
     return execRoot.getRelative("_bin/process-wrapper" + OsUtils.executableExtension(localOs));
   }
 
@@ -135,31 +132,12 @@ public final class LocalSpawnRunner implements SpawnRunner {
     }
   }
 
-  @VisibleForTesting
-  static Path createActionTemp(Path execRoot, LongSupplier randomLongGenerator) throws IOException {
-    Path tempDirPath;
-    do {
-      String idStr =
-          // Make the name unique among other executor threads.
-          Long.toHexString(Thread.currentThread().getId())
-              + "_"
-              // Make the name unique among other temp directories that this thread has ever
-              // created.
-              // On Windows, file and directory deletion is asynchronous, meaning the previous temp
-              // directory name isn't immediately available for the next action that this thread
-              // runs.
-              // See https://github.com/bazelbuild/bazel/issues/4035
-              + Long.toHexString(randomLongGenerator.getAsLong());
-      tempDirPath = execRoot.getRelative("tmp" + idStr);
-    } while (tempDirPath.exists());
-    if (!tempDirPath.createDirectory()) {
-      throw new IOException(String.format("Could not create temp directory '%s'", tempDirPath));
-    }
-    return tempDirPath;
-  }
-
-  private static Path createActionTemp(Path execRoot) throws IOException {
-    return createActionTemp(execRoot, () -> ThreadLocalRandom.current().nextLong());
+  protected Path createActionTemp(Path execRoot) throws IOException {
+    return execRoot.getRelative(
+        java.nio.file.Files.createTempDirectory(
+                java.nio.file.Paths.get(execRoot.getPathString()), "local-spawn-runner.")
+            .getFileName()
+            .toString());
   }
 
   private final class SubprocessHandler {
