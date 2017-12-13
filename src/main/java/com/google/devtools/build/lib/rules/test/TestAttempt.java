@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -129,6 +131,16 @@ public class TestAttempt implements BuildEvent {
         result.getFiles(),
         result.getData().getWarningList(),
         true);
+  }
+
+  @VisibleForTesting
+  public Artifact getTestStatusArtifact() {
+    return testAction.getCacheStatusArtifact();
+  }
+
+  @VisibleForTesting
+  public Collection<Pair<String, Path>> getFiles() {
+    return files;
   }
 
   @Override
