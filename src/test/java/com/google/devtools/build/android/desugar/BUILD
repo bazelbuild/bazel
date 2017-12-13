@@ -1913,6 +1913,24 @@ genrule(
     ],
 )
 
+# Regression test for b/70415451
+genrule(
+    name = "desugar_guava_at_head",
+    srcs = [
+        "//third_party:guava-jars",
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
+        "//third_party/java/jacoco:blaze-agent",
+        "//tools/defaults:android_jar",
+    ],
+    outs = ["guava_at_head_desugared.jar"],
+    cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
+          "-i $(location //third_party:guava-jars) -o $@ " +
+          "--bootclasspath_entry $(location //tools/defaults:android_jar)",
+    tags = ["no_windows"],
+    tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+)
+
 java_binary(
     name = "generate_lambda_with_constant_arguments",
     srcs = ["Bug62060793TestDataGenerator.java"],
