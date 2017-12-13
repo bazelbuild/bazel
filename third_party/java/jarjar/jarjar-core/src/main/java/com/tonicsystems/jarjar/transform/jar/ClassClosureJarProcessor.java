@@ -32,7 +32,7 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.commons.Remapper;
-import org.objectweb.asm.commons.RemappingClassAdapter;
+import org.objectweb.asm.commons.ClassRemapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -106,7 +106,7 @@ public class ClassClosureJarProcessor extends AbstractFilterJarProcessor {
                         roots.add(name);
                 DependencyCollector collector = new DependencyCollector();
                 dependencies.put(name, collector.dependencies);
-                new ClassReader(new ByteArrayInputStream(struct.data)).accept(new RemappingClassAdapter(null, collector), ClassReader.EXPAND_FRAMES);
+                new ClassReader(new ByteArrayInputStream(struct.data)).accept(new ClassRemapper(null, collector), ClassReader.EXPAND_FRAMES);
                 collector.dependencies.remove(name);
             }
         } catch (Exception e) {
