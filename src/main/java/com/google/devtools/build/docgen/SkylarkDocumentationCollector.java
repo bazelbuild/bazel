@@ -68,10 +68,8 @@ final class SkylarkDocumentationCollector {
    *
    * <p>WARNING: This method no longer supports the specification of additional module classes via
    * parameters. Instead, all module classes are being picked up automatically.
-   *
-   * @param clazz DEPRECATED.
    */
-  public static Map<String, SkylarkModuleDoc> collectModules(@Deprecated String... clazz)
+  public static Map<String, SkylarkModuleDoc> collectModules()
       throws ClassPathException {
     Map<String, SkylarkModuleDoc> modules = new TreeMap<>();
     Map<SkylarkModule, Class<?>> builtinModules = new HashMap<>();
