@@ -16,12 +16,14 @@
 
 syntax = "proto3";
 
+import "src/tools/android/java/com/google/devtools/build/android/proto/Configuration.proto";
+
 package aapt.pb;
 
 option java_package = "com.android.aapt";
+option optimize_for = LITE_RUNTIME;
 
-// A string pool that wraps the binary form of the C++ class
-// android::ResStringPool.
+// A string pool that wraps the binary form of the C++ class android::ResStringPool.
 message StringPool {
   bytes data = 1;
 }
@@ -32,19 +34,17 @@ message SourcePosition {
   uint32 column_number = 2;
 }
 
-// Developer friendly source file information for an entity in the resource
-// table.
+// Developer friendly source file information for an entity in the resource table.
 message Source {
-  // The index of the string path within the source string pool of a
-  // ResourceTable.
+  // The index of the string path within the source string pool of a ResourceTable.
   uint32 path_idx = 1;
   SourcePosition position = 2;
 }
 
 // Top level message representing a resource table.
 message ResourceTable {
-  // The string pool containing source paths referenced throughout the resource
-  // table. This does not end up in the final binary ARSC file.
+  // The string pool containing source paths referenced throughout the resource table. This does
+  // not end up in the final binary ARSC file.
   StringPool source_pool = 1;
 
   // Resource definitions corresponding to an Android package.
@@ -59,14 +59,12 @@ message PackageId {
 // Defines resources for an Android package.
 message Package {
   // The package ID of this package, in the range [0x00, 0xff].
-  // - ID 0x00 is reserved for shared libraries, or when the ID is assigned at
-  // run-time.
+  // - ID 0x00 is reserved for shared libraries, or when the ID is assigned at run-time.
   // - ID 0x01 is reserved for the 'android' package (framework).
-  // - ID range [0x02, 0x7f) is reserved for auto-assignment to shared libraries
-  // at run-time.
+  // - ID range [0x02, 0x7f) is reserved for auto-assignment to shared libraries at run-time.
   // - ID 0x7f is reserved for the application package.
-  // - IDs > 0x7f are reserved for the application as well and are treated as
-  // feature splits. This may not be set if no ID was assigned.
+  // - IDs > 0x7f are reserved for the application as well and are treated as feature splits.
+  // This may not be set if no ID was assigned.
   PackageId package_id = 1;
 
   // The Java compatible Android package name of the app.
@@ -81,43 +79,39 @@ message TypeId {
   uint32 id = 1;
 }
 
-// A set of resources grouped under a common type. Such types include string,
-// layout, xml, dimen, attr, etc. This maps to the second part of a resource
-// identifier in Java (R.type.entry).
+// A set of resources grouped under a common type. Such types include string, layout, xml, dimen,
+// attr, etc. This maps to the second part of a resource identifier in Java (R.type.entry).
 message Type {
   // The ID of the type. This may not be set if no ID was assigned.
-  TypeId id = 1;
+  TypeId type_id = 1;
 
-  // The name of the type. This corresponds to the 'type' part of a full
-  // resource name of the form package:type/entry. The set of legal type names
-  // is listed in Resource.cpp.
+  // The name of the type. This corresponds to the 'type' part of a full resource name of the form
+  // package:type/entry. The set of legal type names is listed in Resource.cpp.
   string name = 2;
 
   // The entries defined for this type.
   repeated Entry entry = 3;
 }
 
-// The status of a symbol/entry. This contains information like visibility
-// (public/private), comments, and whether the entry can be overridden.
+// The status of a symbol/entry. This contains information like visibility (public/private),
+// comments, and whether the entry can be overridden.
 message SymbolStatus {
   // The visibility of the resource outside of its package.
   enum Visibility {
-    // No visibility was explicitly specified. This is typically treated as
-    // private. The distinction is important when two separate R.java files are
-    // generated: a public and private one. An unknown visibility, in this case,
-    // would cause the resource to be omitted from either R.java.
+    // No visibility was explicitly specified. This is typically treated as private.
+    // The distinction is important when two separate R.java files are generated: a public and
+    // private one. An unknown visibility, in this case, would cause the resource to be omitted
+    // from either R.java.
     UNKNOWN = 0;
 
-    // A resource was explicitly marked as private. This means the resource can
-    // not be accessed outside of its package unless the @*package:type/entry
-    // notation is used (the asterisk being the private accessor). If two R.java
-    // files are generated (private + public), the resource will only be emitted
-    // to the private R.java file.
+    // A resource was explicitly marked as private. This means the resource can not be accessed
+    // outside of its package unless the @*package:type/entry notation is used (the asterisk being
+    // the private accessor). If two R.java files are generated (private + public), the resource
+    // will only be emitted to the private R.java file.
     PRIVATE = 1;
 
-    // A resource was explicitly marked as public. This means the resource can
-    // be accessed from any package, and is emitted into all R.java files,
-    // public and private.
+    // A resource was explicitly marked as public. This means the resource can be accessed
+    // from any package, and is emitted into all R.java files, public and private.
     PUBLIC = 2;
   }
 
@@ -129,9 +123,8 @@ message SymbolStatus {
   // The comment associated with the <public> tag.
   string comment = 3;
 
-  // Whether the symbol can be merged into another resource table without there
-  // being an existing definition to override. Used for overlays and set to true
-  // when <add-resource> is specified.
+  // Whether the symbol can be merged into another resource table without there being an existing
+  // definition to override. Used for overlays and set to true when <add-resource> is specified.
   bool allow_new = 4;
 }
 
@@ -140,18 +133,18 @@ message EntryId {
   uint32 id = 1;
 }
 
-// An entry declaration. An entry has a full resource ID that is the combination
-// of package ID, type ID, and its own entry ID. An entry on its own has no
-// value, but values are defined for various configurations/variants.
+// An entry declaration. An entry has a full resource ID that is the combination of package ID,
+// type ID, and its own entry ID. An entry on its own has no value, but values are defined for
+// various configurations/variants.
 message Entry {
-  // The ID of this entry. Together with the package ID and type ID, this forms
-  // a full resource ID of the form 0xPPTTEEEE, where PP is the package ID, TT
-  // is the type ID, and EEEE is the entry ID. This may not be set if no ID was
-  // assigned.
-  EntryId id = 1;
+  // The ID of this entry. Together with the package ID and type ID, this forms a full resource ID
+  // of the form 0xPPTTEEEE, where PP is the package ID, TT is the type ID, and EEEE is the entry
+  // ID.
+  // This may not be set if no ID was assigned.
+  EntryId entry_id = 1;
 
-  // The name of this entry. This corresponds to the 'entry' part of a full
-  // resource name of the form package:type/entry.
+  // The name of this entry. This corresponds to the 'entry' part of a full resource name of the
+  // form package:type/entry.
   string name = 2;
 
   // The symbol status of this entry, which includes visibility information.
@@ -186,10 +179,9 @@ message Value {
   }
 }
 
-// An Item is an abstract type. It represents a value that can appear inline in
-// many places, such as XML attribute values or on the right hand side of style
-// attribute definitions. The concrete type is one of the types below. Only one
-// can be set.
+// An Item is an abstract type. It represents a value that can appear inline in many places, such
+// as XML attribute values or on the right hand side of style attribute definitions. The concrete
+// type is one of the types below. Only one can be set.
 message Item {
   oneof value {
     Reference ref = 1;
@@ -202,9 +194,9 @@ message Item {
   }
 }
 
-// A CompoundValue is an abstract type. It represents a value that is a made of
-// other values. These can only usually appear as top-level resources. The
-// concrete type is one of the types below. Only one can be set.
+// A CompoundValue is an abstract type. It represents a value that is a made of other values.
+// These can only usually appear as top-level resources. The concrete type is one of the types
+// below. Only one can be set.
 message CompoundValue {
   oneof value {
     Attribute attr = 1;
@@ -215,8 +207,7 @@ message CompoundValue {
   }
 }
 
-// A value that is a reference to another resource. This reference can be by
-// name or resource ID.
+// A value that is a reference to another resource. This reference can be by name or resource ID.
 message Reference {
   enum Type {
     // A plain reference (@package:type/entry).
@@ -228,22 +219,18 @@ message Reference {
 
   Type type = 1;
 
-  // The resource ID (0xPPTTEEEE) of the resource being referred. This is
-  // optional.
+  // The resource ID (0xPPTTEEEE) of the resource being referred. This is optional.
   uint32 id = 2;
 
-  // The name of the resource being referred. This is optional if the resource
-  // ID is set.
+  // The name of the resource being referred. This is optional if the resource ID is set.
   string name = 3;
 
-  // Whether this reference is referencing a private resource
-  // (@*package:type/entry).
+  // Whether this reference is referencing a private resource (@*package:type/entry).
   bool private = 4;
 }
 
-// A value that represents an ID. This is just a placeholder, as ID values are
-// used to occupy a resource ID (0xPPTTEEEE) as a unique identifier. Their value
-// is unimportant.
+// A value that represents an ID. This is just a placeholder, as ID values are used to occupy a
+// resource ID (0xPPTTEEEE) as a unique identifier. Their value is unimportant.
 message Id {
 }
 
@@ -252,15 +239,14 @@ message String {
   string value = 1;
 }
 
-// A value that is a raw string, which is unescaped/uninterpreted. This is
-// typically used to represent the value of a style attribute before the
-// attribute is compiled and the set of allowed values is known.
+// A value that is a raw string, which is unescaped/uninterpreted. This is typically used to
+// represent the value of a style attribute before the attribute is compiled and the set of
+// allowed values is known.
 message RawString {
   string value = 1;
 }
 
-// A string with styling information, like html tags that specify boldness,
-// italics, etc.
+// A string with styling information, like html tags that specify boldness, italics, etc.
 message StyledString {
   // The raw text of the string.
   string value = 1;
@@ -283,8 +269,19 @@ message StyledString {
 
 // A value that is a reference to an external entity, like an XML file or a PNG.
 message FileReference {
+  enum Type {
+    UNKNOWN = 0;
+    PNG = 1;
+    BINARY_XML = 2;
+    PROTO_XML = 3;
+  }
+
   // Path to a file within the APK (typically res/type-config/entry.ext).
   string path = 1;
+
+  // The type of file this path points to. For UAM bundle, this cannot be
+  // BINARY_XML.
+  Type type = 2;
 }
 
 // A value that represents a primitive data type (float, int, boolean, etc.).
@@ -304,8 +301,8 @@ message Attribute {
     // Any comments associated with the enum or flag.
     string comment = 2;
 
-    // The name of the enum/flag as a reference. Enums/flag items are generated
-    // as ID resource values.
+    // The name of the enum/flag as a reference. Enums/flag items are generated as ID resource
+    // values.
     Reference name = 3;
 
     // The value of the enum/flag.
@@ -314,39 +311,36 @@ message Attribute {
 
   // Bitmask of formats allowed for an attribute.
   enum FormatFlags {
-    NONE = 0x0;         // Proto3 requires a default of 0.
-    ANY = 0x0000ffff;   // Allows any type except ENUM and FLAGS.
-    REFERENCE = 0x01;   // Allows Reference values.
-    STRING = 0x02;      // Allows String/StyledString values.
-    INTEGER = 0x04;     // Allows any integer BinaryPrimitive values.
-    BOOLEAN = 0x08;     // Allows any boolean BinaryPrimitive values.
-    COLOR = 0x010;      // Allows any color BinaryPrimitive values.
-    FLOAT = 0x020;      // Allows any float BinaryPrimitive values.
-    DIMENSION = 0x040;  // Allows any dimension BinaryPrimitive values.
-    FRACTION = 0x080;   // Allows any fraction BinaryPrimitive values.
-    ENUM = 0x00010000;  // Allows enums that are defined in the Attribute's
-                        // symbols.
-    // ENUM and FLAGS cannot BOTH be set.
-    FLAGS = 0x00020000;  // Allows flags that are defined in the Attribute's
-                         // symbols.
-    // ENUM and FLAGS cannot BOTH be set.
+    NONE = 0x0;          // Proto3 requires a default of 0.
+    ANY = 0x0000ffff;    // Allows any type except ENUM and FLAGS.
+    REFERENCE = 0x01;    // Allows Reference values.
+    STRING = 0x02;       // Allows String/StyledString values.
+    INTEGER = 0x04;      // Allows any integer BinaryPrimitive values.
+    BOOLEAN = 0x08;      // Allows any boolean BinaryPrimitive values.
+    COLOR = 0x010;       // Allows any color BinaryPrimitive values.
+    FLOAT = 0x020;       // Allows any float BinaryPrimitive values.
+    DIMENSION = 0x040;   // Allows any dimension BinaryPrimitive values.
+    FRACTION = 0x080;    // Allows any fraction BinaryPrimitive values.
+    ENUM = 0x00010000;   // Allows enums that are defined in the Attribute's symbols.
+                         // ENUM and FLAGS cannot BOTH be set.
+    FLAGS = 0x00020000;  // Allows flags that are defined in the Attribute's symbols.
+                         // ENUM and FLAGS cannot BOTH be set.
   }
 
-  // A bitmask of types that this XML attribute accepts. Corresponds to the
-  // flags in the enum FormatFlags.
+  // A bitmask of types that this XML attribute accepts. Corresponds to the flags in the
+  // enum FormatFlags.
   uint32 format_flags = 1;
 
-  // The smallest integer allowed for this XML attribute. Only makes sense if
-  // the format includes FormatFlags::INTEGER.
+  // The smallest integer allowed for this XML attribute. Only makes sense if the format includes
+  // FormatFlags::INTEGER.
   int32 min_int = 2;
 
-  // The largest integer allowed for this XML attribute. Only makes sense if the
-  // format includes FormatFlags::INTEGER.
+  // The largest integer allowed for this XML attribute. Only makes sense if the format includes
+  // FormatFlags::INTEGER.
   int32 max_int = 3;
 
-  // The set of enums/flags defined in this attribute. Only makes sense if the
-  // format includes either FormatFlags::ENUM or FormatFlags::FLAGS. Having both
-  // is an error.
+  // The set of enums/flags defined in this attribute. Only makes sense if the format includes
+  // either FormatFlags::ENUM or FormatFlags::FLAGS. Having both is an error.
   repeated Symbol symbol = 4;
 }
 
@@ -377,9 +371,8 @@ message Style {
   repeated Entry entry = 3;
 }
 
-// A value that represents a <declare-styleable> XML resource. These are not
-// real resources and only end up as Java fields in the generated R.java. They
-// do not end up in the binary ARSC file.
+// A value that represents a <declare-styleable> XML resource. These are not real resources and
+// only end up as Java fields in the generated R.java. They do not end up in the binary ARSC file.
 message Styleable {
   // An attribute defined for this styleable.
   message Entry {
@@ -499,189 +492,4 @@ message XmlAttribute {
 
   // The optional interpreted/compiled version of the `value` string.
   Item compiled_item = 6;
-}
-
-// A description of the requirements a device must have in order for a
-// resource to be matched and selected.
-message Configuration {
-  enum LayoutDirection {
-    LAYOUT_DIRECTION_UNSET = 0;
-    LAYOUT_DIRECTION_LTR = 1;
-    LAYOUT_DIRECTION_RTL = 2;
-  }
-
-  enum ScreenLayoutSize {
-    SCREEN_LAYOUT_SIZE_UNSET = 0;
-    SCREEN_LAYOUT_SIZE_SMALL = 1;
-    SCREEN_LAYOUT_SIZE_NORMAL = 2;
-    SCREEN_LAYOUT_SIZE_LARGE = 3;
-    SCREEN_LAYOUT_SIZE_XLARGE = 4;
-  }
-
-  enum ScreenLayoutLong {
-    SCREEN_LAYOUT_LONG_UNSET = 0;
-    SCREEN_LAYOUT_LONG_LONG = 1;
-    SCREEN_LAYOUT_LONG_NOTLONG = 2;
-  }
-
-  enum ScreenRound {
-    SCREEN_ROUND_UNSET = 0;
-    SCREEN_ROUND_ROUND = 1;
-    SCREEN_ROUND_NOTROUND = 2;
-  }
-
-  enum WideColorGamut {
-    WIDE_COLOR_GAMUT_UNSET = 0;
-    WIDE_COLOR_GAMUT_WIDECG = 1;
-    WIDE_COLOR_GAMUT_NOWIDECG = 2;
-  }
-
-  enum Hdr {
-    HDR_UNSET = 0;
-    HDR_HIGHDR = 1;
-    HDR_LOWDR = 2;
-  }
-
-  enum Orientation {
-    ORIENTATION_UNSET = 0;
-    ORIENTATION_PORT = 1;
-    ORIENTATION_LAND = 2;
-    ORIENTATION_SQUARE = 3;
-  }
-
-  enum UiModeType {
-    UI_MODE_TYPE_UNSET = 0;
-    UI_MODE_TYPE_NORMAL = 1;
-    UI_MODE_TYPE_DESK = 2;
-    UI_MODE_TYPE_CAR = 3;
-    UI_MODE_TYPE_TELEVISION = 4;
-    UI_MODE_TYPE_APPLIANCE = 5;
-    UI_MODE_TYPE_WATCH = 6;
-    UI_MODE_TYPE_VRHEADSET = 7;
-  }
-
-  enum UiModeNight {
-    UI_MODE_NIGHT_UNSET = 0;
-    UI_MODE_NIGHT_NIGHT = 1;
-    UI_MODE_NIGHT_NOTNIGHT = 2;
-  }
-
-  enum Touchscreen {
-    TOUCHSCREEN_UNSET = 0;
-    TOUCHSCREEN_NOTOUCH = 1;
-    TOUCHSCREEN_STYLUS = 2;
-    TOUCHSCREEN_FINGER = 3;
-  }
-
-  enum KeysHidden {
-    KEYS_HIDDEN_UNSET = 0;
-    KEYS_HIDDEN_KEYSEXPOSED = 1;
-    KEYS_HIDDEN_KEYSHIDDEN = 2;
-    KEYS_HIDDEN_KEYSSOFT = 3;
-  }
-
-  enum Keyboard {
-    KEYBOARD_UNSET = 0;
-    KEYBOARD_NOKEYS = 1;
-    KEYBOARD_QWERTY = 2;
-    KEYBOARD_TWELVEKEY = 3;
-  }
-
-  enum NavHidden {
-    NAV_HIDDEN_UNSET = 0;
-    NAV_HIDDEN_NAVEXPOSED = 1;
-    NAV_HIDDEN_NAVHIDDEN = 2;
-  }
-
-  enum Navigation {
-    NAVIGATION_UNSET = 0;
-    NAVIGATION_NONAV = 1;
-    NAVIGATION_DPAD = 2;
-    NAVIGATION_TRACKBALL = 3;
-    NAVIGATION_WHEEL = 4;
-  }
-
-  //
-  // Axis/dimensions that are understood by the runtime.
-  //
-
-  // Mobile country code.
-  uint32 mcc = 1;
-
-  // Mobile network code.
-  uint32 mnc = 2;
-
-  // BCP-47 locale tag.
-  string locale = 3;
-
-  // Left-to-right, right-to-left...
-  LayoutDirection layout_direction = 4;
-
-  // Screen width in pixels. Prefer screen_width_dp.
-  uint32 screen_width = 5;
-
-  // Screen height in pixels. Prefer screen_height_dp.
-  uint32 screen_height = 6;
-
-  // Screen width in density independent pixels (dp).
-  uint32 screen_width_dp = 7;
-
-  // Screen height in density independent pixels (dp).
-  uint32 screen_height_dp = 8;
-
-  // The smallest screen dimension, regardless of orientation, in dp.
-  uint32 smallest_screen_width_dp = 9;
-
-  // Whether the device screen is classified as small, normal, large, xlarge.
-  ScreenLayoutSize screen_layout_size = 10;
-
-  // Whether the device screen is long.
-  ScreenLayoutLong screen_layout_long = 11;
-
-  // Whether the screen is round (Android Wear).
-  ScreenRound screen_round = 12;
-
-  // Whether the screen supports wide color gamut.
-  WideColorGamut wide_color_gamut = 13;
-
-  // Whether the screen has high dynamic range.
-  Hdr hdr = 14;
-
-  // Which orientation the device is in (portrait, landscape).
-  Orientation orientation = 15;
-
-  // Which type of UI mode the device is in (television, car, etc.).
-  UiModeType ui_mode_type = 16;
-
-  // Whether the device is in night mode.
-  UiModeNight ui_mode_night = 17;
-
-  // The device's screen density in dots-per-inch (dpi).
-  uint32 density = 18;
-
-  // Whether a touchscreen exists, supports a stylus, or finger.
-  Touchscreen touchscreen = 19;
-
-  // Whether the keyboard hardware keys are currently hidden, exposed, or
-  // if the keyboard is a software keyboard.
-  KeysHidden keys_hidden = 20;
-
-  // The type of keyboard present (none, QWERTY, 12-key).
-  Keyboard keyboard = 21;
-
-  // Whether the navigation is exposed or hidden.
-  NavHidden nav_hidden = 22;
-
-  // The type of navigation present on the device
-  // (trackball, wheel, dpad, etc.).
-  Navigation navigation = 23;
-
-  // The minimum SDK version of the device.
-  uint32 sdk_version = 24;
-
-  //
-  // Build-time only dimensions.
-  //
-
-  string product = 25;
 }

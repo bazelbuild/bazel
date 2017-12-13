@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import android.aapt.pb.internal.ResourcesInternal.CompiledFile;
 import com.android.SdkConstants;
 import com.android.aapt.Resources;
 import com.android.aapt.Resources.ConfigValue;
@@ -26,7 +27,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.LittleEndianDataInputStream;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
-import com.google.devtools.build.android.proto.Format.CompiledFile;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -73,10 +73,15 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
   }
 
   private void readResourceTable(
-      InputStream resourceTableStream,
+      LittleEndianDataInputStream resourceTableStream,
       KeyValueConsumers consumers,
       Factory fqnFactory) throws IOException {
-    ResourceTable resourceTable = ResourceTable.parseFrom(resourceTableStream);
+    long alignedSize = resourceTableStream.readLong();
+    Preconditions.checkArgument(alignedSize <= Integer.MAX_VALUE);
+
+    byte[] tableBytes = new byte[(int) alignedSize];
+    resourceTableStream.read(tableBytes, 0, (int) alignedSize);
+    ResourceTable resourceTable = ResourceTable.parseFrom(tableBytes);
 
     List<String> sourcePool =
         decodeSourcePool(resourceTable.getSourcePool().getData().toByteArray());
@@ -141,21 +146,19 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
    * @throws IOException
    */
   private void readCompiledFile(
-      InputStream compiledFileStream,
+      LittleEndianDataInputStream compiledFileStream,
       KeyValueConsumers consumers,
       Factory fqnFactory) throws IOException {
-    LittleEndianDataInputStream dataInputStream =
-        new LittleEndianDataInputStream(compiledFileStream);
+    //Skip aligned size. We don't need it here.
+    Preconditions.checkArgument(compiledFileStream.skipBytes(8) == 8);
 
-    int numberOfCompiledFiles = dataInputStream.readInt();
-    if (numberOfCompiledFiles != 1) {
-      logger.warning("Compiled resource file has "
-          + numberOfCompiledFiles + " files. Expected 1 compiled file.");
-    }
+    int resFileHeaderSize = compiledFileStream.readInt();
 
-    long length = dataInputStream.readLong();
-    byte[] file = new byte[(int) length];
-    dataInputStream.read(file, 0, (int) length);
+    //Skip data payload size. We don't need it here.
+    Preconditions.checkArgument(compiledFileStream.skipBytes(8) == 8);
+
+    byte[] file = new byte[resFileHeaderSize];
+    compiledFileStream.read(file, 0, resFileHeaderSize);
     CompiledFile compiledFile = CompiledFile.parseFrom(file);
 
     Path sourcePath = Paths.get(compiledFile.getSourcePath());
@@ -166,7 +169,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
       consumers.overwritingConsumer.accept(fqn, DataValueFile.of(dataSource));
     }
 
-    for (CompiledFile.Symbol exportedSymbol : compiledFile.getExportedSymbolsList()) {
+    for (CompiledFile.Symbol exportedSymbol : compiledFile.getExportedSymbolList()) {
       FullyQualifiedName symbolFqn =
           fqnFactory.create(
               ResourceType.ID, exportedSymbol.getResourceName().replaceFirst("id/", ""));
@@ -178,7 +181,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
   }
 
   @Override
-  public void read(Path inPath, KeyValueConsumers consumers){
+  public void read(Path inPath, KeyValueConsumers consumers) {
     Stopwatch timer = Stopwatch.createStarted();
     try (ZipFile zipFile = new ZipFile(inPath.toFile())) {
       Enumeration<? extends ZipEntry> resourceFiles = zipFile.entries();
@@ -207,10 +210,20 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
             .split(SdkConstants.RES_QUALIFIER_SEP);
         Factory fqnFactory = Factory.fromDirectoryName(dirNameAndQualifiers);
 
-        if (fileZipPath.endsWith(".arsc.flat")) {
-          readResourceTable(resourceFileStream, consumers, fqnFactory);
+      LittleEndianDataInputStream dataInputStream =
+            new LittleEndianDataInputStream(resourceFileStream);
+
+        // Magic number (4 bytes), Format version (4 bytes), Number of entries (4 bytes).
+        Preconditions.checkArgument(dataInputStream.skipBytes(12) == 12);
+
+        int resourceType = dataInputStream.readInt();
+        if (resourceType == 0) { // 0 is a resource table
+          readResourceTable(dataInputStream, consumers, fqnFactory);
+        } else if (resourceType == 1) { // 1 is a resource file
+          readCompiledFile(dataInputStream, consumers, fqnFactory);
         } else {
-          readCompiledFile(resourceFileStream, consumers, fqnFactory);
+          throw new RuntimeException(
+              String.format("Invalid resource type enum: %s from %s", resourceType, fileZipPath));
         }
       }
     } catch (IOException e) {
