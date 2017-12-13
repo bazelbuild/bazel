@@ -149,6 +149,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -197,6 +198,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected WorkspaceStatusAction.Factory workspaceStatusActionFactory;
 
   private MutableActionGraph mutableActionGraph;
+
+  private LoadingOptions customLoadingOptions = null;
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
@@ -1517,6 +1520,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return attributes((RuleConfiguredTarget) rule);
   }
 
+  protected void useLoadingOptions(String... options) throws OptionsParsingException {
+    customLoadingOptions = Options.parse(LoadingOptions.class, options).getOptions();
+  }
+
   protected AnalysisResult update(List<String> targets,
       boolean keepGoing,
       int loadingPhaseThreads,
@@ -1535,7 +1542,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       EventBus eventBus)
       throws Exception {
 
-    LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
+    LoadingOptions loadingOptions =
+        customLoadingOptions == null
+            ? Options.getDefaults(LoadingOptions.class)
+            : customLoadingOptions;
 
     BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
     viewOptions.keepGoing = keepGoing;

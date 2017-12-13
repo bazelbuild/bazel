@@ -1979,12 +1979,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         @Nullable LoadingCallback callback)
         throws TargetParsingException, LoadingFailedException, InterruptedException {
       Stopwatch timer = Stopwatch.createStarted();
-      SkyKey key = TargetPatternPhaseValue.key(ImmutableList.copyOf(targetPatterns),
-          relativeWorkingDirectory.getPathString(), options.compileOneDependency,
-          options.buildTestsOnly, determineTests,
-          ImmutableList.copyOf(options.buildTagFilterList),
-          options.buildManualTests,
-          TestFilter.forOptions(options, eventHandler, ruleClassNames));
+      SkyKey key =
+          TargetPatternPhaseValue.key(
+              ImmutableList.copyOf(targetPatterns),
+              relativeWorkingDirectory.getPathString(),
+              options.compileOneDependency,
+              options.buildTestsOnly,
+              determineTests,
+              ImmutableList.copyOf(options.buildTagFilterList),
+              options.buildManualTests,
+              options.expandTestSuites,
+              TestFilter.forOptions(options, eventHandler, ruleClassNames));
       EvaluationResult<TargetPatternPhaseValue> evalResult;
       eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));
       evalResult =
@@ -2017,7 +2022,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         callback.notifyTargets(patternParsingValue.getTargets());
       }
       eventHandler.post(new LoadingPhaseCompleteEvent(
-          patternParsingValue.getTargets(), patternParsingValue.getTestSuiteTargets(),
+          patternParsingValue.getTargets(), patternParsingValue.getRemovedTargets(),
           PackageManagerStatistics.ZERO, /*timeInMs=*/0));
       return patternParsingValue.toLoadingResult();
     }

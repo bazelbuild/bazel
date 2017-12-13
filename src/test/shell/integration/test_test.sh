@@ -128,4 +128,32 @@ EOF
   bazel test //dir:my_test &> $TEST_log || fail "expected test to pass"
 }
 
+function test_test_suite_non_expansion() {
+  mkdir -p dir
+  cat > dir/BUILD <<'EOF'
+sh_test(name = 'test_a',
+        srcs = [':a.sh'],
+)
+
+sh_test(name = 'test_b',
+        srcs = [':b.sh'],
+)
+
+test_suite(name = 'suite',
+)
+EOF
+  cat > dir/a.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+
+  cat > dir/b.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod +x dir/a.sh dir/b.sh
+  bazel test --noexpand_test_suites //dir:suite &> $TEST_log || fail "expected test to pass"
+  expect_log '//dir:test_a'
+  expect_log '//dir:test_b'
+}
 run_suite "test tests"

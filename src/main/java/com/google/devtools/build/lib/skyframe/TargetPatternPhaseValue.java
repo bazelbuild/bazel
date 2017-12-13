@@ -51,12 +51,12 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   // This field is only for the purposes of generating the LoadingPhaseCompleteEvent.
   // TODO(ulfjack): Support EventBus event posting in Skyframe, and remove this code again.
-  private final ImmutableSet<Target> testSuiteTargets;
+  private final ImmutableSet<Target> removedTargets;
   private final String workspaceName;
 
   TargetPatternPhaseValue(ImmutableSet<Target> targets, @Nullable ImmutableSet<Target> testsToRun,
       boolean hasError, boolean hasPostExpansionError, ImmutableSet<Target> filteredTargets,
-      ImmutableSet<Target> testFilteredTargets, ImmutableSet<Target> testSuiteTargets,
+      ImmutableSet<Target> testFilteredTargets, ImmutableSet<Target> removedTargets,
       String workspaceName) {
     this.targets = Preconditions.checkNotNull(targets);
     this.testsToRun = testsToRun;
@@ -64,7 +64,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     this.hasPostExpansionError = hasPostExpansionError;
     this.filteredTargets = Preconditions.checkNotNull(filteredTargets);
     this.testFilteredTargets = Preconditions.checkNotNull(testFilteredTargets);
-    this.testSuiteTargets = Preconditions.checkNotNull(testSuiteTargets);
+    this.removedTargets = Preconditions.checkNotNull(removedTargets);
     this.workspaceName = workspaceName;
   }
 
@@ -93,8 +93,13 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return testFilteredTargets;
   }
 
-  public ImmutableSet<Target> getTestSuiteTargets() {
-    return testSuiteTargets;
+  /**
+   * Returns a set of targets that were present on the command line but got
+   * expanded during the loading phase (currently these are only test suites;
+   * this set is always empty when <code>--expand_test_suites=false</code>.
+   */
+  public ImmutableSet<Target> getRemovedTargets() {
+    return removedTargets;
   }
 
   public String getWorkspaceName() {
@@ -131,6 +136,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       boolean determineTests,
       ImmutableList<String> buildTargetFilter,
       boolean buildManualTests,
+      boolean expandTestSuites,
       @Nullable TestFilter testFilter) {
     return new TargetPatternPhaseKey(
         targetPatterns,
@@ -140,6 +146,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
         determineTests,
         buildTargetFilter,
         buildManualTests,
+        expandTestSuites,
         testFilter);
   }
 
@@ -153,6 +160,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     private final boolean determineTests;
     private final ImmutableList<String> buildTargetFilter;
     private final boolean buildManualTests;
+    private final boolean expandTestSuites;
     @Nullable private final TestFilter testFilter;
 
     public TargetPatternPhaseKey(
@@ -163,6 +171,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
         boolean determineTests,
         ImmutableList<String> buildTargetFilter,
         boolean buildManualTests,
+        boolean expandTestSuites,
         @Nullable TestFilter testFilter) {
       this.targetPatterns = Preconditions.checkNotNull(targetPatterns);
       this.offset = Preconditions.checkNotNull(offset);
@@ -171,6 +180,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       this.determineTests = determineTests;
       this.buildTargetFilter = Preconditions.checkNotNull(buildTargetFilter);
       this.buildManualTests = buildManualTests;
+      this.expandTestSuites = expandTestSuites;
       this.testFilter = testFilter;
       if (buildTestsOnly || determineTests) {
         Preconditions.checkNotNull(testFilter);
@@ -214,6 +224,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
       return testFilter;
     }
 
+    public boolean isExpandTestSuites() {
+      return expandTestSuites;
+    }
+
     @Override
     public String toString() {
       StringBuilder result = new StringBuilder();
@@ -224,6 +238,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       result.append(compileOneDependency ? " COMPILE_ONE_DEPENDENCY" : "");
       result.append(buildTestsOnly ? " BUILD_TESTS_ONLY" : "");
       result.append(determineTests ? " DETERMINE_TESTS" : "");
+      result.append(expandTestSuites ? " EXPAND_TEST_SUITES" : "");
       result.append(testFilter != null ? testFilter : "");
       return result.toString();
     }
@@ -231,8 +246,14 @@ public final class TargetPatternPhaseValue implements SkyValue {
     @Override
     public int hashCode() {
       return Objects.hash(
-          targetPatterns, offset, compileOneDependency, buildTestsOnly, determineTests,
-          buildManualTests, testFilter);
+          targetPatterns,
+          offset,
+          compileOneDependency,
+          buildTestsOnly,
+          determineTests,
+          buildManualTests,
+          expandTestSuites,
+          testFilter);
     }
 
     @Override
@@ -251,6 +272,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
           && other.determineTests == determineTests
           && other.buildTargetFilter.equals(buildTargetFilter)
           && other.buildManualTests == buildManualTests
+          && other.expandTestSuites == expandTestSuites
           && Objects.equals(other.testFilter, testFilter);
     }
   }

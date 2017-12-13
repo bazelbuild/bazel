@@ -162,4 +162,17 @@ public class LoadingOptions extends OptionsBase {
             + "--experimental_interleave_loading_and_analysis."
   )
   public boolean useSkyframeTargetPatternEvaluator;
+
+  @Option(
+    name = "expand_test_suites",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+    help = "Expand test_suite targets into their constituent tests before analysis. "
+        + "When this flag is turned on (the default), negative target patterns will apply "
+        + "to the tests belonging to the test suite, otherwise they will not. "
+        + "Turning off this flag is useful when top-level aspects are applied at command line: "
+        + "then they can analyze test_suite targets."
+  )
+  public boolean expandTestSuites;
 }

@@ -181,12 +181,16 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     ImmutableSet<Target> targetsToLoad = targets.getTargets();
     ResolvedTargets<Target> expandedResult;
     try {
-      expandedResult = expandTestSuites(eventHandler, targetsToLoad, keepGoing);
+      if (options.expandTestSuites) {
+        expandedResult = expandTestSuites(eventHandler, targetsToLoad, keepGoing);
+      } else {
+        expandedResult = ResolvedTargets.<Target>builder().addAll(targetsToLoad).build();
+      }
     } catch (TargetParsingException e) {
       throw new LoadingFailedException("Loading failed; build aborted", e);
     }
     ImmutableSet<Target> expandedTargetsToLoad = expandedResult.getTargets();
-    ImmutableSet<Target> testSuiteTargets =
+    ImmutableSet<Target> removedTargets =
         ImmutableSet.copyOf(Sets.difference(targetsToLoad, expandedTargetsToLoad));
     long testSuiteTime = timer.stop().elapsed(TimeUnit.MILLISECONDS);
 
@@ -198,7 +202,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
             expandedResult.hasError(),
             filteredTargets,
             testFilteredTargets,
-            testSuiteTargets,
+            removedTargets,
             getWorkspaceName(eventHandler));
 
     // This is the same code as SkyframeLoadingPhaseRunner.
@@ -216,7 +220,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     eventHandler.post(
         new LoadingPhaseCompleteEvent(
             patternParsingValue.getTargets(),
-            patternParsingValue.getTestSuiteTargets(),
+            patternParsingValue.getRemovedTargets(),
             packageManager.getAndClearStatistics(),
             testSuiteTime));
     logger.info("Target pattern evaluation finished");
