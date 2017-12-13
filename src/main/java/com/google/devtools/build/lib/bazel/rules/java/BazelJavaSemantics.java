@@ -158,7 +158,8 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   private boolean isExperimentalJavaTest(RuleContext ruleContext) {
-    return TargetUtils.isTestRule(ruleContext.getRule())
+    return ruleContext.attributes().has("$experimental_testsupport")
+        && TargetUtils.isTestRule(ruleContext.getRule())
         && getMainClassFromRule(ruleContext).equals(EXPERIMENTAL_TEST_RUNNER_MAIN_CLASS);
   }
 
