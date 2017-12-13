@@ -75,7 +75,9 @@ import javax.annotation.Nullable;
   doc =
       "Module for creating new attributes. "
           + "They are only for use with <a href=\"globals.html#rule\">rule</a> or "
-          + "<a href=\"globals.html#aspect\">aspect</a>."
+          + "<a href=\"globals.html#aspect\">aspect</a>. "
+          + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
+          + "attributes/printer.bzl\">See example of use</a>."
 )
 public final class SkylarkAttr implements SkylarkValue {
 

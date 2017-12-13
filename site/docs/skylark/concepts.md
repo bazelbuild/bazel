@@ -38,7 +38,7 @@ example is perfectly legal (please note when to use quotation marks).
 load(":my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
 ```
 
-In a `.bzl` file, symbols starting with `_` are private and cannot be loaded
+In a `.bzl` file, symbols starting with `_` are not exported and cannot be loaded
 from another file. Visibility doesn't affect loading (yet): you don't need to
 use `exports_files` to make a `.bzl` file visible.
 

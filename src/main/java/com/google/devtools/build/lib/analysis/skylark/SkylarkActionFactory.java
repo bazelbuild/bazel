@@ -70,15 +70,14 @@ import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
-/**
- * Provides a Skylark interface for all action creation needs.
- */
+/** Provides a Skylark interface for all action creation needs. */
 @SkylarkModule(
-    name = "actions",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "Module providing functions to create actions."
+  name = "actions",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "Module providing functions to create actions. "
+          + "Access this module using <a href=\"ctx.html#actions\">ctx.actions</a>."
 )
-
 public class SkylarkActionFactory implements SkylarkValue {
   private final SkylarkRuleContext context;
   private final SkylarkSemantics skylarkSemantics;
@@ -111,7 +110,9 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "You must create an action that generates the file. <br>"
             + "Files cannot be created outside of the current package. "
             + "Files that are specified in rule's outputs do not need to be declared and are "
-            + "available through <a href=\"ctx.html#outputs\">ctx.outputs</a>.",
+            + "available through <a href=\"ctx.html#outputs\">ctx.outputs</a>. "
+            + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
+            + "computed_dependencies/hash.bzl\">See example of use</a>",
     parameters = {
       @Param(
         name = "filename",
@@ -238,7 +239,7 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "to a file. This is used to generate files using information available in the "
             + "analysis phase. If the file is large and with a lot of static content, consider "
             + "using <a href=\"#expand_template\">expand_template</a>. "
-            + "<a href=\"https://github.com/laurentlb/examples/blob/master/rules/executable/executable.bzl\">"
+            + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl\">"
             + "See example of use</a>",
     parameters = {
       @Param(name = "output", type = Artifact.class, doc = "the output file.", named = true),
@@ -283,7 +284,10 @@ public class SkylarkActionFactory implements SkylarkValue {
 
   @SkylarkCallable(
     name = "run",
-    doc = "Creates an action that runs an executable.",
+    doc =
+        "Creates an action that runs an executable. "
+            + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
+            + "actions_run/execute.bzl\">See example of use</a>",
     parameters = {
       @Param(
         name = "outputs",
@@ -455,7 +459,10 @@ public class SkylarkActionFactory implements SkylarkValue {
 
   @SkylarkCallable(
     name = "run_shell",
-    doc = "Creates an action that runs a shell command.",
+    doc =
+        "Creates an action that runs a shell command. "
+            + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
+            + "shell_command/size.bzl\">See example of use</a>",
     parameters = {
       @Param(
         name = "outputs",
@@ -773,7 +780,7 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "dictionary appears in the template, it is replaced with the associated value. "
             + "There is no special syntax for the keys. You may for example use curly braces "
             + "to avoid conflicts (e.g. <code>{KEY}</code>). "
-            + "<a href=\"https://github.com/laurentlb/examples/blob/master/rules/expand_template/hello.bzl\">"
+            + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/hello.bzl\">"
             + "See example of use</a>",
     parameters = {
       @Param(
