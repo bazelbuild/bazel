@@ -17,6 +17,7 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.regex.Pattern;
 
@@ -49,4 +50,16 @@ public class LocalExecutionOptions extends OptionsBase {
             + "all actions are allowed to execute locally"
   )
   public Pattern allowedLocalAction;
+
+  @Option(
+    name = "experimental_collect_local_action_metrics",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.EXECUTION},
+    metadataTags = {OptionMetadataTag.DEPRECATED},
+    help =
+        "When enabled, execution statistics (such as user and system time) are recorded for "
+            + "locally executed actions"
+  )
+  public boolean collectLocalExecutionStatistics;
 }
