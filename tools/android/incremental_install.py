@@ -125,16 +125,18 @@ targetpath = posixpath
 class Adb(object):
   """A class to handle interaction with adb."""
 
-  def __init__(self, adb_path, temp_dir, adb_jobs, user_home_dir):
+  def __init__(self, adb_path, temp_dir, adb_jobs, user_home_dir,
+               extra_adb_args):
     self._adb_path = adb_path
     self._temp_dir = temp_dir
     self._user_home_dir = user_home_dir
     self._file_counter = 1
     self._executor = futures.ThreadPoolExecutor(max_workers=adb_jobs)
+    self._extra_adb_args = extra_adb_args or []
 
   def _Exec(self, adb_args):
     """Executes the given adb command + args."""
-    args = [self._adb_path] + FLAGS.extra_adb_arg + adb_args
+    args = [self._adb_path] + self._extra_adb_args + adb_args
     # TODO(ahumesky): Because multiple instances of adb are executed in
     # parallel, these debug logging lines will get interleaved.
     logging.debug("Executing: %s", " ".join(args))
@@ -696,11 +698,20 @@ def SplitIncrementalInstall(adb, app_package, execroot, split_main_apk,
                  targetpath.join(app_dir, "split_manifest")).result()
 
 
-def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
-                       adb_jobs, start_type, dexmanifest=None, apk=None,
-                       native_libs=None, resource_apk=None,
-                       split_main_apk=None, split_apks=None,
-                       user_home_dir=None):
+def IncrementalInstall(adb_path,
+                       execroot,
+                       stub_datafile,
+                       output_marker,
+                       adb_jobs,
+                       start_type,
+                       dexmanifest=None,
+                       apk=None,
+                       native_libs=None,
+                       resource_apk=None,
+                       split_main_apk=None,
+                       split_apks=None,
+                       user_home_dir=None,
+                       extra_adb_args=None):
   """Performs an incremental install.
 
   Args:
@@ -718,10 +729,11 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
     split_main_apk: the split main .apk if split installation is desired.
     split_apks: the list of split .apks to be installed.
     user_home_dir: Path to the user's home directory.
+    extra_adb_args: Extra arguments that will always be passed to adb.
   """
   temp_dir = tempfile.mkdtemp()
   try:
-    adb = Adb(adb_path, temp_dir, adb_jobs, user_home_dir)
+    adb = Adb(adb_path, temp_dir, adb_jobs, user_home_dir, extra_adb_args)
     app_package = GetAppPackage(hostpath.join(execroot, stub_datafile))
     app_dir = targetpath.join(DEVICE_DIRECTORY, app_package)
     if split_main_apk:
@@ -804,7 +816,8 @@ def main():
       dexmanifest=FLAGS.dexmanifest,
       apk=FLAGS.apk,
       resource_apk=FLAGS.resource_apk,
-      user_home_dir=FLAGS.user_home_dir)
+      user_home_dir=FLAGS.user_home_dir,
+      extra_adb_args=FLAGS.extra_adb_arg)
 
 
 if __name__ == "__main__":
