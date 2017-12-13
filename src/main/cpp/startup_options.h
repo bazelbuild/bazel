@@ -161,9 +161,23 @@ class StartupOptions {
   //
   // Returns the exit code after this operation. "error" will be set to a
   // descriptive string for any value other than blaze_exit_code::SUCCESS.
-  virtual blaze_exit_code::ExitCode AddJVMArguments(
+  blaze_exit_code::ExitCode AddJVMArguments(
       const std::string &host_javabase, std::vector<std::string> *result,
       const std::vector<std::string> &user_options, std::string *error) const;
+
+  // Adds JVM logging-related flags for Bazel.
+  //
+  // This is called by StartupOptions::AddJVMArguments and is a separate method
+  // so that subclasses of StartupOptions can override it.
+  virtual void AddJVMLoggingArguments(std::vector<std::string> *result) const;
+
+  // Adds JVM memory tuning flags for Bazel.
+  //
+  // This is called by StartupOptions::AddJVMArguments and is a separate method
+  // so that subclasses of StartupOptions can override it.
+  virtual blaze_exit_code::ExitCode AddJVMMemoryArguments(
+        const std::string &host_javabase, std::vector<std::string> *result,
+        const std::vector<std::string> &user_options, std::string *error) const;
 
   // Checks whether the argument is a valid nullary option.
   // E.g. --master_bazelrc, --nomaster_bazelrc.
