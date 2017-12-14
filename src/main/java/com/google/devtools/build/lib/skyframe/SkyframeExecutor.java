@@ -604,7 +604,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             evaluatorDiffer(),
             progressReceiver,
             emittedEventState,
-            hasIncrementalState());
+            tracksStateForIncrementality());
     buildDriver = getBuildDriver();
   }
 
@@ -686,22 +686,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Decides if graph edges should be stored for this build. If not, notes that the next evaluation
-   * on the graph should reset it first. Necessary conditions to not store graph edges are:
+   * Decides if graph edges should be stored during this evaluation and checks if the state from the
+   * last evaluation, if any, can be kept.
    *
-   * <ol>
-   *   <li>batch (since incremental builds are not possible);
-   *   <li>keep-going (since otherwise bubbling errors up may require edges of done nodes);
-   *   <li>discard_analysis_cache (since otherwise user isn't concerned about saving memory this
-   *       way).
-   * </ol>
+   * <p>If not, it will mark this state for deletion. The actual cleaning is put off until {@link
+   * #sync}, in case no evaluation was actually called for and the existing state can be kept for
+   * longer.
    */
   public void decideKeepIncrementalState(
       boolean batch, OptionsProvider viewOptions, EventHandler eventHandler) {
     // Assume incrementality.
   }
 
-  public boolean hasIncrementalState() {
+  /** Whether this executor tracks state for the purpose of improving incremental performance. */
+  public boolean tracksStateForIncrementality() {
     return true;
   }
 
@@ -1858,6 +1856,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return pkgFactory.getPackageBuilderHelperForTesting();
   }
 
+  /**
+   * Initializes and syncs the graph with the given options, readying it for the next evaluation.
+   */
   public void sync(
       ExtendedEventHandler eventHandler,
       PackageCacheOptions packageCacheOptions,

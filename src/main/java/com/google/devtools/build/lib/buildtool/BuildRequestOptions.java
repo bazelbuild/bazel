@@ -405,17 +405,18 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useActionCache;
 
   @Option(
-    name = "keep_incrementality_data",
+    name = "track_incremental_state",
+    oldName = "keep_incrementality_data",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
     effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help =
-        "If false, discard Blaze-internal data that allows for invalidation and re-evaluation "
+        "If false, Blaze will not persist data that allows for invalidation and re-evaluation "
             + "on incremental builds in order to save memory on this build. Subsequent builds "
-            + "will not have any incrementality with respect to this one. Usually you will want"
-            + "to specify the --batch startup option along with this one."
+            + "will not have any incrementality with respect to this one. Usually you will want "
+            + "to specify --batch when setting this to false."
   )
-  public boolean keepIncrementalityData;
+  public boolean trackIncrementalState;
 
   /** Converter for jobs: [0, MAX_JOBS] or "auto". */
   public static class JobsConverter extends RangeConverter {

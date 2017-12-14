@@ -67,7 +67,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
-    discardActions = !env.getSkyframeExecutor().hasIncrementalState();
+    discardActions = !env.getSkyframeExecutor().tracksStateForIncrementality();
   }
 
   @Subscribe

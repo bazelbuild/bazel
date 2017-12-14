@@ -239,7 +239,7 @@ public final class BuildTool {
         // graph beforehand if this option is specified, or add another option to wipe if desired
         // (SkyframeExecutor#handleConfiguredTargetChange should be sufficient).
         if (request.getBuildOptions().queryExpression != null) {
-          if (!env.getSkyframeExecutor().hasIncrementalState()) {
+          if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
             throw new ConfiguredTargetQueryCommandLineException(
                 "Configured query is not allowed if incrementality state is not being kept");
           }

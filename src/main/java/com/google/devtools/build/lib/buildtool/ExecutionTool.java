@@ -438,7 +438,7 @@ public class ExecutionTool {
       skyframeExecutor.drainChangedFiles();
 
       if (request.getViewOptions().discardAnalysisCache
-          || !request.getBuildOptions().keepIncrementalityData) {
+          || !skyframeExecutor.tracksStateForIncrementality()) {
         // Free memory by removing cache entries that aren't going to be needed.
         env.getSkyframeBuildView()
             .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
@@ -666,7 +666,7 @@ public class ExecutionTool {
     return successfulTargets;
   }
 
-
+  /** Get action cache if present or reload it from the on-disk cache. */
   private ActionCache getActionCache() throws LocalEnvironmentException {
     try {
       return env.getPersistentActionCache();

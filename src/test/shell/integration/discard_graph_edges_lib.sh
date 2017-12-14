@@ -17,7 +17,7 @@
 # discard_graph_edges_lib.sh: functions needed by discard_graph_edges_test.sh
 
 STARTUP_FLAGS="--batch"
-BUILD_FLAGS="--discard_analysis_cache --nokeep_incrementality_data"
+BUILD_FLAGS="--discard_analysis_cache --notrack_incremental_state"
 
 function extract_histogram_count() {
   local histofile="$1"
