@@ -321,7 +321,7 @@ public class BuildEventStreamer implements EventHandler {
           long deltaNanos = System.nanoTime() - startNanos;
           long deltaSeconds = TimeUnit.NANOSECONDS.toSeconds(deltaNanos);
           Event waitEvt =
-              of(PROGRESS, null, "Waiting for build event protocol upload: " + deltaSeconds + "s");
+              of(PROGRESS, null, "Waiting for Build Event Protocol upload: " + deltaSeconds + "s");
           if (reporter != null) {
             reporter.handle(waitEvt);
           }
