@@ -43,10 +43,13 @@ public final class SkylarkParamDoc extends SkylarkDoc {
       StringBuilder sb = new StringBuilder();
       for (int i = 0; i < param.allowedTypes().length; i++) {
         ParamType paramType = param.allowedTypes()[i];
-        if (paramType.generic1().equals(Object.class)) {
+        // Use the paramType's generic class if provided, otherwise the param's generic class
+        Class<?> generic =
+            paramType.generic1() == Object.class ? param.generic1() : paramType.generic1();
+        if (generic.equals(Object.class)) {
           sb.append(getTypeAnchor(paramType.type()));
         } else {
-          sb.append(getTypeAnchor(paramType.type(), paramType.generic1()));
+          sb.append(getTypeAnchor(paramType.type(), generic));
         }
         if (i < param.allowedTypes().length - 1) {
           sb.append("; or ");
