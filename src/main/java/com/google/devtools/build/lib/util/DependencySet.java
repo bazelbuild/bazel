@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Representation of a set of file dependencies for a given output file. There
@@ -99,8 +100,16 @@ public final class DependencySet {
    * Adds a given dependency to this DependencySet instance.
    */
   private void addDependency(String dep) {
+    dep = translatePath(dep);
     Path depPath = root.getRelative(dep);
     dependencies.add(depPath);
+  }
+
+  private String translatePath(String path) {
+    if (OS.getCurrent() != OS.WINDOWS) {
+      return path;
+    }
+    return WindowsPath.translateWindowsPath(path);
   }
 
   /**
@@ -240,5 +249,65 @@ public final class DependencySet {
   @Override
   public int hashCode() {
     return dependencies.hashCode();
+  }
+
+  private static final class WindowsPath {
+    private static final AtomicReference<String> UNIX_ROOT = new AtomicReference<>(null);
+
+    private static String translateWindowsPath(String path) {
+      int n = path.length();
+      if (n == 0 || path.charAt(0) != '/') {
+        return path;
+      }
+      if (n >= 2 && isAsciiLetter(path.charAt(1)) && (n == 2 || path.charAt(2) == '/')) {
+        StringBuilder sb = new StringBuilder(path.length());
+        sb.append(Character.toUpperCase(path.charAt(1)));
+        sb.append(":/");
+        sb.append(path, 2, path.length());
+        return sb.toString();
+      } else {
+        String unixRoot = getUnixRoot();
+        return unixRoot + path;
+      }
+    }
+
+    private static boolean isAsciiLetter(char c) {
+      return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+    }
+
+    private static String getUnixRoot() {
+      String value = UNIX_ROOT.get();
+      if (value == null) {
+        String jvmFlag = "bazel.windows_unix_root";
+        value = determineUnixRoot(jvmFlag);
+        if (value == null) {
+          throw new IllegalStateException(
+              String.format(
+                  "\"%1$s\" JVM flag is not set. Use the --host_jvm_args flag. "
+                      + "For example: "
+                      + "\"--host_jvm_args=-D%1$s=c:/tools/msys64\".",
+                  jvmFlag));
+        }
+        value = value.replace('\\', '/');
+        if (value.length() > 3 && value.endsWith("/")) {
+          value = value.substring(0, value.length() - 1);
+        }
+        UNIX_ROOT.set(value);
+      }
+      return value;
+    }
+
+    private static String determineUnixRoot(String jvmArgName) {
+      // Get the path from a JVM flag, if specified.
+      String path = System.getProperty(jvmArgName);
+      if (path == null) {
+        return null;
+      }
+      path = path.trim();
+      if (path.isEmpty()) {
+        return null;
+      }
+      return path;
+    }
   }
 }

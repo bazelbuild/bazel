@@ -78,11 +78,6 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
     /**
      * Makes the proper invocation of {@link FileSystem#getCachedChildPathInternal}, doing
      * filesystem-specific logic if necessary.
-     *
-     * <p>On Unix filesystems this method merely calls through to {@code
-     * FileSystem.getCachedChildPathInternal(parent, child)}, but on Windows this can be used to
-     * handle the translatation of absolute Unix paths to absolute Windows paths, e.g. "/c" to "C:/"
-     * or "/usr" to "C:/tools/msys64/usr".
      */
     Path getCachedChildPathInternal(Path path, String childName);
   }
