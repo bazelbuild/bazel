@@ -92,15 +92,3 @@ Bazel tries to be clever: it uses dependency analysis to know which files must
 be loaded, which rules must be analyzed, and which actions must be executed. For
 example, if a rule generates actions that we don't need for the current build,
 they will not be executed.
-
-
-## Profiling the code
-
-To profile your code and analyze the performance, use the `--profile` flag:
-
-```
-$ bazel build --nobuild --profile=/tmp/prof //path/to:target
-$ bazel analyze-profile /tmp/prof --html --html_details
-```
-
-Then, open the generated HTML file (`/tmp/prof.html` in the example).
