@@ -82,6 +82,8 @@ fi
 
 source scripts/bootstrap/bootstrap.sh
 
+cp -r ${OUTPUT_DIR}/src derived
+
 new_step 'Building Bazel with Bazel'
 display "."
 log "Building output/bazel"
