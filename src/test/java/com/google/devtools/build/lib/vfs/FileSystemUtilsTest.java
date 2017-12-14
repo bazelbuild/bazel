@@ -851,8 +851,8 @@ public class FileSystemUtilsTest {
     FileSystemUtils.createHardLink(linkPath, originalPath);
     assertThat(originalPath.exists()).isTrue();
     assertThat(linkPath.exists()).isTrue();
-    assertThat(fileSystem.stat(linkPath, false).getNodeId())
-        .isEqualTo(fileSystem.stat(originalPath, false).getNodeId());
+    assertThat(fileSystem.stat(linkPath.getLocalPath(), false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath.getLocalPath(), false).getNodeId());
   }
 
   @Test
@@ -892,11 +892,11 @@ public class FileSystemUtilsTest {
     assertThat(linkPath1.exists()).isTrue();
     assertThat(linkPath2.exists()).isTrue();
     assertThat(linkPath3.exists()).isTrue();
-    assertThat(fileSystem.stat(linkPath1, false).getNodeId())
-        .isEqualTo(fileSystem.stat(originalPath1, false).getNodeId());
-    assertThat(fileSystem.stat(linkPath2, false).getNodeId())
-        .isEqualTo(fileSystem.stat(originalPath2, false).getNodeId());
-    assertThat(fileSystem.stat(linkPath3, false).getNodeId())
-        .isEqualTo(fileSystem.stat(originalPath3, false).getNodeId());
+    assertThat(fileSystem.stat(linkPath1.getLocalPath(), false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath1.getLocalPath(), false).getNodeId());
+    assertThat(fileSystem.stat(linkPath2.getLocalPath(), false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath2.getLocalPath(), false).getNodeId());
+    assertThat(fileSystem.stat(linkPath3.getLocalPath(), false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath3.getLocalPath(), false).getNodeId());
   }
 }

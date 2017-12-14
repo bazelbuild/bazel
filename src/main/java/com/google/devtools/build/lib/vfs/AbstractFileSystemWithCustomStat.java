@@ -29,30 +29,30 @@ public abstract class AbstractFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  protected boolean isFile(Path path, boolean followSymlinks) {
+  protected boolean isFile(LocalPath path, boolean followSymlinks) {
     FileStatus stat = statNullable(path, followSymlinks);
     return stat != null ? stat.isFile() : false;
   }
 
   @Override
-  protected boolean isSpecialFile(Path path, boolean followSymlinks) {
+  protected boolean isSpecialFile(LocalPath path, boolean followSymlinks) {
     FileStatus stat = statNullable(path, followSymlinks);
     return stat != null ? stat.isSpecialFile() : false;
   }
 
   @Override
-  protected boolean isSymbolicLink(Path path) {
+  protected boolean isSymbolicLink(LocalPath path) {
     FileStatus stat = statNullable(path, false);
     return stat != null ? stat.isSymbolicLink() : false;
   }
 
   @Override
-  protected boolean isDirectory(Path path, boolean followSymlinks) {
+  protected boolean isDirectory(LocalPath path, boolean followSymlinks) {
     FileStatus stat = statNullable(path, followSymlinks);
     return stat != null ? stat.isDirectory() : false;
   }
 
   @Override
-  protected abstract FileStatus stat(Path path, boolean followSymlinks) throws IOException;
+  protected abstract FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException;
 }
 

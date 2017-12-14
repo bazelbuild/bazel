@@ -15,12 +15,14 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.WindowsShortPath;
 import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.List;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -49,6 +51,8 @@ public final class LocalPath implements Comparable<LocalPath> {
   private static final OsPathPolicy DEFAULT_OS = createFilePathOs();
 
   public static final LocalPath EMPTY = create("");
+
+  private static final Splitter PATH_SPLITTER = Splitter.on('/').omitEmptyStrings();
 
   private final String path;
   private final int driveStrLength; // 0 for relative paths, 1 on Unix, 3 on Windows
@@ -228,17 +232,31 @@ public final class LocalPath implements Comparable<LocalPath> {
    * Splits a path into its constituent parts. The root is not included. This is an inefficient
    * operation and should be avoided.
    */
-  public String[] split() {
-    String[] segments = path.split("/");
-    if (driveStrLength > 0) {
-      // String#split("/") for some reason returns a zero-length array
-      // String#split("/hello") returns a 2-length array, so this makes little sense
-      if (segments.length == 0) {
-        return segments;
-      }
-      return Arrays.copyOfRange(segments, 1, segments.length);
+  public List<String> split() {
+    List<String> segments = PATH_SPLITTER.splitToList(path);
+    if (driveStrLength > 1) {
+      return segments.subList(1, segments.size());
     }
     return segments;
+  }
+
+  /** Returns the drive of this local path, eg. "/" on Unix or "C:/" on Windows. */
+  public LocalPath getDrive() {
+    if (driveStrLength == 0) {
+      throw new IllegalArgumentException("Cannot get mount of non-absolute path.");
+    }
+    return new LocalPath(path.substring(0, driveStrLength), driveStrLength, os);
+  }
+
+  /**
+   * Returns whether this is the root of the entire file system.
+   *
+   * <p>Please avoid this method. On Unix, this corresponds to the '/' mount point. Windows drives
+   * (C:/) do not have a parent and are not the root of the entire file system, so do not return
+   * true.
+   */
+  public boolean isRoot() {
+    return os.isRoot(this);
   }
 
   /**
@@ -339,10 +357,14 @@ public final class LocalPath implements Comparable<LocalPath> {
     char getSeparator();
 
     boolean isCaseSensitive();
+
+    boolean isRoot(LocalPath localPath);
   }
 
   @VisibleForTesting
   static class UnixOsPathPolicy implements OsPathPolicy {
+    private static Splitter UNIX_PATH_SPLITTER =
+        Splitter.on(Pattern.compile("/+")).omitEmptyStrings();
 
     @Override
     public int needsToNormalize(String path) {
@@ -362,7 +384,7 @@ public final class LocalPath implements Comparable<LocalPath> {
         dotCount = c == '.' ? dotCount + 1 : 0;
         prevChar = c;
       }
-      if (prevChar == '/' || dotCount == 1 || dotCount == 2) {
+      if ((n > 1 && prevChar == '/') || dotCount == 1 || dotCount == 2) {
         return NEEDS_NORMALIZE;
       }
       return NORMALIZED;
@@ -377,8 +399,8 @@ public final class LocalPath implements Comparable<LocalPath> {
         return path;
       }
       boolean isAbsolute = path.charAt(0) == '/';
-      String[] segments = path.split("/+");
-      int segmentCount = removeRelativePaths(segments, isAbsolute ? 1 : 0);
+      String[] segments = Iterables.toArray(UNIX_PATH_SPLITTER.split(path), String.class);
+      int segmentCount = removeRelativePaths(segments, 0);
       StringBuilder sb = new StringBuilder(path.length());
       if (isAbsolute) {
         sb.append('/');
@@ -425,6 +447,11 @@ public final class LocalPath implements Comparable<LocalPath> {
     public boolean isCaseSensitive() {
       return true;
     }
+
+    @Override
+    public boolean isRoot(LocalPath localPath) {
+      return localPath.path.equals("/");
+    }
   }
 
   /** Mac is a unix file system that is case insensitive. */
@@ -451,8 +478,9 @@ public final class LocalPath implements Comparable<LocalPath> {
 
     private static final int NEEDS_SHORT_PATH_NORMALIZATION = NEEDS_NORMALIZE + 1;
 
-    // msys root, used to resolve paths from msys starting with "/"
-    private static final AtomicReference<String> UNIX_ROOT = new AtomicReference<>(null);
+    private static Splitter WINDOWS_PATH_SPLITTER =
+        Splitter.on(Pattern.compile("[\\\\/]+")).omitEmptyStrings();
+
     private final ShortPathResolver shortPathResolver;
 
     interface ShortPathResolver {
@@ -482,10 +510,6 @@ public final class LocalPath implements Comparable<LocalPath> {
     public int needsToNormalize(String path) {
       int n = path.length();
       int normalizationLevel = 0;
-      // Check for unix path
-      if (n > 0 && path.charAt(0) == '/') {
-        normalizationLevel = Math.max(normalizationLevel, NEEDS_NORMALIZE);
-      }
       int dotCount = 0;
       char prevChar = 0;
       int segmentBeginIndex = 0; // The start index of the current path index
@@ -517,7 +541,7 @@ public final class LocalPath implements Comparable<LocalPath> {
         dotCount = c == '.' ? dotCount + 1 : 0;
         prevChar = c;
       }
-      if (prevChar == '/' || dotCount == 1 || dotCount == 2) {
+      if ((n > 1 && prevChar == '/') || dotCount == 1 || dotCount == 2) {
         normalizationLevel = Math.max(normalizationLevel, NEEDS_NORMALIZE);
       }
       return normalizationLevel;
@@ -534,26 +558,19 @@ public final class LocalPath implements Comparable<LocalPath> {
           path = resolvedPath;
         }
       }
-      String[] segments = path.split("[\\\\/]+");
+      String[] segments = Iterables.toArray(WINDOWS_PATH_SPLITTER.splitToList(path), String.class);
       int driveStrLength = getDriveStrLength(path);
       boolean isAbsolute = driveStrLength > 0;
-      int segmentSkipCount = isAbsolute ? 1 : 0;
+      int segmentSkipCount = isAbsolute && driveStrLength > 1 ? 1 : 0;
 
       StringBuilder sb = new StringBuilder(path.length());
       if (isAbsolute) {
-        char driveLetter = path.charAt(0);
-        sb.append(Character.toUpperCase(driveLetter));
-        sb.append(":/");
-      }
-      // unix path support
-      if (!path.isEmpty() && path.charAt(0) == '/') {
-        if (path.length() == 2 || (path.length() > 2 && path.charAt(2) == '/')) {
-          sb.append(Character.toUpperCase(path.charAt(1)));
-          sb.append(":/");
-          segmentSkipCount = 2;
+        char c = path.charAt(0);
+        if (c == '/') {
+          sb.append('/');
         } else {
-          String unixRoot = getUnixRoot();
-          sb.append(unixRoot);
+          sb.append(Character.toUpperCase(c));
+          sb.append(":/");
         }
       }
       int segmentCount = removeRelativePaths(segments, segmentSkipCount);
@@ -570,6 +587,12 @@ public final class LocalPath implements Comparable<LocalPath> {
     @Override
     public int getDriveStrLength(String path) {
       int n = path.length();
+      if (n == 0) {
+        return 0;
+      }
+      if (path.charAt(0) == '/') {
+        return 1;
+      }
       if (n < 3) {
         return 0;
       }
@@ -622,44 +645,10 @@ public final class LocalPath implements Comparable<LocalPath> {
       return false;
     }
 
-    private String getUnixRoot() {
-      String value = UNIX_ROOT.get();
-      if (value == null) {
-        String jvmFlag = "bazel.windows_unix_root";
-        value = determineUnixRoot(jvmFlag);
-        if (value == null) {
-          throw new IllegalStateException(
-              String.format(
-                  "\"%1$s\" JVM flag is not set. Use the --host_jvm_args flag or export the "
-                      + "BAZEL_SH environment variable. For example "
-                      + "\"--host_jvm_args=-D%1$s=c:/tools/msys64\" or "
-                      + "\"set BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe\".",
-                  jvmFlag));
-        }
-        if (getDriveStrLength(value) != 3) {
-          throw new IllegalStateException(
-              String.format("\"%s\" must be an absolute path, got: \"%s\"", jvmFlag, value));
-        }
-        value = value.replace('\\', '/');
-        if (value.length() > 3 && value.endsWith("/")) {
-          value = value.substring(0, value.length() - 1);
-        }
-        UNIX_ROOT.set(value);
-      }
-      return value;
-    }
-
-    private String determineUnixRoot(String jvmArgName) {
-      // Get the path from a JVM flag, if specified.
-      String path = System.getProperty(jvmArgName);
-      if (path == null) {
-        return null;
-      }
-      path = path.trim();
-      if (path.isEmpty()) {
-        return null;
-      }
-      return path;
+    @Override
+    public boolean isRoot(LocalPath localPath) {
+      // Return true for Unix paths for testing
+      return localPath.path.equals("/");
     }
   }
 
@@ -685,7 +674,8 @@ public final class LocalPath implements Comparable<LocalPath> {
   private static int removeRelativePaths(String[] segments, int starti) {
     int segmentCount = 0;
     int shift = starti;
-    for (int i = starti; i < segments.length; ++i) {
+    int n = segments.length;
+    for (int i = starti; i < n; ++i) {
       String segment = segments[i];
       switch (segment) {
         case ".":

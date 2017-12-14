@@ -38,11 +38,13 @@ public class DependencySetWindowsTest {
 
   @Test
   public void dotDParser_windowsPaths() throws Exception {
-    Path dotd = scratch.file("/tmp/foo.d",
-        "bazel-out/hello-lib/cpp/hello-lib.o: \\",
-        " cpp/hello-lib.cc cpp/hello-lib.h c:\\mingw\\include\\stdio.h \\",
-        " c:\\mingw\\include\\_mingw.h \\",
-        " c:\\mingw\\lib\\gcc\\mingw32\\4.8.1\\include\\stdarg.h");
+    Path dotd =
+        scratch.file(
+            "C:/tmp/foo.d",
+            "bazel-out/hello-lib/cpp/hello-lib.o: \\",
+            " cpp/hello-lib.cc cpp/hello-lib.h c:\\mingw\\include\\stdio.h \\",
+            " c:\\mingw\\include\\_mingw.h \\",
+            " c:\\mingw\\lib\\gcc\\mingw32\\4.8.1\\include\\stdarg.h");
 
     Set<Path> expected = Sets.newHashSet(
         root.getRelative("cpp/hello-lib.cc"),
@@ -56,9 +58,11 @@ public class DependencySetWindowsTest {
 
   @Test
   public void dotDParser_windowsPathsWithSpaces() throws Exception {
-    Path dotd = scratch.file("/tmp/foo.d",
-        "bazel-out/hello-lib/cpp/hello-lib.o: \\",
-        "C:\\Program\\ Files\\ (x86)\\LLVM\\stddef.h");
+    Path dotd =
+        scratch.file(
+            "C:/tmp/foo.d",
+            "bazel-out/hello-lib/cpp/hello-lib.o: \\",
+            "C:\\Program\\ Files\\ (x86)\\LLVM\\stddef.h");
     assertThat(newDependencySet().read(dotd).getDependencies())
         .containsExactlyElementsIn(
             Sets.newHashSet(fileSystem.getPath("C:/Program Files (x86)/LLVM/stddef.h")));
@@ -69,12 +73,14 @@ public class DependencySetWindowsTest {
     // This is (slightly simplified) actual output from clang. Yes, clang will happily mix
     // forward slashes and backslashes in a single path, not to mention using backslashes as
     // separators next to backslashes as escape characters.
-    Path dotd = scratch.file("/tmp/foo.d",
-        "bazel-out/hello-lib/cpp/hello-lib.o: \\",
-        "cpp/hello-lib.cc cpp/hello-lib.h /mingw/include\\stdio.h \\",
-        "/mingw/include\\_mingw.h \\",
-        "C:\\Program\\ Files\\ (x86)\\LLVM\\bin\\..\\lib\\clang\\3.5.0\\include\\stddef.h \\",
-        "C:\\Program\\ Files\\ (x86)\\LLVM\\bin\\..\\lib\\clang\\3.5.0\\include\\stdarg.h");
+    Path dotd =
+        scratch.file(
+            "C:/tmp/foo.d",
+            "bazel-out/hello-lib/cpp/hello-lib.o: \\",
+            "cpp/hello-lib.cc cpp/hello-lib.h /mingw/include\\stdio.h \\",
+            "/mingw/include\\_mingw.h \\",
+            "C:\\Program\\ Files\\ (x86)\\LLVM\\bin\\..\\lib\\clang\\3.5.0\\include\\stddef.h \\",
+            "C:\\Program\\ Files\\ (x86)\\LLVM\\bin\\..\\lib\\clang\\3.5.0\\include\\stdarg.h");
 
     Set<Path> expected = Sets.newHashSet(
         root.getRelative("cpp/hello-lib.cc"),
@@ -93,10 +99,8 @@ public class DependencySetWindowsTest {
     Path file2 = fileSystem.getPath("C:/blah/blah/genhello/hello.h");
     Path file2DiffCase = fileSystem.getPath("C:/Blah/blah/Genhello/hello.h");
     String filename = "hello.o";
-    Path dotd = scratch.file("/tmp/foo.d",
-        filename + ": \\",
-        " " + file1 + " \\",
-        " " + file2 + " ");
+    Path dotd =
+        scratch.file("C:/tmp/foo.d", filename + ": \\", " " + file1 + " \\", " " + file2 + " ");
     assertThat(newDependencySet().read(dotd).getDependencies())
         .containsExactly(file1, file2DiffCase);
   }

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -48,15 +49,16 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
 
   private static final String FS_ROOT = "/fsg";
 
-  private static final Function<Path, String> NULL_FUNCTION = new Function<Path, String>() {
-    @Override
-    @Nullable
-    public String apply(Path path) {
-      return null;
-    }
-  };
+  private static final Function<LocalPath, String> NULL_FUNCTION =
+      new Function<LocalPath, String>() {
+        @Override
+        @Nullable
+        public String apply(LocalPath path) {
+          return null;
+        }
+      };
 
-  private Function<Path, String> crashMessage = NULL_FUNCTION;
+  private Function<LocalPath, String> crashMessage = NULL_FUNCTION;
 
   @Before
   public final void initializeVisitor() throws Exception {
@@ -82,7 +84,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(BlazeClock.instance(), PathFragment.create(FS_ROOT)) {
       @Override
-      public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+      public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);
         if (crash != null) {
           throw new IOException(crash);
@@ -97,15 +99,16 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     final Path buildPath = scratch.file("pkg/BUILD",
         "sh_library(name = 'x')");
-    crashMessage = new Function<Path, String>() {
-      @Override
-      public String apply(Path path) {
-        if (buildPath.equals(path)) {
-          return "custom crash: " + buildPath;
-        }
-        return null;
-      }
-    };
+    crashMessage =
+        new Function<LocalPath, String>() {
+          @Override
+          public String apply(LocalPath path) {
+            if (buildPath.getLocalPath().equals(path)) {
+              return "custom crash: " + buildPath;
+            }
+            return null;
+          }
+        };
     assertThat(visitTransitively(Label.parseAbsolute("//pkg:x"))).isFalse();
     scratch.overwriteFile("pkg/BUILD",
         "# another comment to force reload",
@@ -126,15 +129,16 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         "sh_library(name = 'top', deps = ['//pkg:x'])");
     final Path buildPath = scratch.file("pkg/BUILD",
         "sh_library(name = 'x')");
-    crashMessage = new Function<Path, String>() {
-      @Override
-      public String apply(Path path) {
-        if (buildPath.equals(path)) {
-          return "custom crash: " + buildPath;
-        }
-        return null;
-      }
-    };
+    crashMessage =
+        new Function<LocalPath, String>() {
+          @Override
+          public String apply(LocalPath path) {
+            if (buildPath.getLocalPath().equals(path)) {
+              return "custom crash: " + buildPath;
+            }
+            return null;
+          }
+        };
     assertThat(visitTransitively(Label.parseAbsolute("//top:top"))).isFalse();
     assertContainsEvent("no such package 'pkg'");
     // The traditional label visitor does not propagate the original IOException message.
@@ -159,15 +163,16 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     final Path buildPath = scratch.file("top/BUILD",
         "sh_library(name = 'x')");
     buildPath.getParentDirectory().getRelative("pkg").createDirectory();
-    crashMessage = new Function<Path, String>() {
-      @Override
-      public String apply(Path path) {
-        if (buildPath.equals(path)) {
-          return "custom crash: " + buildPath;
-        }
-        return null;
-      }
-    };
+    crashMessage =
+        new Function<LocalPath, String>() {
+          @Override
+          public String apply(LocalPath path) {
+            if (buildPath.getLocalPath().equals(path)) {
+              return "custom crash: " + buildPath;
+            }
+            return null;
+          }
+        };
     assertThat(visitTransitively(Label.parseAbsolute("//top/pkg:x"))).isFalse();
   }
 }

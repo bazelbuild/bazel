@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.function.Function;
@@ -30,15 +30,15 @@ import org.junit.runners.JUnit4;
 /** {@link AnalysisTestCase} with custom filesystem that can throw on stat if desired. */
 @RunWith(JUnit4.class)
 public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
-  private static final Function<Path, String> NULL_FUNCTION = (path) -> null;
+  private static final Function<LocalPath, String> NULL_FUNCTION = (path) -> null;
 
-  private Function<Path, String> crashMessage = NULL_FUNCTION;
+  private Function<LocalPath, String> crashMessage = NULL_FUNCTION;
 
   @Override
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(BlazeClock.instance()) {
       @Override
-      public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+      public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);
         if (crash != null) {
           throw new IOException(crash);

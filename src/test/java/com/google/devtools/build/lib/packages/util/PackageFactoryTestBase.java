@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
@@ -80,7 +81,7 @@ public abstract class PackageFactoryTestBase {
 
   protected abstract PackageFactoryApparatus createPackageFactoryApparatus();
 
-  protected Path throwOnReaddir = null;
+  protected LocalPath throwOnReaddir = null;
 
   protected static AttributeMap attributes(Rule rule) {
     return RawAttributeMapper.of(rule);
@@ -122,7 +123,8 @@ public abstract class PackageFactoryTestBase {
     FileSystem fs =
         new InMemoryFileSystem() {
           @Override
-          public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+          public Collection<Dirent> readdir(LocalPath path, boolean followSymlinks)
+              throws IOException {
             if (path.equals(throwOnReaddir)) {
               throw new FileNotFoundException(path.getPathString());
             }

@@ -39,7 +39,11 @@ import java.util.IdentityHashMap;
 import java.util.Objects;
 
 /**
- * Instances of this class represent pathnames, forming a tree structure to implement sharing of
+ * NOTE: This class is superseded by {@link LocalPath}. You should prefer storing simple strings /
+ * path fragments, then converting to a {@link LocalPath} only when you need to do local file system
+ * access. A migration is underway.
+ *
+ * <p>Instances of this class represent pathnames, forming a tree structure to implement sharing of
  * common prefixes (parent directory names). A node in these trees is something like foo, bar, ..,
  * ., or /. If the instance is not a root path, it will have a parent path. A path can also have
  * children, which are indexed by name in a map.
@@ -423,6 +427,10 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
     return builder.toString();
   }
 
+  public LocalPath getLocalPath() {
+    return LocalPath.create(getPathString());
+  }
+
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append(getPathString());
@@ -500,7 +508,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * Path.
    */
   public boolean exists(FileSystem fileSystem) {
-    return fileSystem.exists(this, true);
+    return fileSystem.exists(this.getLocalPath(), true);
   }
 
   /** Prefer to use {@link #exists(FileSystem, Symlinks)}. */
@@ -519,7 +527,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     link is dereferenced until a file other than a symbolic link is found
    */
   public boolean exists(FileSystem fileSystem, Symlinks followSymlinks) {
-    return fileSystem.exists(this, followSymlinks.toBoolean());
+    return fileSystem.exists(this.getLocalPath(), followSymlinks.toBoolean());
   }
 
   /** Prefer to use {@link #getDirectoryEntries(FileSystem)}. */
@@ -540,7 +548,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    */
   public Collection<Path> getDirectoryEntries(FileSystem fileSystem)
       throws IOException, FileNotFoundException {
-    Collection<String> entries = fileSystem.getDirectoryEntries(this);
+    Collection<String> entries = fileSystem.getDirectoryEntries(this.getLocalPath());
     Collection<Path> result = new ArrayList<>(entries.size());
     for (String entry : entries) {
       result.add(getChild(entry));
@@ -568,7 +576,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    */
   public Collection<Dirent> readdir(FileSystem fileSystem, Symlinks followSymlinks)
       throws IOException {
-    return fileSystem.readdir(this, followSymlinks.toBoolean());
+    return fileSystem.readdir(this.getLocalPath(), followSymlinks.toBoolean());
   }
 
   /** Prefer to use {@link #stat(FileSystem)}. */
@@ -588,7 +596,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     {@code FileStatus} are called.
    */
   public FileStatus stat(FileSystem fileSystem) throws IOException {
-    return fileSystem.stat(this, true);
+    return fileSystem.stat(this.getLocalPath(), true);
   }
 
   /** Prefer to use {@link #statNullable(FileSystem)}. */
@@ -620,7 +628,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * Path.
    */
   public FileStatus statNullable(FileSystem fileSystem, Symlinks symlinks) {
-    return fileSystem.statNullable(this, symlinks.toBoolean());
+    return fileSystem.statNullable(this.getLocalPath(), symlinks.toBoolean());
   }
 
   /** Prefer to use {@link #stat(FileSystem, Symlinks)}. */
@@ -642,7 +650,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     {@code FileStatus} are called
    */
   public FileStatus stat(FileSystem fileSystem, Symlinks followSymlinks) throws IOException {
-    return fileSystem.stat(this, followSymlinks.toBoolean());
+    return fileSystem.stat(this.getLocalPath(), followSymlinks.toBoolean());
   }
 
   /** Prefer to use {@link #statIfFound(FileSystem)}. */
@@ -660,7 +668,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * Path.
    */
   public FileStatus statIfFound(FileSystem fileSystem) throws IOException {
-    return fileSystem.statIfFound(this, true);
+    return fileSystem.statIfFound(this.getLocalPath(), true);
   }
 
   /** Prefer to use {@link #statIfFound(FileSystem, Symlinks)}. */
@@ -680,7 +688,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     link is dereferenced until a file other than a symbolic link is found
    */
   public FileStatus statIfFound(FileSystem fileSystem, Symlinks followSymlinks) throws IOException {
-    return fileSystem.statIfFound(this, followSymlinks.toBoolean());
+    return fileSystem.statIfFound(this.getLocalPath(), followSymlinks.toBoolean());
   }
 
   /** Prefer to use {@link #isDirectory()} (FileSystem)}. */
@@ -696,7 +704,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * Path.
    */
   public boolean isDirectory(FileSystem fileSystem) {
-    return fileSystem.isDirectory(this, true);
+    return fileSystem.isDirectory(this.getLocalPath(), true);
   }
 
   /** Prefer to use {@link #isDirectory(FileSystem, Symlinks)}. */
@@ -715,7 +723,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     link is dereferenced until a file other than a symbolic link is found
    */
   public boolean isDirectory(FileSystem fileSystem, Symlinks followSymlinks) {
-    return fileSystem.isDirectory(this, followSymlinks.toBoolean());
+    return fileSystem.isDirectory(this.getLocalPath(), followSymlinks.toBoolean());
   }
 
   /** Prefer to use {@link #isFile(FileSystem)}. */
@@ -734,7 +742,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * it excludes symbolic links and directories.
    */
   public boolean isFile(FileSystem fileSystem) {
-    return fileSystem.isFile(this, true);
+    return fileSystem.isFile(this.getLocalPath(), true);
   }
 
   /** Prefer to use {@link #isFile(FileSystem, Symlinks)}. */
@@ -756,7 +764,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     link is dereferenced until a file other than a symbolic link is found.
    */
   public boolean isFile(FileSystem fileSystem, Symlinks followSymlinks) {
-    return fileSystem.isFile(this, followSymlinks.toBoolean());
+    return fileSystem.isFile(this.getLocalPath(), followSymlinks.toBoolean());
   }
 
   /** Prefer to use {@link #isSpecialFile(FileSystem)}. */
@@ -773,7 +781,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * Path.
    */
   public boolean isSpecialFile(FileSystem fileSystem) {
-    return fileSystem.isSpecialFile(this, true);
+    return fileSystem.isSpecialFile(this.getLocalPath(), true);
   }
 
   /** Prefer to use {@link #isSpecialFile(FileSystem, Symlinks)}. */
@@ -792,7 +800,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     link is dereferenced until a path other than a symbolic link is found.
    */
   public boolean isSpecialFile(FileSystem fileSystem, Symlinks followSymlinks) {
-    return fileSystem.isSpecialFile(this, followSymlinks.toBoolean());
+    return fileSystem.isSpecialFile(this.getLocalPath(), followSymlinks.toBoolean());
   }
 
   /** Prefer to use {@link #isSymbolicLink(FileSystem)}. */
@@ -808,7 +816,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * Path.
    */
   public boolean isSymbolicLink(FileSystem fileSystem) {
-    return fileSystem.isSymbolicLink(this);
+    return fileSystem.isSymbolicLink(this.getLocalPath());
   }
 
   /**
@@ -1002,7 +1010,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    */
   public OutputStream getOutputStream(FileSystem fileSystem, boolean append)
       throws IOException, FileNotFoundException {
-    return fileSystem.getOutputStream(this, append);
+    return fileSystem.getOutputStream(this.getLocalPath(), append);
   }
 
   /** Prefer to use {@link #createDirectory(FileSystem)}. */
@@ -1023,7 +1031,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if the directory creation failed for any reason
    */
   public boolean createDirectory(FileSystem fileSystem) throws IOException {
-    return fileSystem.createDirectory(this);
+    return fileSystem.createDirectory(this.getLocalPath());
   }
 
   /** Prefer to use {@link #createSymbolicLink(FileSystem, Path)}. */
@@ -1044,7 +1052,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    */
   public void createSymbolicLink(FileSystem fileSystem, Path target) throws IOException {
     checkSameFilesystem(target);
-    fileSystem.createSymbolicLink(this, target.asFragment());
+    fileSystem.createSymbolicLink(this.getLocalPath(), target.asFragment().getPathString());
   }
 
   /** Prefer to use {@link #createSymbolicLink(FileSystem, PathFragment)}. */
@@ -1064,7 +1072,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(FileSystem fileSystem, PathFragment target) throws IOException {
-    fileSystem.createSymbolicLink(this, target);
+    fileSystem.createSymbolicLink(this.getLocalPath(), target.getPathString());
   }
 
   /** Prefer to use {@link #readSymbolicLink(FileSystem)}. */
@@ -1089,7 +1097,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     could not be read for any reason
    */
   public PathFragment readSymbolicLink(FileSystem fileSystem) throws IOException {
-    return fileSystem.readSymbolicLink(this);
+    return PathFragment.create(fileSystem.readSymbolicLink(this.getLocalPath()));
   }
 
   /** Prefer to use {@link #readSymbolicLinkUnchecked(FileSystem)}. */
@@ -1110,7 +1118,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     could not be read for any reason
    */
   public PathFragment readSymbolicLinkUnchecked(FileSystem fileSystem) throws IOException {
-    return fileSystem.readSymbolicLinkUnchecked(this);
+    return PathFragment.create(fileSystem.readSymbolicLinkUnchecked(this.getLocalPath()));
   }
 
   /** Prefer to use {@link #createHardLink(FileSystem, Path)}. */
@@ -1129,7 +1137,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if there was an error executing {@link FileSystem#createHardLink}
    */
   public void createHardLink(FileSystem fileSystem, Path link) throws IOException {
-    fileSystem.createHardLink(link, this);
+    fileSystem.createHardLink(link.getLocalPath(), this.getLocalPath());
   }
 
   /** Prefer to use {@link #resolveSymbolicLinks(FileSystem)}. */
@@ -1150,7 +1158,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     example, the path does not exist)
    */
   public Path resolveSymbolicLinks(FileSystem fileSystem) throws IOException {
-    return fileSystem.resolveSymbolicLinks(this);
+    return fileSystem.getPath(fileSystem.resolveSymbolicLinks(this.getLocalPath()).getPathString());
   }
 
   /** Prefer to use {@link #renameTo(FileSystem, Path)}. */
@@ -1173,7 +1181,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    */
   public void renameTo(FileSystem fileSystem, Path target) throws IOException {
     checkSameFilesystem(target);
-    fileSystem.renameTo(this, target);
+    fileSystem.renameTo(this.getLocalPath(), target.getLocalPath());
   }
 
   /** Prefer to use {@link #getFileSize(FileSystem)}. */
@@ -1194,7 +1202,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if the file's metadata could not be read, or some other error occurred
    */
   public long getFileSize(FileSystem fileSystem) throws IOException, FileNotFoundException {
-    return fileSystem.getFileSize(this, true);
+    return fileSystem.getFileSize(this.getLocalPath(), true);
   }
 
   /** Prefer to use {@link #getFileSize(FileSystem, Symlinks)}. */
@@ -1219,7 +1227,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    */
   public long getFileSize(FileSystem fileSystem, Symlinks followSymlinks)
       throws IOException, FileNotFoundException {
-    return fileSystem.getFileSize(this, followSymlinks.toBoolean());
+    return fileSystem.getFileSize(this.getLocalPath(), followSymlinks.toBoolean());
   }
 
   /** Prefer to use {@link #delete(FileSystem)}. */
@@ -1240,7 +1248,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if the deletion failed but the file was present prior to the call
    */
   public boolean delete(FileSystem fileSystem) throws IOException {
-    return fileSystem.delete(this);
+    return fileSystem.delete(this.getLocalPath());
   }
 
   /** Prefer to use {@link #getLastModifiedTime(FileSystem)}. */
@@ -1262,7 +1270,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if the operation failed for any reason
    */
   public long getLastModifiedTime(FileSystem fileSystem) throws IOException {
-    return fileSystem.getLastModifiedTime(this, true);
+    return fileSystem.getLastModifiedTime(this.getLocalPath(), true);
   }
 
   /** Prefer to use {@link #getLastModifiedTime(FileSystem, Symlinks)}. */
@@ -1287,7 +1295,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    */
   public long getLastModifiedTime(FileSystem fileSystem, Symlinks followSymlinks)
       throws IOException {
-    return fileSystem.getLastModifiedTime(this, followSymlinks.toBoolean());
+    return fileSystem.getLastModifiedTime(this.getLocalPath(), followSymlinks.toBoolean());
   }
 
   /** Prefer to use {@link #setLastModifiedTime(FileSystem, long)}. */
@@ -1312,7 +1320,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if the modification time for the file could not be set for any reason
    */
   public void setLastModifiedTime(FileSystem fileSystem, long newTime) throws IOException {
-    fileSystem.setLastModifiedTime(this, newTime);
+    fileSystem.setLastModifiedTime(this.getLocalPath(), newTime);
   }
 
   /** Prefer to use {@link #getxattr(FileSystem, String)}. */
@@ -1329,7 +1337,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * Path.
    */
   public byte[] getxattr(FileSystem fileSystem, String name) throws IOException {
-    return fileSystem.getxattr(this, name);
+    return fileSystem.getxattr(this.getLocalPath(), name);
   }
 
   /** Prefer to use {@link #getFastDigest(FileSystem)}. */
@@ -1346,7 +1354,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * Path.
    */
   public byte[] getFastDigest(FileSystem fileSystem) throws IOException {
-    return fileSystem.getFastDigest(this);
+    return fileSystem.getFastDigest(this.getLocalPath());
   }
 
   /** Prefer to use {@link #isValidDigest(FileSystem, byte[])}. */
@@ -1381,7 +1389,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if the digest could not be computed for any reason
    */
   public byte[] getDigest(FileSystem fileSystem) throws IOException {
-    return fileSystem.getDigest(this);
+    return fileSystem.getDigest(this.getLocalPath());
   }
 
   /** Prefer to use {@link #getDigest(FileSystem, HashFunction)}. */
@@ -1401,7 +1409,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if the digest could not be computed for any reason
    */
   public byte[] getDigest(FileSystem fileSystem, HashFunction hashFunction) throws IOException {
-    return fileSystem.getDigest(this, hashFunction);
+    return fileSystem.getDigest(this.getLocalPath(), hashFunction);
   }
 
   /** Prefer to use {@link #getInputStream(FileSystem)}. */
@@ -1420,7 +1428,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if the file was not found or could not be opened for reading
    */
   public InputStream getInputStream(FileSystem fileSystem) throws IOException {
-    return fileSystem.getInputStream(this);
+    return fileSystem.getInputStream(this.getLocalPath());
   }
 
   /**
@@ -1450,7 +1458,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    *     encountered, or the file's metadata could not be read
    */
   public boolean isWritable(FileSystem fileSystem) throws IOException, FileNotFoundException {
-    return fileSystem.isWritable(this);
+    return fileSystem.isWritable(this.getLocalPath());
   }
 
   /** Prefer to use {@link #setReadable(FileSystem, boolean)}. */
@@ -1472,7 +1480,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    */
   public void setReadable(FileSystem fileSystem, boolean readable)
       throws IOException, FileNotFoundException {
-    fileSystem.setReadable(this, readable);
+    fileSystem.setReadable(this.getLocalPath(), readable);
   }
 
   /** Prefer to use {@link #setWritable(FileSystem, boolean)}. */
@@ -1496,7 +1504,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    */
   public void setWritable(FileSystem fileSystem, boolean writable)
       throws IOException, FileNotFoundException {
-    fileSystem.setWritable(this, writable);
+    fileSystem.setWritable(this.getLocalPath(), writable);
   }
 
   /** Prefer to use {@link #isExecutable(FileSystem)}. */
@@ -1517,7 +1525,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if some other I/O error occurred
    */
   public boolean isExecutable(FileSystem fileSystem) throws IOException, FileNotFoundException {
-    return fileSystem.isExecutable(this);
+    return fileSystem.isExecutable(this.getLocalPath());
   }
 
   /** Prefer to use {@link #isReadable(FileSystem)}. */
@@ -1538,7 +1546,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if some other I/O error occurred
    */
   public boolean isReadable(FileSystem fileSystem) throws IOException, FileNotFoundException {
-    return fileSystem.isReadable(this);
+    return fileSystem.isReadable(this.getLocalPath());
   }
 
   /** Prefer to use {@link #setExecutable(FileSystem, boolean)}. */
@@ -1560,7 +1568,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    */
   public void setExecutable(FileSystem fileSystem, boolean executable)
       throws IOException, FileNotFoundException {
-    fileSystem.setExecutable(this, executable);
+    fileSystem.setExecutable(this.getLocalPath(), executable);
   }
 
   /** Prefer to use {@link #chmod(FileSystem, int)}. */
@@ -1583,7 +1591,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
    * @throws IOException if the metadata change failed, for example because of permissions
    */
   public void chmod(FileSystem fileSystem, int mode) throws IOException {
-    fileSystem.chmod(this, mode);
+    fileSystem.chmod(this.getLocalPath(), mode);
   }
 
   /** Prefer to use {@link #prefetchPackageAsync(FileSystem, int)}. */
@@ -1593,7 +1601,7 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
   }
 
   public void prefetchPackageAsync(FileSystem fileSystem, int maxDirs) {
-    fileSystem.prefetchPackageAsync(this, maxDirs);
+    fileSystem.prefetchPackageAsync(this.getLocalPath(), maxDirs);
   }
 
   /**

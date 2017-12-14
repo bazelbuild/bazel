@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -164,7 +165,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         return 0;
       }
     };
-    fs.stubStat(fooDir, inconsistentParentFileStatus);
+    fs.stubStat(fooDir.getLocalPath(), inconsistentParentFileStatus);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(pkgRoot, fooDir);
     SkyValue fooDirValue = FileStateValue.create(pkgRootedPath, tsgm);
     differencer.inject(ImmutableMap.of(FileStateValue.key(pkgRootedPath), fooDirValue));
@@ -196,7 +197,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     // Our custom filesystem says "foo/bar/baz" does not exist but it also says that "foo/bar"
     // has a child directory "baz".
-    fs.stubStat(bazDir, null);
+    fs.stubStat(bazDir.getLocalPath(), null);
     RootedPath barDirRootedPath = RootedPath.toRootedPath(pkgRoot, barDir);
     FileStateValue barDirFileStateValue = FileStateValue.create(barDirRootedPath, tsgm);
     FileValue barDirFileValue = FileValue.value(barDirRootedPath, barDirFileStateValue,
@@ -225,7 +226,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Path fooDir = fooBuildFile.getParentDirectory();
     Path barDir = fooDir.getRelative("bar");
     scratch.file("foo/bar/baz.sh");
-    fs.scheduleMakeUnreadableAfterReaddir(barDir);
+    fs.scheduleMakeUnreadableAfterReaddir(barDir.getLocalPath());
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     String expectedMessage = "Encountered error 'Directory is not readable'";
@@ -536,7 +537,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("foo/BUILD",
         "sh_library(name = 'foo', srcs = ['bar/baz.sh'])");
     Path barBuildFile = scratch.file("foo/bar/BUILD");
-    fs.stubStatError(barBuildFile, new IOException("nope"));
+    fs.stubStatError(barBuildFile.getLocalPath(), new IOException("nope"));
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
@@ -674,7 +675,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testPackageLoadingErrorOnIOExceptionReadingBuildFile() throws Exception {
     Path fooBuildFilePath = scratch.file("foo/BUILD");
     IOException exn = new IOException("nope");
-    fs.throwExceptionOnGetInputStream(fooBuildFilePath, exn);
+    fs.throwExceptionOnGetInputStream(fooBuildFilePath.getLocalPath(), exn);
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
@@ -692,7 +693,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("foo/BUILD", "load('//foo:bzl.bzl', 'x')");
     Path fooBzlFilePath = scratch.file("foo/bzl.bzl");
     IOException exn = new IOException("nope");
-    fs.throwExceptionOnGetInputStream(fooBzlFilePath, exn);
+    fs.throwExceptionOnGetInputStream(fooBzlFilePath.getLocalPath(), exn);
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
@@ -739,49 +740,49 @@ public class PackageFunctionTest extends BuildViewTestCase {
       }
     }
 
-    private final Map<Path, FileStatusOrException> stubbedStats = Maps.newHashMap();
-    private final Set<Path> makeUnreadableAfterReaddir = Sets.newHashSet();
-    private final Map<Path, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+    private final Map<LocalPath, FileStatusOrException> stubbedStats = Maps.newHashMap();
+    private final Set<LocalPath> makeUnreadableAfterReaddir = Sets.newHashSet();
+    private final Map<LocalPath, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock);
     }
 
-    public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
+    public void stubStat(LocalPath path, @Nullable FileStatus stubbedResult) {
       stubbedStats.put(path, new FileStatusOrException.FileStatusImpl(stubbedResult));
     }
 
-    public void stubStatError(Path path, IOException stubbedResult) {
+    public void stubStatError(LocalPath path, IOException stubbedResult) {
       stubbedStats.put(path, new FileStatusOrException.ExceptionImpl(stubbedResult));
     }
 
     @Override
-    public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
       if (stubbedStats.containsKey(path)) {
         return stubbedStats.get(path).get();
       }
       return super.stat(path, followSymlinks);
     }
 
-    public void scheduleMakeUnreadableAfterReaddir(Path path) {
+    public void scheduleMakeUnreadableAfterReaddir(LocalPath path) {
       makeUnreadableAfterReaddir.add(path);
     }
 
     @Override
-    public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+    public Collection<Dirent> readdir(LocalPath path, boolean followSymlinks) throws IOException {
       Collection<Dirent> result = super.readdir(path, followSymlinks);
       if (makeUnreadableAfterReaddir.contains(path)) {
-        path.setReadable(false);
+        setReadable(path, false);
       }
       return result;
     }
 
-    public void throwExceptionOnGetInputStream(Path path, IOException exn) {
+    public void throwExceptionOnGetInputStream(LocalPath path, IOException exn) {
       pathsToErrorOnGetInputStream.put(path, exn);
     }
 
     @Override
-    protected InputStream getInputStream(Path path) throws IOException {
+    protected InputStream getInputStream(LocalPath path) throws IOException {
       IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
       if (exnToThrow != null) {
         throw exnToThrow;

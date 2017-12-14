@@ -25,7 +25,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.windows.WindowsFileSystem.WindowsPath;
 import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
@@ -100,9 +99,9 @@ public class WindowsFileSystemTest {
     assertThat(juncBadPath.exists(Symlinks.NOFOLLOW)).isTrue();
     // TODO(bazel-team): fix https://github.com/bazelbuild/bazel/issues/1690 and uncomment the
     // assertion below.
-    //assertThat(fs.isSymbolicLink(juncBadPath)).isTrue();
-    assertThat(fs.isDirectory(juncBadPath, /* followSymlinks */ true)).isFalse();
-    assertThat(fs.isDirectory(juncBadPath, /* followSymlinks */ false)).isFalse();
+    // assertThat(fs.isSymbolicLink(juncBadPath)).isTrue();
+    assertThat(fs.isDirectory(juncBadPath.getLocalPath(), /* followSymlinks */ true)).isFalse();
+    assertThat(fs.isDirectory(juncBadPath.getLocalPath(), /* followSymlinks */ false)).isFalse();
 
     // Test deleting a dangling junction.
     assertThat(juncBadPath.delete()).isTrue();
@@ -333,19 +332,21 @@ public class WindowsFileSystemTest {
     assertThat(fs.getPath(scratchRoot).createDirectory()).isTrue();
     // Create symlink with directory target, relative path.
     Path link1 = fs.getPath(scratchRoot).getRelative("link1");
-    fs.createSymbolicLink(link1, PathFragment.create(".."));
+    fs.createSymbolicLink(link1.getLocalPath(), "..");
     // Create symlink with directory target, absolute path.
     Path link2 = fs.getPath(scratchRoot).getRelative("link2");
-    fs.createSymbolicLink(link2, fs.getPath(scratchRoot).getRelative("link1").asFragment());
+    fs.createSymbolicLink(
+        link2.getLocalPath(), fs.getPath(scratchRoot).getRelative("link1").getPathString());
     // Create scratch files that'll be symlink targets.
     testUtil.scratchFile("foo.txt", "hello");
     testUtil.scratchFile("bar.txt", "hello");
     // Create symlink with file target, relative path.
     Path link3 = fs.getPath(scratchRoot).getRelative("link3");
-    fs.createSymbolicLink(link3, PathFragment.create("foo.txt"));
+    fs.createSymbolicLink(link3.getLocalPath(), "foo.txt");
     // Create symlink with file target, absolute path.
     Path link4 = fs.getPath(scratchRoot).getRelative("link4");
-    fs.createSymbolicLink(link4, fs.getPath(scratchRoot).getRelative("bar.txt").asFragment());
+    fs.createSymbolicLink(
+        link4.getLocalPath(), fs.getPath(scratchRoot).getRelative("bar.txt").getPathString());
     // Assert that link1 and link2 are true junctions and have the right contents.
     for (Path p : ImmutableList.of(link1, link2)) {
       assertThat(WindowsFileOperations.isJunction(p.getPathString())).isTrue();

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -47,10 +47,9 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
     boolean statThrowsIoException;
 
     @Override
-    public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
       if (statThrowsIoException
-          && path.asFragment()
-              .getPathString()
+          && path.getPathString()
               .equals("/workspace/tools/build_rules/prelude_" + TestConstants.PRODUCT_NAME)) {
         throw new IOException("bork");
       }

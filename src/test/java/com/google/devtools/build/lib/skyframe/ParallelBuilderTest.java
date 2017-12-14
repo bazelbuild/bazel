@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
@@ -241,58 +242,59 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
   @Test
   public void testUpdateCacheError() throws Exception {
-    FileSystem fs = new InMemoryFileSystem() {
-      @Override
-      public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
-        final FileStatus stat = super.stat(path, followSymlinks);
-        if (path.toString().endsWith("/out/foo")) {
-          return new FileStatus() {
-            private final FileStatus original = stat;
+    FileSystem fs =
+        new InMemoryFileSystem() {
+          @Override
+          public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
+            final FileStatus stat = super.stat(path, followSymlinks);
+            if (path.toString().endsWith("/out/foo")) {
+              return new FileStatus() {
+                private final FileStatus original = stat;
 
-            @Override
-            public boolean isSymbolicLink() {
-              return original.isSymbolicLink();
-            }
+                @Override
+                public boolean isSymbolicLink() {
+                  return original.isSymbolicLink();
+                }
 
-            @Override
-            public boolean isFile() {
-              return original.isFile();
-            }
+                @Override
+                public boolean isFile() {
+                  return original.isFile();
+                }
 
-            @Override
-            public boolean isDirectory() {
-              return original.isDirectory();
-            }
+                @Override
+                public boolean isDirectory() {
+                  return original.isDirectory();
+                }
 
-            @Override
-            public boolean isSpecialFile() {
-              return original.isSpecialFile();
-            }
+                @Override
+                public boolean isSpecialFile() {
+                  return original.isSpecialFile();
+                }
 
-            @Override
-            public long getSize() throws IOException {
-              return original.getSize();
-            }
+                @Override
+                public long getSize() throws IOException {
+                  return original.getSize();
+                }
 
-            @Override
-            public long getNodeId() throws IOException {
-              return original.getNodeId();
-            }
+                @Override
+                public long getNodeId() throws IOException {
+                  return original.getNodeId();
+                }
 
-            @Override
-            public long getLastModifiedTime() throws IOException {
-              throw new IOException();
-            }
+                @Override
+                public long getLastModifiedTime() throws IOException {
+                  throw new IOException();
+                }
 
-            @Override
-            public long getLastChangeTime() throws IOException {
-              return original.getLastChangeTime();
+                @Override
+                public long getLastChangeTime() throws IOException {
+                  return original.getLastChangeTime();
+                }
+              };
             }
-          };
-        }
-        return stat;
-      }
-    };
+            return stat;
+          }
+        };
     Artifact foo = createDerivedArtifact(fs, "foo");
     registerAction(new TestAction(TestAction.NO_EFFECT, emptySet, ImmutableList.of(foo)));
     reporter.removeHandler(failFastHandler);

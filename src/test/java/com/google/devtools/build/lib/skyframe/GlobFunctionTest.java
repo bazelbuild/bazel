@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -629,7 +630,7 @@ public abstract class GlobFunctionTest {
   @Test
   public void testResilienceToFilesystemInconsistencies_DirectoryExistence() throws Exception {
     // Our custom filesystem says "pkgPath/BUILD" exists but "pkgPath" does not exist.
-    fs.stubStat(pkgPath, null);
+    fs.stubStat(pkgPath.getLocalPath(), null);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(root, pkgPath);
     FileStateValue pkgDirFileStateValue = FileStateValue.create(pkgRootedPath, null);
     FileValue pkgDirValue =
@@ -654,7 +655,7 @@ public abstract class GlobFunctionTest {
     // Our custom filesystem says directory "pkgPath/foo/bar" contains a subdirectory "wiz" but a
     // direct stat on "pkgPath/foo/bar/wiz" says it does not exist.
     Path fooBarDir = pkgPath.getRelative("foo/bar");
-    fs.stubStat(fooBarDir.getRelative("wiz"), null);
+    fs.stubStat(fooBarDir.getRelative("wiz").getLocalPath(), null);
     RootedPath fooBarDirRootedPath = RootedPath.toRootedPath(root, fooBarDir);
     SkyValue fooBarDirListingValue =
         DirectoryListingStateValue.create(
@@ -683,7 +684,7 @@ public abstract class GlobFunctionTest {
         RootedPath.toRootedPath(root, pkgPath.getRelative("foo/bar/wiz/file"));
     final FileStatus realStat = fileRootedPath.asPath().stat();
     fs.stubStat(
-        fileRootedPath.asPath(),
+        fileRootedPath.asPath().getLocalPath(),
         new FileStatus() {
 
           @Override
@@ -760,18 +761,18 @@ public abstract class GlobFunctionTest {
 
   private static final class CustomInMemoryFs extends InMemoryFileSystem {
 
-    private Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
+    private Map<LocalPath, FileStatus> stubbedStats = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock);
     }
 
-    public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
+    public void stubStat(LocalPath path, @Nullable FileStatus stubbedResult) {
       stubbedStats.put(path, stubbedResult);
     }
 
     @Override
-    public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
       if (stubbedStats.containsKey(path)) {
         return stubbedStats.get(path);
       }

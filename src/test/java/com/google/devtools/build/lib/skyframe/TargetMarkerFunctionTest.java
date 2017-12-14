@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -132,7 +133,7 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file("a/BUILD", "sh_library(name = 'b/c')");
     Path subpackageBuildFile = scratch.file("a/b/BUILD", "sh_library(name = 'c')");
-    fs.stubStatIOException(subpackageBuildFile, new IOException("nope"));
+    fs.stubStatIOException(subpackageBuildFile.getLocalPath(), new IOException("nope"));
     BuildFileNotFoundException exn =
         (BuildFileNotFoundException) getErrorFromTargetValue("//a:b/c");
     assertThat(exn).hasMessageThat().contains("nope");
@@ -140,18 +141,18 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
 
   private static class CustomInMemoryFs extends InMemoryFileSystem {
 
-    private Map<Path, IOException> stubbedStatExceptions = Maps.newHashMap();
+    private Map<LocalPath, IOException> stubbedStatExceptions = Maps.newHashMap();
 
     public CustomInMemoryFs() {
       super(BlazeClock.instance());
     }
 
-    public void stubStatIOException(Path path, IOException stubbedResult) {
+    public void stubStatIOException(LocalPath path, IOException stubbedResult) {
       stubbedStatExceptions.put(path, stubbedResult);
     }
 
     @Override
-    public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
       if (stubbedStatExceptions.containsKey(path)) {
         throw stubbedStatExceptions.get(path);
       }

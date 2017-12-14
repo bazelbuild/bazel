@@ -17,20 +17,21 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * An abstract partial implementation of FileSystem for read-only
- * implementations.
+ * An abstract partial implementation of FileSystem for read-only implementations.
  *
  * <p>Any ReadonlyFileSystem does not support the following:
+ *
  * <ul>
- * <li>{@link #createDirectory(Path)}</li>
- * <li>{@link #createSymbolicLink(Path, PathFragment)}</li>
- * <li>{@link #delete(Path)}</li>
- * <li>{@link #getOutputStream(Path)}</li>
- * <li>{@link #renameTo(Path, Path)}</li>
- * <li>{@link #setExecutable(Path, boolean)}</li>
- * <li>{@link #setLastModifiedTime(Path, long)}</li>
- * <li>{@link #setWritable(Path, boolean)}</li>
+ *   <li>{@link #createDirectory(LocalPath)}
+ *   <li>{@link #createSymbolicLink(LocalPath, String)}
+ *   <li>{@link #delete(LocalPath)}
+ *   <li>{@link #getOutputStream(LocalPath)}
+ *   <li>{@link #renameTo(LocalPath, LocalPath)}
+ *   <li>{@link #setExecutable(LocalPath, boolean)}
+ *   <li>{@link #setLastModifiedTime(LocalPath, long)}
+ *   <li>{@link #setWritable(LocalPath, boolean)}
  * </ul>
+ *
  * The above calls will always result in an {@link IOException}.
  */
 public abstract class ReadonlyFileSystem extends AbstractFileSystem {
@@ -46,37 +47,37 @@ public abstract class ReadonlyFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
+  protected OutputStream getOutputStream(LocalPath path, boolean append) throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void setReadable(Path path, boolean readable) throws IOException {
+  protected void setReadable(LocalPath path, boolean readable) throws IOException {
     throw modificationException();
   }
 
   @Override
-  public void setWritable(Path path, boolean writable) throws IOException {
+  public void setWritable(LocalPath path, boolean writable) throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void setExecutable(Path path, boolean executable) {
+  protected void setExecutable(LocalPath path, boolean executable) {
     throw new UnsupportedOperationException("setExecutable");
   }
 
   @Override
-  public boolean supportsModifications(Path path) {
+  public boolean supportsModifications(LocalPath path) {
     return false;
   }
 
   @Override
-  public boolean supportsSymbolicLinksNatively(Path path) {
+  public boolean supportsSymbolicLinksNatively(LocalPath path) {
     return false;
   }
 
   @Override
-  public boolean supportsHardLinksNatively(Path path) {
+  public boolean supportsHardLinksNatively(LocalPath path) {
     return false;
   }
 
@@ -86,32 +87,32 @@ public abstract class ReadonlyFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public boolean createDirectory(Path path) throws IOException {
+  public boolean createDirectory(LocalPath path) throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
+  protected void createSymbolicLink(LocalPath linkPath, String targetFragment) throws IOException {
     throw modificationException();
   }
 
   @Override
-  public void renameTo(Path sourcePath, Path targetPath) throws IOException {
+  public void renameTo(LocalPath sourcePath, LocalPath targetPath) throws IOException {
     throw modificationException();
   }
 
   @Override
-  public boolean delete(Path path) throws IOException {
+  public boolean delete(LocalPath path) throws IOException {
     throw modificationException();
   }
 
   @Override
-  public void setLastModifiedTime(Path path, long newTime) throws IOException {
+  public void setLastModifiedTime(LocalPath path, long newTime) throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void createFSDependentHardLink(Path linkPath, Path originalPath)
+  protected void createFSDependentHardLink(LocalPath linkPath, LocalPath originalPath)
       throws IOException {
     throw modificationException();
   }

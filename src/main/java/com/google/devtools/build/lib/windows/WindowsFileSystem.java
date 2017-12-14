@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -32,40 +33,10 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.attribute.DosFileAttributes;
 import java.util.Arrays;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 
 /** File system implementation for Windows. */
 @ThreadSafe
 public class WindowsFileSystem extends JavaIoFileSystem {
-
-  // Properties of 8dot3 (DOS-style) short file names:
-  // - they are at most 11 characters long
-  // - they have a prefix (before "~") that is {1..6} characters long, may contain numbers, letters,
-  //   "_", even "~", and maybe even more
-  // - they have a "~" after the prefix
-  // - have {1..6} numbers after "~" (according to [1] this is only one digit, but MSDN doesn't
-  //   clarify this), the combined length up till this point is at most 8
-  // - they have an optional "." afterwards, and another {0..3} more characters
-  // - just because a path looks like a short name it isn't necessarily one; the user may create
-  //   such names and they'd resolve to themselves
-  // [1] https://en.wikipedia.org/wiki/8.3_filename#VFAT_and_Computer-generated_8.3_filenames
-  //     bullet point (3) (on 2016-12-05)
-  @VisibleForTesting
-  static final Predicate<String> SHORT_NAME_MATCHER =
-      new Predicate<String>() {
-        private final Pattern pattern = Pattern.compile("^(.{1,6})~([0-9]{1,6})(\\..{0,3}){0,1}");
-
-        @Override
-        public boolean apply(@Nullable String input) {
-          Matcher m = pattern.matcher(input);
-          return input.length() <= 12
-              && m.matches()
-              && m.groupCount() >= 2
-              && (m.group(1).length() + m.group(2).length()) < 8; // the "~" makes it at most 8
-        }
-      };
 
   /** Resolves DOS-style, shortened path names, returning the last segment's long form. */
   private static final Function<String, String> WINDOWS_SHORT_PATH_RESOLVER =
@@ -114,7 +85,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       }
 
       String resolvedChild = child;
-      if (parent != null && !parent.isRootDirectory() && SHORT_NAME_MATCHER.apply(child)) {
+      if (parent != null && !parent.isRootDirectory() && WindowsShortPath.isShortPath(child)) {
         String pathString = parent.getPathString();
         if (!pathString.endsWith("/")) {
           pathString += "/";
@@ -286,18 +257,18 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public String getFileSystemType(Path path) {
+  public String getFileSystemType(LocalPath path) {
     // TODO(laszlocsomor): implement this properly, i.e. actually query this information from
     // somewhere (java.nio.Filesystem? System.getProperty? implement JNI method and use WinAPI?).
     return "ntfs";
   }
 
   @Override
-  protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
-    Path targetPath =
-        targetFragment.isAbsolute()
-            ? getPath(targetFragment)
-            : linkPath.getParentDirectory().getRelative(targetFragment);
+  protected void createSymbolicLink(LocalPath linkPath, String targetFragment) throws IOException {
+    LocalPath targetPath = LocalPath.create(targetFragment);
+    if (!targetPath.isAbsolute()) {
+      targetPath = linkPath.getParentDirectory().getRelative(targetPath);
+    }
     try {
       java.nio.file.Path link = getIoFile(linkPath).toPath();
       java.nio.file.Path target = getIoFile(targetPath).toPath();
@@ -317,7 +288,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public boolean supportsSymbolicLinksNatively(Path path) {
+  public boolean supportsSymbolicLinksNatively(LocalPath path) {
     return false;
   }
 
@@ -343,7 +314,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  protected FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+  protected FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
     File file = getIoFile(path);
     final DosFileAttributes attributes;
     try {
@@ -402,7 +373,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  protected boolean isDirectory(Path path, boolean followSymlinks) {
+  protected boolean isDirectory(LocalPath path, boolean followSymlinks) {
     if (!followSymlinks) {
       try {
         if (isJunction(getIoFile(path))) {

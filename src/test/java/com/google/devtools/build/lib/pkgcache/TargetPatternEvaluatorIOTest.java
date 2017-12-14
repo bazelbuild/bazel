@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
@@ -41,14 +42,15 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   private static class Transformer {
     @SuppressWarnings("unused")
     @Nullable
-    public FileStatus stat(FileStatus stat, Path path, boolean followSymlinks) throws IOException {
+    public FileStatus stat(FileStatus stat, LocalPath path, boolean followSymlinks)
+        throws IOException {
       return stat;
     }
 
     @SuppressWarnings("unused")
     @Nullable
-    public Collection<Dirent> readdir(Collection<Dirent> readdir, Path path, boolean followSymlinks)
-        throws IOException {
+    public Collection<Dirent> readdir(
+        Collection<Dirent> readdir, LocalPath path, boolean followSymlinks) throws IOException {
       return readdir;
     }
   }
@@ -59,13 +61,14 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(BlazeClock.instance(), PathFragment.create(FS_ROOT)) {
       @Override
-      public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+      public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
         FileStatus defaultResult = super.stat(path, followSymlinks);
         return transformer.stat(defaultResult, path, followSymlinks);
       }
 
       @Override
-      protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+      protected Collection<Dirent> readdir(LocalPath path, boolean followSymlinks)
+          throws IOException {
         Collection<Dirent> defaultResult = super.readdir(path, followSymlinks);
         return transformer.readdir(defaultResult, path, followSymlinks);
       }
@@ -133,7 +136,7 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
     return new Transformer() {
       @Nullable
       @Override
-      public FileStatus stat(final FileStatus stat, Path path, boolean followSymlinks)
+      public FileStatus stat(FileStatus stat, LocalPath path, boolean followSymlinks)
           throws IOException {
         if (path.getPathString().endsWith(badPathSuffix)) {
           return new InMemoryContentInfo(BlazeClock.instance()) {
@@ -200,8 +203,8 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
     return new Transformer() {
       @Nullable
       @Override
-      public Collection<Dirent> readdir(Collection<Dirent> readdir, Path path,
-          boolean followSymlinks) throws IOException {
+      public Collection<Dirent> readdir(
+          Collection<Dirent> readdir, LocalPath path, boolean followSymlinks) throws IOException {
         if (path.getPathString().endsWith(badPathSuffix)) {
           throw new IOException("Path ended in " + badPathSuffix + ", so readdir failed.");
         }

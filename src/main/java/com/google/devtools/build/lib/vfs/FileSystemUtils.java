@@ -378,23 +378,37 @@ public class FileSystemUtils {
   }
 
   public static ByteSource asByteSource(final Path path) {
-    return new ByteSource() {
-      @Override public InputStream openStream() throws IOException {
-        return path.getInputStream();
-      }
-    };
+    return asByteSource(path.getFileSystem(), path.getLocalPath());
   }
 
   public static ByteSink asByteSink(final Path path, final boolean append) {
-    return new ByteSink() {
-      @Override public OutputStream openStream() throws IOException {
-        return path.getOutputStream(append);
-      }
-    };
+    return asByteSink(path.getFileSystem(), path.getLocalPath(), append);
   }
 
   public static ByteSink asByteSink(final Path path) {
     return asByteSink(path, false);
+  }
+
+  public static ByteSource asByteSource(FileSystem fileSystem, LocalPath path) {
+    return new ByteSource() {
+      @Override
+      public InputStream openStream() throws IOException {
+        return fileSystem.getInputStream(path);
+      }
+    };
+  }
+
+  public static ByteSink asByteSink(FileSystem fileSystem, LocalPath path, final boolean append) {
+    return new ByteSink() {
+      @Override
+      public OutputStream openStream() throws IOException {
+        return fileSystem.getOutputStream(path, append);
+      }
+    };
+  }
+
+  public static ByteSink asByteSink(FileSystem fileSystem, LocalPath path) {
+    return asByteSink(fileSystem, path, false);
   }
 
   /**
@@ -408,18 +422,34 @@ public class FileSystemUtils {
    */
   @ThreadSafe  // but not atomic
   public static void copyFile(Path from, Path to) throws IOException {
+    copyFile(from.getFileSystem(), from.getLocalPath(), to.getFileSystem(), to.getLocalPath());
+  }
+
+  /**
+   * Copies the file from location "from" to location "to", while overwriting a potentially existing
+   * "to". File's last modified time, executable and writable bits are also preserved.
+   *
+   * <p>If no error occurs, the method returns normally. If a parent directory does not exist, a
+   * FileNotFoundException is thrown. An IOException is thrown when other erroneous situations
+   * occur. (e.g. read errors)
+   */
+  @ThreadSafe // but not atomic
+  public static void copyFile(
+      FileSystem fromFileSystem, LocalPath from, FileSystem toFileSystem, LocalPath to)
+      throws IOException {
     try {
-      to.delete();
+      toFileSystem.delete(to);
     } catch (IOException e) {
       throw new IOException("error copying file: "
           + "couldn't delete destination: " + e.getMessage());
     }
-    asByteSource(from).copyTo(asByteSink(to));
-    to.setLastModifiedTime(from.getLastModifiedTime()); // Preserve mtime.
-    if (!from.isWritable()) {
-      to.setWritable(false); // Make file read-only if original was read-only.
+    asByteSource(fromFileSystem, from).copyTo(asByteSink(toFileSystem, to));
+    toFileSystem.setLastModifiedTime(
+        to, fromFileSystem.getLastModifiedTime(from, true)); // Preserve mtime.
+    if (!fromFileSystem.isWritable(from)) {
+      toFileSystem.setWritable(to, false); // Make file read-only if original was read-only.
     }
-    to.setExecutable(from.isExecutable()); // Copy executable bit.
+    toFileSystem.setExecutable(to, fromFileSystem.isExecutable(from)); // Copy executable bit.
   }
 
   /**
@@ -665,7 +695,7 @@ public class FileSystemUtils {
     if (filesystem instanceof UnionFileSystem) {
       // If using UnionFS, make sure that we do not traverse filesystem boundaries when creating
       // parent directories by rehoming the path on the most specific filesystem.
-      FileSystem delegate = ((UnionFileSystem) filesystem).getDelegate(dir);
+      FileSystem delegate = ((UnionFileSystem) filesystem).getDelegate(dir.getLocalPath());
       dir = delegate.getPath(dir.asFragment());
     }
 
@@ -757,7 +787,18 @@ public class FileSystemUtils {
    * @throws IOException if there was an error
    */
   public static void writeContentAsLatin1(Path outputFile, String content) throws IOException {
-    writeContent(outputFile, ISO_8859_1, content);
+    writeContentAsLatin1(outputFile.getFileSystem(), outputFile.getLocalPath(), content);
+  }
+
+  /**
+   * Writes the specified String as ISO-8859-1 (latin1) encoded bytes to the file. Follows symbolic
+   * links.
+   *
+   * @throws IOException if there was an error
+   */
+  public static void writeContentAsLatin1(
+      FileSystem fileSystem, LocalPath outputFile, String content) throws IOException {
+    writeContent(fileSystem, outputFile, ISO_8859_1, content);
   }
 
   /**
@@ -768,7 +809,18 @@ public class FileSystemUtils {
    */
   public static void writeContent(Path outputFile, Charset charset, String content)
       throws IOException {
-    asByteSink(outputFile).asCharSink(charset).write(content);
+    writeContent(outputFile.getFileSystem(), outputFile.getLocalPath(), charset, content);
+  }
+
+  /**
+   * Writes the specified String using the specified encoding to the file. Follows symbolic links.
+   *
+   * @throws IOException if there was an error
+   */
+  public static void writeContent(
+      FileSystem fileSystem, LocalPath outputFile, Charset charset, String content)
+      throws IOException {
+    asByteSink(fileSystem, outputFile).asCharSink(charset).write(content);
   }
 
   /**
@@ -977,7 +1029,7 @@ public class FileSystemUtils {
    * Returns the type of the file system path belongs to.
    */
   public static String getFileSystem(Path path) {
-    return path.getFileSystem().getFileSystemType(path);
+    return path.getFileSystem().getFileSystemType(path.getLocalPath());
   }
 
   /**

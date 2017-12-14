@@ -37,7 +37,7 @@ abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected InputStream getInputStream(Path path) throws IOException {
+  protected InputStream getInputStream(LocalPath path) throws IOException {
     // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates
     // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
     // retry here.
@@ -55,7 +55,7 @@ abstract class AbstractFileSystem extends FileSystem {
   }
 
   /** Returns either normal or profiled FileInputStream. */
-  private InputStream createFileInputStream(Path path) throws FileNotFoundException {
+  private InputStream createFileInputStream(LocalPath path) throws FileNotFoundException {
     final String name = path.toString();
     if (profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_READ)
@@ -77,7 +77,7 @@ abstract class AbstractFileSystem extends FileSystem {
    * Returns either normal or profiled FileOutputStream. Should be used by subclasses to create
    * default OutputStream instance.
    */
-  protected OutputStream createFileOutputStream(Path path, boolean append)
+  protected OutputStream createFileOutputStream(LocalPath path, boolean append)
       throws FileNotFoundException {
     final String name = path.toString();
     if (profiler.isActive()
@@ -95,7 +95,7 @@ abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
+  protected OutputStream getOutputStream(LocalPath path, boolean append) throws IOException {
     synchronized (path) {
       try {
         return createFileOutputStream(path, append);

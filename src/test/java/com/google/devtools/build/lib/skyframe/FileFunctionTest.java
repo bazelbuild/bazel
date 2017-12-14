@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -444,7 +445,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path, HashFunction hf) throws IOException {
+          protected byte[] getFastDigest(LocalPath path, HashFunction hf) throws IOException {
             return digest;
           }
         });
@@ -485,7 +486,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path, HashFunction hf) {
+          protected byte[] getFastDigest(LocalPath path, HashFunction hf) {
             return path.getBaseName().equals("unreadable") ? expectedDigest : null;
           }
         });
@@ -830,7 +831,7 @@ public class FileFunctionTest {
     fs =
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getDigest(Path path, HashFunction hf) throws IOException {
+          protected byte[] getDigest(LocalPath path, HashFunction hf) throws IOException {
             digestCalls.incrementAndGet();
             return super.getDigest(path, hf);
           }
@@ -895,8 +896,8 @@ public class FileFunctionTest {
     // Our custom filesystem says "a" does not exist, so FileFunction shouldn't bother trying to
     // think about "a/b". Test for this by having a stat of "a/b" fail with an io error, and
     // observing that we don't encounter the error.
-    fs.stubStat(path("a"), null);
-    fs.stubStatError(path("a/b"), new IOException("ouch!"));
+    fs.stubStat(path("a").getLocalPath(), null);
+    fs.stubStatError(path("a/b").getLocalPath(), new IOException("ouch!"));
     assertThat(valueForPath(path("a/b")).exists()).isFalse();
   }
 
@@ -946,7 +947,7 @@ public class FileFunctionTest {
             return 0;
           }
         };
-    fs.stubStat(path("a"), inconsistentParentFileStatus);
+    fs.stubStat(path("a").getLocalPath(), inconsistentParentFileStatus);
     // Disable fast-path md5 so that we don't try try to md5 the "a" (since it actually physically
     // is a directory).
     fastDigest = false;
@@ -967,7 +968,7 @@ public class FileFunctionTest {
   public void testFilesystemInconsistencies_GetFastDigest() throws Exception {
     file("a");
     // Our custom filesystem says "a/b" exists but "a" does not exist.
-    fs.stubFastDigestError(path("a"), new IOException("nope"));
+    fs.stubFastDigestError(path("a").getLocalPath(), new IOException("nope"));
     SequentialBuildDriver driver = makeDriver();
     SkyKey skyKey = skyKey("a");
     EvaluationResult<FileValue> result =
@@ -985,7 +986,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected boolean isReadable(Path path) throws IOException {
+          protected boolean isReadable(LocalPath path) throws IOException {
             if (path.getBaseName().equals("unreadable")) {
               throw new IOException("isReadable failed");
             }
@@ -1291,7 +1292,7 @@ public class FileFunctionTest {
   public void testInjectionOverIOException() throws Exception {
     Path foo = file("foo");
     SkyKey fooKey = skyKey("foo");
-    fs.stubStatError(foo, new IOException("bork"));
+    fs.stubStatError(foo.getLocalPath(), new IOException("bork"));
     BuildDriver driver = makeDriver();
     EvaluationResult<FileValue> result =
         driver.evaluate(
@@ -1306,7 +1307,7 @@ public class FileFunctionTest {
         .hasExceptionThat()
         .hasMessageThat()
         .isEqualTo("bork");
-    fs.stubbedStatErrors.remove(foo);
+    fs.stubbedStatErrors.remove(foo.getLocalPath());
     differencer.inject(
         fileStateSkyKey("foo"),
         FileStateValue.create(
@@ -1676,36 +1677,36 @@ public class FileFunctionTest {
 
   private class CustomInMemoryFs extends InMemoryFileSystem {
 
-    private final Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
-    private final Map<Path, IOException> stubbedStatErrors = Maps.newHashMap();
-    private final Map<Path, IOException> stubbedFastDigestErrors = Maps.newHashMap();
+    private final Map<LocalPath, FileStatus> stubbedStats = Maps.newHashMap();
+    private final Map<LocalPath, IOException> stubbedStatErrors = Maps.newHashMap();
+    private final Map<LocalPath, IOException> stubbedFastDigestErrors = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock);
     }
 
-    public void stubFastDigestError(Path path, IOException error) {
+    public void stubFastDigestError(LocalPath path, IOException error) {
       stubbedFastDigestErrors.put(path, error);
     }
 
     @Override
-    protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
+    protected byte[] getFastDigest(LocalPath path, HashFunction hashFunction) throws IOException {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }
       return fastDigest ? getDigest(path) : null;
     }
 
-    public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
+    public void stubStat(LocalPath path, @Nullable FileStatus stubbedResult) {
       stubbedStats.put(path, stubbedResult);
     }
 
-    public void stubStatError(Path path, IOException error) {
+    public void stubStatError(LocalPath path, IOException error) {
       stubbedStatErrors.put(path, error);
     }
 
     @Override
-    public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
       if (stubbedStatErrors.containsKey(path)) {
         throw stubbedStatErrors.get(path);
       }

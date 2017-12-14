@@ -194,7 +194,7 @@ public final class BinTools {
   }
 
   private void linkTool(Path sourcePath, Path linkPath) throws ExecException {
-    if (linkPath.getFileSystem().supportsSymbolicLinksNatively(linkPath)) {
+    if (linkPath.getFileSystem().supportsSymbolicLinksNatively(linkPath.getLocalPath())) {
       try {
         if (!linkPath.isSymbolicLink()) {
           // ensureSymbolicLink() does not handle the case where there is already
