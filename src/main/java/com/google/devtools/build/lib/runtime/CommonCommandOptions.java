@@ -13,16 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+
 import com.google.devtools.build.lib.runtime.CommandLineEvent.ToolCommandLineEvent;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Level;
 
 /**
@@ -112,6 +117,85 @@ public class CommonCommandOptions extends OptionsBase {
     help = "Do not throw an error when the config is not defined."
   )
   public boolean allowUndefinedConfigs;
+
+  /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
+  public static class UUIDConverter implements Converter<UUID> {
+
+    @Override
+    public UUID convert(String input) throws OptionsParsingException {
+      if (isNullOrEmpty(input)) {
+        return null;
+      }
+      try {
+        return UUID.fromString(input);
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException(
+            String.format("Value '%s' is not a value UUID.", input), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a UUID";
+    }
+  }
+
+  /**
+   * Converter for options (--build_request_id) that accept prefixed UUIDs. Since we do not care
+   * about the structure of this value after validation, we store it as a string.
+   */
+  public static class PrefixedUUIDConverter implements Converter<String> {
+
+    @Override
+    public String convert(String input) throws OptionsParsingException {
+      if (isNullOrEmpty(input)) {
+        return null;
+      }
+      // UUIDs that are accepted by UUID#fromString have 36 characters. Interpret the last 36
+      // characters as an UUID and the rest as a prefix. We do not check anything about the contents
+      // of the prefix.
+      try {
+        int uuidStartIndex = input.length() - 36;
+        UUID.fromString(input.substring(uuidStartIndex));
+      } catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+        throw new OptionsParsingException(
+            String.format("Value '%s' does end in a valid UUID.", input), e);
+      }
+      return input;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "An optionally prefixed UUID. The last 36 characters will be verified as a UUID.";
+    }
+  }
+
+  // Command ID and build request ID can be set either by flag or environment variable. In most
+  // cases, the internally generated ids should be sufficient, but we allow these to be set
+  // externally if required. Option wins over environment variable, if both are set.
+  // TODO(b/67895628) Stop reading ids from the environment after the compatibility window has
+  // passed.
+  @Option(
+    name = "invocation_id",
+    defaultValue = "",
+    converter = UUIDConverter.class,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+    metadataTags = {OptionMetadataTag.HIDDEN},
+    help = "Unique identifier for the command being run."
+  )
+  public UUID invocationId;
+
+  @Option(
+    name = "build_request_id",
+    defaultValue = "",
+    converter = PrefixedUUIDConverter.class,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+    metadataTags = {OptionMetadataTag.HIDDEN},
+    help = "Unique identifier for the build being run."
+  )
+  public String buildRequestId;
 
   @Option(
     name = "profile",
