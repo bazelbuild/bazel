@@ -12,7 +12,7 @@ Android projects with Bazel.
 ## Contents
 
 - [Working with Bazel](#working-with-bazel)
-- [Android and Skylark](#android-and-skylark)
+- [Android and new rules](#android-and-new-rules)
 
 ## Working with Bazel
 
@@ -23,14 +23,14 @@ The following resources will help you work with Bazel on Android projects:
 *  [mobile-install for Android](mobile-install.html)
 *  [Integration with Android Studio](ide.html)
 
-## Android and Skylark
+## Android and new rules
 
-**Note**: Extending Bazel with Skylark is for advanced build and test scenarios.
-You do not need to use Skylark when getting started with Bazel.
+**Note**: Creating new rules is for advanced build and test scenarios.
+You do not need it when getting started with Bazel.
 
-The following [Skylark](https://docs.bazel.build/versions/master/skylark/concepts.html)
-modules, configuration fragments, and providers will help you extend Bazel's
-capabilities when building your Android projects:
+The following modules, configuration fragments, and providers will help you
+[extend Bazel's capabilities](https://docs.bazel.build/versions/master/skylark/concepts.html)
+when building your Android projects:
 
 *  Modules:
 

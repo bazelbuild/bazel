@@ -84,7 +84,7 @@ part up till there.
 Finally, for non-`local` repositories, only a change in the following
 dependencies might cause a restart:
 
-- Skylark files needed to define the repository rule.
+- `.bzl` files needed to define the repository rule.
 - Declaration of the repository rule in the `WORKSPACE` file.
 - Value of any environment variable declared with the `environ`
 attribute of the

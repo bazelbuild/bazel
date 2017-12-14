@@ -10,7 +10,7 @@ title: Toolchains
    - [Creating a toolchain rule](#creating-a-toolchain-rule)
    - [Creating a toolchain definition](#creating-a-toolchain-definition)
    - [Registering a toolchain](#registering-a-toolchain)
-- [Using a toolchain in a Skylark rule](#using-a-toolchain-in-a-skylark-rule)
+- [Using a toolchain in a new rule](#using-a-toolchain-in-a-rule)
 - [Debugging a toolchain](#debugging-a-toolchain)
 
 ## Overview
@@ -69,7 +69,7 @@ Defining a toolchain requires the following:
 
 ### Creating a toolchain rule
 
-Toolchain rules are Skylark rules that create and return providers. To define a
+Toolchain rules are rules that create and return providers. To define a
 toolchain rule, first determine the information that the new rule will require.
 
 In the example below, we are adding support for a new programming language, so
@@ -158,9 +158,9 @@ register_toolchains(
 )
 ```
 
-## Using a toolchain in a Skylark rule
+## Using a toolchain in a rule
 
-To use a toolchain in a Skylark rule, add the toolchain type to the rule
+To use a toolchain in a rule, add the toolchain type to the rule
 definition. For example:
 
 ```python

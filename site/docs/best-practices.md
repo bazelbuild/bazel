@@ -40,7 +40,7 @@ This document uses the requirement levels described in
 - [WORKSPACE files](#workspace-files)
    - [Repository rules](#repository-rules)
    - [Custom BUILD files](#custom-build-files)
-   - [Skylark repository rules](#skylark-repository-rules)
+   - [Repository rules](#repository-rules)
 - [Programming languages](#programming-languages)
    - [C++ and Bazel](#c-and-bazel)
    - [Java and Bazel](#java-and-bazel)
@@ -110,19 +110,19 @@ guide](https://docs.bazel.build/skylark/build-style.html).
 
 ## .bzl files style guide
 
-See the [Style guide for .bzl
-files](https://docs.bazel.build/skylark/bzl-style.html) for Skylark rule guidelines.
+See the [Style guide for .bzl files](https://docs.bazel.build/skylark/bzl-style.html)
+for guidelines.
 
 ## Packaging rules
 
 See [Packaging rules](https://docs.bazel.build/skylark/deploying.html) for advice
-on how to structure and where to put new Skylark rules.
+on how to structure and where to put new rules.
 
 ## Rule choice
 
 When using a language for which Bazel has built-in rules (e.g., C++), prefer using these rules to
-writing your own in Skylark. These rules are documented in the [build
-encyclopedia](https://docs.bazel.build/be/overview.html).
+writing your own. These rules are documented in the
+[build encyclopedia](https://docs.bazel.build/be/overview.html).
 
 # WORKSPACE files
 
@@ -147,9 +147,9 @@ alternatives.
 
 When using a `new_` repository rule, prefer to specify `build_file_content`, not `build_file`.
 
-## Skylark repository rules
+## Repository rules
 
-A Skylark repository rule should generally be responsible for:
+A repository rule should generally be responsible for:
 
 -  Detecting system settings and writing them to files.
 -  Finding resources elsewhere on the system.
