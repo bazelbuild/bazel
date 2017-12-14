@@ -6,14 +6,55 @@ title: Style guide for bzl files
 # .bzl file style guide
 
 
+Skylark is a language that defines how software is built, and as such it is both
+a programming and a configuration language.
+
+You will use Skylark to write BUILD files, macros, and build rules. Macros and
+rules are essentially meta-languages - they define how BUILD files are written.
+BUILD files are intended to be simple and repetitive.
+
+All software is read more often than it is written. This is especially true for
+Skylark, as engineers read BUILD files to understand dependencies of their
+targets and details of their builds.This reading will often happen in passing,
+in a hurry, or in parallel to accomplishing some other task. Consequently,
+simplicity and readability are very important so that users can parse and
+   comprehend BUILD files quickly.
+
+When a user opens a BUILD file, they quickly want to know the list of targets in
+the file; or review the list of sources of that C++ library; or remove a
+dependency from that Java binary. Each time you add a layer of abstraction, you
+make it harder for a user to do these tasks.
+
+BUILD files are also analyzed and updated by many different tools.
+Tools may not be able to edit your be able to edit your BUILD file if it uses
+abstractions. Keeping your BUILD files simple will allow you to get better
+tooling. As a code base grows, it becomes more and more frequent to do changes
+across many BUILD files in order to update a library or do a cleanup.
+
+Do not create a macro just to avoid some amount of repetition in BUILD files.
+The [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle
+doesn’t really apply here. The goal is not to make the file shorter; the goal
+is to make your files easy to process, both by humans and tools.
+
+
+## General advice
+
+ -->
+
+* Use [skylint](skylint.html)
+
+
 ## Style
 
 * When in doubt, follow the
   [Python style guide](https://www.python.org/dev/peps/pep-0008/).
 
-* Code should be documented using
-  [docstrings](https://www.python.org/dev/peps/pep-0257/). Use a docstring at
-  the top of the file, and a docstring for each public function.
+* Document files and functions using [docstrings](skylint.html#docstrings). Use
+  a docstring at the top of each `.bzl` file, and a docstring for each public
+  function.
+
+* Rules and aspects, along with their attributes, as well as providers and their
+  fields, should be documented using the `doc` argument.
 
 * Variables and function names use lowercase with words separated by underscores
   (`[a-z][a-z0-9_]*`), e.g. `cc_library`. Top-level private values start with
@@ -36,18 +77,75 @@ def fct(name, srcs):
   )
 ```
 
+
 ## Macros
 
-A [macro](macros.md) is a function which instantiates one or many rules during
-the loading phase.
+A macro is a function which instantiates one or more rules during the loading
+phase. In general, use rules whenever possible instead of macros. The build
+graph seen by the user is not the same as the one used by Bazel during the
+build - macros are expanded _before Bazel does any build graph analysis._
 
-* Macros must accept a name attribute and each invocation should specify a name.
-  The generated name attribute of rules should include the name attribute as a
-  prefix. For example, `my_macro(name = "foo")` can generate a rule `foo` and a
-  rule `foo_gen`. *Rationale*: Users should be able to find easily which macro
-  generated a rule. Also, automated refactoring tools need a way to identify a
-  specific rule to edit.
+Because of this, when something goes wrong, the user will need to understand
+your macro’s implementation to troubleshoot build problems. Additionally,
+`bazel query` results can be hard to interpret because targets shown in
+the results come from macro expansion. Finally, aspects are not aware of macros,
+so tooling depending on aspects (IDEs and others) might fail.
 
-* When calling a macro, use only keyword arguments. *Rationale*: This is for
-  consistency with rules, it greatly improves readability.
+A safe use for macros is leaf nodes, such as macros defining test permutations:
+in that case, only the "end users" of those targets need to know about those
+additional nodes, and any build problems introduced by macros are never far
+from their usage.
+
+For macros that define non-leaf nodes, follow these best practices:
+
+* A macro should take a `name` argument and define a target with that name.
+  That target becomes that macro's _main target_.
+* All other targets defined by a macro should have their names preceded
+  with a  `_`, include the `name` attribute as a prefix, and have
+  restricted visibility.
+* All the targets created in the macro should be coupled in some way to
+  the main target.
+* Keep the parameter names in the macro consistent. If a parameter is passed
+  as an attribute value to the main target, keep its name the same. If a
+  macro parameter serves the same purpose as a common rule attribute, such
+  as `deps`, name as you would the attribute (see below).
+* When calling a macro, use only keyword arguments. This is
+  consistent with rules, and greatly improves readability.
+
+Engineers often write macros when the Skylark API of relevant rules is
+insufficient for their specific use case, regardless of whether the rule is
+defined within Bazel in native code, or in Skylark. If you’re facing this
+problem, ask the rule author if they can extend the API to accomplish your
+goals.
+
+As a rule of thumb, the more macros resemble the rules, the better.
+
+## Rules
+
+* Rules, aspects, and their attributes should use lower_case names (“snake case”).
+* Use consistent names for rules. For most languages, typical rules include:
+  * `*_library` - a compilation unit or "module".
+  * `*_binary` - a target producing an executable or a deployment unit.
+  *  `*_test` - a test target. This can include multiple tests.
+     Expect all tests in a `*_test` target to be variations on the same theme,
+     for example, testing a single library.
+  * `*_import`: a target encapsulating a pre-compiled artifact, such as a
+    `.jar`, or a `.dll` that is used during compilation.
+* Use consistent names and types for attributes. Some generally applicable
+  attributes include:
+  * `srcs`: `label_list`, allowing files: source files, typically
+    human-authored.
+  * `deps`: `label_list`, typically _not_ allowing files:
+    compilation dependencies.
+  * `data`: `label_list`, allowing files: data files, such as test data etc.
+  * `runtime_deps`: `label_list`: runtime dependencies that are not needed for
+    compilation.
+* Pass information between your rules using a well-defined
+  [provider](rules.html#providers) interface. Declare and document
+  provider fields.
+* Design your rule with extensibility in mind. Consider that other rules
+  might want to interact with your rule, access your providers, and reuse
+  the actions you create.
+* Follow [performance guidelines](performance.html) in your rules.
+
 

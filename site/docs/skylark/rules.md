@@ -370,7 +370,7 @@ copying.
 Providers can be declared using the [provider()](lib/globals.html#provider) function:
 
 ```python
-TransitiveDataInfo = provider()
+TransitiveDataInfo = provider(fields=["value"])
 ```
 
 Rule implementation function can then construct and return provider instances:
