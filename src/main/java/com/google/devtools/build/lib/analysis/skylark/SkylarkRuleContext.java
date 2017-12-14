@@ -137,7 +137,9 @@ public final class SkylarkRuleContext implements SkylarkValue {
           + "<pre class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>";
   public static final String ATTR_DOC =
       "A struct to access the values of the attributes. The values are provided by "
-          + "the user (if not, a default value is used).";
+          + "the user (if not, a default value is used). The attributes of the struct and the "
+          + "types of their values correspond to the keys and values of the <code>attrs</code> "
+          + "dict provided to the <code>rule</code> function.";
   public static final String SPLIT_ATTR_DOC =
       "A struct to access the values of attributes with split configurations. If the attribute is "
           + "a label list, the value of split_attr is a dict of the keys of the split (as strings) "

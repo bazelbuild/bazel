@@ -74,8 +74,11 @@ following attributes: `args`, `flaky`, `local`, `shard_count`, `size`,
 
 Labels listed in `attr` will be inputs to the rule.
 
-To access an attribute in a rule's implementation, use
-`ctx.attr.<attribute_name>`. The name and the package of a rule are available
+To access an attribute in a rule's implementation, use `ctx.attr.<attribute_name>`.
+This field will have the type given in the rule's `attrs` dictionary corresponding to
+`<attribute_name>`.
+
+The name and the package of a rule are available
 with `ctx.label.name` and `ctx.label.package`.
 
 See [an example](cookbook.md#attr) of using `attr` in a rule.
