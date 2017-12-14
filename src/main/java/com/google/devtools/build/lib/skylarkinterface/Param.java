@@ -76,15 +76,15 @@ public @interface Param {
   /**
    * If true, the parameter may be specified as a named parameter. For example for an integer named
    * parameter {@code foo} of a method {@code bar}, then the method call will look like
-   * {@code foo(bar=1)}.
+   * {@code bar(foo=1)}.
    */
   boolean named() default false;
 
   /**
    * If true, the parameter may be specified as a positional parameter. For example for an integer
    * positional parameter {@code foo} of a method {@code bar}, then the method call will look like
-   * {@code foo(1)}. If {@link #named()} is {@code false}, then this will be the only way to call
-   * {@code foo}.
+   * {@code bar(1)}. If {@link #named()} is {@code false}, then this will be the only way to call
+   * {@code bar}.
    *
    * <p>Positional arguments should come first.
    */
