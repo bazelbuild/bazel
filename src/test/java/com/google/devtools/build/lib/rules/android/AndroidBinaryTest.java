@@ -4076,6 +4076,39 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(provider).isNull();
   }
 
+  @Test
+  public void testFilterActionWithInstrumentedBinary() throws Exception {
+    scratch.file(
+        "java/com/google/android/instr/BUILD",
+        "android_binary(name = 'b1',",
+        "               srcs = ['b1.java'],",
+        "               instruments = ':b2',",
+        "               manifest = 'AndroidManifest.xml')",
+        "android_binary(name = 'b2',",
+        "               srcs = ['b2.java'],",
+        "               manifest = 'AndroidManifest.xml')");
+    ConfiguredTarget b1 = getConfiguredTarget("//java/com/google/android/instr:b1");
+    SpawnAction action =
+        (SpawnAction)
+            actionsTestUtil().getActionForArtifactEndingWith(getFilesToBuild(b1), "_filtered.jar");
+    assertThat(action.getArguments())
+        .containsAllOf(
+            "--inputZip",
+            getFirstArtifactEndingWith(action.getInputs(), "b1_deploy.jar").getExecPathString(),
+            "--filterZips",
+            getFirstArtifactEndingWith(action.getInputs(), "b2_deploy.jar").getExecPathString(),
+            "--outputZip",
+            getFirstArtifactEndingWith(action.getOutputs(), "b1_filtered.jar").getExecPathString(),
+            "--filterTypes",
+            ".class",
+            "--checkHashMismatch",
+            "IGNORE",
+            "--explicitFilters",
+            "R\\.class,R\\$.*\\.class",
+            "--outputMode",
+            "DONT_CARE");
+  }
+
   /**
    * 'proguard_specs' attribute gets read by an implicit outputs function: the
    * current heuristic is that if this attribute is configurable, we assume its

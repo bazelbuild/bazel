@@ -293,6 +293,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact deployJar = createDeployJar(ruleContext, javaSemantics, androidCommon, resourceClasses,
         AndroidCommon.getAndroidConfig(ruleContext).checkDesugarDeps(), derivedJarFunction);
 
+    if (isInstrumentation(ruleContext)) {
+      deployJar = getFilteredDeployJar(ruleContext, deployJar);
+    }
+
     OneVersionEnforcementLevel oneVersionEnforcementLevel =
         ruleContext.getFragment(JavaConfiguration.class).oneVersionEnforcementLevel();
     Artifact oneVersionOutputArtifact = null;
@@ -545,7 +549,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext);
 
     // If this is an instrumentation APK, create the provider for android_instrumentation_test.
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("instruments")) {
+    if (isInstrumentation(ruleContext)) {
       Artifact targetApk =
           ruleContext
               .getPrerequisite("instruments", Mode.TARGET)
@@ -1719,5 +1723,28 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   public static Artifact getDxArtifact(RuleContext ruleContext, String baseName) {
     return ruleContext.getUniqueDirectoryArtifact("_dx", baseName,
         ruleContext.getBinOrGenfilesDirectory());
+  }
+
+  /** Returns true if this android_binary target is an instrumentation binary */
+  private static boolean isInstrumentation(RuleContext ruleContext) {
+    return ruleContext.attributes().isAttributeValueExplicitlySpecified("instruments");
+  }
+
+  /**
+   * Perform class filtering using the target APK's predexed JAR. Filter duplicate .class and
+   * R.class files based on name. Prevents runtime crashes on ART. See b/19713845 for details.
+   */
+  private static Artifact getFilteredDeployJar(RuleContext ruleContext, Artifact deployJar)
+      throws InterruptedException {
+    Artifact filterJar =
+        ruleContext
+            .getPrerequisite("instruments", Mode.TARGET)
+            .getProvider(AndroidPreDexJarProvider.class)
+            .getPreDexJar();
+    Artifact filteredDeployJar =
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_TEST_FILTERED_JAR);
+    AndroidCommon.createZipFilterAction(
+        ruleContext, deployJar, filterJar, filteredDeployJar, /* checkHashMismatch */ false);
+    return filteredDeployJar;
   }
 }

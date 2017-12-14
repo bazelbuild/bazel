@@ -1052,4 +1052,30 @@ public class AndroidCommon {
           "The resources attribute has been removed. Please use resource_files instead.");
     }
   }
+
+  /**
+   * Used for instrumentation tests. Filter out classes from the instrumentation JAR that are also
+   * present in the target JAR. During an instrumentation test, ART will load jars from both APKs
+   * into the same classloader. If the same class exists in both jars, there will be runtime
+   * crashes.
+   *
+   * <p>R.class files that share the same package are also filtered out to prevent
+   * surprising/incorrect references to resource IDs.
+   */
+  public static void createZipFilterAction(
+      RuleContext ruleContext,
+      Artifact in,
+      Artifact filter,
+      Artifact out,
+      boolean checkHashMismatch) {
+    new ZipFilterBuilder(ruleContext)
+        .setInputZip(in)
+        .addFilterZips(ImmutableList.of(filter))
+        .setOutputZip(out)
+        .addFileTypeToFilter(".class")
+        .setCheckHashMismatch(checkHashMismatch)
+        .addExplicitFilter("R\\.class")
+        .addExplicitFilter("R\\$.*\\.class")
+        .build();
+  }
 }
