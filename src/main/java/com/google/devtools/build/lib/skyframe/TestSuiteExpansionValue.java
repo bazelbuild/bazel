@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -76,6 +77,9 @@ public final class TestSuiteExpansionValue implements SkyValue {
   /** A list of targets of which all test suites should be expanded. */
   @ThreadSafe
   static final class TestSuiteExpansionKey implements SkyKey {
+    public static final ObjectCodec<TestSuiteExpansionKey> CODEC =
+        TestSuiteExpansionKeyCodec.INSTANCE;
+
     private final ImmutableSortedSet<Label> targets;
 
     public TestSuiteExpansionKey(ImmutableSortedSet<Label> targets) {
