@@ -557,7 +557,7 @@ def _rule_implementation(ctx):
       dependency_attributes = ["data", "deps"]))
 ```
 
-[ctx.config.coverage_enabled](lib/configuration.html#coverage_enabled) notes
+[ctx.configuration.coverage_enabled](lib/configuration.html#coverage_enabled) notes
 whether coverage data collection is enabled for the current run in general
 (but says nothing about which files specifically should be instrumented).
 If a rule implementation needs to add coverage instrumentation at
@@ -570,19 +570,19 @@ if ctx.coverage_instrumented():
   # Do something to turn on coverage for this compile action
 ```
 
-Note that function will always return false if `ctx.config.coverage_enabled` is
+Note that function will always return false if `ctx.configuration.coverage_enabled` is
 false, so you don't need to check both.
 
 If the rule directly includes sources from its dependencies before compilation
 (e.g. header files), it may also need to turn on compile-time instrumentation
 if the dependencies' sources should be instrumented. In this case, it may
-also be worth checking `ctx.config.coverage_enabled` so you can avoid looping
+also be worth checking `ctx.configuration.coverage_enabled` so you can avoid looping
 over dependencies unnecessarily:
 
 ```python
 # Are this rule's sources or any of the sources for its direct dependencies
 # in deps instrumented?
-if ctx.config.coverage_enabled:
+if ctx.configuration.coverage_enabled:
     if (ctx.coverage_instrumented() or
         any(ctx.coverage_instrumented(dep) for dep in ctx.attr.deps):
         # Do something to turn on coverage for this compile action
