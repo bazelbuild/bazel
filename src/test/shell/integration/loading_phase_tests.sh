@@ -137,7 +137,7 @@ function test_all_help_topics_succeed() {
        expect_not_log .  # print the log
     }
   done
-  [ ${#topics[@]} -gt 15 ] || fail "Hmmm: not many topics: ${topics[@]}."
+  [ ${#topics[@]} -gt 15 ] || fail "Hmmm: not many topics: ${topics[*]}."
 }
 
 # Regression for "Sticky error during analysis phase when input is cyclic".

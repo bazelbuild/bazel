@@ -18,7 +18,7 @@
 #
 
 function die() {
-  echo >&2 "ERROR[$(basename "$0") $(date +%H:%M:%S.%N)] $@"
+  echo >&2 "ERROR[$(basename "$0") $(date +%H:%M:%S.%N)] $*"
   exit 1
 }
 
