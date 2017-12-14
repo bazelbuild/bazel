@@ -99,7 +99,7 @@ for ARG in "$@"; do
   if [[ "$ARG" == --wrapper_script_flag=* ]]; then
     process_wrapper_argument "${ARG#--wrapper_script_flag=}" \
       || die "invalid wrapper argument '%s'" "$ARG"
-  elif [[ "${#ARGS}" > 0 ]] || ! process_wrapper_argument "$ARG"; then
+  elif [[ "${#ARGS}" -gt 0 ]] || ! process_wrapper_argument "$ARG"; then
     ARGS+=( "$ARG" )
   fi
 done
