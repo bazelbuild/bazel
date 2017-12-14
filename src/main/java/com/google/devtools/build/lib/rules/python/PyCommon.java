@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.extra.PythonInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -169,8 +169,8 @@ public final class PyCommon {
             createSourceProvider(this.transitivePythonSources, usesSharedLibraries()))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
-        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, transitivePythonSources)
-        .addOutputGroup(OutputGroupProvider.COMPILATION_PREREQUISITES, transitivePythonSources);
+        .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, transitivePythonSources)
+        .addOutputGroup(OutputGroupInfo.COMPILATION_PREREQUISITES, transitivePythonSources);
   }
 
   /**

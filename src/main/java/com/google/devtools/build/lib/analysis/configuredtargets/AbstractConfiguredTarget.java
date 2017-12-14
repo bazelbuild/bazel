@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -165,8 +165,8 @@ public abstract class AbstractConfiguredTarget
         LABEL_FIELD,
         FILES_FIELD,
         FilesToRunProvider.SKYLARK_NAME));
-    if (get(OutputGroupProvider.SKYLARK_CONSTRUCTOR) != null) {
-      result.add(OutputGroupProvider.SKYLARK_NAME);
+    if (get(OutputGroupInfo.SKYLARK_CONSTRUCTOR) != null) {
+      result.add(OutputGroupInfo.SKYLARK_NAME);
     }
     addExtraSkylarkKeys(result::add);
     return result.build();
@@ -206,8 +206,8 @@ public abstract class AbstractConfiguredTarget
    */
   @Override
   public final Object get(String providerKey) {
-    if (OutputGroupProvider.SKYLARK_NAME.equals(providerKey)) {
-      return get(OutputGroupProvider.SKYLARK_CONSTRUCTOR);
+    if (OutputGroupInfo.SKYLARK_NAME.equals(providerKey)) {
+      return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     }
     switch (providerKey) {
       case FILES_FIELD:
@@ -216,8 +216,8 @@ public abstract class AbstractConfiguredTarget
       case FilesToRunProvider.SKYLARK_NAME:
         // Standard fields should be proxied to their default provider object
         return getDefaultProvider().getValue(providerKey);
-      case OutputGroupProvider.SKYLARK_NAME:
-        return get(OutputGroupProvider.SKYLARK_CONSTRUCTOR);
+      case OutputGroupInfo.SKYLARK_NAME:
+        return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
       default:
         return rawGetSkylarkProvider(providerKey);
     }

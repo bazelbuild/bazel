@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -1633,7 +1633,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             .getActionForArtifactEndingWith(
                 getOutputGroup(
                     getConfiguredTarget("//java/com/google/android/hello:l2"),
-                    OutputGroupProvider.HIDDEN_TOP_LEVEL),
+                    OutputGroupInfo.HIDDEN_TOP_LEVEL),
                 "library_spec.cfg_valid");
     assertWithMessage("Proguard validate action was not spawned.").that(action).isNotNull();
     assertWithMessage("Proguard validate action was spawned without correct input.")
@@ -1644,7 +1644,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             .getActionForArtifactEndingWith(
                 getOutputGroup(
                     getConfiguredTarget("//java/com/google/android/hello:l3"),
-                    OutputGroupProvider.HIDDEN_TOP_LEVEL),
+                    OutputGroupInfo.HIDDEN_TOP_LEVEL),
                 "library_spec.cfg_valid");
     assertWithMessage("Proguard validate action was not spawned.")
         .that(transitiveAction)

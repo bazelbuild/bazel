@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionSummary;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrintActionVisitor;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -172,10 +172,10 @@ public final class PrintActionCommand implements BlazeCommand {
 
       for (ConfiguredTarget configuredTarget : result.getActualTargets()) {
         NestedSet<Artifact> filesToCompile = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-        OutputGroupProvider outputGroupProvider = OutputGroupProvider.get(configuredTarget);
-        if (outputGroupProvider != null) {
+        OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(configuredTarget);
+        if (outputGroupInfo != null) {
           filesToCompile =
-              outputGroupProvider.getOutputGroup(OutputGroupProvider.FILES_TO_COMPILE);
+              outputGroupInfo.getOutputGroup(OutputGroupInfo.FILES_TO_COMPILE);
         }
         if (!filesToCompile.isEmpty()) {
           try {
@@ -255,8 +255,8 @@ public final class PrintActionCommand implements BlazeCommand {
         ActionGraph actionGraph,
         ActionKeyContext actionKeyContext)
         throws CommandLineExpansionException {
-      NestedSet<Artifact> artifacts = OutputGroupProvider.get(configuredTarget)
-          .getOutputGroup(OutputGroupProvider.FILES_TO_COMPILE);
+      NestedSet<Artifact> artifacts = OutputGroupInfo.get(configuredTarget)
+          .getOutputGroup(OutputGroupInfo.FILES_TO_COMPILE);
 
       if (artifacts.isEmpty()) {
         return;

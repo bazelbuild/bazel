@@ -57,11 +57,11 @@ import javax.annotation.Nullable;
  * not mentioned on the output.
  */
 @Immutable
-public final class OutputGroupProvider extends NativeInfo
+public final class OutputGroupInfo extends NativeInfo
     implements SkylarkIndexable, Iterable<String> {
   public static final String SKYLARK_NAME = "output_groups";
 
-  public static NativeProvider<OutputGroupProvider> SKYLARK_CONSTRUCTOR = new Constructor();
+  public static NativeProvider<OutputGroupInfo> SKYLARK_CONSTRUCTOR = new Constructor();
 
   /**
    * Prefix for output groups that are not reported to the user on the terminal output of Blaze when
@@ -120,19 +120,19 @@ public final class OutputGroupProvider extends NativeInfo
 
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
-  public OutputGroupProvider(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
+  public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
     super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
     this.outputGroups = outputGroups;
   }
 
   @Nullable
-  public static OutputGroupProvider get(TransitiveInfoCollection collection) {
-    return collection.get(OutputGroupProvider.SKYLARK_CONSTRUCTOR);
+  public static OutputGroupInfo get(TransitiveInfoCollection collection) {
+    return collection.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
   }
 
   @Nullable
-  public static OutputGroupProvider get(ConfiguredAspect aspect) {
-    return (OutputGroupProvider) aspect.get(SKYLARK_CONSTRUCTOR.getKey());
+  public static OutputGroupInfo get(ConfiguredAspect aspect) {
+    return (OutputGroupInfo) aspect.get(SKYLARK_CONSTRUCTOR.getKey());
   }
 
 
@@ -153,7 +153,7 @@ public final class OutputGroupProvider extends NativeInfo
    * @param providers providers to merge {@code this} with.
    */
   @Nullable
-  public static OutputGroupProvider merge(List<OutputGroupProvider> providers)
+  public static OutputGroupInfo merge(List<OutputGroupInfo> providers)
       throws DuplicateException {
     if (providers.size() == 0) {
       return null;
@@ -164,7 +164,7 @@ public final class OutputGroupProvider extends NativeInfo
 
     ImmutableMap.Builder<String, NestedSet<Artifact>> resultBuilder = new ImmutableMap.Builder<>();
     Set<String> seenGroups = new HashSet<>();
-    for (OutputGroupProvider provider : providers) {
+    for (OutputGroupInfo provider : providers) {
       for (String outputGroup : provider.outputGroups.keySet()) {
         if (!seenGroups.add(outputGroup)) {
           throw new DuplicateException(
@@ -174,7 +174,7 @@ public final class OutputGroupProvider extends NativeInfo
         resultBuilder.put(outputGroup, provider.getOutputGroup(outputGroup));
       }
     }
-    return new OutputGroupProvider(resultBuilder.build());
+    return new OutputGroupInfo(resultBuilder.build());
   }
 
   public static ImmutableSortedSet<String> determineOutputGroups(List<String> outputGroups) {
@@ -256,15 +256,15 @@ public final class OutputGroupProvider extends NativeInfo
     return outputGroups.keySet();
   }
 
-  /** A constructor callable from Skylark for OutputGroupProvider. */
-  private static class Constructor extends NativeProvider<OutputGroupProvider> {
+  /** A constructor callable from Skylark for OutputGroupInfo. */
+  private static class Constructor extends NativeProvider<OutputGroupInfo> {
 
     private Constructor() {
-      super(OutputGroupProvider.class, "OutputGroupInfo");
+      super(OutputGroupInfo.class, "OutputGroupInfo");
     }
 
     @Override
-    protected OutputGroupProvider createInstanceFromSkylark(Object[] args, Location loc)
+    protected OutputGroupInfo createInstanceFromSkylark(Object[] args, Location loc)
         throws EvalException {
 
       @SuppressWarnings("unchecked")
@@ -277,7 +277,7 @@ public final class OutputGroupProvider extends NativeInfo
             SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
                 loc, entry.getKey(), entry.getValue()));
       }
-      return new OutputGroupProvider(builder.build());
+      return new OutputGroupInfo(builder.build());
     }
 
     @Override

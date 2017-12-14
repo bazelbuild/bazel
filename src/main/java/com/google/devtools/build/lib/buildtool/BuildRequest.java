@@ -21,7 +21,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.BuildView;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -269,7 +269,7 @@ public class BuildRequest implements OptionsClassProvider {
   public TopLevelArtifactContext getTopLevelArtifactContext() {
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
-        OutputGroupProvider.determineOutputGroups(getBuildOptions().outputGroups));
+        OutputGroupInfo.determineOutputGroups(getBuildOptions().outputGroups));
   }
 
   public ImmutableSortedSet<String> getMultiCpus() {

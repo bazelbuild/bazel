@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -75,7 +75,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         getGeneratingActionInOutputGroup(
             thingToTest,
             "java/test/resource/dummyTest-one-version.txt",
-            OutputGroupProvider.HIDDEN_TOP_LEVEL);
+            OutputGroupInfo.HIDDEN_TOP_LEVEL);
 
     Iterable<Artifact> jartifacts =
         ImmutableList.copyOf(FileType.filter(oneVersionAction.getInputs(), JavaSemantics.JAR));
@@ -121,7 +121,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
     ConfiguredTarget thingToTest = getConfiguredTarget("//java/test/resource:dummyTest");
 
     assertThat(
-            prettyArtifactNames(getOutputGroup(thingToTest, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+            prettyArtifactNames(getOutputGroup(thingToTest, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
         .doesNotContain("java/test/resource/dummyTest-one-version.txt");
   }
 

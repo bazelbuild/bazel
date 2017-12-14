@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -4719,7 +4719,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//x:x");
     assertThat(
             ActionsTestUtil.baseNamesOf(
-                getOutputGroup(target, OutputGroupProvider.FILES_TO_COMPILE)))
+                getOutputGroup(target, OutputGroupInfo.FILES_TO_COMPILE)))
         .isEqualTo("a.o");
   }
 

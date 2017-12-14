@@ -102,7 +102,7 @@ public final class RuleConfiguredTargetBuilder {
 
     if (runfilesSupport != null) {
       // If a binary is built, build its runfiles, too
-      addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, runfilesMiddlemen);
+      addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, runfilesMiddlemen);
     } else if (providersBuilder.contains(RunfilesProvider.class)) {
       // If we don't have a RunfilesSupport (probably because this is not a binary rule), we still
       // want to build the files this rule contributes to runfiles of dependent rules so that we
@@ -112,7 +112,7 @@ public final class RuleConfiguredTargetBuilder {
       // specific *RunfilesProvider classes, which we don't add here for reasons that are lost in
       // the mists of time.
       addOutputGroup(
-          OutputGroupProvider.HIDDEN_TOP_LEVEL,
+          OutputGroupInfo.HIDDEN_TOP_LEVEL,
           providersBuilder
               .getProvider(RunfilesProvider.class)
               .getDefaultRunfiles()
@@ -136,8 +136,8 @@ public final class RuleConfiguredTargetBuilder {
         outputGroups.put(entry.getKey(), entry.getValue().build());
       }
 
-      OutputGroupProvider outputGroupProvider = new OutputGroupProvider(outputGroups.build());
-      addNativeDeclaredProvider(outputGroupProvider);
+      OutputGroupInfo outputGroupInfo = new OutputGroupInfo(outputGroups.build());
+      addNativeDeclaredProvider(outputGroupInfo);
     }
 
     TransitiveInfoProviderMap providers = providersBuilder.build();
@@ -286,7 +286,7 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in Skylark to the rule. Use this method for declared
    * providers defined in Skyark.
    *
-   * <p>Has special handling for {@link OutputGroupProvider}: that provider is not added from
+   * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from
    * Skylark directly, instead its outpuyt groups are added.
    *
    * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
@@ -298,10 +298,10 @@ public final class RuleConfiguredTargetBuilder {
       throw new EvalException(constructor.getLocation(),
           "All providers must be top level values");
     }
-    if (OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey().equals(constructor.getKey())) {
-      OutputGroupProvider outputGroupProvider = (OutputGroupProvider) provider;
-      for (String outputGroup : outputGroupProvider) {
-        addOutputGroup(outputGroup, outputGroupProvider.getOutputGroup(outputGroup));
+    if (OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey().equals(constructor.getKey())) {
+      OutputGroupInfo outputGroupInfo = (OutputGroupInfo) provider;
+      for (String outputGroup : outputGroupInfo) {
+        addOutputGroup(outputGroup, outputGroupInfo.getOutputGroup(outputGroup));
       }
     } else {
       providersBuilder.put(provider);

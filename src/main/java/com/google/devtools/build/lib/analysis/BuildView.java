@@ -832,8 +832,8 @@ public class BuildView {
       Collection<ConfiguredTarget> targetsToTestExclusive, TopLevelArtifactContext topLevelOptions,
       Collection<ConfiguredTarget> allTestTargets) {
     Set<String> outputGroups = topLevelOptions.outputGroups();
-    if (!outputGroups.contains(OutputGroupProvider.FILES_TO_COMPILE)
-        && !outputGroups.contains(OutputGroupProvider.COMPILATION_PREREQUISITES)
+    if (!outputGroups.contains(OutputGroupInfo.FILES_TO_COMPILE)
+        && !outputGroups.contains(OutputGroupInfo.COMPILATION_PREREQUISITES)
         && allTestTargets != null) {
       scheduleTests(targetsToTest, targetsToTestExclusive, allTestTargets,
           topLevelOptions.runTestsExclusively());

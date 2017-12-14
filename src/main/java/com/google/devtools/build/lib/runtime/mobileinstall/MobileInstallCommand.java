@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.runtime.mobileinstall;
 
-import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -53,7 +53,7 @@ public class AndroidIdlHelper {
    * generated from annotation processors).
    */
   static final String IDL_JARS_OUTPUT_GROUP =
-      OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "idl_jars";
+      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "idl_jars";
 
   private final RuleContext ruleContext;
   private final AndroidIdlProvider androidIdlProvider;

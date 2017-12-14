@@ -51,9 +51,9 @@ public class CcProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(
             RunfilesProvider.class, RunfilesProvider.withData(Runfiles.EMPTY, Runfiles.EMPTY))
         .addProviders(depProviders.providerMap);
-    for (String groupName : depProviders.outputGroupProvider) {
+    for (String groupName : depProviders.outputGroupInfo) {
       ruleConfiguredTargetBuilder.addOutputGroup(groupName,
-          depProviders.outputGroupProvider.getOutputGroup(groupName));
+          depProviders.outputGroupInfo.getOutputGroup(groupName));
     }
     return ruleConfiguredTargetBuilder
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())

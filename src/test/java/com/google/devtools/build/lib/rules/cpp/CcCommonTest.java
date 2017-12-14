@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -132,7 +132,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
   private List<String> getCopts(String target) throws Exception {
     ConfiguredTarget cLib = getConfiguredTarget(target);
-    Artifact object = getOnlyElement(getOutputGroup(cLib, OutputGroupProvider.FILES_TO_COMPILE));
+    Artifact object = getOnlyElement(getOutputGroup(cLib, OutputGroupInfo.FILES_TO_COMPILE));
     CppCompileAction compileAction = (CppCompileAction) getGeneratingAction(object);
     return compileAction.getCompilerOptions();
   }
@@ -282,7 +282,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget ananas = getConfiguredTarget("//ananas:ananas");
     Iterable<String> temps =
-        ActionsTestUtil.baseArtifactNames(getOutputGroup(ananas, OutputGroupProvider.TEMP_FILES));
+        ActionsTestUtil.baseArtifactNames(getOutputGroup(ananas, OutputGroupInfo.TEMP_FILES));
     assertThat(temps)
         .containsExactly(
             "1.pic.i", "1.pic.s",
@@ -298,7 +298,7 @@ public class CcCommonTest extends BuildViewTestCase {
       CcToolchainProvider toolchain =
           CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(foo));
       List<String> temps =
-          ActionsTestUtil.baseArtifactNames(getOutputGroup(foo, OutputGroupProvider.TEMP_FILES));
+          ActionsTestUtil.baseArtifactNames(getOutputGroup(foo, OutputGroupInfo.TEMP_FILES));
       if (CppHelper.usePicForBinaries(
           getTargetConfiguration().getFragment(CppConfiguration.class), toolchain)) {
         assertThat(temps).named(cpu).containsExactly("foo.pic.ii", "foo.pic.s");
@@ -318,7 +318,7 @@ public class CcCommonTest extends BuildViewTestCase {
       CcToolchainProvider toolchain =
           CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(csrc));
       List<String> temps =
-          ActionsTestUtil.baseArtifactNames(getOutputGroup(csrc, OutputGroupProvider.TEMP_FILES));
+          ActionsTestUtil.baseArtifactNames(getOutputGroup(csrc, OutputGroupInfo.TEMP_FILES));
       if (CppHelper.usePicForBinaries(
           getTargetConfiguration().getFragment(CppConfiguration.class), toolchain)) {
         assertThat(temps).named(cpu).containsExactly("foo.pic.i", "foo.pic.s");

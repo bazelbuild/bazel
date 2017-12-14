@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
@@ -110,16 +110,16 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     }
 
     // Merge output group providers.
-    OutputGroupProvider mergedOutputGroupProvider =
-        OutputGroupProvider.merge(getAllOutputGroupProviders(base, aspects));
+    OutputGroupInfo mergedOutputGroupInfo =
+        OutputGroupInfo.merge(getAllOutputGroupProviders(base, aspects));
 
     // Merge extra-actions provider.
     ExtraActionArtifactsProvider mergedExtraActionProviders = ExtraActionArtifactsProvider.merge(
         getAllProviders(base, aspects, ExtraActionArtifactsProvider.class));
 
     TransitiveInfoProviderMapBuilder aspectProviders = new TransitiveInfoProviderMapBuilder();
-    if (mergedOutputGroupProvider != null) {
-      aspectProviders.put(mergedOutputGroupProvider);
+    if (mergedOutputGroupInfo != null) {
+      aspectProviders.put(mergedOutputGroupInfo);
     }
     if (mergedExtraActionProviders != null) {
       aspectProviders.add(mergedExtraActionProviders);
@@ -129,7 +129,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       TransitiveInfoProviderMap providers = aspect.getProviders();
       for (int i = 0; i < providers.getProviderCount(); ++i) {
         Object providerKey = providers.getProviderKeyAt(i);
-        if (OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey().equals(providerKey)
+        if (OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey().equals(providerKey)
             || ExtraActionArtifactsProvider.class.equals(providerKey)) {
           continue;
         }
@@ -162,16 +162,16 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     return new MergedConfiguredTarget(base, aspectProviders.build());
   }
 
-  private static ImmutableList<OutputGroupProvider> getAllOutputGroupProviders(
+  private static ImmutableList<OutputGroupInfo> getAllOutputGroupProviders(
       ConfiguredTarget base, Iterable<ConfiguredAspect> aspects) {
-    OutputGroupProvider baseProvider = OutputGroupProvider.get(base);
-    ImmutableList.Builder<OutputGroupProvider> providers = ImmutableList.builder();
+    OutputGroupInfo baseProvider = OutputGroupInfo.get(base);
+    ImmutableList.Builder<OutputGroupInfo> providers = ImmutableList.builder();
     if (baseProvider != null) {
       providers.add(baseProvider);
     }
 
     for (ConfiguredAspect configuredAspect : aspects) {
-      OutputGroupProvider aspectProvider = OutputGroupProvider.get(configuredAspect);
+      OutputGroupInfo aspectProvider = OutputGroupInfo.get(configuredAspect);
       if (aspectProvider == null) {
         continue;
       }

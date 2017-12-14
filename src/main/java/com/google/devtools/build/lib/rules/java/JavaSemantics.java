@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -127,14 +127,14 @@ public interface JavaSemantics {
    * Name of the output group used for source jars.
    */
   String SOURCE_JARS_OUTPUT_GROUP =
-      OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
+      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
 
   /**
    * Name of the output group used for gen jars (the jars containing the class files for sources
    * generated from annotation processors).
    */
   String GENERATED_JARS_OUTPUT_GROUP =
-      OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
+      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
   /** Implementation for the :jvm attribute. */
   static LateBoundDefault<?, Label> jvmAttribute(RuleDefinitionEnvironment env) {

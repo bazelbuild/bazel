@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.OutputGroupProvider.determineOutputGroups;
+import static com.google.devtools.build.lib.analysis.OutputGroupInfo.determineOutputGroups;
 import static java.util.Arrays.asList;
 
 import com.google.common.collect.ImmutableSet;
@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 import java.util.Set;
 
 /**
- * Tests for {@link OutputGroupProvider}.
+ * Tests for {@link OutputGroupInfo}.
  */
 @RunWith(JUnit4.class)
 public final class OutputGroupProviderTest {

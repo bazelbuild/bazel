@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;

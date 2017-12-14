@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -249,7 +249,7 @@ public class SkylarkRuleClassFunctions {
             + "OutputGroupInfo(group1 = &lt;files&gt;, group2 = &lt;files&gt;...)</pre>"
             + "See <a href=\"../rules.html#output-groups\">Output Groups</a> for more information"
   )
-  private static final Provider outputGroupInfo = OutputGroupProvider.SKYLARK_CONSTRUCTOR;
+  private static final Provider outputGroupInfo = OutputGroupInfo.SKYLARK_CONSTRUCTOR;
 
   // TODO(bazel-team): Move to a "testing" namespace module. Normally we'd pass an objectType
   // to @SkylarkSignature to do this, but that doesn't work here because we're exposing an already-
@@ -1233,7 +1233,7 @@ public class SkylarkRuleClassFunctions {
   )
   private static final BuiltinFunction output_group = new BuiltinFunction("output_group") {
     public SkylarkNestedSet invoke(TransitiveInfoCollection self, String group) {
-      OutputGroupProvider provider = OutputGroupProvider.get(self);
+      OutputGroupInfo provider = OutputGroupInfo.get(self);
       NestedSet<Artifact> result = provider != null
           ? provider.getOutputGroup(group)
           : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);

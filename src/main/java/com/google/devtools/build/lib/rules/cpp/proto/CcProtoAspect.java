@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -317,12 +317,12 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
     }
 
     public void addProviders(ConfiguredAspect.Builder builder) {
-      OutputGroupProvider outputGroupProvider = new OutputGroupProvider(outputGroups);
+      OutputGroupInfo outputGroupInfo = new OutputGroupInfo(outputGroups);
       builder.addProvider(
           new CcProtoLibraryProviders(
-              filesBuilder.build(), ccLibraryProviders, outputGroupProvider));
+              filesBuilder.build(), ccLibraryProviders, outputGroupInfo));
       builder.addProviders(ccLibraryProviders);
-      builder.addNativeDeclaredProvider(outputGroupProvider);
+      builder.addNativeDeclaredProvider(outputGroupInfo);
       if (headerProvider != null) {
         builder.addProvider(headerProvider);
       }

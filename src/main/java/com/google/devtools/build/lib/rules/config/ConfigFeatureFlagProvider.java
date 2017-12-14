@@ -58,7 +58,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo {
     return new ConfigFeatureFlagProvider(value, isValidValue);
   }
 
-  /** A constructor callable from Skylark for OutputGroupProvider. */
+  /** A constructor callable from Skylark for OutputGroupInfo. */
   private static class Constructor extends NativeProvider<ConfigFeatureFlagProvider> {
 
     private Constructor() {

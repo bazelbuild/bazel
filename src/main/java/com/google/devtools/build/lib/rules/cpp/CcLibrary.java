@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -318,7 +318,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(
             CppRunfilesProvider.class, new CppRunfilesProvider(staticRunfiles, sharedRunfiles))
         .addOutputGroup(
-            OutputGroupProvider.HIDDEN_TOP_LEVEL,
+            OutputGroupInfo.HIDDEN_TOP_LEVEL,
             collectHiddenTopLevelArtifacts(
                 ruleContext, ccToolchain, info.getCcCompilationOutputs()))
         .addOutputGroup(
@@ -339,11 +339,11 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     artifactsToForceBuilder.addTransitive(
         ccCompilationOutputs.getFilesToCompile(
             isLipoCollector, processHeadersInDependencies, usePic));
-    for (OutputGroupProvider dep :
+    for (OutputGroupInfo dep :
         ruleContext.getPrerequisites(
-            "deps", Mode.TARGET, OutputGroupProvider.SKYLARK_CONSTRUCTOR)) {
+            "deps", Mode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
       artifactsToForceBuilder.addTransitive(
-          dep.getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL));
+          dep.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
     }
     return artifactsToForceBuilder.build();
   }

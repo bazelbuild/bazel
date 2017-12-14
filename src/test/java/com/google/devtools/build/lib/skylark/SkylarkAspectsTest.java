@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylark;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -379,14 +379,14 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     AspectValue aspectValue = analysisResult.getAspects().iterator().next();
-    OutputGroupProvider outputGroupProvider = OutputGroupProvider.get(
+    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(
         aspectValue.getConfiguredAspect());
 
-    assertThat(outputGroupProvider).isNotNull();
-    NestedSet<Artifact> names = outputGroupProvider.getOutputGroup("my_result");
+    assertThat(outputGroupInfo).isNotNull();
+    NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
     assertThat(names).isNotEmpty();
-    NestedSet<Artifact> expectedSet = OutputGroupProvider.get(getConfiguredTarget("//test:xxx"))
-        .getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL);
+    NestedSet<Artifact> expectedSet = OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
+        .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     assertThat(names).containsExactlyElementsIn(expectedSet);
   }
 
@@ -412,14 +412,14 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     AspectValue aspectValue = analysisResult.getAspects().iterator().next();
-    OutputGroupProvider outputGroupProvider = OutputGroupProvider.get(
+    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(
         aspectValue.getConfiguredAspect());
 
-    assertThat(outputGroupProvider).isNotNull();
-    NestedSet<Artifact> names = outputGroupProvider.getOutputGroup("my_result");
+    assertThat(outputGroupInfo).isNotNull();
+    NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
     assertThat(names).isNotEmpty();
-    NestedSet<Artifact> expectedSet = OutputGroupProvider.get(getConfiguredTarget("//test:xxx"))
-        .getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL);
+    NestedSet<Artifact> expectedSet = OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
+        .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     assertThat(names).containsExactlyElementsIn(expectedSet);
   }
 
@@ -449,13 +449,13 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
                 configuredTarget -> configuredTarget.getLabel().toString()))
         .containsExactly("//test:xxx");
     AspectValue aspectValue = analysisResult.getAspects().iterator().next();
-    OutputGroupProvider outputGroupProvider =
-        OutputGroupProvider.get(aspectValue.getConfiguredAspect());
-    assertThat(outputGroupProvider).isNotNull();
-    NestedSet<Artifact> names = outputGroupProvider.getOutputGroup("my_result");
+    OutputGroupInfo outputGroupInfo =
+        OutputGroupInfo.get(aspectValue.getConfiguredAspect());
+    assertThat(outputGroupInfo).isNotNull();
+    NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
     assertThat(names).isNotEmpty();
-    NestedSet<Artifact> expectedSet = OutputGroupProvider.get(getConfiguredTarget("//test:xxx"))
-        .getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL);
+    NestedSet<Artifact> expectedSet = OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
+        .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     assertThat(names).containsExactlyElementsIn(expectedSet);
   }
 
@@ -485,13 +485,13 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
                 configuredTarget -> configuredTarget.getLabel().toString()))
         .containsExactly("//test:xxx");
     AspectValue aspectValue = analysisResult.getAspects().iterator().next();
-    OutputGroupProvider outputGroupProvider =
-        OutputGroupProvider.get(aspectValue.getConfiguredAspect());
-    assertThat(outputGroupProvider).isNotNull();
-    NestedSet<Artifact> names = outputGroupProvider.getOutputGroup("my_result");
+    OutputGroupInfo outputGroupInfo =
+        OutputGroupInfo.get(aspectValue.getConfiguredAspect());
+    assertThat(outputGroupInfo).isNotNull();
+    NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
     assertThat(names).isNotEmpty();
-    NestedSet<Artifact> expectedSet = OutputGroupProvider.get(getConfiguredTarget("//test:xxx"))
-        .getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL);
+    NestedSet<Artifact> expectedSet = OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
+        .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     assertThat(names).containsExactlyElementsIn(expectedSet);
   }
 
@@ -925,9 +925,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
 
     AnalysisResult analysisResult = update("//test:xxx");
-    OutputGroupProvider outputGroupProvider =
-        OutputGroupProvider.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
-    assertThat(getOutputGroupContents(outputGroupProvider, "a1_group"))
+    OutputGroupInfo outputGroupInfo =
+        OutputGroupInfo.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
+    assertThat(getOutputGroupContents(outputGroupInfo, "a1_group"))
         .containsExactly("test/base_a1.txt");
   }
 
@@ -956,9 +956,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
 
     AnalysisResult analysisResult = update("//test:xxx");
-    OutputGroupProvider outputGroupProvider =
-        OutputGroupProvider.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
-    assertThat(getOutputGroupContents(outputGroupProvider, "a1_group"))
+    OutputGroupInfo outputGroupInfo =
+        OutputGroupInfo.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
+    assertThat(getOutputGroupContents(outputGroupInfo, "a1_group"))
         .containsExactly("test/base_a1.txt");
   }
 
@@ -995,11 +995,11 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
 
     AnalysisResult analysisResult = update("//test:yyy");
-    OutputGroupProvider outputGroupProvider =
-        OutputGroupProvider.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
-    assertThat(getOutputGroupContents(outputGroupProvider, "a1_group"))
+    OutputGroupInfo outputGroupInfo =
+        OutputGroupInfo.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
+    assertThat(getOutputGroupContents(outputGroupInfo, "a1_group"))
         .containsExactly("test/base_a1.txt");
-    assertThat(getOutputGroupContents(outputGroupProvider, "a2_group"))
+    assertThat(getOutputGroupContents(outputGroupInfo, "a2_group"))
         .containsExactly("test/xxx_a2.txt");
   }
 
@@ -1041,11 +1041,11 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
 
     AnalysisResult analysisResult = update("//test:yyy");
-    OutputGroupProvider outputGroupProvider =
-        OutputGroupProvider.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
-    assertThat(getOutputGroupContents(outputGroupProvider, "a1_group"))
+    OutputGroupInfo outputGroupInfo =
+        OutputGroupInfo.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
+    assertThat(getOutputGroupContents(outputGroupInfo, "a1_group"))
         .containsExactly("test/base_a1.txt");
-    assertThat(getOutputGroupContents(outputGroupProvider, "a2_group"))
+    assertThat(getOutputGroupContents(outputGroupInfo, "a2_group"))
         .containsExactly("test/xxx_a2.txt");
   }
 
@@ -1094,10 +1094,10 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
   }
 
 
-  private static Iterable<String> getOutputGroupContents(OutputGroupProvider outputGroupProvider,
+  private static Iterable<String> getOutputGroupContents(OutputGroupInfo outputGroupInfo,
       String groupName) {
     return Iterables.transform(
-        outputGroupProvider.getOutputGroup(groupName), Artifact::getRootRelativePathString);
+        outputGroupInfo.getOutputGroup(groupName), Artifact::getRootRelativePathString);
   }
 
 
