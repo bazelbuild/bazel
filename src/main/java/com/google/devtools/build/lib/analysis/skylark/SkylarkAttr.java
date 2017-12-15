@@ -85,30 +85,31 @@ public final class SkylarkAttr implements SkylarkValue {
 
   private static final String ALLOW_FILES_ARG = "allow_files";
   private static final String ALLOW_FILES_DOC =
-      "whether File targets are allowed. Can be True, False (default), or a list of file "
+      "Whether File targets are allowed. Can be True, False (default), or a list of file "
       + "extensions that are allowed (e.g. <code>[\".cc\", \".cpp\"]</code>).";
 
   private static final String ALLOW_RULES_ARG = "allow_rules";
   private static final String ALLOW_RULES_DOC =
-      "which rule targets (name of the classes) are allowed. This is deprecated (kept only for "
+      "Which rule targets (name of the classes) are allowed. This is deprecated (kept only for "
           + "compatibility), use providers instead.";
 
   private static final String ASPECTS_ARG = "aspects";
   private static final String ASPECTS_ARG_DOC =
-      "aspects that should be applied to the dependency or dependencies specified by this "
+      "Aspects that should be applied to the dependency or dependencies specified by this "
           + "attribute";
 
   private static final String CONFIGURATION_ARG = "cfg";
   private static final String CONFIGURATION_DOC =
-      "configuration of the attribute. It can be either \"data\", \"host\", or \"target\". "
+      "Configuration of the attribute. It can be either \"data\", \"host\", or \"target\". "
           + "This parameter is required if <code>executable</code> is True.";
 
   private static final String DEFAULT_ARG = "default";
-  private static final String DEFAULT_DOC = "the default value of the attribute.";
+  // A trailing space is required because it's often prepended to other sentences
+  private static final String DEFAULT_DOC = "The default value of the attribute. ";
 
   private static final String DOC_ARG = "doc";
   private static final String DOC_DOC =
-      "a description of the attribute that can be extracted by documentation generating tools.";
+      "A description of the attribute that can be extracted by documentation generating tools.";
 
   private static final String EXECUTABLE_ARG = "executable";
   private static final String EXECUTABLE_DOC =
@@ -120,18 +121,18 @@ public final class SkylarkAttr implements SkylarkValue {
   private static final String FLAGS_DOC = "deprecated, will be removed";
 
   private static final String MANDATORY_ARG = "mandatory";
-  private static final String MANDATORY_DOC = "True if the value must be explicitly specified";
+  private static final String MANDATORY_DOC = "True if the value must be explicitly specified.";
 
   private static final String NON_EMPTY_ARG = "non_empty";
   private static final String NON_EMPTY_DOC =
       "True if the attribute must not be empty. Deprecated: Use allow_empty instead.";
 
   private static final String ALLOW_EMPTY_ARG = "allow_empty";
-  private static final String ALLOW_EMPTY_DOC = "True if the attribute can be empty";
+  private static final String ALLOW_EMPTY_DOC = "True if the attribute can be empty.";
 
   private static final String PROVIDERS_ARG = "providers";
   private static final String PROVIDERS_DOC =
-      "mandatory providers list. It should be either a list of providers, or a "
+      "Mandatory providers list. It should be either a list of providers, or a "
           + "list of lists of providers. Every dependency should provide ALL providers "
           + "from at least ONE of these lists. A single list of providers will be "
           + "automatically converted to a list containing one list of providers.";
@@ -141,7 +142,7 @@ public final class SkylarkAttr implements SkylarkValue {
 
   private static final String VALUES_ARG = "values";
   private static final String VALUES_DOC =
-      "the list of allowed values for the attribute. An error is raised if any other "
+      "The list of allowed values for the attribute. An error is raised if any other "
           + "value is given.";
 
   private static boolean containsNonNoneKey(SkylarkDict<String, Object> arguments, String key) {
