@@ -220,7 +220,7 @@ java_plugin(
         ":apache_velocity",
         ":asm",
         ":auto_common",
-        ":auto_service",
+        ":auto_service_lib",
         ":auto_value_value",
         ":guava",
         ":jsr305",
@@ -233,9 +233,14 @@ java_import(
     jars = ["auto/auto-common-0.3.jar"],
 )
 
-java_import(
+java_library(
     name = "auto_service",
-    jars = ["auto/auto-service-1.0-rc2.jar"],
+    exported_plugins = [
+        ":auto_service_plugin",
+    ],
+    exports = [
+        ":auto_service_lib",
+    ],
 )
 
 java_plugin(
@@ -243,9 +248,14 @@ java_plugin(
     processor_class = "com.google.auto.service.processor.AutoServiceProcessor",
     deps = [
         ":auto_common",
-        ":auto_service",
+        ":auto_service_lib",
         ":guava",
     ],
+)
+
+java_import(
+    name = "auto_service_lib",
+    jars = ["auto/auto-service-1.0-rc2.jar"],
 )
 
 java_plugin(
@@ -256,7 +266,7 @@ java_plugin(
         ":apache_velocity",
         ":asm",
         ":auto_common",
-        ":auto_service",
+        ":auto_service_lib",
         ":auto_value_value",
         ":guava",
         ":tomcat_annotations_api",
