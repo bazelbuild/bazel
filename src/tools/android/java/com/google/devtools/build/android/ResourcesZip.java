@@ -41,12 +41,18 @@ public class ResourcesZip {
 
   private final Path resourcesRoot;
   private final Path assetsRoot;
+  private final Optional<Path> apkWithAssets;
   private final Optional<Path> ids;
 
-  private ResourcesZip(Path resourcesRoot, Path assetsRoot, Optional<Path> ids) {
+  private ResourcesZip(
+      Path resourcesRoot,
+      Path assetsRoot,
+      Optional<Path> ids,
+      Optional<Path> apkWithAssets) {
     this.resourcesRoot = resourcesRoot;
     this.assetsRoot = assetsRoot;
     this.ids = ids;
+    this.apkWithAssets = apkWithAssets;
   }
 
   /**
@@ -54,7 +60,7 @@ public class ResourcesZip {
    * @param assetsRoot The root of the raw assets.
    */
   public static ResourcesZip from(Path resourcesRoot, Path assetsRoot) {
-    return new ResourcesZip(resourcesRoot, assetsRoot, Optional.empty());
+    return new ResourcesZip(resourcesRoot, assetsRoot, Optional.empty(), Optional.empty());
   }
 
   /**
@@ -64,7 +70,23 @@ public class ResourcesZip {
    */
   public static ResourcesZip from(Path resourcesRoot, Path assetsRoot, Path resourceIds) {
     return new ResourcesZip(
-        resourcesRoot, assetsRoot, Optional.of(resourceIds).filter(Files::exists));
+        resourcesRoot,
+        assetsRoot,
+        Optional.of(resourceIds).filter(Files::exists),
+        Optional.empty());
+  }
+
+  /**
+   * @param resourcesRoot The root of the raw resources.
+   * @param apkWithAssets The apk containing assets.
+   * @param resourceIds Optional path to a file containing the resource ids.
+   */
+  public static ResourcesZip fromApk(Path resourcesRoot, Path apkWithAssets, Path resourceIds) {
+    return new ResourcesZip(
+        resourcesRoot,
+        null /* assetsRoot */,
+        Optional.of(resourceIds).filter(Files::exists),
+        Optional.of(apkWithAssets));
   }
 
   /** Creates a ResourcesZip from an archive by expanding into the workingDirectory. */
@@ -116,7 +138,24 @@ public class ResourcesZip {
         }
         visitor.writeEntries();
       }
-      if (Files.exists(assetsRoot)) {
+
+      if (apkWithAssets.isPresent()){
+        ZipFile apkZip = new ZipFile(apkWithAssets.get().toString());
+        apkZip
+            .stream()
+            .filter(entry -> entry.getName().startsWith("assets/"))
+            .forEach(
+                entry -> {
+                  try {
+                    zip.addEntry(
+                        entry,
+                        ByteStreams.toByteArray(apkZip.getInputStream(entry)));
+                  } catch (IOException e) {
+                    throw new RuntimeException(e);
+                  }
+                });
+        zip.addEntry("assets/", new byte[0], ZipEntry.STORED);
+      } else if (Files.exists(assetsRoot)) {
         ZipBuilderVisitorWithDirectories visitor =
             new ZipBuilderVisitorWithDirectories(zip, assetsRoot, "assets");
         visitor.setCompress(compress);
@@ -150,7 +189,7 @@ public class ResourcesZip {
             packages, rTxt, classJar, manifest, proguardMapping, resourcesRoot, logFile)
         .shrink(workingDirectory);
     return ShrunkResources.of(
-        new ResourcesZip(workingDirectory, assetsRoot, ids),
+        new ResourcesZip(workingDirectory, assetsRoot, ids, Optional.empty()),
         new UnvalidatedAndroidData(
             ImmutableList.of(workingDirectory), ImmutableList.of(assetsRoot), manifest));
   }

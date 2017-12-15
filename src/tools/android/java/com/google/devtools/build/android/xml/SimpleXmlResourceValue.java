@@ -20,6 +20,7 @@ import com.android.aapt.Resources.Value;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.xml.XmlEscapers;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.StartTag;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
@@ -236,7 +237,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     String stringValue = null;
 
     if (item.hasStr()) {
-      stringValue = item.getStr().toString();
+      stringValue = XmlEscapers.xmlContentEscaper().escape(item.getStr().getValue());
     } else if (item.hasRef()) {
       stringValue = "@" + item.getRef().getName();
     } else if (item.hasStyledStr()) {

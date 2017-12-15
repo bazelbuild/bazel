@@ -105,6 +105,12 @@ public class AndroidResourceOutputs {
       zip.closeEntry();
     }
 
+    protected void addEntry(ZipEntry entry, byte[] content) throws IOException {
+      zip.putNextEntry(entry);
+      zip.write(content);
+      zip.closeEntry();
+    }
+
     @Override
     public void close() throws IOException {
       zip.close();

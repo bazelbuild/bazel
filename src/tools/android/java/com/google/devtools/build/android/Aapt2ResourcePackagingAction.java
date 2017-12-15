@@ -195,14 +195,15 @@ public class Aapt2ResourcePackagingAction {
           profiler.startTask("package");
           // The compiled resources and the merged resources should be the same.
           // TODO(corysmith): Decompile or otherwise provide the exact resources in the apk.
-          ResourcesZip.from(
+          ResourcesZip.fromApk(
                   mergedAndroidData.getResourceDir(),
-                  mergedAndroidData.getAssetDir(),
-                  packagedResources.resourceIds())
+                  packagedResources.getApk(),
+                  packagedResources.getResourceIds())
               .writeTo(options.resourcesOutput, false /* compress */);
           profiler.recordEndOf("package");
         }
       }
     }
   }
+
 }
