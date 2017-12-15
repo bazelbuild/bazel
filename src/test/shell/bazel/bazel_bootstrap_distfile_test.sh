@@ -39,7 +39,8 @@ function test_bootstrap()  {
     export SOURCE_DATE_EPOCH=1501234567
     unzip -q "${DISTFILE}"
     find . -type f -exec chmod u+w {} \;
-    ./compile.sh || fail "Expected to be able to bootstrap bazel"
+    env EXTRA_BAZZEL_ARGS"--curses=no --strategy=Javac=standalone" ./compile.sh \
+        || fail "Expected to be able to bootstrap bazel"
     ./output/bazel version > "${TEST_log}" || fail "Generated bazel not working"
     ./output/bazel shutdown
     expect_log "${SOURCE_DATE_EPOCH}"
