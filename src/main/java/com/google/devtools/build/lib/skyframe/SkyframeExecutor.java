@@ -415,11 +415,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             new BuildViewProvider(),
             ruleClassProvider,
             cpuBoundSemaphore,
-            removeActionsAfterEvaluation));
+            removeActionsAfterEvaluation,
+            shouldStoreTransitivePackagesInLoadingAndAnalysis()));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
-            new BuildViewProvider(), ruleClassProvider, removeActionsAfterEvaluation));
+            new BuildViewProvider(),
+            ruleClassProvider,
+            removeActionsAfterEvaluation,
+            shouldStoreTransitivePackagesInLoadingAndAnalysis()));
     map.put(SkyFunctions.LOAD_SKYLARK_ASPECT, new ToplevelSkylarkAspectFunction());
     map.put(SkyFunctions.POST_CONFIGURED_TARGET,
         new PostConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
@@ -703,9 +707,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return true;
   }
 
+  /**
+   * If not null, this is the only source root in the build, corresponding to the single element in
+   * a single-element package path. Such a single-source-root build need not plant the execroot
+   * symlink forest, and can trivially resolve source artifacts from exec paths. As a consequence,
+   * builds where this is not null do not need to track a package -> source root map, and so do not
+   * need to track all loaded packages.
+   */
   @Nullable
   protected Path getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
     return null;
+  }
+
+  private boolean shouldStoreTransitivePackagesInLoadingAndAnalysis() {
+    return getForcedSingleSourceRootIfNoExecrootSymlinkCreation() == null;
   }
 
   @VisibleForTesting

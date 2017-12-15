@@ -218,7 +218,9 @@ public final class SkyframeBuildView {
         skyframeExecutor.findArtifactConflicts();
 
     Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
-    NestedSetBuilder<Package> packages = NestedSetBuilder.stableOrder();
+    Path singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
+    NestedSetBuilder<Package> packages =
+        singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
     for (AspectValueKey aspectKey : aspectKeys) {
       AspectValue value = (AspectValue) result.get(aspectKey.getSkyKey());
       if (value == null) {
@@ -226,7 +228,9 @@ public final class SkyframeBuildView {
         continue;
       }
       goodAspects.add(value);
-      packages.addTransitive(value.getTransitivePackages());
+      if (packages != null) {
+        packages.addTransitive(value.getTransitivePackagesForPackageRootResolution());
+      }
     }
 
     // Filter out all CTs that have a bad action and convert to a list of configured targets. This
@@ -240,9 +244,10 @@ public final class SkyframeBuildView {
         continue;
       }
       goodCts.add(ctValue.getConfiguredTarget());
-      packages.addTransitive(ctValue.getTransitivePackages());
+      if (packages != null) {
+        packages.addTransitive(ctValue.getTransitivePackagesForPackageRootResolution());
+      }
     }
-    Path singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
     PackageRoots packageRoots =
         singleSourceRoot == null
             ? new MapAsPackageRoots(
