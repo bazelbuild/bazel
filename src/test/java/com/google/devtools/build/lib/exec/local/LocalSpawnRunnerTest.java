@@ -790,9 +790,12 @@ public class LocalSpawnRunnerTest {
     options.collectLocalExecutionStatistics = true;
 
     Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
-    Duration maximumWallTimeToSpend = minimumWallTimeToSpend.plus(minimumWallTimeToSpend); // double
+    // Because of e.g. interference, wall time taken may be much larger than CPU time used.
+    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
+
     Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
     Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(2));
+
     Duration minimumSystemTimeToSpend = Duration.ZERO;
     Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(2));
 
