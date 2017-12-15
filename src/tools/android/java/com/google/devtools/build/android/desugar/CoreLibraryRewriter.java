@@ -116,6 +116,26 @@ class CoreLibraryRewriter {
       super.accept(cv, attrs, flags);
     }
 
+    @Override
+    public String getClassName() {
+      return prefix(super.getClassName());
+    }
+
+    @Override
+    public String getSuperName() {
+      String result = super.getSuperName();
+      return result != null ? prefix(result) : null;
+    }
+
+    @Override
+    public String[] getInterfaces() {
+      String[] result = super.getInterfaces();
+      for (int i = 0, len = result.length; i < len; ++i) {
+        result[i] = prefix(result[i]);
+      }
+      return result;
+    }
+
     /** Prefixes core library class names with prefix. */
     private String prefix(String typeName) {
       if (shouldPrefix(typeName)) {
