@@ -81,7 +81,8 @@ This field will have the type given in the rule's `attrs` dictionary correspondi
 The name and the package of a rule are available
 with `ctx.label.name` and `ctx.label.package`.
 
-See [an example](cookbook.md#attr) of using `attr` in a rule.
+See [an example](https://github.com/bazelbuild/examples/blob/master/rules/attributes/printer.bzl)
+of using `attr` in a rule.
 
 ### <a name="private-attributes"></a> Private Attributes
 
@@ -311,7 +312,7 @@ For each [label attribute](lib/attr.html#label), you can decide whether the
 dependency should be built in the same configuration, or transition to the host
 configuration (using `cfg`). If a label attribute has the flag
 `executable=True`, the configuration must be set explicitly.
-[See example](cookbook.md#execute-a-binary)
+[See example](https://github.com/bazelbuild/examples/blob/master/rules/actions_run/execute.bzl)
 
 In general, sources, dependent libraries, and executables that will be needed at
 runtime can use the same configuration.
@@ -381,7 +382,7 @@ Rule implementation function can then construct and return provider instances:
 ```python
 def rule_implementation(ctx):
   ...
-  return [TransitiveDataInfo(value = ["a", "b", "c"])]
+  return [TransitiveDataInfo(value=5)]
 ```
 
 `TransitiveDataInfo` acts both as a constructor for provider instances and as a key to access them.
@@ -392,9 +393,9 @@ A rule can access the providers of its dependencies using the square bracket not
 ```python
 def dependent_rule_implementation(ctx):
   ...
-  s = depset()
+  n = 0
   for dep_target in ctx.attr.deps:
-    s += dep_target[TransitiveDataInfo].value
+    n += dep_target[TransitiveDataInfo].value
   ...
 ```
 
@@ -403,8 +404,8 @@ some information relevant to all targets.
 
 Providers are only available during the analysis phase. Examples of usage:
 
-* [mandatory providers](cookbook.md#mandatory-providers)
-* [optional providers](cookbook.md#optional-providers)
+* [mandatory providers](https://github.com/bazelbuild/examples/blob/master/rules/mandatory_provider/sum.bzl)
+* [optional providers](https://github.com/bazelbuild/examples/blob/master/rules/optional_provider/sum.bzl)
 
 > *Note:*
 > Historically, Bazel also supported provider instances that are identified by strings and
@@ -414,7 +415,7 @@ Providers are only available during the analysis phase. Examples of usage:
 ```python
 def rule_implementation(ctx):
   ...
-  modern_provider = TransitiveDataInfo(value = ["a", "b", "c"])
+  modern_provider = TransitiveDataInfo(value=5)
   # Legacy style.
   return struct(legacy_provider = struct(...),
                 another_legacy_provider = struct(...),
@@ -428,10 +429,10 @@ def rule_implementation(ctx):
 ```python
 def dependent_rule_implementation(ctx):
   ...
-  s = depset()
+  n = 0
   for dep_target in ctx.attr.deps:
-    x = dep_target.legacy_provider            # legacy style
-    s += dep_target[TransitiveDataInfo].value # modern style
+    # n += dep_target.legacy_provider.value   # legacy style
+    n += dep_target[TransitiveDataInfo].value # modern style
   ...
 ```
 > **We recommend using modern providers for all future code.**
@@ -445,15 +446,16 @@ During the [execution phase](concepts.md#evaluation-model), Bazel creates a
 directory tree containing symlinks pointing to the runfiles. This stages the
 environment for the binary so it can access the runfiles during runtime.
 
+[See example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/execute.bzl)
+
 Runfiles can be added manually during rule creation and/or collected
 transitively from the rule's dependencies:
 
 ```python
 def _rule_implementation(ctx):
   ...
-  transitive_runfiles = depset()
-  for dep in ctx.attr.special_dependencies:
-     transitive_runfiles += dep.transitive_runtime_files
+  transitive_runfiles = depset(transitive=
+    [dep.transitive_runtime_files for dep in ctx.attr.special_dependencies])
 
   runfiles = ctx.runfiles(
       # Add some files manually.
@@ -587,7 +589,7 @@ over dependencies unnecessarily:
 # in deps instrumented?
 if ctx.configuration.coverage_enabled:
     if (ctx.coverage_instrumented() or
-        any(ctx.coverage_instrumented(dep) for dep in ctx.attr.deps):
+        any([ctx.coverage_instrumented(dep) for dep in ctx.attr.deps]):
         # Do something to turn on coverage for this compile action
 ```
 
@@ -598,6 +600,7 @@ An executable rule is a rule that users can run using `bazel run`.
 To make a rule executable, set `executable=True` in the
 [rule function](lib/globals.html#rule). The `implementation` function of the
 rule must generate the output file `ctx.outputs.executable`.
+
 [See example](https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl)
 
 ## Test rules
