@@ -17,7 +17,6 @@ import com.android.aapt.Resources.Plural;
 import com.android.aapt.Resources.Value;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.xml.XmlEscapers;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
@@ -144,10 +143,13 @@ public class PluralXmlResourceValue implements XmlResourceValue {
     for (Plural.Entry entry : plural.getEntryList()) {
       String name = entry.getArity().toString().toLowerCase();
       String value =
-          XmlEscapers.xmlContentEscaper().escape(
-              entry.getItem()
-                  .getStr()
-                  .getValue());
+          entry
+              .getItem()
+              .getStr()
+              .toString()
+              .replace("value: \"", "")
+              .replace("\"", "")
+              .replace('\n', ' ');
       items.put(name, value);
     }
 

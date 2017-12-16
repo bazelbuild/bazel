@@ -86,10 +86,6 @@ public class StyleXmlResourceValue implements XmlResourceValue {
 
     if (style.hasParent()) {
       parent = proto.getCompoundValue().getStyle().getParent().getName();
-      if (parent.startsWith("style/")) {
-        //Aapt2 compile breaks when style parent references are prepended with 'style/'
-        parent = parent.substring(6);
-      }
     }
 
     Map<String, String> items = itemMapFromProto(style);

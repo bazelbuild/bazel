@@ -119,11 +119,7 @@ public class PackagedResources {
     return of(apk, rTxt, proguardConfig, mainDexProguard, sourceJarPath, resourceIds);
   }
 
-  public Path getResourceIds() {
+  public Path resourceIds() {
     return resourceIds;
-  }
-
-  public Path getApk() {
-    return apk;
   }
 }
