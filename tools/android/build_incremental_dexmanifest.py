@@ -121,7 +121,7 @@ class DexmanifestBuilder(object):
         self.AddDex(input_filename, None, input_filename)
 
     with open(argv[0], "wb") as manifest:
-      manifest.write("\n".join(self.manifest_lines))
+      manifest.write(("\n".join(self.manifest_lines)).encode("utf-8"))
 
 
 def main(argv):

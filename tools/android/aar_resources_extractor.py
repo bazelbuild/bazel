@@ -78,11 +78,11 @@ def ExtractResources(aar, output_res_dir):
       with junction.TempJunction(os.path.dirname(empty_xml_filename)) as junc:
         xmlpath = os.path.join(junc, os.path.basename(empty_xml_filename))
         with open(xmlpath, "wb") as empty_xml:
-          empty_xml.write("<resources/>")
+          empty_xml.write(b"<resources/>")
     else:
       os.makedirs(os.path.dirname(empty_xml_filename))
       with open(empty_xml_filename, "wb") as empty_xml:
-        empty_xml.write("<resources/>")
+        empty_xml.write(b"<resources/>")
 
 
 def main():

@@ -14,7 +14,7 @@
 
 """Tests for aar_native_libs_zip_creator."""
 
-import StringIO
+import io
 import unittest
 import zipfile
 
@@ -25,25 +25,25 @@ class AarNativeLibsZipCreatorTest(unittest.TestCase):
   """Unit tests for aar_native_libs_zip_creator.py."""
 
   def testAarWithNoLibs(self):
-    aar = zipfile.ZipFile(StringIO.StringIO(), "w")
-    outzip = zipfile.ZipFile(StringIO.StringIO(), "w")
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
+    outzip = zipfile.ZipFile(io.BytesIO(), "w")
     aar_native_libs_zip_creator.CreateNativeLibsZip(aar, "x86", outzip)
     self.assertEquals([], outzip.namelist())
 
   def testAarWithMissingLibs(self):
-    aar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
     aar.writestr("jni/armeabi/foo.so", "")
-    outzip = zipfile.ZipFile(StringIO.StringIO(), "w")
+    outzip = zipfile.ZipFile(io.BytesIO(), "w")
     self.assertRaises(
         aar_native_libs_zip_creator.UnsupportedArchitectureException,
         aar_native_libs_zip_creator.CreateNativeLibsZip,
         aar, "x86", outzip)
 
   def testAarWithAllLibs(self):
-    aar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
     aar.writestr("jni/x86/foo.so", "")
     aar.writestr("jni/armeabi/foo.so", "")
-    outzip = zipfile.ZipFile(StringIO.StringIO(), "w")
+    outzip = zipfile.ZipFile(io.BytesIO(), "w")
     aar_native_libs_zip_creator.CreateNativeLibsZip(aar, "x86", outzip)
     self.assertIn("lib/x86/foo.so", outzip.namelist())
     self.assertNotIn("lib/armeabi/foo.so", outzip.namelist())
