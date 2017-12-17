@@ -236,7 +236,7 @@ public final class BlazeExecutor implements Executor {
      return context == null ? spawnActionContextMap.get("") : context;
    }
 
-  /** Returns true iff the --verbose_failures option was enabled. */
+  /** Returns true if the --verbose_failures option was enabled. */
   @Override
   public boolean getVerboseFailures() {
     return verboseFailures;
