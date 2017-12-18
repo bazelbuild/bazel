@@ -506,8 +506,11 @@ public class WorkspaceFactory {
       if (workspaceDir != null) {
         workspaceEnv.update("__workspace_dir__", workspaceDir.getPathString());
       }
-      File jreDirectory = new File(System.getProperty("java.home"));
-      workspaceEnv.update("DEFAULT_SERVER_JAVABASE", jreDirectory.getParentFile().toString());
+      File javaHome = new File(System.getProperty("java.home"));
+      if (javaHome.getName().equalsIgnoreCase("jre")) {
+        javaHome = javaHome.getParentFile();
+      }
+      workspaceEnv.update("DEFAULT_SERVER_JAVABASE", javaHome.toString());
 
       for (EnvironmentExtension extension : environmentExtensions) {
         extension.updateWorkspace(workspaceEnv);
