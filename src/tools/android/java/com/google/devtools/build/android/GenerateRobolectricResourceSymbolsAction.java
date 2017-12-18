@@ -46,9 +46,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * This action generates consistent ids R.class files for use in robolectric tests.
- */
+/** This action generates consistent ids R.class files for use in robolectric tests. */
 public class GenerateRobolectricResourceSymbolsAction {
 
   private static final Logger logger =

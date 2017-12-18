@@ -15,9 +15,7 @@ package com.google.devtools.build.android;
 
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 
-/**
- * Represents an Android Resource parsed from an xml or binary file.
- */
+/** Represents an Android Resource parsed from an xml or binary file. */
 public interface DataResource extends DataValue {
   /** Write as a resource using the supplied {@link AndroidDataWritingVisitor}. */
   void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor writer)
@@ -25,7 +23,7 @@ public interface DataResource extends DataValue {
 
   /**
    * Combines these resource together and returns a single resource.
-   * 
+   *
    * @param resource Another resource to be combined with this one.
    * @return A union of the values of these two resources.
    * @throws IllegalArgumentException if either resource cannot combine with the other.
@@ -34,7 +32,7 @@ public interface DataResource extends DataValue {
 
   /** Queue up writing the resource to the given {@link AndroidResourceSymbolSink}. */
   void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink);
-  
+
   /** Overwrite another {@link DataResource}. */
   DataResource overwrite(DataResource other);
 }

@@ -42,20 +42,19 @@ import java.util.EnumSet;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * Filters a {@link MergedAndroidData} resource drawables to the specified densities.
- */
+/** Filters a {@link MergedAndroidData} resource drawables to the specified densities. */
 public class DensitySpecificResourceFilter {
   private static class ResourceInfo {
     /** Path to an actual file resource, instead of a directory. */
     private Path resource;
+
     private String restype;
     private String qualifiers;
     private String density;
     private String resid;
 
-    public ResourceInfo(Path resource, String restype, String qualifiers, String density,
-        String resid) {
+    public ResourceInfo(
+        Path resource, String restype, String qualifiers, String density, String resid) {
       this.resource = resource;
       this.restype = restype;
       this.qualifiers = qualifiers;
@@ -184,38 +183,43 @@ public class DensitySpecificResourceFilter {
 
   @VisibleForTesting
   List<Path> getResourceToRemove(List<Path> resourcePaths) {
-    Predicate<ResourceInfo> requestedDensityFilter = new Predicate<ResourceInfo>() {
-      @Override
-      public boolean apply(@Nullable ResourceInfo info) {
-        return !densities.contains(info.getDensity());
-      }
-    };
+    Predicate<ResourceInfo> requestedDensityFilter =
+        new Predicate<ResourceInfo>() {
+          @Override
+          public boolean apply(@Nullable ResourceInfo info) {
+            return !densities.contains(info.getDensity());
+          }
+        };
 
     List<ResourceInfo> resourceInfos = getResourceInfos(resourcePaths);
     List<ResourceInfo> densityResourceInfos = filterDensityResourceInfos(resourceInfos);
     List<ResourceInfo> resourceInfoToRemove = new ArrayList<>();
 
-    Multimap<String, ResourceInfo> fileGroups = groupResourceInfos(densityResourceInfos,
-        GET_RESOURCE_ID);
+    Multimap<String, ResourceInfo> fileGroups =
+        groupResourceInfos(densityResourceInfos, GET_RESOURCE_ID);
 
     for (String key : fileGroups.keySet()) {
-      Multimap<String, ResourceInfo> qualifierGroups = groupResourceInfos(fileGroups.get(key),
-          GET_RESOURCE_QUALIFIERS);
+      Multimap<String, ResourceInfo> qualifierGroups =
+          groupResourceInfos(fileGroups.get(key), GET_RESOURCE_QUALIFIERS);
 
       for (String qualifiers : qualifierGroups.keySet()) {
         Collection<ResourceInfo> qualifierResourceInfos = qualifierGroups.get(qualifiers);
 
         if (qualifierResourceInfos.size() != 1) {
-          List<ResourceInfo> sortedResourceInfos = Ordering.natural().onResultOf(
-              new Function<ResourceInfo, Double>() {
-                @Override
-                public Double apply(ResourceInfo info) {
-                  return matchScore(info, densities);
-                }
-              }).immutableSortedCopy(qualifierResourceInfos);
-          resourceInfoToRemove.addAll(Collections2.filter(
-              sortedResourceInfos.subList(1, sortedResourceInfos.size()),
-              requestedDensityFilter));
+          List<ResourceInfo> sortedResourceInfos =
+              Ordering.natural()
+                  .onResultOf(
+                      new Function<ResourceInfo, Double>() {
+                        @Override
+                        public Double apply(ResourceInfo info) {
+                          return matchScore(info, densities);
+                        }
+                      })
+                  .immutableSortedCopy(qualifierResourceInfos);
+          resourceInfoToRemove.addAll(
+              Collections2.filter(
+                  sortedResourceInfos.subList(1, sortedResourceInfos.size()),
+                  requestedDensityFilter));
         }
       }
     }
@@ -256,10 +260,13 @@ public class DensitySpecificResourceFilter {
 
       String[] qualifierArray = qualifiers.split("-");
       String restype = qualifierArray[0];
-      qualifiers = (qualifierArray.length) > 0 ? Joiner.on("-").join(Arrays.copyOfRange(
-          qualifierArray, 1, qualifierArray.length)) : "";
-      resourceInfos.add(new ResourceInfo(resourcePath, restype, qualifiers, density,
-          resourcePath.getFileName().toString()));
+      qualifiers =
+          (qualifierArray.length) > 0
+              ? Joiner.on("-").join(Arrays.copyOfRange(qualifierArray, 1, qualifierArray.length))
+              : "";
+      resourceInfos.add(
+          new ResourceInfo(
+              resourcePath, restype, qualifiers, density, resourcePath.getFileName().toString()));
     }
 
     return ImmutableList.copyOf(resourceInfos);
@@ -270,8 +277,10 @@ public class DensitySpecificResourceFilter {
     List<ResourceInfo> densityResourceInfos = new ArrayList<>();
 
     for (ResourceInfo info : resourceInfos) {
-      if (info.getRestype().equals("drawable") && !info.getDensity().equals("")
-          && !info.getDensity().equals("nodpi") && !info.getResid().endsWith(".xml")) {
+      if (info.getRestype().equals("drawable")
+          && !info.getDensity().equals("")
+          && !info.getDensity().equals("nodpi")
+          && !info.getResid().endsWith(".xml")) {
         densityResourceInfos.add(info);
       }
     }
@@ -312,13 +321,15 @@ public class DensitySpecificResourceFilter {
     if (densities.isEmpty()) {
       return unFilteredResourceDir;
     }
-    final Path filteredResourceDir =
-        out.resolve(working.relativize(unFilteredResourceDir));
+    final Path filteredResourceDir = out.resolve(working.relativize(unFilteredResourceDir));
     RecursiveFileCopier fileVisitor =
         new RecursiveFileCopier(filteredResourceDir, unFilteredResourceDir);
     try {
-      Files.walkFileTree(unFilteredResourceDir, EnumSet.of(FileVisitOption.FOLLOW_LINKS),
-          Integer.MAX_VALUE, fileVisitor);
+      Files.walkFileTree(
+          unFilteredResourceDir,
+          EnumSet.of(FileVisitOption.FOLLOW_LINKS),
+          Integer.MAX_VALUE,
+          fileVisitor);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

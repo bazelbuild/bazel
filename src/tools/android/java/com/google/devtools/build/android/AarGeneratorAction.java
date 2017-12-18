@@ -53,6 +53,7 @@ import java.util.zip.ZipOutputStream;
  * Action to generate an AAR archive for an Android library.
  *
  * <p>
+ *
  * <pre>
  * Example Usage:
  *   java/com/google/build/android/AarGeneratorAction\
@@ -128,12 +129,14 @@ public class AarGeneratorAction {
     )
     public Path aarOutput;
 
-    @Option(name = "throwOnResourceConflict",
-        defaultValue = "false",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    @Option(
+      name = "throwOnResourceConflict",
+      defaultValue = "false",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
+    )
     public boolean throwOnResourceConflict;
   }
 
@@ -167,8 +170,7 @@ public class AarGeneratorAction {
               VariantType.LIBRARY,
               null,
               /* filteredResources= */ ImmutableList.<String>of(),
-              options.throwOnResourceConflict
-          );
+              options.throwOnResourceConflict);
       logger.fine(String.format("Merging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       writeAar(options.aarOutput, mergedData, options.manifest, options.rtxt, options.classes);
@@ -200,8 +202,7 @@ public class AarGeneratorAction {
       throw new IllegalArgumentException(
           String.format(
               "%s must be specified. Building an .aar without %s is unsupported.",
-              Joiner.on(", ").join(nullFlags),
-              Joiner.on(", ").join(nullFlags)));
+              Joiner.on(", ").join(nullFlags), Joiner.on(", ").join(nullFlags)));
     }
   }
 
@@ -209,8 +210,8 @@ public class AarGeneratorAction {
   static void writeAar(
       Path aar, final MergedAndroidData data, Path manifest, Path rtxt, Path classes)
       throws IOException {
-    try (final ZipOutputStream zipOut = new ZipOutputStream(
-        new BufferedOutputStream(Files.newOutputStream(aar)))) {
+    try (final ZipOutputStream zipOut =
+        new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(aar)))) {
       ZipEntry manifestEntry = new ZipEntry("AndroidManifest.xml");
       manifestEntry.setTime(EPOCH);
       zipOut.putNextEntry(manifestEntry);

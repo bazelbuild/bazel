@@ -25,16 +25,14 @@ import java.util.Objects;
 /**
  * Represents a DataKey for assets.
  *
- * Assets are added to a single directory inside an apk by aapt. Therefore, to determine overwritten
- * and conflicting assets we take the relative from the asset directory and turn it into a DataKey.
- * This serves as the unique identifier for each apk stored asset.
+ * <p>Assets are added to a single directory inside an apk by aapt. Therefore, to determine
+ * overwritten and conflicting assets we take the relative from the asset directory and turn it into
+ * a DataKey. This serves as the unique identifier for each apk stored asset.
  *
- * Note: Assets have no qualifiers or packages.
+ * <p>Note: Assets have no qualifiers or packages.
  */
 public class RelativeAssetPath implements DataKey {
-  /**
-   * A Factory that creates RelativeAssetsPath objects whose paths are relative to a given path.
-   */
+  /** A Factory that creates RelativeAssetsPath objects whose paths are relative to a given path. */
   public static class Factory {
     private final Path assetRoot;
 
@@ -42,9 +40,7 @@ public class RelativeAssetPath implements DataKey {
       this.assetRoot = assetRoot;
     }
 
-    /**
-     * Creates a new factory with the asset directory that contains assets.
-     */
+    /** Creates a new factory with the asset directory that contains assets. */
     public static Factory of(Path assetRoot) {
       return new Factory(Preconditions.checkNotNull(assetRoot));
     }
@@ -58,9 +54,7 @@ public class RelativeAssetPath implements DataKey {
     }
   }
 
-  /**
-   * Reconstitutes the relative asset path from a protocol buffer and {@link FileSystem}.
-   */
+  /** Reconstitutes the relative asset path from a protocol buffer and {@link FileSystem}. */
   static RelativeAssetPath fromProto(SerializeFormat.DataKey serialized, FileSystem fileSystem) {
     return of(fileSystem.getPath(serialized.getKeyValue()));
   }

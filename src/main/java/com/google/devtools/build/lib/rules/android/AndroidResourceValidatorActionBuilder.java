@@ -175,11 +175,10 @@ public class AndroidResourceValidatorActionBuilder {
     }
 
     if (!resourceDeps.getTransitiveCompiledSymbols().isEmpty()) {
-      builder
-          .addExecPaths(
-              "--compiledDep",
-              VectorArg.join(context.getConfiguration().getHostPathSeparator())
-                  .each(resourceDeps.getTransitiveCompiledSymbols()));
+      builder.addExecPaths(
+          "--compiledDep",
+          VectorArg.join(context.getConfiguration().getHostPathSeparator())
+              .each(resourceDeps.getTransitiveCompiledSymbols()));
       inputs.addAll(resourceDeps.getTransitiveCompiledSymbols());
     }
 
@@ -283,9 +282,6 @@ public class AndroidResourceValidatorActionBuilder {
             .build(context));
 
     // Return the full set of validated transitive dependencies.
-    return primary.toBuilder()
-        .setJavaSourceJar(sourceJarOut)
-        .setRTxt(rTxtOut)
-        .build();
+    return primary.toBuilder().setJavaSourceJar(sourceJarOut).setRTxt(rTxtOut).build();
   }
 }

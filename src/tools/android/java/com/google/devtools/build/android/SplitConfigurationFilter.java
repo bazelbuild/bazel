@@ -40,10 +40,10 @@ import java.util.regex.Pattern;
  * API version, if any, then by other specifiers (case-insensitive), with ties broken by the
  * filename or split flag originally used to create the instance (case-sensitive).
  *
- * <p>This has the following useful property:<br/>
- * Given two sets of {@link SplitConfigurationFilter}s, one from the input split flags, and
- * one from aapt's outputs... Each member of the output set can be matched to the greatest member
- * of the input set for which {@code input.matchesFilterFromFilename(output)} is true.
+ * <p>This has the following useful property:<br>
+ * Given two sets of {@link SplitConfigurationFilter}s, one from the input split flags, and one from
+ * aapt's outputs... Each member of the output set can be matched to the greatest member of the
+ * input set for which {@code input.matchesFilterFromFilename(output)} is true.
  */
 final class SplitConfigurationFilter implements Comparable<SplitConfigurationFilter> {
 
@@ -181,10 +181,10 @@ final class SplitConfigurationFilter implements Comparable<SplitConfigurationFil
    * <p>Order of whole configurations doesn't matter, as aapt will reorder the configurations
    * according to complicated internal logic (yes, logic even more complicated than this!).
    *
-   * <p>Care is needed with API version specifiers because aapt may add or change minimum
-   * API version specifiers to configurations according to whether they had specifiers which are
-   * only supported in certain versions of Android. It will only ever increase the minimum version
-   * or leave it the same.
+   * <p>Care is needed with API version specifiers because aapt may add or change minimum API
+   * version specifiers to configurations according to whether they had specifiers which are only
+   * supported in certain versions of Android. It will only ever increase the minimum version or
+   * leave it the same.
    *
    * <p>The other (non-wildcard) specifiers should be case-insensitive identical, including order;
    * aapt will not allow parts of a single configuration to be parsed out of order.
@@ -262,10 +262,10 @@ final class SplitConfigurationFilter implements Comparable<SplitConfigurationFil
    * <p>The natural ordering of this class sorts by required API version, if any, then by other
    * specifiers.
    *
-   * <p>This has the following useful property:<br/>
-   * Given two sets of {@link ResourceConfiguration}s, one from an input split flag, and
-   * one from aapt's output... Each member of the output set can be matched to the greatest member
-   * of the input set for which {@code input.matchesConfigurationFromFilename(output)} is true.
+   * <p>This has the following useful property:<br>
+   * Given two sets of {@link ResourceConfiguration}s, one from an input split flag, and one from
+   * aapt's output... Each member of the output set can be matched to the greatest member of the
+   * input set for which {@code input.matchesConfigurationFromFilename(output)} is true.
    */
   static final class ResourceConfiguration implements Comparable<ResourceConfiguration> {
     /**

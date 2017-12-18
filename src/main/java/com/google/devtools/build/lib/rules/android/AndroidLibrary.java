@@ -41,23 +41,21 @@ import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.syntax.Type;
 
-/**
- * An implementation for the "android_library" rule.
- */
+/** An implementation for the "android_library" rule. */
 public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
   protected abstract JavaSemantics createJavaSemantics();
+
   protected abstract AndroidSemantics createAndroidSemantics();
 
-  /**
-   * Checks expected rule invariants, throws rule errors if anything is set wrong.
-   */
+  /** Checks expected rule invariants, throws rule errors if anything is set wrong. */
   private static void validateRuleContext(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")
-      && DataBinding.isEnabled(ruleContext)) {
-      ruleContext.throwWithRuleError("Data binding doesn't work with the \"resources\" attribute. "
-          + "Use \"resource_files\" instead.");
+        && DataBinding.isEnabled(ruleContext)) {
+      ruleContext.throwWithRuleError(
+          "Data binding doesn't work with the \"resources\" attribute. "
+              + "Use \"resource_files\" instead.");
     }
 
     AndroidCommon.validateResourcesAttribute(ruleContext);
@@ -65,12 +63,12 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     /**
      * TODO(b/14473160): Remove when deps are no longer implicitly exported.
      *
-     * Warn if android_library rule contains deps without srcs or locally-used resources.
-     * Such deps are implicitly exported (deprecated behavior), and will soon be disallowed
-     * entirely.
+     * <p>Warn if android_library rule contains deps without srcs or locally-used resources. Such
+     * deps are implicitly exported (deprecated behavior), and will soon be disallowed entirely.
      */
     if (usesDeprecatedImplicitExport(ruleContext)) {
-      String message = "android_library will be deprecating the use of deps to export "
+      String message =
+          "android_library will be deprecating the use of deps to export "
               + "targets implicitly. Please use android_library.exports to explicitly specify "
               + "targets this rule exports";
       AndroidConfiguration androidConfig = ruleContext.getFragment(AndroidConfiguration.class);
@@ -85,14 +83,13 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
   /**
    * TODO(b/14473160): Remove when deps are no longer implicitly exported.
    *
-   * Returns true if the rule (possibly) relies on the implicit dep exports behavior.
+   * <p>Returns true if the rule (possibly) relies on the implicit dep exports behavior.
    *
-   * If this returns true, then the rule *is* exporting deps implicitly, and does not have
-   * any srcs or locally-used resources consuming the deps.
+   * <p>If this returns true, then the rule *is* exporting deps implicitly, and does not have any
+   * srcs or locally-used resources consuming the deps.
    *
-   * Else, this rule either:
-   * 1) is not using deps
-   * 2) has another deps-consuming attribute (src, locally-used resources)
+   * <p>Else, this rule either is not using deps or has another deps-consuming attribute (src,
+   * locally-used resources)
    */
   private static boolean usesDeprecatedImplicitExport(RuleContext ruleContext)
       throws RuleErrorException {
@@ -103,7 +100,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       return false;
     }
 
-    String[] labelListAttrs = { "srcs", "idl_srcs", "assets", "resource_files" };
+    String[] labelListAttrs = {"srcs", "idl_srcs", "assets", "resource_files"};
     for (String attr : labelListAttrs) {
       if (attrs.isAttributeValueExplicitlySpecified(attr)
           && !attrs.get(attr, BuildType.LABEL_LIST).isEmpty()) {
@@ -199,8 +196,10 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
     final ResourceApk resourceApk;
     if (definesLocalResources) {
-      ApplicationManifest applicationManifest = androidSemantics.getManifestForRule(ruleContext)
-          .renamePackage(ruleContext, AndroidCommon.getJavaPackage(ruleContext));
+      ApplicationManifest applicationManifest =
+          androidSemantics
+              .getManifestForRule(ruleContext)
+              .renamePackage(ruleContext, AndroidCommon.getJavaPackage(ruleContext));
       resourceApk =
           applicationManifest.packLibraryWithDataAndResources(
               ruleContext,
@@ -224,22 +223,22 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
                       && JavaCommon.isNeverLink(ruleContext)));
     }
 
-    JavaTargetAttributes javaTargetAttributes = androidCommon.init(
-        javaSemantics,
-        androidSemantics,
-        resourceApk,
-        false /* addCoverageSupport */,
-        true /* collectJavaCompilationArgs */,
-        false /* isBinary */,
-        null /* excludedRuntimeArtifacts */);
+    JavaTargetAttributes javaTargetAttributes =
+        androidCommon.init(
+            javaSemantics,
+            androidSemantics,
+            resourceApk,
+            false /* addCoverageSupport */,
+            true /* collectJavaCompilationArgs */,
+            false /* isBinary */,
+            null /* excludedRuntimeArtifacts */);
     if (javaTargetAttributes == null) {
       return null;
     }
 
     Artifact classesJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
-    Artifact aarOut = ruleContext.getImplicitOutputArtifact(
-        AndroidRuleClasses.ANDROID_LIBRARY_AAR);
+    Artifact aarOut = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
     final ResourceContainer primaryResources;
     final Aar aar;
@@ -252,15 +251,17 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       aar = Aar.create(aarOut, applicationManifest.getManifest());
       addAarToProvider(aar, transitiveAars, transitiveAarArtifacts);
     } else if (AndroidCommon.getAndroidResources(ruleContext) != null) {
-      primaryResources = Iterables.getOnlyElement(
-          AndroidCommon.getAndroidResources(ruleContext).getDirectAndroidResources());
+      primaryResources =
+          Iterables.getOnlyElement(
+              AndroidCommon.getAndroidResources(ruleContext).getDirectAndroidResources());
       aar = Aar.create(aarOut, primaryResources.getManifest());
       addAarToProvider(aar, transitiveAars, transitiveAarArtifacts);
     } else {
       // there are no local resources and resources attribute was not specified either
       aar = null;
-      ApplicationManifest applicationManifest = ApplicationManifest.generatedManifest(ruleContext)
-          .renamePackage(ruleContext, AndroidCommon.getJavaPackage(ruleContext));
+      ApplicationManifest applicationManifest =
+          ApplicationManifest.generatedManifest(ruleContext)
+              .renamePackage(ruleContext, AndroidCommon.getJavaPackage(ruleContext));
 
       String javaPackage = AndroidCommon.getJavaPackage(ruleContext);
 
@@ -275,30 +276,32 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
               .setRTxt(ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
               .build();
 
-      primaryResources = new AndroidResourcesProcessorBuilder(ruleContext)
-          .setLibrary(true)
-          .setRTxtOut(resourceContainer.getRTxt())
-          .setManifestOut(ruleContext.getImplicitOutputArtifact(
-              AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
-          .setSourceJarOut(resourceContainer.getJavaSourceJar())
-          .setJavaPackage(resourceContainer.getJavaPackage())
-          .withPrimary(resourceContainer)
-          .withDependencies(resourceApk.getResourceDependencies())
-          .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-          .setThrowOnResourceConflict(
-              ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
-          .build(ruleContext);
+      primaryResources =
+          new AndroidResourcesProcessorBuilder(ruleContext)
+              .setLibrary(true)
+              .setRTxtOut(resourceContainer.getRTxt())
+              .setManifestOut(
+                  ruleContext.getImplicitOutputArtifact(
+                      AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
+              .setSourceJarOut(resourceContainer.getJavaSourceJar())
+              .setJavaPackage(resourceContainer.getJavaPackage())
+              .withPrimary(resourceContainer)
+              .withDependencies(resourceApk.getResourceDependencies())
+              .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+              .setThrowOnResourceConflict(
+                  ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
+              .build(ruleContext);
     }
 
     new AarGeneratorBuilder(ruleContext)
-      .withPrimary(primaryResources)
-      .withManifest(aar != null ? aar.getManifest() : primaryResources.getManifest())
-      .withRtxt(primaryResources.getRTxt())
-      .withClasses(classesJar)
-      .setAAROut(aarOut)
-      .setThrowOnResourceConflict(
-          ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
-      .build(ruleContext);
+        .withPrimary(primaryResources)
+        .withManifest(aar != null ? aar.getManifest() : primaryResources.getManifest())
+        .withRtxt(primaryResources.getRTxt())
+        .withClasses(classesJar)
+        .setAAROut(aarOut)
+        .setThrowOnResourceConflict(
+            ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
+        .build(ruleContext);
 
     boolean isResourcesOnly = true;
     for (String attr : ruleContext.attributes().getAttributeNames()) {
@@ -375,13 +378,14 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       return;
     }
 
-    ResourceContainer container = Iterables.getOnlyElement(
-        resources.getDirectAndroidResources());
+    ResourceContainer container = Iterables.getOnlyElement(resources.getDirectAndroidResources());
 
     if (container.getConstantsInlined()
         && !container.getArtifacts(ResourceType.RESOURCES).isEmpty()) {
-      ruleContext.ruleError("This android library has some resources assigned, so the target '"
-          + resources.getLabel() + "' should have the attribute inline_constants set to 0");
+      ruleContext.ruleError(
+          "This android library has some resources assigned, so the target '"
+              + resources.getLabel()
+              + "' should have the attribute inline_constants set to 0");
     }
   }
 
@@ -389,8 +393,9 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       NestedSetBuilder<Aar> transitiveAars,
       NestedSetBuilder<Artifact> transitiveAarArtifacts) {
-    for (AndroidLibraryAarProvider library : AndroidCommon.getTransitivePrerequisites(
-        ruleContext, Mode.TARGET, AndroidLibraryAarProvider.class)) {
+    for (AndroidLibraryAarProvider library :
+        AndroidCommon.getTransitivePrerequisites(
+            ruleContext, Mode.TARGET, AndroidLibraryAarProvider.class)) {
       transitiveAars.addTransitive(library.getTransitiveAars());
       transitiveAarArtifacts.addTransitive(library.getTransitiveAarArtifacts());
     }
@@ -407,4 +412,3 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     return builder;
   }
 }
-

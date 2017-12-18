@@ -33,9 +33,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-/**
- * Rule definition for the android_library rule.
- */
+/** Rule definition for the android_library rule. */
 public final class AndroidLibraryBaseRule implements RuleDefinition {
   private final AndroidNeverlinkAspect androidNeverlinkAspect;
 

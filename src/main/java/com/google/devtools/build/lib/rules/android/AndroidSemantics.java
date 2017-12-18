@@ -47,6 +47,7 @@ public interface AndroidSemantics {
 
   /**
    * Returns the manifest to be used when compiling a given rule.
+   *
    * @throws InterruptedException
    */
   default ApplicationManifest getManifestForRule(RuleContext ruleContext)
@@ -70,9 +71,7 @@ public interface AndroidSemantics {
     }
   }
 
-  /**
-   * Returns the name of the file in which the file names of native dependencies are listed.
-   */
+  /** Returns the name of the file in which the file names of native dependencies are listed. */
   String getNativeDepsFileName();
 
   /**
@@ -101,14 +100,18 @@ public interface AndroidSemantics {
 
   /**
    * Add coverage instrumentation to the Java compilation of an Android binary.
+   *
    * @throws InterruptedException
    */
-  void addCoverageSupport(RuleContext ruleContext, AndroidCommon common,
-      JavaSemantics javaSemantics, boolean forAndroidTest, JavaTargetAttributes.Builder attributes,
-      JavaCompilationArtifacts.Builder artifactsBuilder) throws InterruptedException;
+  void addCoverageSupport(
+      RuleContext ruleContext,
+      AndroidCommon common,
+      JavaSemantics javaSemantics,
+      boolean forAndroidTest,
+      JavaTargetAttributes.Builder attributes,
+      JavaCompilationArtifacts.Builder artifactsBuilder)
+      throws InterruptedException;
 
-  /**
-   * Returns the list of attributes that may contribute Java runtime dependencies.
-   */
+  /** Returns the list of attributes that may contribute Java runtime dependencies. */
   ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext);
 }

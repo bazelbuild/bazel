@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-/**
- * Indicates an error parsing or modifying an AndroidManifest.xml.
- */
+/** Indicates an error parsing or modifying an AndroidManifest.xml. */
 public class ManifestProcessingException extends Exception {
 
   public ManifestProcessingException() {

@@ -33,9 +33,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Builder for creating resource processing action.
- */
+/** Builder for creating resource processing action. */
 public class AndroidResourcesProcessorBuilder {
 
   private static final ResourceContainerConverter.ToArg AAPT2_RESOURCE_DEP_TO_ARG =
@@ -106,9 +104,7 @@ public class AndroidResourcesProcessorBuilder {
   private boolean useCompiledResourcesForMerge;
   private boolean isTestWithResources = false;
 
-  /**
-   * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
-   */
+  /** @param ruleContext The RuleContext that was used to create the SpawnAction.Builder. */
   public AndroidResourcesProcessorBuilder(RuleContext ruleContext) {
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     this.ruleContext = ruleContext;
@@ -116,8 +112,8 @@ public class AndroidResourcesProcessorBuilder {
   }
 
   /**
-   * The primary resource for merging. This resource will overwrite any resource or data
-   * value in the transitive closure.
+   * The primary resource for merging. This resource will overwrite any resource or data value in
+   * the transitive closure.
    */
   public AndroidResourcesProcessorBuilder withPrimary(ResourceContainer primary) {
     this.primary = primary;
@@ -126,7 +122,8 @@ public class AndroidResourcesProcessorBuilder {
 
   /**
    * The output zip for resource-processed data binding expressions (i.e. a zip of .xml files).
-   * If null, data binding processing is skipped (and data binding expressions aren't allowed in
+   *
+   * <p>If null, data binding processing is skipped (and data binding expressions aren't allowed in
    * layout resources).
    */
   public AndroidResourcesProcessorBuilder setDataBindingInfoZip(Artifact zip) {
@@ -276,7 +273,6 @@ public class AndroidResourcesProcessorBuilder {
     this.isTestWithResources = isTestWithResources;
     return this;
   }
-
 
   private ResourceContainer createAapt2ApkAction(ActionConstructionContext context) {
     List<Artifact> outs = new ArrayList<>();

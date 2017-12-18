@@ -68,15 +68,11 @@ import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 import javax.xml.xpath.XPathExpressionException;
 
-/**
- * Provides a wrapper around the AOSP build tools for resource processing.
- */
+/** Provides a wrapper around the AOSP build tools for resource processing. */
 public class AndroidResourceProcessor {
   static final Logger logger = Logger.getLogger(AndroidResourceProcessor.class.getName());
 
-  /**
-   * Options class containing flags for Aapt setup.
-   */
+  /** Options class containing flags for Aapt setup. */
   public static final class AaptConfigOptions extends OptionsBase {
     @Option(
       name = "buildToolsVersion",
@@ -204,7 +200,7 @@ public class AndroidResourceProcessor {
 
     private static final String ANDROID_SPLIT_DOCUMENTATION_URL =
         "https://developer.android.com/guide/topics/resources/providing-resources.html"
-        + "#QualifierRules";
+            + "#QualifierRules";
 
     @Option(
       name = "split",
@@ -229,9 +225,7 @@ public class AndroidResourceProcessor {
     public List<String> splits;
   }
 
-  /**
-   * {@link AaptOptions} backed by an {@link AaptConfigOptions}.
-   */
+  /** {@link AaptOptions} backed by an {@link AaptConfigOptions}. */
   public static final class FlagAaptOptions implements AaptOptions {
     private final AaptConfigOptions options;
 
@@ -264,16 +258,15 @@ public class AndroidResourceProcessor {
     public List<String> getAdditionalParameters() {
       List<String> params = new java.util.ArrayList<String>();
       if (options.featureOf != null) {
-         params.add("--feature-of");
-         params.add(options.featureOf.toString());
+        params.add("--feature-of");
+        params.add(options.featureOf.toString());
       }
       if (options.featureAfter != null) {
-         params.add("--feature-after");
-         params.add(options.featureAfter.toString());
+        params.add("--feature-after");
+        params.add(options.featureAfter.toString());
       }
       return ImmutableList.copyOf(params);
     }
-
   }
 
   private final StdLogger stdLogger;
@@ -580,8 +573,8 @@ public class AndroidResourceProcessor {
     // (on a shared system). On the other hand, a lot of the work is I/O, so it's not completely
     // CPU bound. As a compromise, divide by 2 the reported availableProcessors.
     int numThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-    ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
-        Executors.newFixedThreadPool(numThreads));
+    ListeningExecutorService executorService =
+        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(numThreads));
     try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
       for (Entry<String, ListenableFuture<ResourceSymbols>> entry :
           ResourceSymbols.loadFrom(libraries, executorService, appPackageName).entries()) {
@@ -600,7 +593,8 @@ public class AndroidResourceProcessor {
       List<DependencyAndroidData> dependencyData,
       String customPackageForR,
       Path androidManifest,
-      Path sourceOut) throws IOException {
+      Path sourceOut)
+      throws IOException {
     List<SymbolFileProvider> libraries = new ArrayList<>();
     for (DependencyAndroidData dataDep : dependencyData) {
       SymbolFileProvider library = dataDep.asSymbolFileProvider();
@@ -691,9 +685,7 @@ public class AndroidResourceProcessor {
     AndroidManifestProcessor.writeDummyManifestForAapt(dummyManifest, packageForR);
   }
 
-  /**
-   * Shutdown AOSP utilized thread-pool.
-   */
+  /** Shutdown AOSP utilized thread-pool. */
   public void shutdown() {
     FullyQualifiedName.logCacheUsage(logger);
     // AOSP code never shuts down its singleton executor and leaves the process hanging.

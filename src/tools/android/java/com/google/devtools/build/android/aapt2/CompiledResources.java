@@ -65,9 +65,7 @@ public class CompiledResources implements ManifestContainer {
         resources, manifest, assetDirs != null ? assetDirs : ImmutableList.of(), Optional.empty());
   }
 
-  /**
-   * This zip file contains resource flat files that are the result of aapt2 compile
-   */
+  /** This zip file contains resource flat files that are the result of aapt2 compile */
   public Path getZip() {
     return resources;
   }

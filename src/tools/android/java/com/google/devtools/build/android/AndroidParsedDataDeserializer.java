@@ -122,10 +122,7 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
   }
 
   private void readEntriesSegment(
-      KeyValueConsumers consumers,
-      InputStream in,
-      FileSystem currentFileSystem,
-      Header header)
+      KeyValueConsumers consumers, InputStream in, FileSystem currentFileSystem, Header header)
       throws IOException {
     int numberOfEntries = header.getEntryCount();
     Map<DataKey, KeyValueConsumer<DataKey, ? extends DataValue>> keys =
@@ -211,5 +208,3 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
     return builder.build();
   }
 }
-
-

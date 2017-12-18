@@ -55,14 +55,12 @@ public class ResourceContainerConverter {
     private Joiner argJoiner;
     private Function<String, String> escaper = Functions.identity();
 
-
     enum SeparatorType {
       COLON_COMMA,
       SEMICOLON_AMPERSAND
     }
 
-    Builder() {
-    }
+    Builder() {}
 
     Builder includeAapt2RTxt() {
       includeAapt2RTxt = true;

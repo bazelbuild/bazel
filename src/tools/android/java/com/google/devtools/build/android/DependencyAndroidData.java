@@ -62,11 +62,10 @@ class DependencyAndroidData extends SerializedAndroidData {
       compiledSymbols = CompiledResources.from(exists(fileSystem.getPath(parts[4])));
       symbolsBin = exists(fileSystem.getPath(parts[5]));
     } else if (parts.length == 5) {
-      //This is either symbols bin or compiled symbols depending on "useCompiledResourcesForMerge"
+      // This is either symbols bin or compiled symbols depending on "useCompiledResourcesForMerge"
       compiledSymbols = CompiledResources.from(exists(fileSystem.getPath(parts[4])));
       symbolsBin = exists(fileSystem.getPath(parts[4]));
     }
-
 
     return new DependencyAndroidData(
         splitPaths(parts[0], fileSystem),

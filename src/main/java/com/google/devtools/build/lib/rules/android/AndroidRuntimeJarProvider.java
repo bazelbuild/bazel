@@ -36,17 +36,14 @@ public class AndroidRuntimeJarProvider implements TransitiveInfoProvider {
       new AndroidRuntimeJarProvider(
           NestedSetBuilder.<ImmutableMap<Artifact, Artifact>>emptySet(STABLE_ORDER));
 
-  /**
-   * Builder for {@link AndroidRuntimeJarProvider}.
-   */
+  /** Builder for {@link AndroidRuntimeJarProvider}. */
   public static class Builder {
 
     private final ImmutableMap.Builder<Artifact, Artifact> newlyDesugared = ImmutableMap.builder();
     private final NestedSetBuilder<ImmutableMap<Artifact, Artifact>> transitiveMappings =
         NestedSetBuilder.stableOrder();
 
-    public Builder() {
-    }
+    public Builder() {}
 
     /**
      * Copies all mappings from the given providers, which is useful to aggregate providers from
@@ -65,9 +62,7 @@ public class AndroidRuntimeJarProvider implements TransitiveInfoProvider {
       return this;
     }
 
-    /**
-     * Returns the finished {@link AndroidRuntimeJarProvider}.
-     */
+    /** Returns the finished {@link AndroidRuntimeJarProvider}. */
     public AndroidRuntimeJarProvider build() {
       return new AndroidRuntimeJarProvider(transitiveMappings.add(newlyDesugared.build()).build());
     }

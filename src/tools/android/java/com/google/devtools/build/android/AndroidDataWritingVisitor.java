@@ -26,9 +26,7 @@ import javax.xml.namespace.QName;
 
 /** An interface for visiting android data for writing. */
 public interface AndroidDataWritingVisitor extends Flushable {
-  /**
-   * Copies the AndroidManifest to the destination directory.
-   */
+  /** Copies the AndroidManifest to the destination directory. */
   Path copyManifest(Path sourceManifest) throws IOException;
 
   /**
@@ -71,8 +69,7 @@ public interface AndroidDataWritingVisitor extends Flushable {
   /**
    * Provides a fluent interface to generate an xml resource for the values directory.
    *
-   * <p>Example usage: 
-   * <code>
+   * <p>Example usage: <code>
    *    writer.define(key)
    *        .derivedFrom(source)
    *        .startTag(tagName)
@@ -112,8 +109,8 @@ public interface AndroidDataWritingVisitor extends Flushable {
      * Takes another values xml resource and writes it as a child tag here.
      *
      * <p>This allows xml elements from other {@link XmlResourceValue} to be moved in the stream.
-     * Currently, this is only necessary for {@link StyleableXmlResourceValue} which can have 
-     * {@link AttrXmlResourceValue} defined as child elements (yet, they are merged and treated as
+     * Currently, this is only necessary for {@link StyleableXmlResourceValue} which can have {@link
+     * AttrXmlResourceValue} defined as child elements (yet, they are merged and treated as
      * independent resources.)
      *
      * @param fqn The {@link FullyQualifiedName} of the {@link XmlResourceValue} to be adopted. This

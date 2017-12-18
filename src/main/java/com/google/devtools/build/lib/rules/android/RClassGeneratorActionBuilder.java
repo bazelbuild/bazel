@@ -34,9 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * Builds up the spawn action for $android_rclass_generator.
- */
+/** Builds up the spawn action for $android_rclass_generator. */
 public class RClassGeneratorActionBuilder {
 
   private final RuleContext ruleContext;
@@ -47,9 +45,7 @@ public class RClassGeneratorActionBuilder {
 
   private AndroidAaptVersion version;
 
-  /**
-   * @param ruleContext The RuleContext that is used to create a SpawnAction.Builder.
-   */
+  /** @param ruleContext The RuleContext that is used to create a SpawnAction.Builder. */
   public RClassGeneratorActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
   }

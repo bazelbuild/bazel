@@ -178,9 +178,9 @@ public class ManifestMergerAction {
     // Write resulting manifest to the output directory, maintaining full path to prevent collisions
     Path output = outputDir.resolve(manifest.toString().replaceFirst("^/", ""));
     Files.createDirectories(output.getParent());
-    TransformerFactory.newInstance().newTransformer().transform(
-        new DOMSource(doc),
-        new StreamResult(output.toFile()));
+    TransformerFactory.newInstance()
+        .newTransformer()
+        .transform(new DOMSource(doc), new StreamResult(output.toFile()));
     return output;
   }
 
@@ -201,8 +201,7 @@ public class ManifestMergerAction {
       ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
       for (Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
         mergeeManifests.put(
-            removePermissions(mergeeManifest.getKey(), tmp),
-            mergeeManifest.getValue());
+            removePermissions(mergeeManifest.getKey(), tmp), mergeeManifest.getValue());
       }
 
       mergedManifest =
@@ -229,4 +228,3 @@ public class ManifestMergerAction {
     }
   }
 }
-

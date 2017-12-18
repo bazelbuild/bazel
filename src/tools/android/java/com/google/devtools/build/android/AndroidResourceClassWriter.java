@@ -33,7 +33,7 @@ import java.util.Map;
  * class files.
  */
 public class AndroidResourceClassWriter implements Flushable, AndroidResourceSymbolSink {
-  
+
   /** Create a new class writer. */
   public static AndroidResourceClassWriter createWith(
       Path androidJar, Path out, String javaPackage) {
@@ -46,7 +46,7 @@ public class AndroidResourceClassWriter implements Flushable, AndroidResourceSym
     return new AndroidResourceClassWriter(
         PlaceholderIdFieldInitializerBuilder.from(androidIdProvider), outputBasePath, packageName);
   }
-  
+
   private final Path outputBasePath;
   private final String packageName;
   private boolean includeClassFile = true;

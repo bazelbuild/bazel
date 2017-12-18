@@ -19,9 +19,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-/**
- * Aggregates a list of failed {@link ListenableFuture} and throws it as an exception.
- */
+/** Aggregates a list of failed {@link ListenableFuture} and throws it as an exception. */
 class FailedFutureAggregator<T extends Throwable> {
 
   private ExceptionFactory<T> exceptionFactory;

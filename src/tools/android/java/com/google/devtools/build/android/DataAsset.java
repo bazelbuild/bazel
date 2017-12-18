@@ -15,16 +15,12 @@ package com.google.devtools.build.android;
 
 import java.io.IOException;
 
-/**
- * Represents an Asset created from a binary file.
- */
+/** Represents an Asset created from a binary file. */
 public interface DataAsset extends DataValue {
-  /**
-   * Write the asset value to mergedDataWriter.
-   */
+  /** Write the asset value to mergedDataWriter. */
   void writeAsset(RelativeAssetPath key, AndroidDataWritingVisitor mergedDataWriter)
       throws IOException;
-  
+
   /** Overwrite another {@link DataAsset}. */
   DataAsset overwrite(DataAsset other);
 }

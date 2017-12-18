@@ -22,9 +22,7 @@ import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
 
-/**
- * A wrapper around a PNG cruncher that only processes nine-patch PNGs.
- */
+/** A wrapper around a PNG cruncher that only processes nine-patch PNGs. */
 public class NinePatchOnlyCruncher extends AaptCruncher {
 
   public NinePatchOnlyCruncher(

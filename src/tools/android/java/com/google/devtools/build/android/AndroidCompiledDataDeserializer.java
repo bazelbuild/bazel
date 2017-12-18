@@ -49,7 +49,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /** Deserializes {@link DataKey}, {@link DataValue} entries from compiled resource files. */
-public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
+public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer {
   private static final Logger logger =
       Logger.getLogger(AndroidCompiledDataDeserializer.class.getName());
 
@@ -105,11 +105,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
           List<ConfigValue> configValues = resource.getConfigValueList();
 
           Preconditions.checkArgument(configValues.size() == 1);
-          int sourceIndex =
-              configValues.get(0)
-                  .getValue()
-                  .getSource()
-                  .getPathIdx();
+          int sourceIndex = configValues.get(0).getValue().getSource().getPathIdx();
 
           String source = sourcePool.get(sourceIndex);
 
@@ -120,8 +116,8 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
               new SimpleEntry<FullyQualifiedName, Boolean>(fqn, packageName.isEmpty()));
 
           if (packageName.isEmpty()) {
-            DataResourceXml dataResourceXml = DataResourceXml
-                .from(resourceValue, dataSource, resourceType, fullyQualifiedNames);
+            DataResourceXml dataResourceXml =
+                DataResourceXml.from(resourceValue, dataSource, resourceType, fullyQualifiedNames);
             if (resourceType == ResourceType.ID
                 || resourceType == ResourceType.PUBLIC
                 || resourceType == ResourceType.STYLEABLE) {
@@ -137,10 +133,11 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
 
   /**
    * Reads compiled resource data files and adds them to consumers
-   * @param compiledFileStream First byte is number of compiled files represented in this file.
-   *    Next 8 bytes is a long indicating the length of the metadata describing the compiled file.
-   *    Next N bytes is the metadata describing the compiled file.
-   *    The remaining bytes are the actual original file.
+   *
+   * @param compiledFileStream First byte is number of compiled files represented in this file. Next
+   *     8 bytes is a long indicating the length of the metadata describing the compiled file. Next
+   *     N bytes is the metadata describing the compiled file. The remaining bytes are the actual
+   *     original file.
    * @param consumers
    * @param fqnFactory
    * @throws IOException
@@ -192,10 +189,13 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
 
         String fileZipPath = resourceFile.getName();
         int resourceSubdirectoryIndex = fileZipPath.indexOf('_', fileZipPath.lastIndexOf('/'));
-        Path filePath = Paths.get(String.format("%s%c%s",
-            fileZipPath.substring(0, resourceSubdirectoryIndex),
-            '/',
-            fileZipPath.substring(resourceSubdirectoryIndex + 1)));
+        Path filePath =
+            Paths.get(
+                String.format(
+                    "%s%c%s",
+                    fileZipPath.substring(0, resourceSubdirectoryIndex),
+                    '/',
+                    fileZipPath.substring(resourceSubdirectoryIndex + 1)));
 
         String shortPath = filePath.getParent().getFileName() + "/" + filePath.getFileName();
 
@@ -206,8 +206,8 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
           continue;
         }
 
-        final String[] dirNameAndQualifiers = filePath.getParent().getFileName().toString()
-            .split(SdkConstants.RES_QUALIFIER_SEP);
+        final String[] dirNameAndQualifiers =
+            filePath.getParent().getFileName().toString().split(SdkConstants.RES_QUALIFIER_SEP);
         Factory fqnFactory = Factory.fromDirectoryName(dirNameAndQualifiers);
 
       LittleEndianDataInputStream dataInputStream =
@@ -241,7 +241,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
     int stringCount = byteBuffer.getInt(8);
     boolean isUtf8 = (byteBuffer.getInt(16) & (1 << 8)) != 0;
     int stringsStart = byteBuffer.getInt(20);
-    //Position the ByteBuffer after the metadata
+    // Position the ByteBuffer after the metadata
     byteBuffer.position(28);
 
     List<String> strings = new ArrayList<>();
@@ -288,5 +288,4 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
 
     return strings;
   }
-
 }

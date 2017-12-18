@@ -247,9 +247,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       // mobile-install v1 is going away, and this flag does not apply to v2
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.EXECUTION,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = OptionMetadataTag.EXPERIMENTAL
     )
@@ -262,10 +262,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       converter = EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "The location of the C++ compiler used for Android builds."
     )
@@ -277,9 +277,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "The Android target CPU."
     )
@@ -291,9 +291,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "The Android target compiler."
     )
@@ -306,9 +306,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "The Android target grte_top."
     )
@@ -320,8 +320,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       converter = DynamicModeConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help =
           "Determines whether C++ deps of Android rules will be linked dynamically when a "
@@ -341,9 +341,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "Specifies Android SDK/platform that is used to build Android applications."
     )
@@ -357,9 +357,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help =
           "Setting this option enables fat APKs, which contain native binaries for all "
@@ -378,9 +378,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "Whether to desugar Java 8 bytecode before dexing."
     )
@@ -392,8 +392,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help = "Whether to double-check correct desugaring at Android binary level."
@@ -406,9 +406,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "Does most of the work for dexing separately for each Jar file."
     )
@@ -433,8 +433,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "experimental",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "Do not use."
     )
@@ -450,9 +450,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "experimental",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "Do not use."
     )
@@ -476,8 +476,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help =
           "When enabled, the minSdkVersion is parsed from the merged AndroidManifest and used to "
@@ -508,8 +508,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help =
           "dx flags that that prevent incremental dexing for binary targets that list any of "
@@ -529,8 +529,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "--no-optimize,--no-locals",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "dx flags supported when converting Jars to dex archives incrementally."
     )
@@ -544,8 +544,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "--minimal-main-dex,--set-max-idx-number",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "dx flags supported in tool that merges dex archives into final classes.dex files."
     )
@@ -565,9 +565,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help = "use rex tool to rewrite dex files"
@@ -579,8 +579,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help =
           "Flag to help transition from allowing to disallowing srcs-less android_library"
@@ -593,8 +593,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "Enables resource shrinking for android_binary APKs that use ProGuard."
     )
@@ -606,8 +606,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "Enables resource shrinking for android_binary APKs that use ProGuard."
     )
@@ -619,8 +619,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help =
@@ -636,9 +636,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       converter = AndroidManifestMergerConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help =
           "Selects the manifest merger to use for android_binary rules. Flag to help the"
@@ -652,9 +652,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       converter = AndroidAaptConverter.class,
       help =
@@ -669,9 +669,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "v1_v2",
       documentationCategory = OptionDocumentationCategory.SIGNING,
       effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "Implementation to use to sign APKs"
     )
@@ -692,9 +692,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "filter_in_execution",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
@@ -718,8 +718,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help = "Compress Java resources in APKs"
@@ -731,9 +731,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "The default value of the exports_manifest attribute on android_library."
     )
@@ -744,8 +744,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, robolectric resources will be packaged using aapt2 if available."
@@ -757,8 +757,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
     )
@@ -798,13 +798,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean skipParsingAction;
 
     @Option(
-        name = "android_fixed_resource_neverlinking",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "If true, resources will properly not get propagated through neverlinked libraries."
-            + " Otherwise, the old behavior of propagating those resources if no resource-related"
-            + " attributes are specified in the neverlink library will be preserved."
+      name = "android_fixed_resource_neverlinking",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If true, resources will properly not get propagated through neverlinked libraries."
+              + " Otherwise, the old behavior of propagating those resources if no resource-related"
+              + " attributes are specified in the neverlink library will be preserved."
     )
     public boolean fixedResourceNeverlinking;
 

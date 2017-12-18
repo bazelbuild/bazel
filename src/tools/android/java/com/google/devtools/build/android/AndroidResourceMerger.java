@@ -204,8 +204,8 @@ public class AndroidResourceMerger {
   }
 
   /**
-   * Merges all secondary compiled resources with the primary compiled resources,
-   * given that the primary resources have been separately compiled
+   * Merges all secondary compiled resources with the primary compiled resources, given that the
+   * primary resources have been separately compiled
    */
   public static void mergeCompiledData(
       final SerializedAndroidData primary,
@@ -245,5 +245,3 @@ public class AndroidResourceMerger {
     }
   }
 }
-
-

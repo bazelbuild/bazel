@@ -43,15 +43,16 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class LocalResourceContainer {
-  public static final String[] RESOURCES_ATTRIBUTES = new String[] {
-      "manifest",
-      "resource_files",
-      "local_resource_files",
-      "assets",
-      "assets_dir",
-      "inline_constants",
-      "exports_manifest"
-  };
+  public static final String[] RESOURCES_ATTRIBUTES =
+      new String[] {
+        "manifest",
+        "resource_files",
+        "local_resource_files",
+        "assets",
+        "assets_dir",
+        "inline_constants",
+        "exports_manifest"
+      };
 
   /** Set of allowable android directories prefixes. */
   public static final ImmutableSet<String> RESOURCE_DIRECTORY_TYPES =
@@ -65,9 +66,7 @@ public final class LocalResourceContainer {
               + "<resource directory>/{%s}/<file>",
           Joiner.on(',').join(RESOURCE_DIRECTORY_TYPES));
 
-  /**
-   * Determines if the attributes contain resource and asset attributes.
-   */
+  /** Determines if the attributes contain resource and asset attributes. */
   public static boolean definesAndroidResources(AttributeMap attributes) {
     for (String attribute : RESOURCES_ATTRIBUTES) {
       if (attributes.isAttributeValueExplicitlySpecified(attribute)) {
@@ -79,7 +78,7 @@ public final class LocalResourceContainer {
 
   /**
    * Checks validity of a RuleContext to produce an AndroidData.
-   * 
+   *
    * @throws RuleErrorException if the RuleContext is invalid. Accumulated errors will be available
    *     via {@code ruleContext}
    */
@@ -99,14 +98,14 @@ public final class LocalResourceContainer {
     }
   }
 
-  /**
-   * Validates that there are no resources defined if there are resource attributes defined.
-   */
+  /** Validates that there are no resources defined if there are resource attributes defined. */
   private static void validateNoResourcesAttribute(RuleContext ruleContext)
       throws RuleErrorException {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")) {
-      ruleContext.throwWithAttributeError("resources",
-          String.format("resources cannot be set when any of %s are defined.",
+      ruleContext.throwWithAttributeError(
+          "resources",
+          String.format(
+              "resources cannot be set when any of %s are defined.",
               Joiner.on(", ").join(RESOURCES_ATTRIBUTES)));
     }
   }
@@ -120,15 +119,16 @@ public final class LocalResourceContainer {
     Iterable<AndroidResourcesProvider> resources =
         ruleContext.getPrerequisites("srcs", Mode.TARGET, AndroidResourcesProvider.class);
     for (AndroidResourcesProvider provider : resources) {
-      ruleContext.throwWithAttributeError("srcs",
+      ruleContext.throwWithAttributeError(
+          "srcs",
           String.format("srcs should not contain android_resource label %s", provider.getLabel()));
     }
   }
 
   private static void validateManifest(RuleContext ruleContext) throws RuleErrorException {
     if (ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET) == null) {
-      ruleContext.throwWithAttributeError("manifest",
-          "manifest is required when resource_files or assets are defined.");
+      ruleContext.throwWithAttributeError(
+          "manifest", "manifest is required when resource_files or assets are defined.");
     }
   }
 
@@ -364,10 +364,10 @@ public final class LocalResourceContainer {
       ImmutableList<PathFragment> resourceRoots,
       ImmutableList<Artifact> assets,
       ImmutableList<PathFragment> assetRoots) {
-        this.resources = resources;
-        this.resourceRoots = resourceRoots;
-        this.assets = assets;
-        this.assetRoots = assetRoots;
+    this.resources = resources;
+    this.resourceRoots = resourceRoots;
+    this.assets = assets;
+    this.assetRoots = assetRoots;
   }
 
   public ImmutableList<Artifact> getResources() {

@@ -34,9 +34,9 @@ import javax.annotation.Nullable;
  * abstraction simplifies the process of managing and exporting the direct and transitive resource
  * dependencies of an android rule, as well as providing type safety.
  *
- * <p>The transitive and direct dependencies are not guaranteed to be disjoint. If a
- * library is included in both the transitive and direct dependencies, it will appear twice. This
- * requires consumers to manage duplicated resources gracefully.
+ * <p>The transitive and direct dependencies are not guaranteed to be disjoint. If a library is
+ * included in both the transitive and direct dependencies, it will appear twice. This requires
+ * consumers to manage duplicated resources gracefully.
  */
 @Immutable
 public final class ResourceDependencies {
@@ -66,13 +66,11 @@ public final class ResourceDependencies {
   /**
    * Transitive resource files for this target.
    *
-   * We keep them separate from the {@code transitiveAssets} so that we can filter them.
+   * <p>We keep them separate from the {@code transitiveAssets} so that we can filter them.
    */
   private final NestedSet<Artifact> transitiveResources;
 
-  /**
-   * Transitive asset files for this target.
-   */
+  /** Transitive asset files for this target. */
   private final NestedSet<Artifact> transitiveAssets;
 
   private final NestedSet<Artifact> transitiveManifests;
@@ -170,8 +168,8 @@ public final class ResourceDependencies {
         transitiveRTxt.build());
   }
 
-  public static ResourceDependencies fromRuleResourceAndDeps(RuleContext ruleContext,
-      boolean neverlink) {
+  public static ResourceDependencies fromRuleResourceAndDeps(
+      RuleContext ruleContext, boolean neverlink) {
     NestedSetBuilder<ResourceContainer> transitiveDependencies = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<ResourceContainer> directDependencies = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> transitiveResources = NestedSetBuilder.naiveLinkOrder();
@@ -310,8 +308,8 @@ public final class ResourceDependencies {
   }
 
   /**
-   * Creates an empty ResourceDependencies instance. This is used when an AndroidResources rule
-   * is the only resource dependency. The most common case is the AndroidTest rule.
+   * Creates an empty ResourceDependencies instance. This is used when an AndroidResources rule is
+   * the only resource dependency. The most common case is the AndroidTest rule.
    */
   public static ResourceDependencies empty() {
     return new ResourceDependencies(
@@ -453,9 +451,8 @@ public final class ResourceDependencies {
    * the resource merging as if this library didn't exist.
    *
    * @param label The label of the library exporting this provider.
-   * @param isResourcesOnly if the direct dependency is either an android_resources
-   *     target or an android_library target with no fields that android_resources targets do not
-   *     provide.
+   * @param isResourcesOnly if the direct dependency is either an android_resources target or an
+   *     android_library target with no fields that android_resources targets do not provide.
    * @return A provider with the current resources and label.
    */
   public AndroidResourcesProvider toProvider(Label label, boolean isResourcesOnly) {
@@ -530,8 +527,8 @@ public final class ResourceDependencies {
   }
 
   /**
-   * @return The transitive closure of compiled symbols.
-   * Compiled symbols are zip files containing the compiled resource output of aapt2 compile
+   * @return The transitive closure of compiled symbols. Compiled symbols are zip files containing
+   *     the compiled resource output of aapt2 compile
    */
   public NestedSet<Artifact> getTransitiveCompiledSymbols() {
     return transitiveCompiledSymbols;

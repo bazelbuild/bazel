@@ -38,46 +38,52 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-/**
- * Modifies a {@link MergedAndroidData} manifest for the specified densities.
- */
+/** Modifies a {@link MergedAndroidData} manifest for the specified densities. */
 public class DensitySpecificManifestProcessor {
 
-  static final ImmutableList<String> SCREEN_SIZES = ImmutableList.of(
-      "small", "normal", "large", "xlarge");
+  static final ImmutableList<String> SCREEN_SIZES =
+      ImmutableList.of("small", "normal", "large", "xlarge");
   static final ImmutableBiMap<String, String> PLAY_STORE_SUPPORTED_DENSITIES =
       ImmutableBiMap.<String, String>builder()
-      .put("ldpi", "ldpi")
-      .put("mdpi", "mdpi")
-      .put("tvdpi", "213")
-      .put("hdpi", "hdpi")
-      .put("280dpi", "280")
-      .put("xhdpi", "xhdpi")
-      .put("400dpi", "400")
-      .put("420dpi", "420")
-      .put("xxhdpi", "480")
-      .put("560dpi", "560")
-      .put("xxxhdpi", "640").build();
+          .put("ldpi", "ldpi")
+          .put("mdpi", "mdpi")
+          .put("tvdpi", "213")
+          .put("hdpi", "hdpi")
+          .put("280dpi", "280")
+          .put("xhdpi", "xhdpi")
+          .put("400dpi", "400")
+          .put("420dpi", "420")
+          .put("xxhdpi", "480")
+          .put("560dpi", "560")
+          .put("xxxhdpi", "640")
+          .build();
 
-  private static final ImmutableMap<String, Boolean> SECURE_XML_FEATURES = ImmutableMap.of(
-      XMLConstants.FEATURE_SECURE_PROCESSING, true,
-      "http://xml.org/sax/features/external-general-entities", false,
-      "http://xml.org/sax/features/external-parameter-entities", false,
-      "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+  private static final ImmutableMap<String, Boolean> SECURE_XML_FEATURES =
+      ImmutableMap.of(
+          XMLConstants.FEATURE_SECURE_PROCESSING,
+          true,
+          "http://xml.org/sax/features/external-general-entities",
+          false,
+          "http://xml.org/sax/features/external-parameter-entities",
+          false,
+          "http://apache.org/xml/features/nonvalidating/load-external-dtd",
+          false);
 
   private static DocumentBuilder getSecureDocumentBuilder() throws ParserConfigurationException {
-    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance(
-        "com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl", null);
+    DocumentBuilderFactory factory =
+        DocumentBuilderFactory.newInstance(
+            "com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl", null);
     factory.setValidating(false);
     factory.setXIncludeAware(false);
     for (Map.Entry<String, Boolean> featureAndValue : SECURE_XML_FEATURES.entrySet()) {
-        try {
-          factory.setFeature(featureAndValue.getKey(), featureAndValue.getValue());
-        } catch (ParserConfigurationException e) {
-          throw new FactoryConfigurationError(e,
-              "Xerces DocumentBuilderFactory doesn't support the required security features: "
-              + e.getMessage());
-        }
+      try {
+        factory.setFeature(featureAndValue.getKey(), featureAndValue.getValue());
+      } catch (ParserConfigurationException e) {
+        throw new FactoryConfigurationError(
+            e,
+            "Xerces DocumentBuilderFactory doesn't support the required security features: "
+                + e.getMessage());
+      }
     }
     return factory.newDocumentBuilder();
   }
@@ -122,8 +128,10 @@ public class DensitySpecificManifestProcessor {
       NodeList screenElements = doc.getElementsByTagName("screen");
       for (int i = 0; i < screenElements.getLength(); i++) {
         Node screen = screenElements.item(i);
-        existingDensities.add(PLAY_STORE_SUPPORTED_DENSITIES.inverse().get(
-            screen.getAttributes().getNamedItem("android:screenDensity").getNodeValue()));
+        existingDensities.add(
+            PLAY_STORE_SUPPORTED_DENSITIES
+                .inverse()
+                .get(screen.getAttributes().getNamedItem("android:screenDensity").getNodeValue()));
       }
       if (existingDensities.containsAll(densities)) {
         return manifest;
@@ -157,8 +165,8 @@ public class DensitySpecificManifestProcessor {
           for (String screenSize : SCREEN_SIZES) {
             Element screen = doc.createElement("screen");
             screen.setAttribute("android:screenSize", screenSize);
-            screen.setAttribute("android:screenDensity",
-                PLAY_STORE_SUPPORTED_DENSITIES.get(density));
+            screen.setAttribute(
+                "android:screenDensity", PLAY_STORE_SUPPORTED_DENSITIES.get(density));
             compatibleScreens.appendChild(screen);
           }
         }
@@ -166,8 +174,9 @@ public class DensitySpecificManifestProcessor {
 
       Files.createDirectories(out.getParent());
       TransformerFactory transformerFactory = TransformerFactory.newInstance();
-      transformerFactory.newTransformer().transform(
-          new DOMSource(doc), new StreamResult(Files.newOutputStream(out)));
+      transformerFactory
+          .newTransformer()
+          .transform(new DOMSource(doc), new StreamResult(Files.newOutputStream(out)));
       return out;
 
     } catch (ParserConfigurationException | SAXException | IOException | TransformerException e) {

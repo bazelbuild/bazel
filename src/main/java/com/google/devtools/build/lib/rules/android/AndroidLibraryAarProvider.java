@@ -35,7 +35,8 @@ public abstract class AndroidLibraryAarProvider implements TransitiveInfoProvide
     return new AutoValue_AndroidLibraryAarProvider(aar, transitiveAars, transitiveAarArtifacts);
   }
 
-  @Nullable public abstract Aar getAar();
+  @Nullable
+  public abstract Aar getAar();
 
   public abstract NestedSet<Aar> getTransitiveAars();
 

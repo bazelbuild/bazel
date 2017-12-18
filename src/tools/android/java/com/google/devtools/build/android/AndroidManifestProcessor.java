@@ -131,7 +131,8 @@ public class AndroidManifestProcessor {
       Map<String, String> values,
       String customPackage,
       Path output,
-      Path logFile) throws ManifestProcessingException {
+      Path logFile)
+      throws ManifestProcessingException {
     if (mergeeManifests.isEmpty() && values.isEmpty() && Strings.isNullOrEmpty(customPackage)) {
       return manifest;
     }
@@ -253,7 +254,11 @@ public class AndroidManifestProcessor {
 
     if (versionCode != -1 || versionName != null || applicationId != null) {
       processManifest(
-          versionCode, versionName, manifest, processedManifest, MergeType.APPLICATION,
+          versionCode,
+          versionName,
+          manifest,
+          processedManifest,
+          MergeType.APPLICATION,
           applicationId);
       return processedManifest;
     }
@@ -262,9 +267,7 @@ public class AndroidManifestProcessor {
 
   /** Processes the manifest for a library and return the manifest Path. */
   public Path processLibraryManifest(
-      String newManifestPackage,
-      Path manifest,
-      Path processedManifest) {
+      String newManifestPackage, Path manifest, Path processedManifest) {
 
     if (newManifestPackage != null) {
       processManifest(
@@ -402,11 +405,15 @@ public class AndroidManifestProcessor {
   public static Path writeDummyManifestForAapt(Path dummyManifest, String packageForR) {
     try {
       Files.createDirectories(dummyManifest.getParent());
-      return Files.write(dummyManifest, String.format(
-          "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-              + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
-              + " package=\"%s\">"
-              + "</manifest>", packageForR).getBytes(UTF_8));
+      return Files.write(
+          dummyManifest,
+          String.format(
+                  "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+                      + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
+                      + " package=\"%s\">"
+                      + "</manifest>",
+                  packageForR)
+              .getBytes(UTF_8));
     } catch (IOException e) {
       throw new ManifestProcessingException(e);
     }

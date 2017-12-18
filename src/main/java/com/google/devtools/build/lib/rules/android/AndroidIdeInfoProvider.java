@@ -34,12 +34,10 @@ import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * An Android target provider to provide Android-specific info to IDEs.
- */
+/** An Android target provider to provide Android-specific info to IDEs. */
 @Immutable
 public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
-  /** Represents a directory that contains sources, generated or otherwise, for an IDE.*/
+  /** Represents a directory that contains sources, generated or otherwise, for an IDE. */
   @Immutable
   public static class SourceDirectory {
     final PathFragment relativePath;
@@ -48,9 +46,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     final boolean isSource;
 
     @VisibleForTesting
-    public static SourceDirectory fromSourceRoot(
-        PathFragment rootPath,
-        PathFragment relativePath) {
+    public static SourceDirectory fromSourceRoot(PathFragment rootPath, PathFragment relativePath) {
       return new SourceDirectory(rootPath, PathFragment.EMPTY_FRAGMENT, relativePath, true);
     }
 
@@ -70,23 +66,19 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       this.isSource = isSource;
     }
 
-   /**
-    * The root relative path, {@link Artifact#getRootRelativePath()}.
-    */
+    /** The root relative path, {@link Artifact#getRootRelativePath()}. */
     public PathFragment getRelativePath() {
       return relativePath;
     }
 
-    /**
-     * The absolute path of the root that contains this directory, {@link Root#getPath()}.
-     */
+    /** The absolute path of the root that contains this directory, {@link Root#getPath()}. */
     public PathFragment getRootPath() {
       return rootPath;
     }
 
     /**
-     * The path from the execution root to the actual root. For source roots, this returns
-     * the empty fragment, {@link Root#getExecPath()}.
+     * The path from the execution root to the actual root. For source roots, this returns the empty
+     * fragment, {@link Root#getExecPath()}.
      */
     public PathFragment getRootExecutionPathFragment() {
       return rootExecutionPathFragment;
@@ -116,14 +108,19 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
 
     @Override
     public String toString() {
-      return "SourceDirectory [relativePath=" + relativePath + ", rootPath=" + rootPath
-          + ", executionRootPrefix=" + rootExecutionPathFragment + ", isSource=" + isSource + "]";
+      return "SourceDirectory [relativePath="
+          + relativePath
+          + ", rootPath="
+          + rootPath
+          + ", executionRootPrefix="
+          + rootExecutionPathFragment
+          + ", isSource="
+          + isSource
+          + "]";
     }
   }
 
-  /**
-   * Builder for {@link AndroidIdeInfoProvider}
-   */
+  /** Builder for {@link AndroidIdeInfoProvider} */
   public static class Builder {
     private Artifact manifest = null;
     private Artifact generatedManifest = null;
@@ -228,32 +225,25 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       return this;
     }
 
-
     public Builder addIdlImportRoot(String idlImportRoot) {
       this.idlImportRoot = idlImportRoot;
       return this;
     }
 
-    /**
-     * Add "idl_srcs" contents.
-     */
+    /** Add "idl_srcs" contents. */
     public Builder addIdlSrcs(Collection<Artifact> idlSrcs) {
       this.idlSrcs.addAll(idlSrcs);
       addIdlDirs(idlSrcs);
       return this;
     }
 
-    /**
-     * Add the java files generated from "idl_srcs".
-     */
+    /** Add the java files generated from "idl_srcs". */
     public Builder addIdlGeneratedJavaFiles(Collection<Artifact> idlGeneratedJavaFiles) {
       this.idlGeneratedJavaFiles.addAll(idlGeneratedJavaFiles);
       return this;
     }
 
-    /**
-     * Add "idl_parcelables" contents.
-     */
+    /** Add "idl_parcelables" contents. */
     public Builder addIdlParcelables(Collection<Artifact> idlParcelables) {
       addIdlDirs(idlParcelables);
       return this;
@@ -263,8 +253,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       for (Artifact idl : idlArtifacts) {
         this.idlDirs.add(
             SourceDirectory.fromRoot(
-                idl.getRoot(),
-                idl.getRootRelativePath().getParentDirectory()));
+                idl.getRoot(), idl.getRootRelativePath().getParentDirectory()));
       }
     }
 
@@ -389,8 +378,8 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns true if the target defined Android resources.
-   * Exposes {@link LocalResourceContainer#definesAndroidResources(AttributeMap)}
+   * Returns true if the target defined Android resources. Exposes {@link
+   * LocalResourceContainer#definesAndroidResources(AttributeMap)}
    */
   public boolean definesAndroidResources() {
     return this.definesAndroidResources;

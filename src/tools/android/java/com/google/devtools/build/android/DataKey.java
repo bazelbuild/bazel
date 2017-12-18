@@ -19,12 +19,12 @@ import java.io.OutputStream;
 /**
  * A general interface for resource and asset keys.
  *
- * Resource and Assets are merged on the basis of a key value:
+ * <p>Resource and Assets are merged on the basis of a key value:
  *
- * For Resources, this is the fully qualified name, consisting of the resource package, name, type,
- * and qualifiers.
+ * <p>For Resources, this is the fully qualified name, consisting of the resource package, name,
+ * type, and qualifiers.
  *
- * For Assets, it is the asset path from the assets directory.
+ * <p>For Assets, it is the asset path from the assets directory.
  */
 public interface DataKey extends Comparable<DataKey> {
 
@@ -33,18 +33,14 @@ public interface DataKey extends Comparable<DataKey> {
    *
    * @param output The destination stream to serialize the key.
    * @param valueSize The size, in bytes, of the serialized output for this key. The value size can
-   * be used for calculating offsets of the value in the stream.
+   *     be used for calculating offsets of the value in the stream.
    */
   void serializeTo(OutputStream output, int valueSize) throws IOException;
 
-  /**
-   * Returns a human readable string representation of the key.
-   */
+  /** Returns a human readable string representation of the key. */
   String toPrettyString();
 
-  /**
-   * Defines a total ordering on the different key types to assist in compareTo operations.
-   */
+  /** Defines a total ordering on the different key types to assist in compareTo operations. */
   enum KeyType {
     ASSET_PATH,
     FULL_QUALIFIED_NAME

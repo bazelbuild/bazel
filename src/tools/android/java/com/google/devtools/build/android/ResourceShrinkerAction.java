@@ -239,7 +239,7 @@ public class ResourceShrinkerAction {
   }
 
   private static Set<String> getManifestPackages(Path primaryManifest, List<Path> otherManifests)
-          throws SAXException, IOException, StreamException, ParserConfigurationException {
+      throws SAXException, IOException, StreamException, ParserConfigurationException {
     Set<String> manifestPackages = new HashSet<>();
     manifestPackages.add(getManifestPackage(primaryManifest));
     for (Path manifest : otherManifests) {
@@ -251,8 +251,8 @@ public class ResourceShrinkerAction {
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
     // Parse arguments.
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(
-        Options.class, AaptConfigOptions.class);
+    OptionsParser optionsParser =
+        OptionsParser.newOptionsParser(Options.class, AaptConfigOptions.class);
     optionsParser.enableParamsFileSupport(
         new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parseAndExitUponError(args);
@@ -271,13 +271,13 @@ public class ResourceShrinkerAction {
       final Path shrunkResources = working.resolve("shrunk_resources");
 
       // Gather package list from manifests.
-      Set<String> resourcePackages = getManifestPackages(
-          options.primaryManifest, options.dependencyManifests);
+      Set<String> resourcePackages =
+          getManifestPackages(options.primaryManifest, options.dependencyManifests);
       resourcePackages.addAll(options.resourcePackages);
 
       // Expand resource files zip into working directory.
-      try (ZipInputStream zin = new ZipInputStream(
-          new FileInputStream(options.resourcesZip.toFile()))) {
+      try (ZipInputStream zin =
+          new ZipInputStream(new FileInputStream(options.resourcesZip.toFile()))) {
         ZipEntry entry;
         while ((entry = zin.getNextEntry()) != null) {
           if (!entry.isDirectory()) {
@@ -291,18 +291,20 @@ public class ResourceShrinkerAction {
       }
 
       // Shrink resources.
-      ResourceUsageAnalyzer resourceShrinker = new ResourceUsageAnalyzer(
-          resourcePackages,
-          options.rTxt,
-          options.shrunkJar,
-          options.primaryManifest,
-          options.proguardMapping,
-          resourceFiles.resolve("res"),
-          options.log);
+      ResourceUsageAnalyzer resourceShrinker =
+          new ResourceUsageAnalyzer(
+              resourcePackages,
+              options.rTxt,
+              options.shrunkJar,
+              options.primaryManifest,
+              options.proguardMapping,
+              resourceFiles.resolve("res"),
+              options.log);
 
       resourceShrinker.shrink(shrunkResources);
-      logger.fine(String.format("Shrinking resources finished at %sms",
-          timer.elapsed(TimeUnit.MILLISECONDS)));
+      logger.fine(
+          String.format(
+              "Shrinking resources finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       Path generatedSources = null;
       if (options.rTxtOutput != null) {
@@ -338,8 +340,9 @@ public class ResourceShrinkerAction {
         AndroidResourceOutputs.copyRToOutput(
             generatedSources, options.rTxtOutput, options.packageType == VariantType.LIBRARY);
       }
-      logger.fine(String.format("Packing resources finished at %sms",
-          timer.elapsed(TimeUnit.MILLISECONDS)));
+      logger.fine(
+          String.format(
+              "Packing resources finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     } catch (Exception e) {
       logger.log(Level.SEVERE, "Error shrinking resources", e);
       throw e;
