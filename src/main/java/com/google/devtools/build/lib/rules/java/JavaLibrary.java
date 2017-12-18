@@ -231,6 +231,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         // TODO(bazel-team): this should only happen for java_plugin
         .addProvider(JavaPluginInfoProvider.class, pluginInfoProvider)
+        .setNeverlink(neverLink)
         .build();
 
     builder
@@ -241,7 +242,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             RunfilesProvider.simple(
                 JavaCommon.getRunfiles(ruleContext, semantics, javaArtifacts, neverLink)))
         .setFilesToBuild(filesToBuild)
-        .addProvider(new JavaNeverlinkInfoProvider(neverLink))
         .addProvider(transitiveCppDeps)
         .addNativeDeclaredProvider(ccLinkParamsInfo)
         .addProvider(new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))

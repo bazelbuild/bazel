@@ -792,7 +792,8 @@ public class AndroidCommon {
       Artifact zipAlignedApk,
       Iterable<Artifact> apksUnderTest,
       NativeLibs nativeLibs,
-      boolean isResourcesOnly) {
+      boolean isResourcesOnly,
+      boolean isNeverlink) {
 
     idlHelper.addTransitiveInfoProviders(builder, classJar, manifestProtoOutput);
 
@@ -826,12 +827,12 @@ public class AndroidCommon {
     javaCommon.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
     DataBinding.maybeAddProvider(builder, ruleContext);
-    JavaInfo javaInfo =
-        javaInfoBuilder
-            .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .build();
+    JavaInfo javaInfo = javaInfoBuilder
+        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
+        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .setNeverlink(isNeverlink)
+        .build();
 
     return builder
         .setFilesToBuild(filesToBuild)
@@ -1114,3 +1115,4 @@ public class AndroidCommon {
         .build();
   }
 }
+

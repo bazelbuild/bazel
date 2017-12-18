@@ -826,7 +826,6 @@ java_library(
         "rules/java/JavaInfo.java",
         "rules/java/JavaLibraryHelper.java",
         "rules/java/JavaNativeLibraryProvider.java",
-        "rules/java/JavaNeverlinkInfoProvider.java",
         "rules/java/JavaOptions.java",
         "rules/java/JavaPluginConfigurationProvider.java",
         "rules/java/JavaPluginInfoProvider.java",

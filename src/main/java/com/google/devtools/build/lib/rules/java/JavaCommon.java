@@ -316,14 +316,13 @@ public class JavaCommon {
   public static void checkRuntimeDeps(
       RuleContext ruleContext, List<TransitiveInfoCollection> runtimeDepInfo) {
     for (TransitiveInfoCollection c : runtimeDepInfo) {
-      JavaNeverlinkInfoProvider neverLinkedness =
-          c.getProvider(JavaNeverlinkInfoProvider.class);
-      if (neverLinkedness == null) {
+          JavaInfo javaInfo = (JavaInfo) c.get(JavaInfo.PROVIDER.getKey());
+      if (javaInfo == null) {
         continue;
       }
       boolean reportError =
           !ruleContext.getFragment(JavaConfiguration.class).getAllowRuntimeDepsOnNeverLink();
-      if (neverLinkedness.isNeverlink()) {
+      if (javaInfo.isNeverlink()) {
         String msg = String.format("neverlink dep %s not allowed in runtime deps", c.getLabel());
         if (reportError) {
           ruleContext.attributeError("runtime_deps", msg);

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaNeverlinkInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -321,7 +320,9 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         null,
         ImmutableList.<Artifact>of(),
         NativeLibs.EMPTY,
-        isResourcesOnly);
+        isResourcesOnly,
+        // TODO(elenairina): Use JavaCommon.isNeverlink(ruleContext) for consistency among rules.
+        androidCommon.isNeverLink());
 
     NestedSetBuilder<Artifact> transitiveResourcesJars = collectTransitiveResourceJars(ruleContext);
     if (androidCommon.getResourceClassJar() != null) {
@@ -333,9 +334,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             NativeLibsZipsProvider.class,
             new NativeLibsZipsProvider(
                 AndroidCommon.collectTransitiveNativeLibsZips(ruleContext).build()))
-        .add(
-            JavaNeverlinkInfoProvider.class,
-            new JavaNeverlinkInfoProvider(androidCommon.isNeverLink()))
         .add(
             JavaSourceInfoProvider.class,
             JavaSourceInfoProvider.fromJavaTargetAttributes(javaTargetAttributes, javaSemantics))

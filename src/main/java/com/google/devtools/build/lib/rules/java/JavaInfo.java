@@ -68,6 +68,9 @@ public final class JavaInfo extends NativeInfo {
 
   private final TransitiveInfoProviderMap providers;
 
+  // Whether or not this library should be used only for compilation and not at runtime.
+  private final boolean neverlink;
+
   /** Returns the instance for the provided providerClass, or <tt>null</tt> if not present. */
   @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
@@ -203,9 +206,14 @@ public final class JavaInfo extends NativeInfo {
     return providersList.build();
   }
 
-  private JavaInfo(TransitiveInfoProviderMap providers) {
+  private JavaInfo(TransitiveInfoProviderMap providers, boolean neverlink) {
     super(PROVIDER);
     this.providers = providers;
+    this.neverlink = neverlink;
+  }
+
+  public Boolean isNeverlink() {
+    return neverlink;
   }
 
   @SkylarkCallable(
@@ -421,6 +429,7 @@ public final class JavaInfo extends NativeInfo {
    */
   public static class Builder {
     TransitiveInfoProviderMapBuilder providerMap;
+    private boolean neverlink;
 
     private Builder(TransitiveInfoProviderMapBuilder providerMap) {
       this.providerMap = providerMap;
@@ -435,6 +444,11 @@ public final class JavaInfo extends NativeInfo {
           new TransitiveInfoProviderMapBuilder().addAll(javaInfo.getProviders()));
     }
 
+    public Builder setNeverlink(boolean neverlink) {
+      this.neverlink = neverlink;
+      return this;
+    }
+
     public <P extends TransitiveInfoProvider> Builder addProvider(
         Class<P> providerClass, TransitiveInfoProvider provider) {
       Preconditions.checkArgument(ALLOWED_PROVIDERS.contains(providerClass));
@@ -443,7 +457,7 @@ public final class JavaInfo extends NativeInfo {
     }
 
     public JavaInfo build() {
-      return new JavaInfo(providerMap.build());
+      return new JavaInfo(providerMap.build(), neverlink);
     }
   }
 }

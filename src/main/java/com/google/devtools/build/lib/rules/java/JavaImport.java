@@ -169,6 +169,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .setNeverlink(neverLink)
         .build();
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
@@ -178,7 +179,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .add(
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
-        .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addNativeDeclaredProvider(new CcLinkParamsInfo(ccLinkParamsStore))
         .add(
