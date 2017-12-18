@@ -97,7 +97,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
                 .value(environment.getToolsLabel(AndroidRuleClasses.DEFAULT_RESOURCES_BUSYBOX)))
         .add(
             attr(":android_sdk", LABEL)
-                .allowedRuleClasses("android_sdk", "filegroup")
+                .allowedRuleClasses("android_sdk")
                 .value(
                     getAndroidSdkLabel(environment.getToolsLabel(AndroidRuleClasses.DEFAULT_SDK))))
         /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(test_class) -->
