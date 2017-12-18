@@ -18,6 +18,17 @@ package com.google.devtools.build.lib.analysis.stringtemplate;
  * each template variable and function.
  */
 public interface TemplateContext {
+  public static final TemplateContext EMPTY = new TemplateContext() {
+    @Override
+    public String lookupVariable(String name) throws ExpansionException {
+      throw new ExpansionException(String.format("$(%s) not defined", name));
+    }
+
+    @Override
+    public String lookupFunction(String name, String param) throws ExpansionException {
+      throw new ExpansionException(String.format("$(%s) not defined", name));
+    }
+  };
 
   /**
    * Returns the expansion of the specified template variable.

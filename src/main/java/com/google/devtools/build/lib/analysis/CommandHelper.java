@@ -24,6 +24,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
+import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
+import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -163,24 +166,26 @@ public final class CommandHelper {
   }
 
   /**
-   * Resolves a command, and expands known locations for $(location)
-   * variables.
+   * Resolves a command, and expands known locations for $(location) variables.
    */
   @Deprecated // Only exists to support a legacy Skylark API.
-  public String resolveCommandAndExpandLabels(
-      String command, @Nullable String attribute, boolean allowDataInLabel) {
-    LocationExpander expander;
-    if (allowDataInLabel) {
-      expander = LocationExpander.withExecPathsAndData(ruleContext, labelMap);
-    } else {
-      expander = LocationExpander.withExecPaths(ruleContext, labelMap);
+  public String expandForSkylark(
+      String command, @Nullable String attribute,
+      TemplateContext templateContext, boolean expandLocations) {
+    try {
+      if (expandLocations) {
+        templateContext = new LocationTemplateContext(
+            templateContext, ruleContext, labelMap, true, false);
+      }
+      return TemplateExpander.expand(command, templateContext);
+    } catch (ExpansionException e) {
+      if (attribute != null) {
+        ruleContext.attributeError(attribute, e.getMessage());
+      } else {
+        ruleContext.ruleError(e.getMessage());
+      }
+      return command;
     }
-    if (attribute != null) {
-      command = expander.expandAttribute(attribute, command);
-    } else {
-      command = expander.expand(command);
-    }
-    return command;
   }
 
   /**

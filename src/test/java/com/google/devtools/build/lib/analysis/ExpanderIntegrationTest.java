@@ -16,15 +16,16 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Integration tests for {@link LocationExpander}. */
+/** Integration tests for {@link Expander}. */
 @RunWith(JUnit4.class)
-public class LocationExpanderIntegrationTest extends BuildViewTestCase {
+public class ExpanderIntegrationTest extends BuildViewTestCase {
 
   @Before
   public void createFiles() throws Exception {
@@ -40,10 +41,10 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         "  deps = [':files'])");
   }
 
-  private LocationExpander makeExpander(String label) throws Exception {
+  private Expander makeExpander(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
     RuleContext ruleContext = getRuleContext(target);
-    return LocationExpander.withRunfilesPaths(ruleContext);
+    return ruleContext.getExpander().withExecLocations(ImmutableMap.of());
   }
 
   @Test
@@ -57,9 +58,9 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         "sh_library(name='lib',",
         "  deps = [':files'])");
 
-    LocationExpander expander = makeExpander("//spaces:lib");
+    Expander expander = makeExpander("//spaces:lib");
     String input = "foo $(locations :files) bar";
-    String result = expander.expand(input);
+    String result = expander.expand(null, input);
 
     assertThat(result).isEqualTo("foo 'spaces/file with space A' 'spaces/file with space B' bar");
   }
@@ -71,14 +72,14 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         "genrule(name='foo', outs=['foo.txt'], cmd='never executed')",
         "sh_library(name='lib', srcs=[':foo'])");
 
-    LocationExpander expander = makeExpander("//expansion:lib");
-    assertThat(expander.expand("foo $(execpath :foo) bar"))
+    Expander expander = makeExpander("//expansion:lib");
+    assertThat(expander.expand("<attribute>", "foo $(execpath :foo) bar"))
         .matches("foo .*-out/.*/expansion/foo\\.txt bar");
-    assertThat(expander.expand("foo $(execpaths :foo) bar"))
+    assertThat(expander.expand("<attribute>", "foo $(execpaths :foo) bar"))
         .matches("foo .*-out/.*/expansion/foo\\.txt bar");
-    assertThat(expander.expand("foo $(rootpath :foo) bar"))
+    assertThat(expander.expand("<attribute>", "foo $(rootpath :foo) bar"))
         .matches("foo expansion/foo.txt bar");
-    assertThat(expander.expand("foo $(rootpaths :foo) bar"))
+    assertThat(expander.expand("<attribute>", "foo $(rootpaths :foo) bar"))
         .matches("foo expansion/foo.txt bar");
   }
 
@@ -89,10 +90,10 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         "genrule(name='foo', outs=['foo.txt', 'bar.txt'], cmd='never executed')",
         "sh_library(name='lib', srcs=[':foo'])");
 
-    LocationExpander expander = makeExpander("//expansion:lib");
-    assertThat(expander.expand("foo $(execpaths :foo) bar"))
+    Expander expander = makeExpander("//expansion:lib");
+    assertThat(expander.expand("<attribute>", "foo $(execpaths :foo) bar"))
         .matches("foo .*-out/.*/expansion/bar\\.txt .*-out/.*/expansion/foo\\.txt bar");
-    assertThat(expander.expand("foo $(rootpaths :foo) bar"))
+    assertThat(expander.expand("<attribute>", "foo $(rootpaths :foo) bar"))
         .matches("foo expansion/bar.txt expansion/foo.txt bar");
   }
 }
