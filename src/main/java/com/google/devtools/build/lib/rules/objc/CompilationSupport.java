@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -312,6 +313,8 @@ public class CompilationSupport {
       Collection<Artifact> privateHdrs,
       Collection<Artifact> publicHdrs,
       Artifact pchHdr,
+      // TODO(b/70777494): Find out how deps get used and remove if not needed.
+      Iterable<? extends TransitiveInfoCollection> deps,
       ObjcCppSemantics semantics,
       String purpose)
       throws RuleErrorException, InterruptedException {
@@ -330,6 +333,11 @@ public class CompilationSupport {
             .enableCompileProviders()
             .addPublicHeaders(publicHdrs)
             .addPrecompiledFiles(precompiledFiles)
+            .addDeps(deps)
+            // Not all our dependencies need to export cpp information.
+            // For example, objc_proto_library can depend on a proto_library rule that does not
+            // generate C++ protos.
+            .setCheckDepsGenerateCpp(false)
             .setCopts(
                 ImmutableList.<String>builder()
                     .addAll(getCompileRuleCopts())
@@ -384,6 +392,8 @@ public class CompilationSupport {
                 Streams.stream(compilationArtifacts.getAdditionalHdrs()))
             .collect(toImmutableSortedSet(naturalOrder()));
     Artifact pchHdr = getPchFile().orNull();
+    Iterable<? extends TransitiveInfoCollection> deps =
+        ruleContext.getPrerequisites("deps", Mode.TARGET);
     ObjcCppSemantics semantics = createObjcCppSemantics(objcProvider, privateHdrs, pchHdr);
 
     String purpose = String.format("%s_objc_arc", semantics.getPurpose());
@@ -401,6 +411,7 @@ public class CompilationSupport {
             privateHdrs,
             publicHdrs,
             pchHdr,
+            deps,
             semantics,
             purpose);
 
@@ -419,6 +430,7 @@ public class CompilationSupport {
             privateHdrs,
             publicHdrs,
             pchHdr,
+            deps,
             semantics,
             purpose);
 
