@@ -86,7 +86,7 @@ public abstract class AbstractObjectCodecTest<T> {
     return TestUtils.toBytes(underTest, subject);
   }
 
-  protected void verifyDeserialization(Object deserialized, T subject) {
+  protected void verifyDeserialization(T deserialized, T subject) {
     assertThat(deserialized).isEqualTo(subject);
   }
 }

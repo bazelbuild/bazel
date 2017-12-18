@@ -59,12 +59,11 @@ public class NestedSetCodecTest {
         .buildAndRunTests();
   }
 
-  @SuppressWarnings("unchecked")
-  private static void verifyDeserialization(NestedSet<String> subject, Object deserialized) {
-    NestedSet<String> other = (NestedSet<String>) deserialized;
-    assertThat(subject.getOrder()).isEqualTo(other.getOrder());
-    assertThat(subject.toSet()).isEqualTo(other.toSet());
-    verifyStructure(subject.rawChildren(), other.rawChildren());
+  private static void verifyDeserialization(
+      NestedSet<String> subject, NestedSet<String> deserialized) {
+    assertThat(subject.getOrder()).isEqualTo(deserialized.getOrder());
+    assertThat(subject.toSet()).isEqualTo(deserialized.toSet());
+    verifyStructure(subject.rawChildren(), deserialized.rawChildren());
   }
 
   private static void verifyStructure(Object lhs, Object rhs) {
