@@ -639,7 +639,7 @@ public final class SkylarkAttr implements SkylarkValue {
             + "referred to by the label. "
             + "It is the only way to specify a dependency to another target. "
             + "If you need a dependency that the user cannot overwrite, "
-            + "<a href=\"../rules.html#private-attributes\">make the attribute private</a>.",
+            + "<a href=\"../rules.$DOC_EXT#private-attributes\">make the attribute private</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     parameters = {

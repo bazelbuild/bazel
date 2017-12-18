@@ -247,7 +247,8 @@ public class SkylarkRuleClassFunctions {
             + "Instantiate this provider with <br>"
             + "<pre class=language-python>"
             + "OutputGroupInfo(group1 = &lt;files&gt;, group2 = &lt;files&gt;...)</pre>"
-            + "See <a href=\"../rules.html#output-groups\">Output Groups</a> for more information"
+            + "See <a href=\"../rules.$DOC_EXT#output-groups\">Output Groups</a> "
+            + "for more information."
   )
   private static final Provider outputGroupInfo = OutputGroupInfo.SKYLARK_CONSTRUCTOR;
 
