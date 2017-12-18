@@ -1124,9 +1124,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   /**
    * Returns the GNU System Name
+   *
    */
+  //TODO(b/70225490): Migrate skylark dependants to CcToolchainProvider and delete.
   @SkylarkCallable(name = "target_gnu_system_name", structField = true,
       doc = "The GNU System Name.")
+  @Deprecated
   public String getTargetGnuSystemName() {
     return cppToolchainInfo.getTargetGnuSystemName();
   }
