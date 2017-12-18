@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.extra.DetailedExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionSummary;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
@@ -126,8 +126,8 @@ public final class PrintActionCommand implements BlazeCommand {
       this.options = options;
       this.outErr = outErr;
       this.requestedTargets = requestedTargets;
-      BuildView.Options viewOptions = options.getOptions(BuildView.Options.class);
-      keepGoing = viewOptions.keepGoing;
+      KeepGoingOption keepGoingOption = options.getOptions(KeepGoingOption.class);
+      keepGoing = keepGoingOption.keepGoing;
       summaryBuilder = ExtraActionSummary.newBuilder();
       actionMnemonicMatcher = new Predicate<ActionAnalysisMetadata>() {
         @Override

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -53,18 +54,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Command line wrapper for executing a query with blaze.
- */
-@Command(name = "query",
-         options = { PackageCacheOptions.class,
-                     QueryOptions.class },
-         help = "resource:query.txt",
-         shortDescription = "Executes a dependency graph query.",
-         allowResidue = true,
-         binaryStdOut = true,
-         completion = "label",
-         canRunInOutputDirectory = true)
+/** Command line wrapper for executing a query with blaze. */
+@Command(
+  name = "query",
+  options = {PackageCacheOptions.class, QueryOptions.class, KeepGoingOption.class},
+  help = "resource:query.txt",
+  shortDescription = "Executes a dependency graph query.",
+  allowResidue = true,
+  binaryStdOut = true,
+  completion = "label",
+  canRunInOutputDirectory = true
+)
 public final class QueryCommand implements BlazeCommand {
 
   @Override
@@ -133,12 +133,12 @@ public final class QueryCommand implements BlazeCommand {
     QueryEvalResult result;
     AbstractBlazeQueryEnvironment<Target> queryEnv =
         newQueryEnvironment(
-          env,
-          queryOptions.keepGoing,
-          !streamResults,
-          queryOptions.universeScope,
-          queryOptions.loadingPhaseThreads,
-          settings);
+            env,
+            options.getOptions(KeepGoingOption.class).keepGoing,
+            !streamResults,
+            queryOptions.universeScope,
+            queryOptions.loadingPhaseThreads,
+            settings);
     QueryExpression expr;
     try {
       expr = QueryExpression.parse(query, queryEnv);

@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,18 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package com.google.devtools.build.lib.bazel.commands;
+package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 
-/**
- * Command-line options for the fetch command.
- */
-public class FetchOptions extends OptionsBase {
+/** Defines the --keep_going option which is used by multiple commands. */
+public class KeepGoingOption extends OptionsBase {
   @Option(
     name = "keep_going",
     abbrev = 'k',

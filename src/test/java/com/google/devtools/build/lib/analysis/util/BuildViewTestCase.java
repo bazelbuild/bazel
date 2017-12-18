@@ -1548,7 +1548,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             : customLoadingOptions;
 
     BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
-    viewOptions.keepGoing = keepGoing;
     viewOptions.loadingPhaseThreads = loadingPhaseThreads;
 
     LoadingPhaseRunner runner = new LegacyLoadingPhaseRunner(getPackageManager(),
@@ -1559,9 +1558,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             targets,
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
-            viewOptions.keepGoing,
-            /*determineTests=*/false,
-            /*callback=*/null);
+            keepGoing,
+            /*determineTests=*/ false,
+            /*callback=*/ null);
     if (!doAnalysis) {
       // TODO(bazel-team): What's supposed to happen in this case?
       return null;
@@ -1571,6 +1570,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         masterConfig,
         aspects,
         viewOptions,
+        keepGoing,
         AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
         reporter,
         eventBus);

@@ -178,20 +178,6 @@ public class BuildView {
     public int loadingPhaseThreads;
 
     @Option(
-      name = "keep_going",
-      abbrev = 'k',
-      defaultValue = "false",
-      category = "strategy",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
-      help =
-          "Continue as much as possible after an error.  While the target that failed, and those "
-              + "that depend on it, cannot be analyzed (or built), the other prerequisites of "
-              + "these targets can be analyzed (or built) all the same."
-    )
-    public boolean keepGoing;
-
-    @Option(
       name = "analysis_warnings_as_errors",
       deprecationWarning =
           "analysis_warnings_as_errors is now a no-op and will be removed in"
@@ -478,6 +464,7 @@ public class BuildView {
       BuildConfigurationCollection configurations,
       List<String> aspects,
       Options viewOptions,
+      boolean keepGoing,
       TopLevelArtifactContext topLevelOptions,
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
@@ -596,7 +583,7 @@ public class BuildView {
               topLevelCtKeys,
               aspectKeys,
               eventBus,
-              viewOptions.keepGoing,
+              keepGoing,
               viewOptions.loadingPhaseThreads);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
     } finally {

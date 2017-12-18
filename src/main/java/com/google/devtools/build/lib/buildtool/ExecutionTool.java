@@ -685,7 +685,7 @@ public class ExecutionTool {
       SkyframeExecutor skyframeExecutor,
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
-    boolean keepGoing = request.getViewOptions().keepGoing;
+    boolean keepGoing = request.getKeepGoing();
 
     Path actionOutputRoot = env.getActionConsoleOutputDirectory();
     Predicate<Action> executionFilter = CheckUpToDateFilter.fromOptions(

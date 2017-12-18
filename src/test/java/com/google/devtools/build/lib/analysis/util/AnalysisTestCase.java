@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -232,13 +233,17 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * options for unspecified ones, and recreates the build view.
    */
   protected final void useConfiguration(String... args) throws Exception {
-    optionsParser = OptionsParser.newOptionsParser(Iterables.concat(Arrays.asList(
-        ExecutionOptions.class,
-        PackageCacheOptions.class,
-        SkylarkSemanticsOptions.class,
-        BuildRequestOptions.class,
-        BuildView.Options.class),
-        ruleClassProvider.getConfigurationOptions()));
+    optionsParser =
+        OptionsParser.newOptionsParser(
+            Iterables.concat(
+                Arrays.asList(
+                    ExecutionOptions.class,
+                    PackageCacheOptions.class,
+                    SkylarkSemanticsOptions.class,
+                    BuildRequestOptions.class,
+                    BuildView.Options.class,
+                    KeepGoingOption.class),
+                ruleClassProvider.getConfigurationOptions()));
     optionsParser.parse(new String[] {"--default_visibility=public" });
     optionsParser.parse(args);
     if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
@@ -300,7 +305,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
 
     BuildView.Options viewOptions = optionsParser.getOptions(BuildView.Options.class);
-    viewOptions.keepGoing = flags.contains(Flag.KEEP_GOING);
+    KeepGoingOption keepGoingOption = optionsParser.getOptions(KeepGoingOption.class);
+    // update --keep_going option if test requested it.
+    keepGoingOption.keepGoing = flags.contains(Flag.KEEP_GOING);
     viewOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
 
     PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
@@ -337,9 +344,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ImmutableList.copyOf(labels),
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
-            viewOptions.keepGoing,
-            /*determineTests=*/false,
-            /*callback=*/null);
+            keepGoingOption.keepGoing,
+            /*determineTests=*/ false,
+            /*callback=*/ null);
 
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
@@ -352,6 +359,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             masterConfig,
             aspects,
             viewOptions,
+            keepGoingOption.keepGoing,
             AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
             reporter,
             eventBus);

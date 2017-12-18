@@ -203,7 +203,7 @@ public final class BuildTool {
                   runtime.getConfigurationFragmentFactories(),
                   buildOptions,
                   request.getMultiCpus(),
-                  request.getViewOptions().keepGoing);
+                  request.getKeepGoing());
 
       env.throwPendingException();
       if (configurations.getTargetConfigurations().size() == 1) {
@@ -246,7 +246,7 @@ public final class BuildTool {
           try {
             doConfiguredTargetQuery(request, configurations, loadingResult);
           } catch (QueryException | IOException e) {
-            if (!request.getViewOptions().keepGoing) {
+            if (!request.getKeepGoing()) {
               throw new ViewCreationFailedException("Error doing configured target query", e);
             }
             env.getReporter().error(null, "Error doing configured target query", e);
@@ -448,7 +448,7 @@ public final class BuildTool {
     String queryOptions = request.getBuildOptions().queryOptions;
     ConfiguredTargetQueryEnvironment configuredTargetQueryEnvironment =
         new ConfiguredTargetQueryEnvironment(
-            request.getViewOptions().keepGoing,
+            request.getKeepGoing(),
             env.getReporter(),
             env.getRuntime().getQueryFunctions(),
             sampleConfig,
@@ -488,7 +488,7 @@ public final class BuildTool {
   }
 
   private boolean shouldStopOnFailure(BuildRequest request) {
-    return !(request.getViewOptions().keepGoing && request.getExecutionOptions().testKeepGoing);
+    return !(request.getKeepGoing() && request.getExecutionOptions().testKeepGoing);
   }
 
   private final LoadingResult evaluateTargetPatterns(
@@ -497,7 +497,7 @@ public final class BuildTool {
     Profiler.instance().markPhase(ProfilePhase.LOAD);
     initializeOutputFilter(request);
 
-    final boolean keepGoing = request.getViewOptions().keepGoing;
+    final boolean keepGoing = request.getKeepGoing();
 
     LoadingCallback callback = new LoadingCallback() {
       @Override
@@ -560,6 +560,7 @@ public final class BuildTool {
             configurations,
             request.getAspects(),
             request.getViewOptions(),
+            request.getKeepGoing(),
             request.getTopLevelArtifactContext(),
             env.getReporter(),
             env.getEventBus());
@@ -578,8 +579,7 @@ public final class BuildTool {
     boolean checkLicenses = configurations.getTargetConfigurations().get(0).checkLicenses();
     if (checkLicenses) {
       Profiler.instance().markPhase(ProfilePhase.LICENSE);
-      validateLicensingForTargets(analysisResult.getTargetsToBuild(),
-          request.getViewOptions().keepGoing);
+      validateLicensingForTargets(analysisResult.getTargetsToBuild(), request.getKeepGoing());
     }
 
     return analysisResult;

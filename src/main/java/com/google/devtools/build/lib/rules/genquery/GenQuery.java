@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.actions.ByteStringDeterministicWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
@@ -67,6 +69,7 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.output.QueryOutputUtils;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -114,7 +117,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // The query string
     final String query = ruleContext.attributes().get("expression", Type.STRING);
 
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(QueryOptions.class);
+    OptionsParser optionsParser =
+        OptionsParser.newOptionsParser(QueryOptions.class, KeepGoingOption.class);
     optionsParser.setAllowResidue(false);
     try {
       optionsParser.parse(ruleContext.attributes().get("opts", Type.STRING_LIST));
@@ -125,7 +129,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     // Parsed query options
     QueryOptions queryOptions = optionsParser.getOptions(QueryOptions.class);
-    if (queryOptions.keepGoing) {
+    if (optionsParser.getOptions(KeepGoingOption.class).keepGoing) {
       ruleContext.attributeError("opts", "option --keep_going is not allowed");
       return null;
     }

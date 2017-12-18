@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
@@ -74,7 +75,8 @@ public class BuildRequest implements OptionsClassProvider {
           SkylarkSemanticsOptions.class,
           LoadingOptions.class,
           BuildView.Options.class,
-          ExecutionOptions.class);
+          ExecutionOptions.class,
+          KeepGoingOption.class);
 
   private BuildRequest(String commandName,
                        final OptionsProvider options,
@@ -200,6 +202,11 @@ public class BuildRequest implements OptionsClassProvider {
    */
   public BuildView.Options getViewOptions() {
     return getOptions(BuildView.Options.class);
+  }
+
+  /** Returns the value of the --keep_going option. */
+  boolean getKeepGoing() {
+    return getOptions(KeepGoingOption.class).keepGoing;
   }
 
   /**
