@@ -18,5 +18,5 @@
 import sys
 
 if __name__ == '__main__':
-  print 'Bazel does not yet support protobuf compiling.'
+  print('Bazel does not yet support protobuf compiling.')
   sys.exit(1)

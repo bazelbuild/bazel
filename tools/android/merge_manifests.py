@@ -449,7 +449,7 @@ def main():
   if FLAGS.exclude_permission:
     warning = _ValidateAndWarnPermissions(FLAGS.exclude_permission)
     if warning:
-      print warning
+      print(warning)
 
   merged_manifests = MergeManifests(_ReadFile(FLAGS.merger),
                                     _ReadFiles(FLAGS.mergee),
