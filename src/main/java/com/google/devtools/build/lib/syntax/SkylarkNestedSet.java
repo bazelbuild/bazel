@@ -78,9 +78,6 @@ import javax.annotation.Nullable;
           + "<p>"
           + "Depsets may contain duplicate values but these will be suppressed when iterating "
           + "(using <code>to_list()</code>). Duplicates may interfere with the ordering semantics."
-          + "<p>"
-          + "The function <code>set()</code> is a deprecated alias for <code>depset()</code>. "
-          + "Please update legacy code and use only <code>depset()</code>."
 )
 @Immutable
 public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
