@@ -119,28 +119,39 @@ public final class SkylarkRuleContext implements SkylarkValue {
           + "to the attribute names. Each value in the struct is either a <code>file</code> or "
           + "<code>None</code>. If an optional attribute is not specified in the rule "
           + "then the corresponding struct value is <code>None</code>. If a label type is not "
-          + "marked as <code>executable=True</code>, no corresponding struct field is generated.";
+          + "marked as <code>executable=True</code>, no corresponding struct field is generated. "
+          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/actions_run/execute.bzl\">"
+          + "See example of use</a>.";
   public static final String FILES_DOC =
       "A <code>struct</code> containing files defined in label or label list "
           + "type attributes. The struct fields correspond to the attribute names. The struct "
-          + "values are <code>list</code> of <code>file</code>s. If an optional attribute is "
-          + "not specified in the rule, an empty list is generated. "
+          + "values are <code>list</code> of <code>file</code>s.  "
           + "It is a shortcut for:"
-          + "<pre class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre>";
+          + "<pre class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre> "
+          + "In other words, use <code>files</code> to access the "
+          + "<a href=\"../rules.$DOC_EXT#default-outputs\">default output</a> of dependencies. "
+          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl\">"
+          + "See example of use</a>.";
   public static final String FILE_DOC =
       "A <code>struct</code> containing files defined in label type "
-          + "attributes marked as <code>single_file=True</code>. The struct fields correspond "
+          + "attributes marked as <code>allow_single_file</code>. The struct fields correspond "
           + "to the attribute names. The struct value is always a <code>file</code> or "
           + "<code>None</code>. If an optional attribute is not specified in the rule "
           + "then the corresponding struct value is <code>None</code>. If a label type is not "
-          + "marked as <code>single_file=True</code>, no corresponding struct field is generated. "
+          + "marked as <code>allow_single_file</code>, no corresponding struct field is generated. "
           + "It is a shortcut for:"
-          + "<pre class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>";
+          + "<pre class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>"
+          + "In other words, use <code>file</code> to access the "
+          + "<a href=\"../rules.$DOC_EXT#default-outputs\">default output</a> of a dependency. "
+          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/hello.bzl\">"
+          + "See example of use</a>.";
   public static final String ATTR_DOC =
       "A struct to access the values of the attributes. The values are provided by "
           + "the user (if not, a default value is used). The attributes of the struct and the "
           + "types of their values correspond to the keys and values of the <code>attrs</code> "
-          + "dict provided to the <code>rule</code> function.";
+          + "dict provided to the <code>rule</code> function. "
+          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/attributes/printer.bzl\">"
+          + "See example of use</a>.";
   public static final String SPLIT_ATTR_DOC =
       "A struct to access the values of attributes with split configurations. If the attribute is "
           + "a label list, the value of split_attr is a dict of the keys of the split (as strings) "
