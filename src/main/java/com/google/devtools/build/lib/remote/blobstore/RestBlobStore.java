@@ -34,19 +34,19 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
 /**
- * Implementation of {@link SimpleBlobStore} with a REST service. The REST service needs to
- * support the following HTTP methods.
+ * Implementation of {@link SimpleBlobStore} with a REST service. The REST service needs to support
+ * the following HTTP methods.
  *
- * <p>PUT /{actioncache,cas}/1234 HTTP/1.1 PUT method is used to upload a blob with a base16 key.
- * In this example the key is 1234. Valid status codes are 200, 201, 202 and 204.
+ * <p>PUT /{ac,cas}/1234 HTTP/1.1 PUT method is used to upload a blob with a base16 key. In this
+ * example the key is 1234. Valid status codes are 200, 201, 202 and 204.
  *
- * <p>GET /{actioncache,cas}/1234 HTTP/1.1 GET method fetches a blob with the specified key. In this
- * example the key is 1234. A status code of 200 should be followed by the content of blob. Status
- * code of 404 or 204 means the key cannot be found.
+ * <p>GET /{ac,cas}/1234 HTTP/1.1 GET method fetches a blob with the specified key. In this example
+ * the key is 1234. A status code of 200 should be followed by the content of blob. Status code of
+ * 404 or 204 means the key cannot be found.
  *
- * <p>HEAD /{actioncache,cas}/1234 HTTP/1.1 HEAD method checks to see if the specified key exists in
- * the blob store. A status code of 200 indicates the key is found in the blob store. A status code
- * of 404 indicates the key is not found in the blob store.
+ * <p>HEAD /{ac,cas}/1234 HTTP/1.1 HEAD method checks to see if the specified key exists in the blob
+ * store. A status code of 200 indicates the key is found in the blob store. A status code of 404
+ * indicates the key is not found in the blob store.
  */
 public final class RestBlobStore implements SimpleBlobStore {
 
