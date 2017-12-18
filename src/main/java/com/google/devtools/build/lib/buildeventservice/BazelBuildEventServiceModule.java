@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.buildeventservice;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GrpcUtils;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
 import java.io.IOException;
@@ -37,8 +37,8 @@ public class BazelBuildEventServiceModule
   protected BuildEventServiceClient createBesClient(BuildEventServiceOptions besOptions,
       AuthAndTLSOptions authAndTLSOptions) throws IOException {
     return new BuildEventServiceGrpcClient(
-        GrpcUtils.newChannel(besOptions.besBackend, authAndTLSOptions),
-        GrpcUtils.newCallCredentials(authAndTLSOptions));
+        GoogleAuthUtils.newChannel(besOptions.besBackend, authAndTLSOptions),
+        GoogleAuthUtils.newCallCredentials(authAndTLSOptions));
   }
 
   @Override

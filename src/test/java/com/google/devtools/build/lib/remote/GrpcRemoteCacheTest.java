@@ -28,7 +28,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GrpcUtils;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -148,9 +148,10 @@ public class GrpcRemoteCacheTest {
     Scratch scratch = new Scratch();
     scratch.file(authTlsOptions.authCredentials, new JacksonFactory().toString(json));
 
-    CallCredentials creds = GrpcUtils.newCallCredentials(
-        scratch.resolve(authTlsOptions.authCredentials).getInputStream(),
-        authTlsOptions.authScope);
+    CallCredentials creds =
+        GoogleAuthUtils.newCallCredentials(
+            scratch.resolve(authTlsOptions.authCredentials).getInputStream(),
+            authTlsOptions.authScope);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     RemoteRetrier retrier =
         new RemoteRetrier(

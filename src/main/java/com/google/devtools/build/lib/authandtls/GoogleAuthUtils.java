@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.authandtls;
 
+import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -33,15 +34,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import javax.annotation.Nullable;
 
-/**
- * Utility methods for using {@link AuthAndTLSOptions} with gRPC.
- */
-public final class GrpcUtils {
+/** Utility methods for using {@link AuthAndTLSOptions} with Google Cloud. */
+public final class GoogleAuthUtils {
 
   /**
    * Create a new gRPC {@link ManagedChannel}.
    *
-   * @throws IOException  in case the channel can't be constructed.
+   * @throws IOException in case the channel can't be constructed.
    */
   public static ManagedChannel newChannel(String target, AuthAndTLSOptions options)
       throws IOException {
@@ -54,8 +53,7 @@ public final class GrpcUtils {
     try {
       NettyChannelBuilder builder =
           NettyChannelBuilder.forTarget(target)
-              .negotiationType(
-                  options.tlsEnabled ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
+              .negotiationType(options.tlsEnabled ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
               .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance());
       if (sslContext != null) {
         builder.sslContext(sslContext);
@@ -77,8 +75,7 @@ public final class GrpcUtils {
       try {
         return GrpcSslContexts.forClient().build();
       } catch (Exception e) {
-        String message = "Failed to init TLS infrastructure: "
-            + e.getMessage();
+        String message = "Failed to init TLS infrastructure: " + e.getMessage();
         throw new IOException(message, e);
       }
     } else {
@@ -95,9 +92,32 @@ public final class GrpcUtils {
   /**
    * Create a new {@link CallCredentials} object.
    *
-   * @throws IOException  in case the call credentials can't be constructed.
+   * @throws IOException in case the call credentials can't be constructed.
    */
   public static CallCredentials newCallCredentials(AuthAndTLSOptions options) throws IOException {
+    Credentials creds = newCredentials(options);
+    if (creds != null) {
+      return MoreCallCredentials.from(creds);
+    }
+    return null;
+  }
+
+  @VisibleForTesting
+  public static CallCredentials newCallCredentials(
+      @Nullable InputStream credentialsFile, @Nullable String authScope) throws IOException {
+    Credentials creds = newCredentials(credentialsFile, authScope);
+    if (creds != null) {
+      return MoreCallCredentials.from(creds);
+    }
+    return null;
+  }
+
+  /**
+   * Create a new {@link Credentials} object.
+   *
+   * @throws IOException in case the credentials can't be constructed.
+   */
+  public static Credentials newCredentials(AuthAndTLSOptions options) throws IOException {
     if (!options.authEnabled) {
       return null;
     }
@@ -105,20 +125,21 @@ public final class GrpcUtils {
     if (options.authCredentials != null) {
       // Credentials from file
       try (InputStream authFile = new FileInputStream(options.authCredentials)) {
-        return newCallCredentials(authFile, options.authScope);
+        return newCredentials(authFile, options.authScope);
       } catch (FileNotFoundException e) {
-        String message = String.format("Could not open auth credentials file '%s': %s",
-            options.authCredentials, e.getMessage());
+        String message =
+            String.format(
+                "Could not open auth credentials file '%s': %s",
+                options.authCredentials, e.getMessage());
         throw new IOException(message, e);
       }
     }
     // Google Application Default Credentials
-    return newCallCredentials(null, options.authScope);
+    return newCredentials(null, options.authScope);
   }
 
-  @VisibleForTesting
-  public static CallCredentials newCallCredentials(@Nullable InputStream credentialsFile,
-      @Nullable String authScope) throws IOException {
+  private static Credentials newCredentials(
+      @Nullable InputStream credentialsFile, @Nullable String authScope) throws IOException {
     try {
       GoogleCredentials creds =
           credentialsFile == null
@@ -127,10 +148,9 @@ public final class GrpcUtils {
       if (authScope != null) {
         creds = creds.createScoped(ImmutableList.of(authScope));
       }
-      return MoreCallCredentials.from(creds);
+      return creds;
     } catch (IOException e) {
-      String message = "Failed to init auth credentials: "
-          + e.getMessage();
+      String message = "Failed to init auth credentials: " + e.getMessage();
       throw new IOException(message, e);
     }
   }

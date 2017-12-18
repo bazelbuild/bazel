@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GrpcUtils;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
@@ -238,7 +238,7 @@ public class GrpcRemoteExecutionClientTest {
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel, null, options.remoteTimeout, retrier);
     CallCredentials creds =
-        GrpcUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
+        GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     GrpcRemoteCache remoteCache =
         new GrpcRemoteCache(channel, creds, options, retrier, DIGEST_UTIL);
     client =

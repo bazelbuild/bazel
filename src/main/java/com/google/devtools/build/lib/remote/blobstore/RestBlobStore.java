@@ -13,21 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore;
 
+import com.google.api.client.http.ByteArrayContent;
+import com.google.api.client.http.GenericUrl;
+import com.google.api.client.http.HttpContent;
+import com.google.api.client.http.HttpRequestFactory;
+import com.google.api.client.http.HttpResponse;
+import com.google.api.client.http.InputStreamContent;
+import com.google.api.client.http.apache.ApacheHttpTransport;
+import com.google.auth.Credentials;
+import com.google.auth.http.HttpCredentialsAdapter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import org.apache.http.HttpEntity;
+import javax.annotation.Nullable;
 import org.apache.http.HttpStatus;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpHead;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
@@ -52,8 +54,9 @@ public final class RestBlobStore implements SimpleBlobStore {
   private static final String CAS_PREFIX = "cas";
 
   private final String baseUrl;
-  private final PoolingHttpClientConnectionManager connMan;
   private final HttpClientBuilder clientFactory;
+  private final ApacheHttpTransport transport;
+  private final HttpRequestFactory requestFactory;
 
   /**
    * Creates a new instance.
@@ -61,10 +64,11 @@ public final class RestBlobStore implements SimpleBlobStore {
    * @param baseUrl base URL for the remote cache
    * @param poolSize maximum number of simultaneous connections
    */
-  public RestBlobStore(String baseUrl, int poolSize, int timeoutMillis) throws IOException {
+  public RestBlobStore(String baseUrl, int poolSize, int timeoutMillis, @Nullable Credentials creds)
+      throws IOException {
     validateUrl(baseUrl);
     this.baseUrl = baseUrl;
-    connMan = new PoolingHttpClientConnectionManager();
+    PoolingHttpClientConnectionManager connMan = new PoolingHttpClientConnectionManager();
     connMan.setDefaultMaxPerRoute(poolSize);
     connMan.setMaxTotal(poolSize);
     clientFactory = HttpClientBuilder.create();
@@ -76,23 +80,34 @@ public final class RestBlobStore implements SimpleBlobStore {
         // Timeout between reading data.
         .setSocketTimeout(timeoutMillis)
         .build());
+    transport = new ApacheHttpTransport(clientFactory.build());
+    if (creds != null) {
+      requestFactory = transport.createRequestFactory(new HttpCredentialsAdapter(creds));
+    } else {
+      requestFactory = transport.createRequestFactory();
+    }
   }
 
   @Override
   public void close() {
-    connMan.close();
+    transport.shutdown();
   }
 
   @Override
   public boolean containsKey(String key) throws IOException {
-    HttpClient client = clientFactory.build();
-    HttpHead head = new HttpHead(baseUrl + "/" + CAS_PREFIX + "/" + key);
-    return client.execute(
-        head,
-        response -> {
-          int statusCode = response.getStatusLine().getStatusCode();
-          return HttpStatus.SC_OK == statusCode;
-        });
+    HttpResponse response = null;
+    try {
+      response =
+          requestFactory
+              .buildHeadRequest(new GenericUrl(baseUrl + "/" + CAS_PREFIX + "/" + key))
+              .setThrowExceptionOnExecuteError(false)
+              .execute();
+      return HttpStatus.SC_OK == response.getStatusCode();
+    } finally {
+      if (response != null) {
+        response.disconnect();
+      }
+    }
   }
 
   @Override
@@ -107,53 +122,62 @@ public final class RestBlobStore implements SimpleBlobStore {
   }
 
   private boolean get(String urlPrefix, String key, OutputStream out) throws IOException {
-    HttpClient client = clientFactory.build();
-    HttpGet get = new HttpGet(baseUrl + "/" + urlPrefix + "/" + key);
-    return client.execute(
-        get,
-        response -> {
-          int statusCode = response.getStatusLine().getStatusCode();
-          if (HttpStatus.SC_NOT_FOUND == statusCode
-              || HttpStatus.SC_NO_CONTENT == statusCode) {
-            return false;
-          }
-          if (HttpStatus.SC_OK != statusCode) {
-            throw new IOException("GET failed with status code " + statusCode);
-          }
-          response.getEntity().writeTo(out);
-          return true;
-        });
+    HttpResponse response = null;
+    try {
+      response =
+          requestFactory
+              .buildGetRequest(new GenericUrl(baseUrl + "/" + urlPrefix + "/" + key))
+              .setThrowExceptionOnExecuteError(false)
+              .execute();
+      int statusCode = response.getStatusCode();
+      if (HttpStatus.SC_NOT_FOUND == statusCode || HttpStatus.SC_NO_CONTENT == statusCode) {
+        return false;
+      }
+      if (HttpStatus.SC_OK != statusCode) {
+        throw new IOException("GET failed with status code " + statusCode);
+      }
+      response.download(out);
+      return true;
+    } finally {
+      if (response != null) {
+        response.disconnect();
+      }
+    }
   }
 
   @Override
   public void put(String key, long length, InputStream in) throws IOException {
-    put(CAS_PREFIX, key, new InputStreamEntity(in, length, ContentType.APPLICATION_OCTET_STREAM));
+    put(CAS_PREFIX, key, new InputStreamContent("application/octext-stream", in));
   }
 
   @Override
   public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
-    put(ACTION_CACHE_PREFIX, key, new ByteArrayEntity(in, ContentType.APPLICATION_OCTET_STREAM));
+    put(ACTION_CACHE_PREFIX, key, new ByteArrayContent("application/octet-stream", in));
   }
 
-  private void put(String urlPrefix, String key, HttpEntity entity) throws IOException {
-    HttpClient client = clientFactory.build();
-    HttpPut put = new HttpPut(baseUrl + "/" + urlPrefix + "/" + key);
-    put.setEntity(entity);
-    client.execute(
-        put,
-        (response) -> {
-          int statusCode = response.getStatusLine().getStatusCode();
-          // Accept more than SC_OK to be compatible with Nginx WebDav module.
-          if (HttpStatus.SC_OK != statusCode
-              && HttpStatus.SC_ACCEPTED != statusCode
-              && HttpStatus.SC_CREATED != statusCode
-              && HttpStatus.SC_NO_CONTENT != statusCode) {
-            throw new IOException("PUT failed with status code " + statusCode);
-          }
-          return null;
-        });
+  private void put(String urlPrefix, String key, HttpContent content) throws IOException {
+    HttpResponse response = null;
+    try {
+      response =
+          requestFactory
+              .buildPutRequest(new GenericUrl(baseUrl + "/" + urlPrefix + "/" + key), content)
+              .setThrowExceptionOnExecuteError(false)
+              .execute();
+      int statusCode = response.getStatusCode();
+      // Accept more than SC_OK to be compatible with Nginx WebDav module.
+      if (HttpStatus.SC_OK != statusCode
+          && HttpStatus.SC_ACCEPTED != statusCode
+          && HttpStatus.SC_CREATED != statusCode
+          && HttpStatus.SC_NO_CONTENT != statusCode) {
+        throw new IOException("PUT failed with status code " + statusCode);
+      }
+    } finally {
+      if (response != null) {
+        response.disconnect();
+      }
+    }
   }
-
+  
   private void validateUrl(String url) throws IOException {
     try {
       new URI(url);

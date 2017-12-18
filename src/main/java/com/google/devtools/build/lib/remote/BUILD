@@ -32,6 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:apache_httpclient",
         "//third_party:apache_httpcore",
+        "//third_party:api_client",
         "//third_party:auth",
         "//third_party:gson",
         "//third_party:guava",
