@@ -116,9 +116,10 @@ public final class MockProtoSupport {
         "package(default_visibility=['//visibility:public'])",
         "py_library(name = 'proto1',",
         "           srcs = [ 'pyproto.py' ])");
-    config.create("net/rpc/BUILD",
+    config.create(
+        "net/rpc/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "cc_library(name = 'rpc_noloas')");
+        "cc_library(name = 'stubby12_proto_rpc_libs')");
     config.create("net/rpc4/public/core/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'rpc4_base')");
