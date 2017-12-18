@@ -18,7 +18,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /**
  * A temporary interface to allow migration from RuleConfiguredTarget to RuleContext. It bundles
@@ -53,4 +55,8 @@ public interface ActionConstructionContext {
    * method.
    */
   Artifact getDerivedArtifact(PathFragment rootRelativePath, Root root);
+
+  /** Returns the {@link PlatformInfo} describing the execution platform this action should use. */
+  @Nullable
+  PlatformInfo getExecutionPlatform();
 }

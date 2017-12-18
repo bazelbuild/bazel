@@ -673,6 +673,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     @CheckReturnValue
     public Action[] build(ActionConstructionContext context) {
+      setExecutionPlatform(context.getExecutionPlatform());
       return build(context.getActionOwner(), context.getAnalysisEnvironment(),
           context.getConfiguration());
     }
