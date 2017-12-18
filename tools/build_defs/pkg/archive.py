@@ -35,7 +35,7 @@ class SimpleArFile(object):
   with SimpleArFile(filename) as ar:
     nextFile = ar.next()
     while nextFile:
-      print nextFile.filename
+      print(nextFile.filename)
       nextFile = ar.next()
 
   Upon error, this class will raise a ArError exception.

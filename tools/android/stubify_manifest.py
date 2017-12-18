@@ -24,6 +24,8 @@ usage: %s [input manifest] [output manifest] [file for old application class]
 Writes the old application class into the file designated by the third argument.
 """
 
+from __future__ import print_function
+
 import sys
 from xml.etree import ElementTree
 
@@ -164,5 +166,5 @@ if __name__ == "__main__":
   try:
     main()
   except BadManifestException as e:
-    print e
+    print(e)
     sys.exit(1)

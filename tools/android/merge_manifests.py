@@ -15,6 +15,8 @@
 
 """Merges two android manifest xml files."""
 
+from __future__ import print_function
+
 import re
 import sys
 import xml.dom.minidom
@@ -449,7 +451,7 @@ def main():
   if FLAGS.exclude_permission:
     warning = _ValidateAndWarnPermissions(FLAGS.exclude_permission)
     if warning:
-      print warning
+      print(warning)
 
   merged_manifests = MergeManifests(_ReadFile(FLAGS.merger),
                                     _ReadFiles(FLAGS.mergee),

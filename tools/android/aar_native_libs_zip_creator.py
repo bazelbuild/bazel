@@ -63,8 +63,8 @@ def Main(input_aar_path, output_zip_path, cpu, input_aar_path_for_error_msg):
       try:
         CreateNativeLibsZip(input_aar, cpu, native_libs_zip)
       except UnsupportedArchitectureException:
-        print("AAR " + input_aar_path_for_error_msg +
-              " missing native libs for requested architecture: " + cpu)
+        print(("AAR " + input_aar_path_for_error_msg +
+               " missing native libs for requested architecture: " + cpu))
         sys.exit(1)
 
 
