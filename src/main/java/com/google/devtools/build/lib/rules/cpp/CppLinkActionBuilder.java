@@ -584,7 +584,7 @@ public class CppLinkActionBuilder {
   private List<String> getLtoBackendCommandLineOptions(ImmutableSet<String> features) {
     List<String> argv = new ArrayList<>();
     argv.addAll(toolchain.getLinkOptions());
-    argv.addAll(cppConfiguration.getCompilerOptions(features));
+    argv.addAll(CppHelper.getCompilerOptions(cppConfiguration, toolchain, features));
     return argv;
   }
 

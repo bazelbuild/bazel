@@ -160,7 +160,10 @@ public class CppLinkstampCompileHelper {
     variables.addLazyStringSequenceVariable(
         CppModel.LEGACY_COMPILE_FLAGS_VARIABLE_NAME,
         CppModel.getLegacyCompileFlagsSupplier(
-            cppConfiguration, sourceFile.getExecPathString(), ImmutableSet.of()));
+            cppConfiguration,
+            ccToolchainProvider,
+            sourceFile.getExecPathString(),
+            ImmutableSet.of()));
     // Unfilterable flags coming from unfiltered_cxx_flag fields
     variables.addLazyStringSequenceVariable(
         CppModel.UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME,

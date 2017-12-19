@@ -15,15 +15,22 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainSublist;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -446,10 +453,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     }
   }
 
-  // Regression test for bug 2088255:
-  // "StringIndexOutOfBoundsException in BuildConfiguration.<init>()"
-  @Test
-  public void testShortLibcVersion() throws Exception {
+  private void writeDummyCcToolchain() throws IOException {
     scratch.file(
         "a/BUILD",
         "filegroup(",
@@ -468,6 +472,13 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = ':empty',",
         "    dynamic_runtime_libs = [':empty'],",
         "    static_runtime_libs = [':empty'])");
+  }
+
+  // Regression test for bug 2088255:
+  // "StringIndexOutOfBoundsException in BuildConfiguration.<init>()"
+  @Test
+  public void testShortLibcVersion() throws Exception {
+    writeDummyCcToolchain();
 
     getAnalysisMock()
         .ccSupport()
@@ -482,6 +493,100 @@ public class CcToolchainTest extends BuildViewTestCase {
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
     assertThat(toolchainProvider.getTargetLibc()).isEqualTo("2.3.6");
+  }
+
+  @Test
+  public void testParamDfDoubleQueueThresholdFactor() throws Exception {
+    writeDummyCcToolchain();
+    useConfiguration();
+
+    scratch.file("lib/BUILD", "cc_library(", "   name = 'lib',", "   srcs = ['a.cc'],", ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//lib");
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
+
+    assertDoesNotContainSublist(
+        CppHelper.getCompilerOptions(
+            lib.getConfiguration().getFragment(CppConfiguration.class),
+            toolchain,
+            Collections.emptyList()),
+        "--param",
+        "df-double-quote-threshold-factor=0");
+  }
+
+  @Test
+  public void testFeatures() throws Exception {
+    writeDummyCcToolchain();
+
+    String originalCrosstool = analysisMock.ccSupport().readCrosstoolFile();
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstoolWithRelease(
+            mockToolsConfig, MockCcSupport.addOptionalDefaultCoptsToCrosstool(originalCrosstool));
+
+    scratch.file("lib/BUILD", "cc_library(", "   name = 'lib',", "   srcs = ['a.cc'],", ")");
+
+    useConfiguration();
+    ConfiguredTarget lib = getConfiguredTarget("//lib");
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
+
+    String defaultSettingFalse = "crosstool_default_false";
+    List<String> copts =
+        CppHelper.getCompilerOptions(
+            lib.getConfiguration().getFragment(CppConfiguration.class),
+            toolchain,
+            Collections.emptyList());
+    assertThat(copts).doesNotContain("-DDEFAULT_FALSE");
+    copts =
+        CppHelper.getCompilerOptions(
+            lib.getConfiguration().getFragment(CppConfiguration.class),
+            toolchain,
+            ImmutableList.of(defaultSettingFalse));
+    assertThat(copts).contains("-DDEFAULT_FALSE");
+
+    useConfiguration("--copt", "-DCOPT");
+    lib = getConfiguredTarget("//lib");
+    toolchain = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
+
+    copts =
+        CppHelper.getCompilerOptions(
+            lib.getConfiguration().getFragment(CppConfiguration.class),
+            toolchain,
+            ImmutableList.of(defaultSettingFalse));
+    assertThat(copts).contains("-DDEFAULT_FALSE");
+    assertThat(copts).contains("-DCOPT");
+    assertThat(copts.indexOf("-DDEFAULT_FALSE")).isLessThan(copts.indexOf("-DCOPT"));
+  }
+
+  @Test
+  public void testMergesDefaultCoptsWithUserProvidedOnes() throws Exception {
+    writeDummyCcToolchain();
+    scratch.file("lib/BUILD", "cc_library(", "   name = 'lib',", "   srcs = ['a.cc'],", ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//lib");
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
+
+    List<String> expected = new ArrayList<>();
+    expected.addAll(
+        CppHelper.getCompilerOptions(
+            lib.getConfiguration().getFragment(CppConfiguration.class),
+            toolchain,
+            Collections.emptyList()));
+    expected.add("-Dfoo");
+
+    useConfiguration("--copt", "-Dfoo");
+    lib = getConfiguredTarget("//lib");
+    toolchain = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(lib));
+    assertThat(
+            ImmutableList.copyOf(
+                CppHelper.getCompilerOptions(
+                    lib.getConfiguration().getFragment(CppConfiguration.class),
+                    toolchain,
+                    Collections.emptyList())))
+        .isEqualTo(ImmutableList.copyOf(expected));
   }
 
   public void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)

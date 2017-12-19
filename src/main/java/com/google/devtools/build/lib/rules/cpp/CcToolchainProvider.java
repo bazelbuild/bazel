@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.OptionalFlag;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -671,6 +673,54 @@ public final class CcToolchainProvider extends ToolchainInfo {
    */
   ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags, Iterable<String> features) {
     return toolchainInfo.getSharedLibraryLinkOptions(flags, features);
+  }
+
+  /** Returns compiler flags arising from the {@link CToolchain}. */
+  ImmutableList<String> getToolchainCompilerFlags() {
+    return toolchainInfo.getCompilerFlags();
+  }
+
+  /** Returns additional compiler flags for C++ arising from the {@link CToolchain} */
+  ImmutableList<String> getToolchainCxxFlags() {
+    return toolchainInfo.getCxxFlags();
+  }
+
+  /**
+   * Returns compiler flags arising from the {@link CToolchain} for C compilation by compilation
+   * mode.
+   */
+  ImmutableListMultimap<CompilationMode, String> getCFlagsByCompilationMode() {
+    return toolchainInfo.getCFlagsByCompilationMode();
+  }
+
+  /**
+   * Returns compiler flags arising from the {@link CToolchain} for C++ compilation by compilation
+   * mode.
+   */
+  ImmutableListMultimap<CompilationMode, String> getCxxFlagsByCompilationMode() {
+    return toolchainInfo.getCxxFlagsByCompilationMode();
+  }
+
+  /** Returns compiler flags arising from the {@link CToolchain} for C compilation by lipo mode. */
+  ImmutableListMultimap<LipoMode, String> getLipoCFlags() {
+    return toolchainInfo.getLipoCFlags();
+  }
+
+  /**
+   * Returns compiler flags arising from the {@link CToolchain} for C++ compilation by lipo mode.
+   */
+  ImmutableListMultimap<LipoMode, String> getLipoCxxFlags() {
+    return toolchainInfo.getLipoCxxFlags();
+  }
+
+  /** Returns optional compiler flags arising from the {@link CToolchain}. */
+  ImmutableList<OptionalFlag> getOptionalCompilerFlags() {
+    return toolchainInfo.getOptionalCompilerFlags();
+  }
+
+  /** Returns optional compiler flags for C++ arising from the {@link CToolchain}. */
+  ImmutableList<OptionalFlag> getOptionalCxxFlags() {
+    return toolchainInfo.getOptionalCxxFlags();
   }
 
   /** Returns linker flags for fully statically linked outputs. */

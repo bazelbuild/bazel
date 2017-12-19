@@ -240,6 +240,56 @@ public class CppHelper {
   }
 
   /**
+   * Returns the default options to use for compiling C, C++, and assembler. This is just the
+   * options that should be used for all three languages. There may be additional C-specific or
+   * C++-specific options that should be used, in addition to the ones returned by this method.
+   */
+  //TODO(b/70784100): Figure out if these methods can be moved to CcToolchainProvider.
+  public static ImmutableList<String> getCompilerOptions(
+      CppConfiguration config, CcToolchainProvider toolchain, Iterable<String> features) {
+    ImmutableList.Builder<String> coptsBuilder =
+        ImmutableList.<String>builder()
+            .addAll(toolchain.getToolchainCompilerFlags())
+            .addAll(toolchain.getCFlagsByCompilationMode().get(config.getCompilationMode()))
+            .addAll(toolchain.getLipoCFlags().get(config.getLipoMode()));
+
+    if (config.isOmitfp()) {
+      coptsBuilder.add("-fomit-frame-pointer");
+      coptsBuilder.add("-fasynchronous-unwind-tables");
+      coptsBuilder.add("-DNO_FRAME_POINTER");
+    }
+
+    FlagList compilerFlags =
+        new FlagList(
+            coptsBuilder.build(),
+            FlagList.convertOptionalOptions(toolchain.getOptionalCompilerFlags()),
+            ImmutableList.copyOf(config.getCopts()));
+
+    return compilerFlags.evaluate(features);
+  }
+
+  /**
+   * Returns the list of additional C++-specific options to use for compiling C++. These should be
+   * go on the command line after the common options returned by {@link #getCompilerOptions}.
+   */
+  public static ImmutableList<String> getCxxOptions(
+      CppConfiguration config, CcToolchainProvider toolchain, Iterable<String> features) {
+    ImmutableList.Builder<String> cxxOptsBuilder =
+        ImmutableList.<String>builder()
+            .addAll(toolchain.getToolchainCxxFlags())
+            .addAll(toolchain.getCxxFlagsByCompilationMode().get(config.getCompilationMode()))
+            .addAll(toolchain.getLipoCxxFlags().get(config.getLipoMode()));
+
+    FlagList cxxFlags =
+        new FlagList(
+            cxxOptsBuilder.build(),
+            FlagList.convertOptionalOptions(toolchain.getOptionalCxxFlags()),
+            ImmutableList.copyOf(config.getCxxopts()));
+
+    return cxxFlags.evaluate(features);
+  }
+
+  /**
    * Returns the immutable list of linker options for fully statically linked outputs. Does not
    * include command-line options passed via --linkopt or --linkopts.
    *
