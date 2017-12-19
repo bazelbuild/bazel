@@ -79,6 +79,26 @@ public class BadOperationCheckerTest {
   }
 
   @Test
+  public void depsetPlusOperator() {
+    Truth.assertThat(findIssues("foo + depset()").toString())
+        .contains(
+            "1:1-1:14: '+' operator is deprecated and should not be used on depsets "
+            + "[deprecated-plus-depset]");
+
+    Truth.assertThat(findIssues("foo = depset()", "foo + bar").toString())
+        .contains(
+            "2:1-2:9: '+' operator is deprecated");
+
+    Truth.assertThat(findIssues("foo = depset()", "foo += bar").toString())
+        .contains(
+            "2:1-2:10: '+' operator is deprecated");
+
+    Truth.assertThat(findIssues("foo += depset()").toString())
+        .contains(
+            "1:1-1:15: '+' operator is deprecated");
+  }
+
+  @Test
   public void pipeOperator() {
     Truth.assertThat(findIssues("foo | bar").toString())
         .contains("1:1-1:9: '|' operator is deprecated");
