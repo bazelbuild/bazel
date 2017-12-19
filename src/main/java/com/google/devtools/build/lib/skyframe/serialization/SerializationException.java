@@ -46,5 +46,29 @@ public class SerializationException extends Exception {
     NoCodecException(String message, NotSerializableRuntimeException e) {
       super(message, e);
     }
+
+    // Needed for wrapping.
+    NoCodecException(String message, NoCodecException e) {
+      super(message, e);
+    }
+  }
+
+  /**
+   * Throws a {@link SerializationException} with the given message and that wraps the given cause.
+   *
+   * <p>If the cause is a {@link NoCodecException}, the returned exception will also be a {@code
+   * NoCodecException}.
+   *
+   * <p>The return type is {@link SerializationException} rather than {@code void} so that you can
+   * call this function from within a {@code throw} statement. Doing so keeps the calling code more
+   * readable. It also avoids spurious compiler errors, e.g. for using uninitialized variables after
+   * the {@code throw}.
+   */
+  public static SerializationException propagate(String msg, Throwable cause) {
+    if (cause instanceof NoCodecException) {
+      return new NoCodecException(msg, (NoCodecException) cause);
+    } else {
+      return new SerializationException(msg, cause);
+    }
   }
 }
