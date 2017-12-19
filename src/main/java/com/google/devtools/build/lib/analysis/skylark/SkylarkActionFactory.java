@@ -380,7 +380,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         positional = false,
         doc =
             "information for scheduling the action. See "
-                + "<a href=\"/docs/be/common-definitions.html#common.tags\">tags</a> "
+                + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
                 + "for useful keys."
       ),
       @Param(
@@ -566,7 +566,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         positional = false,
         doc =
             "information for scheduling the action. See "
-                + "<a href=\"/docs/be/common-definitions.html#common.tags\">tags</a> "
+                + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
                 + "for useful keys."
       ),
       @Param(
