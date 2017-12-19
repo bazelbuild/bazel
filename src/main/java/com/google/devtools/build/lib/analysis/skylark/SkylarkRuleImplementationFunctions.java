@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
-import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -710,13 +709,15 @@ public class SkylarkRuleImplementationFunctions {
                   ImmutableMap.copyOf(labelDict));
           String attribute =
               Type.STRING.convertOptional(attributeUnchecked, "attribute", ruleLabel);
-          TemplateContext templateContext = TemplateContext.EMPTY;
+          if (expandLocations) {
+            command = helper.resolveCommandAndExpandLabels(
+                command, attribute, /*allowDataInLabel=*/false);
+          }
           if (!EvalUtils.isNullOrNone(makeVariablesUnchecked)) {
             Map<String, String> makeVariables =
                 Type.STRING_DICT.convert(makeVariablesUnchecked, "make_variables", ruleLabel);
-            templateContext = ctx.getConfigurationMakeVariableContext(makeVariables);
+            command = ctx.expandMakeVariables(attribute, command, makeVariables);
           }
-          command = helper.expandForSkylark(command, attribute, templateContext, expandLocations);
           List<Artifact> inputs = new ArrayList<>();
           inputs.addAll(helper.getResolvedTools());
 
