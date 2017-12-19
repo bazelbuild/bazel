@@ -18,7 +18,6 @@ import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import io.grpc.CallCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.auth.MoreCallCredentials;
@@ -32,6 +31,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** Utility methods for using {@link AuthAndTLSOptions} with Google Cloud. */
@@ -104,7 +104,7 @@ public final class GoogleAuthUtils {
 
   @VisibleForTesting
   public static CallCredentials newCallCredentials(
-      @Nullable InputStream credentialsFile, @Nullable String authScope) throws IOException {
+      @Nullable InputStream credentialsFile, List<String> authScope) throws IOException {
     Credentials creds = newCredentials(credentialsFile, authScope);
     if (creds != null) {
       return MoreCallCredentials.from(creds);
@@ -139,14 +139,14 @@ public final class GoogleAuthUtils {
   }
 
   private static Credentials newCredentials(
-      @Nullable InputStream credentialsFile, @Nullable String authScope) throws IOException {
+      @Nullable InputStream credentialsFile, List<String> authScopes) throws IOException {
     try {
       GoogleCredentials creds =
           credentialsFile == null
               ? GoogleCredentials.getApplicationDefault()
               : GoogleCredentials.fromStream(credentialsFile);
-      if (authScope != null) {
-        creds = creds.createScoped(ImmutableList.of(authScope));
+      if (!authScopes.isEmpty()) {
+        creds = creds.createScoped(authScopes);
       }
       return creds;
     } catch (IOException e) {

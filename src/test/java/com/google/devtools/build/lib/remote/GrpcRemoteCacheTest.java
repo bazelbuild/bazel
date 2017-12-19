@@ -138,7 +138,7 @@ public class GrpcRemoteCacheTest {
     AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
     authTlsOptions.authEnabled = true;
     authTlsOptions.authCredentials = "/exec/root/creds.json";
-    authTlsOptions.authScope = "dummy.scope";
+    authTlsOptions.authScope = ImmutableList.of("dummy.scope");
 
     GenericJson json = new GenericJson();
     json.put("type", "authorized_user");
