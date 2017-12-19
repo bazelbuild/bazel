@@ -68,7 +68,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
   private Action mockAction(String progressMessage, String primaryOutput) {
     Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
-    Artifact artifact = new Artifact(path, Root.asSourceRoot(path));
+    Artifact artifact = new Artifact(path, Root.asSourceRoot(outputBase));
 
     Action action = Mockito.mock(Action.class);
     when(action.getProgressMessage()).thenReturn(progressMessage);
@@ -431,7 +431,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 70);
     Action action = mockAction(
         "Building some/very/very/long/path/for/some/library/directory/foo.jar (42 source files)",
-        "/home/user/bazel/out/abcdef/some/very/very/long/path/for/some/library/directory/foo.jar");
+        "some/very/very/long/path/for/some/library/directory/foo.jar");
     Label label =
         Label.parseAbsolute("//some/very/very/long/path/for/some/library/directory:libfoo");
     ActionOwner owner =
@@ -465,7 +465,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     ManualClock clock = new ManualClock();
     Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
-    Artifact artifact = new Artifact(path, Root.asSourceRoot(path));
+    Artifact artifact = new Artifact(path, Root.asSourceRoot(outputBase));
     ActionExecutionMetadata actionMetadata = Mockito.mock(ActionExecutionMetadata.class);
     when(actionMetadata.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
     when(actionMetadata.getPrimaryOutput()).thenReturn(artifact);
@@ -493,10 +493,10 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     Action foobuildAction = mockAction(
         "Building //src/some/very/long/path/long/long/long/long/long/long/long/foo/foobuild.jar",
-        "//src/some/very/long/path/long/long/long/long/long/long/long/foo:foobuild");
+        "src/some/very/long/path/long/long/long/long/long/long/long/foo/foobuild.jar");
     Action bazbuildAction = mockAction(
         "Building //src/some/very/long/path/long/long/long/long/long/long/long/baz/bazbuild.jar",
-        "//src/some/very/long/path/long/long/long/long/long/long/long/baz:bazbuild");
+        "src/some/very/long/path/long/long/long/long/long/long/long/baz/bazbuild.jar");
 
     Label bartestLabel =
         Label.parseAbsolute(

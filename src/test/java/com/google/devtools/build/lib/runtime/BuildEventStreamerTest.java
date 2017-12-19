@@ -520,7 +520,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
   private Artifact makeArtifact(String pathString) {
     Path path = outputBase.getRelative(PathFragment.create(pathString));
-    return new Artifact(path, Root.asSourceRoot(path));
+    return new Artifact(path, Root.asSourceRoot(outputBase));
   }
 
   @Test
