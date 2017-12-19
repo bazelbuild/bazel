@@ -32,6 +32,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
@@ -135,8 +137,55 @@ public class DigestUtils {
    */
   private static volatile Cache<CacheKey, byte[]> globalCache = null;
 
+  /**
+   * Map from a path to the last-modified time of that file before the first time that its digest
+   * was computed.
+   *
+   * <p>The paths stored here must already have all symbolic links resolved.
+   */
+  private static volatile ConcurrentMap<Path, Long> mtimeBeforeFirstDigest =
+      new ConcurrentHashMap<>();
+
   /** Private constructor to prevent instantiation of utility class. */
   private DigestUtils() {}
+
+  /**
+   * Caches the last-modified time of a file before the first time that its digest is computed.
+   *
+   * <p>This must be called *before* the file's digest has been computed, because the purpose of
+   * this cache is to detect whether a file was modified after the digest was computed, and we need
+   * to make sure we correctly handle the case that the file was modified *while* its digest was
+   * being computed.
+   *
+   * <p>If the cache already contains an entry for this file, the cache is not changed.
+   *
+   * @param path Path of the file.
+   * @throws IOException if reading the file status data fails
+   */
+  private static void cacheMtimeBeforeFirstDigest(Path path) throws IOException {
+    Path resolvedPath = path.resolveSymbolicLinks();
+    long mtime = path.stat().getLastModifiedTime();
+    mtimeBeforeFirstDigest.putIfAbsent(resolvedPath, mtime);
+  }
+
+  /**
+   * Gets the last-modified time that a file had before the first time its digest was computed.
+   *
+   * @param path Path of the file.
+   * @return the last-modified time that the file had before the first time its digest was computed,
+   * or -1 if none was recorded.
+   * @throws IOException if resolving the file's symbolic links fails
+   */
+  public static long getMtimeBeforeFirstDigest(Path path) throws IOException {
+    Path resolvedPath = path.resolveSymbolicLinks();
+    return mtimeBeforeFirstDigest.getOrDefault(resolvedPath, -1L);
+  }
+
+  public static void init() {
+    // It's important to clear the cache of timestamps when a new build is started, so that we
+    // don't keep stale timestamps from previous builds.
+    mtimeBeforeFirstDigest.clear();
+  }
 
   /**
    * Obtain file's MD5 metadata using synchronized method, ensuring that system
@@ -212,6 +261,8 @@ public class DigestUtils {
    */
   public static byte[] getDigestOrFail(Path path, long fileSize)
       throws IOException {
+    cacheMtimeBeforeFirstDigest(path);
+
     byte[] digest = path.getFastDigest();
 
     if (digest != null && !path.isValidDigest(digest)) {

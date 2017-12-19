@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -298,8 +299,14 @@ class RemoteSpawnRunner implements SpawnRunner {
     return command.build();
   }
 
-  private Map<Path, Long> getInputCtimes(SortedMap<PathFragment, ActionInput> inputMap) {
-    HashMap<Path, Long>  ctimes = new HashMap<>();
+  private interface Mtime {
+    long get(Path path) throws IOException;
+  }
+
+  private Map<Path, Long> getInputMtimes(
+      SortedMap<PathFragment, ActionInput> inputMap,
+      Mtime mtime) {
+    HashMap<Path, Long> mtimes = new HashMap<>();
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       ActionInput input = e.getValue();
       if (input == SpawnInputExpander.EMPTY_FILE || input instanceof VirtualActionInput) {
@@ -307,15 +314,15 @@ class RemoteSpawnRunner implements SpawnRunner {
       }
       Path path = execRoot.getRelative(input.getExecPathString());
       try {
-        ctimes.put(path, path.stat().getLastChangeTime());
+        mtimes.put(path, mtime.get(path));
       } catch (IOException ex) {
         // Put a token value indicating an exception; this is used so that if the exception
         // is raised both before and after the execution, it is ignored, but if it is raised only
         // one of the times, it triggers a remote cache upload skip.
-        ctimes.put(path, -1L);
+        mtimes.put(path, -1L);
       }
     }
-    return ctimes;
+    return mtimes;
   }
 
   /**
@@ -345,12 +352,15 @@ class RemoteSpawnRunner implements SpawnRunner {
       RemoteActionCache remoteCache,
       ActionKey actionKey)
       throws ExecException, IOException, InterruptedException {
-    Map<Path, Long> ctimesBefore = getInputCtimes(inputMap);
     SpawnResult result = fallbackRunner.exec(spawn, policy);
-    Map<Path, Long> ctimesAfter = getInputCtimes(inputMap);
-    for (Map.Entry<Path, Long> e : ctimesBefore.entrySet()) {
-      // Skip uploading to remote cache, because an input was modified during execution.
-      if (!ctimesAfter.get(e.getKey()).equals(e.getValue())) {
+    Map<Path, Long> mtimesBefore = getInputMtimes(inputMap,
+        path -> DigestUtils.getMtimeBeforeFirstDigest(path));
+    Map<Path, Long> mtimesAfter = getInputMtimes(inputMap,
+        path -> path.stat().getLastModifiedTime());
+    for (Map.Entry<Path, Long> e : mtimesBefore.entrySet()) {
+      // Skip uploading to remote cache, because an input was modified after its digest was
+      // computed.
+      if (!mtimesAfter.get(e.getKey()).equals(e.getValue())) {
         return result;
       }
     }
