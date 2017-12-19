@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -55,10 +54,6 @@ import javax.tools.Diagnostic;
  */
 @AutoService(Processor.class)
 public class AutoCodecProcessor extends AbstractProcessor {
-  // Synthesized classes will be prefixed with AutoCodec_.
-  public static final String GENERATED_CLASS_NAME_PREFIX = "AutoCodec";
-  private static final Class<AutoCodec> ANNOTATION = AutoCodec.class;
-
   /**
    * Passing {@code --javacopt=-Aautocodec_print_generated} to {@code blaze build} tells AutoCodec
    * to print the generated code.
@@ -74,7 +69,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
 
   @Override
   public Set<String> getSupportedAnnotationTypes() {
-    return ImmutableSet.of(ANNOTATION.getCanonicalName());
+    return ImmutableSet.of(AutoCodecUtil.ANNOTATION.getCanonicalName());
   }
 
   @Override
@@ -90,8 +85,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    for (Element element : roundEnv.getElementsAnnotatedWith(ANNOTATION)) {
-      AutoCodec annotation = element.getAnnotation(ANNOTATION);
+    for (Element element : roundEnv.getElementsAnnotatedWith(AutoCodecUtil.ANNOTATION)) {
+      AutoCodec annotation = element.getAnnotation(AutoCodecUtil.ANNOTATION);
       switch (annotation.strategy()) {
         case CONSTRUCTOR:
           buildCodecUsingConstructor((TypeElement) element);
@@ -120,7 +115,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
    */
   private void buildCodecUsingConstructor(TypeElement classElement) {
     TypeSpec.Builder codecClassBuilder =
-        TypeSpec.classBuilder(getCodecName(classElement))
+        TypeSpec.classBuilder(AutoCodecUtil.getCodecName(classElement))
             .superclass(TypeName.get(classElement.asType()));
 
     TypeElement encodedType = getEncodedType(classElement);
@@ -164,21 +159,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
    */
   private static String paramNameAsAccessor(String name) {
     return "get" + name.substring(0, 1).toUpperCase() + name.substring(1) + "()";
-  }
-
-  /**
-   * Name of the generated codec class.
-   *
-   * <p>For {@code Foo.Bar.Codec} this is {@code AutoCodec_Foo_Bar_Codec}.
-   */
-  private static String getCodecName(Element element) {
-    ImmutableList.Builder<String> classNamesBuilder = new ImmutableList.Builder<>();
-    do {
-      classNamesBuilder.add(element.getSimpleName().toString());
-      element = element.getEnclosingElement();
-    } while (element instanceof TypeElement);
-    classNamesBuilder.add(GENERATED_CLASS_NAME_PREFIX);
-    return classNamesBuilder.build().reverse().stream().collect(Collectors.joining("_"));
   }
 
   private void addSerializeMethodUsingConstructor(

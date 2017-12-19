@@ -35,10 +35,52 @@ java_library(
     srcs = ["AutoCodecProcessor.java"],
     deps = [
         ":autocodec-annotation",
+        ":autocodec-util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:auto_service",
         "//third_party:guava",
         "//third_party/java/javapoet",
         "//third_party/protobuf:protobuf_java",
     ],
+)
+
+# Code shared between autocodec-processor and fake-autocodec-processor.
+java_library(
+    name = "autocodec-util",
+    srcs = ["AutoCodecUtil.java"],
+    deps = [
+        ":autocodec-annotation",
+        "//third_party:guava",
+    ],
+)
+
+# This is a fake implementation for bootstrapping. It must *not* be used in production.
+java_library(
+    name = "fake-autocodec-processor",
+    srcs = ["FakeAutoCodecProcessor.java"],
+    deps = [
+        ":autocodec-util",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//third_party:auto_service",
+        "//third_party:guava",
+        "//third_party/java/javapoet",
+        "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+# .tar archive of dependencies used for bootstrapping.
+pkg_tar(
+    name = "bootstrap_autocodec",
+    # The .jar files are created within the .tar file under third_party/bazel_bootstrap so that
+    # they will appear there in bazel-distfile, which in turn makes them visible for bootstrapping
+    # from the LIBRARY_JARS rule of bazel/scripts/bootstrap/compile.sh.
+    files = {
+        ":libautocodec-annotation.jar": "third_party/bazel_bootstrap/libautocodec-annotation.jar",
+        ":libautocodec-util.jar": "third_party/bazel_bootstrap/libautocodec-util.jar",
+        ":libfake-autocodec-processor.jar": "third_party/bazel_bootstrap/libfake-autocodec-processor.jar",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:libserialization.jar": "third_party/bazel_bootstrap/libserialization.jar",
+    },
+    visibility = ["//visibility:public"],
 )

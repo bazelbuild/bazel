@@ -83,6 +83,7 @@ genrule(
     srcs = [
         ":bazel-srcs",
         "//src:derived_java_srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
     ],
     outs = ["bazel-distfile.zip"],
     cmd = "$(location :combine_distfiles) $@ $(SRCS)",
@@ -96,6 +97,7 @@ genrule(
     srcs = [
         ":bazel-srcs",
         "//src:derived_java_srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
     ],
     outs = ["bazel-distfile.tar"],
     cmd = "$(location :combine_distfiles_to_tar.sh) $@ $(SRCS)",
