@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.Digest;
+import com.google.devtools.remoteexecution.v1test.Tree;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -73,6 +74,14 @@ final class FakeActionInputFileCache implements ActionInputFileCache {
     FileSystemUtils.createDirectoryAndParents(inputFile.getParentDirectory());
     FileSystemUtils.writeContentAsLatin1(inputFile, content);
     Digest digest = digestUtil.compute(inputFile);
+    setDigest(input, digest.getHash());
+    return digest;
+  }
+
+  public Digest createScratchInputDirectory(ActionInput input, Tree content) throws IOException {
+    Path inputFile = execRoot.getRelative(input.getExecPath());
+    FileSystemUtils.createDirectoryAndParents(inputFile);
+    Digest digest = digestUtil.compute(content);
     setDigest(input, digest.getHash());
     return digest;
   }

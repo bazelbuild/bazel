@@ -34,13 +34,13 @@ import javax.annotation.Nullable;
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
-  private final RemoteActionCache cache;
+  private final AbstractRemoteActionCache cache;
   private final GrpcRemoteExecutor executor;
   private final DigestUtil digestUtil;
 
   RemoteActionContextProvider(
       CommandEnvironment env,
-      @Nullable RemoteActionCache cache,
+      @Nullable AbstractRemoteActionCache cache,
       @Nullable GrpcRemoteExecutor executor,
       DigestUtil digestUtil) {
     this.env = env;

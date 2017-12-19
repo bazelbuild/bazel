@@ -76,7 +76,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   private final boolean verboseFailures;
 
   @Nullable private final Reporter cmdlineReporter;
-  @Nullable private final RemoteActionCache remoteCache;
+  @Nullable private final AbstractRemoteActionCache remoteCache;
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
   private final String buildRequestId;
   private final String commandId;
@@ -93,7 +93,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       @Nullable Reporter cmdlineReporter,
       String buildRequestId,
       String commandId,
-      @Nullable RemoteActionCache remoteCache,
+      @Nullable AbstractRemoteActionCache remoteCache,
       @Nullable GrpcRemoteExecutor remoteExecutor,
       DigestUtil digestUtil) {
     this.execRoot = execRoot;
@@ -126,6 +126,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     Command command = buildCommand(spawn.getArguments(), spawn.getEnvironment());
     Action action =
         buildAction(
+            execRoot,
             spawn.getOutputFiles(),
             digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
@@ -259,6 +260,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   }
 
   static Action buildAction(
+      Path execRoot,
       Collection<? extends ActionInput> outputs,
       Digest command,
       Digest inputRoot,
@@ -269,12 +271,19 @@ class RemoteSpawnRunner implements SpawnRunner {
     action.setCommandDigest(command);
     action.setInputRootDigest(inputRoot);
     ArrayList<String> outputPaths = new ArrayList<>();
+    ArrayList<String> outputDirectoryPaths = new ArrayList<>();
     for (ActionInput output : outputs) {
-      outputPaths.add(output.getExecPathString());
+      String pathString = output.getExecPathString();
+      if (execRoot.getRelative(pathString).isDirectory()) {
+        outputDirectoryPaths.add(pathString);
+      } else {
+        outputPaths.add(pathString);
+      }
     }
     Collections.sort(outputPaths);
-    // TODO: output directories should be handled here, when they are supported.
+    Collections.sort(outputDirectoryPaths);
     action.addAllOutputFiles(outputPaths);
+    action.addAllOutputDirectories(outputDirectoryPaths);
     if (platform != null) {
       action.setPlatform(platform);
     }
@@ -328,7 +337,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       SpawnExecutionPolicy policy,
       SortedMap<PathFragment, ActionInput> inputMap,
       boolean uploadToCache,
-      @Nullable RemoteActionCache remoteCache,
+      @Nullable AbstractRemoteActionCache remoteCache,
       @Nullable ActionKey actionKey)
       throws ExecException, IOException, InterruptedException {
     if (uploadToCache && remoteCache != null && actionKey != null) {
@@ -342,7 +351,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionPolicy policy,
       SortedMap<PathFragment, ActionInput> inputMap,
-      RemoteActionCache remoteCache,
+      AbstractRemoteActionCache remoteCache,
       ActionKey actionKey)
       throws ExecException, IOException, InterruptedException {
     Map<Path, Long> ctimesBefore = getInputCtimes(inputMap);

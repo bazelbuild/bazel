@@ -191,7 +191,14 @@ final class ExecutionServer extends ExecutionImplBase {
       FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
       outputs.add(file);
     }
-    // TODO(olaola): support output directories.
+    for (String output : action.getOutputDirectoriesList()) {
+      Path file = execRoot.getRelative(output);
+      if (file.exists()) {
+        throw new FileAlreadyExistsException("Output directory/file already exists: " + file);
+      }
+      FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
+      outputs.add(file);
+    }
 
     // TODO(ulfjack): This is basically a copy of LocalSpawnRunner. Ideally, we'd use that
     // implementation instead of copying it.

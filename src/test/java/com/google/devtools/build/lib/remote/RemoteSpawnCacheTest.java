@@ -87,7 +87,7 @@ public class RemoteSpawnCacheTest {
   private Path execRoot;
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
-  @Mock private RemoteActionCache remoteCache;
+  @Mock private AbstractRemoteActionCache remoteCache;
   private RemoteSpawnCache cache;
   private FileOutErr outErr;
 
