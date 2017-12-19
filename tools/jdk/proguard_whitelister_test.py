@@ -30,7 +30,7 @@ class ProguardConfigValidatorTest(unittest.TestCase):
     output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.cfg")
     # This will raise an exception if the config is invalid.
     self._CreateValidator(input_path, output_path).ValidateAndWriteOutput()
-    with file(output_path) as output:
+    with open(output_path) as output:
       self.assertTrue(("# Merged from %s" % input_path) in output.read())
 
   def _TestInvalidConfig(self, invalid_args, config):

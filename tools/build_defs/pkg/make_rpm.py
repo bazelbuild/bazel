@@ -119,7 +119,7 @@ def CopyAndRewrite(input_file, output_file, replacements=None):
   with open(output_file, 'w') as output:
     for line in fileinput.input(input_file):
       if replacements:
-        for prefix, text in replacements.iteritems():
+        for prefix, text in replacements.items():
           if line.startswith(prefix):
             line = prefix + ' ' + text + '\n'
             break
@@ -151,7 +151,7 @@ class RpmBuilder(object):
     # Create directory structure.
     for name in RpmBuilder.DIRS:
       if not os.path.exists(name):
-        os.makedirs(name, 0777)
+        os.makedirs(name, 0o777)
 
     shutil.copy(os.path.join(original_dir, spec_file), os.getcwd())
 
