@@ -21,11 +21,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -64,6 +70,8 @@ public abstract class PathFragment
 
   /** The path fragment representing the root directory. */
   public static final PathFragment ROOT_FRAGMENT = create(ROOT_DIR);
+
+  public static final ObjectCodec<PathFragment> CODEC = new PathFragmentCodec();
 
   /**
    * A helper object for manipulating the various internal {@link PathFragment} implementations.
@@ -741,6 +749,39 @@ public abstract class PathFragment
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append(getPathString());
+  }
+
+  private static class PathFragmentCodec implements ObjectCodec<PathFragment> {
+    private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
+
+    @Override
+    public Class<PathFragment> getEncodedClass() {
+      return PathFragment.class;
+    }
+
+    @Override
+    public void serialize(PathFragment pathFragment, CodedOutputStream codedOut)
+        throws IOException, SerializationException {
+      codedOut.writeInt32NoTag(pathFragment.getDriveLetter());
+      codedOut.writeBoolNoTag(pathFragment.isAbsolute());
+      codedOut.writeInt32NoTag(pathFragment.segmentCount());
+      for (int i = 0; i < pathFragment.segmentCount(); i++) {
+        stringCodec.serialize(pathFragment.getSegment(i), codedOut);
+      }
+    }
+
+    @Override
+    public PathFragment deserialize(CodedInputStream codedIn)
+        throws IOException, SerializationException {
+      char driveLetter = (char) codedIn.readInt32();
+      boolean isAbsolute = codedIn.readBool();
+      int segmentCount = codedIn.readInt32();
+      String[] segments = new String[segmentCount];
+      for (int i = 0; i < segmentCount; i++) {
+        segments[i] = stringCodec.deserialize(codedIn);
+      }
+      return PathFragment.create(driveLetter, isAbsolute, segments);
+    }
   }
 
   private static void checkBaseName(String baseName) {

@@ -25,12 +25,10 @@ import java.io.IOException;
 public class PathCodec implements ObjectCodec<Path> {
 
   private final FileSystem fileSystem;
-  private final PathFragmentCodec pathFragmentCodec;
 
   /** Create an instance for serializing and deserializing {@link Path}s on {@code fileSystem}. */
   public PathCodec(FileSystem fileSystem) {
     this.fileSystem = fileSystem;
-    this.pathFragmentCodec = new PathFragmentCodec();
   }
 
   @Override
@@ -46,12 +44,12 @@ public class PathCodec implements ObjectCodec<Path> {
         "Path's FileSystem (%s) did not match the configured FileSystem (%s)",
         path.getFileSystem(),
         fileSystem);
-    pathFragmentCodec.serialize(path.asFragment(), codedOut);
+    PathFragment.CODEC.serialize(path.asFragment(), codedOut);
   }
 
   @Override
   public Path deserialize(CodedInputStream codedIn) throws IOException, SerializationException {
-    PathFragment pathFragment = pathFragmentCodec.deserialize(codedIn);
+    PathFragment pathFragment = PathFragment.CODEC.deserialize(codedIn);
     return fileSystem.getPath(pathFragment);
   }
 }

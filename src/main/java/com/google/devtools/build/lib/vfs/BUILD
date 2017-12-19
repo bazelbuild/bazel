@@ -9,7 +9,6 @@ filegroup(
 PATH_FRAGMENT_SOURCES = [
     "Canonicalizer.java",
     "PathFragment.java",
-    "PathFragmentCodec.java",
     "PathFragmentSerializationProxy.java",
     "UnixPathFragment.java",
     "WindowsPathFragment.java",
