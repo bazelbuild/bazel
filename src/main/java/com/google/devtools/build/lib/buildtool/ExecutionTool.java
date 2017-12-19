@@ -223,15 +223,10 @@ public class ExecutionTool {
           }
         });
 
-    ActionInputFileCache cache = builder.getActionInputFileCache();
-    if (cache == null) {
-      // Unfortunately, the exec root cache is not shared with caches in the remote execution
-      // client.
-      cache =
-          new SingleBuildFileCache(
-              env.getExecRoot().getPathString(), env.getRuntime().getFileSystem());
-    }
-    this.fileCache = cache;
+    // Unfortunately, the exec root cache is not shared with caches in the remote execution client.
+    this.fileCache =
+        new SingleBuildFileCache(
+            env.getExecRoot().getPathString(), env.getRuntime().getFileSystem());
     this.prefetcher = builder.getActionInputPrefetcher();
         
     this.actionContextProviders = builder.getActionContextProviders();
