@@ -20,6 +20,8 @@ are converted from the AAR directory structure of /jni/<cpu>/foo.so to the APK
 directory structure of /lib/<cpu>/foo.so.
 """
 
+from __future__ import print_function
+
 import os
 import re
 import sys
@@ -63,8 +65,8 @@ def Main(input_aar_path, output_zip_path, cpu, input_aar_path_for_error_msg):
       try:
         CreateNativeLibsZip(input_aar, cpu, native_libs_zip)
       except UnsupportedArchitectureException:
-        print(("AAR " + input_aar_path_for_error_msg +
-               " missing native libs for requested architecture: " + cpu))
+        print("AAR " + input_aar_path_for_error_msg +
+              " missing native libs for requested architecture: " + cpu)
         sys.exit(1)
 
 

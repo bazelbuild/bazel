@@ -14,7 +14,7 @@
 
 """Tests for resource_extractor."""
 
-import StringIO
+import io
 import unittest
 import zipfile
 
@@ -24,8 +24,14 @@ from tools.android import resource_extractor
 class ResourceExtractorTest(unittest.TestCase):
   """Unit tests for resource_extractor.py."""
 
+  # Python 2 alias
+  if not hasattr(unittest.TestCase, "assertCountEqual"):
+
+    def assertCountEqual(self, *args):
+      return self.assertItemsEqual(*args)
+
   def testJarWithEverything(self):
-    input_jar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    input_jar = zipfile.ZipFile(io.BytesIO(), "w")
 
     for path in (
         # Should not be included
@@ -56,17 +62,17 @@ class ResourceExtractorTest(unittest.TestCase):
         "not_CVS/include",
         "META-INF/services/foo"):
       input_jar.writestr(path, "")
-    output_zip = zipfile.ZipFile(StringIO.StringIO(), "w")
+    output_zip = zipfile.ZipFile(io.BytesIO(), "w")
     resource_extractor.ExtractResources(input_jar, output_zip)
-    self.assertItemsEqual(("c", "a/b", "bar/a", "a/not_package.html",
+    self.assertCountEqual(("c", "a/b", "bar/a", "a/not_package.html",
                            "not_CVS/include", "META-INF/services/foo"),
                           output_zip.namelist())
 
   def testTimestampsAreTheSame(self):
-    input_jar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    input_jar = zipfile.ZipFile(io.BytesIO(), "w")
     entry_info = zipfile.ZipInfo("a", (1982, 1, 1, 0, 0, 0))
     input_jar.writestr(entry_info, "")
-    output_zip = zipfile.ZipFile(StringIO.StringIO(), "w")
+    output_zip = zipfile.ZipFile(io.BytesIO(), "w")
     resource_extractor.ExtractResources(input_jar, output_zip)
     self.assertEqual((1982, 1, 1, 0, 0, 0), output_zip.getinfo("a").date_time)
 

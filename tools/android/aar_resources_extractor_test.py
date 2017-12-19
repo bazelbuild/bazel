@@ -14,9 +14,9 @@
 
 """Tests for aar_resources_extractor."""
 
+import io
 import os
 import shutil
-import StringIO
 import unittest
 import zipfile
 
@@ -29,6 +29,12 @@ def _HostPath(path):
 
 class AarResourcesExtractorTest(unittest.TestCase):
   """Unit tests for aar_resources_extractor.py."""
+
+  # Python 2 alias
+  if not hasattr(unittest.TestCase, "assertCountEqual"):
+
+    def assertCountEqual(self, *args):
+      return self.assertItemsEqual(*args)
 
   def setUp(self):
     os.chdir(os.environ["TEST_TMPDIR"])
@@ -43,7 +49,7 @@ class AarResourcesExtractorTest(unittest.TestCase):
     ]
 
   def testNoResources(self):
-    aar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
     os.makedirs("out_dir")
     aar_resources_extractor.ExtractResources(aar, "out_dir")
     self.assertEqual([_HostPath("out_dir/res/values/empty.xml")],
@@ -52,7 +58,7 @@ class AarResourcesExtractorTest(unittest.TestCase):
       self.assertEqual("<resources/>", empty_xml.read())
 
   def testContainsResources(self):
-    aar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
     aar.writestr("res/values/values.xml", "some values")
     aar.writestr("res/layouts/layout.xml", "some layout")
     os.makedirs("out_dir")
@@ -61,7 +67,7 @@ class AarResourcesExtractorTest(unittest.TestCase):
         _HostPath("out_dir/res/values/values.xml"),
         _HostPath("out_dir/res/layouts/layout.xml")
     ]
-    self.assertItemsEqual(expected_resources, self.DirContents("out_dir"))
+    self.assertCountEqual(expected_resources, self.DirContents("out_dir"))
     with open("out_dir/res/values/values.xml", "r") as values_xml:
       self.assertEqual("some values", values_xml.read())
     with open("out_dir/res/layouts/layout.xml", "r") as layout_xml:
