@@ -406,6 +406,11 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new ExtraActionRule());
           builder.addRuleDefinition(new ActionListenerRule());
 
+          builder.addSkylarkAccessibleTopLevels("java_common",
+              new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE));
+          builder.addSkylarkAccessibleTopLevels("JavaInfo", JavaInfo.PROVIDER);
+          builder.addSkylarkAccessibleTopLevels("java_proto_common", JavaProtoSkylarkCommon.class);
+
           try {
             builder.addWorkspaceFilePrefix(
                 ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
@@ -469,10 +474,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidLocalTestBaseRule());
 
           builder.addSkylarkAccessibleTopLevels("android_common", new AndroidSkylarkCommon());
-          builder.addSkylarkAccessibleTopLevels("java_common",
-              new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE));
-          builder.addSkylarkAccessibleTopLevels("JavaInfo", JavaInfo.PROVIDER);
-          builder.addSkylarkAccessibleTopLevels("java_proto_common", JavaProtoSkylarkCommon.class);
 
           try {
             builder.addWorkspaceFilePrefix(
