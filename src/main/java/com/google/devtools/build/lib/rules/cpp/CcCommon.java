@@ -599,10 +599,11 @@ public final class CcCommon {
    */
   public static FeatureConfiguration configureFeatures(
       RuleContext ruleContext,
-      FeatureSpecification featureSpecification,
+      ImmutableSet<String> requestedFeatures,
+      ImmutableSet<String> unsupportedFeatures,
       CcToolchainProvider toolchain) {
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
-    unsupportedFeaturesBuilder.addAll(featureSpecification.getUnsupportedFeatures());
+    unsupportedFeaturesBuilder.addAll(unsupportedFeatures);
     if (!toolchain.supportsHeaderParsing()) {
       // TODO(bazel-team): Remove once supports_header_parsing has been removed from the
       // cc_toolchain rule.
@@ -612,19 +613,19 @@ public final class CcCommon {
     if (toolchain.getCppCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
-    ImmutableSet<String> unsupportedFeatures = unsupportedFeaturesBuilder.build();
-    ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
+    ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
+    ImmutableSet.Builder<String> allRequestedFeaturesBuilder = ImmutableSet.builder();
     // If STATIC_LINK_MSVCRT feature isn't specified by user, we add DYNAMIC_LINK_MSVCRT_* feature
     // according to compilation mode.
     // If STATIC_LINK_MSVCRT feature is specified, we add STATIC_LINK_MSVCRT_* feature
     // according to compilation mode.
     if (ruleContext.getFeatures().contains(CppRuleClasses.STATIC_LINK_MSVCRT)) {
-      requestedFeatures.add(
+      allRequestedFeaturesBuilder.add(
           toolchain.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.STATIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.STATIC_LINK_MSVCRT_NO_DEBUG);
     } else {
-      requestedFeatures.add(
+      allRequestedFeaturesBuilder.add(
           toolchain.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.DYNAMIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.DYNAMIC_LINK_MSVCRT_NO_DEBUG);
@@ -636,19 +637,16 @@ public final class CcCommon {
             DEFAULT_FEATURES,
             toolchain.getFeatures().getDefaultFeaturesAndActionConfigs(),
             ruleContext.getFeatures())) {
-      if (!unsupportedFeatures.contains(feature)) {
-        requestedFeatures.add(feature);
+      if (!allUnsupportedFeatures.contains(feature)) {
+        allRequestedFeaturesBuilder.add(feature);
       }
     }
-    requestedFeatures.addAll(featureSpecification.getRequestedFeatures());
+    allRequestedFeaturesBuilder.addAll(requestedFeatures);
 
-    requestedFeatures.addAll(DEFAULT_ACTION_CONFIGS);
-
-    FeatureSpecification currentFeatureSpecification =
-        FeatureSpecification.create(requestedFeatures.build(), unsupportedFeatures);
+    allRequestedFeaturesBuilder.addAll(DEFAULT_ACTION_CONFIGS);
     try {
       FeatureConfiguration configuration =
-          toolchain.getFeatures().getFeatureConfiguration(currentFeatureSpecification);
+          toolchain.getFeatures().getFeatureConfiguration(allRequestedFeaturesBuilder.build());
       for (String feature : unsupportedFeatures) {
         if (configuration.isEnabled(feature)) {
           ruleContext.ruleError(
@@ -678,7 +676,11 @@ public final class CcCommon {
    */
   public static FeatureConfiguration configureFeatures(
       RuleContext ruleContext, CcToolchainProvider toolchain) {
-    return configureFeatures(ruleContext, FeatureSpecification.EMPTY, toolchain);
+    return configureFeatures(
+        ruleContext,
+        /* requestedFeatures= */ ImmutableSet.of(),
+        /* unsupportedFeatures= */ ImmutableSet.of(),
+        toolchain);
   }
 
   /**

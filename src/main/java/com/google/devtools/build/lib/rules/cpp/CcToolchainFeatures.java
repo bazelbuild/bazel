@@ -1683,14 +1683,12 @@ public class CcToolchainFeatures implements Serializable {
 
     protected FeatureConfiguration() {
       this(
-          FeatureSpecification.EMPTY,
           ImmutableList.of(),
           ImmutableList.of(),
           ImmutableMap.of());
     }
 
     private FeatureConfiguration(
-        FeatureSpecification featureSpecification,
         Iterable<Feature> enabledFeatures,
         Iterable<ActionConfig> enabledActionConfigs,
         ImmutableMap<String, ActionConfig> actionConfigByActionName) {
@@ -1851,7 +1849,7 @@ public class CcToolchainFeatures implements Serializable {
    * A cache of feature selection results, so we do not recalculate the feature selection for all
    * actions.
    */
-  private transient LoadingCache<FeatureSpecification, FeatureConfiguration> configurationCache =
+  private transient LoadingCache<ImmutableSet<String>, FeatureConfiguration> configurationCache =
       buildConfigurationCache();
 
   /**
@@ -1995,24 +1993,24 @@ public class CcToolchainFeatures implements Serializable {
     in.defaultReadObject();
     this.configurationCache = buildConfigurationCache();
   }
-  
+
   /** @return an empty {@code FeatureConfiguration} cache. */
-  private LoadingCache<FeatureSpecification, FeatureConfiguration> buildConfigurationCache() {
+  private LoadingCache<ImmutableSet<String>, FeatureConfiguration> buildConfigurationCache() {
     return CacheBuilder.newBuilder()
         // TODO(klimek): Benchmark and tweak once we support a larger configuration.
         .maximumSize(10000)
         .build(
-            new CacheLoader<FeatureSpecification, FeatureConfiguration>() {
+            new CacheLoader<ImmutableSet<String>, FeatureConfiguration>() {
               @Override
-              public FeatureConfiguration load(FeatureSpecification featureSpecification)
+              public FeatureConfiguration load(ImmutableSet<String> requestedFeatures)
                   throws CollidingProvidesException {
-                return computeFeatureConfiguration(featureSpecification);
+                return computeFeatureConfiguration(requestedFeatures);
               }
             });
   }
 
   /**
-   * Given a list of {@code requestedFeatures}, returns all features that are enabled by the
+   * Given a list of {@code requestedSelectables}, returns all features that are enabled by the
    * toolchain configuration.
    *
    * <p>A requested feature will not be enabled if the toolchain does not support it (which may
@@ -2021,10 +2019,10 @@ public class CcToolchainFeatures implements Serializable {
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
    */
-  public FeatureConfiguration getFeatureConfiguration(FeatureSpecification featureSpecification)
+  public FeatureConfiguration getFeatureConfiguration(ImmutableSet<String> requestedSelectables)
       throws CollidingProvidesException {
     try {
-      return configurationCache.get(featureSpecification);
+      return configurationCache.get(requestedSelectables);
     } catch (ExecutionException e) {
       Throwables.throwIfInstanceOf(e.getCause(), CollidingProvidesException.class);
       Throwables.throwIfUnchecked(e.getCause());
@@ -2042,11 +2040,11 @@ public class CcToolchainFeatures implements Serializable {
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
    */
-  public FeatureConfiguration computeFeatureConfiguration(FeatureSpecification featureSpecification)
+  public FeatureConfiguration computeFeatureConfiguration(ImmutableSet<String> requestedSelectables)
       throws CollidingProvidesException {
     // Command line flags will be output in the order in which they are specified in the toolchain
     // configuration.
-    return new FeatureSelection(featureSpecification).run();
+    return new FeatureSelection(requestedSelectables).run();
   }
 
   public ImmutableList<String> getDefaultFeaturesAndActionConfigs() {
@@ -2133,12 +2131,10 @@ public class CcToolchainFeatures implements Serializable {
      * from selectables that have unmet requirements.
      */
     private final Set<CrosstoolSelectable> enabled = new HashSet<>();
-    private final FeatureSpecification featureSpecification;
 
-    private FeatureSelection(FeatureSpecification featureSpecification) {
-      this.featureSpecification = featureSpecification;
+    private FeatureSelection(ImmutableSet<String> requestedFeatures) {
       ImmutableSet.Builder<CrosstoolSelectable> builder = ImmutableSet.builder();
-      for (String name : featureSpecification.getRequestedFeatures()) {
+      for (String name : requestedFeatures) {
         if (selectablesByName.containsKey(name)) {
           builder.add(selectablesByName.get(name));
         }
@@ -2186,7 +2182,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       return new FeatureConfiguration(
-          featureSpecification,
           enabledFeaturesInOrder,
           enabledActionConfigsInOrder,
           actionConfigsByActionName);

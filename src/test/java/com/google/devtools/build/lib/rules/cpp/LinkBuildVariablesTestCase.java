@@ -85,8 +85,7 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
                 "    }",
                 "  }",
                 "}")
-            .getFeatureConfiguration(
-                FeatureSpecification.create(ImmutableSet.of("a"), ImmutableSet.<String>of()));
+            .getFeatureConfiguration(ImmutableSet.of("a"));
     return mockFeatureConfiguration.getCommandLine("foo", variables);
   }
 
@@ -103,8 +102,7 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
                 "    }",
                 "  }",
                 "}")
-            .getFeatureConfiguration(
-                FeatureSpecification.create(ImmutableSet.of("a"), ImmutableSet.<String>of()));
+            .getFeatureConfiguration(ImmutableSet.of("a"));
     return Iterables.getOnlyElement(mockFeatureConfiguration.getCommandLine("foo", variables));
   }
 }

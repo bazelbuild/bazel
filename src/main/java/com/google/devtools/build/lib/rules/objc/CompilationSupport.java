@@ -106,7 +106,6 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
-import com.google.devtools.build.lib.rules.cpp.FeatureSpecification;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -564,9 +563,7 @@ public class CompilationSupport {
     try {
       return ccToolchain
           .getFeatures()
-          .getFeatureConfiguration(
-              FeatureSpecification.create(
-                  activatedCrosstoolSelectables.build(), ImmutableSet.<String>of()));
+          .getFeatureConfiguration(activatedCrosstoolSelectables.build());
     } catch (CollidingProvidesException e) {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;

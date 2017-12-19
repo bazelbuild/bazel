@@ -54,17 +54,15 @@ public class CompileCommandLineTest extends BuildViewTestCase {
       throws Exception {
     return CcToolchainFeaturesTest.buildFeatures(crosstool)
         .getFeatureConfiguration(
-            FeatureSpecification.create(
-                ImmutableSet.of(
-                    CppCompileAction.ASSEMBLE,
-                    CppCompileAction.PREPROCESS_ASSEMBLE,
-                    CppCompileAction.C_COMPILE,
-                    CppCompileAction.CPP_COMPILE,
-                    CppCompileAction.CPP_HEADER_PARSING,
-                    CppCompileAction.CPP_HEADER_PREPROCESSING,
-                    CppCompileAction.CPP_MODULE_CODEGEN,
-                    CppCompileAction.CPP_MODULE_COMPILE),
-                ImmutableSet.<String>of()));
+            ImmutableSet.of(
+                CppCompileAction.ASSEMBLE,
+                CppCompileAction.PREPROCESS_ASSEMBLE,
+                CppCompileAction.C_COMPILE,
+                CppCompileAction.CPP_COMPILE,
+                CppCompileAction.CPP_HEADER_PARSING,
+                CppCompileAction.CPP_HEADER_PREPROCESSING,
+                CppCompileAction.CPP_MODULE_CODEGEN,
+                CppCompileAction.CPP_MODULE_COMPILE));
   }
 
   @Test
