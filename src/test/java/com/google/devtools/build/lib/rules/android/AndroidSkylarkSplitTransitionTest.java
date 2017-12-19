@@ -31,10 +31,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AndroidSkylarkSplitTransitionTest extends BuildViewTestCase {
 
-  protected boolean keepGoing() {
-    return false;
-  }
-
   private void writeAndroidSplitTransitionTestFiles() throws Exception  {
     scratch.file(
         "test/skylark/my_rule.bzl",
