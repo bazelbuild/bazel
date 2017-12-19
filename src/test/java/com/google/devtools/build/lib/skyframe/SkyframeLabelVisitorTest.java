@@ -490,7 +490,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             return 0;
           }
         };
-    fs.stubStat(bazDir.getLocalPath(), inconsistentParentFileStatus);
+    fs.stubStat(bazDir, inconsistentParentFileStatus);
     Set<Label> labels = ImmutableSet.of(Label.parseAbsolute("//foo:foo"));
     getSkyframeExecutor()
         .getPackageManager()

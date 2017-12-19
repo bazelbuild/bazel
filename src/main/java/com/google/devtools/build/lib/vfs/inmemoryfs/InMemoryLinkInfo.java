@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.vfs.inmemoryfs;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.vfs.LocalPath;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * This interface represents a symbolic link to an absolute or relative path,
@@ -25,13 +25,13 @@ import com.google.devtools.build.lib.vfs.LocalPath;
 @ThreadSafe @Immutable
 class InMemoryLinkInfo extends InMemoryContentInfo {
 
-  private final String linkContent;
-  private final LocalPath normalizedLinkContent;
+  private final PathFragment linkContent;
+  private final PathFragment normalizedLinkContent;
 
-  InMemoryLinkInfo(Clock clock, String linkContent) {
+  InMemoryLinkInfo(Clock clock, PathFragment linkContent) {
     super(clock);
     this.linkContent = linkContent;
-    this.normalizedLinkContent = LocalPath.create(linkContent);
+    this.normalizedLinkContent = linkContent.normalize();
   }
 
   @Override
@@ -59,16 +59,18 @@ class InMemoryLinkInfo extends InMemoryContentInfo {
     return linkContent.toString().length();
   }
 
-  /** Returns the content of the symbolic link. */
-  String getLinkContent() {
+  /**
+   * Returns the content of the symbolic link.
+   */
+  PathFragment getLinkContent() {
     return linkContent;
   }
 
   /**
-   * Returns the content of the symbolic link, with ".." and "." removed (except for the possibility
-   * of necessary ".." segments at the beginning).
+   * Returns the content of the symbolic link, with ".." and "." removed
+   * (except for the possibility of necessary ".." segments at the beginning).
    */
-  LocalPath getNormalizedLinkContent() {
+  PathFragment getNormalizedLinkContent() {
     return normalizedLinkContent;
   }
 

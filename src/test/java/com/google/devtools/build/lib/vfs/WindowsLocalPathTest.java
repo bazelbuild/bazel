@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.LocalPath.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.LocalPath.WindowsOsPathPolicy;
 import com.google.devtools.build.lib.vfs.LocalPath.WindowsOsPathPolicy.ShortPathResolver;
@@ -101,14 +101,8 @@ public class WindowsLocalPathTest extends LocalPathAbstractTest {
   @Test
   public void testisAbsoluteWindows() {
     assertThat(create("C:/").isAbsolute()).isTrue();
-  }
-
-  // We support unix paths to make test sharing easier
-  @Test
-  public void testUnixPathSupport() {
+    // test that msys paths turn into absolute paths
     assertThat(create("/").isAbsolute()).isTrue();
-    assertThat(create("/foo").isAbsolute()).isTrue();
-    assertThat(create("/foo").getParentDirectory().getPathString()).isEqualTo("/");
   }
 
   @Test
@@ -116,7 +110,22 @@ public class WindowsLocalPathTest extends LocalPathAbstractTest {
     assertThat(create("C:/foo").relativeTo(create("C:/"))).isEqualTo(create("foo"));
     // Case insensitivity test
     assertThat(create("C:/foo/bar").relativeTo(create("C:/FOO"))).isEqualTo(create("bar"));
-    assertThrows(IllegalArgumentException.class, () -> create("D:/foo").relativeTo(create("C:/")));
+    MoreAsserts.assertThrows(
+        IllegalArgumentException.class, () -> create("D:/foo").relativeTo(create("C:/")));
+  }
+
+  @Test
+  public void testAbsoluteUnixPathIsRelativeToWindowsUnixRoot() {
+    assertThat(create("/").getPathString()).isEqualTo("C:/fake/msys");
+    assertThat(create("/foo/bar").getPathString()).isEqualTo("C:/fake/msys/foo/bar");
+    assertThat(create("/foo/bar").getPathString()).isEqualTo("C:/fake/msys/foo/bar");
+  }
+
+  @Test
+  public void testAbsoluteUnixPathReferringToDriveIsRecognized() {
+    assertThat(create("/c/foo").getPathString()).isEqualTo("C:/foo");
+    assertThat(create("/c/foo").getPathString()).isEqualTo("C:/foo");
+    assertThat(create("/c:").getPathString()).isNotEqualTo("C:/foo");
   }
 
   @Test
@@ -151,17 +160,5 @@ public class WindowsLocalPathTest extends LocalPathAbstractTest {
 
     // Assert relative paths that look like short paths are untouched
     assertThat(create("progra~1").getPathString()).isEqualTo("progra~1");
-  }
-
-  @Test
-  public void testRootsWindows() {
-    assertThat(create("C:/").getDrive().getPathString()).isEqualTo("C:/");
-    assertThat(create("C:/usr").getDrive().getPathString()).isEqualTo("C:/");
-    assertThrows(IllegalArgumentException.class, () -> create("").getDrive());
-
-    assertThat(create("C:/").isRoot()).isFalse();
-    assertThat(create("C:/usr").isRoot()).isFalse();
-    assertThat(create("/").isRoot()).isTrue();
-    assertThat(create("").isRoot()).isFalse();
   }
 }

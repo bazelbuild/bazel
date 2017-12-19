@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -59,7 +58,7 @@ public class DigestUtilsTest {
     FileSystem myfs =
         new InMemoryFileSystem(BlazeClock.instance(), hf) {
           @Override
-          protected byte[] getDigest(LocalPath path, HashFunction hashFunction) throws IOException {
+          protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
             try {
               barrierLatch.countDown();
               readyLatch.countDown();
@@ -73,8 +72,7 @@ public class DigestUtilsTest {
           }
 
           @Override
-          protected byte[] getFastDigest(LocalPath path, HashFunction hashFunction)
-              throws IOException {
+          protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
             return fastDigest ? super.getDigest(path, hashFunction) : null;
           }
         };
@@ -133,7 +131,7 @@ public class DigestUtilsTest {
       FileSystem myFS =
           new InMemoryFileSystem(BlazeClock.instance(), hf) {
             @Override
-            protected byte[] getFastDigest(LocalPath path, HashFunction hashFunction)
+            protected byte[] getFastDigest(Path path, HashFunction hashFunction)
                 throws IOException {
               // Digest functions have more than 3 bytes, usually at least 16.
               return malformed;
@@ -141,7 +139,6 @@ public class DigestUtilsTest {
           };
       Path path = myFS.getPath("/file");
       FileSystemUtils.writeContentAsLatin1(path, "a");
-
       byte[] result = DigestUtils.getDigestOrFail(path, 1);
       assertThat(result).isEqualTo(path.getDigest());
       assertThat(result).isNotSameAs(malformed);
@@ -224,14 +221,13 @@ public class DigestUtilsTest {
     FileSystem tracingFileSystem =
         new InMemoryFileSystem(BlazeClock.instance()) {
           @Override
-          protected byte[] getFastDigest(LocalPath path, HashFunction hashFunction)
-              throws IOException {
+          protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
             getFastDigestCounter.incrementAndGet();
             return null;
           }
 
           @Override
-          protected byte[] getDigest(LocalPath path, HashFunction hashFunction) throws IOException {
+          protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
             getDigestCounter.incrementAndGet();
             return super.getDigest(path, hashFunction);
           }

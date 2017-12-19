@@ -31,37 +31,37 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  protected OutputStream getOutputStream(LocalPath path, boolean append) throws IOException {
+  protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void setReadable(LocalPath path, boolean readable) throws IOException {
+  protected void setReadable(Path path, boolean readable) throws IOException {
     throw modificationException();
   }
 
   @Override
-  public void setWritable(LocalPath path, boolean writable) throws IOException {
+  public void setWritable(Path path, boolean writable) throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void setExecutable(LocalPath path, boolean executable) {
+  protected void setExecutable(Path path, boolean executable) {
     throw new UnsupportedOperationException("setExecutable");
   }
 
   @Override
-  public boolean supportsModifications(LocalPath path) {
+  public boolean supportsModifications(Path path) {
     return false;
   }
 
   @Override
-  public boolean supportsSymbolicLinksNatively(LocalPath path) {
+  public boolean supportsSymbolicLinksNatively(Path path) {
     return false;
   }
 
   @Override
-  public boolean supportsHardLinksNatively(LocalPath path) {
+  public boolean supportsHardLinksNatively(Path path) {
     return false;
   }
 
@@ -71,33 +71,33 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  public boolean createDirectory(LocalPath path) throws IOException {
+  public boolean createDirectory(Path path) throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void createSymbolicLink(LocalPath linkPath, String targetFragment) throws IOException {
+  protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void createFSDependentHardLink(LocalPath linkPath, LocalPath originalPath)
+  protected void createFSDependentHardLink(Path linkPath, Path originalPath)
       throws IOException {
     throw modificationException();
   }
 
   @Override
-  public void renameTo(LocalPath sourcePath, LocalPath targetPath) throws IOException {
+  public void renameTo(Path sourcePath, Path targetPath) throws IOException {
     throw modificationException();
   }
 
   @Override
-  public boolean delete(LocalPath path) throws IOException {
+  public boolean delete(Path path) throws IOException {
     throw modificationException();
   }
 
   @Override
-  public void setLastModifiedTime(LocalPath path, long newTime) throws IOException {
+  public void setLastModifiedTime(Path path, long newTime) throws IOException {
     throw modificationException();
   }
 }

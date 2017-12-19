@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -808,7 +807,7 @@ public class FilesystemValueCheckerTest {
     }
 
     @Override
-    public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
+    public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
       if (statThrowsRuntimeException) {
         throw new RuntimeException("bork");
       }
@@ -816,7 +815,7 @@ public class FilesystemValueCheckerTest {
     }
 
     @Override
-    protected String readSymbolicLink(LocalPath path) throws IOException {
+    protected PathFragment readSymbolicLink(Path path) throws IOException {
       if (readlinkThrowsIoException) {
         throw new IOException("readlink failed");
       }

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -1000,7 +999,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         scratch.file("/e/BUILD", "sh_library(name = 'e', data = glob(['*.txt']))");
     Path parentDir = buildFile.getParentDirectory();
     scratch.file("/e/data.txt");
-    throwOnReaddir = LocalPath.create(parentDir.getPathString());
+    throwOnReaddir = parentDir;
     try {
       packages.createPackage("e", buildFile);
     } catch (NoSuchPackageException expected) {

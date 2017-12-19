@@ -162,17 +162,6 @@ public class UnixLocalPathTest extends LocalPathAbstractTest {
     assertThat(create("/..")).isEqualTo(create("/.."));
   }
 
-  @Test
-  public void testRootsUnix() {
-    assertThat(create("/").getDrive().getPathString()).isEqualTo("/");
-    assertThat(create("/usr").getDrive().getPathString()).isEqualTo("/");
-    assertThrows(IllegalArgumentException.class, () -> create("").getDrive());
-
-    assertThat(create("/").isRoot()).isTrue();
-    assertThat(create("/usr").isRoot()).isFalse();
-    assertThat(create("").isRoot()).isFalse();
-  }
-
   @Override
   protected OsPathPolicy getFilePathOs() {
     return new UnixOsPathPolicy();

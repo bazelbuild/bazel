@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.LocalPath;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -77,8 +76,8 @@ import org.junit.runners.JUnit4;
 public class IncrementalLoadingTest {
   protected PackageCacheTester tester;
 
-  private LocalPath throwOnReaddir = null;
-  private LocalPath throwOnStat = null;
+  private Path throwOnReaddir = null;
+  private Path throwOnStat = null;
 
   @Before
   public final void createTester() throws Exception {
@@ -86,8 +85,7 @@ public class IncrementalLoadingTest {
     FileSystem fs =
         new InMemoryFileSystem(clock) {
           @Override
-          public Collection<Dirent> readdir(LocalPath path, boolean followSymlinks)
-              throws IOException {
+          public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
             if (path.equals(throwOnReaddir)) {
               throw new FileNotFoundException(path.getPathString());
             }
@@ -96,7 +94,7 @@ public class IncrementalLoadingTest {
 
           @Nullable
           @Override
-          public FileStatus stat(LocalPath path, boolean followSymlinks) throws IOException {
+          public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
             if (path.equals(throwOnStat)) {
               throw new IOException("bork " + path.getPathString());
             }
@@ -339,7 +337,7 @@ public class IncrementalLoadingTest {
     Path buildFile = tester.addFile("e/BUILD", "sh_library(name = 'e', data = glob(['*.txt']))");
     Path parentDir = buildFile.getParentDirectory();
     tester.addFile("e/data.txt");
-    throwOnReaddir = parentDir.getLocalPath();
+    throwOnReaddir = parentDir;
     tester.sync();
     try {
       tester.getTarget("//e:e");
