@@ -24,9 +24,9 @@ import java.util.List;
 /**
  * Information about the JDK used by the <code>java_*</code> rules.
  *
- * <p>This class contains the data of the {@code java_toolchain} rules, it is a separate object so
- * it can be shared with other tools.
+ * <p>This class contains the data of the {@code java_toolchain} rules.
  */
+// TODO(cushon): inline this into JavaToolchainProvider (it used to be shared with other tools).
 @Immutable
 public class JavaToolchainData {
 

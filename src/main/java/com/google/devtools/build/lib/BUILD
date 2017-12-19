@@ -349,22 +349,6 @@ java_library(
 )
 
 java_library(
-    name = "java-toolchain-parser",
-    srcs = [
-        "rules/java/JavaToolchainData.java",
-        "rules/java/JavaToolchainDataParser.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/protobuf:build_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-java_library(
     name = "transitive-info-provider",
     srcs = ["analysis/TransitiveInfoProvider.java"],
 )
@@ -743,6 +727,7 @@ java_library(
         "rules/java/JavaSourceInfoProvider.java",
         "rules/java/JavaToolchain.java",
         "rules/java/JavaToolchainAlias.java",
+        "rules/java/JavaToolchainData.java",
         "rules/java/JavaToolchainRule.java",
         "rules/java/JavaToolchainSkylarkApiProvider.java",
         "rules/java/JvmConfigurationLoader.java",
