@@ -36,10 +36,7 @@ public final class SimpleBlobStoreFactory {
   public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds)
       throws IOException {
     return new RestBlobStore(
-        options.remoteRestCache,
-        options.restCachePoolSize,
-        (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout),
-        creds);
+        options.remoteRestCache, (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout), creds);
   }
 
   public static SimpleBlobStore createLocalDisk(RemoteOptions options, Path workingDirectory)
