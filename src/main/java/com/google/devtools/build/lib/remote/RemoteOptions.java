@@ -27,16 +27,17 @@ import com.google.protobuf.TextFormat.ParseException;
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
   @Option(
-    name = "remote_rest_cache",
+    name = "remote_http_cache",
+    oldName = "remote_rest_cache",
     defaultValue = "null",
     category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "A base URL for a RESTful cache server for storing build artifacts. "
-            + "It has to support PUT, GET, and HEAD requests."
+        "A base URL of a HTTP caching service. Both http:// and https:// are supported. BLOBs are "
+            + "stored with PUT and retrieved with GET. See remote/README.md for more information."
   )
-  public String remoteRestCache;
+  public String remoteHttpCache;
 
   @Option(
     name = "remote_rest_cache_pool_size",

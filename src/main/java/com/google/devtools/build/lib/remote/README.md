@@ -47,14 +47,14 @@ In order to enable remote caching in Bazel you'll need to specify some flags. We
 
 ```
 build --spawn_strategy=remote --genrule_strategy=remote --strategy=Javac=remote --strategy=Closure=remote
-build --remote_rest_cache=http://replace-with-your.host:port
+build --remote_http_cache=http://replace-with-your.host:port
 ```
 
 The above will enable remote caching but with sandboxing disabled. The support for sandboxing with remote caching is currently (as of 0.9.0) experimental, but works well in our experience.
 
 ```
 build --experimental_remote_spawn_cache
-build --remote_rest_cache=http://replace-with-your.host:port
+build --remote_http_cache=http://replace-with-your.host:port
 ```
 
 #### Customizing the Hash Function

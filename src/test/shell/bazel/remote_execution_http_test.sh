@@ -59,7 +59,7 @@ function tear_down() {
   rm -rf "${work_path}"
 }
 
-function test_cc_binary_rest_cache() {
+function test_cc_binary_http_cache() {
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -79,7 +79,7 @@ EOF
   bazel clean --expunge >& $TEST_log
   bazel build \
       --experimental_remote_spawn_cache=true  \
-      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+      --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
@@ -93,7 +93,7 @@ EOF
   fi
 }
 
-function test_cc_binary_rest_cache_bad_server() {
+function test_cc_binary_http_cache_bad_server() {
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -113,7 +113,7 @@ EOF
   bazel clean --expunge >& $TEST_log
   bazel build \
       --experimental_remote_spawn_cache=true \
-      --remote_rest_cache=http://bad.hostname/bad/cache \
+      --remote_http_cache=http://bad.hostname/bad/cache \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
