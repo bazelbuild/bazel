@@ -541,7 +541,14 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
-    SkyKey astLookupKey = ASTFileLookupValue.key(preludeLabel);
+    // Load the prelude from the same repository as the package being loaded.  Can't use
+    // Label.resolveRepositoryRelative because preludeLabel is in the main repository, not the
+    // default one, so it is resolved to itself.
+    Label pkgPreludeLabel =
+        Label.createUnvalidated(
+            PackageIdentifier.create(packageId.getRepository(), preludeLabel.getPackageFragment()),
+            preludeLabel.getName());
+    SkyKey astLookupKey = ASTFileLookupValue.key(pkgPreludeLabel);
     ASTFileLookupValue astLookupValue = null;
     try {
       astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
