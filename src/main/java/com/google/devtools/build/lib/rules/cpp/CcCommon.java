@@ -87,6 +87,31 @@ public final class CcCommon {
     }
   };
 
+  /** Action configs we request to enable. */
+  private static final ImmutableSet<String> DEFAULT_ACTION_CONFIGS =
+      ImmutableSet.of(
+          CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
+          CppCompileAction.STRIP_ACTION_NAME,
+          CppCompileAction.C_COMPILE,
+          CppCompileAction.CPP_COMPILE,
+          CppCompileAction.CPP_HEADER_PARSING,
+          CppCompileAction.CPP_HEADER_PREPROCESSING,
+          CppCompileAction.CPP_MODULE_COMPILE,
+          CppCompileAction.CPP_MODULE_CODEGEN,
+          CppCompileAction.ASSEMBLE,
+          CppCompileAction.PREPROCESS_ASSEMBLE,
+          CppCompileAction.CLIF_MATCH,
+          CppCompileAction.LINKSTAMP_COMPILE,
+          Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
+          // We need to create pic-specific actions for link actions, as they will produce
+          // differently named outputs.
+          Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.EXECUTABLE.getActionName());
+
   /** Features we request to enable unless a rule explicitly doesn't support them. */
   private static final ImmutableSet<String> DEFAULT_FEATURES =
       ImmutableSet.of(
@@ -570,18 +595,12 @@ public final class CcCommon {
   /**
    * Creates the feature configuration for a given rule.
    *
-   * @see CcCommon#configureFeatures(
-   *   RuleContext, FeatureSpecification, SourceCategory, CcToolchainProvider)
-   *
-   * @param features CcToolchainFeatures instance to use to get FeatureConfiguration
    * @return the feature configuration for the given {@code ruleContext}.
    */
   public static FeatureConfiguration configureFeatures(
       RuleContext ruleContext,
       FeatureSpecification featureSpecification,
-      SourceCategory sourceCategory,
-      CcToolchainProvider toolchain,
-      CcToolchainFeatures features) {
+      CcToolchainProvider toolchain) {
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
     unsupportedFeaturesBuilder.addAll(featureSpecification.getUnsupportedFeatures());
     if (!toolchain.supportsHeaderParsing()) {
@@ -623,13 +642,13 @@ public final class CcCommon {
     }
     requestedFeatures.addAll(featureSpecification.getRequestedFeatures());
 
-    requestedFeatures.addAll(sourceCategory.getActionConfigSet());
+    requestedFeatures.addAll(DEFAULT_ACTION_CONFIGS);
 
     FeatureSpecification currentFeatureSpecification =
         FeatureSpecification.create(requestedFeatures.build(), unsupportedFeatures);
     try {
       FeatureConfiguration configuration =
-          features.getFeatureConfiguration(currentFeatureSpecification);
+          toolchain.getFeatures().getFeatureConfiguration(currentFeatureSpecification);
       for (String feature : unsupportedFeatures) {
         if (configuration.isEnabled(feature)) {
           ruleContext.ruleError(
@@ -650,37 +669,6 @@ public final class CcCommon {
     }
   }
 
-
-  /**
-   * Creates the feature configuration for a given rule.
-   *
-   * @see CcCommon#configureFeatures(RuleContext, CcToolchainProvider, SourceCategory)
-   *
-   * @param toolchain the current toolchain provider
-   * @return the feature configuration for the given {@code ruleContext}.
-   */
-  public static FeatureConfiguration configureFeatures(
-      RuleContext ruleContext,
-      FeatureSpecification featureSpecification,
-      SourceCategory sourceCategory,
-      CcToolchainProvider toolchain) {
-    return configureFeatures(
-        ruleContext, featureSpecification, sourceCategory, toolchain, toolchain.getFeatures());
-  }
-
-  /**
-   * Creates a feature configuration for a given rule.
-   *
-   * @see CcCommon#configureFeatures(RuleContext, CcToolchainProvider)
-   *
-   * @param sourceCategory the category of sources to be used in this build.
-   * @return the feature configuration for the given {@code ruleContext}.
-   */
-  public static FeatureConfiguration configureFeatures(
-      RuleContext ruleContext, CcToolchainProvider toolchain, SourceCategory sourceCategory) {
-    return configureFeatures(ruleContext, FeatureSpecification.EMPTY, sourceCategory, toolchain);
-  }
-
   /**
    * Creates a feature configuration for a given rule.  Assumes strictly cc sources.
    *
@@ -690,7 +678,7 @@ public final class CcCommon {
    */
   public static FeatureConfiguration configureFeatures(
       RuleContext ruleContext, CcToolchainProvider toolchain) {
-    return configureFeatures(ruleContext, toolchain, SourceCategory.CC);
+    return configureFeatures(ruleContext, FeatureSpecification.EMPTY, toolchain);
   }
 
   /**

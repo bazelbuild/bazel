@@ -215,7 +215,6 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
           CcCommon.configureFeatures(
               ruleContext,
               FeatureSpecification.create(requestedFeatures.build(), unsupportedFeatures.build()),
-              CcLibraryHelper.SourceCategory.CC,
               ccToolchain(ruleContext));
       return featureConfiguration;
     }

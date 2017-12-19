@@ -106,29 +106,7 @@ public final class CcLibraryHelper {
             CppFileTypes.CPP_HEADER,
             CppFileTypes.C_SOURCE,
             CppFileTypes.ASSEMBLER,
-            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR),
-        ImmutableSet.<String>of(
-            CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
-            CppCompileAction.STRIP_ACTION_NAME,
-            CppCompileAction.C_COMPILE,
-            CppCompileAction.CPP_COMPILE,
-            CppCompileAction.CPP_HEADER_PARSING,
-            CppCompileAction.CPP_HEADER_PREPROCESSING,
-            CppCompileAction.CPP_MODULE_COMPILE,
-            CppCompileAction.CPP_MODULE_CODEGEN,
-            CppCompileAction.ASSEMBLE,
-            CppCompileAction.PREPROCESS_ASSEMBLE,
-            CppCompileAction.CLIF_MATCH,
-            CppCompileAction.LINKSTAMP_COMPILE,
-            Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
-            // We need to create pic-specific actions for link actions, as they will produce
-            // differently named outputs.
-            Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
-            Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName(),
-            Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
-            Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
-            Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),
-            Link.LinkTargetType.EXECUTABLE.getActionName())),
+            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR)),
     CC_AND_OBJC(
         FileTypeSet.of(
             CppFileTypes.CPP_SOURCE,
@@ -137,34 +115,12 @@ public final class CcLibraryHelper {
             CppFileTypes.OBJCPP_SOURCE,
             CppFileTypes.C_SOURCE,
             CppFileTypes.ASSEMBLER,
-            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR),
-        ImmutableSet.<String>of(
-            CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
-            CppCompileAction.C_COMPILE,
-            CppCompileAction.CPP_COMPILE,
-            CppCompileAction.OBJC_COMPILE,
-            CppCompileAction.OBJCPP_COMPILE,
-            CppCompileAction.CPP_HEADER_PARSING,
-            CppCompileAction.CPP_HEADER_PREPROCESSING,
-            CppCompileAction.ASSEMBLE,
-            CppCompileAction.PREPROCESS_ASSEMBLE,
-            CppCompileAction.LINKSTAMP_COMPILE,
-            Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
-            // We need to create pic-specific actions for link actions, as they will produce
-            // differently named outputs.
-            Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
-            Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName(),
-            Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
-            Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
-            Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),
-            Link.LinkTargetType.EXECUTABLE.getActionName()));
+            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR));
 
     private final FileTypeSet sourceTypeSet;
-    private final ImmutableSet<String> actionConfigSet;
 
-    private SourceCategory(FileTypeSet sourceTypeSet, ImmutableSet<String> actionConfigSet) {
+    private SourceCategory(FileTypeSet sourceTypeSet) {
       this.sourceTypeSet = sourceTypeSet;
-      this.actionConfigSet = actionConfigSet;
     }
 
     /**
@@ -172,11 +128,6 @@ public final class CcLibraryHelper {
      */
     public FileTypeSet getSourceTypes() {
       return sourceTypeSet;
-    }
-
-    /** Returns the set of enabled actions for this category. */
-    public Set<String> getActionConfigSet() {
-      return actionConfigSet;
     }
   }
 
