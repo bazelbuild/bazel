@@ -84,11 +84,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
       ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration) {
     return new JavaToolchainProvider(
         label,
-        data.getSourceVersion(),
-        data.getTargetVersion(),
         bootclasspath,
         extclasspath,
-        data.getEncoding(),
         javac,
         tools,
         javaBuilder,
@@ -114,11 +111,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
   }
 
   private final Label label;
-  private final String sourceVersion;
-  private final String targetVersion;
   private final NestedSet<Artifact> bootclasspath;
   private final NestedSet<Artifact> extclasspath;
-  private final String encoding;
   private final Artifact javac;
   private final NestedSet<Artifact> tools;
   private final FilesToRunProvider javaBuilder;
@@ -139,11 +133,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
 
   private JavaToolchainProvider(
       Label label,
-      String sourceVersion,
-      String targetVersion,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
-      String encoding,
       Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
@@ -164,11 +155,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
     super(ImmutableMap.of(), Location.BUILTIN);
 
     this.label = label;
-    this.sourceVersion = sourceVersion;
-    this.targetVersion = targetVersion;
     this.bootclasspath = bootclasspath;
     this.extclasspath = extclasspath;
-    this.encoding = encoding;
     this.javac = javac;
     this.tools = tools;
     this.javaBuilder = javaBuilder;
@@ -193,16 +181,6 @@ public class JavaToolchainProvider extends ToolchainInfo {
     return label;
   }
 
-  /** @return the input Java language level */
-  public String getSourceVersion() {
-    return sourceVersion;
-  }
-
-  /** @return the target Java language level */
-  public String getTargetVersion() {
-    return targetVersion;
-  }
-
   /** @return the target Java bootclasspath */
   public NestedSet<Artifact> getBootclasspath() {
     return bootclasspath;
@@ -211,11 +189,6 @@ public class JavaToolchainProvider extends ToolchainInfo {
   /** @return the target Java extclasspath */
   public NestedSet<Artifact> getExtclasspath() {
     return extclasspath;
-  }
-
-  /** @return the encoding for Java source files */
-  public String getEncoding() {
-    return encoding;
   }
 
   /** Returns the {@link Artifact} of the javac jar */

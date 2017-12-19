@@ -50,18 +50,18 @@ public final class JavaToolchainRule implements RuleDefinition {
         The Java source version (e.g., '6' or '7'). It specifies which set of code structures
         are allowed in the Java source code.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("source_version", STRING).mandatory()) // javac -source flag value.
+        .add(attr("source_version", STRING)) // javac -source flag value.
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(target_version) -->
         The Java target version (e.g., '6' or '7'). It specifies for which Java runtime the class
         should be build.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("target_version", STRING).mandatory()) // javac -target flag value.
+        .add(attr("target_version", STRING)) // javac -target flag value.
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(bootclasspath) -->
         The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("bootclasspath", LABEL_LIST)
-                .mandatory()
+                .value(ImmutableList.of())
                 .cfg(HOST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(extclasspath) -->
@@ -69,23 +69,27 @@ public final class JavaToolchainRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("extclasspath", LABEL_LIST)
-                .mandatory()
+                .value(ImmutableList.of())
                 .cfg(HOST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(encoding) -->
         The encoding of the java files (e.g., 'UTF-8').
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("encoding", STRING).mandatory()) // javac -encoding flag value.
+        .add(attr("encoding", STRING)) // javac -encoding flag value.
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(xlint) -->
         The list of warning to add or removes from default list. Precedes it with a dash to
         removes it. Please see the Javac documentation on the -Xlint options for more information.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("xlint", STRING_LIST).value(ImmutableList.<String>of()))
-        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(misc) -->
+        .add(
+            attr("misc", STRING_LIST)
+                .undocumented("use javacopts instead")
+                .value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javacopts) -->
         The list of extra arguments for the Java compiler. Please refer to the Java compiler
         documentation for the extensive list of possible Java compiler flags.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("misc", STRING_LIST).value(ImmutableList.<String>of()))
+        .add(attr("javacopts", STRING_LIST).value(ImmutableList.<String>of()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(jvm_opts) -->
         The list of arguments for the JVM when invoking the Java compiler. Please refer to the Java
         virtual machine documentation for the extensive list of possible flags for this option.
