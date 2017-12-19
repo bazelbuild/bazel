@@ -164,6 +164,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_files/deploy_info_split.deployinfo.pb");
   public static final SafeImplicitOutputsFunction REX_OUTPUT_PACKAGE_MAP =
       fromTemplates("%{name}_rex/rex_output_package.map");
+  public static final SafeImplicitOutputsFunction INSTRUMENTATION_TEST_CHECK_RESULTS =
+      fromTemplates("%{name}_files/instrumentation_test_check_results.txt");
 
   // This needs to be in its own directory because ApkBuilder only has a function (-rf) for source
   // folders but not source files, and it's easiest to guarantee that nothing gets put beside this
@@ -991,6 +993,19 @@ public final class AndroidRuleClasses {
                   .undocumented("blocked by android_instrumentation_test")
                   .allowedRuleClasses("android_binary")
                   .allowedFileTypes(NO_FILE))
+          .add(
+              attr("$instrumentation_test_check", LABEL)
+                  .cfg(HOST)
+                  .value(
+                      new Attribute.ComputedDefault() {
+                        @Override
+                        public Object getDefault(AttributeMap rule) {
+                          return rule.isAttributeValueExplicitlySpecified("instruments")
+                              ? env.getToolsLabel("//tools/android:instrumentation_test_check")
+                              : null;
+                        }
+                      })
+                  .exec())
           .add(
               attr("$zip_filter", LABEL)
                   .cfg(HOST)

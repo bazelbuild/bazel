@@ -56,8 +56,8 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
       ruleContext.throwWithAttributeError(
           "instrumentation",
           String.format(
-              "The android_binary target at %s is missing an 'instruments' attribute. Please set "
-                  + "it as the label of the android_binary under test.",
+              "The android_binary target %s is missing an 'instruments' attribute. Please set "
+                  + "it to the label of the android_binary under test.",
               ruleContext.attributes().get("instrumentation", BuildType.LABEL)));
     }
   }

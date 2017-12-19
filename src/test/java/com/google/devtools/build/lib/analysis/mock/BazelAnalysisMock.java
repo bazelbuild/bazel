@@ -255,6 +255,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("java_plugin(name = 'databinding_annotation_processor',")
         .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')")
         .add("sh_binary(name = 'jarjar_bin', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
         .add("package_group(name = 'android_device_whitelist', packages = ['//...'])");
 
     return androidBuildContents.build();

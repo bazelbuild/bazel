@@ -126,6 +126,12 @@ alias(
 )
 
 py_binary(
+    name = "instrumentation_test_check",
+    srcs = ["instrumentation_test_check.py"],
+    deps = ["//third_party/py/gflags"],
+)
+
+py_binary(
     name = "merge_manifests",
     srcs = [
         "android_permissions.py",

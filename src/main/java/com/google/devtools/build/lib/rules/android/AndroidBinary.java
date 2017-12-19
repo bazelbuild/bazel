@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -562,17 +563,46 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     // If this is an instrumentation APK, create the provider for android_instrumentation_test.
     if (isInstrumentation(ruleContext)) {
-      Artifact targetApk =
-          ruleContext
-              .getPrerequisite("instruments", Mode.TARGET)
-              .getProvider(ApkProvider.class)
-              .getApk();
+      ApkProvider targetApkProvider =
+          ruleContext.getPrerequisite("instruments", Mode.TARGET, ApkProvider.class);
+
+      Artifact targetApk = targetApkProvider.getApk();
       Artifact instrumentationApk = zipAlignedApk;
 
       AndroidInstrumentationInfo instrumentationProvider =
           new AndroidInstrumentationInfo(targetApk, instrumentationApk);
 
       builder.addNativeDeclaredProvider(instrumentationProvider);
+
+      // At this point, the Android manifests of both target and instrumentation APKs are finalized.
+      FilesToRunProvider checker =
+          ruleContext.getExecutablePrerequisite("$instrumentation_test_check", Mode.HOST);
+      Artifact targetManifest = targetApkProvider.getMergedManifest();
+      Artifact instrumentationManifest = applicationManifest.getManifest();
+      Artifact checkOutput =
+          ruleContext.getImplicitOutputArtifact(
+              AndroidRuleClasses.INSTRUMENTATION_TEST_CHECK_RESULTS);
+
+      SpawnAction.Builder checkAction =
+          new Builder()
+              .setExecutable(checker)
+              .addInput(targetManifest)
+              .addInput(instrumentationManifest)
+              .addOutput(checkOutput)
+              .setProgressMessage(
+                  "Validating the merged manifests of the target and instrumentation APKs")
+              .setMnemonic("AndroidManifestInstrumentationCheck");
+
+      CustomCommandLine commandLine =
+          CustomCommandLine.builder()
+              .addExecPath("--instrumentation_manifest", instrumentationManifest)
+              .addExecPath("--target_manifest", targetManifest)
+              .addExecPath("--output", checkOutput)
+              .build();
+
+      builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, checkOutput);
+      checkAction.addCommandLine(commandLine);
+      ruleContext.registerAction(checkAction.build(ruleContext));
     }
 
     androidCommon.addTransitiveInfoProviders(
