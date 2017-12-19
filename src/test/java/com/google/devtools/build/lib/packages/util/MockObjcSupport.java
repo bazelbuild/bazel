@@ -51,6 +51,24 @@ public final class MockObjcSupport {
   public static final String DEFAULT_XCODE_VERSION = "7.3.1";
   public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
 
+  /** Returns the set of flags required to build objc libraries using the mock OSX crosstool. */
+  public static ImmutableList<String> requiredObjcCrosstoolFlags() {
+    ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
+    argsBuilder.addAll(TestConstants.OSX_CROSSTOOL_FLAGS);
+
+    // TODO(b/68751876): Set --apple_crosstool_top and --crosstool_top using the
+    // AppleCrosstoolTransition
+    argsBuilder
+        .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
+        .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
+        .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+
+    // TODO(b/32411441): This flag will be flipped off by default imminently, at which point
+    // this can be removed. The flag itself is for safe rollout of a backwards incompatible change.
+    argsBuilder.add("--noexperimental_objc_provider_from_linked");
+    return argsBuilder.build();
+  }
+
   /**
    * Sets up the support for building ObjC.
    * Any partial toolchain line will be merged into every toolchain stanza in the crosstool
