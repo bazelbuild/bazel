@@ -43,22 +43,34 @@ When an input file is modified during a build, Bazel might upload invalid result
 
 ### Bazel Setup
 
-We recommend editing your `~/.bazelrc` to enable remote caching using the HTTP REST protocol. You will need to replace `http://server-address:port/cache` with the correct address for your HTTP REST server:
+In order to enable remote caching in Bazel you'll need to specify some flags. We recommend adding them to your `~/.bazelrc` file for ease of use.
 
 ```
-build --spawn_strategy=remote
-build --remote_rest_cache=REPLACE_THIS:http://server-address:port/cache
-# Bazel currently doesn't support remote caching in combination with workers.
-# These two lines override the default strategy for Javac and Closure
-# actions, so that they are also remotely cached.
-# Follow https://github.com/bazelbuild/bazel/issues/3027 for more details:
-build --strategy=Javac=remote
-build --strategy=Closure=remote
+build --spawn_strategy=remote --genrule_strategy=remote --strategy=Javac=remote --strategy=Closure=remote
+build --remote_rest_cache=http://replace-with-your.host:port
 ```
 
-#### Customizing The Digest Function
+The above will enable remote caching but with sandboxing disabled. The support for sandboxing with remote caching is currently (as of 0.9.0) experimental, but works well in our experience.
 
-Bazel currently supports the following digest functions with the remote worker: SHA1, SHA256, and MD5. It defaults to SHA256. The digest function is passed via the `--host_jvm_args=-Dbazel.DigestFunction=###` startup option.
+```
+build --experimental_remote_spawn_cache
+build --remote_rest_cache=http://replace-with-your.host:port
+```
+
+#### Customizing the Hash Function
+
+Bazel computes hashes for action cache and CAS entries using SHA256 by default.
+This default can be changed to MD5 or SHA1 by specifying the
+`--host_jvm_args=-Dbazel.DigestFunction=###` startup option. Note that the hash
+function used by Bazel and the remote cache need to match when using the gRPC
+protocol.
+
+
+### Bazel Remote Cache
+
+An open source remote build cache that stores contents on disk and also provides garbage collection to enforce an upper storage limit and clean unused artifacts.
+
+The cache is available as a [docker image](https://hub.docker.com/r/buchgr/bazel-remote-cache).
 
 ### Hazelcast with REST interface
 
@@ -125,33 +137,34 @@ this directory to include security control.
 ## Remote caching using the gRPC protocol
 
 We're working on a [gRPC protocol](https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto)
-that supports both remote caching and remote execution. As of this writing, there is only a single server-side implementation, which is not intended for production use.
+that supports both remote caching and remote execution. Bazel ships with a server-side implementation that's useful for testing and not intended for production use. [Buildfarm](https://github.com/bazelbuild/bazel-buildfarm) is an open source project that aims to provide a distributed remote execution platform.
 
 ### Bazel Setup
 
-We recommend editing your `~/.bazelrc` to enable remote caching using the gRPC protocol. Use the following build options to use the gRPC CAS endpoint for sharing build artifacts. Change `REPLACE_THIS:address:8080` to the correct server address and port number.
+In order to enable remote caching in Bazel you'll need to specify some flags. We recommend adding them to your `~/.bazelrc` file for ease of use.
 
 ```
-build --spawn_strategy=remote
-build --remote_cache=REPLACE_THIS:address:8080
-# Bazel currently doesn't support remote caching in combination with workers.
-# These two lines override the default strategy for Javac and Closure
-# actions, so that they are also remotely cached.
-# Follow https://github.com/bazelbuild/bazel/issues/3027 for more details:
-build --strategy=Javac=remote
-build --strategy=Closure=remote
+build --spawn_strategy=remote --genrule_strategy=remote --strategy=Javac=remote --strategy=Closure=remote
+build --remote_cache=replace-with-your.host:port
 ```
 
-### Running the sample gRPC cache server
-
-Bazel currently provides a sample gRPC CAS implementation with a SimpleBlobStore as caching backend. To use it you need to clone from [Bazel](https://github.com/bazelbuild/bazel) and then build it with:
+The above will enable remote caching but with sandboxing disabled. The support for sandboxing with remote caching is currently (as of 0.9.0) experimental (but works well in our experience).
 
 ```
-bazel build //src/tools/remote:worker
+build --experimental_remote_spawn_cache
+build --remote_cache=replace-with-your.host:port
 ```
 
-The following command will then start the cache server listening on port 8080 using a local in-memory cache:
+Remote execution can be enabled by specifying the `--remote_executor=replace-with-your.host:port` flag.
+
+### Running the Remote Worker
+
+Bazel currently provides a sample gRPC caching backend.
 
 ```
-bazel-bin/src/tools/remote/worker --listen_port=8080
+$ git clone https://github.com/bazelbuild/bazel.git
+$ cd bazel
+$ bazel build //src/tools/remote:worker
+$ bazel-bin/src/tools/remote/worker --listen_port=8080
 ```
+
