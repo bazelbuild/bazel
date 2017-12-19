@@ -81,7 +81,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
-      ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration) {
+      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration) {
     return new JavaToolchainProvider(
         label,
         bootclasspath,
@@ -107,7 +107,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
             .build(),
         data.getJvmOptions(),
         data.getJavacSupportsWorkers(),
-        pluginConfiguration);
+        packageConfiguration);
   }
 
   private final Label label;
@@ -129,7 +129,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> jvmOptions;
   private final boolean javacSupportsWorkers;
-  private final ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration;
+  private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
 
   private JavaToolchainProvider(
       Label label,
@@ -151,7 +151,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
       boolean javacSupportsWorkers,
-      ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration) {
+      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration) {
     super(ImmutableMap.of(), Location.BUILTIN);
 
     this.label = label;
@@ -173,7 +173,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
     this.javacOptions = javacOptions;
     this.jvmOptions = jvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
-    this.pluginConfiguration = pluginConfiguration;
+    this.packageConfiguration = packageConfiguration;
   }
 
   /** Returns the label for this {@code java_toolchain}. */
@@ -291,7 +291,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
   }
 
   /** Returns the global {@code java_plugin_configuration} data. */
-  public ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration() {
-    return pluginConfiguration;
+  public ImmutableList<JavaPackageConfigurationProvider> packageConfiguration() {
+    return packageConfiguration;
   }
 }

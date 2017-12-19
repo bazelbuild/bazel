@@ -25,10 +25,11 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.syntax.Type;
 import java.util.List;
 
-/** Implementation for the java_plugin_configuration rule. */
-public class JavaPluginConfiguration implements RuleConfiguredTargetFactory {
+/** Implementation for the java_package_configuration rule. */
+public class JavaPackageConfiguration implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) {
@@ -36,14 +37,11 @@ public class JavaPluginConfiguration implements RuleConfiguredTargetFactory {
         ImmutableList.copyOf(
             ruleContext.getPrerequisites(
                 "packages", Mode.HOST, PackageSpecificationProvider.class));
-    JavaPluginInfoProvider plugins =
-        JavaPluginInfoProvider.merge(
-            JavaInfo.getProvidersFromListOfTargets(
-                JavaPluginInfoProvider.class, ruleContext.getPrerequisites("plugins", Mode.HOST)));
+    List<String> javacopts = ruleContext.attributes().get("javacopts", Type.STRING_LIST);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
-        .addProvider(JavaPluginConfigurationProvider.create(packages, plugins))
+        .addProvider(JavaPackageConfigurationProvider.create(packages, javacopts))
         .build();
   }
 }

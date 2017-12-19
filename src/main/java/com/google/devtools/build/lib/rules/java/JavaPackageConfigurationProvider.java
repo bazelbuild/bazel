@@ -22,26 +22,26 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.List;
 
-/** A provider for Java plugin configuration. */
+/** A provider for Java per-package configuration. */
 @AutoValue
 @Immutable
-public abstract class JavaPluginConfigurationProvider implements TransitiveInfoProvider {
+public abstract class JavaPackageConfigurationProvider implements TransitiveInfoProvider {
 
-  /** Creates a {@link JavaPluginConfigurationProvider}. */
-  public static JavaPluginConfigurationProvider create(
-      List<PackageSpecificationProvider> packageSpecifications, JavaPluginInfoProvider plugin) {
-    return new AutoValue_JavaPluginConfigurationProvider(packageSpecifications, plugin);
+  /** Creates a {@link JavaPackageConfigurationProvider}. */
+  public static JavaPackageConfigurationProvider create(
+      List<PackageSpecificationProvider> packageSpecifications, List<String> javacopts) {
+    return new AutoValue_JavaPackageConfigurationProvider(packageSpecifications, javacopts);
   }
 
-  /** Package specifications for which the plugins should be enabled. */
+  /** Package specifications for which the configuration should be applied. */
   abstract List<PackageSpecificationProvider> packageSpecifications();
 
-  /** The Java plugins described by this configuration. */
-  abstract JavaPluginInfoProvider plugin();
+  /** The javacopts for this configuration. */
+  abstract List<String> javacopts();
 
   /**
-   * Returns true if this plugin configuration matches the current label: that is, if the label's
-   * package is contained by any of the {@link #packageSpecifications}.
+   * Returns true if this configuration matches the current label: that is, if the label's package
+   * is contained by any of the {@link #packageSpecifications}.
    */
   public boolean matches(Label label) {
     return packageSpecifications()

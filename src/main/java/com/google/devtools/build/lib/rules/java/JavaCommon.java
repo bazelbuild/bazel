@@ -63,6 +63,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -459,10 +460,23 @@ public class JavaCommon {
 
   private ImmutableList<String> computeJavacOpts(Iterable<String> extraJavacOpts) {
     return Streams.concat(
-            JavaToolchainProvider.from(ruleContext).getJavacOptions().stream(),
+            toolchainJavacOpts(ruleContext),
             Streams.stream(extraJavacOpts),
             ruleContext.getExpander().withDataLocations().tokenized("javacopts").stream())
         .collect(toImmutableList());
+  }
+
+  private Stream<String> toolchainJavacOpts(RuleContext ruleContext) {
+    JavaToolchainProvider toolchain = JavaToolchainProvider.from(ruleContext);
+    return Stream.concat(
+        toolchain.getJavacOptions().stream(),
+        // Enable any javacopts from java_toolchain.packages that are configured for the current
+        // package.
+        toolchain
+            .packageConfiguration()
+            .stream()
+            .filter(p -> p.matches(ruleContext.getLabel()))
+            .flatMap(p -> p.javacopts().stream()));
   }
 
   public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
@@ -824,13 +838,6 @@ public class JavaCommon {
         getPluginInfoProvidersForAttribute(ruleContext, ":java_plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "deps", Mode.TARGET));
-    // Enable any plugins from java_toolchain.plugins that are configured for the current package.
-    JavaToolchainProvider.from(ruleContext)
-        .pluginConfiguration()
-        .stream()
-        .filter(p -> p.matches(ruleContext.getLabel()))
-        .map(JavaPluginConfigurationProvider::plugin)
-        .forEachOrdered(result::add);
     return ImmutableList.copyOf(result);
   }
 
