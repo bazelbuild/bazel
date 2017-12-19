@@ -110,6 +110,12 @@ public final class OptionsParser {
           // terminator to the passed arguments.
           collectFlagArguments(javacOpts, argQueue, "--");
           sourcePathFromJavacOpts();
+          if (!argQueue.isEmpty() && argQueue.peekFirst().equals("--")) {
+            // Support --javacopts terminated with "--", in preparation for requiring javacopts
+            // to be terminated with "--", in preparation for supporting --javacopts that start
+            // with "--".
+            argQueue.removeFirst();
+          }
           break;
         case "--direct_dependency":
           {
