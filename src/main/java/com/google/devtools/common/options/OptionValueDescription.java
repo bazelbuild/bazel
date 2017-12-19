@@ -98,8 +98,6 @@ public abstract class OptionValueDescription {
       return new RepeatableOptionValueDescription(option);
     } else if (option.hasImplicitRequirements()) {
       return new OptionWithImplicitRequirementsValueDescription(option);
-    } else if (option.isWrapperOption()) {
-      return new WrapperOptionValueDescription(option);
     } else {
       return new SingleOptionValueDescription(option);
     }
@@ -428,50 +426,6 @@ public abstract class OptionValueDescription {
               : String.format(
                   "implicit requirement of %s (source %s)",
                   optionDefinition, parsedOption.getSource()));
-    }
-  }
-
-  /** Form for options that contain other options in the value text to which they expand. */
-  private static final class WrapperOptionValueDescription extends OptionValueDescription {
-
-    WrapperOptionValueDescription(OptionDefinition optionDefinition) {
-      super(optionDefinition);
-    }
-
-    @Override
-    public Object getValue() {
-      return null;
-    }
-
-    @Override
-    public String getSourceString() {
-      return null;
-    }
-
-    @Override
-    ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, List<String> warnings)
-        throws OptionsParsingException {
-      if (!parsedOption.getUnconvertedValue().startsWith("-")) {
-        throw new OptionsParsingException(
-            String.format(
-                "Invalid value format for %s. You may have meant --%s=--%s",
-                optionDefinition,
-                optionDefinition.getOptionName(),
-                parsedOption.getUnconvertedValue()));
-      }
-      return new ExpansionBundle(
-          ImmutableList.of(parsedOption.getUnconvertedValue()),
-          (parsedOption.getSource() == null)
-              ? String.format("unwrapped from %s", optionDefinition)
-              : String.format(
-                  "unwrapped from %s (source %s)", optionDefinition, parsedOption.getSource()));
-    }
-
-    @Override
-    public ImmutableList<ParsedOptionDescription> getCanonicalInstances() {
-      // No wrapper options get listed in the canonical form - the options they are wrapping will
-      // be in the right place.
-      return ImmutableList.of();
     }
   }
 }

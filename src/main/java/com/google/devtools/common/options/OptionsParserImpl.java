@@ -392,16 +392,15 @@ class OptionsParserImpl {
     @Nullable String unconvertedValue = parsedOption.getUnconvertedValue();
 
     // There are 3 types of flags that expand to other flag values. Expansion flags are the
-    // accepted way to do this, but two legacy features remain: implicit requirements and wrapper
-    // options. We rely on the OptionProcessor compile-time check's guarantee that no option sets
-    // multiple of these behaviors. (In Bazel, --config is another such flag, but that expansion
+    // accepted way to do this, but implicit requirements also do this. We rely on the
+    // OptionProcessor compile-time check's guarantee that no option sets
+    // both expansion behaviors. (In Bazel, --config is another such flag, but that expansion
     // is not controlled within the options parser, so we ignore it here)
 
     // As much as possible, we want the behaviors of these different types of flags to be
     // identical, as this minimizes the number of edge cases, but we do not yet track these values
-    // in the same way. Wrapper options are replaced by their value and implicit requirements are
-    // hidden from the reported lists of parsed options.
-    if (parsedOption.getImplicitDependent() == null && !optionDefinition.isWrapperOption()) {
+    // in the same way.
+    if (parsedOption.getImplicitDependent() == null) {
       // Log explicit options and expanded options in the order they are parsed (can be sorted
       // later). This information is needed to correctly canonicalize flags.
       parsedOptions.add(parsedOption);
@@ -416,13 +415,7 @@ class OptionsParserImpl {
               optionDefinition.isExpansionOption() ? optionDefinition : null,
               expansionBundle.expansionArgs);
       if (!residueAndPriority.residue.isEmpty()) {
-        if (optionDefinition.isWrapperOption()) {
-          throw new OptionsParsingException(
-              "Unparsed options remain after unwrapping "
-                  + unconvertedValue
-                  + ": "
-                  + Joiner.on(' ').join(residueAndPriority.residue));
-        } else {
+
           // Throw an assertion here, because this indicates an error in the definition of this
           // option's expansion or requirements, not with the input as provided by the user.
           throw new AssertionError(
@@ -430,7 +423,7 @@ class OptionsParserImpl {
                   + unconvertedValue
                   + ": "
                   + Joiner.on(' ').join(residueAndPriority.residue));
-        }
+
       }
     }
   }
@@ -506,9 +499,8 @@ class OptionsParserImpl {
       // Special-case boolean to supply value based on presence of "no" prefix.
       if (optionDefinition.usesBooleanValueSyntax()) {
         unconvertedValue = booleanValue ? "1" : "0";
-      } else if (optionDefinition.getType().equals(Void.class)
-          && !optionDefinition.isWrapperOption()) {
-        // This is expected, Void type options have no args (unless they're wrapper options).
+      } else if (optionDefinition.getType().equals(Void.class)) {
+        // This is expected, Void type options have no args.
       } else if (nextArgs.hasNext()) {
         // "--flag value" form
         unconvertedValue = nextArgs.next();
