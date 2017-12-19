@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.Converters;
@@ -949,7 +949,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return cpu;
   }
 
-  @SkylarkCallable(name = "sdk", structField = true, doc = "Android SDK")
+  @SkylarkConfigurationField(
+    name = "android_sdk_label",
+    doc = "Returns the target denoted by the value of the --android_sdk flag",
+    defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
+    defaultInToolRepository = true
+  )
   public Label getSdk() {
     return sdk;
   }

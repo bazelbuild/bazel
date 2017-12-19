@@ -20,6 +20,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.syntax.Runtime;
 import java.util.List;
@@ -29,7 +30,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class AndroidSkylarkSplitTransitionTest extends BuildViewTestCase {
+public class AndroidSkylarkTest extends BuildViewTestCase {
 
   private void writeAndroidSplitTransitionTestFiles() throws Exception  {
     scratch.file(
@@ -108,7 +109,7 @@ public class AndroidSkylarkSplitTransitionTest extends BuildViewTestCase {
     assertThat(attrDepsMap).valuesForKey("armeabi-v7a").hasSize(2);
 
     // Check that even though my_rule.dep is defined as a single label, ctx.attr.dep is still a list
-    // with multiple ConfiguredTarget objects because of the two different CPUs. 
+    // with multiple ConfiguredTarget objects because of the two different CPUs.
     @SuppressWarnings("unchecked")
     List<ConfiguredTarget> attrDep = (List<ConfiguredTarget>) target.get("attr_dep");
     assertThat(attrDep).hasSize(2);
@@ -163,5 +164,24 @@ public class AndroidSkylarkSplitTransitionTest extends BuildViewTestCase {
     assertThat(splitDeps.get(Runtime.NONE).get(0).getConfiguration().getCpu()).isEqualTo("k8");
     assertThat(splitDeps.get(Runtime.NONE).get(1).getConfiguration().getCpu()).isEqualTo("k8");
   }
-  
+
+  @Test
+  public void testAndroidSdkConfigurationField() throws Exception {
+    scratch.file(
+        "foo_library.bzl",
+        "def _impl(ctx):",
+        "  return struct(foo = ctx.attr._android_sdk.label)",
+        "foo_library = rule(implementation = _impl,",
+        "    attrs = { '_android_sdk': attr.label(default = configuration_field(",
+        "        fragment = 'android', name = 'android_sdk_label'))},",
+        "    fragments = ['android'])");
+    scratch.file(
+        "BUILD",
+        "load('//:foo_library.bzl', 'foo_library')",
+        "filegroup(name = 'new_sdk')",
+        "foo_library(name = 'lib')");
+    useConfiguration("--android_sdk=//:new_sdk");
+    ConfiguredTarget ct = getConfiguredTarget("//:lib");
+    assertThat(ct.get("foo")).isEqualTo(Label.parseAbsoluteUnchecked("//:new_sdk"));
+  }
 }
