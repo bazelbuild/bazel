@@ -71,7 +71,7 @@ public final class ProcessWrapperUtilTest {
             .setCommandArguments(commandArguments)
             .build();
 
-    assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine);
+    assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();
   }
 
   @Test
@@ -108,6 +108,6 @@ public final class ProcessWrapperUtilTest {
             .setStatisticsPath(statisticsPath)
             .build();
 
-    assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine);
+    assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();
   }
 }

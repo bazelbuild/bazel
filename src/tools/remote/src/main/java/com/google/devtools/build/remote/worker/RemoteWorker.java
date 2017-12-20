@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.remote.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
+import com.google.devtools.build.lib.runtime.LinuxSandboxUtil;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
@@ -317,7 +318,9 @@ public final class RemoteWorker {
     CommandResult cmdResult = null;
     Command cmd =
         new Command(
-            ImmutableList.of(sandboxPath.getPathString(), "--", "true").toArray(new String[0]),
+            LinuxSandboxUtil.commandLineBuilder(
+                    sandboxPath.getPathString(), ImmutableList.of("true"))
+                .buildAsArray(),
             ImmutableMap.<String, String>of(),
             sandboxPath.getParentDirectory().getPathFile());
     try {
