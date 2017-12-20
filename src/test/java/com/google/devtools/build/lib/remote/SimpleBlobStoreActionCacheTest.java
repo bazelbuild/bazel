@@ -203,6 +203,49 @@ public class SimpleBlobStoreActionCacheTest {
   }
 
   @Test
+  public void testDownloadDirectoriesWithSameHash() throws Exception {
+    // Test that downloading an output directory works when two Directory
+    // protos have the same hash i.e. because they have the same name and contents or are empty.
+
+    /*
+     * /bar/foo/file
+     * /foo/file
+     */
+    Digest fileDigest = DIGEST_UTIL.computeAsUtf8("file");
+    FileNode file =
+        FileNode.newBuilder().setName("file").setDigest(fileDigest).build();
+    Directory fooDir = Directory.newBuilder().addFiles(file).build();
+    Digest fooDigest = DIGEST_UTIL.compute(fooDir);
+    DirectoryNode fooDirNode =
+        DirectoryNode.newBuilder().setName("foo").setDigest(fooDigest).build();
+    Directory barDir = Directory.newBuilder().addDirectories(fooDirNode).build();
+    Digest barDigest = DIGEST_UTIL.compute(barDir);
+    DirectoryNode barDirNode =
+        DirectoryNode.newBuilder().setName("bar").setDigest(barDigest).build();
+    Directory rootDir =
+        Directory.newBuilder().addDirectories(fooDirNode).addDirectories(barDirNode).build();
+
+    Tree tree = Tree.newBuilder()
+        .setRoot(rootDir)
+        .addChildren(barDir)
+        .addChildren(fooDir)
+        .addChildren(fooDir)
+        .build();
+    Digest treeDigest = DIGEST_UTIL.compute(tree);
+
+    final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
+    map.put(fileDigest.getHash(), "file".getBytes(Charsets.UTF_8));
+    map.put(treeDigest.getHash(), tree.toByteArray());
+    SimpleBlobStoreActionCache client = newClient(map);
+    ActionResult.Builder result = ActionResult.newBuilder();
+    result.addOutputDirectoriesBuilder().setPath("a/").setTreeDigest(treeDigest);
+    client.download(result.build(), execRoot, null);
+
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/foo/file"))).isEqualTo(fileDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo/file"))).isEqualTo(fileDigest);
+  }
+
+  @Test
   public void testUploadBlob() throws Exception {
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
 

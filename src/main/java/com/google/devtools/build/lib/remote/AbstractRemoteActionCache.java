@@ -208,9 +208,6 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
                 + "not found");
       }
       downloadDirectory(childPath, childDir, childrenMap);
-
-      // Prevent reuse.
-      childrenMap.remove(childDigest);
     }
   }
 
