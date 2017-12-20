@@ -105,6 +105,15 @@ public class AndroidResourceOutputs {
       zip.closeEntry();
     }
 
+    protected void addEntry(ZipEntry entry, byte[] content) throws IOException {
+      //Create a new ZipEntry because there are occasional discrepancies
+      //between the metadata and written content.
+      ZipEntry newEntry = new ZipEntry(entry.getName());
+      zip.putNextEntry(newEntry);
+      zip.write(content);
+      zip.closeEntry();
+    }
+
     @Override
     public void close() throws IOException {
       zip.close();
