@@ -76,6 +76,26 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testResolvedCcToolchainGenrule() throws Exception {
+    useConfiguration(
+        "--experimental_platforms=//mock_platform:mock-piii-platform",
+        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii");
+    ConfiguredTarget target =
+        ScratchAttributeWriter.fromLabelString(this, "genrule", "//gen")
+            .set("cmd", "\"foobar\"")
+            .setList("outs", "out.txt")
+            .write();
+    ResolvedToolchainProviders providers =
+        (ResolvedToolchainProviders)
+            getRuleContext(target).getToolchainContext().getResolvedToolchainProviders();
+    CcToolchainProvider toolchain =
+        (CcToolchainProvider)
+            providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
+    assertThat(Iterables.getOnlyElement(toolchain.getCompile()).getExecPathString())
+        .endsWith("piii");
+  }
+
+  @Test
   public void testToolchainSelectionWithPlatforms() throws Exception {
     useConfiguration(
         "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
