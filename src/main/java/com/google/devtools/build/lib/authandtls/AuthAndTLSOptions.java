@@ -27,17 +27,17 @@ import java.util.List;
  */
 public class AuthAndTLSOptions extends OptionsBase {
   @Option(
-    name = "auth_enabled",
+    name = "google_default_credentials",
+    oldName = "auth_enabled",
     defaultValue = "false",
     category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "Whether to enable authentication for remote execution/caching and the build event "
-            + "service (BES). If not otherwise specified 'Google Application Default Credentials' "
-            + "are used. Disabled by default."
+        "Whether to use 'Google Application Default Credentials' for authentication."
+            + " See https://cloud.google.com/docs/authentication for details. Disabled by default."
   )
-  public boolean authEnabled;
+  public boolean useGoogleDefaultCredentials;
 
   /**
    * Comma-separated list of auth scopes.
@@ -50,7 +50,8 @@ public class AuthAndTLSOptions extends OptionsBase {
    * </ul>
    */
   @Option(
-    name = "auth_scope",
+    name = "google_auth_scopes",
+    oldName = "auth_scope",
     defaultValue =
         "https://www.googleapis.com/auth/cloud-source-tools,"
             + "https://www.googleapis.com/auth/devstorage.read_write",
@@ -58,22 +59,22 @@ public class AuthAndTLSOptions extends OptionsBase {
     category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    help = "A comma-separated list of authentication scopes."
+    help = "A comma-separated list of Google Cloud authentication scopes."
   )
-  public List<String> authScope;
+  public List<String> googleAuthScopes;
 
   @Option(
-    name = "auth_credentials",
+    name = "google_credentials",
+    oldName = "auth_credentials",
     defaultValue = "null",
     category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Specifies the file to get authentication credentials from. See "
-            + "https://cloud.google.com/docs/authentication for more details. 'Google Application "
-            + "Default Credentials' are used by default."
+            + "https://cloud.google.com/docs/authentication for details."
   )
-  public String authCredentials;
+  public String googleCredentials;
 
   @Option(
     name = "tls_enabled",

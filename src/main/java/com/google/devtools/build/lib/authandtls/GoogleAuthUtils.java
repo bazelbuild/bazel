@@ -118,24 +118,22 @@ public final class GoogleAuthUtils {
    * @throws IOException in case the credentials can't be constructed.
    */
   public static Credentials newCredentials(AuthAndTLSOptions options) throws IOException {
-    if (!options.authEnabled) {
-      return null;
-    }
-
-    if (options.authCredentials != null) {
+    if (options.googleCredentials != null) {
       // Credentials from file
-      try (InputStream authFile = new FileInputStream(options.authCredentials)) {
-        return newCredentials(authFile, options.authScope);
+      try (InputStream authFile = new FileInputStream(options.googleCredentials)) {
+        return newCredentials(authFile, options.googleAuthScopes);
       } catch (FileNotFoundException e) {
         String message =
             String.format(
                 "Could not open auth credentials file '%s': %s",
-                options.authCredentials, e.getMessage());
+                options.googleCredentials, e.getMessage());
         throw new IOException(message, e);
       }
+    } else if (options.useGoogleDefaultCredentials) {
+      return newCredentials(
+          null /* Google Application Default Credentials */, options.googleAuthScopes);
     }
-    // Google Application Default Credentials
-    return newCredentials(null, options.authScope);
+    return null;
   }
 
   private static Credentials newCredentials(
