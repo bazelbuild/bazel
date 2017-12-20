@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttribut
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
+import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -795,8 +796,7 @@ public class SkylarkRuleClassFunctions {
                       EvalUtils.getDataTypeName(o, true)));
             }
           }
-
-          return new SkylarkAspect(
+          return new SkylarkDefinedAspect(
               implementation,
               attrAspects.build(),
               attributes.build(),
@@ -926,11 +926,12 @@ public class SkylarkRuleClassFunctions {
    * All classes of values that need special processing after they are exported from an extension
    * file.
    *
-   * <p>Order in list is significant: all {@link SkylarkAspect}s need to be exported before {@link
-   * SkylarkRuleFunction}s etc.
+   * <p>Order in list is significant: all {@link SkylarkDefinedAspect}s need to be exported before
+   * {@link SkylarkRuleFunction}s etc.
    */
   private static final ImmutableList<Class<? extends SkylarkExportable>> EXPORTABLES =
-      ImmutableList.of(SkylarkProvider.class, SkylarkAspect.class, SkylarkRuleFunction.class);
+      ImmutableList.of(
+          SkylarkProvider.class, SkylarkDefinedAspect.class, SkylarkRuleFunction.class);
 
   @SkylarkSignature(
     name = "Label",

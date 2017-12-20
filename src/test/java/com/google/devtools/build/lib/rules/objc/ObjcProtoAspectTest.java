@@ -205,6 +205,52 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
                 + "/x/_proto_filters/objc_proto_2/generated_filter_file.pbascii");
   }
 
+  @Test
+  public void testObjcProtoAspectPropagatesProviderThroughSkylarkRule() throws Exception {
+    scratch.file("test_skylark/BUILD");
+    scratch.file(
+        "test_skylark/top_level_stub.bzl",
+        "def top_level_stub_impl(ctx):",
+        "  deps = hasattr(ctx.attr.deps[0], 'ObjcProto')",
+        "  return struct(dep = ctx.attr.deps[0])",
+        "top_level_stub = rule(",
+        "    top_level_stub_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(",
+        "             aspects=[apple_common.objc_proto_aspect],",
+        "        ),",
+        "    },",
+        "    fragments = ['apple'],",
+        ")");
+
+    scratch.file(
+        "x/BUILD",
+        "proto_library(",
+        "  name = 'protos',",
+        "  srcs = ['data.proto'],",
+        ")",
+        "objc_proto_library(",
+        "  name = 'x',",
+        "  deps = [':protos'],",
+        "  portable_proto_filters = ['data_filter.pbascii'],",
+        ")");
+
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_skylark:top_level_stub.bzl', 'top_level_stub')",
+        "top_level_stub(",
+        "  name = 'link_target',",
+        "  deps = ['//x:x'],",
+        ")");
+
+    ConfiguredTarget topTarget = getConfiguredTarget("//bin:link_target");
+
+    ConfiguredTarget depTarget = (ConfiguredTarget) topTarget.get("dep");
+    ObjcProtoProvider objcProtoProvider = depTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+
+    assertThat(objcProtoProvider).isNotNull();
+  }
+
   private ConfiguredTarget getObjcProtoAspectConfiguredTarget(String label) throws Exception {
     scratch.file(
         "bin/BUILD",

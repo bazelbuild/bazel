@@ -530,8 +530,13 @@ public class BazelRuleClassProvider {
         public void init(Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
 
+          // objc_proto_library should go into a separate RuleSet!
+          // TODO(ulfjack): Depending on objcProtoAspect from here is a layering violation.
+          ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
+
           builder.addBuildInfoFactory(new ObjcBuildInfoFactory());
-          builder.addSkylarkAccessibleTopLevels("apple_common", new AppleSkylarkCommon());
+          builder.addSkylarkAccessibleTopLevels(
+              "apple_common", new AppleSkylarkCommon(objcProtoAspect));
 
           builder.addConfig(ObjcCommandLineOptions.class, new ObjcConfigurationLoader());
           builder.addConfig(AppleCommandLineOptions.class, new AppleConfiguration.Loader());
@@ -539,9 +544,6 @@ public class BazelRuleClassProvider {
           // j2objc shouldn't be here!
           builder.addConfig(J2ObjcCommandLineOptions.class, new J2ObjcConfiguration.Loader());
 
-          // objc_proto_library should go into a separate RuleSet!
-          // TODO(ulfjack): Depending on objcProtoAspect from here is a layering violation.
-          ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
           builder.addNativeAspectClass(objcProtoAspect);
           builder.addRuleDefinition(new AppleBinaryRule(objcProtoAspect));
           builder.addRuleDefinition(new AppleStaticLibraryRule(objcProtoAspect));

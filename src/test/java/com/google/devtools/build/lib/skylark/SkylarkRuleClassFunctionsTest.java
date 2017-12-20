@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
+import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
@@ -321,7 +321,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
             "my_aspect = aspect(implementation = _impl)",
             "a = attr.label_list(aspects = [my_aspect])");
     SkylarkAttr.Descriptor attr = (SkylarkAttr.Descriptor) ev.lookup("a");
-            SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) ev.lookup("my_aspect");
     assertThat(aspect).isNotNull();
     assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());
   }
@@ -334,7 +334,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(implementation = _impl)",
         "a = attr.label(aspects = [my_aspect])");
     SkylarkAttr.Descriptor attr = (SkylarkAttr.Descriptor) ev.lookup("a");
-    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) ev.lookup("my_aspect");
     assertThat(aspect).isNotNull();
     assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());
   }
@@ -358,7 +358,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(_impl,",
         "   attrs = { '_extra_deps' : attr.label(default = Label('//foo/bar:baz')) }",
         ")");
-    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) ev.lookup("my_aspect");
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("$extra_deps");
     assertThat(attribute.getDefaultValue(null))
@@ -373,7 +373,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(_impl,",
         "   attrs = { 'param' : attr.string(values=['a', 'b']) }",
         ")");
-    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) ev.lookup("my_aspect");
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("param");
   }
@@ -411,7 +411,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   attrs = { 'param' : attr.string(values=['a', 'b']),",
         "             '_extra' : attr.label(default = Label('//foo/bar:baz')) }",
         ")");
-    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) ev.lookup("my_aspect");
     assertThat(aspect.getAttributes()).hasSize(2);
     assertThat(aspect.getParamAttributes()).containsExactly("param");
   }
@@ -432,7 +432,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
-    SkylarkAspect a = (SkylarkAspect) lookup("a1");
+    SkylarkDefinedAspect a = (SkylarkDefinedAspect) lookup("a1");
     assertThat(a.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
   }
 
@@ -1327,7 +1327,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "my_aspect = aspect(_impl, attr_aspects=['*'])");
 
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong(
         Attribute.attr("foo", BuildType.LABEL).allowedFileTypes().build()
     )).isTrue();
@@ -1341,7 +1341,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "cc = provider()",
         "my_aspect = aspect(_impl, required_aspect_providers=['java', cc])"
     );
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
@@ -1367,7 +1367,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "cc = provider()",
         "my_aspect = aspect(_impl, required_aspect_providers=[['java'], [cc]])"
     );
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
@@ -1396,7 +1396,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "my_aspect = aspect(_impl, required_aspect_providers=[])"
     );
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isFalse();
@@ -1410,7 +1410,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "my_aspect = aspect(_impl)"
     );
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isFalse();
@@ -1425,7 +1425,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "y = provider()",
         "my_aspect = aspect(_impl, provides = ['x', y])"
     );
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     AdvertisedProviderSet advertisedProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getAdvertisedProviders();
     assertThat(advertisedProviders.canHaveAnyProvider()).isFalse();
@@ -1476,7 +1476,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "]"
     );
     SkylarkProvider p = (SkylarkProvider) lookup("p");
-    SkylarkAspect a = (SkylarkAspect) lookup("a");
+    SkylarkDefinedAspect a = (SkylarkDefinedAspect) lookup("a");
     SkylarkProvider p1 = (SkylarkProvider) lookup("p1");
     assertThat(p.getPrintableName()).isEqualTo("p");
     assertThat(p.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p"));

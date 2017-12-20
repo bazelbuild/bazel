@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
+import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -113,6 +114,30 @@ public final class AspectFunction implements SkyFunction {
   }
 
   /**
+   * Load Skylark-defined aspect from an extension file. Is to be called from a SkyFunction.
+   *
+   * @return {@code null} if dependencies cannot be satisfied.
+   * @throws AspectCreationException if the value loaded is not a {@link SkylarkDefinedAspect}.
+   */
+  @Nullable
+  static SkylarkDefinedAspect loadSkylarkDefinedAspect(
+      Environment env, SkylarkAspectClass skylarkAspectClass)
+      throws AspectCreationException, InterruptedException {
+    Label extensionLabel = skylarkAspectClass.getExtensionLabel();
+    String skylarkValueName = skylarkAspectClass.getExportedName();
+
+    SkylarkAspect skylarkAspect = loadSkylarkAspect(env, extensionLabel, skylarkValueName);
+    if (!(skylarkAspect instanceof SkylarkDefinedAspect)) {
+      throw new AspectCreationException(
+          String.format(
+              "%s from %s is not a skylark-defined aspect",
+              skylarkValueName, extensionLabel.toString()));
+    } else {
+      return (SkylarkDefinedAspect) skylarkAspect;
+    }
+  }
+
+  /**
    * Load Skylark aspect from an extension file. Is to be called from a SkyFunction.
    *
    * @return {@code null} if dependencies cannot be satisfied.
@@ -164,11 +189,9 @@ public final class AspectFunction implements SkyFunction {
       aspect = Aspect.forNative(nativeAspectClass, key.getParameters());
     } else if (key.getAspectClass() instanceof SkylarkAspectClass) {
       SkylarkAspectClass skylarkAspectClass = (SkylarkAspectClass) key.getAspectClass();
-      SkylarkAspect skylarkAspect;
+      SkylarkDefinedAspect skylarkAspect;
       try {
-        skylarkAspect =
-            loadSkylarkAspect(
-                env, skylarkAspectClass.getExtensionLabel(), skylarkAspectClass.getExportedName());
+        skylarkAspect = loadSkylarkDefinedAspect(env, skylarkAspectClass);
       } catch (AspectCreationException e) {
         throw new AspectFunctionException(e);
       }

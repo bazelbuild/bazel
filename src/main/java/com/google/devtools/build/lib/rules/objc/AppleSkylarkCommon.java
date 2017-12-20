@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
@@ -79,6 +80,12 @@ public class AppleSkylarkCommon {
 
   @Nullable private Info platformType;
   @Nullable private Info platform;
+
+  private ObjcProtoAspect objcProtoAspect;
+
+  public AppleSkylarkCommon(ObjcProtoAspect objcProtoAspect) {
+    this.objcProtoAspect = objcProtoAspect;
+  }
 
   @SkylarkCallable(
       name = "apple_toolchain",
@@ -537,6 +544,17 @@ public class AppleSkylarkCommon {
           return DottedVersion.fromString(version);
         }
       };
+
+  @SkylarkCallable(
+    name = "objc_proto_aspect",
+    doc =
+        "objc_proto_aspect gathers the proto dependencies of the attached rule target,"
+            + "and propagates the proto values of its dependencies through the ObjcProto provider.",
+    structField = true
+  )
+  public SkylarkAspect getObjcProtoAspect() {
+    return objcProtoAspect;
+  }
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(AppleSkylarkCommon.class);

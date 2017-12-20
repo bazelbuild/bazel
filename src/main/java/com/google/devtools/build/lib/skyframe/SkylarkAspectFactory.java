@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
+import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -42,9 +42,9 @@ import java.util.Map;
  */
 public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
-  private final SkylarkAspect skylarkAspect;
+  private final SkylarkDefinedAspect skylarkAspect;
 
-  public SkylarkAspectFactory(SkylarkAspect skylarkAspect) {
+  public SkylarkAspectFactory(SkylarkDefinedAspect skylarkAspect) {
     this.skylarkAspect = skylarkAspect;
   }
 

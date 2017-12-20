@@ -314,12 +314,7 @@ public final class SkylarkAttr implements SkylarkValue {
       List<SkylarkAspect> aspects =
           ((SkylarkList<?>) obj).getContents(SkylarkAspect.class, "aspects");
       for (SkylarkAspect aspect : aspects) {
-        if (!aspect.isExported()) {
-          throw new EvalException(
-              ast.getLocation(),
-              "Aspects should be top-level values in extension files that define them.");
-        }
-        builder.aspect(aspect, ast.getLocation());
+        aspect.attachToAttribute(builder, ast.getLocation());
       }
     }
 
@@ -748,7 +743,7 @@ public final class SkylarkAttr implements SkylarkValue {
         named = true,
         positional = false,
         doc = ASPECTS_ARG_DOC
-      )
+      ),
     },
     useAst = true,
     useEnvironment = true
@@ -1059,7 +1054,7 @@ public final class SkylarkAttr implements SkylarkValue {
         named = true,
         positional = false,
         doc = ASPECTS_ARG_DOC
-      )
+      ),
     },
     useAst = true,
     useEnvironment = true

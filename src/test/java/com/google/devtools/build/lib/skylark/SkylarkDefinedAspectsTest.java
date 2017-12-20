@@ -35,27 +35,37 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.util.MockObjcSupport;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.Jvm;
+import com.google.devtools.build.lib.rules.objc.ObjcProtoProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Arrays;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for Skylark aspects
- */
+/** Tests for Skylark aspects */
 @RunWith(JUnit4.class)
-public class SkylarkAspectsTest extends AnalysisTestCase {
+public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   protected boolean keepGoing() {
     return false;
   }
 
   private static final String LINE_SEPARATOR = System.lineSeparator();
+
+  @Before
+  public final void initializeToolsConfigMock() throws Exception {
+    // Required for tests including the objc_library rule.
+    MockObjcSupport.setup(mockToolsConfig);
+    // Required for tests including the proto_library rule.
+    MockProtoSupport.setup(mockToolsConfig);
+  }
 
   @Test
   public void simpleAspect() throws Exception {
@@ -1165,7 +1175,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     }
     assertContainsEvent(
         "Extension file not found. Unable to load file '//test:aspect.bzl': "
-        + "file doesn't exist or isn't a file");
+            + "file doesn't exist or isn't a file");
   }
 
   @Test
@@ -1182,8 +1192,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     }
     assertContainsEvent(
         "Every .bzl file must have a corresponding package, but 'foo' does not have one. "
-        + "Please create a BUILD file in the same or any parent directory. "
-        + "Note that this BUILD file does not need to do anything except exist.");
+            + "Please create a BUILD file in the same or any parent directory. "
+            + "Note that this BUILD file does not need to do anything except exist.");
   }
 
   @Test
@@ -1214,9 +1224,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     } catch (Exception e) {
       // expect to fail.
     }
-    assertContainsEvent(//"ERROR /workspace/test/aspect.bzl:9:11: "
+    assertContainsEvent( // "ERROR /workspace/test/aspect.bzl:9:11: "
         "Aspect //test:aspect.bzl%MyAspectUncovered requires rule my_rule to specify attribute "
-        + "'my_attr' with type string.");
+            + "'my_attr' with type string.");
   }
 
   @Test
@@ -1235,7 +1245,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "    implementation=_rule_impl,",
         "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectMismatch]),",
         "              'my_attr' : attr.int() },",
-       ")");
+        ")");
     scratch.file("test/BUILD",
         "load('//test:aspect.bzl', 'my_rule')",
         "my_rule(name = 'xxx', my_attr = 4)");
@@ -1250,7 +1260,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     }
     assertContainsEvent(
         "Aspect //test:aspect.bzl%MyAspectMismatch requires rule my_rule to specify attribute "
-        + "'my_attr' with type string.");
+            + "'my_attr' with type string.");
   }
 
   @Test
@@ -1659,7 +1669,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void sharedAttributeDefintionWithAspects() throws Exception {
+  public void sharedAttributeDefinitionWithAspects() throws Exception {
     scratch.file(
         "test/aspect.bzl",
         "def _aspect_impl(target,ctx):",
@@ -2104,7 +2114,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     }
     assertContainsEvent(
         "Aspect '//test:aspect.bzl%my_aspect', applied to '//test:xxx', "
-        + "does not provide advertised provider 'foo'");
+            + "does not provide advertised provider 'foo'");
   }
 
   @Test
@@ -2494,9 +2504,62 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
             Label.parseAbsolute("//test:baz"));
   }
 
+  @Test
+  // This test verifies that aspects which are defined natively and exported for use in skylark
+  // can be referenced at the top level using the --aspects flag. For ease of testing,
+  // apple_common.objc_proto_aspect is used as an example.
+  public void testTopLevelSkylarkObjcProtoAspect() throws Exception {
+    scratch.file("test_skylark/BUILD");
+    scratch.file(
+        "test_skylark/top_level_stub.bzl",
+        "top_level_aspect = apple_common.objc_proto_aspect",
+        "",
+        "def top_level_stub_impl(ctx):",
+        "  return struct()",
+        "top_level_stub = rule(",
+        "    top_level_stub_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(),",
+        "    },",
+        "    fragments = ['apple'],",
+        ")");
+
+    scratch.file(
+        "x/BUILD",
+        "proto_library(",
+        "  name = 'protos',",
+        "  srcs = ['data.proto'],",
+        ")",
+        "objc_proto_library(",
+        "  name = 'x',",
+        "  deps = [':protos'],",
+        "  portable_proto_filters = ['data_filter.pbascii'],",
+        ")");
+
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_skylark:top_level_stub.bzl', 'top_level_stub')",
+        "top_level_stub(",
+        "  name = 'link_target',",
+        "  deps = ['//x:x'],",
+        ")");
+
+    useConfiguration(MockObjcSupport.requiredObjcCrosstoolFlags().toArray(new String[1]));
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test_skylark/top_level_stub.bzl%top_level_aspect"),
+            "//bin:link_target");
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
+
+    ObjcProtoProvider objcProtoProvider =
+        (ObjcProtoProvider) configuredAspect.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR.getKey());
+    assertThat(objcProtoProvider).isNotNull();
+  }
+
   /** SkylarkAspectTest with "keep going" flag */
   @RunWith(JUnit4.class)
-  public static final class WithKeepGoing extends SkylarkAspectsTest {
+  public static final class WithKeepGoing extends SkylarkDefinedAspectsTest {
     @Override
     protected FlagBuilder defaultFlags() {
       return new FlagBuilder().with(Flag.KEEP_GOING);
