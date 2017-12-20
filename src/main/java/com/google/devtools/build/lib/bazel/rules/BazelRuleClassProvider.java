@@ -265,7 +265,16 @@ public class BazelRuleClassProvider {
 
           try {
             builder.addWorkspaceFilePrefix(
-                ResourceFileLoader.loadResource(BazelRuleClassProvider.class, "tools.WORKSPACE"));
+                ResourceFileLoader.loadResource(BazelRuleClassProvider.class, "tools.WORKSPACE")
+                    // Hackily select the java_toolchain based on the host JDK version. JDK 8 and
+                    // 9 host_javabases require different toolchains, e.g. to use --patch-module
+                    // instead of -Xbootclasspath/p:.
+                    .replace(
+                        "%java_toolchain%",
+                        isJdk8OrEarlier()
+                            ? "@bazel_tools//tools/jdk:toolchain_jdk8"
+                            : "@bazel_tools//tools/jdk:toolchain_jdk9"));
+
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }
@@ -276,6 +285,10 @@ public class BazelRuleClassProvider {
           return ImmutableList.of(CoreRules.INSTANCE);
         }
       };
+
+  private static boolean isJdk8OrEarlier() {
+    return Double.parseDouble(System.getProperty("java.class.version")) <= 52.0;
+  }
 
   public static final RuleSet PROTO_RULES =
       new RuleSet() {
