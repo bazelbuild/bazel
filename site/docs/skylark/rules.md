@@ -111,8 +111,8 @@ metal_compile = rule(
 Every rule requires an `implementation` function. It contains the actual logic
 of the rule and is executed strictly in the
 [analysis phase](concepts.md#evaluation-model). The function has exactly one
-input parameter, `ctx`, and it may return the [runfiles](#runfiles)
-and [providers](#providers) of the rule. The input parameter `ctx` can be used
+input parameter, `ctx`, and it may return a list of
+[providers](#providers) of the rule. The input parameter `ctx` can be used
 to access attribute values, outputs and dependent targets, and files. It also
 has some helper functions. See [the library](lib/ctx.html) for more context.
 Example:
@@ -213,8 +213,9 @@ Every rule has a set of default outputs. This is used:
   This is the case, for example, if you use a rule in the `srcs` attribute of a
   `genrule`.
 
-In the `DefaultInfo` provider, the `files` field specifies the default outputs
-of a rule. If left unspecified, it will contain all the declared outputs.
+In the [`DefaultInfo`](lib/globals.html#DefaultInfo) provider, the `files` field
+specifies the default outputs of a rule. If left unspecified, it will contain
+all the declared outputs.
 
 ```python
 def _impl(ctx):
@@ -406,6 +407,8 @@ Providers are only available during the analysis phase. Examples of usage:
 
 * [mandatory providers](https://github.com/bazelbuild/examples/blob/master/rules/mandatory_provider/sum.bzl)
 * [optional providers](https://github.com/bazelbuild/examples/blob/master/rules/optional_provider/sum.bzl)
+* [providers with depsets](https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl)
+    This examples shows how a library and a binary rule can pass information.
 
 > *Note:*
 > Historically, Bazel also supported provider instances that are identified by strings and
@@ -653,7 +656,8 @@ you may need to [specify the runfiles](#runfiles).
 
 ### How to choose which files are shown in the output of `bazel build`?
 
-Use the `DefaultInfo` provider to [set the default outputs](#default-outputs).
+Use the [`DefaultInfo`](lib/globals.html#DefaultInfo) provider to
+[set the default outputs](#default-outputs).
 
 ### How to run a program in the analysis phase?
 
