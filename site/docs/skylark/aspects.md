@@ -46,15 +46,12 @@ This BUILD file defines a dependency graph shown in the following figure:
 
 <img src="build-graph.png" alt="Build Graph" width="250px" />
 
-Bazel analyzes this dependency graph by calling implementations of
-[rules](rules.md) (in this case "java_library" starting from leaves of
-the dependency graph). These implementations generate actions that build
-artifacts (such as Jar files), and provide information (such as locations
-and names of those artifacts) to their dependencies in providers that
-they return. Their dependencies can access those providers through the
-[Target object](lib/Target.html). In other words, every target
-defined in the BUILD file generates a node in the dependency graph, and
-the appropriate rule implementation function is called for every node.
+Bazel analyzes this dependency graph by calling an implementation function of
+the corresponding [rule](rules.md) (in this case "java_library") for every
+target in the above example. Rule implementation functions generate actions that
+build artifacts, such as `.jar` files, and pass information, such as locations
+and names of those artifacts, to the dependencies of those targets in
+[providers](rules.md#providers).
 
 Aspects are similar to rules in that they have an implementation function that
 generates actions and returns providers. However, their power comes from
