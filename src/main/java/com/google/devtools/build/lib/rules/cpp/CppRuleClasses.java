@@ -287,6 +287,16 @@ public class CppRuleClasses {
    */
   public static final String THIN_LTO = "thin_lto";
 
+  /*
+   * A string constant for allowing implicit ThinLTO enablement for AFDO.
+   */
+  public static final java.lang.String AUTOFDO_IMPLICIT_THINLTO = "autofdo_implicit_thinlto";
+
+  /*
+   * A string constant for enabling ThinLTO for AFDO implicitly.
+   */
+  public static final java.lang.String ENABLE_AFDO_THINLTO = "enable_afdo_thinlto";
+
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
    * with ThinLTO.

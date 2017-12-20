@@ -222,24 +222,30 @@ public final class RuleContext extends TargetContext
     Set<String> globallyEnabled = new HashSet<>();
     Set<String> globallyDisabled = new HashSet<>();
     parseFeatures(getConfiguration().getDefaultFeatures(), globallyEnabled, globallyDisabled);
-    for (ImmutableMap.Entry<Class<? extends Fragment>, Fragment> entry :
-        getConfiguration().getAllFragments().entrySet()) {
-      if (isLegalFragment(entry.getKey())) {
-        globallyEnabled.addAll(entry.getValue().configurationEnabledFeatures(this));
-      }
-    }
     Set<String> packageEnabled = new HashSet<>();
     Set<String> packageDisabled = new HashSet<>();
     parseFeatures(getRule().getPackage().getFeatures(), packageEnabled, packageDisabled);
+    Set<String> ruleEnabled = new HashSet<>();
+    Set<String> ruleDisabled = new HashSet<>();
+    if (attributes().has("features", Type.STRING_LIST)) {
+      parseFeatures(attributes().get("features", Type.STRING_LIST), ruleEnabled, ruleDisabled);
+    }
+    Set<String> ruleDisabledFeatures =
+        Sets.union(ruleDisabled, Sets.difference(packageDisabled, ruleEnabled));
+    Set<String> disabledFeatures = Sets.union(ruleDisabledFeatures, globallyDisabled);
+    for (ImmutableMap.Entry<Class<? extends Fragment>, Fragment> entry :
+        getConfiguration().getAllFragments().entrySet()) {
+      if (isLegalFragment(entry.getKey())) {
+        globallyEnabled.addAll(
+            entry
+                .getValue()
+                .configurationEnabledFeatures(this, ImmutableSortedSet.copyOf(disabledFeatures)));
+      }
+    }
     Set<String> packageFeatures =
         Sets.difference(Sets.union(globallyEnabled, packageEnabled), packageDisabled);
-    Set<String> ruleFeatures = packageFeatures;
-    if (attributes().has("features", Type.STRING_LIST)) {
-      Set<String> ruleEnabled = new HashSet<>();
-      Set<String> ruleDisabled = new HashSet<>();
-      parseFeatures(attributes().get("features", Type.STRING_LIST), ruleEnabled, ruleDisabled);
-      ruleFeatures = Sets.difference(Sets.union(packageFeatures, ruleEnabled), ruleDisabled);
-    }
+    Set<String> ruleFeatures =
+        Sets.difference(Sets.union(packageFeatures, ruleEnabled), ruleDisabled);
     return ImmutableSortedSet.copyOf(Sets.difference(ruleFeatures, globallyDisabled));
   }
 

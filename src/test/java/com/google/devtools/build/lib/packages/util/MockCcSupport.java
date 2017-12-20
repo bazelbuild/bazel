@@ -358,6 +358,17 @@ public abstract class MockCcSupport {
   public static final String THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
       "" + "feature {  name: 'thin_lto_linkstatic_tests_use_shared_nonlto_backends'}";
 
+  public static final String ENABLE_AFDO_THINLTO_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'enable_afdo_thinlto'"
+          + "  requires { feature: 'autofdo_implicit_thinlto' }"
+          + "  implies: 'thin_lto'"
+          + "}";
+
+  public static final String AUTOFDO_IMPLICIT_THINLTO_CONFIGURATION =
+      "" + "feature {  name: 'autofdo_implicit_thinlto'}";
+
   public static final String AUTO_FDO_CONFIGURATION =
       ""
           + "feature {"

@@ -173,10 +173,9 @@ public class BuildConfiguration implements BuildEvent {
       return ImmutableMap.of();
     }
 
-    /**
-     * Return set of features enabled by this configuration.
-     */
-    public ImmutableSet<String> configurationEnabledFeatures(RuleContext ruleContext) {
+    /** Return set of features enabled by this configuration. */
+    public ImmutableSet<String> configurationEnabledFeatures(
+        RuleContext ruleContext, ImmutableSet<String> disabledFeatures) {
       return ImmutableSet.of();
     }
 

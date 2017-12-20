@@ -1292,11 +1292,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Return set of features enabled by the CppConfiguration, specifically
-   * the FDO and LIPO related features enabled by options.
+   * Return set of features enabled by the CppConfiguration, specifically the FDO and LIPO related
+   * features enabled by options.
    */
   @Override
-  public ImmutableSet<String> configurationEnabledFeatures(RuleContext ruleContext) {
+  public ImmutableSet<String> configurationEnabledFeatures(
+      RuleContext ruleContext, ImmutableSet<String> disabledFeatures) {
     ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
     if (cppOptions.getFdoInstrument() != null) {
       requestedFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
@@ -1308,6 +1309,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
     if (isFdo && CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip)) {
       requestedFeatures.add(CppRuleClasses.AUTOFDO);
+      // For LLVM, support implicit enabling of ThinLTO for AFDO unless it has been
+      // explicitly disabled.
+      if (isLLVMCompiler() && !disabledFeatures.contains(CppRuleClasses.THIN_LTO)) {
+        requestedFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
+      }
     }
     if (isLipoOptimizationOrInstrumentation()) {
       // Map LIPO to ThinLTO for LLVM builds.
