@@ -352,24 +352,20 @@ def _coverage_feature(darwin):
   """
 
 
-def find_cc(repository_ctx):
-  """Find the C++ compiler. Doesn't %-escape the result."""
+def get_cc(repository_ctx):
+  """Gets the C++ compiler. Doesn't %-escape the result."""
   cc_name = "gcc"
   cc_environ = repository_ctx.os.environ.get("CC")
-  cc_paren = ""
   if cc_environ != None:
     cc_environ = cc_environ.strip()
     if cc_environ:
-      cc_name = cc_environ
-      cc_paren = " (%s)" % cc_environ
-  if cc_name.startswith("/"):
-    # Absolute path, maybe we should make this suported by our which function.
-    return cc_name
+      return cc_environ
+
   cc = repository_ctx.which(cc_name)
   if cc == None:
     fail(
-        ("Cannot find gcc or CC%s, either correct your path or set the CC"
-         + " environment variable") % cc_paren)
+        ("Cannot find gcc. Either check that a `%s` file is available via PATH"
+         + " or set the CC environment variable") % cc_name)
   return cc
 
 
@@ -377,7 +373,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value):
   """Configure C++ toolchain on Unix platforms."""
   repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   darwin = cpu_value == "darwin"
-  cc = find_cc(repository_ctx)
+  cc = get_cc(repository_ctx)
   tool_paths = _get_tool_paths(repository_ctx, darwin,
                                "cc_wrapper.sh" if darwin else str(cc))
   crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
