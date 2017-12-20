@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 
 /**
  * This event is fired during the build, when it becomes known that the analysis
@@ -22,15 +23,15 @@ import com.google.devtools.build.lib.cmdline.Label;
  * dependencies.
  */
 public class AnalysisFailureEvent {
-  private final LabelAndConfiguration failedTarget;
+  private final ConfiguredTargetKey failedTarget;
   private final Label failureReason;
 
-  public AnalysisFailureEvent(LabelAndConfiguration failedTarget, Label failureReason) {
+  public AnalysisFailureEvent(ConfiguredTargetKey failedTarget, Label failureReason) {
     this.failedTarget = failedTarget;
     this.failureReason = failureReason;
   }
 
-  public LabelAndConfiguration getFailedTarget() {
+  public ConfiguredTargetKey getFailedTarget() {
     return failedTarget;
   }
 

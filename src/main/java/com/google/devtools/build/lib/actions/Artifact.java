@@ -301,11 +301,11 @@ public class Artifact
   }
 
   /**
-   * Get the {@code LabelAndConfiguration} of the {@code ConfiguredTarget} that owns this artifact,
-   * if it was set. Otherwise, this should be a dummy value -- either {@link
-   * ArtifactOwner#NULL_OWNER} or a dummy owner set in tests. Such a dummy value should only occur
-   * for source artifacts if created without specifying the owner, or for special derived artifacts,
-   * such as target completion middleman artifacts, build info artifacts, and the like.
+   * Gets the {@code ActionLookupKey} of the {@code ConfiguredTarget} that owns this artifact, if it
+   * was set. Otherwise, this should be a dummy value -- either {@link ArtifactOwner#NULL_OWNER} or
+   * a dummy owner set in tests. Such a dummy value should only occur for source artifacts if
+   * created without specifying the owner, or for special derived artifacts, such as target
+   * completion middleman artifacts, build info artifacts, and the like.
    */
   public final ArtifactOwner getArtifactOwner() {
     return owner;

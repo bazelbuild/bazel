@@ -17,23 +17,24 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
 
 /**
- * An interface for {@code LabelAndConfiguration}, or at least for a {@link Label}. Only tests and
- * internal {@link Artifact}-generators should implement this interface -- otherwise,
- * {@code LabelAndConfiguration} should be the only implementation.
+ * An interface for {@code ActionLookupKey}, or at least for a {@link Label}. Only tests and
+ * internal {@link Artifact}-generators should implement this interface -- otherwise, {@code
+ * ActionLookupKey} and its subclasses should be the only implementation.
  */
 public interface ArtifactOwner {
   Label getLabel();
 
   @VisibleForTesting
-  public static final ArtifactOwner NULL_OWNER = new ArtifactOwner() {
-    @Override
-    public Label getLabel() {
-      return null;
-    }
+  ArtifactOwner NULL_OWNER =
+      new ArtifactOwner() {
+        @Override
+        public Label getLabel() {
+          return null;
+        }
 
-    @Override
-    public String toString() {
-      return "NULL_OWNER";
-    }
-  };
+        @Override
+        public String toString() {
+          return "NULL_OWNER";
+        }
+      };
 }

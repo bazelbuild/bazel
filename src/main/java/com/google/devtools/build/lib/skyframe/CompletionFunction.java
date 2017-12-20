@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
@@ -101,7 +100,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     public ConfiguredTargetValue getValueFromSkyKey(SkyKey skyKey, Environment env)
         throws InterruptedException {
       TargetCompletionKey tcKey = (TargetCompletionKey) skyKey.argument();
-      LabelAndConfiguration lac = tcKey.labelAndConfiguration();
+      ConfiguredTargetKey lac = tcKey.configuredTargetKey();
       return (ConfiguredTargetValue)
           env.getValue(ConfiguredTargetValue.key(lac.getLabel(), lac.getConfiguration()));
     }
@@ -151,7 +150,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     @Override
     public String extractTag(SkyKey skyKey) {
       return Label.print(
-          ((TargetCompletionKey) skyKey.argument()).labelAndConfiguration().getLabel());
+          ((TargetCompletionKey) skyKey.argument()).configuredTargetKey().getLabel());
     }
   }
 

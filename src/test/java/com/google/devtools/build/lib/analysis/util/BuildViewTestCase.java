@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -982,12 +981,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived artifact, creating it if necessary. {@code ArtifactOwner} should be a genuine
-   * {@link LabelAndConfiguration} corresponding to a {@link ConfiguredTarget}. If called from a
-   * test that does not exercise the analysis phase, the convenience methods {@link
+   * {@link ConfiguredTargetKey} corresponding to a {@link ConfiguredTarget}. If called from a test
+   * that does not exercise the analysis phase, the convenience methods {@link
    * #getBinArtifactWithNoOwner} or {@link #getGenfilesArtifactWithNoOwner} should be used instead.
    */
-  protected Artifact getDerivedArtifact(PathFragment rootRelativePath, Root root,
-      ArtifactOwner owner) {
+  protected Artifact getDerivedArtifact(
+      PathFragment rootRelativePath, Root root, ArtifactOwner owner) {
     return view.getArtifactFactory().getDerivedArtifact(rootRelativePath, root, owner);
   }
 
@@ -1023,7 +1022,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * be "foo.o".
    */
   protected Artifact getBinArtifact(String packageRelativePath, String owner) {
-    ConfiguredTargetKey config = makeLabelAndConfiguration(owner);
+    ConfiguredTargetKey config = makeConfiguredTargetKey(owner);
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         config.getConfiguration().getBinDirectory(RepositoryName.MAIN),
@@ -1102,7 +1101,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * just be "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, String owner) {
-    ConfiguredTargetKey configKey = makeLabelAndConfiguration(owner);
+    ConfiguredTargetKey configKey = makeConfiguredTargetKey(owner);
     return getGenfilesArtifact(packageRelativePath, configKey, configKey.getConfiguration());
   }
 
@@ -1180,7 +1179,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * just be "foo.h".
    */
   protected Artifact getIncludeArtifact(String packageRelativePath, String owner) {
-    return getIncludeArtifact(packageRelativePath, makeLabelAndConfiguration(owner));
+    return getIncludeArtifact(packageRelativePath, makeConfiguredTargetKey(owner));
   }
 
   /**
@@ -1294,7 +1293,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 
-  private ConfiguredTargetKey makeLabelAndConfiguration(String label) {
+  private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
     BuildConfiguration config;
     try {
       config = getConfiguredTarget(label).getConfiguration();

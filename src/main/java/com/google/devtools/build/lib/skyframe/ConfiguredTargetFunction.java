@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -141,13 +140,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
     NestedSetBuilder<Label> transitiveLoadingRootCauses = NestedSetBuilder.stableOrder();
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
-    LabelAndConfiguration lc = LabelAndConfiguration.of(
-        configuredTargetKey.getLabel(), configuredTargetKey.getConfiguration());
+    Label label = configuredTargetKey.getLabel();
 
-    BuildConfiguration configuration = lc.getConfiguration();
+    BuildConfiguration configuration = configuredTargetKey.getConfiguration();
 
     PackageValue packageValue =
-        (PackageValue) env.getValue(PackageValue.key(lc.getLabel().getPackageIdentifier()));
+        (PackageValue) env.getValue(PackageValue.key(label.getPackageIdentifier()));
     if (packageValue == null) {
       return null;
     }
@@ -157,13 +155,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     Package pkg = packageValue.getPackage();
     Target target;
     try {
-      target = pkg.getTarget(lc.getLabel().getName());
+      target = pkg.getTarget(label.getName());
     } catch (NoSuchTargetException e) {
       throw new ConfiguredTargetFunctionException(
-          new ConfiguredValueCreationException(e.getMessage(), lc.getLabel()));
+          new ConfiguredValueCreationException(e.getMessage(), label));
     }
     if (pkg.containsErrors()) {
-      transitiveLoadingRootCauses.add(lc.getLabel());
+      transitiveLoadingRootCauses.add(label);
     }
     if (transitivePackagesForPackageRootResolution != null) {
       transitivePackagesForPackageRootResolution.add(pkg);
@@ -181,8 +179,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // associates the corresponding error with this target, as expected. Without this line,
     // the first TransitiveTargetValue call happens on its dep (in trimConfigurations), so Bazel
     // associates the error with the dep, which is misleading.
-    if (configuration != null && configuration.trimConfigurations()
-        && env.getValue(TransitiveTargetKey.of(lc.getLabel())) == null) {
+    if (configuration != null
+        && configuration.trimConfigurations()
+        && env.getValue(TransitiveTargetKey.of(label)) == null) {
       return null;
     }
 

@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
@@ -348,8 +347,10 @@ public final class SkyframeBuildView {
           Event.warn("errors encountered while analyzing target '"
               + topLevelLabel + "': it will not be built"));
       if (analysisRootCause != null) {
-        eventBus.post(new AnalysisFailureEvent(
-            LabelAndConfiguration.of(topLevelLabel, label.getConfiguration()), analysisRootCause));
+        eventBus.post(
+            new AnalysisFailureEvent(
+                ConfiguredTargetKey.of(topLevelLabel, label.getConfiguration()),
+                analysisRootCause));
       }
     }
 

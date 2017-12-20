@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,8 +41,20 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     this.configuration = configuration;
   }
 
+  @VisibleForTesting
   public ConfiguredTargetKey(ConfiguredTarget rule) {
     this(rule.getTarget().getLabel(), rule.getConfiguration());
+  }
+
+  public static ConfiguredTargetKey of(ConfiguredTarget configuredTarget) {
+    AliasProvider aliasProvider = configuredTarget.getProvider(AliasProvider.class);
+    Label label =
+        aliasProvider != null ? aliasProvider.getAliasChain().get(0) : configuredTarget.getLabel();
+    return of(label, configuredTarget.getConfiguration());
+  }
+
+  public static ConfiguredTargetKey of(Label label, @Nullable BuildConfiguration configuration) {
+    return new ConfiguredTargetKey(label, configuration);
   }
 
   @Override
@@ -94,5 +108,4 @@ public class ConfiguredTargetKey extends ActionLookupKey {
         System.identityHashCode(this),
         (configuration == null ? "null" : System.identityHashCode(configuration)));
   }
-
 }

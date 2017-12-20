@@ -20,7 +20,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.util.function.Consumer;
@@ -63,14 +63,14 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     DONT_CHECK
   }
   /** A set of this target's implicitDeps. */
-  private final ImmutableSet<LabelAndConfiguration> implicitDeps;
+  private final ImmutableSet<ConfiguredTargetKey> implicitDeps;
 
   /*
    * An interner for the implicitDeps set. {@link Util.findImplicitDeps} is called upon every
    * construction of a RuleConfiguredTarget and we expect many of these targets to contain the same
    * set of implicit deps so this reduces the memory load per build.
    */
-  private static final Interner<ImmutableSet<LabelAndConfiguration>> IMPLICIT_DEPS_INTERNER =
+  private static final Interner<ImmutableSet<ConfiguredTargetKey>> IMPLICIT_DEPS_INTERNER =
       BlazeInterners.newWeakInterner();
 
   private final TransitiveInfoProviderMap providers;
@@ -124,7 +124,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     return configConditions;
   }
 
-  public ImmutableSet<LabelAndConfiguration> getImplicitDeps() {
+  public ImmutableSet<ConfiguredTargetKey> getImplicitDeps() {
     return implicitDeps;
   }
 
