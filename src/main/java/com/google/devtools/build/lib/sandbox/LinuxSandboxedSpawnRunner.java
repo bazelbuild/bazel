@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.LinuxSandboxUtil;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -37,7 +39,6 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,30 +46,25 @@ import java.util.SortedMap;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
 final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
-  private static final String LINUX_SANDBOX = "linux-sandbox";
 
   public static boolean isSupported(CommandEnvironment cmdEnv) {
     if (OS.getCurrent() != OS.LINUX) {
       return false;
     }
-    Path embeddedTool = getLinuxSandbox(cmdEnv);
-    if (embeddedTool == null) {
-      // The embedded tool does not exist, meaning that we don't support sandboxing (e.g., while
-      // bootstrapping).
+    if (!LinuxSandboxUtil.isSupported(cmdEnv)) {
       return false;
     }
 
-    Path execRoot = cmdEnv.getExecRoot();
-
-    List<String> args = new ArrayList<>();
-    args.add(embeddedTool.getPathString());
-    args.add("--");
-    args.add("/bin/true");
-
+    List<String> linuxSandboxArgv =
+        LinuxSandboxUtil.commandLineBuilder(
+                LinuxSandboxUtil.getLinuxSandbox(cmdEnv).getPathString(),
+                ImmutableList.of("/bin/true"))
+            .build();
     ImmutableMap<String, String> env = ImmutableMap.of();
+    Path execRoot = cmdEnv.getExecRoot();
     File cwd = execRoot.getPathFile();
 
-    Command cmd = new Command(args.toArray(new String[0]), env, cwd);
+    Command cmd = new Command(linuxSandboxArgv.toArray(new String[0]), env, cwd);
     try {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
@@ -76,11 +72,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     return true;
-  }
-
-  private static Path getLinuxSandbox(CommandEnvironment cmdEnv) {
-    PathFragment execPath = cmdEnv.getBlazeWorkspace().getBinTools().getExecPath(LINUX_SANDBOX);
-    return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
   private final FileSystem fileSystem;
@@ -107,7 +98,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.execRoot = cmdEnv.getExecRoot();
     this.productName = productName;
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
-    this.linuxSandbox = getLinuxSandbox(cmdEnv);
+    this.linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv);
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;
     this.timeoutGraceSeconds = timeoutGraceSeconds;
@@ -162,67 +153,26 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Map<Path, Path> bindMounts,
       boolean allowNetwork,
       boolean requiresFakeRoot) {
-    List<String> commandLineArgs = new ArrayList<>();
-    commandLineArgs.add(linuxSandbox.getPathString());
-
-    if (getSandboxOptions().sandboxDebug) {
-      commandLineArgs.add("-D");
-    }
-
-    // Kill the process after a timeout.
+    LinuxSandboxUtil.CommandLineBuilder commandLineBuilder =
+        LinuxSandboxUtil.commandLineBuilder(linuxSandbox.getPathString(), spawn.getArguments())
+            .setWritableFilesAndDirectories(writableDirs)
+            .setTmpfsDirectories(tmpfsPaths)
+            .setBindMounts(bindMounts)
+            .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
+            .setCreateNetworkNamespace(!allowNetwork)
+            .setUseDebugMode(getSandboxOptions().sandboxDebug);
     if (!timeout.isZero()) {
-      commandLineArgs.add("-T");
-      commandLineArgs.add(Long.toString(timeout.getSeconds()));
+      commandLineBuilder.setTimeout(timeout);
     }
-
     if (timeoutGraceSeconds != -1) {
-      commandLineArgs.add("-t");
-      commandLineArgs.add(Integer.toString(timeoutGraceSeconds));
+      commandLineBuilder.setKillDelay(Duration.ofSeconds(timeoutGraceSeconds));
     }
-
-    // Create all needed directories.
-    for (Path writablePath : writableDirs) {
-      commandLineArgs.add("-w");
-      commandLineArgs.add(writablePath.getPathString());
-    }
-
-    for (Path tmpfsPath : tmpfsPaths) {
-      commandLineArgs.add("-e");
-      commandLineArgs.add(tmpfsPath.getPathString());
-    }
-
-    for (ImmutableMap.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
-      commandLineArgs.add("-M");
-      commandLineArgs.add(bindMount.getValue().getPathString());
-
-      // The file is mounted in a custom location inside the sandbox.
-      if (!bindMount.getKey().equals(bindMount.getValue())) {
-        commandLineArgs.add("-m");
-        commandLineArgs.add(bindMount.getKey().getPathString());
-      }
-    }
-
-    if (!allowNetwork) {
-      // Block network access out of the namespace.
-      commandLineArgs.add("-N");
-    }
-
-    if (getSandboxOptions().sandboxFakeHostname) {
-      // Use a fake hostname ("localhost") inside the sandbox.
-      commandLineArgs.add("-H");
-    }
-
     if (requiresFakeRoot) {
-      // Use fake root.
-      commandLineArgs.add("-R");
+      commandLineBuilder.setUseFakeRoot(true);
     } else if (getSandboxOptions().sandboxFakeUsername) {
-      // Use a fake username ("nobody") inside the sandbox.
-      commandLineArgs.add("-U");
+      commandLineBuilder.setUseFakeUsername(true);
     }
-
-    commandLineArgs.add("--");
-    commandLineArgs.addAll(spawn.getArguments());
-    return commandLineArgs;
+    return commandLineBuilder.build();
   }
 
   @Override
