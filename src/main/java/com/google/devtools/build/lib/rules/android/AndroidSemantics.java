@@ -19,10 +19,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
+import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import javax.annotation.Nullable;
 
 /**
@@ -114,4 +116,19 @@ public interface AndroidSemantics {
 
   /** Returns the list of attributes that may contribute Java runtime dependencies. */
   ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext);
+
+  /** A hook for checks of internal-only or external-only attributes of {@code android_binary}. */
+  default void validateAndroidBinaryRuleContext(RuleContext ruleContext) throws RuleErrorException {
+  }
+
+  /** The artifact for the map that proguard will output. */
+  Artifact getProguardOutputMap(RuleContext ruleContext) throws InterruptedException;
+
+  /** Maybe post process the dex files and proguard output map. */
+  AndroidBinary.DexPostprocessingOutput postprocessClassesDexZip(
+      RuleContext ruleContext,
+      NestedSetBuilder<Artifact> filesBuilder,
+      Artifact classesDexZip,
+      ProguardOutput proguardOutput)
+      throws InterruptedException;
 }

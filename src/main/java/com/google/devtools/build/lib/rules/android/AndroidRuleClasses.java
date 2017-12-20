@@ -790,12 +790,6 @@ public final class AndroidRuleClasses {
                   .cfg(HOST)
                   .exec()
                   .value(env.getToolsLabel("//tools/android:desugar_java8")))
-          .add(
-              attr("$rex_wrapper", LABEL)
-                  .cfg(HOST)
-                  .exec()
-                  .value(env.getToolsLabel("//tools/android:rex_wrapper")))
-          .add(attr("rexopts", STRING_LIST))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
@@ -910,15 +904,6 @@ public final class AndroidRuleClasses {
               attr(":cc_toolchain_split", LABEL)
                   .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
                   .value(CppRuleClasses.ccToolchainAttribute(env)))
-          .add(attr("rewrite_dexes_with_rex", BOOLEAN).value(false).undocumented("experimental"))
-          /*
-          File to be used as a package map for Rex tool that keeps the assignment of classes to
-          dex files of a multi-dex application stable over time.
-          Can only be used when <code>proguard_specs</code> is also specified. When
-          <code>proguard_specs</code> is specified, but a package map isn't or there were changes,
-          Rex suggests an updated package map that can be saved and reused for subsequent builds.
-           */
-          .add(attr("rex_package_map", LABEL).legacyAllowAnyFileType().undocumented("experimental"))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(manifest_merger) -->
           Select the manifest merger to use for this rule.<br/>
           Possible values:

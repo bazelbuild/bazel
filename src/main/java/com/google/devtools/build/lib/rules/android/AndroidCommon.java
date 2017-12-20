@@ -989,7 +989,7 @@ public class AndroidCommon {
   }
 
   /** Returns {@link AndroidConfiguration} in given context. */
-  static AndroidConfiguration getAndroidConfig(RuleContext context) {
+  public static AndroidConfiguration getAndroidConfig(RuleContext context) {
     return context.getConfiguration().getFragment(AndroidConfiguration.class);
   }
 
