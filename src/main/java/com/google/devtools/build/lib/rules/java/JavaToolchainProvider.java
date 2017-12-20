@@ -64,7 +64,9 @@ public class JavaToolchainProvider extends ToolchainInfo {
 
   public static JavaToolchainProvider create(
       Label label,
-      JavaToolchainData data,
+      ImmutableList<String> javacOptions,
+      ImmutableList<String> jvmOptions,
+      boolean javacSupportsWorkers,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
       List<String> defaultJavacFlags,
@@ -101,12 +103,9 @@ public class JavaToolchainProvider extends ToolchainInfo {
         compatibleJavacOptions,
         // merges the defaultJavacFlags from
         // {@link JavaConfiguration} with the flags from the {@code java_toolchain} rule.
-        ImmutableList.<String>builder()
-            .addAll(data.getJavacOptions())
-            .addAll(defaultJavacFlags)
-            .build(),
-        data.getJvmOptions(),
-        data.getJavacSupportsWorkers(),
+        ImmutableList.<String>builder().addAll(javacOptions).addAll(defaultJavacFlags).build(),
+        jvmOptions,
+        javacSupportsWorkers,
         packageConfiguration);
   }
 

@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.java.JavaToolchainData.SupportsWorkers;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.List;
 import java.util.Map;
@@ -76,7 +75,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> tools = PrerequisiteArtifacts.nestedSet(ruleContext, "tools", Mode.HOST);
 
     TransitiveInfoCollection javacDep = ruleContext.getPrerequisite("javac", Mode.HOST);
-    List<String> jvmOpts =
+    ImmutableList<String> jvmOpts =
         getJvmOpts(
             ruleContext,
             ImmutableMap.<Label, ImmutableCollection<Artifact>>of(
@@ -87,18 +86,13 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites(
                 "package_configuration", Mode.HOST, JavaPackageConfigurationProvider.class));
 
-    JavaToolchainData toolchainData =
-        new JavaToolchainData(
-            Artifact.toExecPaths(bootclasspath),
-            Artifact.toExecPaths(extclasspath),
-            javacopts,
-            jvmOpts,
-            javacSupportsWorkers ? SupportsWorkers.YES : SupportsWorkers.NO);
     JavaConfiguration configuration = ruleContext.getFragment(JavaConfiguration.class);
     JavaToolchainProvider provider =
         JavaToolchainProvider.create(
             ruleContext.getLabel(),
-            toolchainData,
+            javacopts,
+            jvmOpts,
+            javacSupportsWorkers,
             bootclasspath,
             extclasspath,
             configuration.getDefaultJavacFlags(),
