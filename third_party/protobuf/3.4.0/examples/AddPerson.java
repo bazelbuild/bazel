@@ -40,15 +40,9 @@ class AddPerson {
 
       stdout.print("Is this a mobile, home, or work phone? ");
       String type = stdin.readLine();
-      if (type.equals("mobile")) {
-        phoneNumber.setType(Person.PhoneType.MOBILE);
-      } else if (type.equals("home")) {
-        phoneNumber.setType(Person.PhoneType.HOME);
-      } else if (type.equals("work")) {
-        phoneNumber.setType(Person.PhoneType.WORK);
-      } else {
+      switch(type) { /*switch-string refactor*/ case "mobile" : { phoneNumber.setType(Person.PhoneType.MOBILE); }  case "home" : { phoneNumber.setType(Person.PhoneType.HOME); break; } case "work" : { phoneNumber.setType(Person.PhoneType.WORK); break; } default : {
         stdout.println("Unknown phone type.  Using default.");
-      }
+      } }
 
       person.addPhones(phoneNumber);
     }

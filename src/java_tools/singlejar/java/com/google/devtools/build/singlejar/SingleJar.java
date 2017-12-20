@@ -313,15 +313,7 @@ public class SingleJar {
     List<String> prefixes = new ArrayList<>();
     for (int i = 0; i < args.size(); i++) {
       String arg = args.get(i);
-      if (arg.equals("--sources")) {
-        i = collectFlagArguments(args, i, inputJars, "--");
-      } else if (arg.equals("--resources")) {
-        i = collectFlagArguments(args, i, resources, "--");
-      } else if (arg.equals("--classpath_resources")) {
-        i = collectFlagArguments(args, i, classpathResources, "--");
-      } else if (arg.equals("--deploy_manifest_lines")) {
-        i = collectFlagArguments(args, i, manifestLines, "--");
-      } else if (arg.equals("--build_info_file")) {
+      switch(arg) { /*switch-string refactor*/ case "--sources" : { i = collectFlagArguments(args, i, inputJars, "--"); }  case "--resources" : { i = collectFlagArguments(args, i, resources, "--"); break; } case "--classpath_resources" : { i = collectFlagArguments(args, i, classpathResources, "--"); break; } case "--deploy_manifest_lines" : { i = collectFlagArguments(args, i, manifestLines, "--"); break; } default : if (arg.equals("--build_info_file")) {
         buildInformationFiles.add(getArgument(args, i, arg));
         i++;
       } else if (arg.equals("--extra_build_info")) {
@@ -350,7 +342,7 @@ public class SingleJar {
         i++;
       } else {
         throw new IOException("unknown option : '" + arg + "'");
-      }
+      } }
     }
     if (!manifestLines.isEmpty()) {
       setExtraManifestContent(joinWithNewlines(manifestLines));

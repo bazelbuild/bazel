@@ -42,14 +42,10 @@ public class PackageCacheOptions extends OptionsBase {
   public static class DefaultVisibilityConverter implements Converter<RuleVisibility> {
     @Override
     public RuleVisibility convert(String input) throws OptionsParsingException {
-      if (input.equals("public")) {
-        return ConstantRuleVisibility.PUBLIC;
-      } else if (input.equals("private")) {
-        return ConstantRuleVisibility.PRIVATE;
-      } else {
+      switch(input) { /*switch-string refactor*/ case "public" : { return ConstantRuleVisibility.PUBLIC; }  case "private" : { return ConstantRuleVisibility.PRIVATE; break; } default : {
         throw new OptionsParsingException("Not a valid default visibility: '" + input
             + "' (should be 'public' or 'private'");
-      }
+      } }
     }
 
     @Override

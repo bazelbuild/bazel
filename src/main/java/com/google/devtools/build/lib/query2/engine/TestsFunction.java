@@ -129,13 +129,9 @@ public class TestsFunction implements QueryFunction {
         excludedTags.add(tag.substring(1));
       } else if (tag.startsWith("+")) {
         requiredTags.add(tag.substring(1));
-      } else if (tag.equals("manual")) {
-        // Ignore manual attribute because it is an exception: it is not a filter
-        // but a property of test_suite
-        continue;
-      } else {
+      } else switch(tag) { /*switch-string refactor*/ case "manual" : { continue; }  default : {
         requiredTags.add(tag);
-      }
+      } }
     }
   }
 
