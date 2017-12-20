@@ -24,7 +24,7 @@ import org.junit.runners.JUnit4;
 
 /** A test for android_local_test. */
 @RunWith(JUnit4.class)
-public class AndroidLocalTestTest extends AbstractAndroidLocalTestTest {
+public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestBase {
 
   @Test
   public void testSimpleTestNotNull() throws Exception {

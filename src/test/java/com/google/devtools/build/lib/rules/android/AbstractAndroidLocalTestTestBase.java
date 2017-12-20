@@ -14,138 +14,70 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.util.FileType;
 import java.util.List;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Abstract base class for tests of {@link BazelAndroidLocalTest}. These tests are for the
- * java related portions of the rule. Be sure to use writeFile() and overwriteFile() (instead of
+ * Abstract base class for tests of {@link BazelAndroidLocalTest}. These tests are for the java
+ * related portions of the rule. Be sure to use writeFile() and overwriteFile() (instead of
  * scratch.writeFile() and scratch.overwriteFile()).
  */
 @RunWith(JUnit4.class)
-public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
+public abstract class AbstractAndroidLocalTestTestBase extends BuildViewTestCase {
+
+  @Before
+  public void setUp() throws Exception {
+    writeFile("java/bar/BUILD", "");
+    writeFile("java/bar/foo.bzl", "extra_deps = []");
+  }
 
   @Test
   public void testSimpleAndroidRobolectricConfiguredTarget() throws Exception {
-    writeFile("java/test/BUILD",
+    writeFile(
+        "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     assertThat(target).isNotNull();
-    checkMainClass(target, "com.google.testing.junit.runner.GoogleTestRunner");
-  }
-
-  @Test
-  public void testOneVersionEnforcement() throws Exception {
-    useConfiguration("--experimental_one_version_enforcement=error");
-    writeFile("java/test/resource/BUILD",
-        "android_local_test(name = 'dummyTest',",
-        "                         srcs = ['test.java'],",
-        "                         deps = [':dummyLibraryOne', ':dummyLibraryTwo'])",
-        "",
-        "android_library(name = 'dummyLibraryOne',",
-        "                srcs = ['libraryOne.java'])",
-        "",
-        "android_library(name = 'dummyLibraryTwo',",
-        "                srcs = ['libraryTwo.java'],",
-        "                deps = [':dummyLibraryThree'])",
-        "",
-        "android_library(name = 'dummyLibraryThree',",
-        "                srcs = ['libraryThree.java'])",
-        "");
-
-    ConfiguredTarget thingToTest = getConfiguredTarget("//java/test/resource:dummyTest");
-    Action oneVersionAction =
-        getGeneratingActionInOutputGroup(
-            thingToTest,
-            "java/test/resource/dummyTest-one-version.txt",
-            OutputGroupInfo.HIDDEN_TOP_LEVEL);
-
-    Iterable<Artifact> jartifacts =
-        ImmutableList.copyOf(FileType.filter(oneVersionAction.getInputs(), JavaSemantics.JAR));
-    assertThat(prettyArtifactNames(jartifacts))
-        .containsExactly(
-            "java/test/resource/dummyTest.jar",
-            "java/test/resource/dummyTest_resources.jar",
-            "third_party/java/junit/junit.jar",
-            "third_party/java/android/android_sdk_linux/platforms/stable/android_blaze.jar",
-            "third_party/java/robolectric/third_party_java_robolectric_deploy.jar",
-            "java/com/google/thirdparty/robolectric/"
-                + "java_com_google_thirdparty_robolectric_deploy.jar",
-            "java/test/resource/libdummyLibraryOne.jar",
-            "java/test/resource/libdummyLibraryTwo.jar",
-            "java/test/resource/libdummyLibraryThree.jar",
-            "java/com/google/testing/junit/runner/Runner_deploy.jar")
-        .inOrder();
-  }
-
-  @Test
-  public void testOneVersionEnforcement_excludesWhenFlagIsOff() throws Exception {
-    useConfiguration(
-        "--experimental_one_version_enforcement=error",
-        "--one_version_enforcement_on_java_tests=false");
-
-    writeFile(
-        "java/test/resource/BUILD",
-        "android_local_test(name = 'dummyTest',",
-        "                         srcs = ['test.java'],",
-        "                         deps = [':dummyLibraryOne', ':dummyLibraryTwo'])",
-        "",
-        "android_library(name = 'dummyLibraryOne',",
-        "                srcs = ['libraryOne.java'])",
-        "",
-        "android_library(name = 'dummyLibraryTwo',",
-        "                srcs = ['libraryTwo.java'],",
-        "                deps = [':dummyLibraryThree'])",
-        "",
-        "android_library(name = 'dummyLibraryThree',",
-        "                srcs = ['libraryThree.java'])",
-        "");
-
-    ConfiguredTarget thingToTest = getConfiguredTarget("//java/test/resource:dummyTest");
-
-    assertThat(
-            prettyArtifactNames(getOutputGroup(thingToTest, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
-        .doesNotContain("java/test/resource/dummyTest-one-version.txt");
+    checkMainClass(target, "dummyTest", false);
   }
 
   @Test
   public void testCollectCodeCoverageWorks() throws Exception {
-    writeFile("java/test/BUILD",
+    writeFile(
+        "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
         "        srcs = [ 'test.java'],",
-        "        deps = [ '//java/foo:lib' ])");
+        "        deps = [ '//java/foo:lib'] + extra_deps)");
 
     writeFile("java/foo/BUILD",
         "java_library(name = 'lib',",
         "srcs = ['foo.java'])");
 
     useConfiguration("--collect_code_coverage");
-    checkMainClass(getConfiguredTarget("//java/test:dummyTest"),
-        "com.google.testing.coverage.JacocoCoverageRunner");
+    checkMainClass(getConfiguredTarget("//java/test:dummyTest"), "dummyTest", true);
   }
 
   @Test
   public void testDataDependency() throws Exception {
-    writeFile("java/test/BUILD",
+    writeFile(
+        "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
+        "    deps = extra_deps,",
         "    data = ['data.dat'])");
 
     writeFile("java/test/data.dat",
@@ -188,17 +120,12 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         "    srcs = ['lib.jar'])");
   }
 
-  private void checkMainClass(ConfiguredTarget target, String mainClass) throws Exception {
-    TemplateExpansionAction action = (TemplateExpansionAction) getGeneratingAction(
-        ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), "dummyTest"));
-    assertThat(action.getFileContents()).contains(mainClass);
-  }
-
   @Test
   public void testFeatureFlagsAttributeSetsSelectInDependency() throws Exception {
     useConfiguration("--experimental_dynamic_configs=on");
     writeFile(
         "java/com/foo/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "config_feature_flag(",
         "  name = 'flag1',",
         "  allowed_values = ['on', 'off'],",
@@ -230,7 +157,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         "android_local_test(",
         "  name = 'foo',",
         "  srcs = ['Test.java'],",
-        "  deps = [':lib'],",
+        "  deps = [':lib'] + extra_deps,",
         "  feature_flags = {",
         "    'flag1': 'on',",
         "  }",
@@ -249,6 +176,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
     useConfiguration("--experimental_dynamic_configs=on");
     writeFile(
         "java/com/foo/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "config_feature_flag(",
         "  name = 'flag1',",
         "  allowed_values = ['on', 'off'],",
@@ -269,6 +197,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         ")",
         "android_local_test(",
         "  name = 'foo',",
+        "  deps = extra_deps,",
         "  srcs = ['Test.java'] + select({",
         "    ':flag1@on': ['Flag1On.java'],",
         "    '//conditions:default': ['Flag1Off.java'],",
@@ -295,6 +224,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
     useConfiguration("--experimental_dynamic_configs=on");
     writeFile(
         "java/com/foo/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "config_feature_flag(",
         "  name = 'flag1',",
         "  allowed_values = ['on', 'off'],",
@@ -314,7 +244,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         "android_local_test(",
         "  name = 'foo',",
         "  srcs = ['Test.java'],",
-        "  deps = [':lib'],",
+        "  deps = [':lib',] + extra_deps,",
         "  feature_flags = {",
         "    'flag1': 'invalid',",
         "  }",
@@ -332,6 +262,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
     useConfiguration("--experimental_dynamic_configs=on");
     writeFile(
         "java/com/foo/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "config_feature_flag(",
         "  name = 'flag1',",
         "  allowed_values = ['on', 'off'],",
@@ -344,6 +275,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         "android_local_test(",
         "  name = 'foo',",
         "  srcs = ['Test.java'],",
+        "  deps = extra_deps,",
         "  feature_flags = {",
         "    'flag1': 'invalid',",
         "  }",
@@ -373,6 +305,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         ")");
     writeFile(
         "java/com/foo/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "load('//java/com/foo:reader.bzl', 'flag_reader')",
         "config_feature_flag(",
         "  name = 'flag1',",
@@ -391,6 +324,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         "android_local_test(",
         "  name = 'foo',",
         "  srcs = ['Test.java', ':FooFlags.java'],",
+        "  deps = extra_deps,",
         "  feature_flags = {",
         "    'flag1': 'on',",
         "  }",
@@ -412,6 +346,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
     useConfiguration("--experimental_dynamic_configs=on");
     writeFile(
         "java/com/foo/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "config_feature_flag(",
         "  name = 'flag1',",
         "  allowed_values = ['on', 'off'],",
@@ -424,6 +359,7 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         "android_local_test(",
         "  name = 'foo',",
         "  srcs = ['Test.java'],",
+        "  deps = extra_deps,",
         "  feature_flags = {",
         "    'alias': 'on',",
         "  }",
@@ -453,9 +389,11 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         ")");
     writeFile(
         "java/com/google/android/foo/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(",
         "  name = 'foo',",
         "  srcs = ['Test.java', ':FooFlags.java'],",
+        "  deps = extra_deps,",
         "  feature_flags = {",
         "    '//flag:flag': 'right',",
         "  }",
@@ -484,9 +422,11 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
         ")");
     writeFile(
         "java/com/google/android/foo/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(",
         "  name = 'foo',",
         "  srcs = ['Test.java', ':FooFlags.java'],",
+        "  deps = extra_deps,",
         "  feature_flags = {",
         "    '//flag:flag': 'right',",
         "  }",
@@ -518,11 +458,12 @@ public abstract class AbstractAndroidLocalTestTest extends BuildViewTestCase {
     assertContainsEvent("*super* busted package group");
   }
 
+  public abstract void checkMainClass(
+      ConfiguredTarget target, String targetName, boolean coverageEnabled) throws Exception;
+
   protected abstract String getRuleName();
 
   protected abstract void writeFile(String path, String... lines) throws Exception;
 
   protected abstract void overwriteFile(String path, String... lines) throws Exception;
-
-
 }
