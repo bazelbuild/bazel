@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.runtime.LinuxSandboxUtil;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.OS;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
@@ -29,11 +31,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link Command}s that are wrapped using the {@code process-wrapper}. */
+/** Unit tests for {@link Command}s that are run using the {@code linux-sandbox}. */
 @RunWith(JUnit4.class)
-public final class CommandUsingProcessWrapperTest {
-  private String getProcessWrapperPath() {
-    return BlazeTestUtils.runfilesDir() + "/" + TestConstants.PROCESS_WRAPPER_PATH;
+public final class CommandUsingLinuxSandboxTest {
+  private String getLinuxSandboxPath() {
+    return BlazeTestUtils.runfilesDir() + "/" + TestConstants.LINUX_SANDBOX_PATH;
   }
 
   private String getCpuTimeSpenderPath() {
@@ -42,33 +44,35 @@ public final class CommandUsingProcessWrapperTest {
 
   @Test
   public void testCommand_Echo() throws Exception {
-    ImmutableList<String> commandArguments = ImmutableList.of("echo", "worker bees can leave");
+    ImmutableList<String> commandArguments = ImmutableList.of("echo", "colorless green ideas");
 
     Command command = new Command(commandArguments.toArray(new String[0]));
     CommandResult commandResult = command.execute();
 
     assertThat(commandResult.getTerminationStatus().success()).isTrue();
-    assertThat(commandResult.getStdoutStream().toString()).contains("worker bees can leave");
+    assertThat(commandResult.getStdoutStream().toString()).contains("colorless green ideas");
   }
 
   @Test
-  public void testProcessWrappedCommand_Echo() throws Exception {
-    ImmutableList<String> commandArguments = ImmutableList.of("echo", "even drones can fly away");
+  public void testLinuxSandboxedCommand_Echo() throws Exception {
+    // TODO(b/62588075) Currently no linux-sandbox tool support in Windows.
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+    // TODO(b/62588075) Currently no linux-sandbox tool support in MacOS.
+    assumeTrue(OS.getCurrent() != OS.DARWIN);
+
+    ImmutableList<String> commandArguments = ImmutableList.of("echo", "sleep furiously");
 
     List<String> fullCommandLine =
-        ProcessWrapperUtil.commandLineBuilder()
-            .setProcessWrapperPath(getProcessWrapperPath())
-            .setCommandArguments(commandArguments)
-            .build();
+        LinuxSandboxUtil.commandLineBuilder(getLinuxSandboxPath(), commandArguments).build();
 
     Command command = new Command(fullCommandLine.toArray(new String[0]));
     CommandResult commandResult = command.execute();
 
     assertThat(commandResult.getTerminationStatus().success()).isTrue();
-    assertThat(commandResult.getStdoutStream().toString()).contains("even drones can fly away");
+    assertThat(commandResult.getStdoutStream().toString()).contains("sleep furiously");
   }
 
-  private void checkProcessWrapperStatistics(Duration userTimeToSpend, Duration systemTimeToSpend)
+  private void checkLinuxSandboxStatistics(Duration userTimeToSpend, Duration systemTimeToSpend)
       throws IOException, CommandException {
     ImmutableList<String> commandArguments =
         ImmutableList.of(
@@ -80,9 +84,7 @@ public final class CommandUsingProcessWrapperTest {
     String statisticsFilePath = outputDir.getAbsolutePath() + "/" + "stats.out";
 
     List<String> fullCommandLine =
-        ProcessWrapperUtil.commandLineBuilder()
-            .setProcessWrapperPath(getProcessWrapperPath())
-            .setCommandArguments(commandArguments)
+        LinuxSandboxUtil.commandLineBuilder(getLinuxSandboxPath(), commandArguments)
             .setStatisticsPath(statisticsFilePath)
             .build();
 
@@ -91,29 +93,44 @@ public final class CommandUsingProcessWrapperTest {
   }
 
   @Test
-  public void testProcessWrappedCommand_WithStatistics_SpendUserTime()
+  public void testLinuxSandboxedCommand_WithStatistics_SpendUserTime()
       throws CommandException, IOException {
+    // TODO(b/62588075) Currently no linux-sandbox tool support in Windows.
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+    // TODO(b/62588075) Currently no linux-sandbox tool support in MacOS.
+    assumeTrue(OS.getCurrent() != OS.DARWIN);
+
     Duration userTimeToSpend = Duration.ofSeconds(10);
     Duration systemTimeToSpend = Duration.ZERO;
 
-    checkProcessWrapperStatistics(userTimeToSpend, systemTimeToSpend);
+    checkLinuxSandboxStatistics(userTimeToSpend, systemTimeToSpend);
   }
 
   @Test
-  public void testProcessWrappedCommand_WithStatistics_SpendSystemTime()
+  public void testLinuxSandboxedCommand_WithStatistics_SpendSystemTime()
       throws CommandException, IOException {
+    // TODO(b/62588075) Currently no linux-sandbox tool support in Windows.
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+    // TODO(b/62588075) Currently no linux-sandbox tool support in MacOS.
+    assumeTrue(OS.getCurrent() != OS.DARWIN);
+
     Duration userTimeToSpend = Duration.ZERO;
     Duration systemTimeToSpend = Duration.ofSeconds(10);
 
-    checkProcessWrapperStatistics(userTimeToSpend, systemTimeToSpend);
+    checkLinuxSandboxStatistics(userTimeToSpend, systemTimeToSpend);
   }
 
   @Test
-  public void testProcessWrappedCommand_WithStatistics_SpendUserAndSystemTime()
+  public void testLinuxSandboxedCommand_WithStatistics_SpendUserAndSystemTime()
       throws CommandException, IOException {
+    // TODO(b/62588075) Currently no linux-sandbox tool support in Windows.
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+    // TODO(b/62588075) Currently no linux-sandbox tool support in MacOS.
+    assumeTrue(OS.getCurrent() != OS.DARWIN);
+
     Duration userTimeToSpend = Duration.ofSeconds(10);
     Duration systemTimeToSpend = Duration.ofSeconds(10);
 
-    checkProcessWrapperStatistics(userTimeToSpend, systemTimeToSpend);
+    checkLinuxSandboxStatistics(userTimeToSpend, systemTimeToSpend);
   }
 }
