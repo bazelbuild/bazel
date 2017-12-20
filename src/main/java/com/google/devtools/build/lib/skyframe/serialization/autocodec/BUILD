@@ -11,7 +11,12 @@ filegroup(
 java_library(
     name = "autocodec",
     exported_plugins = [":autocodec-plugin"],
-    exports = [":autocodec-annotation"],
+    exports = [
+        ":autocodec-annotation",
+        # Generated classes have the following dependencies.
+        "//third_party/protobuf:protobuf_java",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+    ],
 )
 
 # @AutoCodec annotation only. Used by clients and the processor.

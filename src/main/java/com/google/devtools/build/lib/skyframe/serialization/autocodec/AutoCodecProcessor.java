@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.squareup.javapoet.ClassName;
@@ -28,9 +29,11 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -38,11 +41,13 @@ import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
@@ -87,69 +92,82 @@ public class AutoCodecProcessor extends AbstractProcessor {
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoCodecUtil.ANNOTATION)) {
       AutoCodec annotation = element.getAnnotation(AutoCodecUtil.ANNOTATION);
+      TypeElement encodedType = (TypeElement) element;
+      TypeSpec.Builder codecClassBuilder = initializeCodecClassBuilder(encodedType);
+      codecClassBuilder.addMethod(buildGetEncodedClassMethod(encodedType));
       switch (annotation.strategy()) {
         case CONSTRUCTOR:
-          buildCodecUsingConstructor((TypeElement) element);
+          buildClassWithConstructorStrategy(codecClassBuilder, encodedType);
+          break;
+        case PUBLIC_FIELDS:
+          buildClassWithPublicFieldsStrategy(codecClassBuilder, encodedType);
           break;
         default:
           throw new IllegalArgumentException("Unknown strategy: " + annotation.strategy());
+      }
+      String packageName =
+          env.getElementUtils().getPackageOf(encodedType).getQualifiedName().toString();
+      try {
+        JavaFile file = JavaFile.builder(packageName, codecClassBuilder.build()).build();
+        file.writeTo(env.getFiler());
+        if (env.getOptions().containsKey(PRINT_GENERATED_OPTION)) {
+          note("AutoCodec generated codec for " + encodedType + ":\n" + file);
+        }
+      } catch (IOException e) {
+        env.getMessager()
+            .printMessage(
+                Diagnostic.Kind.ERROR, "Failed to generate output file: " + e.getMessage());
       }
     }
     return true;
   }
 
-  /**
-   * Uses the first constructor of the class to synthesize a codec.
-   *
-   * <p>This strategy depends on
-   *
-   * <ul>
-   *   <li>the class constructor taking all serialized fields as parameters
-   *   <li>and each serialized field having a corresponding getter.
-   * </ul>
-   *
-   * For example, a constructor having parameter, {@code target}, should having a matching getter,
-   * {@code getTarget()}.
-   *
-   * <p>The first constructor is the first ocurring in the source code.
-   */
-  private void buildCodecUsingConstructor(TypeElement classElement) {
-    TypeSpec.Builder codecClassBuilder =
-        TypeSpec.classBuilder(AutoCodecUtil.getCodecName(classElement))
-            .superclass(TypeName.get(classElement.asType()));
-
-    TypeElement encodedType = getEncodedType(classElement);
-
-    // Generates the getEncodedClass method.
-    codecClassBuilder.addMethod(
-        MethodSpec.methodBuilder("getEncodedClass")
-            .addModifiers(Modifier.PUBLIC)
-            .addAnnotation(Override.class)
-            .returns(
-                ParameterizedTypeName.get(
-                    ClassName.get(Class.class), TypeName.get(encodedType.asType())))
-            .addStatement("return $T.class", TypeName.get(encodedType.asType()))
-            .build());
-
+  void buildClassWithConstructorStrategy(
+      TypeSpec.Builder codecClassBuilder, TypeElement encodedType) {
     // In Java, every class has a constructor, so this always succeeds.
     ExecutableElement constructor =
         ElementFilter.constructorsIn(encodedType.getEnclosedElements()).get(0);
     List<? extends VariableElement> constructorParameters = constructor.getParameters();
-    addSerializeMethodUsingConstructor(codecClassBuilder, encodedType, constructorParameters);
-    addDeserializeMethodUsingConstructor(codecClassBuilder, encodedType, constructorParameters);
+    codecClassBuilder.addMethod(
+        buildSerializeMethod(
+            encodedType, constructorParameters, AutoCodecProcessor::paramNameAsGetter));
+    MethodSpec.Builder deserializeBuilder =
+        initializeDeserializeMethodBuilder(encodedType, constructorParameters);
+    addReturnNew(deserializeBuilder, encodedType, constructorParameters);
+    codecClassBuilder.addMethod(deserializeBuilder.build());
+  }
 
-    String packageName =
-        env.getElementUtils().getPackageOf(classElement).getQualifiedName().toString();
-    try {
-      JavaFile file = JavaFile.builder(packageName, codecClassBuilder.build()).build();
-      file.writeTo(env.getFiler());
-      if (env.getOptions().containsKey("autocodec_print_generated")) {
-        note("AutoCodec generated codec for " + classElement + ":\n" + file);
-      }
-    } catch (IOException e) {
-      env.getMessager()
-          .printMessage(Diagnostic.Kind.ERROR, "Failed to generate output file: " + e.getMessage());
-    }
+  void buildClassWithPublicFieldsStrategy(
+      TypeSpec.Builder codecClassBuilder, TypeElement encodedType) {
+    List<? extends VariableElement> publicFields =
+        ElementFilter.fieldsIn(env.getElementUtils().getAllMembers(encodedType))
+            .stream()
+            .filter(this::isPublicField)
+            .collect(Collectors.toList());
+    codecClassBuilder.addMethod(
+        buildSerializeMethod(encodedType, publicFields, UnaryOperator.identity()));
+    MethodSpec.Builder deserializeBuilder =
+        initializeDeserializeMethodBuilder(encodedType, publicFields);
+    addInstantiatePopulateFieldsAndReturn(deserializeBuilder, encodedType, publicFields);
+    codecClassBuilder.addMethod(deserializeBuilder.build());
+  }
+
+  private TypeSpec.Builder initializeCodecClassBuilder(TypeElement encodedType) {
+    return TypeSpec.classBuilder(AutoCodecUtil.getCodecName(encodedType))
+        .addSuperinterface(
+            ParameterizedTypeName.get(
+                ClassName.get(ObjectCodec.class), TypeName.get(encodedType.asType())));
+  }
+
+  private static MethodSpec buildGetEncodedClassMethod(TypeElement encodedType) {
+    return MethodSpec.methodBuilder("getEncodedClass")
+        .addModifiers(Modifier.PUBLIC)
+        .addAnnotation(Override.class)
+        .returns(
+            ParameterizedTypeName.get(
+                ClassName.get(Class.class), TypeName.get(encodedType.asType())))
+        .addStatement("return $T.class", TypeName.get(encodedType.asType()))
+        .build();
   }
 
   /**
@@ -157,14 +175,22 @@ public class AutoCodecProcessor extends AbstractProcessor {
    *
    * <p>For example, a parameter called {@code target} results in {@code getTarget()}.
    */
-  private static String paramNameAsAccessor(String name) {
+  private static String paramNameAsGetter(String name) {
     return "get" + name.substring(0, 1).toUpperCase() + name.substring(1) + "()";
   }
 
-  private void addSerializeMethodUsingConstructor(
-      TypeSpec.Builder codecClassBuilder,
+  private boolean isPublicField(VariableElement element) {
+    if (matchesType(element.asType(), Void.class)) {
+      return false; // Void types can't be instantiated, so the processor ignores them completely.
+    }
+    Set<Modifier> modifiers = element.getModifiers();
+    return modifiers.contains(Modifier.PUBLIC) && !modifiers.contains(Modifier.STATIC);
+  }
+
+  private MethodSpec buildSerializeMethod(
       TypeElement encodedType,
-      List<? extends VariableElement> constructorParameters) {
+      List<? extends VariableElement> parameters,
+      UnaryOperator<String> nameToAccessor) {
     MethodSpec.Builder serializeBuilder =
         MethodSpec.methodBuilder("serialize")
             .addModifiers(Modifier.PUBLIC)
@@ -174,20 +200,34 @@ public class AutoCodecProcessor extends AbstractProcessor {
             .addAnnotation(Override.class)
             .addException(SerializationException.class)
             .addException(IOException.class);
-    for (VariableElement parameter : constructorParameters) {
-      buildSerializeBody(
-          serializeBuilder,
-          (DeclaredType) parameter.asType(),
-          "input." + paramNameAsAccessor(parameter.getSimpleName().toString()));
+    for (VariableElement parameter : parameters) {
+      String paramAccessor = "input." + nameToAccessor.apply(parameter.getSimpleName().toString());
+      TypeKind typeKind = parameter.asType().getKind();
+      switch (typeKind) {
+        case BOOLEAN:
+          serializeBuilder.addStatement("codedOut.writeBoolNoTag($L)", paramAccessor);
+          break;
+        case DECLARED:
+          buildSerializeBody(serializeBuilder, (DeclaredType) parameter.asType(), paramAccessor);
+          break;
+        default:
+          throw new IllegalArgumentException("Unimplemented or invalid kind: " + typeKind);
+      }
     }
-    codecClassBuilder.addMethod(serializeBuilder.build());
+    return serializeBuilder.build();
   }
 
-  private void addDeserializeMethodUsingConstructor(
-      TypeSpec.Builder codecClassBuilder,
-      TypeElement encodedType,
-      List<? extends VariableElement> constructorParameters) {
-    MethodSpec.Builder deserializeBuilder =
+  /**
+   * Creates a method builder defining the deserialize method and a body that extracts serialized
+   * parameters.
+   *
+   * <p>Parameter values are extracted into local variables with the same name as the parameter
+   * suffixed with a trailing underscore. For example, {@code target} becomes {@code target_}. This
+   * is to avoid name collisions.
+   */
+  private MethodSpec.Builder initializeDeserializeMethodBuilder(
+      TypeElement encodedType, List<? extends VariableElement> parameters) {
+    MethodSpec.Builder builder =
         MethodSpec.methodBuilder("deserialize")
             .addModifiers(Modifier.PUBLIC)
             .returns(TypeName.get(encodedType.asType()))
@@ -195,21 +235,21 @@ public class AutoCodecProcessor extends AbstractProcessor {
             .addAnnotation(Override.class)
             .addException(SerializationException.class)
             .addException(IOException.class);
-    for (VariableElement parameter : constructorParameters) {
-      buildDeserializeBody(
-          deserializeBuilder,
-          (DeclaredType) parameter.asType(),
-          parameter.getSimpleName().toString());
+    for (VariableElement parameter : parameters) {
+      String paramName = parameter.getSimpleName() + "_";
+      TypeKind typeKind = parameter.asType().getKind();
+      switch (typeKind) {
+        case BOOLEAN:
+          builder.addStatement("boolean $L = codedIn.readBool()", paramName);
+          break;
+        case DECLARED:
+          buildDeserializeBody(builder, (DeclaredType) parameter.asType(), paramName);
+          break;
+        default:
+          throw new IllegalArgumentException("Unimplemented or invalid kind: " + typeKind);
+      }
     }
-    // Invokes the constructor and returns the value.
-    deserializeBuilder.addStatement(
-        "return new $T($L)",
-        TypeName.get(encodedType.asType()),
-        constructorParameters
-            .stream()
-            .map(p -> p.getSimpleName().toString())
-            .collect(Collectors.joining(", ")));
-    codecClassBuilder.addMethod(deserializeBuilder.build());
+    return builder;
   }
 
   /**
@@ -217,21 +257,29 @@ public class AutoCodecProcessor extends AbstractProcessor {
    * accessor}.
    *
    * @param type the type of {@code accessor}
+   * @param depth recursion depth of buildSerializeBody
    */
-  private void buildSerializeBody(MethodSpec.Builder builder, DeclaredType type, String accessor) {
+  private void buildSerializeBody(
+      MethodSpec.Builder builder, DeclaredType type, String accessor, int depth) {
     builder.beginControlFlow("if ($L != null)", accessor); // Begin if not null block.
     builder.addStatement("codedOut.writeBoolNoTag(true)");
     // TODO(shahan): Add support for more types.
-    if (matchesErased(type, ImmutableSortedSet.class)) {
+    if (isEnum(type)) {
+      builder.addStatement("codedOut.writeInt32NoTag($L.ordinal())", accessor);
+    } else if (matchesType(type, String.class)) {
+      builder.addStatement(
+          "$T.asciiOptimized().serialize($L, codedOut)", StringCodecs.class, accessor);
+    } else if (matchesErased(type, List.class) || matchesErased(type, ImmutableSortedSet.class)) {
       // Writes the target count to the stream so deserialization knows when to stop.
       builder.addStatement("codedOut.writeInt32NoTag($L.size())", accessor);
       DeclaredType repeatedType = (DeclaredType) type.getTypeArguments().get(0);
-      // TODO(shahan): consider introducing a depth parameter to avoid shadowing here.
-      builder.beginControlFlow("for ($T repeated : $L)", TypeName.get(repeatedType), accessor);
-      buildSerializeBody(builder, repeatedType, "repeated");
+      String repeatedName = "repeated" + depth;
+      builder.beginControlFlow(
+          "for ($T $L : $L)", TypeName.get(repeatedType), repeatedName, accessor);
+      buildSerializeBody(builder, repeatedType, repeatedName, depth + 1);
       builder.endControlFlow();
     } else {
-      // Otherwise use the type's CODEC.
+      // Otherwise use the type's codec.
       builder.addStatement("$T.CODEC.serialize($L, codedOut)", TypeName.get(type), accessor);
     }
     builder.nextControlFlow("else");
@@ -239,17 +287,73 @@ public class AutoCodecProcessor extends AbstractProcessor {
     builder.endControlFlow(); // End if not null.
   }
 
+  /** Convenience overload for depth = 0. */
+  private void buildSerializeBody(MethodSpec.Builder builder, DeclaredType type, String accessor) {
+    buildSerializeBody(builder, type, accessor, /*depth=*/ 0);
+  }
+
   /**
-   * Appends code statements to {@code builder} declaring a variable called {@code name} and
-   * initializing it by deserialization.
+   * Invokes the constructor and returns the value.
    *
-   * @param type the type of {@code name}
+   * <p>Used by the {@link AutoCodec.Strategy.CONSTRUCTOR} strategy.
    */
-  private void buildDeserializeBody(MethodSpec.Builder builder, DeclaredType type, String name) {
+  private void addReturnNew(
+      MethodSpec.Builder builder, TypeElement type, List<? extends VariableElement> parameters) {
+    builder.addStatement(
+        "return new $T($L)",
+        TypeName.get(type.asType()),
+        parameters.stream().map(p -> p.getSimpleName() + "_").collect(Collectors.joining(", ")));
+  }
+
+  /**
+   * Invokes the constructor, populates public fields and returns the value.
+   *
+   * <p>Used by the {@link AutoCodec.Strategy.PUBLIC_FIELDS} strategy.
+   */
+  private static void addInstantiatePopulateFieldsAndReturn(
+      MethodSpec.Builder builder, TypeElement type, List<? extends VariableElement> fields) {
+    builder.addStatement(
+        "$T deserializationResult = new $T()",
+        TypeName.get(type.asType()),
+        TypeName.get(type.asType()));
+    for (VariableElement field : fields) {
+      String fieldName = field.getSimpleName().toString();
+      builder.addStatement("deserializationResult.$L = $L", fieldName, fieldName + "_");
+    }
+    builder.addStatement("return deserializationResult");
+  }
+
+  /**
+   * Appends code statements to {@code builder}, declaring a variable called {@code name} and
+   * initializing it with deserialization.
+   *
+   * @param type the type of {@code name}.
+   * @param depth recursion depth of buildDeserializeBody.
+   */
+  private void buildDeserializeBody(
+      MethodSpec.Builder builder, DeclaredType type, String name, int depth) {
     builder.addStatement("$T $L = null", TypeName.get(type), name);
     builder.beginControlFlow("if (codedIn.readBool())"); // Begin null-handling block.
     // TODO(shahan): Add support for more types.
-    if (matchesErased(type, ImmutableSortedSet.class)) {
+    if (isEnum(type)) {
+      // TODO(shahan): memoize this expensive call to values().
+      builder.addStatement("$L = $T.values()[codedIn.readInt32()]", name, TypeName.get(type));
+    } else if (matchesType(type, String.class)) {
+      builder.addStatement(
+          "$L = $T.asciiOptimized().deserialize(codedIn)", name, StringCodecs.class);
+    } else if (matchesErased(type, List.class)) {
+      builder.addStatement("$L = new $T<>()", name, ArrayList.class);
+      String lengthName = "length" + depth;
+      builder.addStatement("int $L = codedIn.readInt32()", lengthName);
+      String indexName = "i" + depth;
+      builder.beginControlFlow(
+          "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
+      DeclaredType repeatedType = (DeclaredType) type.getTypeArguments().get(0);
+      String repeatedName = "repeated" + depth;
+      buildDeserializeBody(builder, repeatedType, repeatedName, depth + 1);
+      builder.addStatement("$L.add($L)", name, repeatedName);
+      builder.endControlFlow();
+    } else if (matchesErased(type, ImmutableSortedSet.class)) {
       DeclaredType repeatedType = (DeclaredType) type.getTypeArguments().get(0);
       builder.addStatement(
           "$T<$T> builder = new $T<>($T.naturalOrder())",
@@ -257,33 +361,33 @@ public class AutoCodecProcessor extends AbstractProcessor {
           TypeName.get(repeatedType),
           ImmutableSortedSet.Builder.class,
           Comparator.class);
-      builder.addStatement("int length = codedIn.readInt32()");
-      builder.beginControlFlow("for (int i = 0; i < length; ++i)");
-      buildDeserializeBody(builder, repeatedType, "repeated");
-      builder.addStatement("builder.add(repeated)");
+      String lengthName = "length" + depth;
+      builder.addStatement("int $L = codedIn.readInt32()", lengthName);
+      String indexName = "i" + depth;
+      builder.beginControlFlow(
+          "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
+      String repeatedName = "repeated" + depth;
+      buildDeserializeBody(builder, repeatedType, repeatedName, depth + 1);
+      builder.addStatement("builder.add($L)", repeatedName);
       builder.endControlFlow();
       builder.addStatement("$L = builder.build()", name);
     } else {
-      // Otherwise, use the type's CODEC value.
+      // Otherwise, use the type's codec.
       builder.addStatement("$L = $T.CODEC.deserialize(codedIn)", name, TypeName.get(type));
     }
     builder.endControlFlow(); // End null-handling block.
   }
 
-  /**
-   * Gets the type parameter of ObjectCodec, i.e., the type being encoded.
-   *
-   * <p>{@code element} must implement ObjectCodec.
-   */
-  private TypeElement getEncodedType(TypeElement element) {
-    for (TypeMirror implementedInterface : element.getInterfaces()) {
-      if (matchesErased(implementedInterface, ObjectCodec.class)) {
-        return (TypeElement)
-            env.getTypeUtils()
-                .asElement(((DeclaredType) implementedInterface).getTypeArguments().get(0));
-      }
-    }
-    throw new IllegalArgumentException(element + " does not implement ObjectCodec!");
+  /** Overload of above, for common case of 0 depth. */
+  private void buildDeserializeBody(MethodSpec.Builder builder, DeclaredType type, String name) {
+    buildDeserializeBody(builder, type, name, /*depth=*/ 0);
+  }
+
+  /** True when {@code type} has the same type as {@code clazz}. */
+  private boolean matchesType(TypeMirror type, Class<?> clazz) {
+    return env.getTypeUtils()
+        .isSameType(
+            type, env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType());
   }
 
   /** True when erasure of {@code type} matches erasure of {@code clazz}. */
@@ -294,6 +398,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
             env.getTypeUtils()
                 .erasure(
                     env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType()));
+  }
+
+  private boolean isEnum(TypeMirror type) {
+    return env.getTypeUtils().asElement(type).getKind() == ElementKind.ENUM;
   }
 
   /** Emits a note to BUILD log during annotation processing for debugging. */

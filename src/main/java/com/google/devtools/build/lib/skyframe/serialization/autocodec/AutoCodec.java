@@ -18,20 +18,18 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 
 /**
- * Specifies that AutoCodec should generate a codec implementation for the annotated abstract class.
+ * Specifies that AutoCodec should generate a codec implementation for the annotated class.
  *
  * <p>Example:
  *
  * <pre>{@code
  * @AutoCodec
- * abstract class Codec implements ObjectCodec<Target> {
- *   static Codec create() {
- *     return new AutoCodec_Target();
- *   }
+ * class Target {
+ *   public static final ObjectCodec<Target> CODEC = new Target_AutoCodec();
  * }
  * }</pre>
  *
- * The {@code AutoCodec_} prefix is added to the {@Target} to obtain the generated class name.
+ * The {@code _AutoCodec} suffix is added to the {@code Target} to obtain the generated class name.
  */
 @Target(ElementType.TYPE)
 public @interface AutoCodec {
@@ -42,13 +40,28 @@ public @interface AutoCodec {
    */
   public static enum Strategy {
     /**
-     * Uses the constructor to infer serialization code.
+     * Uses the first constructor of the class to synthesize a codec.
      *
-     * <p>Each constructor parameter is expected to have a corresponding getter. These pairs are
-     * used for serialization and deserialization.
+     * <p>This strategy depends on
+     *
+     * <ul>
+     *   <li>the first class constructor taking all serialized fields as parameters
+     *   <li>and each serialized field having a corresponding getter.
+     * </ul>
+     *
+     * For example, a constructor having parameter, {@code target}, should having a matching getter,
+     * {@code getTarget()}.
+     *
+     * <p>The first constructor is the first ocurring in the source code.
      */
     CONSTRUCTOR,
-    // TODO(shahan): Add a strategy that serializes from public members.
+    /**
+     * Uses the public fields to infer serialization code.
+     *
+     * <p>Serializes each public field. Calls the no-arg constructor of the class to instantiate an
+     * instance for deserialization.
+     */
+    PUBLIC_FIELDS,
   }
 
   Strategy strategy() default Strategy.CONSTRUCTOR;
