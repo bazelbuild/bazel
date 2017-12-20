@@ -304,4 +304,23 @@ EOF
     " Is the path in android_ndk_repository() or \$ANDROID_NDK_HOME set correctly?"
 }
 
+function test_stripped_cc_binary() {
+  create_new_workspace
+  setup_android_ndk_support
+  cat > BUILD <<EOF
+cc_binary(
+    name = "foo",
+    srcs = ["foo.cc"],
+)
+EOF
+  cat > foo.cc <<EOF
+int main() { return 0; }
+EOF
+  bazel build //:foo.stripped \
+    --cpu=armeabi-v7a \
+    --crosstool_top=//external:android/crosstool \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    || fail "build failed"
+}
+
 run_suite "Android NDK integration tests"
