@@ -32,14 +32,25 @@ class FakeImmutableCacheByteStreamImpl extends ByteStreamImplBase {
   // Start returning the correct response after this number of errors is reached.
   private static final int MAX_ERRORS = 3;
 
-  public FakeImmutableCacheByteStreamImpl(Map<Digest, String> contents) {
+  public FakeImmutableCacheByteStreamImpl(Map<Digest, Object> contents) {
     ImmutableMap.Builder<ReadRequest, ReadResponse> b = ImmutableMap.builder();
-    for (Map.Entry<Digest, String> e : contents.entrySet()) {
+    for (Map.Entry<Digest, Object> e : contents.entrySet()) {
+      Object obj = e.getValue();
+      ByteString data;
+      if (obj instanceof String) {
+        data = ByteString.copyFromUtf8((String) obj);
+      } else if (obj instanceof ByteString) {
+        data = (ByteString) obj;
+      } else {
+        throw new AssertionError(
+            "expected object to be either a String or a ByteString, got a "
+                + obj.getClass().getCanonicalName());
+      }
       b.put(
           ReadRequest.newBuilder()
               .setResourceName("blobs/" + e.getKey().getHash() + "/" + e.getKey().getSizeBytes())
               .build(),
-          ReadResponse.newBuilder().setData(ByteString.copyFromUtf8(e.getValue())).build());
+          ReadResponse.newBuilder().setData(data).build());
     }
     cannedReplies = b.build();
     numErrors = new HashMap<>();
@@ -55,7 +66,7 @@ class FakeImmutableCacheByteStreamImpl extends ByteStreamImplBase {
 
   @Override
   public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
-    assertThat(cannedReplies.containsKey(request)).isTrue();
+    assertThat(cannedReplies.keySet()).contains(request);
     int errCount = numErrors.getOrDefault(request, 0);
     if (errCount < MAX_ERRORS) {
       numErrors.put(request, errCount + 1);

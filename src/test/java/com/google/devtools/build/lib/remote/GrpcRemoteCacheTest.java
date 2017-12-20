@@ -26,6 +26,7 @@ import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -44,9 +45,13 @@ import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImp
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import com.google.devtools.remoteexecution.v1test.Digest;
+import com.google.devtools.remoteexecution.v1test.Directory;
+import com.google.devtools.remoteexecution.v1test.DirectoryNode;
+import com.google.devtools.remoteexecution.v1test.FileNode;
 import com.google.devtools.remoteexecution.v1test.FindMissingBlobsRequest;
 import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
 import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
+import com.google.devtools.remoteexecution.v1test.Tree;
 import com.google.devtools.remoteexecution.v1test.UpdateActionResultRequest;
 import com.google.protobuf.ByteString;
 import io.grpc.CallCredentials;
@@ -233,6 +238,96 @@ public class GrpcRemoteCacheTest {
   }
 
   @Test
+  public void testDownloadDirectory() throws Exception {
+    GrpcRemoteCache client = newClient();
+    Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
+    Digest quxDigest = DIGEST_UTIL.computeAsUtf8("qux-contents");
+    Tree barTreeMessage =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("qux")
+                            .setDigest(quxDigest)
+                            .setIsExecutable(true)))
+            .build();
+    Digest barTreeDigest = DIGEST_UTIL.compute(barTreeMessage);
+    serviceRegistry.addService(
+        new FakeImmutableCacheByteStreamImpl(
+            ImmutableMap.of(
+                fooDigest, "foo-contents",
+                barTreeDigest, barTreeMessage.toByteString(),
+                quxDigest, "qux-contents")));
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
+    client.download(result.build(), execRoot, null);
+
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/qux"))).isEqualTo(quxDigest);
+    assertThat(execRoot.getRelative("a/bar/qux").isExecutable()).isTrue();
+  }
+
+  @Test
+  public void testDownloadDirectoryEmpty() throws Exception {
+    GrpcRemoteCache client = newClient();
+    Tree barTreeMessage = Tree.newBuilder().setRoot(Directory.newBuilder()).build();
+    Digest barTreeDigest = DIGEST_UTIL.compute(barTreeMessage);
+    serviceRegistry.addService(
+        new FakeImmutableCacheByteStreamImpl(
+            ImmutableMap.of(barTreeDigest, barTreeMessage.toByteString())));
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
+    client.download(result.build(), execRoot, null);
+
+    assertThat(execRoot.getRelative("a/bar").isDirectory()).isTrue();
+  }
+
+  @Test
+  public void testDownloadDirectoryNested() throws Exception {
+    GrpcRemoteCache client = newClient();
+    Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
+    Digest quxDigest = DIGEST_UTIL.computeAsUtf8("qux-contents");
+    Directory wobbleDirMessage =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("qux").setDigest(quxDigest))
+            .build();
+    Digest wobbleDirDigest = DIGEST_UTIL.compute(wobbleDirMessage);
+    Tree barTreeMessage =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("qux")
+                            .setDigest(quxDigest)
+                            .setIsExecutable(true))
+                    .addDirectories(
+                        DirectoryNode.newBuilder().setName("wobble").setDigest(wobbleDirDigest)))
+            .addChildren(wobbleDirMessage)
+            .build();
+    Digest barTreeDigest = DIGEST_UTIL.compute(barTreeMessage);
+    serviceRegistry.addService(
+        new FakeImmutableCacheByteStreamImpl(
+            ImmutableMap.of(
+                fooDigest, "foo-contents",
+                barTreeDigest, barTreeMessage.toByteString(),
+                quxDigest, "qux-contents")));
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
+    client.download(result.build(), execRoot, null);
+
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/wobble/qux"))).isEqualTo(quxDigest);
+    assertThat(execRoot.getRelative("a/bar/wobble/qux").isExecutable()).isFalse();
+  }
+
+  @Test
   public void testUploadBlobCacheHitWithRetries() throws Exception {
     final GrpcRemoteCache client = newClient();
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
@@ -388,6 +483,132 @@ public class GrpcRemoteCacheTest {
     }
     Mockito.verify(mockByteStreamImpl, Mockito.times(6))
         .write(Mockito.<StreamObserver<WriteResponse>>anyObject());
+  }
+
+  @Test
+  public void testUploadDirectory() throws Exception {
+    final GrpcRemoteCache client = newClient();
+    final Digest fooDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
+    final Digest quxDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/qux"), "abc");
+    final Digest barDigest =
+        fakeFileCache.createScratchInputDirectory(
+            ActionInputHelper.fromPath("bar"),
+            Tree.newBuilder()
+                .setRoot(
+                    Directory.newBuilder()
+                        .addFiles(
+                            FileNode.newBuilder()
+                                .setIsExecutable(true)
+                                .setName("qux")
+                                .setDigest(quxDigest)
+                                .build())
+                        .build())
+                .build());
+    final Path fooFile = execRoot.getRelative("a/foo");
+    final Path quxFile = execRoot.getRelative("bar/qux");
+    quxFile.setExecutable(true);
+    final Path barDir = execRoot.getRelative("bar");
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            assertThat(request.getBlobDigestsList())
+                .containsExactly(fooDigest, quxDigest, barDigest);
+            // Nothing is missing.
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    client.upload(execRoot, ImmutableList.<Path>of(fooFile, barDir), outErr, result);
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void testUploadDirectoryEmpty() throws Exception {
+    final GrpcRemoteCache client = newClient();
+    final Digest barDigest =
+        fakeFileCache.createScratchInputDirectory(
+            ActionInputHelper.fromPath("bar"),
+            Tree.newBuilder().setRoot(Directory.newBuilder().build()).build());
+    final Path barDir = execRoot.getRelative("bar");
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            assertThat(request.getBlobDigestsList()).containsExactly(barDigest);
+            // Nothing is missing.
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    client.upload(execRoot, ImmutableList.<Path>of(barDir), outErr, result);
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void testUploadDirectoryNested() throws Exception {
+    final GrpcRemoteCache client = newClient();
+    final Digest wobbleDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "xyz");
+    final Digest quxDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/qux"), "abc");
+    final Directory testDirMessage =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("wobble").setDigest(wobbleDigest).build())
+            .build();
+    final Digest testDigest = DIGEST_UTIL.compute(testDirMessage);
+    final Tree barTree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setIsExecutable(true)
+                            .setName("qux")
+                            .setDigest(quxDigest))
+                    .addDirectories(
+                        DirectoryNode.newBuilder().setName("test").setDigest(testDigest)))
+            .addChildren(testDirMessage)
+            .build();
+    final Digest barDigest =
+        fakeFileCache.createScratchInputDirectory(ActionInputHelper.fromPath("bar"), barTree);
+    final Path quxFile = execRoot.getRelative("bar/qux");
+    quxFile.setExecutable(true);
+    final Path barDir = execRoot.getRelative("bar");
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            assertThat(request.getBlobDigestsList())
+                .containsExactly(quxDigest, barDigest, wobbleDigest);
+            // Nothing is missing.
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    client.upload(execRoot, ImmutableList.<Path>of(barDir), outErr, result);
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
   @Test

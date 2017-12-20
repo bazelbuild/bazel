@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -151,5 +152,55 @@ public class TreeNodeRepositoryTest {
     repo.computeMerkleDigests(root);
 
     assertThat(root.getChildEntries()).isEmpty();
+  }
+
+  @Test
+  public void testDirectoryInput() throws Exception {
+    Artifact foo = new Artifact(scratch.dir("/exec/root/a/foo"), rootDir);
+    scratch.file("/exec/root/a/foo/foo.h", "1");
+    ActionInput fooH = ActionInputHelper.fromPath("/exec/root/a/foo/foo.h");
+    scratch.file("/exec/root/a/foo/foo.cc", "2");
+    ActionInput fooCc = ActionInputHelper.fromPath("/exec/root/a/foo/foo.cc");
+    Artifact bar = new Artifact(scratch.file("/exec/root/a/bar.txt"), rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository();
+
+    TreeNode root = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(foo, bar));
+    TreeNode aNode = root.getChildEntries().get(0).getChild();
+    TreeNode fooNode = aNode.getChildEntries().get(1).getChild(); // foo > bar in sort order!
+    TreeNode barNode = aNode.getChildEntries().get(0).getChild();
+
+    TreeNode fooHNode =
+        fooNode.getChildEntries().get(1).getChild(); // foo.h > foo.cc in sort order!
+    TreeNode fooCcNode = fooNode.getChildEntries().get(0).getChild();
+
+    repo.computeMerkleDigests(root);
+    ImmutableCollection<Digest> digests = repo.getAllDigests(root);
+    Digest rootDigest = repo.getMerkleDigest(root);
+    Digest aDigest = repo.getMerkleDigest(aNode);
+    Digest fooDigest = repo.getMerkleDigest(fooNode);
+    Digest fooHDigest = repo.getMerkleDigest(fooHNode);
+    Digest fooCcDigest = repo.getMerkleDigest(fooCcNode);
+    Digest barDigest = repo.getMerkleDigest(barNode);
+    assertThat(digests)
+        .containsExactly(rootDigest, aDigest, barDigest, fooDigest, fooHDigest, fooCcDigest);
+
+    ArrayList<Directory> directories = new ArrayList<>();
+    ArrayList<ActionInput> actionInputs = new ArrayList<>();
+    repo.getDataFromDigests(digests, actionInputs, directories);
+    assertThat(actionInputs).containsExactly(bar, fooH, fooCc);
+    assertThat(directories).hasSize(3); // root, root/a and root/a/foo
+    Directory rootDirectory = directories.get(0);
+    assertThat(rootDirectory.getDirectories(0).getName()).isEqualTo("a");
+    assertThat(rootDirectory.getDirectories(0).getDigest()).isEqualTo(aDigest);
+    Directory aDirectory = directories.get(1);
+    assertThat(aDirectory.getFiles(0).getName()).isEqualTo("bar.txt");
+    assertThat(aDirectory.getFiles(0).getDigest()).isEqualTo(barDigest);
+    assertThat(aDirectory.getDirectories(0).getName()).isEqualTo("foo");
+    assertThat(aDirectory.getDirectories(0).getDigest()).isEqualTo(fooDigest);
+    Directory fooDirectory = directories.get(2);
+    assertThat(fooDirectory.getFiles(0).getName()).isEqualTo("foo.cc");
+    assertThat(fooDirectory.getFiles(0).getDigest()).isEqualTo(fooCcDigest);
+    assertThat(fooDirectory.getFiles(1).getName()).isEqualTo("foo.h");
+    assertThat(fooDirectory.getFiles(1).getDigest()).isEqualTo(fooHDigest);
   }
 }

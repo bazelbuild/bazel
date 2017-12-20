@@ -87,8 +87,7 @@ public class RemoteSpawnRunnerTest {
   private FakeActionInputFileCache fakeFileCache;
   private FileOutErr outErr;
 
-  @Mock
-  private RemoteActionCache cache;
+  @Mock private AbstractRemoteActionCache cache;
 
   @Mock
   private GrpcRemoteExecutor executor;

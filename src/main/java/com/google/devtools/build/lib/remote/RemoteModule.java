@@ -117,7 +117,7 @@ public final class RemoteModule extends BlazeModule {
               remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
       // TODO(davido): The naming is wrong here. "Remote"-prefix in RemoteActionCache class has no
       // meaning.
-      final RemoteActionCache cache;
+      final AbstractRemoteActionCache cache;
       if (remoteOrLocalCache) {
         cache =
             new SimpleBlobStoreActionCache(

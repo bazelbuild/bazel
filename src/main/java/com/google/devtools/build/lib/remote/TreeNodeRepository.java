@@ -24,19 +24,24 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.TreeTraverser;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.Directory;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,10 +56,22 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.TreeNode> {
+  // In this implementation, symlinks are NOT followed when expanding directory artifacts
+  public static final Symlinks SYMLINK_POLICY = Symlinks.NOFOLLOW;
+
   /**
    * A single node in a hierarchical directory structure. Leaves are the Artifacts, although we only
    * use the ActionInput interface. We assume that the objects used for the ActionInputs are unique
    * (same data corresponds to a canonical object in memory).
+   *
+   * <p>There are three cases:
+   *
+   * <ol>
+   *   <li>The node is a leaf that represents an artifact file.
+   *   <li>The node is a directory optionally associated with an artifact (an "artifact directory").
+   *   <li>The node is a leaf that is the descendant of an artifact directory. In this case, the
+   *       node is associated with a BasicActionInput, not a full Artifact.
+   * </ol>
    */
   @Immutable
   @ThreadSafe
@@ -62,7 +79,8 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
 
     private final int hashCode;
     private final ImmutableList<ChildEntry> childEntries; // no need to make it a map thus far.
-    @Nullable private final ActionInput actionInput; // Null iff this is a directory.
+    @Nullable private final ActionInput actionInput;
+    private final boolean isLeaf;
 
     /** A pair of path segment, TreeNode. */
     @Immutable
@@ -105,15 +123,23 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     }
 
     // Should only be called by the TreeNodeRepository.
-    private TreeNode(Iterable<ChildEntry> childEntries) {
-      this.actionInput = null;
+    private TreeNode(Iterable<ChildEntry> childEntries, @Nullable ActionInput actionInput) {
+      isLeaf = false;
+      this.actionInput = actionInput;
       this.childEntries = ImmutableList.copyOf(childEntries);
-      hashCode = Arrays.hashCode(this.childEntries.toArray());
+      if (actionInput != null) {
+        hashCode = actionInput.hashCode(); // This will ensure efficient interning of TreeNodes as
+        // long as all ActionInputs either implement data-based hashCode or are interned themselves.
+      } else {
+        hashCode = Arrays.hashCode(this.childEntries.toArray());
+      }
     }
 
     // Should only be called by the TreeNodeRepository.
     private TreeNode(ActionInput actionInput) {
-      this.actionInput = actionInput;
+      isLeaf = true;
+      this.actionInput =
+          Preconditions.checkNotNull(actionInput, "a TreeNode leaf should have an ActionInput");
       this.childEntries = ImmutableList.of();
       hashCode = actionInput.hashCode(); // This will ensure efficient interning of TreeNodes as
       // long as all ActionInputs either implement data-based hashCode or are interned themselves.
@@ -128,7 +154,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     }
 
     public boolean isLeaf() {
-      return actionInput != null;
+      return isLeaf;
     }
 
     @Override
@@ -176,7 +202,8 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     }
   }
 
-  private static final TreeNode EMPTY_NODE = new TreeNode(ImmutableList.<TreeNode.ChildEntry>of());
+  private static final TreeNode EMPTY_NODE =
+      new TreeNode(ImmutableList.<TreeNode.ChildEntry>of(), null);
 
   // Keep only one canonical instance of every TreeNode in the repository.
   private final Interner<TreeNode> interner = BlazeInterners.newWeakInterner();
@@ -184,6 +211,8 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
   // be part of the state.
   private final Path execRoot;
   private final ActionInputFileCache inputFileCache;
+  // For directories that are themselves artifacts, map of the ActionInput to the Merkle hash
+  private final Map<ActionInput, Digest> inputDirectoryDigestCache = new HashMap<>();
   private final Map<TreeNode, Digest> treeNodeDigestCache = new HashMap<>();
   private final Map<Digest, TreeNode> digestTreeNodeCache = new HashMap<>();
   private final Map<TreeNode, Directory> directoryCache = new HashMap<>();
@@ -226,7 +255,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
         });
   }
 
-  public TreeNode buildFromActionInputs(Iterable<? extends ActionInput> inputs) {
+  public TreeNode buildFromActionInputs(Iterable<? extends ActionInput> inputs) throws IOException {
     TreeMap<PathFragment, ActionInput> sortedMap = new TreeMap<>();
     for (ActionInput input : inputs) {
       sortedMap.put(PathFragment.create(input.getExecPathString()), input);
@@ -239,7 +268,8 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
    * of input files. TODO(olaola): switch to creating and maintaining the TreeNodeRepository based
    * on the build graph structure.
    */
-  public TreeNode buildFromActionInputs(SortedMap<PathFragment, ActionInput> sortedMap) {
+  public TreeNode buildFromActionInputs(SortedMap<PathFragment, ActionInput> sortedMap)
+      throws IOException {
     ImmutableList.Builder<ImmutableList<String>> segments = ImmutableList.builder();
     for (PathFragment path : sortedMap.keySet()) {
       segments.add(path.getSegments());
@@ -255,13 +285,35 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     return buildParentNode(inputs, segments.build(), 0, inputs.size(), 0);
   }
 
+  // Expand the descendant of an artifact (input) directory
+  private List<TreeNode.ChildEntry> buildInputDirectoryEntries(Path path) throws IOException {
+    List<Dirent> sortedDirent = new ArrayList<>(path.readdir(SYMLINK_POLICY));
+    sortedDirent.sort(Comparator.comparing(Dirent::getName));
+
+    List<TreeNode.ChildEntry> entries = new ArrayList<>(sortedDirent.size());
+    for (Dirent dirent : sortedDirent) {
+      String name = dirent.getName();
+      Path child = path.getRelative(name);
+      TreeNode childNode;
+      if (dirent.getType() == Dirent.Type.DIRECTORY) {
+        childNode = interner.intern(new TreeNode(buildInputDirectoryEntries(child), null));
+      } else {
+        childNode = interner.intern(new TreeNode(ActionInputHelper.fromPath(child.asFragment())));
+      }
+      entries.add(new TreeNode.ChildEntry(name, childNode));
+    }
+
+    return entries;
+  }
+
   @SuppressWarnings("ReferenceEquality") // Segments are interned.
   private TreeNode buildParentNode(
       List<ActionInput> inputs,
       ImmutableList<ImmutableList<String>> segments,
       int inputsStart,
       int inputsEnd,
-      int segmentIndex) {
+      int segmentIndex)
+      throws IOException {
     if (segments.isEmpty()) {
       // We sometimes have actions with no inputs (e.g., echo "xyz" > $@), so we need to handle that
       // case here.
@@ -273,7 +325,12 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
       Preconditions.checkArgument(
           inputsStart == inputsEnd - 1, "Encountered two inputs with the same path.");
       // TODO: check that the actionInput is a single file!
-      return interner.intern(new TreeNode(inputs.get(inputsStart)));
+      ActionInput input = inputs.get(inputsStart);
+      Path leafPath = execRoot.getRelative(input.getExecPathString());
+      if (leafPath.isDirectory()) {
+        return interner.intern(new TreeNode(buildInputDirectoryEntries(leafPath), input));
+      }
+      return interner.intern(new TreeNode(input));
     }
     ArrayList<TreeNode.ChildEntry> entries = new ArrayList<>();
     String segment = segments.get(inputsStart).get(segmentIndex);
@@ -290,7 +347,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
         }
       }
     }
-    return interner.intern(new TreeNode(entries));
+    return interner.intern(new TreeNode(entries, null));
   }
 
   private synchronized Directory getOrComputeDirectory(TreeNode node) throws IOException {
@@ -322,6 +379,9 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
           }
         } else {
           Digest childDigest = Preconditions.checkNotNull(treeNodeDigestCache.get(child));
+          if (child.getActionInput() != null) {
+            inputDirectoryDigestCache.put(child.getActionInput(), childDigest);
+          }
           b.addDirectoriesBuilder().setName(entry.getSegment()).setDigest(childDigest);
         }
       }
@@ -379,6 +439,15 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
   private Digest actionInputToDigest(ActionInput input) throws IOException {
     if (input instanceof VirtualActionInput) {
       return Preconditions.checkNotNull(virtualInputDigestCache.get(input));
+    }
+    Metadata metadata = Preconditions.checkNotNull(inputFileCache.getMetadata(input));
+    byte[] digest = metadata.getDigest();
+    if (digest == null) {
+      // If the artifact does not have a digest, it is because it is a directory.
+      // We get the digest from the set of Merkle hashes computed in this TreeNodeRepository.
+      return Preconditions.checkNotNull(
+          inputDirectoryDigestCache.get(input),
+          "a directory should have a precomputed Merkle hash (instead of a digest)");
     }
     return DigestUtil.getFromInputCache(input, inputFileCache);
   }

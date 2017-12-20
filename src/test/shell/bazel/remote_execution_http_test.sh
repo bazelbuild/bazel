@@ -127,4 +127,82 @@ EOF
   fi
 }
 
+function set_directory_artifact_testfixtures() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+genrule(
+  name = "test",
+  srcs = ["dir"],
+  outs = ["qux"],
+  cmd = 'mkdir $@ && paste -d"\n" $(location dir)/foo.txt $(location dir)/sub2/symlinked.txt > $@/out.txt',
+)
+EOF
+
+  # Need this to avoid any leftover
+  rm -rf a/dir
+
+  mkdir -p a/dir
+  cat > a/dir/foo.txt <<EOF
+Hello, world
+EOF
+  mkdir -p a/dir/sub1
+  cat > a/dir/sub1/bar.txt <<EOF
+Shuffle, duffle, muzzle, muff
+EOF
+  mkdir -p a/dir/sub2
+  ln -s ../sub1/bar.txt a/dir/sub2/symlinked.txt
+
+  cat > a/test_expected <<EOF
+Hello, world
+Shuffle, duffle, muzzle, muff
+EOF
+}
+
+function test_directory_artifact_local() {
+  set_directory_artifact_testfixtures
+
+  bazel build //a:test >& $TEST_log \
+    || fail "Failed to build //a:test without remote execution"
+  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Local execution generated different result"
+}
+
+function test_directory_artifact() {
+  set_directory_artifact_testfixtures
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote execution"
+  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Remote execution generated different result"
+}
+
+function test_directory_artifact_grpc_cache() {
+  set_directory_artifact_testfixtures
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_cache=localhost:${worker_port} \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote gRPC cache"
+  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Remote cache generated different result"
+}
+
+function test_directory_artifact_rest_cache() {
+  set_directory_artifact_testfixtures
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote REST cache"
+  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Remote cache generated different result"
+}
+
 run_suite "Remote execution and remote cache tests"
