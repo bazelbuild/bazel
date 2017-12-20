@@ -486,18 +486,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return compilationMode;
   }
 
-  /**
-   * Returns whether the toolchain supports "Fission" C++ builds, i.e. builds where compilation
-   * partitions object code and debug symbols into separate output files.
-   *
-   * <p>Deprecated: Use {@link CcToolchainProvider#supportsFission()}
-   */
-  // TODO(b/64384912): Refactor out of reportInvalidOptions() and remove
-  @Deprecated
-  public boolean supportsFission() {
-    return cppToolchainInfo.supportsFission();
-  }
-
   @SkylarkCallable(
     name = "built_in_include_directories",
     structField = true,
@@ -987,17 +975,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.fissionModes.contains(compilationMode);
   }
 
-  /**
-   * Returns true if Fission is specified for this build and supported by the crosstool.
-   *
-   * <p>Deprecated: Use {@link CppHelper#useFission(CppConfiguration, CcToolchainProvider)}
-   */
-  // TODO(b/64384912): Remove usage in java_binary and configurationEnabledFeatures()
-  @Deprecated
-  public boolean useFission() {
-    return cppOptions.fissionModes.contains(compilationMode) && supportsFission();
-  }
-
   /** Returns true if --build_test_dwp is set on this build. */
   public boolean buildTestDwpIsActivated() {
     return cppOptions.buildTestDwp;
@@ -1237,20 +1214,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           "'--lipo=binary' can only be used with '--compilation_mode=opt' (or '-c opt')"));
     }
 
-    if (cppOptions.fissionModes.contains(compilationMode) && !supportsFission()) {
-      reporter.handle(
-          Event.warn(
-              "Fission is not supported by this crosstool. Please use a supporting "
-                  + "crosstool to enable fission"));
-    }
-    if (cppOptions.buildTestDwp && !useFission()) {
-      reporter.handle(
-          Event.warn(
-              "Test dwp file requested, but Fission is not enabled. To generate a dwp "
-                  + "for the test executable, use '--fission=yes' with a toolchain "
-                  + "that supports Fission and build statically."));
-    }
-
     // This is an assertion check vs. user error because users can't trigger this state.
     Verify.verify(
         !(buildOptions.get(BuildConfiguration.Options.class).isHost && cppOptions.isFdo()),
@@ -1361,9 +1324,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       } else {
         requestedFeatures.add(CppRuleClasses.GCC_COVERAGE_MAP_FORMAT);
       }
-    }
-    if (useFission()) {
-      requestedFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
     return requestedFeatures.build();
   }

@@ -644,6 +644,11 @@ public final class CcCommon {
     allRequestedFeaturesBuilder.addAll(requestedFeatures);
 
     allRequestedFeaturesBuilder.addAll(DEFAULT_ACTION_CONFIGS);
+
+    if (CppHelper.useFission(ruleContext.getFragment(CppConfiguration.class), toolchain)) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
+    }
+
     try {
       FeatureConfiguration configuration =
           toolchain.getFeatures().getFeatureConfiguration(allRequestedFeaturesBuilder.build());

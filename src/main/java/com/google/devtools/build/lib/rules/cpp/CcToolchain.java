@@ -493,6 +493,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       }
     }
 
+    reportInvalidOptions(ruleContext, toolchainInfo);
+
     CcToolchainProvider ccProvider =
         new CcToolchainProvider(
             getToolchainForSkylark(toolchainInfo),
@@ -576,6 +578,24 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     }
 
     return builder.build();
+  }
+
+  private void reportInvalidOptions(RuleContext ruleContext, CppToolchainInfo toolchain) {
+    CppOptions options = ruleContext.getConfiguration().getOptions().get(CppOptions.class);
+    CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
+    if (options.fissionModes.contains(config.getCompilationMode())
+        && !toolchain.supportsFission()) {
+      ruleContext.ruleWarning(
+          "Fission is not supported by this crosstool.  Please use a "
+              + "supporting crosstool to enable fission");
+    }
+    if (options.buildTestDwp
+        && !(toolchain.supportsFission() && config.fissionIsActiveForCurrentCompilationMode())) {
+      ruleContext.ruleWarning(
+          "Test dwp file requested, but Fission is not enabled.  To generate a "
+              + "dwp for the test executable, use '--fission=yes' with a toolchain that supports "
+              + "Fission to build statically.");
+    }
   }
 
   private static String getSkylarkValueForTool(Tool tool, CppToolchainInfo cppToolchainInfo) {
