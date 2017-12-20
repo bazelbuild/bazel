@@ -2317,7 +2317,182 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
             "//test:r0+PAspect");
   }
 
+  @Test
+  public void aspectSeesOtherAspectAttributes() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "PAspect = provider(fields = [])",
+        "PCollector = provider(fields = ['aspect_attr'])",
+        "def _a_impl(target, ctx):",
+        "  return [PAspect()]",
+        "a = aspect(_a_impl, ",
+        "           provides = [PAspect],",
+        "           attrs = {'_a_attr' : attr.label(default = '//test:foo')})",
+        "def _rcollect(target, ctx):",
+        "  if hasattr(ctx.rule.attr, '_a_attr'):",
+        "     return [PCollector(aspect_attr = ctx.rule.attr._a_attr.label)]",
+        "  if hasattr(ctx.rule.attr, 'dep'):",
+        "     return [ctx.rule.attr.dep[PCollector]]",
+        "  return [PCollector()]",
+        "acollect = aspect(_rcollect, attr_aspects = ['*'], required_aspect_providers = [PAspect])",
+        "def _rimpl(ctx):",
+        "  pass",
+        "r0 = rule(_rimpl)",
+        "r = rule(_rimpl, attrs = { 'dep' : attr.label(aspects = [a]) })");
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r0', 'r')",
+        "r0(name = 'foo')",
+        "r0(name = 'bar')",
+        "r(name = 'baz', dep = ':bar')");
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
+    SkylarkKey pCollector = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "PCollector");
+    Info collector = configuredAspect.get(pCollector);
+    assertThat(collector.getValue("aspect_attr")).isEqualTo(Label.parseAbsolute("//test:foo"));
+  }
 
+  @Test
+  public void ruleAttributesWinOverAspects() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "PAspect = provider(fields = [])",
+        "PCollector = provider(fields = ['attr_value'])",
+        "def _a_impl(target, ctx):",
+        "  return [PAspect()]",
+        "a = aspect(_a_impl, ",
+        "           provides = [PAspect],",
+        "           attrs = {'_same_attr' : attr.int(default = 239)})",
+        "def _rcollect(target, ctx):",
+        "  if hasattr(ctx.rule.attr, '_same_attr'):",
+        "     return [PCollector(attr_value = ctx.rule.attr._same_attr)]",
+        "  if hasattr(ctx.rule.attr, 'dep'):",
+        "     return [ctx.rule.attr.dep[PCollector]]",
+        "  return [PCollector()]",
+        "acollect = aspect(_rcollect, attr_aspects = ['*'], required_aspect_providers = [PAspect])",
+        "def _rimpl(ctx):",
+        "  pass",
+        "r0 = rule(_rimpl)",
+        "r = rule(_rimpl, ",
+        "          attrs = { ",
+        "                  'dep' : attr.label(aspects = [a]), ",
+        "                  '_same_attr' : attr.int(default = 30)",
+        "          })");
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r0', 'r')",
+        "r0(name = 'foo')",
+        "r0(name = 'bar')",
+        "r(name = 'baz', dep = ':bar')");
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
+    SkylarkKey pCollector = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "PCollector");
+    Info collector = configuredAspect.get(pCollector);
+    assertThat(collector.getValue("attr_value")).isEqualTo(30);
+  }
+
+  @Test
+  public void earlyAspectAttributesWin() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "PAspect1 = provider(fields = [])",
+        "PAspect2 = provider(fields = [])",
+        "PCollector = provider(fields = ['attr_value'])",
+        "def _a1_impl(target, ctx):",
+        "  return [PAspect1()]",
+        "def _a2_impl(target, ctx):",
+        "  return [PAspect2()]",
+        "a1 = aspect(_a1_impl, ",
+        "            provides = [PAspect1],",
+        "            attrs = {'_same_attr' : attr.int(default = 30)})",
+        "a2 = aspect(_a2_impl, ",
+        "            provides = [PAspect2],",
+        "            attrs = {'_same_attr' : attr.int(default = 239)})",
+        "def _rcollect(target, ctx):",
+        "  if hasattr(ctx.rule.attr, 'dep'):",
+        "     return [ctx.rule.attr.dep[PCollector]]",
+        "  if hasattr(ctx.rule.attr, '_same_attr'):",
+        "     return [PCollector(attr_value = ctx.rule.attr._same_attr)]",
+        "  fail('???')",
+        "  return [PCollector()]",
+        "acollect = aspect(_rcollect, attr_aspects = ['*'], ",
+        "                  required_aspect_providers = [[PAspect1], [PAspect2]])",
+        "def _rimpl(ctx):",
+        "  pass",
+        "r0 = rule(_rimpl)",
+        "r1 = rule(_rimpl, ",
+        "          attrs = { ",
+        "                  'dep' : attr.label(aspects = [a1]), ",
+        "          })",
+        "r2 = rule(_rimpl, ",
+        "          attrs = { ",
+        "                  'dep' : attr.label(aspects = [a2]), ",
+        "          })"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r0', 'r1', 'r2')",
+        "r0(name = 'bar')",
+        "r1(name = 'baz', dep = ':bar')",
+        "r2(name = 'quux', dep = ':baz')"
+    );
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:quux");
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
+    SkylarkKey pCollector = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "PCollector");
+    Info collector = configuredAspect.get(pCollector);
+    assertThat(collector.getValue("attr_value")).isEqualTo(30);
+  }
+
+
+  @Test
+  public void aspectPropagatesOverOtherAspectAttributes() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "PAspect = provider(fields = [])",
+        "PCollector = provider(fields = ['visited'])",
+        "def _a_impl(target, ctx):",
+        "  return [PAspect()]",
+        "a = aspect(_a_impl, ",
+        "       provides = [PAspect],",
+        "       attrs = {'_a_attr' : attr.label(default = '//test:referenced_from_aspect_only')})",
+        "def _rcollect(target, ctx):",
+        "  transitive = []",
+        "  if hasattr(ctx.rule.attr, 'dep') and ctx.rule.attr.dep:",
+        "     transitive += [ctx.rule.attr.dep[PCollector].visited]",
+        "  if hasattr(ctx.rule.attr, '_a_attr') and ctx.rule.attr._a_attr:",
+        "     transitive += [ctx.rule.attr._a_attr[PCollector].visited] ",
+        "  visited = depset([target.label], transitive = transitive, )",
+        "  return [PCollector(visited = visited)]",
+        "acollect = aspect(_rcollect, attr_aspects = ['*'], required_aspect_providers = [PAspect])",
+        "def _rimpl(ctx):",
+        "  pass",
+        "r0 = rule(_rimpl)",
+        "r = rule(_rimpl, attrs = { 'dep' : attr.label(aspects = [a]) })");
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r0', 'r')",
+        "r0(name = 'referenced_from_aspect_only')",
+        "r0(name = 'bar')",
+        "r(name = 'baz', dep = ':bar')");
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
+    SkylarkKey pCollector = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "PCollector");
+    Info collector = configuredAspect.get(pCollector);
+    assertThat(((SkylarkNestedSet) collector.getValue("visited")).toCollection())
+        .containsExactly(
+            Label.parseAbsolute("//test:referenced_from_aspect_only"),
+            Label.parseAbsolute("//test:bar"),
+            Label.parseAbsolute("//test:baz"));
+  }
 
   /** SkylarkAspectTest with "keep going" flag */
   @RunWith(JUnit4.class)

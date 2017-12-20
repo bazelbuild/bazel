@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
@@ -101,6 +102,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -157,6 +159,14 @@ public final class RuleContext extends TargetContext
   private static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
 
   private final Rule rule;
+  /**
+   * A list of all aspects applied to the target. If this <code>RuleContext</code>
+   * is for a rule implementation, <code>aspects</code> is an empty list.
+   *
+   * Otherwise, the last aspect in <code>aspects</code> list is the aspect which
+   * this <code>RuleCointext</code> is for.
+   */
+  private final ImmutableList<Aspect> aspects;
   private final ImmutableList<AspectDescriptor> aspectDescriptors;
   private final ListMultimap<String, ConfiguredTarget> targetMap;
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
@@ -188,7 +198,13 @@ public final class RuleContext extends TargetContext
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
-    this.aspectDescriptors = builder.aspectDescriptors;
+    this.aspects = builder.aspects;
+    this.aspectDescriptors =
+        builder
+            .aspects
+            .stream()
+            .map(a -> a.getDescriptor())
+            .collect(ImmutableList.toImmutableList());
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
     this.universalFragment = universalFragment;
     this.targetMap = targetMap;
@@ -257,6 +273,21 @@ public final class RuleContext extends TargetContext
 
   public Rule getRule() {
     return rule;
+  }
+
+  public ImmutableList<Aspect> getAspects() {
+    return aspects;
+  }
+
+  /**
+   * If this <code>RuleContext</code> is for an aspect implementation, returns that aspect.
+   * (it is the last aspect in the list of aspects applied to a target; all other aspects
+   * are the ones main aspect sees as specified by its "required_aspect_providers")
+   * Otherwise returns <code>null</code>.
+   */
+  @Nullable
+  public Aspect getMainAspect() {
+    return aspects.isEmpty() ? null : aspects.get(aspects.size() - 1);
   }
 
   /**
@@ -1353,20 +1384,20 @@ public final class RuleContext extends TargetContext
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
-    private ImmutableList<AspectDescriptor> aspectDescriptors;
+    private ImmutableList<Aspect> aspects;
     private ToolchainContext toolchainContext;
 
     Builder(
         AnalysisEnvironment env,
         Rule rule,
-        ImmutableList<AspectDescriptor> aspectDescriptors,
+        ImmutableList<Aspect> aspects,
         BuildConfiguration configuration,
         BuildConfiguration hostConfiguration,
         PrerequisiteValidator prerequisiteValidator,
         ConfigurationFragmentPolicy configurationFragmentPolicy) {
       this.env = Preconditions.checkNotNull(env);
       this.rule = Preconditions.checkNotNull(rule);
-      this.aspectDescriptors = aspectDescriptors;
+      this.aspects = aspects;
       this.configurationFragmentPolicy = Preconditions.checkNotNull(configurationFragmentPolicy);
       this.configuration = Preconditions.checkNotNull(configuration);
       this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
@@ -1684,7 +1715,7 @@ public final class RuleContext extends TargetContext
 
     /** Returns whether the context being constructed is for the evaluation of an aspect. */
     public boolean forAspect() {
-      return !aspectDescriptors.isEmpty();
+      return !aspects.isEmpty();
     }
 
     public Rule getRule() {
@@ -1695,11 +1726,14 @@ public final class RuleContext extends TargetContext
      * Returns a rule class name suitable for log messages, including an aspect name if applicable.
      */
     public String getRuleClassNameForLogging() {
-      if (aspectDescriptors.isEmpty()) {
+      if (aspects.isEmpty()) {
         return rule.getRuleClass();
       }
 
-      return Joiner.on(",").join(aspectDescriptors) + " aspect on " + rule.getRuleClass();
+      return Joiner.on(",")
+              .join(aspects.stream().map(a -> a.getDescriptor()).collect(Collectors.toList()))
+          + " aspect on "
+          + rule.getRuleClass();
     }
 
     public BuildConfiguration getConfiguration() {

@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.Iterables.transform;
-
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -72,8 +70,11 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -312,7 +313,7 @@ public final class ConfiguredTargetFactory {
         new RuleContext.Builder(
                 env,
                 rule,
-                ImmutableList.<AspectDescriptor>of(),
+                ImmutableList.of(),
                 configuration,
                 hostConfiguration,
                 ruleClassProvider.getPrerequisiteValidator(),
@@ -418,21 +419,25 @@ public final class ConfiguredTargetFactory {
       toolchainContext.resolveToolchains(prerequisiteMap);
     }
 
-    RuleContext.Builder builder = new RuleContext.Builder(
-        env,
-        associatedTarget.getTarget().getAssociatedRule(),
-        ImmutableList.copyOf(transform(aspectPath, ASPECT_TO_DESCRIPTOR)),
-        aspectConfiguration,
-        hostConfiguration,
-        ruleClassProvider.getPrerequisiteValidator(),
-        aspect.getDefinition().getConfigurationFragmentPolicy());
+    RuleContext.Builder builder =
+        new RuleContext.Builder(
+            env,
+            associatedTarget.getTarget().getAssociatedRule(),
+            aspectPath,
+            aspectConfiguration,
+            hostConfiguration,
+            ruleClassProvider.getPrerequisiteValidator(),
+            aspect.getDefinition().getConfigurationFragmentPolicy());
+
+    Map<String, Attribute> aspectAttributes = mergeAspectAttributes(aspectPath);
+
     RuleContext ruleContext =
         builder
             .setVisibility(
                 convertVisibility(
                     prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget(), null))
             .setPrerequisites(prerequisiteMap)
-            .setAspectAttributes(aspect.getDefinition().getAttributes())
+            .setAspectAttributes(aspectAttributes)
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
             .setToolchainContext(toolchainContext)
@@ -451,6 +456,27 @@ public final class ConfiguredTargetFactory {
       );
     }
     return configuredAspect;
+  }
+
+  private Map<String, Attribute> mergeAspectAttributes(ImmutableList<Aspect> aspectPath) {
+    if (aspectPath.isEmpty()) {
+      return ImmutableMap.of();
+    } else if (aspectPath.size() == 1) {
+      return aspectPath.get(0).getDefinition().getAttributes();
+    } else {
+
+      LinkedHashMap<String, Attribute> aspectAttributes = new LinkedHashMap<>();
+      for (Aspect underlyingAspect : aspectPath) {
+        ImmutableMap<String, Attribute> currentAttributes = underlyingAspect.getDefinition()
+            .getAttributes();
+        for (Entry<String, Attribute> kv : currentAttributes.entrySet()) {
+          if (!aspectAttributes.containsKey(kv.getKey())) {
+            aspectAttributes.put(kv.getKey(), kv.getValue());
+          }
+        }
+      }
+      return aspectAttributes;
+    }
   }
 
   private void validateAdvertisedProviders(

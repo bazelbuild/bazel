@@ -1121,7 +1121,7 @@ public class BuildView {
     return new RuleContext.Builder(
             env,
             (Rule) target.getTarget(),
-            ImmutableList.<AspectDescriptor>of(),
+            ImmutableList.of(),
             targetConfig,
             configurations.getHostConfiguration(),
             ruleClassProvider.getPrerequisiteValidator(),
