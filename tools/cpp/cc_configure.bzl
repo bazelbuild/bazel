@@ -37,7 +37,7 @@ def _impl(repository_ctx):
       ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
     configure_osx_toolchain(repository_ctx)
   else:
-    configure_unix_toolchain(repository_ctx, cpu_value)
+    configure_unix_toolchain(repository_ctx, cpu_value, struct())
 
 
 cc_autoconf = repository_rule(
