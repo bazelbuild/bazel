@@ -1049,7 +1049,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           doc =
               "a format string with a single \"%s\". "
                   + "If the args are spilled to a params file then they are replaced "
-                  + "with an argument consisting of this string formatted with"
+                  + "with an argument consisting of this string formatted with "
                   + "the path of the params file."
         ),
         @Param(
