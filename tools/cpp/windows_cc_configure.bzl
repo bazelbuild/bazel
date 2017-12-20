@@ -59,8 +59,7 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx):
       '   tool_path { name: "gcc" path: "%susr/bin/gcc" }\n' % escaped_msys_root +
       '   cxx_flag: "-std=gnu++0x"\n' +
       '   linker_flag: "-lstdc++"\n' +
-      '   cxx_builtin_include_directory: "%s"\n' % escaped_msys_root +
-      '   cxx_builtin_include_directory: "/usr/"\n' +
+      '   cxx_builtin_include_directory: "%susr/"\n' % escaped_msys_root +
       '   tool_path { name: "gcov" path: "%susr/bin/gcov" }\n' % escaped_msys_root +
       '   tool_path { name: "ld" path: "%susr/bin/ld" }\n' % escaped_msys_root +
       '   tool_path { name: "nm" path: "%susr/bin/nm" }\n' % escaped_msys_root +
