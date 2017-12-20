@@ -19,7 +19,7 @@ load("@bazel_tools//tools/cpp:osx_cc_configure.bzl", "configure_osx_toolchain")
 load("@bazel_tools//tools/cpp:unix_cc_configure.bzl", "configure_unix_toolchain")
 load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 
-def _impl(repository_ctx):
+def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
   repository_ctx.symlink(
       Label("@bazel_tools//tools/cpp:dummy_toolchain.bzl"), "dummy_toolchain.bzl")
   env = repository_ctx.os.environ
@@ -32,16 +32,17 @@ def _impl(repository_ctx):
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "CROSSTOOL")
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
   elif cpu_value == "x64_windows":
+    # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.
+    # We might want to add that to Windows too(at least for msys toolchain).
     configure_windows_toolchain(repository_ctx)
   elif (cpu_value == "darwin" and
       ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
-    configure_osx_toolchain(repository_ctx)
+    configure_osx_toolchain(repository_ctx, overriden_tools)
   else:
-    configure_unix_toolchain(repository_ctx, cpu_value)
-
+    configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools)
 
 cc_autoconf = repository_rule(
-    implementation=_impl,
+    implementation = cc_autoconf_impl,
     environ = [
         "ABI_LIBC_VERSION",
         "ABI_VERSION",

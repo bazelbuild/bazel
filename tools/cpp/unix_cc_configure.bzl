@@ -76,10 +76,15 @@ def _build_tool_path(d):
     lines.append("  tool_path {name: \"%s\" path: \"%s\" }" % (k, escape_string(d[k])))
   return "\n".join(lines)
 
+def _find_tool(repository_ctx, tool, overriden_tools):
+  """Find a tool for repository, taking overriden tools into account."""
+  if tool in overriden_tools:
+    return overriden_tools[tool]
+  return which(repository_ctx, tool, "/usr/bin/" + tool)
 
-def _get_tool_paths(repository_ctx, darwin, cc):
+def _get_tool_paths(repository_ctx, darwin, cc, overriden_tools):
   """Compute the path to the various tools. Doesn't %-escape the result!"""
-  return {k: which(repository_ctx, k, "/usr/bin/" + k)
+  return {k: _find_tool(repository_ctx, k, overriden_tools)
           for k in [
               "ld",
               "cpp",
@@ -351,9 +356,12 @@ def _coverage_feature(darwin):
     }
   """
 
-
-def find_cc(repository_ctx):
+def find_cc(repository_ctx, overriden_tools):
   """Find the C++ compiler. Doesn't %-escape the result."""
+
+  if "gcc" in overriden_tools:
+    return overriden_tools["gcc"]
+
   cc_name = "gcc"
   cc_environ = repository_ctx.os.environ.get("CC")
   cc_paren = ""
@@ -372,14 +380,14 @@ def find_cc(repository_ctx):
          + " environment variable") % cc_paren)
   return cc
 
-
-def configure_unix_toolchain(repository_ctx, cpu_value):
+def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
   """Configure C++ toolchain on Unix platforms."""
   repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   darwin = cpu_value == "darwin"
-  cc = find_cc(repository_ctx)
+  cc = find_cc(repository_ctx, overriden_tools)
   tool_paths = _get_tool_paths(repository_ctx, darwin,
-                               "cc_wrapper.sh" if darwin else str(cc))
+                               "cc_wrapper.sh" if darwin else str(cc),
+                               overriden_tools)
   crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
   opt_content = _opt_content(darwin)
   dbg_content = _dbg_content()

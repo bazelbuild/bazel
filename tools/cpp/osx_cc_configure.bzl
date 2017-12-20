@@ -50,14 +50,14 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
   return include_dirs
 
 
-def configure_osx_toolchain(repository_ctx):
+def configure_osx_toolchain(repository_ctx, overriden_tools):
   """Configure C++ toolchain on macOS."""
   xcode_toolchains = []
   (xcode_toolchains, xcodeloc_err) = run_xcode_locator(
       repository_ctx,
       Label("@bazel_tools//tools/osx:xcode_locator.m"))
   if xcode_toolchains:
-    cc = find_cc(repository_ctx)
+    cc = find_cc(repository_ctx, overriden_tools = {})
     tpl(repository_ctx, "osx_cc_wrapper.sh", {
         "%{cc}": escape_string(str(cc)),
         "%{env}": escape_string(get_env(repository_ctx))
@@ -95,4 +95,4 @@ def configure_osx_toolchain(repository_ctx):
         Label("@bazel_tools//tools/osx/crosstool:CROSSTOOL.tpl"),
         {"%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories)})
   else:
-    configure_unix_toolchain(repository_ctx, cpu_value = "darwin")
+    configure_unix_toolchain(repository_ctx, cpu_value = "darwin", overriden_tools = overriden_tools)
