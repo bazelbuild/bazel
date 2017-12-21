@@ -39,7 +39,7 @@ import java.util.List;
 public class J2ObjcConfiguration extends Fragment {
   /**
    * Always-on flags for J2ObjC translation. These flags are always used when invoking the J2ObjC
-   * transpiler, and cannot be overriden by user-specified flags in {@link
+   * transpiler, and cannot be overridden by user-specified flags in {@link
    * J2ObjcCommandLineOptions}. See http://j2objc.org/docs/j2objc.html for flag documentation.
    */
   private static final ImmutableList<String> J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS = ImmutableList.of(
@@ -50,7 +50,7 @@ public class J2ObjcConfiguration extends Fragment {
 
   /**
    * Default flags for J2ObjC translation. These flags are used by default when invoking the J2ObjC
-   * transpiler, but can be overriden by user-specified flags in {@link J2ObjcCommandLineOptions}.
+   * transpiler, but can be overridden by user-specified flags in {@link J2ObjcCommandLineOptions}.
    * See http://j2objc.org/docs/j2objc.html for flag documentation.
    */
   private static final ImmutableList<String> J2OBJC_DEFAULT_TRANSLATION_FLAGS =

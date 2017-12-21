@@ -213,7 +213,7 @@ public class ConstraintSemantics {
      *     environments. If the rule doesn't have this attribute, this is considered an
      *     empty declaration.
      * @param defaultsProvider provider for the default environments within a group if not
-     *     otherwise overriden by the above attributes
+     *     otherwise overridden by the above attributes
      */
     EnvironmentCollector(RuleContext ruleContext, String restrictionAttr, String compatibilityAttr,
         DefaultsProvider defaultsProvider) {
