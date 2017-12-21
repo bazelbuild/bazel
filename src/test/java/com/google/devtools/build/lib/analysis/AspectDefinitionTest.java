@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -298,7 +299,7 @@ public class AspectDefinitionTest {
     assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
     assertThat(
         requiresFragments.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(TestFragment.class, ConfigurationTransition.HOST))
+            .isLegalConfigurationFragment(TestFragment.class, HostTransition.INSTANCE))
         .isTrue();
   }
 
