@@ -545,6 +545,8 @@ public class JavaHeaderCompileAction extends SpawnAction {
       }
 
       result.addAll("--javacopts", javacOpts);
+      // terminate --javacopts with `--` to support javac flags that start with `--`
+      result.add("--");
 
       if (ruleKind != null) {
         result.add("--rule_kind", ruleKind);

@@ -740,6 +740,8 @@ public final class JavaCompileAction extends SpawnAction {
       }
       if (!javacOpts.isEmpty()) {
         result.addAll("--javacopts", ImmutableList.copyOf(javacOpts));
+        // terminate --javacopts with `--` to support javac flags that start with `--`
+        result.add("--");
       }
       if (ruleKind != null) {
         result.add("--rule_kind", ruleKind);
