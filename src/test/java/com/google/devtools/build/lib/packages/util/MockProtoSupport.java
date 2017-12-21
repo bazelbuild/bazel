@@ -101,8 +101,6 @@ public final class MockProtoSupport {
          "           srcs = [ 'pyproto2.py' ])");
     config.create("net/proto2/bridge/public/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "cc_library(name = 'message_downgrader',",
-        "           srcs = [ 'downgrader.cc' ])",
         "cc_library(name = 'compatibility_mode_support',",
         "           srcs = [ 'compatibility.cc' ])");
     config.create(
