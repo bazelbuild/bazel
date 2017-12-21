@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.skylark;
 
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.DATA;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -40,6 +39,8 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -184,19 +185,19 @@ public class SkylarkRuleClassFunctions {
         // Input files for every test action
         .add(
             attr("$test_runtime", LABEL_LIST)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(
                     ImmutableList.of(
                         labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))
         // Input files for test actions collecting code coverage
         .add(
             attr("$coverage_support", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(labelCache.getUnchecked("//tools/defaults:coverage_support")))
         // Used in the one-per-build coverage report generation action.
         .add(
             attr("$coverage_report_generator", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(labelCache.getUnchecked("//tools/defaults:coverage_report_generator"))
                 .singleArtifact())
         .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
@@ -546,8 +547,9 @@ public class SkylarkRuleClassFunctions {
 
           builder.requiresConfigurationFragmentsBySkylarkModuleName(
               fragments.getContents(String.class, "fragments"));
-          builder.requiresHostConfigurationFragmentsBySkylarkModuleName(
-              hostFragments.getContents(String.class, "host_fragments"));
+          ConfigAwareRuleClassBuilder.of(builder)
+              .requiresHostConfigurationFragmentsBySkylarkModuleName(
+                  hostFragments.getContents(String.class, "host_fragments"));
           builder.setConfiguredTargetFunction(implementation);
           builder.setRuleDefinitionEnvironment(funcallEnv);
           builder.addRequiredToolchains(collectToolchainLabels(toolchains, ast));
@@ -805,6 +807,7 @@ public class SkylarkRuleClassFunctions {
               SkylarkAttr.getSkylarkProviderIdentifiers(providesArg, ast.getLocation()),
               requiredParams.build(),
               ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
+              HostTransition.INSTANCE,
               ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
               collectToolchainLabels(toolchains, ast),
               funcallEnv);

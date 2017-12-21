@@ -37,6 +37,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   private final ImmutableSet<SkylarkProviderIdentifier> provides;
   private final ImmutableSet<String> paramAttributes;
   private final ImmutableSet<String> fragments;
+  private final Attribute.Transition hostTransition;
   private final ImmutableSet<String> hostFragments;
   private final ImmutableList<Label> requiredToolchains;
 
@@ -51,6 +52,8 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
       ImmutableSet<SkylarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
+      // The host transition is in lib.analysis, so we can't reference it directly here.
+      Attribute.Transition hostTransition,
       ImmutableSet<String> hostFragments,
       ImmutableList<Label> requiredToolchains,
       Environment funcallEnv) {
@@ -61,6 +64,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
     this.provides = provides;
     this.paramAttributes = paramAttributes;
     this.fragments = fragments;
+    this.hostTransition = hostTransition;
     this.hostFragments = hostFragments;
     this.requiredToolchains = requiredToolchains;
     this.funcallEnv = funcallEnv;
@@ -149,7 +153,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
     }
     builder.advertiseProvider(advertisedSkylarkProviders.build());
     builder.requiresConfigurationFragmentsBySkylarkModuleName(fragments);
-    builder.requiresHostConfigurationFragmentsBySkylarkModuleName(hostFragments);
+    builder.requiresConfigurationFragmentsBySkylarkModuleName(hostTransition, hostFragments);
     builder.addRequiredToolchains(requiredToolchains);
     return builder.build();
   }

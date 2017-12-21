@@ -24,6 +24,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
@@ -418,13 +419,19 @@ public final class AspectDefinition {
 
     /**
      * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in the host configuration.
+     * fragments to be present in the given configuration that isn't the aspect's configuration but
+     * is also readable by the aspect.
+     *
+     * <p>You probably don't want to use this, because aspects generally shouldn't read
+     * configurations other than their own. If you want to declare host config fragments, see
+     * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresHostConfigurationFragments(Class<?>... configurationFragments) {
-      configurationFragmentPolicy
-          .requiresHostConfigurationFragments(ImmutableSet.copyOf(configurationFragments));
+    public Builder requiresConfigurationFragments(Transition transition,
+        Class<?>... configurationFragments) {
+      configurationFragmentPolicy.requiresConfigurationFragments(transition,
+          ImmutableSet.copyOf(configurationFragments));
       return this;
     }
 
@@ -443,16 +450,21 @@ public final class AspectDefinition {
     }
 
     /**
-     * Declares the configuration fragments that are required by this rule for the host
-     * configuration.
+     * Declares that the implementation of the associated aspect definition requires the given
+     * fragments to be present in the given configuration that isn't the aspect's configuration but
+     * is also readable by the aspect.
      *
-     * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
-     * the Skylark module names of fragments instead of their classes.
+     * <p>In contrast to {@link #requiresConfigurationFragments(Transition, Class...)}, this method
+     * takes the Skylark module names of fragments instead of their classes.
+     *
+     * <p>You probably don't want to use this, because aspects generally shouldn't read
+     * configurations other than their own. If you want to declare host config fragments, see
+     * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
      */
-    public Builder requiresHostConfigurationFragmentsBySkylarkModuleName(
+    public Builder requiresConfigurationFragmentsBySkylarkModuleName(Transition transition,
         Collection<String> configurationFragmentNames) {
-      configurationFragmentPolicy
-          .requiresHostConfigurationFragmentsBySkylarkModuleName(configurationFragmentNames);
+      configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
+          configurationFragmentNames);
       return this;
     }
 

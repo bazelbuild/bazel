@@ -150,6 +150,12 @@ public final class Attribute implements Comparable<Attribute> {
    * A configuration transition.
    */
   public interface Transition {
+    /**
+     * Does this transition switch to a "host" configuration?
+     */
+    default boolean isHostTransition() {
+      return false;
+    }
   }
 
   /**
@@ -171,13 +177,22 @@ public final class Attribute implements Comparable<Attribute> {
 
   /**
    * Declaration how the configuration should change when following a label or label list attribute.
+   *
+   * <p>Do not add to this. Use {@link
+   * com.google.devtools.build.lib.analysis.config.PatchTransition} or {@link SplitTransition}
+   * instead.
    */
   public enum ConfigurationTransition implements Transition {
     /** No transition, i.e., the same configuration as the current. */
     NONE,
 
     /** Transition to the host configuration. */
-    HOST,
+    HOST {
+      @Override
+      public boolean isHostTransition() {
+        return true;
+      }
+    },
 
     /** Transition to a null configuration (applies to, e.g., input files). */
     NULL,
@@ -1860,7 +1875,7 @@ public final class Attribute implements Comparable<Attribute> {
     if (isLateBound(name)) {
       LateBoundDefault<?, ?> lateBoundDefault = (LateBoundDefault<?, ?>) defaultValue;
       Preconditions.checkArgument(!lateBoundDefault.useHostConfiguration()
-          || (configTransition == ConfigurationTransition.HOST),
+          || (configTransition.isHostTransition()),
           "a late bound default value using the host configuration must use the host transition");
     }
 

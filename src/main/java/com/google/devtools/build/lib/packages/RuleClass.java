@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
@@ -708,12 +707,19 @@ public class RuleClass {
 
     /**
      * Declares that the implementation of the associated rule class requires the given
-     * fragments to be present in the host configuration.
+     * fragments to be present in the given configuration that isn't the rule's configuration but
+     * is also readable by the rule.
+     *
+     * <p>You probably don't want to use this, because rules generally shouldn't read configurations
+     * other than their own. If you want to declare host config fragments, see
+     * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresHostConfigurationFragments(Class<?>... configurationFragments) {
-      configurationFragmentPolicy.requiresHostConfigurationFragments(
+    public Builder requiresConfigurationFragments(Transition transition,
+        Class<?>... configurationFragments) {
+      configurationFragmentPolicy.requiresConfigurationFragments(
+          transition,
           ImmutableSet.<Class<?>>copyOf(configurationFragments));
       return this;
     }
@@ -736,13 +742,25 @@ public class RuleClass {
      * Declares the configuration fragments that are required by this rule for the host
      * configuration.
      *
-     * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
-     * Skylark module names of fragments instead of their classes.
      */
-    public Builder requiresHostConfigurationFragmentsBySkylarkModuleName(
+    /**
+     * Declares that the implementation of the associated rule class requires the given
+     * fragments to be present in the given configuration that isn't the rule's configuration but
+     * is also readable by the rule.
+     *
+     * <p>In contrast to {@link #requiresConfigurationFragments(Transition, Class...)}, this method
+     * takes Skylark module names of fragments instead of their classes.
+     * *
+     * <p>You probably don't want to use this, because rules generally shouldn't read configurations
+     * other than their own. If you want to declare host config fragments, see
+     * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
+     *
+     * <p>The value is inherited by subclasses.
+     */
+    public Builder requiresConfigurationFragmentsBySkylarkModuleName(Transition transition,
         Collection<String> configurationFragmentNames) {
-      configurationFragmentPolicy
-          .requiresHostConfigurationFragmentsBySkylarkModuleName(configurationFragmentNames);
+      configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
+          configurationFragmentNames);
       return this;
     }
 
@@ -1033,8 +1051,9 @@ public class RuleClass {
      * {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for details.
      */
     public <TYPE> Builder compatibleWith(Label... environments) {
-      add(attr(DEFAULT_COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST).cfg(HOST)
-          .value(ImmutableList.copyOf(environments)));
+      add(
+          attr(DEFAULT_COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
+              .value(ImmutableList.copyOf(environments)));
       return this;
     }
 
@@ -1049,9 +1068,10 @@ public class RuleClass {
     public <TYPE> Builder restrictedTo(Label firstEnvironment, Label... otherEnvironments) {
       ImmutableList<Label> environments = ImmutableList.<Label>builder().add(firstEnvironment)
           .add(otherEnvironments).build();
-      add(attr(DEFAULT_RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST).cfg(HOST).value(environments));
+      add(
+          attr(DEFAULT_RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
+              .value(environments));
       return this;
-
     }
 
     /**
