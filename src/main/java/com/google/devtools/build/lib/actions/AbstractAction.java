@@ -428,10 +428,13 @@ public abstract class AbstractAction implements Action, SkylarkValue {
     for (Artifact input : getMandatoryInputs()) {
       // Assume that if the file did not exist, we would not have gotten here.
       try {
-        if (input.isSourceArtifact() && !metadataProvider.getMetadata(input).isFile()) {
-          eventHandler.handle(Event.warn(getOwner().getLocation(), "input '"
-              + input.prettyPrint() + "' to " + getOwner().getLabel()
-              + " is a directory; dependency checking of directories is unsound"));
+        if (input.isSourceArtifact()
+            && metadataProvider.getMetadata(input).getType().isDirectory()) {
+          // TODO(ulfjack): What about dependency checking of special files?
+          eventHandler.handle(Event.warn(getOwner().getLocation(),
+              String.format(
+                  "input '%s' to %s is a directory; dependency checking of directories is unsound",
+                  input.prettyPrint(), getOwner().getLabel())));
         }
       } catch (IOException e) {
         throw new UserExecException(e);

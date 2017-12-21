@@ -18,8 +18,8 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.FileStateValue.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,7 +69,7 @@ public class FileFunction implements SkyFunction {
       }
       realRootedPath = resolvedState.getFirst();
       realFileStateValue = resolvedState.getSecond();
-      if (realFileStateValue.getType() == Type.NONEXISTENT) {
+      if (realFileStateValue.getType() == FileStateType.NONEXISTENT) {
         return FileValue.value(
             rootedPath,
             FileStateValue.NONEXISTENT_FILE_STATE_NODE,
@@ -95,7 +95,7 @@ public class FileFunction implements SkyFunction {
 
     ArrayList<RootedPath> symlinkChain = new ArrayList<>();
     TreeSet<Path> orderedSeenPaths = Sets.newTreeSet();
-    while (realFileStateValue.getType().equals(FileStateValue.Type.SYMLINK)) {
+    while (realFileStateValue.getType().isSymlink()) {
       symlinkChain.add(realRootedPath);
       orderedSeenPaths.add(realRootedPath.asPath());
       Pair<RootedPath, FileStateValue> resolvedState = getSymlinkTargetRootedPath(realRootedPath,
@@ -145,7 +145,7 @@ public class FileFunction implements SkyFunction {
     if (realFileStateValue == null) {
       return null;
     }
-    if (realFileStateValue.getType() != FileStateValue.Type.NONEXISTENT
+    if (realFileStateValue.getType() != FileStateType.NONEXISTENT
         && parentFileValue != null && !parentFileValue.isDirectory()) {
       String type = realFileStateValue.getType().toString().toLowerCase();
       String message = type + " " + rootedPath.asPath() + " exists but its parent "

@@ -51,15 +51,21 @@ import javax.annotation.Nullable;
  * otherwise lightweight, and should be constructed anew and discarded for each build request.
  */
 public class ActionCacheChecker {
+  private static final byte[] EMPTY_DIGEST = new byte[0];
   private static final Metadata CONSTANT_METADATA = new Metadata() {
     @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
     public boolean isFile() {
-      return false;
+      return true;
     }
 
     @Override
     public byte[] getDigest() {
-      throw new UnsupportedOperationException();
+      return EMPTY_DIGEST;
     }
 
     @Override

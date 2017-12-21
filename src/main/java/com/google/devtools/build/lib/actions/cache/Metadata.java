@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.actions.cache;
 
+import com.google.devtools.build.lib.actions.FileStateType;
+
 /**
- * An interface to represent the state of a file (or directory). This is used to determine whether a
- * file has changed or not.
- *
- * <p>NB! Several other parts of Blaze are relying on the fact that metadata uses mtime and not
- * ctime. If metadata is ever changed to use ctime, all uses of Metadata must be carefully examined.
+ * An interface to represent the state of a file system object for the execution phase. This is not
+ * used by Skyframe for invalidation, it is primarily used by the action cache and the various
+ * {@link com.google.devtools.build.lib.exec.SpawnRunner} implementations.
  */
 public interface Metadata {
   /**
@@ -27,6 +27,14 @@ public interface Metadata {
    * for a correct implementation of {@code equals}.
    */
   public interface Singleton {
+  }
+
+  /**
+   * The type of the underlying file system object. If it is a regular file, then it is
+   * guaranteed to have a digest. Otherwise it does not have a digest.
+   */
+  default FileStateType getType() {
+    return isFile() ? FileStateType.REGULAR_FILE : FileStateType.DIRECTORY;
   }
 
   /**
@@ -40,7 +48,7 @@ public interface Metadata {
    * Returns the file's digest; must only be called on objects for which {@link #isFile} returns
    * true.
    *
-   * <p>The return value is owned by the cache and must not be modified.
+   * <p>The return value is owned by this object and must not be modified.
    */
   byte[] getDigest();
 

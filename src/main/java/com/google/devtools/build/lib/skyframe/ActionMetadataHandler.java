@@ -219,7 +219,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     }
     // We do not cache exceptions besides nonexistence here, because it is unlikely that the file
     // will be requested from this cache too many times.
-    fileValue = constructFileValue(artifact, null);
+    fileValue = constructFileValue(artifact, /*statNoFollow=*/ null);
     return maybeStoreAdditionalData(artifact, fileValue, null);
   }
 

@@ -158,8 +158,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             try {
               // Check the file cache for input TreeFileArtifacts.
               ActionInputFileCache fileCache = actionExecutionContext.getActionInputFileCache();
-              assertThat(fileCache.getMetadata(outOneFileOne).isFile()).isTrue();
-              assertThat(fileCache.getMetadata(outOneFileTwo).isFile()).isTrue();
+              assertThat(fileCache.getMetadata(outOneFileOne).getType().isFile()).isTrue();
+              assertThat(fileCache.getMetadata(outOneFileTwo).getType().isFile()).isTrue();
 
               // Touch the action output.
               touchFile(normalOutput);

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -45,6 +46,11 @@ import javax.annotation.Nullable;
 @Immutable @ThreadSafe
 public abstract class FileArtifactValue implements SkyValue, Metadata {
   private static final class SingletonMarkerValue extends FileArtifactValue implements Singleton {
+    @Override
+    public FileStateType getType() {
+      return FileStateType.NONEXISTENT;
+    }
+
     @Nullable
     @Override
     public byte[] getDigest() {
@@ -73,6 +79,11 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
   }
 
   private static final class OmittedFileValue extends FileArtifactValue implements Singleton {
+    @Override
+    public FileStateType getType() {
+      return FileStateType.NONEXISTENT;
+    }
+
     @Override
     public byte[] getDigest() {
       throw new UnsupportedOperationException();
@@ -117,6 +128,11 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
       this.mtime = mtime;
     }
 
+    @Override
+    public FileStateType getType() {
+      return FileStateType.DIRECTORY;
+    }
+
     @Nullable
     @Override
     public byte[] getDigest() {
@@ -151,6 +167,11 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
     private RegularFileArtifactValue(byte[] digest, long size) {
       this.digest = Preconditions.checkNotNull(digest);
       this.size = size;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
     }
 
     @Override
@@ -255,10 +276,13 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
       return false;
     }
     Metadata m = (Metadata) o;
+    if (getType() != m.getType()) {
+      return false;
+    }
     if (isFile()) {
-      return m.isFile() && Arrays.equals(getDigest(), m.getDigest()) && getSize() == m.getSize();
+      return Arrays.equals(getDigest(), m.getDigest()) && getSize() == m.getSize();
     } else {
-      return !m.isFile() && getModifiedTime() == m.getModifiedTime();
+      return getModifiedTime() == m.getModifiedTime();
     }
   }
 

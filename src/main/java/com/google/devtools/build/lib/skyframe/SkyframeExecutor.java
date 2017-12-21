@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AspectCollection;
@@ -911,12 +912,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected abstract void invalidate(Predicate<SkyKey> pred);
 
-  private static boolean compatibleFileTypes(Dirent.Type oldType, FileStateValue.Type newType) {
-    return (oldType.equals(Dirent.Type.FILE) && newType.equals(FileStateValue.Type.REGULAR_FILE))
-        || (oldType.equals(Dirent.Type.UNKNOWN)
-            && newType.equals(FileStateValue.Type.SPECIAL_FILE))
-        || (oldType.equals(Dirent.Type.DIRECTORY) && newType.equals(FileStateValue.Type.DIRECTORY))
-        || (oldType.equals(Dirent.Type.SYMLINK) && newType.equals(FileStateValue.Type.SYMLINK));
+  private static boolean compatibleFileTypes(Dirent.Type oldType, FileStateType newType) {
+    return (oldType.equals(Dirent.Type.FILE) && newType.equals(FileStateType.REGULAR_FILE))
+        || (oldType.equals(Dirent.Type.UNKNOWN) && newType.equals(FileStateType.SPECIAL_FILE))
+        || (oldType.equals(Dirent.Type.DIRECTORY) && newType.equals(FileStateType.DIRECTORY))
+        || (oldType.equals(Dirent.Type.SYMLINK) && newType.equals(FileStateType.SYMLINK));
   }
 
   protected Differencer.Diff getDiff(TimestampGranularityMonitor tsgm,
