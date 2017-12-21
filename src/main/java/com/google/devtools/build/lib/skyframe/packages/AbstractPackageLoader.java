@@ -72,7 +72,6 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -121,7 +120,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   protected final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
   protected final AtomicReference<PathPackageLocator> pkgLocatorRef;
   protected final ExternalFilesHelper externalFilesHelper;
-  protected final CachingPackageLocator packageManager;
   protected final BlazeDirectories directories;
   private final int legacyGlobbingThreads;
   private final int skyframeThreads;
@@ -235,14 +233,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         pkgLocatorRef,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         directories);
-    this.packageManager = new CachingPackageLocator() {
-      @Override
-      @Nullable
-      public Path getBuildFileForPackage(PackageIdentifier packageName) {
-        return pkgLocatorRef.get().getPackageBuildFileNullable(packageName,
-            UnixGlob.DEFAULT_SYSCALLS_REF);
-      }
-    };
     this.preinjectedDiff =
         makePreinjectedDiff(
             skylarkSemantics,
@@ -355,6 +345,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         CacheBuilder.newBuilder().build();
     Cache<PackageIdentifier, CacheEntryWithGlobDeps<AstAfterPreprocessing>> astCache =
         CacheBuilder.newBuilder().build();
+    AtomicReference<PerBuildSyscallCache> syscallCacheRef = new AtomicReference<>(
+        PerBuildSyscallCache.newBuilder().setConcurrencyLevel(legacyGlobbingThreads).build());
     PackageFactory pkgFactory =
         new PackageFactory(
             ruleClassProvider,
@@ -364,9 +356,16 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             getName(),
             Package.Builder.DefaultHelper.INSTANCE);
     pkgFactory.setGlobbingThreads(legacyGlobbingThreads);
-    pkgFactory.setSyscalls(new AtomicReference<>(PerBuildSyscallCache.newBuilder().build()));
+    pkgFactory.setSyscalls(syscallCacheRef);
     pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         MAX_DIRECTORIES_TO_EAGERLY_VISIT_IN_GLOBBING);
+    CachingPackageLocator cachingPackageLocator = new CachingPackageLocator() {
+      @Override
+      @Nullable
+      public Path getBuildFileForPackage(PackageIdentifier packageName) {
+        return pkgLocatorRef.get().getPackageBuildFileNullable(packageName, syscallCacheRef);
+      }
+    };
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
     builder
         .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
@@ -406,7 +405,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             SkyFunctions.PACKAGE,
             new PackageFunction(
                 pkgFactory,
-                packageManager,
+                cachingPackageLocator,
                 /*showLoadingProgress=*/ new AtomicBoolean(false),
                 packageFunctionCache,
                 astCache,
