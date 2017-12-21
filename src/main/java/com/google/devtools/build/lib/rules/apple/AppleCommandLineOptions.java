@@ -334,19 +334,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
   }
 
-  // TODO(b/68330014): Deprecate and remove this flag.
-  @Option(
-    name = "xcode_toolchain",
-    defaultValue = "null",
-    category = "flags",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help =
-        "The identifier of an Xcode toolchain to use for builds. Currently only the toolchains "
-            + "that ship with Xcode are supported."
-  )
-  public String xcodeToolchain;
-
   @Option(
     name = "apple_bitcode",
     converter = AppleBitcodeMode.Converter.class,
@@ -545,7 +532,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     STRING_LIST_CODEC.serialize((ImmutableList<String>) macosCpus, out);
     LabelCodec.INSTANCE.serialize(defaultProvisioningProfile, out);
     LabelCodec.INSTANCE.serialize(xcodeVersionConfig, out);
-    serializeNullable(xcodeToolchain, out, StringCodecs.asciiOptimized());
     AppleBitcodeMode.CODEC.serialize(appleBitcodeMode, out);
     out.writeBoolNoTag(enableAppleCrosstoolTransition);
     out.writeBoolNoTag(targetUsesAppleCrosstool);
@@ -576,7 +562,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     result.macosCpus = STRING_LIST_CODEC.deserialize(in);
     result.defaultProvisioningProfile = LabelCodec.INSTANCE.deserialize(in);
     result.xcodeVersionConfig = LabelCodec.INSTANCE.deserialize(in);
-    result.xcodeToolchain = deserializeNullable(in, StringCodecs.asciiOptimized());
     result.appleBitcodeMode = AppleBitcodeMode.CODEC.deserialize(in);
     result.enableAppleCrosstoolTransition = in.readBool();
     result.targetUsesAppleCrosstool = in.readBool();

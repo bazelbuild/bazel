@@ -358,18 +358,6 @@ public class IosTestTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testRegistersSwiftStdlibActionsWithToolchain() throws Exception {
-    useConfiguration("--xcode_toolchain=test_toolchain");
-    checkRegisterSwiftStdlibActions(RULE_TYPE, "iphonesimulator", "test_toolchain");
-  }
-
-  @Test
-  public void testRegistersSwiftSupportActionsWithToolchain() throws Exception {
-    useConfiguration("--xcode_toolchain=test_toolchain");
-    checkRegisterSwiftSupportActions(RULE_TYPE, "iphonesimulator", "test_toolchain");
-  }
-
-  @Test
   public void testAddsStoryboardZipsToFilesToBuild() throws Exception {
     ConfiguredTarget target = createTargetWithStoryboards(RULE_TYPE);
 

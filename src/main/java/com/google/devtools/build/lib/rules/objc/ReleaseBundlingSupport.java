@@ -991,12 +991,8 @@ public final class ReleaseBundlingSupport {
       return;
     }
 
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
-    if (appleConfiguration.getXcodeToolchain() != null) {
-      commandLine.add("--toolchain", appleConfiguration.getXcodeToolchain());
-    }
 
     commandLine
         .add("--output_zip_path")
@@ -1024,13 +1020,8 @@ public final class ReleaseBundlingSupport {
       return;
     }
 
-    AppleConfiguration configuration = ruleContext.getFragment(AppleConfiguration.class);
 
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
-    if (configuration.getXcodeToolchain() != null) {
-      commandLine.add("--toolchain", configuration.getXcodeToolchain());
-    }
-
     commandLine
         .add("--output_zip_path")
         .addPath(intermediateArtifacts.swiftSupportZip().getExecPath())

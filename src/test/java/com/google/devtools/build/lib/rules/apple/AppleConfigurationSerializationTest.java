@@ -78,7 +78,6 @@ public class AppleConfigurationSerializationTest
     firstOptions.defaultProvisioningProfile =
         Label.parseAbsoluteUnchecked("//default/provisioning");
     firstOptions.xcodeVersionConfig = Label.parseAbsoluteUnchecked("//xcode/version:config");
-    firstOptions.xcodeToolchain = "xcodeToolchain1";
     firstOptions.appleBitcodeMode = AppleCommandLineOptions.AppleBitcodeMode.EMBEDDED_MARKERS;
     firstOptions.enableAppleCrosstoolTransition = false;
     firstOptions.targetUsesAppleCrosstool = true;

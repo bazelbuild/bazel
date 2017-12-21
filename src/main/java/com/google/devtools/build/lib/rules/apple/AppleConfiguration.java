@@ -87,7 +87,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final Label xcodeConfigLabel;
   private final boolean enableAppleCrosstool;
   private final AppleCommandLineOptions options;
-  @Nullable private final String xcodeToolchain;
   @Nullable private final Label defaultProvisioningProfileLabel;
   private final boolean mandatoryMinimumVersion;
   private final boolean objcProviderFromLinked;
@@ -116,7 +115,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
     this.enableAppleCrosstool = options.enableAppleCrosstoolTransition;
     this.defaultProvisioningProfileLabel = options.defaultProvisioningProfile;
-    this.xcodeToolchain = options.xcodeToolchain;
     this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
     this.objcProviderFromLinked = options.objcProviderFromLinked;
   }
@@ -468,18 +466,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       return null;
     }
     return Joiner.on('-').join(components);
-  }
-
-  /** Returns the identifier for an Xcode toolchain to use with tools. */
-  @SkylarkCallable(
-    name = "xcode_toolchain",
-    doc = "Identifier for the custom Xcode toolchain to use in build, or <code>None</code> if it "
-        + "is not specified.",
-    allowReturnNones = true,
-    structField = true
-  )
-  public String getXcodeToolchain() {
-    return xcodeToolchain;
   }
 
   /** Returns true if the minimum_os_version attribute should be mandatory on rules with linking. */
