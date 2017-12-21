@@ -30,8 +30,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testSimpleTestNotNull() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     assertThat(target).isNotNull();
   }
@@ -40,8 +42,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testResourceFilesZipCalledResourceFilesZip() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
 
     Artifact resourcesZip =
@@ -53,8 +57,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testManifestInRunfiles() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact manifest =
@@ -67,8 +73,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testResourcesClassJarInRunfiles() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceClassJar =
@@ -80,8 +88,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testResourcesZipFileInRunfiles() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourcesZip =
@@ -93,8 +103,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testCanHaveManifestNotNamedAndroidManifestXml() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
+        "    deps = extra_deps",
         "    manifest = 'NotAndroidManifest.xml')");
     assertNoEvents();
   }
