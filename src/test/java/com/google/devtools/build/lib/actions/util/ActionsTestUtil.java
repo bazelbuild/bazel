@@ -652,6 +652,15 @@ public final class ActionsTestUtil {
       }
       return result;
     }
+
+    /** Counts the total number of misses registered so far regardless of their reason. */
+    public int countMisses() {
+      int total = 0;
+      for (Map.Entry<MissReason, Integer> entry : details.entrySet()) {
+        total += entry.getValue();
+      }
+      return total;
+    }
   }
 
   /**
