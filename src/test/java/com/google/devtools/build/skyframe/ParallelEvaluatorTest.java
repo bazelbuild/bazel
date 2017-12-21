@@ -427,7 +427,7 @@ public class ParallelEvaluatorTest {
     eval(false, a);
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     storedEventHandler.clear();
-    // Build top. The warning from a should be reprinted.
+    // Build top. The warning from a should be printed.
     eval(false, top);
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     storedEventHandler.clear();
@@ -448,13 +448,75 @@ public class ParallelEvaluatorTest {
     eval(false, a);
     assertThat(storedEventHandler.getPosts()).containsExactly(post);
     storedEventHandler.clear();
-    // Build top. The warning from a should be reprinted.
+    // Build top. The post from a should be printed.
     eval(false, top);
     assertThat(storedEventHandler.getPosts()).containsExactly(post);
     storedEventHandler.clear();
-    // Build top again. The warning should have been stored in the value.
+    // Build top again. The post should have been stored in the value.
     eval(false, top);
     assertThat(storedEventHandler.getPosts()).containsExactly(post);
+  }
+
+  @Test
+  public void eventReportedTimely() throws Exception {
+    graph = new InMemoryGraphImpl();
+    set("a", "a").setWarning("warning on 'a'");
+    SkyKey a = GraphTester.toSkyKey("a");
+    SkyKey top = GraphTester.toSkyKey("top");
+    tester.getOrCreate(top).setBuilder(new SkyFunction() {
+      @Override
+      public SkyValue compute(SkyKey key, Environment env)
+          throws SkyFunctionException, InterruptedException {
+        // The event from a should already have been posted.
+        assertThat(storedEventHandler.getEvents()).hasSize(1);
+        return new StringValue("foo");
+      }
+
+      @Override
+      @Nullable
+      public String extractTag(SkyKey skyKey) {
+        return null;
+      }
+    });
+    // Build a so that it is already in the graph.
+    eval(false, a);
+    storedEventHandler.clear();
+    // Build top. The warning from a should be printed before evaluating top.
+    eval(false, ImmutableList.of(a, top));
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    storedEventHandler.clear();
+  }
+
+  @Test
+  public void errorOfTopLevelTargetReported() throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey a = GraphTester.toSkyKey("a");
+    SkyKey b = GraphTester.toSkyKey("b");
+    tester.getOrCreate(b).setHasError(true);
+    Event errorEvent = Event.error("foobar");
+    tester.getOrCreate(a).setBuilder(new SkyFunction() {
+      @Override
+      public SkyValue compute(SkyKey key, Environment env)
+          throws SkyFunctionException, InterruptedException {
+        try {
+          if (env.getValueOrThrow(b, SomeErrorException.class) == null) {
+            return null;
+          }
+        } catch (SomeErrorException ignored) {
+          // Continue silently.
+        }
+        env.getListener().handle(errorEvent);
+        throw new SkyFunctionException(new SomeErrorException("bazbar"), Transience.PERSISTENT) {};
+      }
+
+      @Override
+      @Nullable
+      public String extractTag(SkyKey skyKey) {
+        return null;
+      }
+    });
+    eval(false, a);
+    assertThat(storedEventHandler.getEvents()).containsExactly(errorEvent);
   }
 
   @Test
