@@ -1717,11 +1717,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return evaluationResult;
   }
 
-  @Override
-  public boolean isUpToDate(Set<SkyKey> roots) {
-    return buildDriver.alreadyEvaluated(roots);
-  }
-
   /**
    * Get metadata related to the prepareAndGet() lookup. Resulting data is specific to the
    * underlying evaluation implementation.
