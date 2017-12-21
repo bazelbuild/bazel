@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
-import javax.annotation.Nullable;
 
 /**
  * Pluggable semantics for Android rules.
@@ -34,19 +33,6 @@ import javax.annotation.Nullable;
  * to keep state.
  */
 public interface AndroidSemantics {
-
-  /**
-   * Add additional resources to IDE info for {@code android_binary} and {@code android_library}
-   *
-   * @param ruleContext rule context for target rule
-   * @param resourceApk resource apk directly provided by the rule
-   * @param ideInfoProviderBuilder
-   */
-  void addNonLocalResources(
-      RuleContext ruleContext,
-      @Nullable ResourceApk resourceApk,
-      AndroidIdeInfoProvider.Builder ideInfoProviderBuilder);
-
   /**
    * Returns the manifest to be used when compiling a given rule.
    *

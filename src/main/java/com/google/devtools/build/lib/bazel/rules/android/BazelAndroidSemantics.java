@@ -22,9 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidBinary;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
-import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
-import com.google.devtools.build.lib.rules.android.ResourceApk;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes.Builder;
@@ -38,12 +36,6 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   private BazelAndroidSemantics() {
   }
-
-  @Override
-  public void addNonLocalResources(
-      RuleContext ruleContext,
-      ResourceApk resourceApk,
-      AndroidIdeInfoProvider.Builder ideInfoProviderBuilder) {}
 
   @Override
   public String getNativeDepsFileName() {
