@@ -168,7 +168,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "objc_enable_binary_stripping",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "flags",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
