@@ -59,11 +59,16 @@ java_library(
     ],
 )
 
+# This toolchain is used to bootstrap Bazel.
 java_toolchain(
     name = "bootstrap_toolchain",
-    bootclasspath = ["//tools/jdk:bootclasspath"],
+    # javac -extdirs is implemented by appending the contents to the platform
+    # class path after -bootclasspath. For convenience, we currently have a
+    # single jar that contains the contents of both the bootclasspath and
+    # extdirs.
+    bootclasspath = ["//tools/jdk:platformclasspath-impl.jar"],
     encoding = "UTF-8",
-    extclasspath = ["//tools/jdk:extclasspath"],
+    extclasspath = [],
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],
     javabuilder = ["bootstrap_deploy.jar"],

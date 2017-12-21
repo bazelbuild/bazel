@@ -51,10 +51,14 @@ DEFAULT_JAVACOPTS = [
 ]
 
 DEFAULT_TOOLCHAIN_CONFIGURATION = {
-  "bootclasspath": [":bootclasspath"],
+  # javac -extdirs is implemented by appending the contents to the platform
+  # class path after -bootclasspath. For convenience, we currently have a
+  # single jar that contains the contents of both the bootclasspath and
+  # extdirs.
+  "bootclasspath": ["platformclasspath.jar"],
+  "extclasspath": [],
   "compatible_javacopts": DEFAULT_COMPATIBLE_JAVACOPTS,
   "encoding": "UTF-8",
-  "extclasspath": [],
   "forcibly_disable_header_compilation": 0,
   "genclass": ["@bazel_tools//tools/jdk:genclass"],
   "header_compiler": ["@bazel_tools//tools/jdk:turbine"],

@@ -40,8 +40,6 @@ filegroup(
         "//third_party/java/jdk/langtools:test-srcs",
         "//tools:srcs",
         "@local_jdk//:bootclasspath",
-        # TODO(cushon): migrate to extclasspath and delete
-        "@local_jdk//:extdir",
         "@local_jdk//:jdk",
     ] + select({
         # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241

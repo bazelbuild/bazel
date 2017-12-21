@@ -77,6 +77,7 @@ BOOTCLASS_JARS = [
     "charsets.jar",
 ]
 
+# TODO(cushon): this isn't compatible with JDK 9
 filegroup(
     name = "bootclasspath",
     srcs = ["jre/lib/%s" % jar for jar in BOOTCLASS_JARS],
