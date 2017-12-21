@@ -192,11 +192,6 @@ py_binary(
     ],
 )
 
-sh_binary(
-    name = "rex_wrapper",
-    srcs = ["fail.sh"],
-)
-
 py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
