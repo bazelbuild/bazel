@@ -60,14 +60,20 @@ import javax.annotation.Nullable;
 // Also, use better pure maps to minimize map O(n) re-creation events when processing keyword maps.
 public abstract class BaseFunction implements SkylarkValue {
 
-  // The name of the function
-  private final String name;
+  /**
+   * The name of the function.
+   *
+   * <p>For safe extensibility, this class only retrieves name via the accessor {@link #getName}.
+   * This field must be null iff {@link #getName} is overridden.
+   */
+  @Nullable private final String name;
 
   // A function signature, including defaults and types
   // never null after it is configured
   @Nullable protected FunctionSignature.WithValues<Object, SkylarkType> signature;
 
   // Location of the function definition, or null for builtin functions
+  // TODO(bazel-team): Or make non-nullable, and use Location.BUILTIN for builtin functions?
   @Nullable protected Location location;
 
   // Some functions are also Namespaces or other Skylark entities.
@@ -96,8 +102,13 @@ public abstract class BaseFunction implements SkylarkValue {
   // We trust the user not to modify the list behind our back.
 
 
-  /** Returns the name of this function. */
+  /**
+   * Returns the name of this function.
+   *
+   * <p>A subclass must override this function if a null name is given to this class's constructor.
+   */
   public String getName() {
+    Preconditions.checkNotNull(name);
     return name;
   }
 
@@ -119,20 +130,22 @@ public abstract class BaseFunction implements SkylarkValue {
   /**
    * Creates an unconfigured BaseFunction with the given name.
    *
-   * @param name the function name
+   * <p>The name must be null if called from a subclass constructor where the subclass overrides
+   * {@link #getName}; otherwise it must be non-null.
    */
-  public BaseFunction(String name) {
+  public BaseFunction(@Nullable String name) {
     this.name = name;
   }
 
   /**
    * Constructs a BaseFunction with a given name, signature and location.
    *
-   * @param name the function name
+   * @param name the function name; null iff this is a subclass overriding {@link #getName}
    * @param signature the signature with default values and types
    * @param location the location of function definition
    */
-  public BaseFunction(String name,
+  public BaseFunction(
+      @Nullable String name,
       @Nullable FunctionSignature.WithValues<Object, SkylarkType> signature,
       @Nullable Location location) {
     this(name);
@@ -143,10 +156,11 @@ public abstract class BaseFunction implements SkylarkValue {
   /**
    * Constructs a BaseFunction with a given name, signature.
    *
-   * @param name the function name
+   * @param name the function name; null iff this is a subclass overriding {@link #getName}
    * @param signature the signature, with default values and types
    */
-  public BaseFunction(String name,
+  public BaseFunction(
+      @Nullable String name,
       @Nullable FunctionSignature.WithValues<Object, SkylarkType> signature) {
     this(name, signature, null);
   }
@@ -154,20 +168,20 @@ public abstract class BaseFunction implements SkylarkValue {
   /**
    * Constructs a BaseFunction with a given name and signature without default values or types.
    *
-   * @param name the function name
+   * @param name the function name; null iff this is a subclass overriding {@link #getName}
    * @param signature the signature, without default values or types
    */
-  public BaseFunction(String name, FunctionSignature signature) {
+  public BaseFunction(@Nullable String name, FunctionSignature signature) {
     this(name, FunctionSignature.WithValues.create(signature), null);
   }
 
   /**
    * Constructs a BaseFunction with a given name and list of unconfigured defaults.
    *
-   * @param name the function name
+   * @param name the function name; null iff this is a subclass overriding {@link #getName}
    * @param defaultValues a list of default values for the optional arguments to be configured.
    */
-  public BaseFunction(String name, @Nullable Iterable<Object> defaultValues) {
+  public BaseFunction(@Nullable String name, @Nullable Iterable<Object> defaultValues) {
     this(name);
     this.unconfiguredDefaultValues = defaultValues;
   }
@@ -550,14 +564,15 @@ public abstract class BaseFunction implements SkylarkValue {
       BaseFunction that = (BaseFunction) other;
       // In theory, the location alone unambiguously identifies a given function. However, in
       // some test cases the location might not have a valid value, thus we also check the name.
-      return Objects.equals(this.name, that.name) && Objects.equals(this.location, that.location);
+      return Objects.equals(this.getName(), that.getName())
+          && Objects.equals(this.location, that.location);
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(name, location);
+    return Objects.hash(getName(), location);
   }
 
   @Nullable

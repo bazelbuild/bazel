@@ -31,7 +31,9 @@ import javax.annotation.Nullable;
  * {@link SkylarkProvider}.
  *
  * <p>{@link Provider} serves both as "type identifier" for declared provider instances and as a
- * function that can be called to construct a provider.
+ * function that can be called to construct a provider. To the Skylark user, there are "providers"
+ * and "provider instances"; the former is a Java instance of this class, and the latter is a Java
+ * instance of {@link Info}.
  *
  * <p>Prefer to use {@link Key} as a serializable identifier of {@link Provider}. In particular,
  * {@link Key} should be used in all data structures exposed to Skyframe.
@@ -62,8 +64,19 @@ import javax.annotation.Nullable;
 @Immutable
 public abstract class Provider extends BaseFunction {
 
+  /**
+   * Constructs a provider.
+   *
+   * @param name provider name; should be null iff the subclass overrides {@link #getName}
+   * @param signature the signature for calling this provider as a Skylark function (to construct an
+   *     instance of the provider)
+   * @param location the location of this provider's Skylark definition. Use {@link
+   *     Location#BUILTIN} if it is a native provider.
+   */
   protected Provider(
-      String name, FunctionSignature.WithValues<Object, SkylarkType> signature, Location location) {
+      @Nullable String name,
+      FunctionSignature.WithValues<Object, SkylarkType> signature,
+      Location location) {
     super(name, signature, location);
   }
 

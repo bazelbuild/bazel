@@ -34,7 +34,7 @@ public class SkylarkInfoTest {
   @Test
   public void sameProviderDifferentLayoutConcatenation() throws Exception {
     SkylarkProvider provider =
-        new SkylarkProvider("provider", ImmutableList.of("f1", "f2"), Location.BUILTIN);
+        SkylarkProvider.createUnexportedSchemaful(ImmutableList.of("f1", "f2"), Location.BUILTIN);
     ImmutableMap<String, Integer> layout1 = ImmutableMap.of("f1", 0, "f2", 1);
     ImmutableMap<String, Integer> layout2 = ImmutableMap.of("f1", 1, "f2", 0);
     CompactSkylarkInfo info1 =
@@ -50,7 +50,7 @@ public class SkylarkInfoTest {
   @Test
   public void immutabilityPredicate() throws Exception {
     SkylarkProvider provider =
-        new SkylarkProvider("provider", ImmutableList.of("f1", "f2"), Location.BUILTIN);
+        SkylarkProvider.createUnexportedSchemaful(ImmutableList.of("f1", "f2"), Location.BUILTIN);
     ImmutableMap<String, Integer> layout = ImmutableMap.of("f1", 0, "f2", 1);
     SkylarkInfo compactInfo =
         new CompactSkylarkInfo(provider, layout, new Object[] {5, null}, Location.BUILTIN);
@@ -73,9 +73,9 @@ public class SkylarkInfoTest {
   @Test
   public void equality() throws Exception {
     Provider provider1 =
-        new SkylarkProvider("provider1", ImmutableList.of("f1", "f2"), Location.BUILTIN);
+        SkylarkProvider.createUnexportedSchemaful(ImmutableList.of("f1", "f2"), Location.BUILTIN);
     Provider provider2 =
-        new SkylarkProvider("provider2", ImmutableList.of("f1", "f2"), Location.BUILTIN);
+        SkylarkProvider.createUnexportedSchemaful(ImmutableList.of("f1", "f2"), Location.BUILTIN);
     ImmutableMap<String, Integer> layout = ImmutableMap.of("f1", 0, "f2", 1);
     new EqualsTester()
         .addEqualityGroup(
@@ -94,7 +94,7 @@ public class SkylarkInfoTest {
   @Test
   public void heterogeneousConcatenation() throws Exception {
     Provider provider =
-        new SkylarkProvider("provider", ImmutableList.of("f1", "f2"), Location.BUILTIN);
+        SkylarkProvider.createUnexportedSchemaful(ImmutableList.of("f1", "f2"), Location.BUILTIN);
     ImmutableMap<String, Integer> layout = ImmutableMap.of("f1", 0, "f2", 1);
     SkylarkInfo p1 = new MapBackedSkylarkInfo(provider, ImmutableMap.of("f1", 4), Location.BUILTIN);
     CompactSkylarkInfo p2 =
@@ -109,7 +109,7 @@ public class SkylarkInfoTest {
   @Test
   public void compactConcatenationReturnsCompact() throws Exception {
     Provider provider =
-        new SkylarkProvider("provider", ImmutableList.of("f1", "f2"), Location.BUILTIN);
+        SkylarkProvider.createUnexportedSchemaful(ImmutableList.of("f1", "f2"), Location.BUILTIN);
     ImmutableMap<String, Integer> layout = ImmutableMap.of("f1", 0, "f2", 1);
     CompactSkylarkInfo p1 =
         new CompactSkylarkInfo(provider, layout, new Object[] {4, null}, Location.BUILTIN);

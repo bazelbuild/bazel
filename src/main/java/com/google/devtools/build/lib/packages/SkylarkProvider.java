@@ -28,66 +28,138 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * Declared provider defined in Skylark.
+ * A provider defined in Skylark rather than in native code.
  *
- * <p>This is a result of calling {@code provider()} function from Skylark ({@link
+ * <p>This is a result of calling the {@code provider()} function from Skylark ({@link
  * com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions#provider}).
+ *
+ * <p>{@code SkylarkProvider}s may be either schemaless or schemaful. Instances of schemaless
+ * providers can have any set of fields on them, whereas instances of schemaful providers may have
+ * only the fields that are named in the schema. Schemaful provider instances are more space
+ * efficient since they do not use maps; see {@link SkylarkInfo.CompactSkylarkInfo}.
+ *
+ * <p>Exporting a {@code SkylarkProvider} creates a key that is used to uniquely identify it.
+ * Usually a provider is exported by calling {@link #export}, but a test may wish to just create
+ * a pre-exported provider directly. Exported providers use only their key for {@link #equals} and
+ * {@link #hashCode}.
  */
 public class SkylarkProvider extends Provider implements SkylarkExportable {
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
+  private static final FunctionSignature.WithValues<Object, SkylarkType> SCHEMALESS_SIGNATURE =
       FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
 
+  private static final String DEFAULT_ERROR_MESSAGE_FORMAT = "Object has no '%s' attribute.";
+
   /**
-   * A map from provider fields to a continuous range of integers. This allows provider instances to
-   * store their values in an array rather than a map. {@code layout} will be null if the provider
-   * fields aren't known up front.
+   * A map from provider fields to a contiguous range of integers, as used in {@link
+   * SkylarkInfo.CompactSkylarkInfo}. The map entries are ordered by integer value.
+   *
+   * <p>This allows provider instances to store their values in an array rather than a map. {@code
+   * layout} will be null if the provider is schemaless, i.e., its fields aren't known up-front.
    */
   @Nullable
   private final ImmutableMap<String, Integer> layout;
 
-  @Nullable private SkylarkKey key;
-  @Nullable private String errorMessageFormatForInstances;
+  /** Null iff this provider has not yet been exported. */
+  @Nullable
+  private SkylarkKey key;
 
-  private static final String DEFAULT_ERROR_MESSAFE = "Object has no '%s' attribute.";
+  /** Error message format. Reassigned upon exporting. */
+  private String errorMessageFormatForInstances;
 
   /**
-   * Creates a Skylark-defined Declared Provider ({@link Info} constructor).
+   * Creates an unexported {@link SkylarkProvider} with no schema.
    *
-   * <p>Needs to be exported later.
+   * <p>The resulting object needs to be exported later (via {@link #export}).
+   *
+   * @param location the location of the Skylark definition for this provider (tests may use {@link
+   *     Location#BUILTIN})
    */
-  public SkylarkProvider(String name,
-      @Nullable Iterable<String> fields,
-      Location location) {
-    this(name, buildSignature(fields), location);
+  public static SkylarkProvider createUnexportedSchemaless(Location location) {
+    return new SkylarkProvider(/*key=*/ null, /*fields=*/ null, location);
   }
 
+  /**
+   * Creates an unexported {@link SkylarkProvider} with a schema.
+   *
+   * <p>The resulting object needs to be exported later (via {@link #export}).
+   *
+   * @param fields a list of allowed field names for instances of this provider, in some canonical
+   *     order
+   * @param location the location of the Skylark definition for this provider (tests may use {@link
+   *     Location#BUILTIN})
+   */
+  public static SkylarkProvider createUnexportedSchemaful(
+      Iterable<String> fields, Location location) {
+    return new SkylarkProvider(/*key=*/ null, fields, location);
+  }
+
+  /**
+   * Creates an exported {@link SkylarkProvider} with no schema.
+   *
+   * @param key the key that identifies this provider
+   * @param location the location of the Skylark definition for this provider (tests may use {@link
+   *     Location#BUILTIN})
+   */
+  public static SkylarkProvider createExportedSchemaless(SkylarkKey key, Location location) {
+    return new SkylarkProvider(key, /*fields=*/ null, location);
+  }
+
+  /**
+   * Creates an exported {@link SkylarkProvider} with no schema.
+   *
+   * @param key the key that identifies this provider
+   * @param fields a list of allowed field names for instances of this provider, in some canonical
+   *     order
+   * @param location the location of the Skylark definition for this provider (tests may use {@link
+   *     Location#BUILTIN})
+   */
+  public static SkylarkProvider createExportedSchemaful(
+      SkylarkKey key, Iterable<String> fields, Location location) {
+    return new SkylarkProvider(key, fields, location);
+  }
+
+  /**
+   * Constructs the provider.
+   *
+   * <p>If {@code key} is null, the provider is unexported. If {@code fields} is null, the provider
+   * is schemaless.
+   */
   private SkylarkProvider(
-      String name,
-      FunctionSignature.WithValues<Object, SkylarkType> signature, Location location) {
-    super(name, signature, location);
-    if (signature.getSignature().getShape().hasKwArg()) {
-      layout = null;
+      @Nullable SkylarkKey key, @Nullable Iterable<String> fields, Location location) {
+    // We override getName() in order to use the name that is assigned when export() is called.
+    // Hence BaseFunction's constructor gets a null name.
+    super(/*name=*/ null, buildSignature(fields), location);
+    this.layout = buildLayout(fields);
+    this.key = key;  // possibly null
+    this.errorMessageFormatForInstances =
+        key == null ? DEFAULT_ERROR_MESSAGE_FORMAT
+            : makeErrorMessageFormatForInstances(key.getExportedName());
+  }
+
+
+  private static FunctionSignature.WithValues<Object, SkylarkType> buildSignature(
+      @Nullable Iterable<String> fields) {
+    if (fields == null) {
+      return SCHEMALESS_SIGNATURE;
+    }
+    return FunctionSignature.WithValues.create(
+        FunctionSignature.namedOnly(0, ImmutableList.copyOf(fields).toArray(new String[0])));
+  }
+
+  @Nullable
+  private static ImmutableMap<String, Integer> buildLayout(
+      @Nullable Iterable<String> fields) {
+    if (fields == null) {
+      return null;
     } else {
       ImmutableMap.Builder<String, Integer> layoutBuilder = ImmutableMap.builder();
       int i = 0;
-      for (String field : signature.getSignature().getNames()) {
+      for (String field : fields) {
         layoutBuilder.put(field, i++);
       }
-      layout = layoutBuilder.build();
+      return layoutBuilder.build();
     }
-    this.errorMessageFormatForInstances = DEFAULT_ERROR_MESSAFE;
-  }
-
-  private static FunctionSignature.WithValues<Object, SkylarkType> buildSignature(
-      @Nullable  Iterable<String> fields) {
-    if (fields == null) {
-      return SIGNATURE;
-    }
-    return
-        FunctionSignature.WithValues.create(
-        FunctionSignature.namedOnly(0, ImmutableList.copyOf(fields).toArray(new String[0]))
-    );
   }
 
   @Override
@@ -123,6 +195,19 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
     return getName();
   }
 
+  /**
+   * Returns the list of fields used to define this provider, or null if the provider is schemaless.
+   *
+   * <p>Note: In the future, this method may be replaced by one that returns more detailed schema
+   * information (if/when the allowed schemas for structs become more complex).
+   */
+  public @Nullable ImmutableList<String> getFields() {
+    if (layout == null) {
+      return null;
+    }
+    return ImmutableList.copyOf(layout.keySet());
+  }
+
   @Override
   public String getErrorMessageFormatForInstances() {
     return errorMessageFormatForInstances;
@@ -132,8 +217,11 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
   public void export(Label extensionLabel, String exportedName) {
     Preconditions.checkState(!isExported());
     this.key = new SkylarkKey(extensionLabel, exportedName);
-    this.errorMessageFormatForInstances =
-        String.format("'%s' object has no attribute '%%s'", exportedName);
+    this.errorMessageFormatForInstances = makeErrorMessageFormatForInstances(exportedName);
+  }
+
+  private static String makeErrorMessageFormatForInstances(String exportedName) {
+    return String.format("'%s' object has no attribute '%%s'", exportedName);
   }
 
   @Override
