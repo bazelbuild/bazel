@@ -111,7 +111,7 @@ in your genrule's cmd attribute.
     directories before invoking <code>java</code>, you need to capture the
     working directory before changing it. This variable is only available if the
     Java runtime, that is,
- -->
+
 <code>@bazel_tools//tools/jdk:current_java_runtime</code>
     or its host version (<code>current_host_java_runtime</code>) is in the
     <code>toolchains</code> attribute.
@@ -159,7 +159,7 @@ in your genrule's cmd attribute.
     It will have a "bin" subdirectory.</p>
 
     <p>This variable is only available if the Java runtime, that is,
- -->
+
 <code>@bazel_tools//tools/jdk:current_java_runtime</code>
     or its host version (<code>current_host_java_runtime</code>) is in the
     <code>toolchains</code> attribute.</p>
