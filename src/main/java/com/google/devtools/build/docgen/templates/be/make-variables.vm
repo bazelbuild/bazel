@@ -109,7 +109,12 @@ in your genrule's cmd attribute.
     machine). Avoid this, and use a <code>java_binary</code> rule instead where
     possible. May be a relative path. If you must change
     directories before invoking <code>java</code>, you need to capture the
-    working directory before changing it.
+    working directory before changing it. This variable is only available if the
+    Java runtime, that is,
+ -->
+<code>@bazel_tools//tools/jdk:current_java_runtime</code>
+    or its host version (<code>current_host_java_runtime</code>) is in the
+    <code>toolchains</code> attribute.
   </li>
 
   <li> <code>STRIP</code>: The strip command from the same suite as the C/C++
@@ -152,6 +157,12 @@ in your genrule's cmd attribute.
 
     <p>The base directory containing the Java utilities. May be a relative path.
     It will have a "bin" subdirectory.</p>
+
+    <p>This variable is only available if the Java runtime, that is,
+ -->
+<code>@bazel_tools//tools/jdk:current_java_runtime</code>
+    or its host version (<code>current_host_java_runtime</code>) is in the
+    <code>toolchains</code> attribute.</p>
   </li>
 </ul>
 
