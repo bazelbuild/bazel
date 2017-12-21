@@ -889,11 +889,6 @@ public final class AndroidRuleClasses {
           obfuscation.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("proguard_apply_dictionary", LABEL).legacyAllowAnyFileType())
-          // TODO(mstaib): Remove this attribute and the matching flag after some cleanup of users
-          .add(
-              attr("legacy_native_support", TRISTATE)
-                  .value(TriState.AUTO)
-                  .undocumented("No-op, soon to be removed"))
           .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
           .add(
               attr(":bytecode_optimizers", LABEL_LIST)
