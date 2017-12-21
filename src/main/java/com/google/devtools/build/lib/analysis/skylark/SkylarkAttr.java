@@ -100,8 +100,8 @@ public final class SkylarkAttr implements SkylarkValue {
 
   private static final String CONFIGURATION_ARG = "cfg";
   private static final String CONFIGURATION_DOC =
-      "Configuration of the attribute. It can be either \"data\", \"host\", or \"target\". "
-          + "This parameter is required if <code>executable</code> is True.";
+      "<a href=\"../rules.$DOC_EXT#configurations\">Configuration</a> of the attribute. It can be "
+          + "either <code>\"data\"</code>, <code>\"host\"</code>, or <code>\"target\"</code>.";
 
   private static final String DEFAULT_ARG = "default";
   // A trailing space is required because it's often prepended to other sentences
@@ -733,7 +733,7 @@ public final class SkylarkAttr implements SkylarkValue {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = CONFIGURATION_DOC
+        doc = CONFIGURATION_DOC + " This parameter is required if <code>executable</code> is True."
       ),
       @Param(
         name = ASPECTS_ARG,
