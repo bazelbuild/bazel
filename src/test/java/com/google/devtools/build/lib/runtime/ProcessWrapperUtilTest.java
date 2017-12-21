@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.google.common.collect.ImmutableList;
 import java.time.Duration;
@@ -28,33 +27,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ProcessWrapperUtilTest {
 
-  @Test
-  public void testProcessWrapperCommandLineBuilder_ProcessWrapperPathIsRequired() {
-    ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, world");
-
-    Exception e =
-        expectThrows(
-            IllegalStateException.class,
-            () ->
-                ProcessWrapperUtil.commandLineBuilder()
-                    .setCommandArguments(commandArguments)
-                    .build());
-    assertThat(e).hasMessageThat().contains("processWrapperPath");
-  }
-
-  @Test
-  public void testProcessWrapperCommandLineBuilder_CommandAgumentsAreRequired() {
-    String processWrapperPath = "process-wrapper";
-
-    Exception e =
-        expectThrows(
-            IllegalStateException.class,
-            () ->
-                ProcessWrapperUtil.commandLineBuilder()
-                    .setProcessWrapperPath(processWrapperPath)
-                    .build());
-    assertThat(e).hasMessageThat().contains("commandArguments");
-  }
 
   @Test
   public void testProcessWrapperCommandLineBuilder_BuildsWithoutOptionalArguments() {
@@ -66,10 +38,7 @@ public final class ProcessWrapperUtilTest {
         ImmutableList.<String>builder().add(processWrapperPath).addAll(commandArguments).build();
 
     List<String> commandLine =
-        ProcessWrapperUtil.commandLineBuilder()
-            .setProcessWrapperPath(processWrapperPath)
-            .setCommandArguments(commandArguments)
-            .build();
+        ProcessWrapperUtil.commandLineBuilder(processWrapperPath, commandArguments).build();
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();
   }
@@ -98,9 +67,7 @@ public final class ProcessWrapperUtilTest {
             .build();
 
     List<String> commandLine =
-        ProcessWrapperUtil.commandLineBuilder()
-            .setProcessWrapperPath(processWrapperPath)
-            .setCommandArguments(commandArguments)
+        ProcessWrapperUtil.commandLineBuilder(processWrapperPath, commandArguments)
             .setTimeout(timeout)
             .setKillDelay(killDelay)
             .setStdoutPath(stdoutPath)

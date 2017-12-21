@@ -56,10 +56,7 @@ public final class CommandUsingProcessWrapperTest {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "even drones can fly away");
 
     List<String> fullCommandLine =
-        ProcessWrapperUtil.commandLineBuilder()
-            .setProcessWrapperPath(getProcessWrapperPath())
-            .setCommandArguments(commandArguments)
-            .build();
+        ProcessWrapperUtil.commandLineBuilder(getProcessWrapperPath(), commandArguments).build();
 
     Command command = new Command(fullCommandLine.toArray(new String[0]));
     CommandResult commandResult = command.execute();
@@ -80,9 +77,7 @@ public final class CommandUsingProcessWrapperTest {
     String statisticsFilePath = outputDir.getAbsolutePath() + "/" + "stats.out";
 
     List<String> fullCommandLine =
-        ProcessWrapperUtil.commandLineBuilder()
-            .setProcessWrapperPath(getProcessWrapperPath())
-            .setCommandArguments(commandArguments)
+        ProcessWrapperUtil.commandLineBuilder(getProcessWrapperPath(), commandArguments)
             .setStatisticsPath(statisticsFilePath)
             .build();
 

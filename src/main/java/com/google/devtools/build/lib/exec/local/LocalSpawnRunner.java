@@ -264,9 +264,7 @@ public class LocalSpawnRunner implements SpawnRunner {
           stdOut = ByteStreams.nullOutputStream();
           stdErr = ByteStreams.nullOutputStream();
           ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =
-              ProcessWrapperUtil.commandLineBuilder()
-                  .setProcessWrapperPath(processWrapper)
-                  .setCommandArguments(spawn.getArguments())
+              ProcessWrapperUtil.commandLineBuilder(processWrapper, spawn.getArguments())
                   .setStdoutPath(getPathOrDevNull(outErr.getOutputPath()))
                   .setStderrPath(getPathOrDevNull(outErr.getErrorPath()))
                   .setTimeout(policy.getTimeout())
