@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
@@ -23,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBinaryBaseRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -39,12 +39,15 @@ public final class BazelPyTestRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     Label launcher = env.getLauncherLabel();
     if (launcher != null) {
-      builder.add(attr("$launcher", LABEL).cfg(HOST).value(launcher));
+      builder.add(attr("$launcher", LABEL).cfg(HostTransition.INSTANCE).value(launcher));
     }
     return builder
         .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
         .cfg(PyRuleClasses.DEFAULT_PYTHON_VERSION_TRANSITION)
-        .add(attr("$zipper", LABEL).cfg(HOST).exec().value(env.getToolsLabel("//tools/zip:zipper")))
+        .add(attr("$zipper", LABEL)
+            .cfg(HostTransition.INSTANCE)
+            .exec()
+            .value(env.getToolsLabel("//tools/zip:zipper")))
         .override(
             attr("testonly", BOOLEAN)
                 .value(true)

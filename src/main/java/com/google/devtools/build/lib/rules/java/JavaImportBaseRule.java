@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -24,6 +23,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -39,7 +39,9 @@ public class JavaImportBaseRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
-        .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.hostJdkAttribute(environment)))
+        .add(attr(":host_jdk", LABEL)
+            .cfg(HostTransition.INSTANCE)
+            .value(JavaSemantics.hostJdkAttribute(environment)))
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(jars) -->
         The list of JAR files provided to Java targets that depend on this target.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

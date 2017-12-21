@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.ACTION_LISTENER;
 import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -28,6 +27,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -467,7 +467,9 @@ public class AspectTest extends AnalysisTestCase {
                 builder
                     .add(attr("foo", LABEL_LIST).legacyAllowAnyFileType()
                         .aspect(new AspectThatRegistersAction()))
-                    .add(attr(":action_listener", LABEL_LIST).cfg(HOST).value(ACTION_LISTENER)));
+                    .add(attr(":action_listener", LABEL_LIST)
+                        .cfg(HostTransition.INSTANCE)
+                        .value(ACTION_LISTENER)));
 
     public static class AspectThatRegistersAction extends NativeAspectClass
       implements ConfiguredAspectFactory {

@@ -168,7 +168,7 @@ public final class TransitionResolver {
     } else if (transition2 == Attribute.ConfigurationTransition.NULL) {
       // A NULL transition can just replace earlier transitions: no need to compose them.
       return Attribute.ConfigurationTransition.NULL;
-    } else if (transition2 == Attribute.ConfigurationTransition.HOST) {
+    } else if (transition2.isHostTransition()) {
       // A HOST transition can just replace earlier transitions: no need to compose them.
       // But it also improves performance: host transitions are common, and
       // ConfiguredTargetFunction has special optimized logic to handle them. If they were buried

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.IterablesChain;
@@ -144,7 +144,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
-                    .cfg(HOST)
+                    .cfg(HostTransition.INSTANCE)
                     .exec()
                     .value(
                         Label.parseAbsoluteUnchecked(
@@ -163,7 +163,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(
           attr(ASPECT_DEXBUILDER_PREREQ, LABEL)
-              .cfg(HOST)
+              .cfg(HostTransition.INSTANCE)
               .exec()
               .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")));
     }

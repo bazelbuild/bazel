@@ -13,7 +13,6 @@
 // limitations under the License.package com.google.devtools.build.lib.rules.android;
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
@@ -25,6 +24,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -92,7 +92,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         // rule so they're not defined in multiple places
         .add(
             attr("$android_resources_busybox", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .exec()
                 .value(environment.getToolsLabel(AndroidRuleClasses.DEFAULT_RESOURCES_BUSYBOX)))
         .add(

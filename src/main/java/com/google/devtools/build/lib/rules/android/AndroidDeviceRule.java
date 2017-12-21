@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -23,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -95,58 +95,62 @@ public final class AndroidDeviceRule implements RuleDefinition {
         a specific device). The properties in this file will override read only
         properties typically set by the emulator such as ro.product.model.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("default_properties", LABEL).cfg(HOST).allowedFileTypes(JavaSemantics.PROPERTIES))
+        .add(attr("default_properties", LABEL)
+            .cfg(HostTransition.INSTANCE)
+            .allowedFileTypes(JavaSemantics.PROPERTIES))
         /* <!-- #BLAZE_RULE(android_device).ATTRIBUTE(platform_apks) -->
         A list of apks to be installed on the device at boot time.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("platform_apks", LABEL_LIST).legacyAllowAnyFileType())
         .add(
             attr("$adb_static", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(env.getToolsLabel("//tools/android:adb_static")))
-        .add(attr("$adb", LABEL).cfg(HOST).value(env.getToolsLabel("//tools/android:adb")))
+        .add(attr("$adb", LABEL)
+            .cfg(HostTransition.INSTANCE)
+            .value(env.getToolsLabel("//tools/android:adb")))
         .add(
             attr("$emulator_arm", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(env.getToolsLabel("//tools/android/emulator:emulator_arm")))
         .add(
             attr("$emulator_x86", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(env.getToolsLabel("//tools/android/emulator:emulator_x86")))
         .add(
             attr("$emulator_x86_bios", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(env.getToolsLabel("//tools/android/emulator:emulator_x86_bios")))
         .add(
             attr("$mksd", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .exec()
                 .value(env.getToolsLabel("//tools/android/emulator:mksd")))
         .add(
             attr("$empty_snapshot_fs", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(env.getToolsLabel("//tools/android/emulator:empty_snapshot_fs")))
         .add(
             attr("$xvfb_support", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(env.getToolsLabel("//tools/android/emulator:xvfb_support")))
         .add(
             attr("$unified_launcher", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .exec()
                 .value(env.getToolsLabel("//tools/android/emulator:unified_launcher")))
         .add(
             attr("$android_runtest", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .exec()
                 .value(env.getToolsLabel("//tools/android:android_runtest")))
         .add(
             attr("$testing_shbase", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(env.getToolsLabel("//tools/android/emulator:shbase")))
         .add(
             attr("$sdk_path", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .exec()
                 .value(env.getToolsLabel("//tools/android/emulator:sdk_path")))
         .add(

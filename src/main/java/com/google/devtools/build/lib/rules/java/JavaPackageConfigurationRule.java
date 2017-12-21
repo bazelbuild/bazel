@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -40,7 +40,7 @@ public class JavaPackageConfigurationRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("packages", BuildType.LABEL_LIST)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .allowedFileTypes()
                 .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class)))
         /* <!-- #BLAZE_RULE(java_package_configuration).ATTRIBUTE(javacopts) -->

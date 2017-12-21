@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -495,11 +495,11 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("$plmerge", LABEL).cfg(HOST).exec()
+          .add(attr("$plmerge", LABEL).cfg(HostTransition.INSTANCE).exec()
               .value(env.getToolsLabel("//tools/objc:plmerge")))
-          .add(attr("$actoolwrapper", LABEL).cfg(HOST).exec()
+          .add(attr("$actoolwrapper", LABEL).cfg(HostTransition.INSTANCE).exec()
               .value(env.getToolsLabel("//tools/objc:actoolwrapper")))
-          .add(attr("$ibtoolwrapper", LABEL).cfg(HOST).exec()
+          .add(attr("$ibtoolwrapper", LABEL).cfg(HostTransition.INSTANCE).exec()
               .value(env.getToolsLabel("//tools/objc:ibtoolwrapper")))
           .build();
     }
@@ -709,7 +709,7 @@ public class ObjcRuleClasses {
           least one artifact this attribute cannot be #exec(). */
           .add(
               attr(HEADER_SCANNER_ATTRIBUTE, LABEL)
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .value(
                       LateBoundDefault.fromTargetConfiguration(
                           ObjcConfiguration.class,
@@ -751,7 +751,7 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(LIBTOOL_ATTRIBUTE, LABEL).cfg(HOST).exec()
+          .add(attr(LIBTOOL_ATTRIBUTE, LABEL).cfg(HostTransition.INSTANCE).exec()
               .value(env.getToolsLabel("//tools/objc:libtool")))
           .build();
     }
@@ -825,7 +825,7 @@ public class ObjcRuleClasses {
           .add(
               attr("$j2objc_dead_code_pruner", LABEL)
                   .allowedFileTypes(FileType.of(".py"))
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .exec()
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
@@ -833,13 +833,13 @@ public class ObjcRuleClasses {
           .add(
               attr(PROTO_COMPILER_ATTR, LABEL)
                   .allowedFileTypes(FileType.of(".sh"))
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/objc:protobuf_compiler_wrapper")))
           .add(
               attr(PROTO_COMPILER_SUPPORT_ATTR, LABEL)
                   .legacyAllowAnyFileType()
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .value(env.getToolsLabel("//tools/objc:protobuf_compiler_support")))
           .add(
               ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
@@ -989,7 +989,7 @@ public class ObjcRuleClasses {
           .add(
               attr("$j2objc_dead_code_pruner", LABEL)
                   .allowedFileTypes(FileType.of(".py"))
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .exec()
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
@@ -997,13 +997,13 @@ public class ObjcRuleClasses {
           .add(
               attr(PROTO_COMPILER_ATTR, LABEL)
                   .allowedFileTypes(FileType.of(".sh"))
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/objc:protobuf_compiler_wrapper")))
           .add(
               attr(PROTO_COMPILER_SUPPORT_ATTR, LABEL)
                   .legacyAllowAnyFileType()
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .value(env.getToolsLabel("//tools/objc:protobuf_compiler_support")))
           .add(
               ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
@@ -1138,7 +1138,7 @@ public class ObjcRuleClasses {
                   .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
           .add(
               attr("$momcwrapper", LABEL)
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .exec()
                   .value(env.getToolsLabel("//tools/objc:momcwrapper")))
           .build();
@@ -1216,7 +1216,7 @@ public class ObjcRuleClasses {
           .add(
               attr(EXTRA_ENTITLEMENTS_ATTR, LABEL)
                   .singleArtifact()
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .value(
                       LateBoundDefault.fromTargetConfiguration(
                           ObjcConfiguration.class,
@@ -1226,7 +1226,7 @@ public class ObjcRuleClasses {
           .add(
               attr(DEBUG_ENTITLEMENTS_ATTR, LABEL)
                   .singleArtifact()
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .value(env.getToolsLabel("//tools/objc:device_debug_entitlements.plist")))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(provisioning_profile) -->
           The provisioning profile (.mobileprovision file) to use when bundling
@@ -1342,17 +1342,17 @@ public class ObjcRuleClasses {
       return builder
           .add(
               attr("$bundlemerge", LABEL)
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .exec()
                   .value(env.getToolsLabel("//tools/objc:bundlemerge")))
           .add(
               attr("$environment_plist", LABEL)
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .exec()
                   .value(env.getToolsLabel("//tools/objc:environment_plist")))
           .add(
               attr("$swiftstdlibtoolwrapper", LABEL)
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .exec()
                   .value(env.getToolsLabel("//tools/objc:swiftstdlibtoolwrapper")))
           .build();
@@ -1414,7 +1414,7 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           // Needed to run the binary in the simulator.
-          .add(attr(STD_REDIRECT_DYLIB_ATTR, LABEL).cfg(HOST).exec()
+          .add(attr(STD_REDIRECT_DYLIB_ATTR, LABEL).cfg(HostTransition.INSTANCE).exec()
               .value(env.getToolsLabel("//tools/objc:StdRedirect.dylib")))
           .build();
     }
@@ -1434,7 +1434,7 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("$xcrunwrapper", LABEL).cfg(HOST).exec()
+          .add(attr("$xcrunwrapper", LABEL).cfg(HostTransition.INSTANCE).exec()
               .value(env.getToolsLabel("//tools/objc:xcrunwrapper")))
           .build();
     }

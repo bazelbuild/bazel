@@ -179,8 +179,9 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
                 .getAssociatedRule()
                 .getRuleClassObject()
                 .getAttributeByName("tools")
-                .getConfigurationTransition())
-        .isEqualTo(Attribute.ConfigurationTransition.HOST);
+                .getConfigurationTransition()
+                .isHostTransition())
+        .isTrue();
     assertThat(getHostConfiguration().getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }
 

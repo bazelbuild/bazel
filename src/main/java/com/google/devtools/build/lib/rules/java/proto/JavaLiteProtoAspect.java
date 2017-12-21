@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -125,14 +125,15 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                         ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                             ProtoLangToolchainProvider.class))
                     .value(getProtoToolchainLabel(defaultProtoToolchainLabel)))
-            .add(attr(":host_jdk", LABEL).cfg(HOST).value(hostJdkAttribute))
+            .add(attr(":host_jdk", LABEL).cfg(HostTransition.INSTANCE).value(hostJdkAttribute))
             .add(
                 attr(":java_toolchain", LABEL)
                     .useOutputLicenses()
                     .allowedRuleClasses("java_toolchain")
                     .value(JavaSemantics.JAVA_TOOLCHAIN));
 
-    Attribute.Builder<Label> jacocoAttr = attr("$jacoco_instrumentation", LABEL).cfg(HOST);
+    Attribute.Builder<Label> jacocoAttr =
+        attr("$jacoco_instrumentation", LABEL).cfg(HostTransition.INSTANCE);
 
     if (jacocoLabel != null) {
       jacocoAttr.value(parseAbsoluteUnchecked(jacocoLabel));

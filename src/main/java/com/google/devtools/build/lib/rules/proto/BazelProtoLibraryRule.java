@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -22,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -50,7 +50,10 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(ProtoConfiguration.class)
         .setOutputToGenfiles()
-        .add(attr(":proto_compiler", LABEL).cfg(HOST).exec().value(PROTO_COMPILER))
+        .add(attr(":proto_compiler", LABEL)
+            .cfg(HostTransition.INSTANCE)
+            .exec()
+            .value(PROTO_COMPILER))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(deps) -->
         The list of other <code>proto_library</code> rules that the target depends upon.
         A <code>proto_library</code> may only depend on other

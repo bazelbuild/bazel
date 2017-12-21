@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.packages.Attribute.ANY_EDGE;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -55,20 +55,23 @@ public class AarImportBaseRule implements RuleDefinition {
                 .validityPredicate(ANY_EDGE))
         .add(
             attr(AAR_EMBEDDED_JARS_EXTACTOR, LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_embedded_jars_extractor")))
         .add(
             attr(AAR_NATIVE_LIBS_ZIP_CREATOR, LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_native_libs_zip_creator")))
         .add(
             attr(AAR_RESOURCES_EXTRACTOR, LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_resources_extractor")))
-        .add(attr(ZIPPER, LABEL).cfg(HOST).exec().value(env.getToolsLabel("//tools/zip:zipper")))
+        .add(attr(ZIPPER, LABEL)
+            .cfg(HostTransition.INSTANCE)
+            .exec()
+            .value(env.getToolsLabel("//tools/zip:zipper")))
         .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }

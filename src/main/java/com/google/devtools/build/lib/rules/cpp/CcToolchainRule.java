@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Rule;
@@ -77,7 +77,7 @@ public final class CcToolchainRule implements RuleDefinition {
     if (defParserLabel != null) {
       builder.add(
           attr("$def_parser", LABEL)
-              .cfg(HOST)
+              .cfg(HostTransition.INSTANCE)
               .singleArtifact()
               .value(env.getLabel(defParserLabel)));
     }
@@ -89,26 +89,52 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("cpu", STRING).mandatory())
         .add(attr("compiler", STRING))
         .add(attr("libc", STRING))
-        .add(attr("all_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
-        .add(attr("compiler_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
-        .add(attr("strip_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
-        .add(attr("objcopy_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
-        .add(attr("linker_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
-        .add(attr("dwp_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
-        .add(attr("coverage_files", LABEL).legacyAllowAnyFileType().cfg(HOST))
-        .add(attr("static_runtime_libs", LABEL_LIST).legacyAllowAnyFileType().mandatory())
-        .add(attr("dynamic_runtime_libs", LABEL_LIST).legacyAllowAnyFileType().mandatory())
-        .add(attr("module_map", LABEL).legacyAllowAnyFileType().cfg(HOST))
+        .add(attr("all_files", LABEL)
+            .legacyAllowAnyFileType()
+            .cfg(HostTransition.INSTANCE)
+            .mandatory())
+        .add(attr("compiler_files", LABEL)
+            .legacyAllowAnyFileType()
+            .cfg(HostTransition.INSTANCE)
+            .mandatory())
+        .add(attr("strip_files", LABEL)
+            .legacyAllowAnyFileType()
+            .cfg(HostTransition.INSTANCE)
+            .mandatory())
+        .add(attr("objcopy_files", LABEL)
+            .legacyAllowAnyFileType()
+            .cfg(HostTransition.INSTANCE)
+            .mandatory())
+        .add(attr("linker_files", LABEL)
+            .legacyAllowAnyFileType()
+            .cfg(HostTransition.INSTANCE)
+            .mandatory())
+        .add(attr("dwp_files", LABEL)
+            .legacyAllowAnyFileType()
+            .cfg(HostTransition.INSTANCE)
+            .mandatory())
+        .add(attr("coverage_files", LABEL)
+            .legacyAllowAnyFileType()
+            .cfg(HostTransition.INSTANCE))
+        .add(attr("static_runtime_libs", LABEL_LIST)
+            .legacyAllowAnyFileType()
+            .mandatory())
+        .add(attr("dynamic_runtime_libs", LABEL_LIST)
+            .legacyAllowAnyFileType()
+            .mandatory())
+        .add(attr("module_map", LABEL)
+            .legacyAllowAnyFileType()
+            .cfg(HostTransition.INSTANCE))
         .add(attr("supports_param_files", BOOLEAN).value(true))
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
         .add(
             attr("$interface_library_builder", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:interface_library_builder")))
         .add(
             attr("$link_dynamic_library_tool", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
         .add(
@@ -116,7 +142,7 @@ public final class CcToolchainRule implements RuleDefinition {
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .add(
             attr(":zipper", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .singleArtifact()
                 .value(
                     LateBoundDefault.fromTargetConfiguration(
