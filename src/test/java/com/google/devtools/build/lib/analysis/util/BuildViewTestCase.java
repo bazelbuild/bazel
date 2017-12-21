@@ -1547,7 +1547,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             : customLoadingOptions;
 
     BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
-    viewOptions.loadingPhaseThreads = loadingPhaseThreads;
 
     LoadingPhaseRunner runner = new LegacyLoadingPhaseRunner(getPackageManager(),
         Collections.unmodifiableSet(ruleClassProvider.getRuleClassMap().keySet()));
@@ -1570,6 +1569,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         aspects,
         viewOptions,
         keepGoing,
+        loadingPhaseThreads,
         AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
         reporter,
         eventBus);

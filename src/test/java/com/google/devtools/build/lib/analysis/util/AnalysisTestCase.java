@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -242,7 +243,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     SkylarkSemanticsOptions.class,
                     BuildRequestOptions.class,
                     BuildView.Options.class,
-                    KeepGoingOption.class),
+                    KeepGoingOption.class,
+                    LoadingPhaseThreadsOption.class),
                 ruleClassProvider.getConfigurationOptions()));
     optionsParser.parse(new String[] {"--default_visibility=public" });
     optionsParser.parse(args);
@@ -305,10 +307,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
 
     BuildView.Options viewOptions = optionsParser.getOptions(BuildView.Options.class);
-    KeepGoingOption keepGoingOption = optionsParser.getOptions(KeepGoingOption.class);
     // update --keep_going option if test requested it.
-    keepGoingOption.keepGoing = flags.contains(Flag.KEEP_GOING);
-    viewOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
+    boolean keepGoing = flags.contains(Flag.KEEP_GOING);
 
     PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
     PathPackageLocator pathPackageLocator =
@@ -344,7 +344,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ImmutableList.copyOf(labels),
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
-            keepGoingOption.keepGoing,
+            keepGoing,
             /*determineTests=*/ false,
             /*callback=*/ null);
 
@@ -359,7 +359,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             masterConfig,
             aspects,
             viewOptions,
-            keepGoingOption.keepGoing,
+            keepGoing,
+            LOADING_PHASE_THREADS,
             AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
             reporter,
             eventBus);

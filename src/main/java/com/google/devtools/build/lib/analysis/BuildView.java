@@ -167,17 +167,6 @@ public class BuildView {
    */
   public static class Options extends OptionsBase {
     @Option(
-      name = "loading_phase_threads",
-      defaultValue = "-1",
-      category = "what",
-      converter = LoadingPhaseThreadCountConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Number of parallel threads to use for the loading/analysis phase."
-    )
-    public int loadingPhaseThreads;
-
-    @Option(
       name = "analysis_warnings_as_errors",
       deprecationWarning =
           "analysis_warnings_as_errors is now a no-op and will be removed in"
@@ -465,6 +454,7 @@ public class BuildView {
       List<String> aspects,
       Options viewOptions,
       boolean keepGoing,
+      int loadingPhaseThreads,
       TopLevelArtifactContext topLevelOptions,
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
@@ -579,12 +569,7 @@ public class BuildView {
     try {
       skyframeAnalysisResult =
           skyframeBuildView.configureTargets(
-              eventHandler,
-              topLevelCtKeys,
-              aspectKeys,
-              eventBus,
-              keepGoing,
-              viewOptions.loadingPhaseThreads);
+              eventHandler, topLevelCtKeys, aspectKeys, eventBus, keepGoing, loadingPhaseThreads);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();

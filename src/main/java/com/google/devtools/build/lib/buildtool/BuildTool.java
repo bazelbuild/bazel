@@ -561,6 +561,7 @@ public final class BuildTool {
             request.getAspects(),
             request.getViewOptions(),
             request.getKeepGoing(),
+            request.getLoadingPhaseThreadCount(),
             request.getTopLevelArtifactContext(),
             env.getReporter(),
             env.getEventBus());

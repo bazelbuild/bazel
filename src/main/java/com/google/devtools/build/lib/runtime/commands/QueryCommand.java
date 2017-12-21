@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -57,7 +58,12 @@ import java.util.Set;
 /** Command line wrapper for executing a query with blaze. */
 @Command(
   name = "query",
-  options = {PackageCacheOptions.class, QueryOptions.class, KeepGoingOption.class},
+  options = {
+    PackageCacheOptions.class,
+    QueryOptions.class,
+    KeepGoingOption.class,
+    LoadingPhaseThreadsOption.class
+  },
   help = "resource:query.txt",
   shortDescription = "Executes a dependency graph query.",
   allowResidue = true,
@@ -137,7 +143,7 @@ public final class QueryCommand implements BlazeCommand {
             options.getOptions(KeepGoingOption.class).keepGoing,
             !streamResults,
             queryOptions.universeScope,
-            queryOptions.loadingPhaseThreads,
+            options.getOptions(LoadingPhaseThreadsOption.class).threads,
             settings);
     QueryExpression expr;
     try {

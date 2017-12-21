@@ -989,6 +989,12 @@ java_library(
 )
 
 java_library(
+    name = "loading-phase-threads-option",
+    srcs = ["runtime/LoadingPhaseThreadsOption.java"],
+    deps = ["//src/main/java/com/google/devtools/common/options"],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -1002,11 +1008,13 @@ java_library(
         exclude = [
             "buildtool/BuildRequestOptions.java",
             "runtime/KeepGoingOption.java",
+            "runtime/LoadingPhaseThreadsOption.java",
         ],
     ),
     deps = [
         ":build-request-options",
         ":keep-going-option",
+        ":loading-phase-threads-option",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
@@ -76,7 +77,8 @@ public class BuildRequest implements OptionsClassProvider {
           LoadingOptions.class,
           BuildView.Options.class,
           ExecutionOptions.class,
-          KeepGoingOption.class);
+          KeepGoingOption.class,
+          LoadingPhaseThreadsOption.class);
 
   private BuildRequest(String commandName,
                        final OptionsProvider options,
@@ -209,6 +211,10 @@ public class BuildRequest implements OptionsClassProvider {
     return getOptions(KeepGoingOption.class).keepGoing;
   }
 
+  /** Returns the value of the --loading_phase_threads option. */
+  int getLoadingPhaseThreadCount() {
+    return getOptions(LoadingPhaseThreadsOption.class).threads;
+  }
   /**
    * Returns the set of execution options specified for this request.
    */

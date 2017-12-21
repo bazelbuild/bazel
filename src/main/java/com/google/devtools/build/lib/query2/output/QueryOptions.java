@@ -131,15 +131,6 @@ public class QueryOptions extends OptionsBase {
   public OrderOutput orderOutput;
 
   @Option(
-    name = "loading_phase_threads",
-    defaultValue = "200",
-    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help = "Number of parallel threads to use for the loading phase."
-  )
-  public int loadingPhaseThreads;
-
-  @Option(
     name = "host_deps",
     defaultValue = "true",
     category = "query",

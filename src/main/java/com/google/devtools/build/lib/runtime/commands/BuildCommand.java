@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
@@ -45,7 +46,8 @@ import java.util.List;
     PackageCacheOptions.class,
     BuildView.Options.class,
     LoadingOptions.class,
-    KeepGoingOption.class
+    KeepGoingOption.class,
+    LoadingPhaseThreadsOption.class
   },
   usesConfigurationOptions = true,
   shortDescription = "Builds the specified targets.",
