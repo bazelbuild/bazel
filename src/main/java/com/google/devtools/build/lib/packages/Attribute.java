@@ -186,14 +186,6 @@ public final class Attribute implements Comparable<Attribute> {
     /** No transition, i.e., the same configuration as the current. */
     NONE,
 
-    /** Transition to the host configuration. */
-    HOST {
-      @Override
-      public boolean isHostTransition() {
-        return true;
-      }
-    },
-
     /** Transition to a null configuration (applies to, e.g., input files). */
     NULL,
 
@@ -1626,9 +1618,10 @@ public final class Attribute implements Comparable<Attribute> {
      * it isn't the appropriate option.
      *
      * <p>If you want a late-bound dependency which is configured in the host configuration, just
-     * use this method with {@link ConfigurationTransition#HOST}. If you also need to decide the
-     * label of the dependency with information gained from the host configuration - and it's very
-     * unlikely that you do - you can use {@link #fromHostConfiguration} as well.
+     * use this method with {@link com.google.devtools.build.lib.analysis.config.HostTransition}.
+     * If you also need to decide the label of the dependency with information gained from the host
+     * configuration - and it's very unlikely that you do - you can use
+     * {@link #fromHostConfiguration} as well.
      *
      * <p>If you want to decide an attribute's value based on the value of its other attributes,
      * use a subclass of {@link ComputedDefault}. The only time you should need
@@ -1661,11 +1654,11 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>This should only be necessary in very specialized cases. In almost all cases, you don't
      * need this method, just {@link #fromTargetConfiguration} and
-     * {@link ConfigurationTransition#HOST}.
+     * {@link com.google.devtools.build.lib.analysis.config.HostTransition}.
      *
      * <p>This method only affects the configuration fragment passed to {@link #resolve}. You must
-     * also use {@link ConfigurationTransition#HOST}, so that the dependency will be analyzed in the
-     * host configuration.
+     * also use {@link com.google.devtools.build.lib.analysis.config.HostTransition}, so that the
+     * dependency will be analyzed in the host configuration.
      *
      * @param fragmentClass The fragment to receive from the host configuration. May also be
      *     BuildConfiguration.class to receive the entire configuration (deprecated) - in this case,
