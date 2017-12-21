@@ -206,6 +206,13 @@ public class UnionFileSystem extends FileSystem {
   }
 
   @Override
+  public void createDirectoryAndParents(Path path) throws IOException {
+    checkModifiable(path);
+    FileSystem delegate = getDelegate(path);
+    delegate.createDirectoryAndParents(path);
+  }
+
+  @Override
   protected long getFileSize(Path path, boolean followSymlinks) throws IOException {
     path = followSymlinks ? internalResolveSymlink(path) : path;
     FileSystem delegate = getDelegate(path);

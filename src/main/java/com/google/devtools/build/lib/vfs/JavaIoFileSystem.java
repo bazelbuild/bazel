@@ -258,6 +258,12 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
+  @Override
+  public void createDirectoryAndParents(Path path) throws IOException {
+    java.nio.file.Path nioPath = getNioPath(path);
+    Files.createDirectories(nioPath);
+  }
+
   private boolean linkExists(File file) {
     String shortName = file.getName();
     File parentFile = file.getParentFile();

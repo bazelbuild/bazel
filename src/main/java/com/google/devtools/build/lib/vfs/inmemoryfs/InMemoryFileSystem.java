@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -620,6 +621,22 @@ public class InMemoryFileSystem extends FileSystem {
       insert(parent, path.getBaseName(), newDir, path);
 
       return true;
+    }
+  }
+
+  @Override
+  public synchronized void createDirectoryAndParents(Path path) throws IOException {
+    List<Path> subdirs = new ArrayList<>();
+    for (; !path.isRootDirectory(); path = path.getParentDirectory()) {
+      if (path.isDirectory()) {
+        break;
+      } else if (path.exists()) {
+        throw new IOException("Not a directory: " + path);
+      }
+      subdirs.add(path);
+    }
+    for (Path subdir : Lists.reverse(subdirs)) {
+      subdir.createDirectory();
     }
   }
 

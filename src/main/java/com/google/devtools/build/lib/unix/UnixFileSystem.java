@@ -325,6 +325,11 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  public void createDirectoryAndParents(Path path) throws IOException {
+    NativePosixFiles.mkdirs(path.toString(), 0777);
+  }
+
+  @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment)
       throws IOException {
     synchronized (linkPath) {

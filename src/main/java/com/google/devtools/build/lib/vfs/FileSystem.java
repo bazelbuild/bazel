@@ -257,6 +257,12 @@ public abstract class FileSystem {
   public abstract boolean createDirectory(Path path) throws IOException;
 
   /**
+   * Creates all directories up to the path. See {@link Path#createDirectoryAndParents} for
+   * specification.
+   */
+  public abstract void createDirectoryAndParents(Path path) throws IOException;
+
+  /**
    * Returns the size in bytes of the file denoted by {@code path}. See {@link
    * Path#getFileSize(Symlinks)} for specification.
    *

@@ -1026,6 +1026,19 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
     return fileSystem.createDirectory(this);
   }
 
+  /**
+   * Ensures that the directory with the name of the current path and all its ancestor directories
+   * exist.
+   *
+   * <p>Does not return whether the directory already existed or was created by some other
+   * concurrent call to this method.
+   *
+   * @throws IOException if the directory creation failed for any reason
+   */
+  public void createDirectoryAndParents() throws IOException {
+    fileSystem.createDirectoryAndParents(this);
+  }
+
   /** Prefer to use {@link #createSymbolicLink(FileSystem, Path)}. */
   @Deprecated
   public void createSymbolicLink(Path target) throws IOException {
