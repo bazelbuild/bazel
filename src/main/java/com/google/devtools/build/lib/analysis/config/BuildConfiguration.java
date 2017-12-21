@@ -1070,7 +1070,7 @@ public class BuildConfiguration implements BuildEvent {
     }
 
     @Override
-    public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
+    public Map<String, Set<Label>> getDefaultsLabels() {
       return ImmutableMap.<String, Set<Label>>of(
           "coverage_support", ImmutableSet.of(coverageSupport),
           "coverage_report_generator", ImmutableSet.of(coverageReportGenerator));

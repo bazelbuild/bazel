@@ -35,7 +35,7 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
    * allowed to change depending on the value of the options.
    */
   @SuppressWarnings("unused")
-  public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
+  public Map<String, Set<Label>> getDefaultsLabels() {
     return ImmutableMap.of();
   }
 

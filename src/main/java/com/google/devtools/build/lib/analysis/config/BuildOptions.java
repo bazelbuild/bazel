@@ -78,7 +78,9 @@ public final class BuildOptions implements Cloneable, Serializable {
     Builder builder = builder();
     for (FragmentOptions options : fragmentOptionsMap.values()) {
       if (optionsClasses.contains(options.getClass())
-          || options instanceof BuildConfiguration.Options) {
+          // TODO(bazel-team): make this non-hacky while not requiring BuildConfiguration access
+          // to BuildOptions.
+          || options.toString().contains("BuildConfiguration$Options")) {
         builder.add(options);
       }
     }
@@ -133,10 +135,9 @@ public final class BuildOptions implements Cloneable, Serializable {
   // It would be very convenient to use a Multimap here, but we cannot do that because we need to
   // support defaults labels that have zero elements.
   ImmutableMap<String, ImmutableSet<Label>> getDefaultsLabels() {
-    BuildConfiguration.Options opts = get(BuildConfiguration.Options.class);
     Map<String, Set<Label>> collector  = new TreeMap<>();
     for (FragmentOptions fragment : fragmentOptionsMap.values()) {
-      for (Map.Entry<String, Set<Label>> entry : fragment.getDefaultsLabels(opts).entrySet()) {
+      for (Map.Entry<String, Set<Label>> entry : fragment.getDefaultsLabels().entrySet()) {
         if (!collector.containsKey(entry.getKey())) {
           collector.put(entry.getKey(), new TreeSet<Label>());
         }
