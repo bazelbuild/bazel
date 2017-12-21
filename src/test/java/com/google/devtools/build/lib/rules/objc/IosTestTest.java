@@ -593,7 +593,6 @@ public class IosTestTest extends ObjcRuleTestCase {
         "ios_test(",
         "  name = 'some_test',",
         "  srcs = ['SomeTest.m'],",
-        "  xctest = 0,",
         "  target_device = ':test_device',",
         ")");
 
@@ -623,7 +622,6 @@ public class IosTestTest extends ObjcRuleTestCase {
         "ios_test(",
         "  name = 'some_test',",
         "  srcs = ['SomeTest.m'],",
-        "  xctest = 0,",
         "  target_device = ':test_device',",
         ")");
 
@@ -668,48 +666,6 @@ public class IosTestTest extends ObjcRuleTestCase {
         Substitution.of("%(test_env)s", ""),
         Substitution.of("%(test_type)s", "XCTEST")
     );
-  }
-
-  @Test
-  public void testNonXcTestSubstitution() throws Exception {
-    scratch.file("test/BUILD",
-        "ios_test(",
-        "  name = 'some_test',",
-        "  srcs = ['SomeTest.m'],",
-        "  xctest = 0,",
-        ")");
-
-    scratch.file("test/SomeTest.m");
-
-    ConfiguredTarget target = getConfiguredTarget("//test:some_test");
-
-    TemplateExpansionAction action =
-        getTestScriptGenerationAction(target);
-    assertThat(action.getSubstitutions()).containsExactly(
-        Substitution.of("%(memleaks)s", "false"),
-
-        Substitution.of("%(test_app_ipa)s", "test/some_test.ipa"),
-        Substitution.of("%(test_bundle_path)s", "test/some_test.ipa"),
-        Substitution.of("%(test_app_name)s", "some_test"),
-
-        Substitution.of("%(xctest_app_ipa)s", ""),
-        Substitution.of("%(xctest_app_name)s", ""),
-        Substitution.of("%(test_host_path)s", ""),
-
-        Substitution.of("%(plugin_jars)s", ""),
-        Substitution.of("%(device_type)s", "iChimpanzee"),
-        Substitution.of("%(locale)s", "en"),
-        Substitution.of("%(simulator_sdk)s", "9.8"),
-        Substitution.of("%(testrunner_binary)s", "tools/objc/testrunner"),
-        Substitution.of("%(std_redirect_dylib_path)s", "tools/objc/StdRedirect.dylib"),
-        Substitution.of("%(test_env)s", ""),
-        Substitution.of("%(test_type)s", "KIF")
-    );
-
-    assertRunfilesContainsRootRelativePaths(target,
-        "test/some_test.ipa",
-        "test/some_test_test_script",
-        "tools/objc/testrunner");
   }
 
   @Test

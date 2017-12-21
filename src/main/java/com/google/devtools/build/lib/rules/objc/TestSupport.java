@@ -109,11 +109,7 @@ public class TestSupport {
           .add(Substitution.of("%(test_host_path)s", ""));
     }
 
-    if (ruleContext.attributes().get(IosTest.IS_XCTEST_ATTR, Type.BOOLEAN)) {
-      substitutions.add(Substitution.of("%(test_type)s", "XCTEST"));
-    } else {
-      substitutions.add(Substitution.of("%(test_type)s", "KIF"));
-    }
+    substitutions.add(Substitution.of("%(test_type)s", "XCTEST"));
 
     Artifact template;
     if (!runWithLabDevice()) {
