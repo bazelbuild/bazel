@@ -74,6 +74,9 @@ py_binary(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
+    deps = [
+        "//third_party/py/six",
+    ],
 )
 
 filegroup(
