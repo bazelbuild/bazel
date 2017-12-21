@@ -433,6 +433,11 @@ public final class PackageFactory {
     threadPool.setMaximumPoolSize(globbingThreads);
   }
 
+  /**
+   * Sets the number of directories to eagerly traverse on the first glob for a given package, in
+   * order to warm the filesystem. -1 means do no eager traversal. See {@code
+   * PackageCacheOptions#maxDirectoriesToEagerlyVisitInGlobbing}.
+   */
   public void setMaxDirectoriesToEagerlyVisitInGlobbing(
       int maxDirectoriesToEagerlyVisitInGlobbing) {
     this.maxDirectoriesToEagerlyVisitInGlobbing = maxDirectoriesToEagerlyVisitInGlobbing;

@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.CacheEntryWithGlob
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -102,6 +103,10 @@ import javax.annotation.Nullable;
  * caching.
  */
 public abstract class AbstractPackageLoader implements PackageLoader {
+
+  // See {@link PackageFactory.setMaxDirectoriesToEagerlyVisitInGlobbing}.
+  private static final int MAX_DIRECTORIES_TO_EAGERLY_VISIT_IN_GLOBBING = 3000;
+
   private final ImmutableDiff preinjectedDiff;
   private final Differencer preinjectedDifferencer = new Differencer() {
     @Override
@@ -359,6 +364,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             getName(),
             Package.Builder.DefaultHelper.INSTANCE);
     pkgFactory.setGlobbingThreads(legacyGlobbingThreads);
+    pkgFactory.setSyscalls(new AtomicReference<>(PerBuildSyscallCache.newBuilder().build()));
+    pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
+        MAX_DIRECTORIES_TO_EAGERLY_VISIT_IN_GLOBBING);
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
     builder
         .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
