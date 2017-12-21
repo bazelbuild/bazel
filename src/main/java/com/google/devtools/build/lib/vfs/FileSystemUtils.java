@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Helper functions that implement often-used complex operations on file
@@ -630,34 +629,10 @@ public class FileSystemUtils {
    */
   @ThreadSafe
   public static boolean createDirectoryAndParents(Path dir) throws IOException {
-    return createDirectoryAndParentsWithCache(null, dir);
-  }
-
-  /**
-   * Attempts to create a directory with the name of the given path, creating ancestors as
-   * necessary. Only creates directories or their parents if they are not contained in the set
-   * {@code createdDirs} and instead assumes that they already exist. This saves a round-trip to the
-   * kernel, but is only safe when no one deletes directories that have been created by this method.
-   *
-   * <p>Postcondition: completes normally iff {@code dir} denotes an existing directory (not
-   * necessarily canonical); completes abruptly otherwise.
-   *
-   * @return true if the directory was successfully created anew, false if it already existed
-   *     (including the case where {@code dir} denotes a symlink to an existing directory)
-   * @throws IOException if the directory could not be created
-   */
-  @ThreadSafe
-  public static boolean createDirectoryAndParentsWithCache(Set<Path> createdDirs, Path dir)
-      throws IOException {
     // Optimised for minimal number of I/O calls.
 
     // Don't attempt to create the root directory.
     if (dir.getParentDirectory() == null) {
-      return false;
-    }
-
-    // We already created that directory.
-    if (createdDirs != null && createdDirs.contains(dir)) {
       return false;
     }
 
@@ -670,23 +645,12 @@ public class FileSystemUtils {
     }
 
     try {
-      boolean result = dir.createDirectory();
-      if (createdDirs != null) {
-        createdDirs.add(dir);
-      }
-      return result;
+      return dir.createDirectory();
     } catch (IOException e) {
       if (e.getMessage().endsWith(" (No such file or directory)")) { // ENOENT
-        createDirectoryAndParentsWithCache(createdDirs, dir.getParentDirectory());
-        boolean result = dir.createDirectory();
-        if (createdDirs != null) {
-          createdDirs.add(dir);
-        }
-        return result;
+        createDirectoryAndParents(dir.getParentDirectory());
+        return dir.createDirectory();
       } else if (e.getMessage().endsWith(" (File exists)") && dir.isDirectory()) { // EEXIST
-        if (createdDirs != null) {
-          createdDirs.add(dir);
-        }
         return false;
       } else {
         throw e; // some other error (e.g. ENOTDIR, EACCES, etc.)
