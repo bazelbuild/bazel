@@ -863,7 +863,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add("--dummy_archive")
             .add(execPath + "tools/objc/libdummy_lib.a")
             .add("--xcrunwrapper")
-            .add("tools/objc/xcrunwrapper")
+            .add(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH)
             .add("--dependency_mapping_files")
             .add(dependencyMappingFile.getExecPathString())
             .add("--header_mapping_files")

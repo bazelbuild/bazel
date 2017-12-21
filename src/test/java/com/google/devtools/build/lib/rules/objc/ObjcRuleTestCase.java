@@ -130,7 +130,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       toolsRepoExecPath("tools/objc/swiftstdlibtoolwrapper");
   protected static final String MOCK_LIBTOOL_PATH = toolsRepoExecPath("tools/objc/libtool");
   protected static final String MOCK_XCRUNWRAPPER_PATH =
-      toolsRepoExecPath("tools/objc/xcrunwrapper");
+      toolsRepoExecPath("tools/objc/xcrunwrapper.sh");
+  protected static final String MOCK_XCRUNWRAPPER_EXECUTABLE_PATH =
+      toolExecutable("tools/objc/xcrunwrapper");
   protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
 
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
@@ -193,6 +195,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         + getTargetConfiguration().getGenfilesDirectory(RepositoryName.MAIN)
             .getExecPath().getBaseName();
 
+  }
+
+  private static String toolExecutable(String toolSrcPath) {
+    return String.format("%s-out/host/bin/%s", TestConstants.PRODUCT_NAME,
+        TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + toolSrcPath);
   }
 
   private String configurationDir(
@@ -3724,7 +3731,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     boolean isTestRule = ruleType.getRuleTypeName().endsWith("_test");
 
     ImmutableList.Builder<String> expectedSymbolStripArgs = ImmutableList.<String>builder()
-        .add(MOCK_XCRUNWRAPPER_PATH)
+        .add(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH)
         .add(STRIP);
 
     expectedSymbolStripArgs.add(extraItems);
@@ -4156,10 +4163,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x_bin";
 
     assertThat(Artifact.toExecPaths(action.getInputs()))
-        .containsExactly(i386Bin, x8664Bin, MOCK_XCRUNWRAPPER_PATH);
+        .containsExactly(i386Bin, x8664Bin, MOCK_XCRUNWRAPPER_PATH,
+            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertThat(action.getArguments())
-        .containsExactly(MOCK_XCRUNWRAPPER_PATH, LIPO,
+        .containsExactly(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO,
             "-create", i386Bin, x8664Bin,
             "-o", execPathEndingWith(action.getOutputs(), "x_lipobin"))
         .inOrder();
@@ -4446,10 +4454,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         + "x/x_bin";
 
     assertThat(Artifact.toExecPaths(action.getInputs()))
-        .containsExactly(i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH);
+        .containsExactly(i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH,
+            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertContainsSublist(action.getArguments(), ImmutableList.of(
-        MOCK_XCRUNWRAPPER_PATH, LIPO, "-create"));
+        MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
     assertThat(action.getArguments()).containsAllOf(armv7kBin, i386Bin);
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         "-o", execPathEndingWith(action.getOutputs(), "x_lipobin")));

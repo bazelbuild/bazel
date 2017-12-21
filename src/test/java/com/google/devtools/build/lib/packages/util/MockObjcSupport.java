@@ -90,7 +90,7 @@ public final class MockObjcSupport {
             "realpath",
             "swiftstdlibtoolwrapper",
             "testrunner",
-            "xcrunwrapper",
+            "xcrunwrapper.sh",
             "mcov",
             "libtool")) {
       config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/" + tool);
@@ -134,6 +134,7 @@ public final class MockObjcSupport {
         "  srcs = ['proto_support', 'protobuf_compiler_helper.py'],",
         ")",
         "sh_binary(name = 'environment_plist', srcs = ['environment_plist.sh'])",
+        "sh_binary(name = 'xcrunwrapper', srcs = ['xcrunwrapper.sh'])",
         "fake_test_app(name = 'xctest_app')",
         "apple_binary(name = 'xctest_appbin', platform_type = 'ios', deps = [':dummy_lib'])",
         "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])",

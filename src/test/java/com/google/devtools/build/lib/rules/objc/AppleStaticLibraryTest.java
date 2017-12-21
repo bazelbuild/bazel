@@ -156,11 +156,12 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x-fl.a";
 
     assertThat(Artifact.toExecPaths(action.getInputs()))
-        .containsExactly(i386Lib, x8664Lib, MOCK_XCRUNWRAPPER_PATH);
+        .containsExactly(i386Lib, x8664Lib, MOCK_XCRUNWRAPPER_PATH,
+            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertThat(action.getArguments())
         .containsExactly(
-            MOCK_XCRUNWRAPPER_PATH,
+            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH,
             LIPO,
             "-create",
             i386Lib,
@@ -247,10 +248,11 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         + "x/x-fl.a";
 
     assertThat(Artifact.toExecPaths(action.getInputs()))
-        .containsExactly(i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH);
+        .containsExactly(i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH,
+            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertContainsSublist(action.getArguments(), ImmutableList.of(
-        MOCK_XCRUNWRAPPER_PATH, LIPO, "-create"));
+        MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
     assertThat(action.getArguments()).containsAllOf(armv7kBin, i386Bin);
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         "-o", execPathEndingWith(action.getOutputs(), "x_lipo.a")));
