@@ -452,10 +452,8 @@ public abstract class BlazeOptionHandler {
       for (ParsedOptionDescription configInstance : configInstances) {
         String configValueToExpand = (String) configInstance.getConvertedValue();
         List<String> expansion = getExpansion(eventHandler, commandToRcArgs, configValueToExpand);
-        optionsParser.parseOptionsFixedAtSpecificPriority(
-            configInstance.getPriority(),
-            String.format("expanded from --%s", configValueToExpand),
-            expansion);
+        optionsParser.parseArgsFixedAsExpansionOfOption(
+            configInstance, String.format("expanded from --%s", configValueToExpand), expansion);
       }
 
       // At this point, we've expanded everything, identify duplicates, if any, to warn about

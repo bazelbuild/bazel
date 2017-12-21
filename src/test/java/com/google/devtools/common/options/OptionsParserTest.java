@@ -793,7 +793,7 @@ public class OptionsParserTest {
     assertThat(optionValue.getCanonicalInstances()).hasSize(1);
 
     ParsedOptionDescription effectiveInstance = optionValue.getCanonicalInstances().get(0);
-    assertThat(effectiveInstance.getExpandedFrom())
+    assertThat(effectiveInstance.getExpandedFrom().getOptionDefinition())
         .isSameAs(expansionDescription.getOptionDefinition());
     assertThat(effectiveInstance.getImplicitDependent()).isNull();
 
@@ -811,7 +811,7 @@ public class OptionsParserTest {
     assertThat(options.underlying).isEqualTo("from_expansion");
     assertThat(parser.getWarnings())
         .containsExactly(
-            "option '--expands' was expanded and now overrides a previous explicitly specified "
+            "option '--expands' was expanded and now overrides the explicit option "
                 + "--underlying=direct_value with --underlying=from_expansion");
   }
 
@@ -989,7 +989,7 @@ public class OptionsParserTest {
     assertThat(parser.getWarnings())
         .containsExactly(
             "option '--second' is implicitly defined by both option '--first' and "
-                + "option '--third'");
+                + "option '--third=third'");
   }
 
   @Test
@@ -1295,7 +1295,7 @@ public class OptionsParserTest {
     parser.parse("--underlying=underlying", "--first");
     assertThat(parser.getWarnings())
         .containsExactly(
-            "option '--first' was expanded and now overrides a previous explicitly specified "
+            "option '--first' was expanded and now overrides the explicit option "
                 + "--underlying=underlying with --underlying=expandedFromFirst");
   }
 

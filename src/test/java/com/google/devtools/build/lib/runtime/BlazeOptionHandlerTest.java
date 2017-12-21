@@ -1580,4 +1580,92 @@ public class BlazeOptionHandlerTest {
     makeInPlaceExpandingConfigOptionHandler();
     testWarningFlag_byConfig_triggered();
   }
+
+  @Test
+  public void testConfigAfterExplicit_fixedPoint() {
+    makeFixedPointExpandingConfigOptionHandler();
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--test_string=explicitValue",
+            "--config=conf",
+            "--default_override=0:c0:conf=--test_string=fromConf",
+            "--rc_source=/somewhere/.blazerc"),
+        eventHandler);
+    TestOptions parseResult = parser.getOptions(TestOptions.class);
+    assertThat(eventHandler.getEvents()).isEmpty();
+    // The fact that --config=conf comes after the explicit value does not matter
+    assertThat(parseResult.testString).isEqualTo("explicitValue");
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+                + "--test_string=fromConf");
+  }
+
+  @Test
+  public void testConfigAfterExplicit_inPlace() {
+    makeInPlaceExpandingConfigOptionHandler();
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--test_string=explicitValue",
+            "--config=conf",
+            "--default_override=0:c0:conf=--test_string=fromConf",
+            "--rc_source=/somewhere/.blazerc"),
+        eventHandler);
+    TestOptions parseResult = parser.getOptions(TestOptions.class);
+    // In the in-place expansion, the config's expansion has precedence, but issues a warning since
+    // users might not know that their explicit value was overridden.
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.warn(
+                "option '--config=conf' (source command line options) was expanded and now "
+                    + "overrides the explicit option --test_string=explicitValue with "
+                    + "--test_string=fromConf"));
+    assertThat(parseResult.testString).isEqualTo("fromConf");
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+                + "--test_string=fromConf");
+  }
+
+  @Test
+  public void testExplicitOverridesConfig_fixedPoint() {
+    makeFixedPointExpandingConfigOptionHandler();
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--config=conf",
+            "--test_string=explicitValue",
+            "--default_override=0:c0:conf=--test_string=fromConf",
+            "--rc_source=/somewhere/.blazerc"),
+        eventHandler);
+    TestOptions parseResult = parser.getOptions(TestOptions.class);
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parseResult.testString).isEqualTo("explicitValue");
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+                + "--test_string=fromConf");
+  }
+
+  @Test
+  public void testExplicitOverridesConfig_inPlace() {
+    makeInPlaceExpandingConfigOptionHandler();
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--config=conf",
+            "--test_string=explicitValue",
+            "--default_override=0:c0:conf=--test_string=fromConf",
+            "--rc_source=/somewhere/.blazerc"),
+        eventHandler);
+    TestOptions parseResult = parser.getOptions(TestOptions.class);
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parseResult.testString).isEqualTo("explicitValue");
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+                + "--test_string=fromConf");
+  }
 }

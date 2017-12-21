@@ -185,11 +185,11 @@ public abstract class OptionValueDescription {
       // log warnings describing the change.
       if (parsedOption.getPriority().compareTo(effectiveOptionInstance.getPriority()) >= 0) {
         // Identify the option that might have led to the current and new value of this option.
-        OptionDefinition implicitDependent = parsedOption.getImplicitDependent();
-        OptionDefinition expandedFrom = parsedOption.getExpandedFrom();
-        OptionDefinition optionThatDependsOnEffectiveValue =
+        ParsedOptionDescription implicitDependent = parsedOption.getImplicitDependent();
+        ParsedOptionDescription expandedFrom = parsedOption.getExpandedFrom();
+        ParsedOptionDescription optionThatDependsOnEffectiveValue =
             effectiveOptionInstance.getImplicitDependent();
-        OptionDefinition optionThatExpandedToEffectiveValue =
+        ParsedOptionDescription optionThatExpandedToEffectiveValue =
             effectiveOptionInstance.getExpandedFrom();
 
         Object newValue = parsedOption.getConvertedValue();
@@ -225,7 +225,7 @@ public abstract class OptionValueDescription {
             // Create a warning if an expansion option overrides an explicit option:
             warnings.add(
                 String.format(
-                    "%s was expanded and now overrides a previous explicitly specified %s with %s",
+                    "%s was expanded and now overrides the explicit option %s with %s",
                     expandedFrom,
                     effectiveOptionInstance.getCommandLineForm(),
                     parsedOption.getCommandLineForm()));
