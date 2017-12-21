@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Strings;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -377,7 +378,11 @@ public final class CcCommon {
     if (!ruleContext.getRule().isAttrDefined(NO_COPTS_ATTRIBUTE, Type.STRING)) {
       return null;
     }
-    String nocoptsAttr = ruleContext.getExpander().expand(NO_COPTS_ATTRIBUTE);
+    String nocoptsValue = ruleContext.attributes().get(NO_COPTS_ATTRIBUTE, Type.STRING);
+    if (Strings.isNullOrEmpty(nocoptsValue)) {
+      return null;
+    }
+    String nocoptsAttr = ruleContext.getExpander().expand(NO_COPTS_ATTRIBUTE, nocoptsValue);
     try {
       return Pattern.compile(nocoptsAttr);
     } catch (PatternSyntaxException e) {
