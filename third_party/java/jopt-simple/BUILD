@@ -10,4 +10,8 @@ filegroup(
 java_library(
     name = "jopt-simple",
     srcs = glob(["src/main/**/*.java"]),
+    resources = [
+        "src/main/resources/joptsimple/ExceptionMessages.properties",
+        "src/main/resources/joptsimple/HelpFormatterMessages.properties",
+    ],
 )
