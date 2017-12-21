@@ -15,8 +15,19 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
+import java.io.IOException;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 
 /** Static utilities for AutoCodec processors. */
@@ -25,12 +36,49 @@ class AutoCodecUtil {
   public static final String GENERATED_CLASS_NAME_SUFFIX = "AutoCodec";
   static final Class<AutoCodec> ANNOTATION = AutoCodec.class;
 
+  static TypeSpec.Builder initializeCodecClassBuilder(TypeElement encodedType) {
+    return TypeSpec.classBuilder(getCodecName(encodedType))
+        .addSuperinterface(
+            ParameterizedTypeName.get(
+                ClassName.get(ObjectCodec.class), TypeName.get(encodedType.asType())));
+  }
+
+  static MethodSpec.Builder initializeGetEncodedClassMethod(TypeElement encodedType) {
+    return MethodSpec.methodBuilder("getEncodedClass")
+        .addModifiers(Modifier.PUBLIC)
+        .addAnnotation(Override.class)
+        .returns(
+            ParameterizedTypeName.get(
+                ClassName.get(Class.class), TypeName.get(encodedType.asType())));
+  }
+
+  static MethodSpec.Builder initializeSerializeMethodBuilder(TypeElement encodedType) {
+    return MethodSpec.methodBuilder("serialize")
+        .addModifiers(Modifier.PUBLIC)
+        .returns(void.class)
+        .addParameter(TypeName.get(encodedType.asType()), "input")
+        .addParameter(CodedOutputStream.class, "codedOut")
+        .addAnnotation(Override.class)
+        .addException(SerializationException.class)
+        .addException(IOException.class);
+  }
+
+  static MethodSpec.Builder initializeDeserializeMethodBuilder(TypeElement encodedType) {
+    return MethodSpec.methodBuilder("deserialize")
+        .addModifiers(Modifier.PUBLIC)
+        .returns(TypeName.get(encodedType.asType()))
+        .addParameter(CodedInputStream.class, "codedIn")
+        .addAnnotation(Override.class)
+        .addException(SerializationException.class)
+        .addException(IOException.class);
+  }
+
   /**
    * Name of the generated codec class.
    *
    * <p>For {@code Foo.Bar} this is {@code Foo_Bar_AutoCodec}.
    */
-  static String getCodecName(Element element) {
+  private static String getCodecName(Element element) {
     ImmutableList.Builder<String> classNamesBuilder = new ImmutableList.Builder<>();
     classNamesBuilder.add(GENERATED_CLASS_NAME_SUFFIX);
     do {

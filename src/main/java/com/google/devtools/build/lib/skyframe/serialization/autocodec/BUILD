@@ -55,7 +55,10 @@ java_library(
     srcs = ["AutoCodecUtil.java"],
     deps = [
         ":autocodec-annotation",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:guava",
+        "//third_party/java/javapoet",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -65,11 +68,9 @@ java_library(
     srcs = ["FakeAutoCodecProcessor.java"],
     deps = [
         ":autocodec-util",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:auto_service",
         "//third_party:guava",
         "//third_party/java/javapoet",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 

@@ -16,14 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
-import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
 import java.util.Set;
@@ -33,7 +26,6 @@ import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 
@@ -68,34 +60,17 @@ public class FakeAutoCodecProcessor extends AbstractProcessor {
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoCodecUtil.ANNOTATION)) {
       TypeElement encodedType = (TypeElement) element;
-      TypeSpec.Builder codecClassBuilder =
-          TypeSpec.classBuilder(AutoCodecUtil.getCodecName(encodedType))
-              .addSuperinterface(
-                  ParameterizedTypeName.get(
-                      ClassName.get(ObjectCodec.class), TypeName.get(encodedType.asType())));
+      TypeSpec.Builder codecClassBuilder = AutoCodecUtil.initializeCodecClassBuilder(encodedType);
       codecClassBuilder.addMethod(
-          MethodSpec.methodBuilder("getEncodedClass")
-              .addModifiers(Modifier.PUBLIC)
-              .addAnnotation(Override.class)
-              .returns(
-                  ParameterizedTypeName.get(
-                      ClassName.get(Class.class), TypeName.get(encodedType.asType())))
+          AutoCodecUtil.initializeGetEncodedClassMethod(encodedType)
               .addStatement("throw new RuntimeException(\"Shouldn't be called.\")")
               .build());
       codecClassBuilder.addMethod(
-          MethodSpec.methodBuilder("serialize")
-              .addModifiers(Modifier.PUBLIC)
-              .addParameter(TypeName.get(encodedType.asType()), "input")
-              .addParameter(CodedOutputStream.class, "codedOut")
-              .addAnnotation(Override.class)
+          AutoCodecUtil.initializeSerializeMethodBuilder(encodedType)
               .addStatement("throw new RuntimeException(\"Shouldn't be called.\")")
               .build());
       codecClassBuilder.addMethod(
-          MethodSpec.methodBuilder("deserialize")
-              .addModifiers(Modifier.PUBLIC)
-              .returns(TypeName.get(encodedType.asType()))
-              .addParameter(CodedInputStream.class, "codedIn")
-              .addAnnotation(Override.class)
+          AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType)
               .addStatement("throw new RuntimeException(\"Shouldn't be called.\")")
               .build());
       String packageName =

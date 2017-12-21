@@ -62,6 +62,13 @@ public @interface AutoCodec {
      * instance for deserialization.
      */
     PUBLIC_FIELDS,
+    /**
+     * For use with abstract classes (enforced at compile time).
+     *
+     * <p>Uses reflection to determine the concrete subclass, stores the name of the subclass and
+     * uses its codec to serialize the data.
+     */
+    POLYMORPHIC,
   }
 
   Strategy strategy() default Strategy.CONSTRUCTOR;
