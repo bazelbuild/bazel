@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -48,8 +46,6 @@ import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.Platform;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import io.grpc.Context;
 import io.grpc.Status.Code;
 import java.io.IOException;
@@ -74,6 +70,8 @@ class RemoteSpawnRunner implements SpawnRunner {
 
   private final Path execRoot;
   private final RemoteOptions options;
+  // TODO(olaola): This will be set on a per-action basis instead.
+  private final Platform platform;
   private final SpawnRunner fallbackRunner;
   private final boolean verboseFailures;
 
@@ -100,6 +98,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.options = options;
+    this.platform = options.parseRemotePlatformOverride();
     this.fallbackRunner = fallbackRunner;
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
@@ -131,7 +130,7 @@ class RemoteSpawnRunner implements SpawnRunner {
             spawn.getOutputFiles(),
             digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
-            spawn.getExecutionPlatform(),
+            platform,
             policy.getTimeout(),
             Spawns.mayBeCached(spawn));
 
@@ -265,10 +264,9 @@ class RemoteSpawnRunner implements SpawnRunner {
       Collection<? extends ActionInput> outputs,
       Digest command,
       Digest inputRoot,
-      @Nullable PlatformInfo executionPlatform,
+      Platform platform,
       Duration timeout,
       boolean cacheable) {
-
     Action.Builder action = Action.newBuilder();
     action.setCommandDigest(command);
     action.setInputRootDigest(inputRoot);
@@ -285,14 +283,9 @@ class RemoteSpawnRunner implements SpawnRunner {
     Collections.sort(outputPaths);
     Collections.sort(outputDirectoryPaths);
     action.addAllOutputFiles(outputPaths);
-
-    // Get the remote platform properties.
-    if (executionPlatform != null) {
-      Platform platform =
-          parsePlatform(executionPlatform.label(), executionPlatform.remoteExecutionProperties());
+    if (platform != null) {
       action.setPlatform(platform);
     }
-
     if (!timeout.isZero()) {
       action.setTimeout(com.google.protobuf.Duration.newBuilder().setSeconds(timeout.getSeconds()));
     }
@@ -300,21 +293,6 @@ class RemoteSpawnRunner implements SpawnRunner {
       action.setDoNotCache(true);
     }
     return action.build();
-  }
-
-  static Platform parsePlatform(Label platformLabel, @Nullable String platformDescription) {
-    Platform.Builder platformBuilder = Platform.newBuilder();
-    try {
-      if (platformDescription != null) {
-        TextFormat.getParser().merge(platformDescription, platformBuilder);
-      }
-    } catch (ParseException e) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to parse remote_execution_properties from platform %s", platformLabel),
-          e);
-    }
-    return platformBuilder.build();
   }
 
   static Command buildCommand(List<String> arguments, ImmutableMap<String, String> env) {

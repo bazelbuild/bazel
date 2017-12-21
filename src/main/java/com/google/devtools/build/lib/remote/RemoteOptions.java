@@ -20,6 +20,9 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.remoteexecution.v1test.Platform;
+import com.google.protobuf.TextFormat;
+import com.google.protobuf.TextFormat.ParseException;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
@@ -108,6 +111,16 @@ public final class RemoteOptions extends OptionsBase {
     help = "Whether to upload locally executed action results to the remote cache."
   )
   public boolean remoteUploadLocalResults;
+
+  @Option(
+    name = "experimental_remote_platform_override",
+    defaultValue = "null",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Temporary, for testing only. Manually set a Platform to pass to remote execution."
+  )
+  public String experimentalRemotePlatformOverride;
 
   @Option(
     name = "remote_instance_name",
@@ -211,4 +224,19 @@ public final class RemoteOptions extends OptionsBase {
     help = "A file path to a local disk cache."
   )
   public PathFragment experimentalLocalDiskCachePath;
+
+  public Platform parseRemotePlatformOverride() {
+    if (experimentalRemotePlatformOverride != null) {
+      Platform.Builder platformBuilder = Platform.newBuilder();
+      try {
+        TextFormat.getParser().merge(experimentalRemotePlatformOverride, platformBuilder);
+      } catch (ParseException e) {
+        throw new IllegalArgumentException(
+            "Failed to parse --experimental_remote_platform_override", e);
+      }
+      return platformBuilder.build();
+    } else {
+      return null;
+    }
+  }
 }

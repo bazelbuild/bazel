@@ -45,19 +45,6 @@ public class PlatformOptions extends FragmentOptions {
   )
   public Label hostPlatform;
 
-  @Option(
-    name = "host_platform_remote_properties_override",
-    oldName = "experimental_remote_platform_override",
-    defaultValue = "null",
-    category = "remote",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Manually set the remote_execution_properties for the host platform"
-            + " if it is not already set."
-  )
-  public String hostPlatformRemotePropertiesOverride;
-
   // TODO(katre): Add execution platforms.
 
   @Option(
@@ -128,9 +115,6 @@ public class PlatformOptions extends FragmentOptions {
     host.hostPlatform = this.hostPlatform;
     host.extraToolchains = this.extraToolchains;
     host.enabledToolchainTypes = this.enabledToolchainTypes;
-    host.hostPlatformRemotePropertiesOverride = this.hostPlatformRemotePropertiesOverride;
-    host.toolchainResolutionDebug = this.toolchainResolutionDebug;
-    host.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
     return host;
   }
 

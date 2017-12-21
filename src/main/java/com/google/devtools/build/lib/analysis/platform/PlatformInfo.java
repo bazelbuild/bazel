@@ -208,11 +208,6 @@ public class PlatformInfo extends NativeInfo {
       return this;
     }
 
-    /** Returns the data being sent to a potential remote executor. */
-    public String getRemoteExecutionProperties() {
-      return remoteExecutionProperties;
-    }
-
     /**
      * Sets the data being sent to a potential remote executor.
      *

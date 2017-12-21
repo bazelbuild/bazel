@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.remoteexecution.v1test.Action;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.Command;
+import com.google.devtools.remoteexecution.v1test.Platform;
 import io.grpc.Context;
 import java.io.IOException;
 import java.util.Collection;
@@ -51,6 +52,8 @@ import javax.annotation.Nullable;
 final class RemoteSpawnCache implements SpawnCache {
   private final Path execRoot;
   private final RemoteOptions options;
+  // TODO(olaola): This will be set on a per-action basis instead.
+  private final Platform platform;
 
   private final AbstractRemoteActionCache remoteCache;
   private final String buildRequestId;
@@ -75,6 +78,7 @@ final class RemoteSpawnCache implements SpawnCache {
       DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.options = options;
+    this.platform = options.parseRemotePlatformOverride();
     this.remoteCache = remoteCache;
     this.verboseFailures = verboseFailures;
     this.cmdlineReporter = cmdlineReporter;
@@ -99,7 +103,7 @@ final class RemoteSpawnCache implements SpawnCache {
             spawn.getOutputFiles(),
             digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
-            spawn.getExecutionPlatform(),
+            platform,
             policy.getTimeout(),
             Spawns.mayBeCached(spawn));
 
