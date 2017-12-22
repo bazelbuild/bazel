@@ -86,7 +86,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         getJavaTargetAttributes(ruleContext, javaCommon);
 
     // Create the final merged manifest
-    ResourceDependencies resourceDependencies = getResourceDependencies(ruleContext);
+    ResourceDependencies resourceDependencies =
+        ResourceDependencies.fromRuleDeps(ruleContext, false /* neverlink */);
     ApplicationManifest applicationManifest =
         getApplicationManifest(ruleContext, androidSemantics, resourceDependencies);
     Artifact manifest = applicationManifest.getManifest();
@@ -388,16 +389,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       applicationManifest = dummyManifest.mergeWith(ruleContext, resourceDependencies, false);
     }
     return applicationManifest;
-  }
-
-  /**
-   * Returns the transitive closure of resource dependencies, including those specified on the rule
-   * if present.
-   */
-  private ResourceDependencies getResourceDependencies(RuleContext ruleContext) {
-    return LocalResourceContainer.definesAndroidResources(ruleContext.attributes())
-        ? ResourceDependencies.fromRuleDeps(ruleContext, false /* neverlink */)
-        : ResourceDependencies.fromRuleResourceAndDeps(ruleContext, false /* neverlink */);
   }
 
   private static void setUpJavaCommon(

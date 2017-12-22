@@ -84,7 +84,6 @@ public final class LocalResourceContainer {
    */
   public static void validateRuleContext(RuleContext ruleContext) throws RuleErrorException {
     validateAssetsAndAssetsDir(ruleContext);
-    validateNoResourcesAttribute(ruleContext);
     validateNoAndroidResourcesInSources(ruleContext);
     validateManifest(ruleContext);
   }
@@ -98,20 +97,8 @@ public final class LocalResourceContainer {
     }
   }
 
-  /** Validates that there are no resources defined if there are resource attributes defined. */
-  private static void validateNoResourcesAttribute(RuleContext ruleContext)
-      throws RuleErrorException {
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")) {
-      ruleContext.throwWithAttributeError(
-          "resources",
-          String.format(
-              "resources cannot be set when any of %s are defined.",
-              Joiner.on(", ").join(RESOURCES_ATTRIBUTES)));
-    }
-  }
-
   /**
-   * Validates that there are no android_resources srcjars in the srcs, as android_resource rules
+   * Validates that there are no targets with resources in the srcs, as they
    * should not be used with the Android data logic.
    */
   private static void validateNoAndroidResourcesInSources(RuleContext ruleContext)
@@ -121,7 +108,7 @@ public final class LocalResourceContainer {
     for (AndroidResourcesProvider provider : resources) {
       ruleContext.throwWithAttributeError(
           "srcs",
-          String.format("srcs should not contain android_resource label %s", provider.getLabel()));
+          String.format("srcs should not contain label with resources %s", provider.getLabel()));
     }
   }
 

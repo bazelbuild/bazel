@@ -105,16 +105,13 @@ public final class ResourceApk {
    * contain the "forwarded" resources: The merged transitive and merged direct dependencies of this
    * library.
    *
-   * <p>If the ResourceApk was generated from a "resources" attribute, it will contain the
-   * "resources" container in the direct dependencies and the rest as transitive.
-   *
    * <p>If the ResourceApk was generated from local resources, that will be the direct dependencies
    * and the rest will be transitive.
    */
-  public AndroidResourcesProvider toResourceProvider(Label label, boolean isResourcesOnly) {
+  public AndroidResourcesProvider toResourceProvider(Label label) {
     if (primaryResource == null) {
-      return resourceDeps.toProvider(label, isResourcesOnly);
+      return resourceDeps.toProvider(label);
     }
-    return resourceDeps.toProvider(label, primaryResource, isResourcesOnly);
+    return resourceDeps.toProvider(label, primaryResource);
   }
 }

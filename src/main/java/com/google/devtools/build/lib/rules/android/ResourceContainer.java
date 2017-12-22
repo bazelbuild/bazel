@@ -56,11 +56,6 @@ public abstract class ResourceContainer {
   public abstract String getJavaPackage();
 
   @Nullable
-  public abstract String getRenameManifestPackage();
-
-  public abstract boolean getConstantsInlined();
-
-  @Nullable
   public abstract Artifact getApk();
 
   public abstract Artifact getManifest();
@@ -207,7 +202,6 @@ public abstract class ResourceContainer {
   public static Builder builder() {
     return new AutoValue_ResourceContainer.Builder()
         .setJavaPackageFrom(Builder.JavaPackageSource.MANIFEST)
-        .setConstantsInlined(false)
         .setAssets(ImmutableList.<Artifact>of())
         .setResources(ImmutableList.<Artifact>of())
         .setAssetsRoots(ImmutableList.<PathFragment>of())
@@ -248,7 +242,6 @@ public abstract class ResourceContainer {
       Preconditions.checkNotNull(ruleContext);
       this.ruleContext = ruleContext;
       return this.setLabel(ruleContext.getLabel())
-          .setRenameManifestPackage(getRenameManifestPackage(ruleContext))
           .setJavaSourceJar(
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR))
           .setJavaPackageFrom(JavaPackageSource.SOURCE_JAR_PATH)
@@ -302,10 +295,6 @@ public abstract class ResourceContainer {
     public abstract Builder setLabel(Label label);
 
     abstract Builder setJavaPackage(@Nullable String javaPackage);
-
-    public abstract Builder setRenameManifestPackage(@Nullable String renameManifestPackage);
-
-    public abstract Builder setConstantsInlined(boolean constantsInlined);
 
     public abstract Builder setApk(@Nullable Artifact apk);
 
@@ -388,13 +377,6 @@ public abstract class ResourceContainer {
 
     private static boolean hasCustomPackage(RuleContext ruleContext) {
       return ruleContext.attributes().isAttributeValueExplicitlySpecified("custom_package");
-    }
-
-    @Nullable
-    private static String getRenameManifestPackage(RuleContext ruleContext) {
-      return ruleContext.attributes().isAttributeValueExplicitlySpecified("rename_manifest_package")
-          ? ruleContext.attributes().get("rename_manifest_package", Type.STRING)
-          : null;
     }
   }
 }

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -117,8 +116,6 @@ public class AndroidCommon {
     }
     return builder.build();
   }
-
-  public static final String RESOURCES_WHITELIST_NAME = "android_resources";
 
   private final RuleContext ruleContext;
   private final JavaCommon javaCommon;
@@ -272,8 +269,7 @@ public class AndroidCommon {
       ideInfoProviderBuilder.setApk(zipAlignedApk);
     }
 
-    // If the rule defines resources, put those in the IDE info. Otherwise, proxy the data coming
-    // from the android_resources rule in its direct dependencies, if such a thing exists.
+    // If the rule defines resources, put those in the IDE info.
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
       ideInfoProviderBuilder
           .setDefinesAndroidResources(true)
@@ -790,7 +786,6 @@ public class AndroidCommon {
       Artifact zipAlignedApk,
       Iterable<Artifact> apksUnderTest,
       NativeLibs nativeLibs,
-      boolean isResourcesOnly,
       boolean isNeverlink) {
 
     idlHelper.addTransitiveInfoProviders(builder, classJar, manifestProtoOutput);
@@ -843,7 +838,7 @@ public class AndroidCommon {
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
         .addProvider(
             AndroidResourcesProvider.class,
-            resourceApk.toResourceProvider(ruleContext.getLabel(), isResourcesOnly))
+            resourceApk.toResourceProvider(ruleContext.getLabel()))
         .addProvider(
             AndroidIdeInfoProvider.class,
             createAndroidIdeInfoProvider(
@@ -882,34 +877,6 @@ public class AndroidCommon {
   public static PathFragment getAssetDir(RuleContext ruleContext) {
     return PathFragment.create(
         ruleContext.attributes().get(ResourceType.ASSETS.getAttribute() + "_dir", Type.STRING));
-  }
-
-  public static AndroidResourcesProvider getAndroidResources(RuleContext ruleContext) {
-    if (!ruleContext.attributes().has("resources", BuildType.LABEL)) {
-      return null;
-    }
-    TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite("resources", Mode.TARGET);
-    if (prerequisite == null) {
-      return null;
-    }
-
-    AndroidResourcesProvider provider = prerequisite.getProvider(AndroidResourcesProvider.class);
-
-    if (!provider.getIsResourcesOnly()) {
-      ruleContext.attributeError(
-          "resources",
-          "android_library target "
-              + prerequisite.getLabel()
-              + " cannot be used in the 'resources' attribute as it specifies information (probably"
-              + " 'srcs' or 'deps') not directly related to android_resources. Consider moving this"
-              + " target from 'resources' to 'deps'.");
-      return null;
-    }
-
-    ruleContext.ruleWarning(
-        "The use of the android_resources rule and the resources attribute is deprecated. "
-            + "Please use the resource_files, assets, and manifest attributes of android_library.");
-    return provider;
   }
 
   /**
@@ -1071,16 +1038,6 @@ public class AndroidCommon {
       }
     }
     return supportApks.build();
-  }
-
-  public static void validateResourcesAttribute(RuleContext ruleContext) throws RuleErrorException {
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")
-        && !ruleContext.getFragment(AndroidConfiguration.class).allowResourcesAttr()
-        && !Whitelist.isAvailable(ruleContext, RESOURCES_WHITELIST_NAME)) {
-      ruleContext.throwWithAttributeError(
-          "resources",
-          "The resources attribute has been removed. Please use resource_files instead.");
-    }
   }
 
   /**

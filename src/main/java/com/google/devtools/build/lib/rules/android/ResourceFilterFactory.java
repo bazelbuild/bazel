@@ -144,10 +144,6 @@ public class ResourceFilterFactory {
     return values != null && !values.isEmpty();
   }
 
-  static boolean hasFilters(RuleContext ruleContext) {
-    return hasFilters(ruleContext.attributes());
-  }
-
   static boolean hasFilters(AttributeMap attrs) {
     return hasAttr(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME) || hasAttr(attrs, DENSITIES_NAME);
   }

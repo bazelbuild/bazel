@@ -36,8 +36,7 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
       NestedSet<Artifact> transitiveSymbolsBin,
       NestedSet<Artifact> transitiveCompiledSymbols,
       NestedSet<Artifact> transitiveStaticLib,
-      NestedSet<Artifact> transitiveRTxt,
-      boolean isResourcesOnly) {
+      NestedSet<Artifact> transitiveRTxt) {
     return new AutoValue_AndroidResourcesProvider(
         label,
         transitiveAndroidResources,
@@ -49,8 +48,7 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
         transitiveSymbolsBin,
         transitiveCompiledSymbols,
         transitiveStaticLib,
-        transitiveRTxt,
-        isResourcesOnly);
+        transitiveRTxt);
   }
 
   /** Returns the label that is associated with this piece of information. */
@@ -77,14 +75,6 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
   public abstract NestedSet<Artifact> getTransitiveStaticLib();
 
   public abstract NestedSet<Artifact> getTransitiveRTxt();
-
-  /**
-   * Returns whether the targets contained within this provider only represent android resources or
-   * also contain other information.
-   *
-   * <p>TODO(b/30307842): Remove this once android_resources is fully removed.
-   */
-  public abstract boolean getIsResourcesOnly();
 
   AndroidResourcesProvider() {}
 }
