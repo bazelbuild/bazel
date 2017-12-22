@@ -74,11 +74,11 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.util.MockJ2ObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -420,7 +420,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * configuration.
    */
   protected List<BuildConfiguration> getSplitConfigurations(BuildConfiguration configuration,
-      SplitTransition<BuildOptions> splitTransition) throws InterruptedException {
+      SplitTransition splitTransition) throws InterruptedException {
     ImmutableList.Builder<BuildConfiguration> splitConfigs = ImmutableList.builder();
 
     for (BuildOptions splitOptions : splitTransition.split(configuration.getOptions())) {

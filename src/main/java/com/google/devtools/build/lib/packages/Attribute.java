@@ -29,8 +29,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
-import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
@@ -145,23 +145,6 @@ public final class Attribute implements Comparable<Attribute> {
     public Aspect getAspect(Rule rule) {
       return aspect;
     }
-  }
-
-  /**
-   * A configuration split transition; this should be used to transition to multiple configurations
-   * simultaneously. Note that the corresponding rule implementations must have special support to
-   * handle this.
-   *
-   * <p>{@code T} must always be {@code BuildOptions}, but it can't be defined that way because
-   * the symbol isn't available here.
-   */
-  // TODO(bazel-team): Serializability constraints?
-  @ThreadSafety.Immutable
-  public interface SplitTransition<T> extends Transition {
-    /**
-     * Return the list of {@code BuildOptions} after splitting; empty if not applicable.
-     */
-    List<T> split(T buildOptions);
   }
 
   /**
@@ -316,7 +299,7 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * Returns the {@link SplitTransition} given the attribute mapper of the originating rule.
      */
-    SplitTransition<?> apply(AttributeMap attributeMap);
+    SplitTransition apply(AttributeMap attributeMap);
   }
 
   /**
@@ -325,14 +308,14 @@ public final class Attribute implements Comparable<Attribute> {
    */
   private static class BasicSplitTransitionProvider implements SplitTransitionProvider {
 
-    private final SplitTransition<?> splitTransition;
+    private final SplitTransition splitTransition;
 
-    BasicSplitTransitionProvider(SplitTransition<?> splitTransition) {
+    BasicSplitTransitionProvider(SplitTransition splitTransition) {
       this.splitTransition = splitTransition;
     }
 
     @Override
-    public SplitTransition<?> apply(AttributeMap attributeMap) {
+    public SplitTransition apply(AttributeMap attributeMap) {
       return splitTransition;
     }
   }
@@ -533,7 +516,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Defines the configuration transition for this attribute. Defaults to
      * {@code NONE}.
      */
-    public Builder<TYPE> cfg(SplitTransition<?> configTransition) {
+    public Builder<TYPE> cfg(SplitTransition configTransition) {
       return cfg(new BasicSplitTransitionProvider(Preconditions.checkNotNull(configTransition)));
     }
 
@@ -547,7 +530,7 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkArgument(configTransition != ConfigurationTransition.SPLIT,
           "split transitions must be defined using the SplitTransition object");
       if (configTransition instanceof SplitTransition) {
-        return cfg((SplitTransition<?>) configTransition);
+        return cfg((SplitTransition) configTransition);
       } else {
         this.configTransition = configTransition;
         return this;
@@ -1971,7 +1954,7 @@ public final class Attribute implements Comparable<Attribute> {
    * @return a SplitTransition<BuildOptions> object
    * @throws IllegalStateException if {@link #hasSplitConfigurationTransition} is not true
    */
-  public SplitTransition<?> getSplitTransition(AttributeMap attributeMapper) {
+  public SplitTransition getSplitTransition(AttributeMap attributeMapper) {
     Preconditions.checkState(hasSplitConfigurationTransition());
     return splitTransitionProvider.apply(attributeMapper);
   }

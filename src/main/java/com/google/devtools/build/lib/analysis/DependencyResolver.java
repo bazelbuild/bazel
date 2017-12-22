@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -422,7 +423,7 @@ public abstract class DependencyResolver {
    * transition does not apply.
    *
    * <p>Even though the attribute may have a split, splits don't have to apply in every
-   * configuration (see {@link Attribute.SplitTransition#split}).
+   * configuration (see {@link SplitTransition#split}).
    */
   private static Collection<BuildOptions> getSplitOptions(ConfiguredAttributeMapper attributeMap,
       Attribute attribute,
@@ -430,9 +431,7 @@ public abstract class DependencyResolver {
     if (!attribute.hasSplitConfigurationTransition()) {
       return ImmutableList.<BuildOptions>of();
     }
-    @SuppressWarnings("unchecked") // Attribute.java doesn't have the BuildOptions symbol.
-    Attribute.SplitTransition<BuildOptions> transition =
-        (Attribute.SplitTransition<BuildOptions>) attribute.getSplitTransition(attributeMap);
+    SplitTransition transition = attribute.getSplitTransition(attributeMap);
     return transition.split(ruleConfig.getOptions());
   }
 

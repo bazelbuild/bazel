@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import java.util.List;
 
 /**
  * Rule and configuration class definitions for testing late-bound split attributes.
@@ -55,17 +55,14 @@ public class LateBoundSplitUtil {
   /**
    * The split.
    */
-  private static final Attribute.SplitTransition<BuildOptions> SIMPLE_SPLIT =
-      new Attribute.SplitTransition<BuildOptions>() {
-    @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      BuildOptions split1 = buildOptions.clone();
-      split1.get(TestOptions.class).fooFlag = "one";
-      BuildOptions split2 = buildOptions.clone();
-      split2.get(TestOptions.class).fooFlag = "two";
-      return ImmutableList.<BuildOptions>of(split1, split2);
-    }
-  };
+  private static final SplitTransition SIMPLE_SPLIT =
+      (SplitTransition) buildOptions -> {
+        BuildOptions split1 = buildOptions.clone();
+        split1.get(TestOptions.class).fooFlag = "one";
+        BuildOptions split2 = buildOptions.clone();
+        split2.get(TestOptions.class).fooFlag = "two";
+        return ImmutableList.of(split1, split2);
+      };
 
   /**
    * The {@link BuildConfiguration.Fragment} that contains the options.

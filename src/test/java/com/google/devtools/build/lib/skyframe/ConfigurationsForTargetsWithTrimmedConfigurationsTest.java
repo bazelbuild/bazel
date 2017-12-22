@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -38,8 +39,6 @@ import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
@@ -70,14 +69,14 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     return super.defaultFlags().with(Flag.TRIMMED_CONFIGURATIONS);
   }
 
-  private static class EmptySplitTransition implements SplitTransition<BuildOptions> {
+  private static class EmptySplitTransition implements SplitTransition {
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
       return ImmutableList.of();
     }
   }
 
-  private static class SetsHostCpuSplitTransition implements SplitTransition<BuildOptions> {
+  private static class SetsHostCpuSplitTransition implements SplitTransition {
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
       BuildOptions result = buildOptions.clone();
@@ -86,7 +85,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     }
   }
 
-  private static class SetsCpuSplitTransition implements SplitTransition<BuildOptions> {
+  private static class SetsCpuSplitTransition implements SplitTransition {
 
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
@@ -368,25 +367,22 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   }
 
   /**
-   * Returns a custom {@link Attribute.SplitTransition} that splits {@link
+   * Returns a custom {@link SplitTransition} that splits {@link
    * TestConfiguration.TestOptions#testFilter} down two paths: {@code += prefix + "1"} and {@code +=
    * prefix + "2"}.
    */
-  private static Attribute.SplitTransition<BuildOptions> newSplitTransition(final String prefix) {
-    return new Attribute.SplitTransition<BuildOptions>() {
-      @Override
-      public List<BuildOptions> split(BuildOptions buildOptions) {
-        ImmutableList.Builder<BuildOptions> result = ImmutableList.builder();
-        for (int index = 1; index <= 2; index++) {
-          BuildOptions toOptions = buildOptions.clone();
-          TestConfiguration.TestOptions baseOptions =
-              toOptions.get(TestConfiguration.TestOptions.class);
-          baseOptions.testFilter =
-              (baseOptions.testFilter == null ? "" : baseOptions.testFilter) + prefix + index;
-          result.add(toOptions);
-        }
-        return result.build();
+  private static SplitTransition newSplitTransition(final String prefix) {
+    return buildOptions -> {
+      ImmutableList.Builder<BuildOptions> result = ImmutableList.builder();
+      for (int index = 1; index <= 2; index++) {
+        BuildOptions toOptions = buildOptions.clone();
+        TestConfiguration.TestOptions baseOptions =
+            toOptions.get(TestConfiguration.TestOptions.class);
+        baseOptions.testFilter =
+            (baseOptions.testFilter == null ? "" : baseOptions.testFilter) + prefix + index;
+        result.add(toOptions);
       }
+      return result.build();
     };
   }
 

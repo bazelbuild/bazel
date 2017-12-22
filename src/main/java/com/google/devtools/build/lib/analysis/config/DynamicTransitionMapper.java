@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -72,7 +73,7 @@ public final class DynamicTransitionMapper {
    */
   public Transition map(Transition fromTransition) {
     if (fromTransition instanceof PatchTransition
-        || fromTransition instanceof Attribute.SplitTransition<?>
+        || fromTransition instanceof SplitTransition
         || fromTransition == null) {
       return fromTransition;
     }

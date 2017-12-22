@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -112,8 +112,7 @@ public final class TransitionResolver {
     // TODO(gregce): make the below transitions composable (i.e. take away the "else" clauses).
     // The "else" is a legacy restriction from static configurations.
     if (attribute.hasSplitConfigurationTransition()) {
-      currentTransition = split(currentTransition,
-          (SplitTransition<BuildOptions>) attribute.getSplitTransition(attributeMap));
+      currentTransition = split(currentTransition, attribute.getSplitTransition(attributeMap));
     } else {
       // III. Attributes determine configurations. The configuration of a prerequisite is determined
       // by the attribute.
@@ -195,8 +194,7 @@ public final class TransitionResolver {
   /**
    * Applies the given split and composes it after an existing transition.
    */
-  private static Transition split(Transition currentTransition,
-      SplitTransition<BuildOptions> split) {
+  private static Transition split(Transition currentTransition, SplitTransition split) {
     Preconditions.checkState(currentTransition != Attribute.ConfigurationTransition.NULL,
         "cannot apply splits after null transitions (null transitions are expected to be final)");
     Preconditions.checkState(currentTransition != HostTransition.INSTANCE,

@@ -26,6 +26,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -417,10 +418,8 @@ public final class ConfigurationResolver {
     } else if (transition instanceof PatchTransition) {
       // TODO(bazel-team): safety-check that this never mutates fromOptions.
       result = ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
-    } else if (transition instanceof Attribute.SplitTransition) {
-      @SuppressWarnings("unchecked") // Attribute.java doesn't have the BuildOptions symbol.
-      List<BuildOptions> toOptions =
-          ((Attribute.SplitTransition<BuildOptions>) transition).split(fromOptions);
+    } else if (transition instanceof SplitTransition) {
+      List<BuildOptions> toOptions = ((SplitTransition) transition).split(fromOptions);
       if (toOptions.isEmpty()) {
         // When the split returns an empty list, it's signaling it doesn't apply to this instance.
         // So return the original options.

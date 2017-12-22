@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -125,7 +125,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
   }
 
   @Override
-  public SplitTransition<?> apply(AttributeMap attrMapper) {
+  public SplitTransition apply(AttributeMap attrMapper) {
     String platformTypeString = attrMapper.get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
     String minimumOsVersionString = attrMapper.get(PlatformRule.MINIMUM_OS_VERSION, STRING);
     PlatformType platformType;
@@ -164,7 +164,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
    * platform-specific cpu flag for a particular platform type (for example, --watchos_cpus
    * for watchos platform type).
    */
-  protected static class AppleBinaryTransition implements SplitTransition<BuildOptions> {
+  protected static class AppleBinaryTransition implements SplitTransition {
 
     private final PlatformType platformType;
     // TODO(b/37096178): This should be a mandatory attribute.
