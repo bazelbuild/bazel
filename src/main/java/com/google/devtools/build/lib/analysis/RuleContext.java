@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -389,13 +390,13 @@ public final class RuleContext extends TargetContext
    * Returns a configuration fragment for this this target.
    */
   @Nullable
-  public <T extends Fragment> T getFragment(Class<T> fragment, Attribute.Transition transition) {
+  public <T extends Fragment> T getFragment(Class<T> fragment, Transition transition) {
     return getFragment(fragment, fragment.getSimpleName(), "", transition);
   }
 
   @Nullable
   protected <T extends Fragment> T getFragment(Class<T> fragment, String name,
-      String additionalErrorMessage, Attribute.Transition transition) {
+      String additionalErrorMessage, Transition transition) {
     // TODO(bazel-team): The fragments can also be accessed directly through BuildConfiguration.
     // Can we lock that down somehow?
     Preconditions.checkArgument(isLegalFragment(fragment, transition),
@@ -413,7 +414,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  public Fragment getSkylarkFragment(String name, Attribute.Transition transition) {
+  public Fragment getSkylarkFragment(String name, Transition transition) {
     Class<? extends Fragment> fragmentClass =
         getConfiguration(transition).getSkylarkFragmentByName(name);
     if (fragmentClass == null) {
@@ -427,12 +428,12 @@ public final class RuleContext extends TargetContext
         transition);
   }
 
-  public ImmutableCollection<String> getSkylarkFragmentNames(Attribute.Transition transition) {
+  public ImmutableCollection<String> getSkylarkFragmentNames(Transition transition) {
     return getConfiguration(transition).getSkylarkFragmentNames();
   }
 
   public <T extends Fragment> boolean isLegalFragment(
-      Class<T> fragment, Attribute.Transition transition) {
+      Class<T> fragment, Transition transition) {
     return fragment == universalFragment
         || fragment == PlatformConfiguration.class
         || configurationFragmentPolicy.isLegalConfigurationFragment(fragment, transition);
@@ -443,7 +444,7 @@ public final class RuleContext extends TargetContext
     return isLegalFragment(fragment, ConfigurationTransition.NONE);
   }
 
-  protected BuildConfiguration getConfiguration(Attribute.Transition transition) {
+  protected BuildConfiguration getConfiguration(Transition transition) {
     return transition.isHostTransition() ? hostConfiguration : getConfiguration();
   }
 
@@ -1056,7 +1057,7 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
-    Attribute.Transition transition = attributeDefinition.getConfigurationTransition();
+    Transition transition = attributeDefinition.getConfigurationTransition();
     if (mode == Mode.HOST) {
       if (!(transition instanceof PatchTransition)) {
         throw new IllegalStateException(getRule().getLocation() + ": "

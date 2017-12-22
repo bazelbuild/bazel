@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.packages.Attribute.Transition;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import javax.annotation.Nullable;
 
 /**

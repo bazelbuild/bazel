@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -70,7 +71,7 @@ public final class ConfigurationFragmentPolicyTest {
         .containsExactly(Integer.class, String.class, Long.class);
   }
 
-  private static final Attribute.Transition TEST_HOST_TRANSITION = new Attribute.Transition() {
+  private static final Transition TEST_HOST_TRANSITION = new Transition() {
     @Override
     public boolean isHostTransition() {
       return true;

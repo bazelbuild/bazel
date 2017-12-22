@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
-import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 
 /**
- * Tool for evaluating which {@link Attribute.Transition}(s) should be applied to given targets.
+ * Tool for evaluating which {@link Transition}(s) should be applied to given targets.
  *
  * <p>For the work of turning these transitions into actual configurations, see {@link
  * ConfigurationResolver}.
@@ -130,7 +130,7 @@ public final class TransitionResolver {
    * Same as evaluateTransition except does not check for transitions coming from parents and
    * enables support for rule-triggered top-level configuration hooks.
    */
-  public static Attribute.Transition evaluateTopLevelTransition(
+  public static Transition evaluateTopLevelTransition(
       TargetAndConfiguration targetAndConfig, DynamicTransitionMapper dynamicTransitionMapper) {
     Target target = targetAndConfig.getTarget();
     BuildConfiguration fromConfig = targetAndConfig.getConfiguration();

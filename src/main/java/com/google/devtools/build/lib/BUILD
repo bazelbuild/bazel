@@ -293,6 +293,26 @@ java_library(
     ],
 )
 
+# Provides core configuration transition abstractions and Blaze-common (i.e not
+# rule-specific) transitions.
+java_library(
+    name = "config-transitions",
+    srcs = glob([
+        "analysis/config/transitions/*.java",
+    ]) + [
+        "analysis/config/BuildOptions.java",
+        "analysis/config/FragmentOptions.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options:invocation_policy",
+        "//src/main/protobuf:invocation_policy_java_proto",
+        "//third_party:guava",
+    ],
+)
+
 java_library(
     name = "syntax",
     srcs = glob([
@@ -348,6 +368,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:config-matching-provider",
+        "//src/main/java/com/google/devtools/build/lib:config-transitions",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
@@ -424,6 +445,7 @@ java_library(
             "analysis/actions/*.java",
             "analysis/buildinfo/*.java",
             "analysis/config/*.java",
+            "analysis/config/transitions/*.java",
             "analysis/configuredtargets/*.java",
             "analysis/constraints/*.java",
             "analysis/extra/*.java",

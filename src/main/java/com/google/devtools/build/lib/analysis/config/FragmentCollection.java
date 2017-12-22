@@ -16,12 +16,11 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.ClassObject;
-
 import javax.annotation.Nullable;
 
 /**
@@ -40,9 +39,9 @@ import javax.annotation.Nullable;
     + "(see <a href=\"../rules.md#fragments\">here</a>).")
 public class FragmentCollection implements ClassObject {
   private final RuleContext ruleContext;
-  private final Attribute.Transition transition;
+  private final Transition transition;
 
-  public FragmentCollection(RuleContext ruleContext, Attribute.Transition transition) {
+  public FragmentCollection(RuleContext ruleContext, Transition transition) {
     this.ruleContext = ruleContext;
     this.transition = transition;
   }
@@ -71,7 +70,7 @@ public class FragmentCollection implements ClassObject {
     return String.format("'%s'", Joiner.on("', '").join(getKeys()));
   }
 
-  public static String getConfigurationName(Attribute.Transition config) {
+  public static String getConfigurationName(Transition config) {
     return config.isHostTransition() ? "host" : "target";
   }
 

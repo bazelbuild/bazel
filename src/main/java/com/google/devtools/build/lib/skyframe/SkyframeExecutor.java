@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1120,7 +1121,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // The host configuration inherits the data, not target options. This is so host tools don't
     // apply LIPO.
     BuildConfiguration firstTargetConfig = topLevelTargetConfigs.get(0);
-    Attribute.Transition dataTransition =
+    Transition dataTransition =
         ((ConfiguredRuleClassProvider) ruleClassProvider)
             .getDynamicTransitionMapper()
             .map(Attribute.ConfigurationTransition.DATA);
@@ -1604,7 +1605,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       Label label,
       BuildConfiguration configuration,
-      Attribute.Transition transition) {
+      Transition transition) {
     return Iterables.getFirst(
         getConfiguredTargets(
             eventHandler,

@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
-import com.google.devtools.build.lib.packages.Attribute.Transition;
 import java.util.List;
 
 /**

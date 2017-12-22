@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -301,7 +302,7 @@ public final class AndroidRuleClasses {
             ImmutableSet.of("android_binary", "android_library");
 
         @Override
-        public Attribute.Transition buildTransitionFor(Rule depRule) {
+        public Transition buildTransitionFor(Rule depRule) {
           return keepFilterRuleClasses.contains(depRule.getRuleClass())
               ? null
               : ResourceFilterFactory.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;

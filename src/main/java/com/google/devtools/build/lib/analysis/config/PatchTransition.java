@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 
 /**
  * Interface for a configuration transition.
@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.packages.Attribute;
  * {@link com.google.devtools.build.lib.analysis.config.BuildOptions} doesn't currently
  * enforce immutability. So care must be taken not to modify the wrong instance.
  */
-public interface PatchTransition extends Attribute.Transition {
+public interface PatchTransition extends Transition {
 
   /**
    * Applies the transition.

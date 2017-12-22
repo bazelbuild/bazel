@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 /**

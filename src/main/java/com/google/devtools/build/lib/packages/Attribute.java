@@ -29,6 +29,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -143,18 +144,6 @@ public final class Attribute implements Comparable<Attribute> {
     @Override
     public Aspect getAspect(Rule rule) {
       return aspect;
-    }
-  }
-
-  /**
-   * A configuration transition.
-   */
-  public interface Transition {
-    /**
-     * Does this transition switch to a "host" configuration?
-     */
-    default boolean isHostTransition() {
-      return false;
     }
   }
 

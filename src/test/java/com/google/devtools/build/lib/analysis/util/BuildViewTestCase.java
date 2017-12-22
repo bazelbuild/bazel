@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
@@ -98,7 +99,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -1495,7 +1495,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns the configuration created by applying the given transition to the source configuration.
    */
   protected BuildConfiguration getConfiguration(BuildConfiguration fromConfig,
-      Attribute.Transition transition) throws InterruptedException {
+      Transition transition) throws InterruptedException {
     if (transition == ConfigurationTransition.NONE) {
       return fromConfig;
     } else if (transition == ConfigurationTransition.NULL) {
