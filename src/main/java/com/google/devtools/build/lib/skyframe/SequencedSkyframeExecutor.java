@@ -465,6 +465,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     incrementalBuildMonitor.accrue(changedKeysWithNewValues.keySet());
   }
 
+  private static final int MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG = 10;
+
   private static void logDiffInfo(Iterable<Path> pathEntries,
                                   Collection<SkyKey> changedWithoutNewValue,
                                   Map<SkyKey, ? extends SkyValue> changedWithNewValue) {
@@ -480,12 +482,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     if (numModified > 0) {
       Iterable<SkyKey> allModifiedKeys = Iterables.concat(changedWithoutNewValue,
           changedWithNewValue.keySet());
-      Iterable<SkyKey> trimmed = Iterables.limit(allModifiedKeys, 5);
+      Iterable<SkyKey> trimmed =
+          Iterables.limit(allModifiedKeys, MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG);
 
       result.append(": ")
           .append(Joiner.on(", ").join(trimmed));
 
-      if (numModified > 5) {
+      if (numModified > MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG) {
         result.append(", ...");
       }
     }
