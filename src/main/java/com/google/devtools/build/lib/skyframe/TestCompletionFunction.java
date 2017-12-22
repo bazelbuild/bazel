@@ -34,7 +34,7 @@ public final class TestCompletionFunction implements SkyFunction {
         (TestCompletionValue.TestCompletionKey) skyKey.argument();
     ConfiguredTargetKey lac = key.configuredTargetKey();
     TopLevelArtifactContext ctx = key.topLevelArtifactContext();
-    if (env.getValue(TargetCompletionValue.key(lac, ctx)) == null) {
+    if (env.getValue(TargetCompletionValue.key(lac, ctx, /*willTest=*/true)) == null) {
       return null;
     }
 

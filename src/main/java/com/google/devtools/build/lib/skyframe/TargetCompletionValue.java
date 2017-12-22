@@ -22,6 +22,7 @@ import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
+import java.util.Set;
 
 /**
  * The value of a TargetCompletion. Currently this just stores a ConfiguredTarget.
@@ -38,14 +39,18 @@ public class TargetCompletionValue implements SkyValue {
   }
 
   public static SkyKey key(
-      ConfiguredTargetKey configuredTargetKey, TopLevelArtifactContext topLevelArtifactContext) {
+      ConfiguredTargetKey configuredTargetKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean willTest) {
     return LegacySkyKey.create(
         SkyFunctions.TARGET_COMPLETION,
-        TargetCompletionKey.create(configuredTargetKey, topLevelArtifactContext));
+        TargetCompletionKey.create(configuredTargetKey, topLevelArtifactContext, willTest));
   }
 
-  public static Iterable<SkyKey> keys(Collection<ConfiguredTarget> targets,
-      final TopLevelArtifactContext ctx) {
+  public static Iterable<SkyKey> keys(
+      Collection<ConfiguredTarget> targets,
+      final TopLevelArtifactContext ctx,
+      final Set<ConfiguredTarget> targetsToTest) {
     return Iterables.transform(
         targets,
         new Function<ConfiguredTarget, SkyKey>() {
@@ -53,7 +58,8 @@ public class TargetCompletionValue implements SkyValue {
           public SkyKey apply(ConfiguredTarget ct) {
             return LegacySkyKey.create(
                 SkyFunctions.TARGET_COMPLETION,
-                TargetCompletionKey.create(ConfiguredTargetKey.of(ct), ctx));
+                TargetCompletionKey.create(
+                    ConfiguredTargetKey.of(ct), ctx, targetsToTest.contains(ct)));
           }
         });
   }
@@ -61,13 +67,16 @@ public class TargetCompletionValue implements SkyValue {
   @AutoValue
   abstract static class TargetCompletionKey {
     public static TargetCompletionKey create(
-        ConfiguredTargetKey configuredTargetKey, TopLevelArtifactContext topLevelArtifactContext) {
+        ConfiguredTargetKey configuredTargetKey,
+        TopLevelArtifactContext topLevelArtifactContext,
+        boolean willTest) {
       return new AutoValue_TargetCompletionValue_TargetCompletionKey(
-          configuredTargetKey, topLevelArtifactContext);
+          configuredTargetKey, topLevelArtifactContext, willTest);
     }
 
     abstract ConfiguredTargetKey configuredTargetKey();
 
     public abstract TopLevelArtifactContext topLevelArtifactContext();
+    public abstract boolean willTest();
   }
 }

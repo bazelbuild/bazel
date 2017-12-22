@@ -114,13 +114,7 @@ public class SkyframeBuilder implements Builder {
     ExecutionProgressReceiver executionProgressReceiver =
         new ExecutionProgressReceiver(
             Preconditions.checkNotNull(builtTargets),
-            countTestActions(exclusiveTests),
-            ImmutableSet.<ConfiguredTarget>builder()
-                .addAll(parallelTests)
-                .addAll(exclusiveTests)
-                .build(),
-            topLevelArtifactContext,
-            skyframeExecutor.getEventBus());
+            countTestActions(exclusiveTests));
     skyframeExecutor
         .getEventBus()
         .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));

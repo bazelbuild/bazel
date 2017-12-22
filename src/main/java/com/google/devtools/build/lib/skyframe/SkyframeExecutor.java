@@ -439,8 +439,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.WORKSPACE_FILE,
         new WorkspaceFileFunction(ruleClassProvider, pkgFactory, directories));
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
-    map.put(SkyFunctions.TARGET_COMPLETION, CompletionFunction.targetCompletionFunction(eventBus));
-    map.put(SkyFunctions.ASPECT_COMPLETION, CompletionFunction.aspectCompletionFunction(eventBus));
+    map.put(SkyFunctions.TARGET_COMPLETION, CompletionFunction.targetCompletionFunction());
+    map.put(SkyFunctions.ASPECT_COMPLETION, CompletionFunction.aspectCompletionFunction());
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
     map.put(SkyFunctions.ARTIFACT, new ArtifactFunction());
     map.put(
@@ -1202,7 +1202,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<Artifact> artifactsToBuild,
       Collection<ConfiguredTarget> targetsToBuild,
       Collection<AspectValue> aspects,
-      Collection<ConfiguredTarget> targetsToTest,
+      Set<ConfiguredTarget> targetsToTest,
       boolean exclusiveTesting,
       boolean keepGoing,
       boolean explain,
@@ -1224,7 +1224,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       progressReceiver.executionProgressReceiver = executionProgressReceiver;
       Iterable<SkyKey> artifactKeys = ArtifactSkyKey.mandatoryKeys(artifactsToBuild);
       Iterable<SkyKey> targetKeys =
-          TargetCompletionValue.keys(targetsToBuild, topLevelArtifactContext);
+          TargetCompletionValue.keys(targetsToBuild, topLevelArtifactContext, targetsToTest);
       Iterable<SkyKey> aspectKeys = AspectCompletionValue.keys(aspects, topLevelArtifactContext);
       Iterable<SkyKey> testKeys =
           TestCompletionValue.keys(targetsToTest, topLevelArtifactContext, exclusiveTesting);

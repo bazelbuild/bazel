@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
@@ -38,7 +38,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -86,7 +85,11 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     TResult createResult(TValue value);
 
     /** Creates a failed completion value. */
-    SkyValue createFailed(TValue value, NestedSet<Cause> rootCauses);
+    ExtendedEventHandler.Postable createFailed(TValue value, NestedSet<Cause> rootCauses);
+
+    /** Creates a succeeded completion value. */
+    ExtendedEventHandler.Postable createSucceeded(
+        SkyKey skyKey, TValue value, TopLevelArtifactContext topLevelArtifactContext);
 
     /**
      * Extracts a tag given the {@link SkyKey}.
@@ -143,7 +146,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
 
     @Override
-    public SkyValue createFailed(ConfiguredTargetValue value, NestedSet<Cause> rootCauses) {
+    public ExtendedEventHandler.Postable createFailed(
+        ConfiguredTargetValue value, NestedSet<Cause> rootCauses) {
       return TargetCompleteEvent.createFailed(value.getConfiguredTarget(), rootCauses);
     }
 
@@ -151,6 +155,22 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     public String extractTag(SkyKey skyKey) {
       return Label.print(
           ((TargetCompletionKey) skyKey.argument()).configuredTargetKey().getLabel());
+    }
+
+    @Override
+    public ExtendedEventHandler.Postable createSucceeded(
+        SkyKey skyKey,
+        ConfiguredTargetValue value,
+        TopLevelArtifactContext topLevelArtifactContext) {
+      ConfiguredTarget target = value.getConfiguredTarget();
+      if (((TargetCompletionKey) skyKey.argument()).willTest()) {
+        return TargetCompleteEvent.successfulBuildSchedulingTest(target);
+      } else {
+        ArtifactsToBuild artifactsToBuild =
+            TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext);
+        return TargetCompleteEvent.successfulBuild(
+            target, artifactsToBuild.getAllArtifactsByOutputGroup());
+      }
     }
   }
 
@@ -203,7 +223,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
 
     @Override
-    public SkyValue createFailed(AspectValue value, NestedSet<Cause> rootCauses) {
+    public ExtendedEventHandler.Postable createFailed(
+        AspectValue value, NestedSet<Cause> rootCauses) {
       return AspectCompleteEvent.createFailed(value, rootCauses);
     }
 
@@ -211,22 +232,27 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     public String extractTag(SkyKey skyKey) {
       return Label.print(((AspectCompletionKey) skyKey.argument()).aspectKey().getLabel());
     }
+
+    @Override
+    public ExtendedEventHandler.Postable createSucceeded(
+        SkyKey skyKey, AspectValue value, TopLevelArtifactContext topLevelArtifactContext) {
+      ArtifactsToBuild artifacts =
+          TopLevelArtifactHelper.getAllArtifactsToBuild(value, topLevelArtifactContext);
+      return AspectCompleteEvent.createSuccessful(value, artifacts);
+    }
   }
 
-  public static SkyFunction targetCompletionFunction(AtomicReference<EventBus> eventBusRef) {
-    return new CompletionFunction<>(eventBusRef, new TargetCompletor());
+  public static SkyFunction targetCompletionFunction() {
+    return new CompletionFunction<>(new TargetCompletor());
   }
 
-  public static SkyFunction aspectCompletionFunction(AtomicReference<EventBus> eventBusRef) {
-    return new CompletionFunction<>(eventBusRef, new AspectCompletor());
+  public static SkyFunction aspectCompletionFunction() {
+    return new CompletionFunction<>(new AspectCompletor());
   }
 
-  private final AtomicReference<EventBus> eventBusRef;
   private final Completor<TValue, TResult> completor;
 
-  private CompletionFunction(
-      AtomicReference<EventBus> eventBusRef, Completor<TValue, TResult> completor) {
-    this.eventBusRef = eventBusRef;
+  private CompletionFunction(Completor<TValue, TResult> completor) {
     this.completor = completor;
   }
 
@@ -280,7 +306,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
 
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
-      eventBusRef.get().post(completor.createFailed(value, rootCauses));
+      env.getListener().post(completor.createFailed(value, rootCauses));
       if (firstActionExecutionException != null) {
         throw new CompletionFunctionException(firstActionExecutionException);
       } else {
@@ -288,7 +314,14 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       }
     }
 
-    return env.valuesMissing() ? null : completor.createResult(value);
+    // Only check for missing values *after* reporting errors: if there are missing files in a build
+    // with --nokeep_going, there may be missing dependencies during error bubbling, we still need
+    // to report the error.
+    if (env.valuesMissing()) {
+      return null;
+    }
+    env.getListener().post(completor.createSucceeded(skyKey, value, topLevelContext));
+    return completor.createResult(value);
   }
 
   @Override

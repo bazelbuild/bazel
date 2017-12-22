@@ -15,21 +15,13 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
-import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
@@ -62,9 +54,6 @@ public final class ExecutionProgressReceiver
   private final Object activityIndicator = new Object();
   /** Number of exclusive tests. To be accounted for in progress messages. */
   private final int exclusiveTestsCount;
-  private final Set<ConfiguredTarget> testedTargets;
-  private final EventBus eventBus;
-  private final TopLevelArtifactContext topLevelArtifactContext;
 
   static {
     PROGRESS_MESSAGE_NUMBER_FORMATTER = NumberFormat.getIntegerInstance(Locale.ENGLISH);
@@ -77,15 +66,9 @@ public final class ExecutionProgressReceiver
    */
   ExecutionProgressReceiver(
       Set<ConfiguredTarget> builtTargets,
-      int exclusiveTestsCount,
-      Set<ConfiguredTarget> testedTargets,
-      TopLevelArtifactContext topLevelArtifactContext,
-      EventBus eventBus) {
+      int exclusiveTestsCount) {
     this.builtTargets = Collections.synchronizedSet(builtTargets);
     this.exclusiveTestsCount = exclusiveTestsCount;
-    this.testedTargets = testedTargets;
-    this.topLevelArtifactContext = topLevelArtifactContext;
-    this.eventBus = eventBus;
   }
 
   @Override
@@ -123,20 +106,6 @@ public final class ExecutionProgressReceiver
 
       ConfiguredTarget target = value.getConfiguredTarget();
       builtTargets.add(target);
-
-      if (testedTargets.contains(target)) {
-        postTestTargetComplete(target);
-      } else {
-        postBuildTargetComplete(target);
-      }
-    } else if (type.equals(SkyFunctions.ASPECT_COMPLETION)) {
-      AspectCompletionValue value = (AspectCompletionValue) skyValueSupplier.get();
-      if (value != null) {
-        AspectValue aspectValue = value.getAspectValue();
-        ArtifactsToBuild artifacts =
-            TopLevelArtifactHelper.getAllArtifactsToBuild(aspectValue, topLevelArtifactContext);
-        eventBus.post(AspectCompleteEvent.createSuccessful(aspectValue, artifacts));
-      }
     } else if (type.equals(SkyFunctions.ACTION_EXECUTION)) {
       // Remember all completed actions, even those in error, regardless of having been cached or
       // really executed.
@@ -234,17 +203,5 @@ public final class ExecutionProgressReceiver
         }
       }
     };
-  }
-
-  private void postTestTargetComplete(ConfiguredTarget target) {
-    eventBus.post(TargetCompleteEvent.createSuccessfulTestTarget(target));
-  }
-
-  private void postBuildTargetComplete(ConfiguredTarget target) {
-    ArtifactsToBuild artifactsToBuild =
-        TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext);
-    eventBus.post(
-        TargetCompleteEvent.createSuccessfulTarget(
-            target, artifactsToBuild.getAllArtifactsByOutputGroup()));
   }
 }

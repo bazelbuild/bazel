@@ -57,7 +57,7 @@ public final class TargetCompleteEvent
         BuildEventWithConfiguration {
   private final ConfiguredTarget target;
   private final NestedSet<Cause> rootCauses;
-  private final Collection<BuildEventId> postedAfter;
+  private final ImmutableList<BuildEventId> postedAfter;
   private final Iterable<ArtifactsInOutputGroup> outputs;
   private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final boolean isTest;
@@ -71,7 +71,7 @@ public final class TargetCompleteEvent
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
 
-    ImmutableList.Builder postedAfterBuilder = ImmutableList.builder();
+    ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
     for (Cause cause : getRootCauses()) {
       postedAfterBuilder.add(BuildEventId.fromCause(cause));
     }
@@ -94,13 +94,13 @@ public final class TargetCompleteEvent
   }
 
   /** Construct a successful target completion event. */
-  public static TargetCompleteEvent createSuccessfulTarget(
+  public static TargetCompleteEvent successfulBuild(
       ConfiguredTarget ct, NestedSet<ArtifactsInOutputGroup> outputs) {
     return new TargetCompleteEvent(ct, null, outputs, false);
   }
 
   /** Construct a successful target completion event for a target that will be tested. */
-  public static TargetCompleteEvent createSuccessfulTestTarget(ConfiguredTarget ct) {
+  public static TargetCompleteEvent successfulBuildSchedulingTest(ConfiguredTarget ct) {
     return new TargetCompleteEvent(ct, null, ImmutableList.<ArtifactsInOutputGroup>of(), true);
   }
 
@@ -147,7 +147,7 @@ public final class TargetCompleteEvent
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    ImmutableList.Builder childrenBuilder = ImmutableList.builder();
+    ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
     for (Cause cause : getRootCauses()) {
       childrenBuilder.add(BuildEventId.fromCause(cause));
     }
